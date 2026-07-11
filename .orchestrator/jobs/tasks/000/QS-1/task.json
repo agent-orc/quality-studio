@@ -1,6 +1,6 @@
 {
-  "id": "cq-1-concept-meta-schema-slices",
-  "title": "CQ-1: Concept elaboration - review-meta JSON schema, hierarchy contract, embedding path, package naming, honest slice plan",
+  "id": "qs-1-concept-meta-schema-slices",
+  "title": "QS-1: Concept elaboration - review-meta JSON schema, hierarchy contract, embedding path, package naming, honest slice plan",
   "createdAt": "2026-07-11T14:42:09.499Z",
   "enteredLaneAt": "2026-07-11T14:42:09.499Z",
   "state": "2-ready",
@@ -14,5 +14,5 @@
   "mode": "coding",
   "allowWebAccess": false,
   "taskType": "chore",
-  "key": "CQ-1"
+  "key": "QS-1"
 }

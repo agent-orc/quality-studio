@@ -1,15 +1,14 @@
-# Code Quality
+# Quality Studio
 
-**Agent-driven, layered code reviews with quality truth persisted next to the code.**
+**The engineer room of the Agent Orchestrator universe: agent-driven, layered code reviews with quality truth persisted next to the code.**
 
 Part of the [Agent Orchestrator](https://agent-orchestrator.dev) universe — alongside
 Agent Studio (the cockpit), Coding Agent Runner (executes), Coding Agent Chat
-(converses), and Token Economy (accounts). Code Quality is the one that **reviews**.
+(converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
 > Working state, 2026-07-11: repository founded from the operator-approved concept
-> below. Product URL will be `agent-orchestrator.dev/code-quality`; the core package
-> direction is `AgentOrchestrator.CodeQuality` (final package naming decided at first
-> publish). This README carries the founding concept until `docs/` grows.
+> below. Product URL will be `agent-orchestrator.dev/quality`; the core library direction is `coding-agent-quality`
+> (package id decided at first publish); formal long name: Agent Quality Studio. This README carries the founding concept until `docs/` grows.
 
 ## What this is — and what it is not
 
@@ -95,7 +94,7 @@ and want to see the quality characteristics of what was built.
 ## Status
 
 - [x] Repository founded, concept anchored (this README)
-- [ ] CQ-1: concept elaboration — meta-file schema, naming finalization, embedding
+- [ ] QS-1: concept elaboration — meta-file schema, naming finalization, embedding
       path, honest slice plan (runs as a task in this repository)
 - [ ] Scaffold (package, CI, release rails — Token Economy pattern)
 
