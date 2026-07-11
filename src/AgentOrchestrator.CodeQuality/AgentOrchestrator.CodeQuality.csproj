@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
+  </PropertyGroup>
+</Project>

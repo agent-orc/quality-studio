@@ -105,6 +105,20 @@ and want to see the quality characteristics of what was built.
       ([`docs/concept.md`](docs/concept.md))
 - [ ] Scaffold (package, CI, release rails — Token Economy pattern)
 
+## Staleness scan
+
+The `quality` CLI computes the current file-review state without rewriting review
+metadata. It respects `.gitignore`, hashes content only when a matching sidecar
+exists, and returns exit code `1` when any review is stale (`2` for scan errors).
+
+```shell
+dotnet run --project src/quality-cli -- scan . --include "**/*.cs"
+```
+
+The default globs cover common programming and web source extensions. Repeat
+`--include` to replace them with a custom set, or select a sibling review kind
+with `--kind security` or `--kind performance`.
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).

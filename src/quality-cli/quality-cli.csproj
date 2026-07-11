@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>quality</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
+  </ItemGroup>
+</Project>

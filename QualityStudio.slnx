@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
+    <Project Path="src/quality-cli/quality-cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj" />
+  </Folder>
+</Solution>
