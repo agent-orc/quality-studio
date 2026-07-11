@@ -6,11 +6,6 @@ using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public enum ReviewLevel
-{
-    File,
-}
-
 public sealed record ReviewRequest(
     string FilePath,
     string Kind = "code",
