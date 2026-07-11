@@ -23,6 +23,12 @@
       "title": "QS-3: Review-meta contract v1 - JSON next to the code, reviewedHash, findings (after QS-1 doc)",
       "linkedAt": "2026-07-11T20:03:19.8617302Z",
       "source": "auto"
+    },
+    {
+      "key": "QS-8",
+      "title": "QS-8: Angular shell - deliberate visual kinship with Agent Studio (tree \u002B code \u002B review panel, hard perf budgets)",
+      "linkedAt": "2026-07-11T20:06:57.9449871Z",
+      "source": "auto"
     }
   ]
 }
