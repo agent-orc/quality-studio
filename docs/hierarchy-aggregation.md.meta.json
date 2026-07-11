@@ -1,12 +1,6 @@
 {
   "relatedTasks": [
     {
-      "key": "QS-4",
-      "title": "QS-4: Staleness engine \u002B scan command (fresh/stale/missing per file)",
-      "linkedAt": "2026-07-11T19:07:31.0187845Z",
-      "source": "auto"
-    },
-    {
       "key": "QS-5",
       "title": "QS-5: Levels \u0026 kinds model - hierarchy aggregation (function-\u003Efile-\u003Enamespace-\u003Emodule-\u003Eproject)",
       "linkedAt": "2026-07-11T19:09:51.6475358Z",
