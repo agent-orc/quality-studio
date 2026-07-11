@@ -35,6 +35,12 @@
       "title": "QS-9: Augmented code browsing v1 - review overlay in the code view (grades, findings, staleness)",
       "linkedAt": "2026-07-11T20:12:33.4327849Z",
       "source": "auto"
+    },
+    {
+      "key": "QS-10",
+      "title": "QS-10: Handover contract - Quality Studio creates tasks in Agent Studio (decided direction)",
+      "linkedAt": "2026-07-11T20:23:08.2817468Z",
+      "source": "auto"
     }
   ]
 }
