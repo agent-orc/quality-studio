@@ -29,6 +29,12 @@
       "title": "QS-8: Angular shell - deliberate visual kinship with Agent Studio (tree \u002B code \u002B review panel, hard perf budgets)",
       "linkedAt": "2026-07-11T20:06:57.9449871Z",
       "source": "auto"
+    },
+    {
+      "key": "QS-9",
+      "title": "QS-9: Augmented code browsing v1 - review overlay in the code view (grades, findings, staleness)",
+      "linkedAt": "2026-07-11T20:12:33.4327849Z",
+      "source": "auto"
     }
   ]
 }
