@@ -15,3 +15,5 @@ Deliverable: docs/concept.md (English) + updated README status; NO production co
 10. REVIEW KINDS now explicitly: code, security (detachable), PERFORMANCE.
 11. RESEARCH BOX: code graph as graphical meta layer - scope a small research spike, do not decide.
 12. WEBSITE SEED: the operator artifact (ecosystem page) seeds agent-orchestrator.dev/quality - concept should include the website outline.
+
+13. INTEGRATION DIRECTION DECIDED (dictation #3): Quality Studio -> Agent Studio HANDOVER (finding -> task via normal task mutation path). Drop the embedding-path evaluation from point 4; specify the handover contract instead (what a finding-task carries: file, hash, findings, backlink).

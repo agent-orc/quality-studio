@@ -59,9 +59,11 @@ diff**; Code Quality is the **standing truth of the codebase**.
 - **Frontend**: its own surface in the Studio style, reusing the shared component
   family (tabs, panels, conversation components) — primarily the companion's own
   development and inspection tool.
-- **Embedded in Agent Studio**: the place where quality is actually *used* —
-  triggering, management, grades shown at files/modules/projects. No second daily
-  tool; the operator stays in the Studio.
+- **Handover to Agent Studio (decided direction):** the integration points the OTHER way.
+  Quality Studio calls Agent Studio: from any review finding you trigger a handover -
+  "make this a task" - and a card is created through the normal task mutation path.
+  Agent Studio needs no quality surfaces; Quality Studio is the engineer room, and its
+  exit is a task.
 
 ### 4. Neighbors in the universe
 
