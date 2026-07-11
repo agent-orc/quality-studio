@@ -289,4 +289,15 @@ internal sealed class QualityStudioEventSource : EventSource
     [Event(2, Level = EventLevel.Informational)]
     public void ScanCompleted(string repositoryRoot, int fileCount, long elapsedMilliseconds) =>
         WriteEvent(2, repositoryRoot, fileCount, elapsedMilliseconds);
+
+    [Event(3, Level = EventLevel.Informational)]
+    public void ReviewStarted(string filePath, string kind, string agent) => WriteEvent(3, filePath, kind, agent);
+
+    [Event(4, Level = EventLevel.Informational)]
+    public void ReviewCompleted(string filePath, string kind, string runId, long elapsedMilliseconds) =>
+        WriteEvent(4, filePath, kind, runId, elapsedMilliseconds);
+
+    [Event(5, Level = EventLevel.Error)]
+    public void ReviewFailed(string filePath, string kind, string errorType, string message) =>
+        WriteEvent(5, filePath, kind, errorType, message);
 }

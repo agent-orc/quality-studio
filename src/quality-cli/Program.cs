@@ -13,6 +13,11 @@ internal static class QualityCli
             return args.Length == 0 ? 2 : 0;
         }
 
+        if (string.Equals(args[0], "review", StringComparison.Ordinal))
+        {
+            return await RunReviewAsync(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -40,6 +45,50 @@ internal static class QualityCli
             Console.Error.WriteLine($"quality scan failed: {exception.Message}");
             return 2;
         }
+    }
+
+    private static async Task<int> RunReviewAsync(string[] args)
+    {
+        try
+        {
+            var (file, kind) = ParseReviewArguments(args);
+            var stopwatch = Stopwatch.StartNew();
+            var result = await new ReviewRunner().ReviewAsync(new ReviewRequest(file, kind));
+            Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
+            return 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or ReviewResponseException or ReviewRunException)
+        {
+            Console.Error.WriteLine($"quality review failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static (string File, string Kind) ParseReviewArguments(string[] args)
+    {
+        string? file = null;
+        var kind = "code";
+        for (var index = 0; index < args.Length; index++)
+        {
+            if (args[index] == "--kind" && index + 1 < args.Length)
+            {
+                kind = args[++index];
+            }
+            else if (args[index] == "--kind")
+            {
+                throw new ArgumentException("Missing value for --kind.");
+            }
+            else if (args[index].StartsWith("-", StringComparison.Ordinal) || file is not null)
+            {
+                throw new ArgumentException($"Unexpected argument: {args[index]}");
+            }
+            else
+            {
+                file = args[index];
+            }
+        }
+
+        return (file ?? throw new ArgumentException("A review file is required."), kind);
     }
 
     private static (string Path, StalenessEvaluatorOptions Options) ParseScanArguments(string[] args)
@@ -83,5 +132,5 @@ internal static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage: quality scan [path] [--kind code] [--include <glob>]...");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance]");
 }

@@ -2,4 +2,8 @@
   <PropertyGroup>
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CodingAgentRunner" Version="0.5.0" />
+    <EmbeddedResource Include="prompts/*.md" />
+  </ItemGroup>
 </Project>

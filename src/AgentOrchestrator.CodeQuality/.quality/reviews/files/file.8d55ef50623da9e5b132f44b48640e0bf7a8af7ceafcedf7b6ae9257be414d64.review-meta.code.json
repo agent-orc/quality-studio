@@ -1,0 +1,98 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json",
+  "schemaVersion": 1,
+  "unit": {
+    "id": "qs-v1/dotnet/file/81d3729e439083d881cfae72aeb40974a8982a9f2bac908f5a03e66657fb7f6d",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/StalenessState.cs",
+    "displayName": "StalenessState.cs"
+  },
+  "reviewedAt": "2026-07-11T19:18:11.4444405Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "runId": "quality-1f5c99d71f1e409cbc08972d0c904bdd"
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "95ed5788d95cfab5454897fb0dfb05c71cdf9d1ce85660e5fdad812f4290a874"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/StalenessState.cs",
+      "selector": "file",
+      "contentHash": "sha256:477c2b639ddbcc7227406aff1748b3e5db1f177157cbf72bec0685ee8eecb059"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "875e974f9ae259b9b66538aacf1a2bda108a1d44ba5b25f294f07c16c20d6507"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:edecb855059dae0e01376ec27ac75be2ea2c2995f6fd237e358004ce5fbea53d"
+    }
+  },
+  "grade": {
+    "score": 98,
+    "band": "A",
+    "rationale": "The enum is correct, minimal, idiomatic C#, and clearly represents three distinct staleness states without unnecessary complexity."
+  },
+  "summary": "No actionable issues found. The implementation is concise, readable, maintainable, and inherently easy to exercise in tests through its consumers.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 100,
+        "band": "A",
+        "rationale": "The declaration is syntactically valid and defines the expected distinct states."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 98,
+        "band": "A",
+        "rationale": "The small, conventional enum is straightforward to understand and modify."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 98,
+        "band": "A",
+        "rationale": "The type and member names communicate their intent clearly without requiring additional implementation detail."
+      }
+    },
+    {
+      "id": "error_handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 96,
+        "band": "A",
+        "rationale": "No error-handling logic is appropriate for this declaration; validation of undefined cast values, if relevant, belongs at input or serialization boundaries."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 98,
+        "band": "A",
+        "rationale": "The enum has deterministic semantics and can be used directly in consumer tests without special setup or mocking."
+      }
+    }
+  ],
+  "findings": []
+}
