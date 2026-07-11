@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "phase": "post-processing-running",
+  "phaseEnteredAt": "2026-07-11T16:33:24.6223827Z",
+  "intakeChecks": [],
+  "postProcessingChecks": [
+    {
+      "name": "orchestrator-post-processing",
+      "status": "running",
+      "startedAt": "2026-07-11T16:33:24.6223827Z",
+      "detail": "Task execution finished; orchestrator post-processing is running before human review."
+    },
+    {
+      "name": "post-orchestrator-decision",
+      "status": "running",
+      "startedAt": "2026-07-11T16:33:28.4336961Z",
+      "detail": "Auto-review decision started from the run-boundary post-processing queue."
+    }
+  ]
+}

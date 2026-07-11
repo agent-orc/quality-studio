@@ -203,3 +203,28 @@
 [16:32:53.156] [stdout] [[TASK_DONE]]
 [16:32:53.243] [stdout] ● Turn completed (tokens: 269768)
 [16:32:53.720] [system] [taskboard] codex CLI exited: status=completed, exitCode=0, duration=158,6s
+[16:33:50.689] [orchestrator] [reissue] Auto-review sent "QS-2: Core library scaffold - .NET solution, tests, CI (working name coding-agent-quality)" back to 2-ready (1 unfinished item from its own close-out).
+
+[16:37:41.994] [orchestrator] [intervention] [reissue-open-items] Reissue with 1 open item(s): foregrounding them so the rerun resolves them before anything else.
+
+[16:37:44.468] [orchestrator] [worktree-containment] [worktree-containment] Worktree run qs-2-library-scaffold-ci changed the shared main checkout `C:\Projects\quality-studio`; integration skipped.
+
+[16:37:44.594] [orchestrator] [decision] [capture-fail] codex rejected the resume target (019f5203-e957-7622-b8ec-c6f0528058ef); next follow-up will rebuild from disk via Recovery.
+
+[16:37:43.050] [system] [taskboard] Started codex CLI (PID 25648), model=gpt-5.6-sol, thinkingLevel=high, session=019f5203-e957-7622-b8ec-c6f0528058ef (resume)
+[16:37:43.054] [stderr] WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir "C:\\Users\\rmisc\\AppData\\Local\\Temp\\" (codex_home: AbsolutePathBuf("C:\\Users\\rmisc\\AppData\\Local\\Temp\\atp-clean-context\\codex-061301868f094bffb0e7f5a1a31705f6"))
+[16:37:43.580] [stderr] Error: thread/resume: thread/resume failed: no rollout found for thread id 019f5203-e957-7622-b8ec-c6f0528058ef (code -32600)
+[16:37:43.637] [system] [taskboard] codex CLI exited: status=failed, exitCode=1, duration=0,6s
+[16:37:44.601] [orchestrator] [cli-launch-failed] The agent CLI failed to launch or resume before producing any agent output; rebuilding from disk on the next attempt. (category: cli-launch-failed; run summary: The agent CLI failed to launch or resume before producing any agent output; rebuilding from disk on the next attempt.)
+
+[16:37:47.146] [orchestrator] [worktree-containment] [worktree-containment] Worktree run qs-2-library-scaffold-ci changed the shared main checkout `C:\Projects\quality-studio`; integration skipped.
+
+[16:37:47.249] [orchestrator] [decision] [capture-fail] codex rejected the resume target (019f5203-e957-7622-b8ec-c6f0528058ef); next follow-up will rebuild from disk via Recovery.
+
+[16:37:45.601] [system] [taskboard] Started codex CLI (PID 3952), model=gpt-5.6-sol, thinkingLevel=high, session=019f5203-e957-7622-b8ec-c6f0528058ef (resume)
+[16:37:45.835] [stderr] WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir "C:\\Users\\rmisc\\AppData\\Local\\Temp\\" (codex_home: AbsolutePathBuf("C:\\Users\\rmisc\\AppData\\Local\\Temp\\atp-clean-context\\codex-b26c32d0977d49b6a07f3c41afc9717b"))
+[16:37:46.538] [stderr] Error: thread/resume: thread/resume failed: no rollout found for thread id 019f5203-e957-7622-b8ec-c6f0528058ef (code -32600)
+[16:37:46.599] [system] [taskboard] codex CLI exited: status=failed, exitCode=1, duration=1,0s
+[16:37:47.266] [orchestrator] [cli-launch-failed] The agent CLI could not launch or resume even after an automatic fresh-start retry. Routing to human review. (category: cli-launch-failed; run summary: The agent CLI failed to launch or resume before producing any agent output; rebuilding from disk on the next attempt.)
+
+[16:37:47.345] [orchestrator] [decision] [abort-review] unparseable -> human-review (budget left: 2).

@@ -2,9 +2,9 @@
   "id": "qs-2-library-scaffold-ci",
   "title": "QS-2: Core library scaffold - .NET solution, tests, CI (working name coding-agent-quality)",
   "createdAt": "2026-07-11T16:29:31.454Z",
-  "enteredLaneAt": "2026-07-11T16:30:12.7914422Z",
-  "state": "3-progress",
-  "order": 2,
+  "enteredLaneAt": "2026-07-11T16:37:47.9977555Z",
+  "state": "5e-escalated",
+  "order": 0,
   "agent": "codex",
   "ownerClientId": "local-default",
   "model": "gpt-5.6-sol",
@@ -15,11 +15,57 @@
   "allowWebAccess": false,
   "taskType": "feature",
   "key": "QS-2",
-  "phase": "post-processing-running",
-  "phaseEnteredAt": "2026-07-11T16:32:53.7248369Z",
+  "phase": "",
+  "phaseEnteredAt": "2026-07-11T16:37:46.6048717Z",
   "sessionChain": [
-    "019f5203-e957-7622-b8ec-c6f0528058ef"
+    "019f5203-e957-7622-b8ec-c6f0528058ef",
+    "(recovery)"
   ],
-  "sessionName": "019f5203-e957-7622-b8ec-c6f0528058ef",
-  "lastProgressAt": "2026-07-11T16:32:54.3186350Z"
+  "sessionName": "",
+  "lastProgressAt": "2026-07-11T16:37:47.2533338Z",
+  "commit": {
+    "Sha": "29abbb8",
+    "ShortSha": "29abbb8",
+    "Message": "chore(tasks): mark QS-2 in progress",
+    "FilesChanged": 11,
+    "Files": [],
+    "At": "2026-07-11T16:33:21.6106447Z",
+    "Attribution": "automatic",
+    "Confidence": 1
+  },
+  "commits": [
+    {
+      "Sha": "29abbb8",
+      "ShortSha": "29abbb8",
+      "Message": "chore(tasks): mark QS-2 in progress",
+      "FilesChanged": 11,
+      "Files": [],
+      "At": "2026-07-11T16:33:21.6106447Z",
+      "Attribution": "automatic",
+      "Confidence": 1
+    }
+  ],
+  "provenance": {
+    "Branch": "task/qs-2-library-scaffold-ci",
+    "Base": "f2463b86cfe874217bf75fbf6b4150437cbb72af",
+    "Transitions": [
+      {
+        "Lane": "4-auto-review",
+        "AtUtc": "2026-07-11T16:33:28.9525516Z",
+        "BranchTip": "f2463b86cfe874217bf75fbf6b4150437cbb72af",
+        "WorkBranchHead": "29abbb8d6ff9a4a4a8383e9304965a72bef19135"
+      },
+      {
+        "Lane": "5e-escalated",
+        "AtUtc": "2026-07-11T16:37:48.7380809Z",
+        "BranchTip": "c95e052ffd627b73459c5fcb1cf57a50c99aa87a",
+        "WorkBranchHead": "29abbb8d6ff9a4a4a8383e9304965a72bef19135"
+      }
+    ],
+    "Merge": null
+  },
+  "tags": [
+    "reissue:autoreview",
+    "abort-review:human-review"
+  ]
 }
