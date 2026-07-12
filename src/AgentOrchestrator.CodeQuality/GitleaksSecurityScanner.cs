@@ -275,9 +275,10 @@ public class GitleaksSecurityScanner
         string gitleaksPath,
         string? configPath,
         string? baselinePath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? filesScannedOverride = null)
     {
-        var scannedFiles = request.Mode switch
+        var scannedFiles = filesScannedOverride ?? request.Mode switch
         {
             SecurityScanMode.Repository => await CountRepositoryFilesAsync(root, cancellationToken).ConfigureAwait(false),
             SecurityScanMode.Range => await CountRangeFilesAsync(root, request.Range!, cancellationToken).ConfigureAwait(false),
@@ -393,9 +394,9 @@ public class GitleaksSecurityScanner
             }
 
             var stagedRequest = new SecurityScanRequest(tempRoot, SecurityScanMode.Repository, null, configPath, baselinePath, false);
-            var output = await RunScanAsync(tempRoot, stagedRequest, gitleaksPath, configPath, baselinePath, cancellationToken)
+            var output = await RunScanAsync(tempRoot, stagedRequest, gitleaksPath, configPath, baselinePath, cancellationToken, scannedPaths.Count)
                 .ConfigureAwait(false);
-            return output with { FilesScanned = scannedPaths.Count };
+            return output;
         }
         finally
         {
