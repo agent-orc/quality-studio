@@ -36,6 +36,8 @@ export class App {
   readonly activeMeta = computed(() => this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null);
   readonly availableMeta = computed(() => this.api.file()?.metaDocuments ?? []);
   readonly activeState = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.direct ?? 'missing');
+  readonly securityNodeState = computed(() => this.selectedNode()?.kinds['security']?.direct ?? 'missing');
+  readonly securityScan = computed(() => this.api.security());
   readonly findingsByLine = computed(() => {
     const map = new Map<number, ReviewFinding[]>();
     const path = this.api.file()?.path;
@@ -115,6 +117,8 @@ export class App {
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
 
   reviewed(meta: ReviewMetaDocument): string { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(meta.reviewedAt)); }
+
+  scannedAt(value: string): string { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
 
   setTheme(): void {
     const next = this.theme() === 'dark' ? 'light' : 'dark';

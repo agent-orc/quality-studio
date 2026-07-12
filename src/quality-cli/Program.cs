@@ -18,6 +18,11 @@ internal static class QualityCli
             return await RunReviewAsync(args[1..]);
         }
 
+        if (string.Equals(args[0], "security", StringComparison.Ordinal))
+        {
+            return await RunSecurityAsync(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -71,6 +76,52 @@ internal static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or ReviewResponseException or ReviewRunException)
         {
             Console.Error.WriteLine($"quality review failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunSecurityAsync(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help")
+        {
+            PrintSecurityUsage();
+            return args.Length == 0 ? 2 : 0;
+        }
+
+        if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine($"Unknown security command: {args[0]}");
+            PrintSecurityUsage();
+            return 2;
+        }
+
+        try
+        {
+            var options = ParseSecurityArguments(args[1..]);
+            var stopwatch = Stopwatch.StartNew();
+            var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+                options.Path,
+                options.Mode,
+                options.Range,
+                options.ConfigPath,
+                options.BaselinePath));
+
+            Console.WriteLine(
+                $"quality security scan: {result.Report.Verdict.ToString().ToLowerInvariant()} | files {result.Report.FilesScanned} | new {result.Report.NewFindings} | accepted {result.Report.AcceptedFindings} | block {result.Report.BlockFindings} | warn {result.Report.WarnFindings} | {stopwatch.ElapsedMilliseconds} ms");
+            Console.WriteLine(
+                $"scanner {result.Provenance.Scanner} {result.Provenance.Version} | mode {result.Provenance.Mode} | scanned {result.Provenance.ScannedAt}");
+            foreach (var finding in result.Findings)
+            {
+                Console.WriteLine(
+                    $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Path} {finding.RuleId} {finding.Locations[0].Range!.Start.Line}-{finding.Locations[0].Range!.End.Line}" +
+                    (finding.Accepted ? " accepted" : string.Empty));
+            }
+
+            return result.Report.Verdict is SecurityVerdict.Block or SecurityVerdict.Warn ? 1 : 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or SecurityScannerUnavailableException)
+        {
+            Console.Error.WriteLine($"quality security scan failed: {exception.Message}");
             return 2;
         }
     }
@@ -173,9 +224,70 @@ internal static class QualityCli
         return (path, options);
     }
 
+    private static SecurityCliOptions ParseSecurityArguments(string[] args)
+    {
+        var path = ".";
+        var mode = SecurityScanMode.Repository;
+        string? range = null;
+        string? configPath = null;
+        string? baselinePath = null;
+        var pathSet = false;
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--mode" when index + 1 < args.Length:
+                    mode = ParseSecurityMode(args[++index]);
+                    break;
+                case "--range" when index + 1 < args.Length:
+                    range = args[++index];
+                    break;
+                case "--config" when index + 1 < args.Length:
+                    configPath = args[++index];
+                    break;
+                case "--baseline" when index + 1 < args.Length:
+                    baselinePath = args[++index];
+                    break;
+                case "--mode" or "--range" or "--config" or "--baseline":
+                    throw new ArgumentException($"Missing value for {args[index]}.");
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                    {
+                        throw new ArgumentException($"Unexpected argument: {args[index]}");
+                    }
+
+                    path = args[index];
+                    pathSet = true;
+                    break;
+            }
+        }
+
+        if (mode == SecurityScanMode.Range && string.IsNullOrWhiteSpace(range))
+        {
+            throw new ArgumentException("A git range is required for range scans.");
+        }
+
+        return new SecurityCliOptions(path, mode, range, configPath, baselinePath);
+    }
+
+    private static SecurityScanMode ParseSecurityMode(string value) =>
+        value.ToLowerInvariant() switch
+        {
+            "repo" or "repository" => SecurityScanMode.Repository,
+            "range" or "diff" => SecurityScanMode.Range,
+            "staged" => SecurityScanMode.Staged,
+            _ => throw new ArgumentException($"Unsupported security scan mode '{value}'."),
+        };
+
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
+
+    private static void PrintSecurityUsage() => Console.WriteLine(
+        "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private sealed record ReviewCliOptions(string File, string Kind, string? GlobalInputsDirectory,
         int BudgetCharacters, bool ExplainInputs);
+
+    private sealed record SecurityCliOptions(string Path, SecurityScanMode Mode, string? Range,
+        string? ConfigPath, string? BaselinePath);
 }

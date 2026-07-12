@@ -40,6 +40,42 @@ describe('QualityApi', () => {
     const loading = api.loadTree();
     http.expectOne('/api/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/scan').flush({ files: [], freshCount: 0, staleCount: 0, missingCount: 0 });
+    http.expectOne('/api/security/scan').flush({
+      verdict: 'pass',
+      available: true,
+      scanner: 'gitleaks',
+      version: '8.24.2',
+      mode: 'repository',
+      range: null,
+      configPath: null,
+      baselinePath: null,
+      scannedAt: '2026-07-11T16:20:00.000Z',
+      filesScanned: 0,
+      newFindings: 0,
+      acceptedFindings: 0,
+      blockFindings: 0,
+      warnFindings: 0,
+      cleanFiles: 0,
+      unavailableReason: null,
+      provenance: {
+        scanner: 'gitleaks',
+        version: '8.24.2',
+        mode: 'repository',
+        range: null,
+        configPath: null,
+        baselinePath: null,
+        scannedAt: '2026-07-11T16:20:00.000Z',
+      },
+      counts: {
+        filesScanned: 0,
+        newFindings: 0,
+        acceptedFindings: 0,
+        blockFindings: 0,
+        warnFindings: 0,
+        cleanFiles: 0,
+      },
+      findings: [],
+    });
     http.expectOne('/api/inputs').flush({ kinds: { code: input } });
 
     await new Promise(resolve => setTimeout(resolve));

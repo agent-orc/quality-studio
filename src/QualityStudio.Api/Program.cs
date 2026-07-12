@@ -17,6 +17,8 @@ builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(R
 builder.Services.AddSingleton<RepositoryAccess>();
 builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<InputResolver>();
+builder.Services.AddSingleton<GitleaksBinaryResolver>();
+builder.Services.AddSingleton<GitleaksSecurityScanner>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
@@ -39,6 +41,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
         StalenessScanException => (StatusCodes.Status422UnprocessableEntity, "Repository scan failed"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
+        SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected API error"),
@@ -113,6 +116,17 @@ app.MapGet("/api/scan", async (RepositoryAccess repository, StalenessEvaluator e
     return Results.Ok(report);
 });
 
+app.MapGet("/api/security/scan", async (RepositoryAccess repository, GitleaksSecurityScanner scanner,
+    ILogger<Program> logger, CancellationToken cancellationToken) =>
+{
+    var stopwatch = Stopwatch.StartNew();
+    var result = await scanner.ScanAsync(new SecurityScanRequest(repository.Root), cancellationToken);
+    logger.LogInformation(new EventId(1201, "SecurityScanCompleted"),
+        "Scanned repository for secrets with verdict {Verdict} in {ElapsedMilliseconds} ms",
+        result.Report.Verdict.ToString().ToLowerInvariant(), stopwatch.ElapsedMilliseconds);
+    return Results.Ok(Map(result));
+});
+
 app.MapPost("/api/review", () => Results.Problem(
     statusCode: StatusCodes.Status501NotImplemented,
     title: "Review runner unavailable",
@@ -156,5 +170,55 @@ static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
         }
     }
 }
+
+static SecurityScanResponse Map(SecurityScanResult result) => new(
+    result.Report.Verdict.ToString().ToLowerInvariant(),
+    result.Report.Available,
+    result.Report.Scanner,
+    result.Report.Version,
+    result.Report.Mode,
+    result.Report.Range,
+    result.Report.ConfigPath,
+    result.Report.BaselinePath,
+    result.Report.ScannedAt ?? result.Provenance.ScannedAt,
+    result.Report.FilesScanned,
+    result.Report.NewFindings,
+    result.Report.AcceptedFindings,
+    result.Report.BlockFindings,
+    result.Report.WarnFindings,
+    result.Report.CleanFiles,
+    result.Report.UnavailableReason,
+    new SecurityScanProvenanceResponse(
+        result.Provenance.Scanner,
+        result.Provenance.Version,
+        result.Provenance.Mode,
+        result.Provenance.Range,
+        result.Provenance.ConfigPath,
+        result.Provenance.BaselinePath,
+        result.Provenance.ScannedAt),
+    new SecurityScanCountsResponse(
+        result.Counts.FilesScanned,
+        result.Counts.NewFindings,
+        result.Counts.AcceptedFindings,
+        result.Counts.BlockFindings,
+        result.Counts.WarnFindings,
+        result.Counts.CleanFiles),
+    result.Findings.Select(finding => new SecurityFindingResponse(
+        finding.Id,
+        finding.Aspect,
+        finding.Severity.ToString().ToLowerInvariant(),
+        finding.Title,
+        finding.Description,
+        finding.Recommendation,
+        finding.Locations.Select(location => new SecurityFindingLocationResponse(
+            location.Path,
+            new SecurityFindingRangeResponse(
+                new SecurityFindingPositionResponse(location.Range!.Start.Line, location.Range.Start.Column),
+                new SecurityFindingPositionResponse(location.Range.End.Line, location.Range.End.Column)))).ToArray(),
+        finding.Fingerprint,
+        finding.RuleId,
+        finding.Evidence,
+        finding.Path,
+        finding.Accepted)).ToArray());
 
 public partial class Program;

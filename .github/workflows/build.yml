@@ -29,3 +29,6 @@ jobs:
 
       - name: Test
         run: dotnet test QualityStudio.slnx --configuration Release --no-build
+
+      - name: Security scan
+        run: dotnet run --project src/quality-cli -- security scan .

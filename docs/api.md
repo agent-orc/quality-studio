@@ -30,6 +30,9 @@ curl "http://127.0.0.1:5127/api/file?path=src/QualityStudio.Api/appsettings.json
 curl "http://127.0.0.1:5127/api/scan"
 # 200 {"files":[...],"freshCount":0,"staleCount":0,"missingCount":20}
 
+curl "http://127.0.0.1:5127/api/security/scan"
+# 200 {"verdict":"pass","available":true,"scanner":"gitleaks",...}
+
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}
 

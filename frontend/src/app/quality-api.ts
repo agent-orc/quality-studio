@@ -9,8 +9,33 @@ export type ReviewKind = 'code' | 'security' | 'performance';
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; locations: FindingLocation[]; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId?: string; accepted?: boolean; locations: FindingLocation[]; }
 export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string }; grade: { score: number; band: string; rationale: string }; summary: string; findings: ReviewFinding[]; }
+export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
+export interface SecurityScanProvenance { scanner: string; version: string; mode: string; range: string | null; configPath: string | null; baselinePath: string | null; scannedAt: string; }
+export interface SecurityScanCounts { filesScanned: number; newFindings: number; acceptedFindings: number; blockFindings: number; warnFindings: number; cleanFiles: number; }
+export interface SecurityScanFinding extends ReviewFinding { path: string; }
+export interface SecurityScanResponse {
+  verdict: SecurityVerdict;
+  available: boolean;
+  scanner: string;
+  version: string;
+  mode: string;
+  range: string | null;
+  configPath: string | null;
+  baselinePath: string | null;
+  scannedAt: string;
+  filesScanned: number;
+  newFindings: number;
+  acceptedFindings: number;
+  blockFindings: number;
+  warnFindings: number;
+  cleanFiles: number;
+  unavailableReason: string | null;
+  provenance: SecurityScanProvenance;
+  counts: SecurityScanCounts;
+  findings: SecurityScanFinding[];
+}
 export interface FileDocument { path: string; content: string; metaDocuments: ReviewMetaDocument[]; }
 export interface ScanReport { files: unknown[]; freshCount: number; staleCount: number; missingCount: number; }
 export interface HandoverRequest { findingSummary: string; filePath: string; findingText: string; reviewKind: string; metaReference: string; }
@@ -69,8 +94,30 @@ const demoTree: TreeNode[] = [{ id: 'quality-studio', name: 'Quality Studio', le
 const demoMeta: ReviewMetaDocument[] = [
   { reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Clear request boundaries and consistent error handling.' }, summary: 'The API entry point is compact and readable. One low-risk diagnostic gap remains.', findings: [{ id: 'route-timing', aspect: 'observability', severity: 'low', title: 'File route has no timing event', description: 'The user-visible file read is not timed, making slow repository access difficult to diagnose.', recommendation: 'Record a structured duration for the file-read path.', evidence: 'The route awaits File.ReadAllTextAsync and returns without a timing log.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 17, column: 1 }, end: { line: 21, column: 3 } } }] }] },
   { reviewedAt: '2026-07-09T10:05:00.000Z', kind: 'performance', reviewer: { agent: 'perf-reviewer', model: 'gpt-5' }, grade: { score: 72, band: 'C', rationale: 'Repository hierarchy work is repeated on the request path.' }, summary: 'The endpoint is correct, but the stored review predates the current file and should be rerun.', findings: [{ id: 'rebuild-tree', aspect: 'request-path', severity: 'high', title: 'Hierarchy rebuilt for every request', description: 'A full project hierarchy build runs synchronously whenever the tree endpoint is requested.', recommendation: 'Cache the derived hierarchy and invalidate it from repository scan events.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 10, column: 1 }, end: { line: 15, column: 3 } } }] }] },
-  { reviewedAt: '2026-07-10T13:40:00.000Z', kind: 'security', reviewer: { agent: 'security-reviewer', model: 'gpt-5' }, grade: { score: 86, band: 'B', rationale: 'Repository access is constrained by the API service.' }, summary: 'No exploitable issue was identified in this file.', findings: [] },
+  { reviewedAt: '2026-07-10T13:40:00.000Z', kind: 'security', reviewer: { agent: 'gitleaks', model: '8.24.2' }, grade: { score: 86, band: 'B', rationale: 'Repository access is constrained by the API service.' }, summary: 'No exploitable issue was identified in this file.', findings: [] },
 ];
+
+const demoSecurity: SecurityScanResponse = {
+  verdict: 'pass',
+  available: true,
+  scanner: 'gitleaks',
+  version: '8.24.2',
+  mode: 'repository',
+  range: null,
+  configPath: null,
+  baselinePath: null,
+  scannedAt: '2026-07-11T16:20:00.000Z',
+  filesScanned: 1,
+  newFindings: 0,
+  acceptedFindings: 0,
+  blockFindings: 0,
+  warnFindings: 0,
+  cleanFiles: 1,
+  unavailableReason: null,
+  provenance: { scanner: 'gitleaks', version: '8.24.2', mode: 'repository', range: null, configPath: null, baselinePath: null, scannedAt: '2026-07-11T16:20:00.000Z' },
+  counts: { filesScanned: 1, newFindings: 0, acceptedFindings: 0, blockFindings: 0, warnFindings: 0, cleanFiles: 1 },
+  findings: [],
+};
 
 @Injectable({ providedIn: 'root' })
 export class QualityApi {
@@ -78,6 +125,7 @@ export class QualityApi {
   readonly tree = signal<TreeNode[]>(demoTree);
   readonly file = signal<FileDocument | null>(null);
   readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, missingCount: 3 });
+  readonly security = signal<SecurityScanResponse | null>(null);
   readonly connected = signal(false);
   readonly loading = signal(false);
   readonly handoverConfigured = signal(false);
@@ -86,14 +134,16 @@ export class QualityApi {
 
   async loadTree(): Promise<void> {
     try {
-      const [tree, scan, inputs] = await Promise.all([
+      const [tree, scan, security, inputs] = await Promise.all([
         firstValueFrom(this.http.get<{ nodes: TreeNode[] }>('/api/tree?path=')),
         firstValueFrom(this.http.get<ScanReport>('/api/scan')),
+        firstValueFrom(this.http.get<SecurityScanResponse>('/api/security/scan')),
         firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>('/api/inputs')),
       ]);
-      this.tree.set(tree.nodes); this.scan.set(scan); this.inputs.set(inputs.kinds); this.connected.set(true);
+      this.tree.set(tree.nodes); this.scan.set(scan); this.security.set(security); this.inputs.set(inputs.kinds); this.connected.set(true);
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
+      this.security.set(demoSecurity);
       console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
     }
     await this.loadHandoverConfiguration();

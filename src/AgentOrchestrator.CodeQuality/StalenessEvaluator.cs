@@ -305,4 +305,16 @@ internal sealed class QualityStudioEventSource : EventSource
     public void InputsResolved(string filePath, string kind, int inputCount, int omissionCount,
         int includedCharacters, int budgetCharacters) =>
         WriteEvent(6, filePath, kind, inputCount, omissionCount, includedCharacters, budgetCharacters);
+
+    [Event(7, Level = EventLevel.Informational)]
+    public void SecurityScanStarted(string repositoryRoot, string mode) => WriteEvent(7, repositoryRoot, mode);
+
+    [Event(8, Level = EventLevel.Informational)]
+    public void SecurityScanCompleted(string repositoryRoot, string mode, string verdict, int fileCount,
+        int newFindingCount, int acceptedFindingCount, long elapsedMilliseconds) =>
+        WriteEvent(8, repositoryRoot, mode, verdict, fileCount, newFindingCount, acceptedFindingCount, elapsedMilliseconds);
+
+    [Event(9, Level = EventLevel.Error)]
+    public void SecurityScanUnavailable(string repositoryRoot, string mode, string errorType, string message) =>
+        WriteEvent(9, repositoryRoot, mode, errorType, message);
 }

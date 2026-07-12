@@ -67,6 +67,32 @@
           } @empty { <div class="empty-findings">No applicable guidelines for this review.</div> }
           @if ((activeInputs()?.omissions?.length ?? 0) > 0) { <div class="input-warning">{{ activeInputs()?.omissions?.length }} override or budget notice(s). Nothing was silently dropped.</div> }
         </section>
+        <div class="section-title"><span>Security lane</span><small>{{ api.security()?.verdict ?? 'unavailable' }}</small></div>
+        @if (api.security(); as security) {
+          <section class="lane security-lane">
+            <div class="lane-head">
+              <span class="lane-icon" [class]="'lane-icon ' + (security.verdict === 'pass' ? 'blue' : security.verdict === 'unavailable' ? 'grey' : 'amber')">{{ security.verdict === 'unavailable' ? '!' : security.verdict === 'block' ? 'B' : security.verdict === 'warn' ? 'W' : 'P' }}</span>
+              <div>
+                <b>{{ security.verdict }}</b>
+                <small>{{ security.newFindings }} new · {{ security.acceptedFindings }} accepted · {{ security.blockFindings }} block</small>
+              </div>
+              <span class="severity">{{ securityNodeState() }}</span>
+            </div>
+            <p>{{ security.unavailableReason ?? (security.verdict === 'block' ? 'High-confidence secret exposure blocks a clean security verdict.' : security.verdict === 'warn' ? 'Potential secrets were detected and should be triaged.' : 'No new secrets were detected.') }}</p>
+            <div class="tags">
+              <span>{{ security.scanner }} {{ security.version }}</span>
+              <span>{{ security.mode }}</span>
+              <span>{{ security.counts.filesScanned }} files</span>
+              <span>{{ security.counts.cleanFiles }} clean</span>
+            </div>
+            <div class="review-provenance">
+              <b>{{ security.provenance.scanner }} @ {{ security.provenance.version }}</b>
+              <span>Scanned {{ scannedAt(security.scannedAt) }}</span>
+            </div>
+          </section>
+        } @else {
+          <div class="empty-findings">Security scanner unavailable.</div>
+        }
         <div class="section-title"><span>Repository scan</span><small>Now</small></div>
         <div class="scan-grid"><div><i class="status fresh"></i><b>{{ api.scan().freshCount }}</b><span>Fresh</span></div><div><i class="status stale"></i><b>{{ api.scan().staleCount }}</b><span>Stale</span></div><div><i class="status missing"></i><b>{{ api.scan().missingCount }}</b><span>Missing</span></div></div>
       </div>

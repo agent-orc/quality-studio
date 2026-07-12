@@ -4,6 +4,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using AgentOrchestrator.CodeQuality;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -77,6 +79,25 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Empty(json.GetProperty("kinds").GetProperty("security").GetProperty("inputs").EnumerateArray());
     }
 
+    [Fact]
+    public async Task Security_scan_returns_redacted_scan_summary()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/security/scan", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("block", json.GetProperty("verdict").GetString());
+        Assert.True(json.GetProperty("available").GetBoolean());
+        Assert.Equal("gitleaks", json.GetProperty("scanner").GetString());
+        var finding = Assert.Single(json.GetProperty("findings").EnumerateArray());
+        Assert.Equal("test-rule", finding.GetProperty("ruleId").GetString());
+        Assert.Equal("Gitleaks detected a potential secret in Sample.cs at lines 1-1.", finding.GetProperty("description").GetString());
+        Assert.Equal("Rotate the credential and remove the token from the repository.", finding.GetProperty("recommendation").GetString());
+        Assert.Equal("Sample.cs", finding.GetProperty("path").GetString());
+        Assert.False(finding.TryGetProperty("secret", out _));
+    }
+
     public async ValueTask InitializeAsync()
     {
         Directory.CreateDirectory(repositoryRoot);
@@ -137,6 +158,56 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",
                 }));
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<GitleaksSecurityScanner, FakeSecurityScanner>();
+            });
+        }
+    }
+
+    private sealed class FakeSecurityScanner : GitleaksSecurityScanner
+    {
+        public FakeSecurityScanner() : base(null, null) { }
+
+        public override Task<SecurityScanResult> ScanAsync(SecurityScanRequest request, CancellationToken cancellationToken = default)
+        {
+            var finding = new SecurityFindingRecord(
+                "gitleaks-secret-1",
+                "secrets",
+                FindingSeverity.High,
+                "Hard-coded token",
+                "Gitleaks detected a potential secret in Sample.cs at lines 1-1.",
+                "Rotate the credential and remove the token from the repository.",
+                [new FindingLocation("Sample.cs", new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 12)))],
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "test-rule",
+                null,
+                "Sample.cs",
+                Accepted: false);
+
+            var scannedAt = DateTime.UtcNow.ToString("O");
+            var report = new SecurityScanReport(
+                SecurityVerdict.Block,
+                true,
+                "gitleaks",
+                "8.24.2",
+                "repository",
+                null,
+                null,
+                null,
+                scannedAt,
+                1,
+                1,
+                0,
+                1,
+                0,
+                0,
+                null,
+                [finding]);
+
+            var provenance = new SecurityScanProvenance("gitleaks", "8.24.2", "repository", null, null, null, scannedAt);
+            var counts = new SecurityScanCounts(1, 1, 0, 1, 0, 0);
+            return Task.FromResult(new SecurityScanResult(report, provenance, counts, [finding]));
         }
     }
 }

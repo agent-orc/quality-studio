@@ -67,6 +67,68 @@ public sealed record FileResponse(string Path, string Content, IReadOnlyList<Jso
 
 public sealed record HandoverConfigurationResponse(bool TargetConfigured, bool DryRun, string? Project);
 
+public sealed record SecurityScanResponse(
+    string Verdict,
+    bool Available,
+    string Scanner,
+    string Version,
+    string Mode,
+    string? Range,
+    string? ConfigPath,
+    string? BaselinePath,
+    string ScannedAt,
+    int FilesScanned,
+    int NewFindings,
+    int AcceptedFindings,
+    int BlockFindings,
+    int WarnFindings,
+    int CleanFiles,
+    string? UnavailableReason,
+    SecurityScanProvenanceResponse Provenance,
+    SecurityScanCountsResponse Counts,
+    IReadOnlyList<SecurityFindingResponse> Findings);
+
+public sealed record SecurityScanProvenanceResponse(
+    string Scanner,
+    string Version,
+    string Mode,
+    string? Range,
+    string? ConfigPath,
+    string? BaselinePath,
+    string ScannedAt);
+
+public sealed record SecurityScanCountsResponse(
+    int FilesScanned,
+    int NewFindings,
+    int AcceptedFindings,
+    int BlockFindings,
+    int WarnFindings,
+    int CleanFiles);
+
+public sealed record SecurityFindingResponse(
+    string Id,
+    string Aspect,
+    string Severity,
+    string Title,
+    string Description,
+    string Recommendation,
+    IReadOnlyList<SecurityFindingLocationResponse> Locations,
+    string Fingerprint,
+    string RuleId,
+    string? Evidence,
+    string Path,
+    bool Accepted);
+
+public sealed record SecurityFindingLocationResponse(
+    string Path,
+    SecurityFindingRangeResponse Range);
+
+public sealed record SecurityFindingRangeResponse(
+    SecurityFindingPositionResponse Start,
+    SecurityFindingPositionResponse End);
+
+public sealed record SecurityFindingPositionResponse(int Line, int Column);
+
 public sealed record HandoverRequest(
     string FindingSummary,
     string FilePath,

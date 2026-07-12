@@ -119,6 +119,20 @@ The default globs cover common programming and web source extensions. Repeat
 `--include` to replace them with a custom set, or select a sibling review kind
 with `--kind security` or `--kind performance`.
 
+## Security scan
+
+Run the deterministic Gitleaks sensor to produce structured security findings and
+repository-owned security review sidecars:
+
+```shell
+dotnet run --project src/quality-cli -- security scan .
+```
+
+Use `--mode range --range main..HEAD` for a commit range or `--mode staged` for
+the staged candidate snapshot. The scanner is pinned and verified; if it cannot
+be resolved, the command reports an explicit unavailable state instead of a
+false pass.
+
 ## Review inputs
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.
