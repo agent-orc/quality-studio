@@ -133,7 +133,7 @@ internal static class QualityCommand
                 case "--mode" or "--range" or "--config" or "--baseline":
                     throw new ArgumentException($"Missing value for {args[index]}.");
                 default:
-                    if (args[index].StartsWith('-', StringComparison.Ordinal) || pathSet)
+                    if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
                     {
                         throw new ArgumentException($"Unexpected argument: {args[index]}");
                     }
