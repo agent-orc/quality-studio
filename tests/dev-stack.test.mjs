@@ -30,13 +30,37 @@ test('launcher bootstraps a clean checkout, starts both services, and can restar
   assert.match(first.stdout, /ready: api=http:\/\/127\.0\.0\.1:51271 web=http:\/\/127\.0\.0\.1:42071/);
   assert.match(await readFile(marker, 'utf8'), /^ci\r?\n?$/);
 
-  await mkdir(join(frontendRoot, 'node_modules'), { recursive: true });
+  await mkdir(join(frontendRoot, 'node_modules', '.bin'), { recursive: true });
+  await writeFile(join(frontendRoot, 'node_modules', '.bin', 'ng'), '');
 
   const second = await runLauncher({
     args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51272', '--web-port', '42072'],
     env: { ...process.env, QUALITY_STUDIO_MARKER_FILE: marker, QUALITY_STUDIO_NPM_COMMAND: npmStub },
   });
   assert.match(second.stdout, /ready: api=http:\/\/127\.0\.0\.1:51272 web=http:\/\/127\.0\.0\.1:42072/);
+  assert.match(await readFile(marker, 'utf8'), /^ci\r?\n?$/);
+});
+
+test('launcher reinstalls when node_modules is present but incomplete', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'qs-dev-stack-partial-'));
+  const repoRoot = join(sandbox, 'repo');
+  const frontendRoot = join(repoRoot, 'frontend');
+  const marker = join(sandbox, 'install-count.txt');
+  const apiScript = join(sandbox, 'api.mjs');
+  const webScript = join(sandbox, 'web.mjs');
+  const npmStub = join(sandbox, 'npm.cmd');
+  await mkdir(frontendRoot, { recursive: true });
+  await mkdir(join(frontendRoot, 'node_modules'), { recursive: true });
+  await writeFile(apiScript, serviceScript('api-ready'));
+  await writeFile(webScript, serviceScript('web-ready'));
+  await writeFile(npmStub, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+
+  const result = await runLauncher({
+    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51276', '--web-port', '42076'],
+    env: { ...process.env, QUALITY_STUDIO_MARKER_FILE: marker, QUALITY_STUDIO_NPM_COMMAND: npmStub },
+  });
+
+  assert.match(result.stdout, /frontend install incomplete, running npm ci/);
   assert.match(await readFile(marker, 'utf8'), /^ci\r?\n?$/);
 });
 

@@ -169,7 +169,7 @@ export class QualityApi {
       this.file.set(file); this.connectionState.set('live');
     } catch (error) {
       this.file.set({ path, content: demoFile, metaDocuments: demoMeta });
-      this.connectionState.update(current => current === 'live' ? 'offline' : 'preview');
+      if (this.connectionState() !== 'live') this.connectionState.set('preview');
       console.warn(JSON.stringify({ event: 'qs.data.file-demo-fallback', path, reason: error instanceof Error ? error.message : 'API unavailable' }));
     } finally { this.loading.set(false); }
   }

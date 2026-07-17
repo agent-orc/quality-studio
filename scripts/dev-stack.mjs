@@ -110,11 +110,25 @@ async function ensureInstall(parsedArgs, repoRoot, frontendRoot, apiPort, webPor
     return;
   }
 
-  const nodeModules = resolve(frontendRoot, 'node_modules');
-  if (existsSync(nodeModules)) return;
+  const installState = frontendInstallState(frontendRoot);
+  if (installState.ready) return;
 
-  console.log(formatLog('install', 'frontend dependencies missing, running npm ci'));
+  console.log(formatLog('install', installState.reason));
   await runCommand('install', npmCommand, ['ci'], { cwd: frontendRoot });
+}
+
+function frontendInstallState(frontendRoot) {
+  const nodeModules = resolve(frontendRoot, 'node_modules');
+  const binDir = resolve(nodeModules, '.bin');
+  const hasNodeModules = existsSync(nodeModules);
+  const hasAngularCli = existsSync(resolve(binDir, 'ng')) || existsSync(resolve(binDir, 'ng.cmd'));
+  if (!hasNodeModules) {
+    return { ready: false, reason: 'frontend dependencies missing, running npm ci' };
+  }
+  if (!hasAngularCli) {
+    return { ready: false, reason: 'frontend install incomplete, running npm ci' };
+  }
+  return { ready: true, reason: null };
 }
 
 function buildApiCommand(parsedArgs, repoRoot, apiPort) {

@@ -152,13 +152,13 @@ configuration and live curl examples.
 ## One-click dev stack
 
 Project Hub should start Quality Studio through the repository-owned launcher, not
-as two separate services:
+as two separate services. The repository-owned start rule is:
 
 ```powershell
-npm run dev
+npm start
 ```
 
-The root command boots the API and frontend together, bootstraps the frontend
+`npm start` boots the API and frontend together, bootstraps the frontend
 dependencies on a clean checkout, waits for `GET /health` and the Angular shell,
 and prefixes the child logs so API and web output stay readable. The default
 ports are API `5127` and product `4200`, and both can be overridden with

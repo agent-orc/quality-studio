@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node scripts/dev-stack.mjs",
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs"
   }
