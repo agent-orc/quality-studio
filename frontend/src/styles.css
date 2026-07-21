@@ -25,7 +25,7 @@ button { color: inherit; }
 ::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--studio-fg-dim) 55%, transparent); border: 3px solid transparent; background-clip: padding-box; border-radius: 8px; }
 
 /* Shared workbench primitives reused across shell panes (Explorer, Editor, ReviewPanel). */
-.pane { min-width: 0; min-height: 0; background: var(--studio-bg-surface); }
+.pane { min-width: 0; min-height: 0; overflow: hidden; background: var(--studio-bg-surface); }
 .pane-header { height: 60px; padding: 11px 13px; border-bottom: 1px solid var(--studio-border-soft); display: flex; align-items: center; justify-content: space-between; }
 .pane-header div { display: flex; flex-direction: column; gap: 2px; } .pane-header strong { font-size: 13px; } .eyebrow { font-size: 9px; color: var(--studio-fg-dim); text-transform: uppercase; }
 .icon-button, .quiet { border: 1px solid var(--studio-border); background: var(--studio-bg-surface); width: 29px; height: 29px; border-radius: 6px; cursor: pointer; }

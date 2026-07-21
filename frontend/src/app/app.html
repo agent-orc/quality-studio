@@ -28,12 +28,16 @@
       <span>{{ api.connectionLabel() }}</span>
       @if (embedded()) { <span class="embedded-badge">Embedded</span> }
     </div>
+    <button class="icon-button" type="button" (click)="toggleExplorer()" [attr.aria-label]="(explorerVisible() ? 'Hide' : 'Show') + ' explorer'" [title]="(explorerVisible() ? 'Hide' : 'Show') + ' explorer · Ctrl+B'">◧</button>
+    <button class="icon-button" type="button" (click)="toggleReview()" [attr.aria-label]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel'" [title]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel · Ctrl+Alt+B'">◨</button>
     <button class="icon-button" (click)="setTheme()" [attr.aria-label]="'Switch to ' + (theme() === 'dark' ? 'light' : 'dark') + ' theme'">{{ theme() === 'dark' ? '☼' : '◐' }}</button>
   </header>
 
-  <main class="workspace">
+  <main class="workspace" [style.grid-template-columns]="gridTemplateColumns()" [class.dragging]="dragging() !== null">
     <qs-explorer [selectedPath]="selected()" [viewportHeight]="viewportHeight()" (fileOpen)="open($event)" />
+    <div class="resize-handle" [class.collapsed]="!explorerVisible()" [class.dragging]="dragging() === 'explorer'" role="separator" aria-orientation="vertical" aria-label="Resize explorer pane" [attr.aria-disabled]="!explorerVisible()" [attr.tabindex]="explorerVisible() ? 0 : -1" (pointerdown)="explorerVisible() && startExplorerDrag($event)" (dblclick)="explorerVisible() && resetExplorerWidth()" (keydown)="explorerVisible() && onHandleKeydown($event, 'explorer')"></div>
     <qs-editor [selectedPath]="selected()" [activeKind]="activeKind()" [selectedNode]="selectedNode()" [viewportHeight]="viewportHeight()" (kindSelect)="selectKind($event)" (findingSelect)="selectFinding($event)" />
+    <div class="resize-handle" [class.collapsed]="!reviewVisible()" [class.dragging]="dragging() === 'review'" role="separator" aria-orientation="vertical" aria-label="Resize review panel" [attr.aria-disabled]="!reviewVisible()" [attr.tabindex]="reviewVisible() ? 0 : -1" (pointerdown)="reviewVisible() && startReviewDrag($event)" (dblclick)="reviewVisible() && resetReviewWidth()" (keydown)="reviewVisible() && onHandleKeydown($event, 'review')"></div>
     <qs-review-panel [activeKind]="activeKind()" [selectedPath]="selected()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" (findingSelect)="selectFinding($event)" />
   </main>
 </div>
