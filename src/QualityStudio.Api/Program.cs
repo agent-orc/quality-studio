@@ -160,7 +160,9 @@ static (string Encoding, string Content) DecodeFileContent(byte[] bytes)
     }
     catch (DecoderFallbackException)
     {
-        return ("other", Encoding.UTF8.GetString(bytes));
+        // Latin-1 maps every byte 0-255 to the code point of the same value, so it can
+        // never throw and never collapses bytes into U+FFFD the way a lossy UTF-8 decode would.
+        return ("other", Encoding.Latin1.GetString(bytes));
     }
 }
 
