@@ -2,20 +2,21 @@
   <div class="pane-header"><div><span class="eyebrow">Repository</span><strong>Explorer</strong></div><button class="quiet" (click)="api.loadTree()">↻</button></div>
   <label class="search"><span>⌕</span><input aria-label="Filter files" placeholder="Filter files…" [ngModel]="query()" (ngModelChange)="query.set($event)" /></label>
   <div class="legend"><span><i class="status fresh"></i>Fresh</span><span><i class="status stale"></i>Stale</span><span><i class="status missing"></i>Missing</span></div>
-  <div class="virtual-tree" (scroll)="scrollTop.set($any($event.target).scrollTop)">
+  <div class="virtual-tree" role="tree" aria-label="Repository tree" #treeContainer (scroll)="scrollTop.set($any($event.target).scrollTop)" (keydown)="onTreeKeydown($event)" (focusin)="onTreeFocusIn()" (focusout)="onTreeFocusOut($event)">
     <div class="tree-space" [style.height.px]="filteredRows().length * 30">
       @for (item of visibleRows(); track item.node.id) {
-        <div class="tree-row" [class.selected]="selectedPath() === item.node.path" [style.top.px]="item.top" [style.padding-left.px]="6 + item.node.depth * 16" (click)="open(item.node)">
-          @if (item.node.children.length) {
-            <button class="chevron-button" type="button" [attr.aria-label]="(expanded().has(item.node.id) ? 'Collapse ' : 'Expand ') + item.node.name" title="Toggle expansion only" (click)="$event.stopPropagation(); toggle(item.node)"><span class="chevron" [class.open]="expanded().has(item.node.id)">›</span></button>
-          } @else { <span class="chevron-spacer"></span> }
-          <button class="node-select" type="button">
-            <span class="node-icon">{{ item.node.level === 'file' ? '≡' : '▰' }}</span><span class="node-name">{{ item.node.name }}</span>
-            <span class="tree-states" aria-label="Rolled-up review states">
-              @for (decoration of item.node.decorations; track decoration.kind) { <i class="status" [class]="'status ' + decoration.state" [title]="decoration.label"><span class="sr-only">{{ decoration.label }}</span></i> }
-            </span>
-          </button>
-        </div>
+        <button type="button" class="tree-row" role="treeitem"
+          [class.selected]="selectedPath() === item.node.path" [class.active]="activeId() === item.node.id"
+          [attr.data-node-id]="item.node.id" [attr.aria-level]="item.node.depth + 1"
+          [attr.aria-expanded]="item.node.children.length ? expanded().has(item.node.id) : null"
+          [attr.aria-selected]="selectedPath() === item.node.path" [attr.tabindex]="activeId() === item.node.id ? 0 : -1"
+          [style.top.px]="item.top" [style.padding-left.px]="10 + item.node.depth * 16" (click)="onRowClick(item.node)">
+          <span class="chevron" [class.open]="expanded().has(item.node.id)">{{ item.node.children.length ? '›' : '' }}</span>
+          <span class="node-icon">{{ item.node.children.length ? '▰' : '≡' }}</span><span class="node-name">{{ item.node.name }}</span>
+          <span class="tree-states" aria-label="Rolled-up review states">
+            @for (decoration of item.node.decorations; track decoration.kind) { <i class="status" [class]="'status ' + decoration.state" [title]="decoration.label"><span class="sr-only">{{ decoration.label }}</span></i> }
+          </span>
+        </button>
       }
     </div>
   </div>
