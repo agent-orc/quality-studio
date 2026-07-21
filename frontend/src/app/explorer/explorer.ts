@@ -199,8 +199,7 @@ export class Explorer {
   }
 
   private activateNode(node: FlatNode): void {
-    if (node.level === 'file') this.nodeOpen.emit(node.path);
-    else if (node.children.length) this.toggle(node);
+    this.open(node);
   }
 
   private setActive(rows: FlatNode[], index: number): void {
