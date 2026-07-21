@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, v
 import { FormsModule } from '@angular/forms';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
-import { AgentStudioImportResponse, QualityApi, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
+import { ModelSelector } from './model-selector/model-selector';
+import { AgentStudioImportResponse, ChatModelSelection, QualityApi, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
 import { flattenTree } from './tree-utils';
 
@@ -26,7 +27,7 @@ type ResizablePane = 'explorer' | 'review';
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, ModelSelector],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -60,6 +61,11 @@ export class App {
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
   readonly reviewKinds: ReviewKind[] = ['code', 'security', 'performance'];
   repositoryForm: RepositoryRegistrationRequest = this.emptyRepositoryForm();
+
+  // Catalog for the CLI the repository-defaults picker last asked about (see qs-model-selector's
+  // catalogRequested contract in review-actions.ts for the same pattern).
+  readonly repositoryFormCatalogCliType = signal<string | null>(null);
+  readonly repositoryFormCatalogModels = computed(() => this.api.modelsFor(this.repositoryFormCatalogCliType()));
 
   // Panel visibility/width and drag state. Persisted layout is loaded once here so the
   // initial signal values already reflect it (no flash of the default layout on load).
@@ -199,8 +205,20 @@ export class App {
       globalInputsDirectory: repository.globalInputsDirectory,
       inputBudgetCharacters: repository.inputBudgetCharacters,
       enabledReviewKinds: [...repository.enabledReviewKinds],
+      defaultCliType: repository.defaultCliType,
+      defaultModel: repository.defaultModel,
     };
     this.repositoryError.set('');
+  }
+
+  onRepositoryFormCatalogRequested(cliType: string): void {
+    this.repositoryFormCatalogCliType.set(cliType);
+    void this.api.loadModelCatalog(cliType);
+  }
+
+  onRepositoryFormModelCommit(selection: ChatModelSelection): void {
+    this.repositoryForm.defaultCliType = selection.cliType;
+    this.repositoryForm.defaultModel = selection.model || null;
   }
 
   toggleReviewKind(kind: ReviewKind, enabled: boolean): void {
@@ -356,7 +374,7 @@ export class App {
   }
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {
-    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'] };
+    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], defaultCliType: 'codex', defaultModel: null };
   }
 
   private detectEmbedded(): boolean {

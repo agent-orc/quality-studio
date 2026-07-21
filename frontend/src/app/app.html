@@ -86,6 +86,18 @@
             <span>Input budget (characters)</span>
             <input name="inputBudgetCharacters" [(ngModel)]="repositoryForm.inputBudgetCharacters" required type="number" min="1000" max="1000000">
           </label>
+          <label>
+            <span>Default model / CLI <small>preselected on the review-start picker for this repository</small></span>
+            <qs-model-selector
+              [cliOptions]="api.cliOptions()"
+              [cliType]="repositoryForm.defaultCliType ?? 'codex'"
+              [model]="repositoryForm.defaultModel ?? null"
+              [models]="repositoryFormCatalogModels()"
+              [catalogLoading]="api.modelCatalogLoading()"
+              [catalogError]="api.modelCatalogError()"
+              (catalogRequested)="onRepositoryFormCatalogRequested($event)"
+              (commit)="onRepositoryFormModelCommit($event)" />
+          </label>
           <fieldset>
             <legend>Enabled review kinds</legend>
             @for (kind of reviewKinds; track kind) {

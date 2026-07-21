@@ -2,9 +2,18 @@
   <select aria-label="Review kind" [ngModel]="activeKind()" (ngModelChange)="kindSelect.emit($event)">
     @for (kind of reviewKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
   </select>
-  @if (!compact()) {
-    <input aria-label="Review model" placeholder="Runner default model" [ngModel]="model()" (ngModelChange)="model.set($event)" />
-  }
+  <qs-model-selector
+    [compact]="compact()"
+    [cliOptions]="api.cliOptions()"
+    [cliType]="effectiveCliType()"
+    [model]="effectiveModel()"
+    [models]="catalogModels()"
+    [catalogLoading]="api.modelCatalogLoading()"
+    [catalogError]="api.modelCatalogError()"
+    [disabled]="activeOnNode()"
+    disabledReason="Stop the running review first to change the model."
+    (catalogRequested)="onCatalogRequested($event)"
+    (commit)="onModelCommit($event)" />
   <button type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
     {{ activeOnNode() ? 'Review running' : starting() ? 'Queuing…' : 'Start review' }}
     @if (node()?.level !== 'file') { <small>{{ fileCount() }} files</small> }

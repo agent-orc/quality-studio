@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentOrchestrator.CodeQuality;
+using CodingAgentRunner.Model;
 using Microsoft.Extensions.Options;
 
 namespace QualityStudio.Api;
@@ -11,7 +12,9 @@ public sealed record RepositoryRegistration(
     string? GlobalInputsDirectory,
     int InputBudgetCharacters,
     IReadOnlyList<string> EnabledReviewKinds,
-    bool Archived = false);
+    bool Archived = false,
+    string DefaultCliType = CliTypes.Codex,
+    string? DefaultModel = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -19,7 +22,9 @@ public sealed record RepositoryRegistrationRequest(
     string RootPath,
     string? GlobalInputsDirectory,
     int? InputBudgetCharacters,
-    IReadOnlyList<string>? EnabledReviewKinds);
+    IReadOnlyList<string>? EnabledReviewKinds,
+    string? DefaultCliType = null,
+    string? DefaultModel = null);
 
 public sealed class RepositoryRegistry
 {
@@ -220,8 +225,17 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException("Select at least one supported review kind: code, security, or performance.");
         }
 
+        var defaultCliType = string.IsNullOrWhiteSpace(request.DefaultCliType) ? CliTypes.Codex : request.DefaultCliType.Trim();
+        if (!CliTypes.IsValid(defaultCliType))
+        {
+            throw new RepositoryRegistryValidationException($"Default CLI must be one of: {string.Join(", ", CliTypes.All)}.");
+        }
+
+        var defaultModel = string.IsNullOrWhiteSpace(request.DefaultModel) ? null : request.DefaultModel.Trim();
+
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
-            NormalizeOptionalPath(request.GlobalInputsDirectory, root), budget, kinds);
+            NormalizeOptionalPath(request.GlobalInputsDirectory, root), budget, kinds,
+            DefaultCliType: defaultCliType, DefaultModel: defaultModel);
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken)

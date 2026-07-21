@@ -1,6 +1,9 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { ChatCliOption, ChatModelOption } from 'coding-agent-chat/core';
+
+export type { ChatCliOption, ChatModelOption, ChatModelSelection } from 'coding-agent-chat/core';
 
 export type ReviewState = 'fresh' | 'stale' | 'missing';
 export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
@@ -65,6 +68,8 @@ export interface RepositoryRegistration {
   inputBudgetCharacters: number;
   enabledReviewKinds: ReviewKind[];
   archived: boolean;
+  defaultCliType: string;
+  defaultModel: string | null;
 }
 export interface RepositoryRegistrationRequest {
   id?: string;
@@ -73,6 +78,8 @@ export interface RepositoryRegistrationRequest {
   globalInputsDirectory: string | null;
   inputBudgetCharacters: number;
   enabledReviewKinds: ReviewKind[];
+  defaultCliType?: string | null;
+  defaultModel?: string | null;
 }
 export type AgentStudioImportStatus = 'imported' | 'skipped' | 'failed';
 export interface AgentStudioImportResult {
@@ -200,6 +207,41 @@ export class QualityApi {
   readonly reviewError = signal('');
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Model/CLI catalog for the review-start and repository-default pickers. QS holds no
+  // model list of its own: cliOptions and each CLI's catalog come from the API, which in
+  // turn sources them from the same CodingAgentRunner package coding-agent-chat's model
+  // selector types are shaped around (see frontend/README.md).
+  readonly cliOptions = signal<readonly ChatCliOption[]>([]);
+  readonly modelCatalogLoading = signal(false);
+  readonly modelCatalogError = signal<string | null>(null);
+  private readonly modelCatalogs = signal<Partial<Record<string, readonly ChatModelOption[]>>>({});
+
+  modelsFor(cliType: string | null): readonly ChatModelOption[] {
+    return (cliType && this.modelCatalogs()[cliType]) || [];
+  }
+
+  async loadCliOptions(): Promise<void> {
+    try {
+      const result = await firstValueFrom(this.http.get<{ cliOptions: ChatCliOption[] }>('/api/models'));
+      this.cliOptions.set(result.cliOptions);
+    } catch (error) {
+      console.warn(JSON.stringify({ event: 'qs.models.cli-options-unavailable', reason: this.errorMessage(error) }));
+    }
+  }
+
+  async loadModelCatalog(cliType: string): Promise<void> {
+    this.modelCatalogLoading.set(true);
+    this.modelCatalogError.set(null);
+    try {
+      const result = await firstValueFrom(this.http.get<{ models: ChatModelOption[] }>(`/api/models/${encodeURIComponent(cliType)}`));
+      this.modelCatalogs.update(catalogs => ({ ...catalogs, [cliType]: result.models }));
+    } catch (error) {
+      this.modelCatalogError.set(this.errorMessage(error));
+    } finally {
+      this.modelCatalogLoading.set(false);
+    }
+  }
+
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
@@ -214,7 +256,7 @@ export class QualityApi {
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
-      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false }]);
+      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultCliType: 'codex', defaultModel: null }]);
       this.selectedRepositoryId.set('default');
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }

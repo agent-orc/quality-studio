@@ -20,6 +20,7 @@ builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<InputResolver>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
 builder.Services.AddSingleton<GitleaksSecurityScanner>();
+builder.Services.AddSingleton<ModelCatalogService>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
@@ -89,6 +90,10 @@ app.MapGet("/api/scan", Scan);
 app.MapGet("/api/repos/{repoId}/scan", Scan);
 app.MapGet("/api/security/scan", SecurityScan);
 app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
+
+app.MapGet("/api/models", (ModelCatalogService catalog) => Results.Ok(new { cliOptions = catalog.CliOptions() }));
+app.MapGet("/api/models/{cliType}", (string cliType, ModelCatalogService catalog) =>
+    Results.Ok(new { models = catalog.Models(cliType) }));
 
 app.MapPost("/api/review", StartReview);
 app.MapPost("/api/repos/{repoId}/review", StartReview);

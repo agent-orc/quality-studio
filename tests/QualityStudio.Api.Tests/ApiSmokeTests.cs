@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -140,6 +141,90 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
         var list = await client.GetFromJsonAsync<JsonElement>("/api/review/runs", TestContext.Current.CancellationToken);
         Assert.Contains(list.GetProperty("runs").EnumerateArray(), candidate => candidate.GetProperty("id").GetString() == id);
+    }
+
+    [Fact]
+    public async Task Models_endpoint_lists_cli_options_from_the_runner()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/models", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var ids = json.GetProperty("cliOptions").EnumerateArray().Select(option => option.GetProperty("id").GetString()).ToArray();
+        Assert.Contains("codex", ids);
+        Assert.Contains("claude", ids);
+    }
+
+    [Fact]
+    public async Task Models_endpoint_lists_the_catalog_for_a_cli_with_reasoning_levels()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/models/codex", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var models = json.GetProperty("models").EnumerateArray().ToArray();
+        Assert.NotEmpty(models);
+        Assert.Contains(models, model => model.GetProperty("id").GetString() == "gpt-5.6");
+        var gpt56 = models.Single(model => model.GetProperty("id").GetString() == "gpt-5.6");
+        Assert.Contains("xhigh", gpt56.GetProperty("thinkingLevels").EnumerateArray().Select(level => level.GetString()));
+    }
+
+    [Fact]
+    public async Task Models_endpoint_rejects_an_unknown_cli_type()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/models/not-a-real-cli", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Registry_default_cli_and_model_flow_into_a_review_that_omits_them()
+    {
+        using var client = application!.CreateClient();
+        var update = await client.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default repository",
+            rootPath = repositoryRoot,
+            globalInputsDirectory = (string?)null,
+            inputBudgetCharacters = 12000,
+            enabledReviewKinds = new[] { "code", "security", "performance" },
+            defaultCliType = "claude",
+            defaultModel = "claude-sonnet-5",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        using var response = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs",
+            kind = "code",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var run = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("claude", run.GetProperty("cliType").GetString());
+        Assert.Equal("claude-sonnet-5", run.GetProperty("model").GetString());
+    }
+
+    [Fact]
+    public async Task Registry_rejects_an_unknown_default_cli_type()
+    {
+        using var client = application!.CreateClient();
+        var response = await client.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default repository",
+            rootPath = repositoryRoot,
+            globalInputsDirectory = (string?)null,
+            inputBudgetCharacters = 12000,
+            enabledReviewKinds = new[] { "code", "security", "performance" },
+            defaultCliType = "not-a-real-cli",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains("Default CLI must be one of", problem.GetProperty("detail").GetString());
     }
 
     [Fact]

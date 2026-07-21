@@ -74,8 +74,9 @@ public sealed class ReviewJobService : BackgroundService
 
         var item = new ReviewWorkItem(
             "review-" + Guid.NewGuid().ToString("N"), registration, node, files,
-            request.Kind, string.IsNullOrWhiteSpace(request.Model) ? null : request.Model.Trim(),
-            string.IsNullOrWhiteSpace(request.CliType) ? "codex" : request.CliType.Trim());
+            request.Kind,
+            string.IsNullOrWhiteSpace(request.Model) ? registration.DefaultModel : request.Model.Trim(),
+            string.IsNullOrWhiteSpace(request.CliType) ? registration.DefaultCliType : request.CliType.Trim());
         runs[item.Id] = item;
         if (!queue.Writer.TryWrite(item)) throw new InvalidOperationException("The review queue is unavailable.");
         logger.LogInformation(new EventId(1500, "ReviewQueued"),

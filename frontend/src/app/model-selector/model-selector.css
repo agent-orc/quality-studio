@@ -1,0 +1,36 @@
+:host { position: relative; display: inline-block; }
+
+.model-selector { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 8px; border: 1px solid var(--studio-border); border-radius: 4px; background: var(--studio-bg-editor); color: var(--studio-fg); font-size: 9px; cursor: pointer; }
+.model-selector.compact { padding: 0 6px; }
+.model-selector.open { border-color: var(--studio-accent); }
+.model-selector.disabled { opacity: .55; cursor: default; }
+.model-selector-icon { flex: none; }
+.model-selector-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 96px; }
+.model-selector-level { padding: 1px 5px; border-radius: 999px; background: var(--studio-accent-soft); color: var(--studio-accent); font-size: 8px; text-transform: uppercase; }
+.model-selector-caret { flex: none; color: var(--studio-fg-dim); font-size: 8px; }
+
+.model-picker-backdrop { position: fixed; z-index: 40; inset: 0; background: transparent; }
+/* position: fixed (coordinates computed in updatePosition()) rather than absolute so the
+   popover escapes an ancestor with overflow: hidden/auto, e.g. the repository dialog. */
+.model-picker { position: fixed; z-index: 41; width: 260px; max-height: 380px; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--studio-border); border-radius: 8px; background: var(--studio-bg-surface); box-shadow: var(--shadow); }
+.model-picker-header { display: flex; flex-direction: column; gap: 2px; }
+.model-picker-header strong { font-size: 11px; }
+.model-picker-section { display: flex; flex-direction: column; gap: 5px; }
+.model-picker-label { font-size: 9px; text-transform: uppercase; color: var(--studio-fg-dim); }
+.model-picker-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.model-picker-pills.column { flex-direction: column; }
+.model-picker-hint { padding: 7px; border-radius: 5px; background: var(--studio-bg-elevated); color: var(--studio-fg-muted); font-size: 10px; }
+.model-picker-hint.error { color: #e87878; }
+
+.model-picker-pill { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 1px solid var(--studio-border); border-radius: 5px; background: var(--studio-bg-editor); color: inherit; font-size: 10px; cursor: pointer; text-align: left; }
+.model-picker-pill.row { justify-content: space-between; height: auto; padding: 6px 8px; }
+.model-picker-pill.active { border-color: var(--studio-accent); background: var(--studio-accent-soft); color: var(--studio-accent); }
+.model-picker-pill small { color: var(--studio-fg-dim); font-size: 8px; text-transform: uppercase; }
+.model-picker-pill.active small { color: var(--studio-accent); }
+
+.model-picker-footer { display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px solid var(--studio-border-soft); }
+.model-picker-footer .spacer { flex: 1; }
+.model-picker-footer button { height: 26px; padding: 0 9px; border: 1px solid var(--studio-border); border-radius: 5px; font-size: 10px; cursor: pointer; }
+.model-picker-footer .ghost { background: var(--studio-bg-elevated); color: inherit; }
+.model-picker-footer .primary { border-color: var(--studio-accent); background: var(--studio-accent); color: var(--studio-bg-surface); }
+.model-picker-footer .primary:disabled { opacity: .5; cursor: default; }

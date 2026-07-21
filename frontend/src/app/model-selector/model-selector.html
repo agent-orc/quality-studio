@@ -1,0 +1,109 @@
+<button type="button"
+        #trigger
+        class="model-selector"
+        [class.compact]="compact()"
+        [class.open]="open()"
+        [class.disabled]="disabled()"
+        data-testid="qs-model-selector-trigger"
+        [attr.aria-label]="'Model: ' + badgeText()"
+        [attr.title]="disabled() ? (disabledReason() ?? 'Stop the run first to change the model.') : badgeText() + ' - click to change'"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="open()"
+        [disabled]="disabled()"
+        (click)="toggle($event)">
+  <span class="model-selector-icon" aria-hidden="true">{{ cliIcon() }}</span>
+  <span class="model-selector-name">{{ displayLabel() }}</span>
+  @if (thinkingLevel(); as level) { <span class="model-selector-level">{{ level }}</span> }
+  <span class="model-selector-caret" aria-hidden="true">▾</span>
+</button>
+
+@if (open()) {
+  <div class="model-picker-backdrop" (mousedown)="onBackdropClick(); $event.preventDefault()"></div>
+  <div class="model-picker" role="dialog" aria-modal="false" [style]="pickerStyle()" [attr.aria-label]="'Configure agent: ' + badgeText()" (mousedown)="$event.stopPropagation()">
+    <header class="model-picker-header">
+      <span class="eyebrow">Configure agent</span>
+      <strong data-testid="qs-model-selector-current">{{ badgeText() }}</strong>
+    </header>
+
+    @if (cliOptions().length > 0) {
+      <section class="model-picker-section">
+        <div class="model-picker-label">CLI</div>
+        <div class="model-picker-pills" role="radiogroup" aria-label="CLI">
+          @for (opt of cliOptions(); track opt.id) {
+            <button type="button"
+                    class="model-picker-pill"
+                    [class.active]="draftCliType() === opt.id"
+                    role="radio"
+                    [attr.aria-checked]="draftCliType() === opt.id"
+                    [attr.data-testid]="'qs-model-selector-cli-' + opt.id"
+                    (click)="selectCli(opt.id)">
+              @if (opt.icon) { <span aria-hidden="true">{{ opt.icon }}</span> }
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+      </section>
+    }
+
+    <section class="model-picker-section">
+      <div class="model-picker-label">Model</div>
+      @if (catalogLoading()) {
+        <div class="model-picker-hint" data-testid="qs-model-selector-loading">Loading model catalog…</div>
+      } @else if (catalogError(); as err) {
+        <div class="model-picker-hint error" data-testid="qs-model-selector-error">{{ err }}</div>
+      } @else {
+        <div class="model-picker-pills column" role="radiogroup" aria-label="Model">
+          <button type="button"
+                  class="model-picker-pill row"
+                  [class.active]="draftModel() === ''"
+                  role="radio"
+                  [attr.aria-checked]="draftModel() === ''"
+                  data-testid="qs-model-selector-model-default"
+                  (click)="selectDefaultModel()">
+            (CLI default)
+          </button>
+          @for (m of draftAvailableModels(); track m.id) {
+            <button type="button"
+                    class="model-picker-pill row"
+                    [class.active]="draftModel() === m.id"
+                    role="radio"
+                    [attr.aria-checked]="draftModel() === m.id"
+                    [attr.data-testid]="'qs-model-selector-model-' + m.id"
+                    (click)="selectModel(m.id)">
+              <span>{{ m.label || m.id }}</span>
+              @if (m.isDefault) { <small>default</small> }
+            </button>
+          }
+          @if (draftAvailableModels().length === 0) {
+            <div class="model-picker-hint" data-testid="qs-model-selector-empty">No models reported for this CLI.</div>
+          }
+        </div>
+      }
+    </section>
+
+    @if (draftThinkingLevels().length > 0) {
+      <section class="model-picker-section">
+        <div class="model-picker-label">Level</div>
+        <div class="model-picker-pills" role="radiogroup" aria-label="Thinking level">
+          @for (level of draftThinkingLevels(); track level) {
+            <button type="button"
+                    class="model-picker-pill"
+                    [class.active]="draftThinkingLevel() === level"
+                    role="radio"
+                    [attr.aria-checked]="draftThinkingLevel() === level"
+                    (click)="selectThinkingLevel(level)">
+              {{ level }}
+            </button>
+          }
+        </div>
+      </section>
+    }
+
+    <footer class="model-picker-footer">
+      <button type="button" class="ghost" [disabled]="catalogLoading()" (click)="onRefresh()">Refresh</button>
+      <span class="spacer"></span>
+      <button type="button" class="ghost" data-testid="qs-model-selector-cancel" (click)="cancel()">Cancel</button>
+      <button type="button" class="primary" data-testid="qs-model-selector-done" [disabled]="!hasChanges() || catalogLoading()" (click)="done()">Done</button>
+    </footer>
+  </div>
+}
