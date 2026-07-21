@@ -1,6 +1,19 @@
 <aside class="pane review-pane">
+  <qs-review-actions class="panel-review-actions" [node]="selectedNode()" [activeKind]="activeKind()" (kindSelect)="kindSelect.emit($event)" />
   <div class="pane-header"><div><span class="eyebrow">Review</span><strong>{{ activeKind() }} findings</strong></div><span class="score" [class.stale-score]="activeState() === 'stale'">{{ activeMeta()?.grade?.band ?? '—' }}</span></div>
   <div class="review-content">
+    <div class="section-title"><span>Review runs</span><small>Live · polling</small></div>
+    @if (api.reviewError()) { <div class="run-error" role="alert">{{ api.reviewError() }}</div> }
+    <section class="runs-panel" aria-label="Active and recent review runs">
+      @for (run of api.reviewRuns().slice(0, 8); track run.id) {
+        <article class="run-row">
+          <div class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></div>
+          <div class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></div>
+          <div class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed }</span>@if (run.state === 'queued' || run.state === 'running') { <button type="button" (click)="api.cancelReview(run.id)">Cancel</button> }</div>
+          @if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }
+        </article>
+      } @empty { <div class="empty-findings">No review runs yet.</div> }
+    </section>
     @if (activeMeta(); as meta) {
       <section class="summary-card"><div class="card-top"><span class="status" [class]="'status ' + activeState()"></span><div><b>{{ meta.grade.rationale }}</b><p>{{ meta.summary }}</p></div><span class="band">{{ meta.grade.band }}</span></div><div class="meter"><span [style.width.%]="meta.grade.score"></span></div><div class="meter-label"><span>Historical quality score</span><b>{{ meta.grade.score }} / 100</b></div></section>
       <div class="section-title"><span>Findings</span><small>{{ meta.findings.length }}</small></div>

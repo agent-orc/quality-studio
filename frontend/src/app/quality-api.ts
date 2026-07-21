@@ -74,6 +74,14 @@ export interface RepositoryRegistrationRequest {
   inputBudgetCharacters: number;
   enabledReviewKinds: ReviewKind[];
 }
+export type ReviewRunState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+export interface ReviewFileProgress { path: string; state: ReviewRunState; startedAt: string | null; finishedAt: string | null; error: string | null; }
+export interface ReviewRun {
+  id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; cliType: string;
+  state: ReviewRunState; totalFiles: number; completedFiles: number; failedFiles: number; createdAt: string;
+  startedAt: string | null; finishedAt: string | null; files: ReviewFileProgress[]; errors: string[];
+}
+export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; }
 
 const demoFile = `using System.Diagnostics;
 using AgentOrchestrator.CodeQuality;
@@ -178,6 +186,9 @@ export class QualityApi {
   readonly repositories = signal<RepositoryRegistration[]>([]);
   readonly selectedRepositoryId = signal('default');
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
+  readonly reviewRuns = signal<ReviewRun[]>([]);
+  readonly reviewError = signal('');
+  private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
@@ -204,6 +215,7 @@ export class QualityApi {
     this.connectionState.set('connecting');
     this.file.set(null);
     await this.loadTree();
+    await this.loadReviewRuns();
     console.info(JSON.stringify({ event: 'qs.repository.selected', repositoryId: id }));
   }
 
@@ -240,6 +252,59 @@ export class QualityApi {
       console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
     }
     await this.loadHandoverConfiguration();
+  }
+
+  async startReview(request: StartReviewRequest): Promise<ReviewRun> {
+    this.reviewError.set('');
+    try {
+      const run = await firstValueFrom(this.http.post<ReviewRun>(`${this.repositoryApiBase()}/review`, request));
+      this.reviewRuns.update(runs => [run, ...runs.filter(candidate => candidate.id !== run.id)]);
+      this.scheduleReviewPoll();
+      console.info(JSON.stringify({ event: 'qs.review.queued', runId: run.id, path: run.path, kind: run.kind, fileCount: run.totalFiles }));
+      return run;
+    } catch (error) {
+      this.reviewError.set(this.errorMessage(error));
+      throw error;
+    }
+  }
+
+  async loadReviewRuns(): Promise<void> {
+    if (!this.connected()) return;
+    try {
+      const before = new Map(this.reviewRuns().map(run => [run.id, run.state]));
+      const result = await firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase()}/review/runs`));
+      this.reviewRuns.set(result.runs);
+      const completed = result.runs.some(run => ['done', 'failed', 'cancelled'].includes(run.state) && ['queued', 'running'].includes(before.get(run.id) ?? ''));
+      if (completed) {
+        const openPath = this.file()?.path;
+        await this.loadTree();
+        if (openPath) await this.loadFile(openPath);
+      }
+      if (result.runs.some(run => run.state === 'queued' || run.state === 'running')) this.scheduleReviewPoll();
+    } catch (error) {
+      this.reviewError.set(this.errorMessage(error));
+    }
+  }
+
+  async cancelReview(id: string): Promise<void> {
+    try {
+      const run = await firstValueFrom(this.http.delete<ReviewRun>(`${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}`));
+      this.reviewRuns.update(runs => runs.map(candidate => candidate.id === run.id ? run : candidate));
+      const openPath = this.file()?.path;
+      await this.loadTree();
+      if (openPath) await this.loadFile(openPath);
+      this.scheduleReviewPoll();
+    } catch (error) {
+      this.reviewError.set(this.errorMessage(error));
+    }
+  }
+
+  private scheduleReviewPoll(): void {
+    if (this.reviewPollTimer !== null) return;
+    this.reviewPollTimer = setTimeout(() => {
+      this.reviewPollTimer = null;
+      void this.loadReviewRuns();
+    }, 1500);
   }
 
   async loadFile(path: string): Promise<void> {
@@ -281,5 +346,3 @@ export class QualityApi {
     return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(this.selectedRepositoryId())}`;
   }
 }
-
-

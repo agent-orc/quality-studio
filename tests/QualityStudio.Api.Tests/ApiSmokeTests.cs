@@ -112,6 +112,37 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Review_endpoint_queues_and_reports_per_file_failure_without_blocking()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "adapter-that-does-not-exist",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var id = accepted.GetProperty("id").GetString()!;
+        Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
+
+        JsonElement run = default;
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+            run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{id}", TestContext.Current.CancellationToken);
+            if (run.GetProperty("state").GetString() == "done") break;
+        }
+
+        Assert.Equal("done", run.GetProperty("state").GetString());
+        Assert.Equal(1, run.GetProperty("failedFiles").GetInt32());
+        Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
+        var list = await client.GetFromJsonAsync<JsonElement>("/api/review/runs", TestContext.Current.CancellationToken);
+        Assert.Contains(list.GetProperty("runs").EnumerateArray(), candidate => candidate.GetProperty("id").GetString() == id);
+    }
+
+    [Fact]
     public async Task Registry_onboards_and_scopes_a_second_repository()
     {
         var secondRoot = repositoryRoot + "-second";

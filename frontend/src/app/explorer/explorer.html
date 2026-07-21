@@ -1,6 +1,7 @@
 <aside class="pane tree-pane">
   <div class="pane-header"><div><span class="eyebrow">Repository</span><strong>Explorer</strong></div><button class="quiet" (click)="api.loadTree()">↻</button></div>
   <label class="search"><span>⌕</span><input aria-label="Filter files" placeholder="Filter files…" [ngModel]="query()" (ngModelChange)="query.set($event)" /></label>
+  <qs-review-actions class="explorer-review-action" [node]="selectedNode()" [activeKind]="activeKind()" [compact]="true" (kindSelect)="kindSelect.emit($event)" />
   <div class="legend"><span><i class="status fresh"></i>Fresh</span><span><i class="status stale"></i>Stale</span><span><i class="status missing"></i>Missing</span></div>
   <div class="virtual-tree" role="tree" aria-label="Repository tree" #treeContainer (scroll)="scrollTop.set($any($event.target).scrollTop)" (keydown)="onTreeKeydown($event)" (focusin)="onTreeFocusIn()" (focusout)="onTreeFocusOut($event)">
     <div class="tree-space" [style.height.px]="filteredRows().length * 30">

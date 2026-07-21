@@ -26,6 +26,9 @@ builder.Services.AddSingleton(serviceProvider =>
     serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AgentStudioTaskOptions>>().Value);
 builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton<AgentStudioTaskClient>();
+builder.Services.Configure<ReviewJobsOptions>(builder.Configuration.GetSection(ReviewJobsOptions.SectionName));
+builder.Services.AddSingleton<ReviewJobService>();
+builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<ReviewJobService>());
 var corsOptions = builder.Configuration.GetSection(RepositoryOptions.SectionName).Get<RepositoryOptions>()
     ?? new RepositoryOptions();
 builder.Services.AddCors(options => options.AddPolicy("dev-frontend", policy =>
@@ -85,8 +88,14 @@ app.MapGet("/api/repos/{repoId}/scan", Scan);
 app.MapGet("/api/security/scan", SecurityScan);
 app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
 
-app.MapPost("/api/review", ReviewUnavailable);
-app.MapPost("/api/repos/{repoId}/review", ReviewUnavailable);
+app.MapPost("/api/review", StartReview);
+app.MapPost("/api/repos/{repoId}/review", StartReview);
+app.MapGet("/api/review/runs", ReviewRuns);
+app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
+app.MapGet("/api/review/runs/{id}", ReviewRun);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
+app.MapDelete("/api/review/runs/{id}", CancelReview);
+app.MapDelete("/api/repos/{repoId}/review/runs/{id}", CancelReview);
 
 app.MapGet("/api/handover", HandoverConfiguration);
 app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration);
@@ -210,13 +219,30 @@ static async Task<IResult> SecurityScan(HttpContext context, RepositoryRegistry 
     return Results.Ok(Map(result));
 }
 
-static IResult ReviewUnavailable(HttpContext context, RepositoryRegistry registry)
+static IResult StartReview(HttpContext context, StartReviewRequest request, RepositoryRegistry registry, ReviewJobService jobs)
 {
-    registry.Get(RouteRepositoryId(context));
-    return Results.Problem(
-        statusCode: StatusCodes.Status501NotImplemented,
-        title: "Review runner unavailable",
-        detail: "Review triggering requires the optional QS-6 review runner, which is not available in this build.");
+    var repository = registry.Get(RouteRepositoryId(context));
+    var run = jobs.Enqueue(repository.Id, request);
+    var basePath = RouteRepositoryId(context) is null ? "/api/review/runs" : $"/api/repos/{Uri.EscapeDataString(repository.Id)}/review/runs";
+    return Results.Accepted($"{basePath}/{run.Id}", run);
+}
+
+static IResult ReviewRuns(HttpContext context, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(new { runs = jobs.List(repository.Id) });
+}
+
+static IResult ReviewRun(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(jobs.Get(repository.Id, id));
+}
+
+static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(jobs.Cancel(repository.Id, id));
 }
 
 static IResult HandoverConfiguration(HttpContext context, RepositoryRegistry registry, AgentStudioTaskOptions options)

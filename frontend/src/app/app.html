@@ -34,11 +34,11 @@
   </header>
 
   <main class="workspace" [style.grid-template-columns]="gridTemplateColumns()" [class.dragging]="dragging() !== null">
-    <qs-explorer [selectedPath]="selected()" [viewportHeight]="viewportHeight()" (nodeOpen)="open($event)" />
+    <qs-explorer [selectedPath]="selected()" [activeKind]="activeKind()" [viewportHeight]="viewportHeight()" (nodeOpen)="open($event)" (kindSelect)="selectKind($event)" />
     <div class="resize-handle" [class.collapsed]="!explorerVisible()" [class.dragging]="dragging() === 'explorer'" role="separator" aria-orientation="vertical" aria-label="Resize explorer pane" [attr.aria-disabled]="!explorerVisible()" [attr.tabindex]="explorerVisible() ? 0 : -1" (pointerdown)="explorerVisible() && startExplorerDrag($event)" (dblclick)="explorerVisible() && resetExplorerWidth()" (keydown)="explorerVisible() && onHandleKeydown($event, 'explorer')"></div>
     <qs-editor [selectedPath]="selected()" [activeKind]="activeKind()" [selectedNode]="selectedNode()" [viewportHeight]="viewportHeight()" (kindSelect)="selectKind($event)" (findingSelect)="selectFinding($event)" (nodeOpen)="open($event, true, true)" />
     <div class="resize-handle" [class.collapsed]="!reviewVisible()" [class.dragging]="dragging() === 'review'" role="separator" aria-orientation="vertical" aria-label="Resize review panel" [attr.aria-disabled]="!reviewVisible()" [attr.tabindex]="reviewVisible() ? 0 : -1" (pointerdown)="reviewVisible() && startReviewDrag($event)" (dblclick)="reviewVisible() && resetReviewWidth()" (keydown)="reviewVisible() && onHandleKeydown($event, 'review')"></div>
-    <qs-review-panel [activeKind]="activeKind()" [selectedPath]="selected()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" (findingSelect)="selectFinding($event)" />
+    <qs-review-panel [activeKind]="activeKind()" [selectedPath]="selected()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" (findingSelect)="selectFinding($event)" (kindSelect)="selectKind($event)" />
   </main>
 </div>
 

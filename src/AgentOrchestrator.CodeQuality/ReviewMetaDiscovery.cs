@@ -39,13 +39,13 @@ public static class ReviewMetaDiscovery
             node.Attach(new AttachedReviewMetaDocument(
                 unitId,
                 kind,
-                IsStale(root, document) ? ReviewState.Stale : ReviewState.Current,
+                IsStale(root, node, document) ? ReviewState.Stale : ReviewState.Current,
                 Path.GetRelativePath(root, path).Replace('\\', '/'),
                 document.GetRawText()));
         }
     }
 
-    private static bool IsStale(string root, JsonElement document)
+    private static bool IsStale(string root, HierarchyNode node, JsonElement document)
     {
         if (!document.TryGetProperty("subjectInputs", out var inputs))
         {
@@ -55,6 +55,21 @@ public static class ReviewMetaDiscovery
         foreach (var input in inputs.EnumerateArray())
         {
             var selector = input.GetProperty("selector").GetString();
+            if (selector == "aggregate-members")
+            {
+                var members = Flatten([node]).Where(candidate => candidate.Level == ReviewLevel.File)
+                    .DistinctBy(candidate => candidate.Id, StringComparer.Ordinal)
+                    .Select(candidate =>
+                    {
+                        var contentHash = HashNormalizedText(Path.GetFullPath(candidate.Path, root));
+                        var subjectHash = "sha256:" + ReviewSubjectHasher.ComputeManifestHash(candidate.Id,
+                            [new SubjectInputHash(candidate.Path, "file", contentHash)]);
+                        return new AggregateMemberHash(candidate.Id, candidate.Path, subjectHash);
+                    }).ToArray();
+                if (!StringComparer.Ordinal.Equals(input.GetProperty("contentHash").GetString(),
+                        ReviewSubjectHasher.ComputeAggregateMembersHash(members))) return true;
+                continue;
+            }
             if (selector is not ("file" or "aggregate-control"))
             {
                 continue;

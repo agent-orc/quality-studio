@@ -3,6 +3,7 @@ import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { FindingSeverity, QualityApi, ReviewFinding, ReviewKind } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { ReviewActions } from '../review-actions/review-actions';
 
 const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mixed: 'Mixed' };
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
@@ -11,6 +12,7 @@ type SortDirection = 'asc' | 'desc';
 
 @Component({
   selector: 'qs-editor',
+  imports: [ReviewActions],
   templateUrl: './editor.html',
   styleUrl: './editor.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

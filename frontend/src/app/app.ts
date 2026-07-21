@@ -107,6 +107,7 @@ export class App {
     const preferredRepository = new URLSearchParams(location.search).get('repo');
     await this.api.loadRepositories(preferredRepository);
     await this.api.loadTree();
+    await this.api.loadReviewRuns();
     const path = this.selectionPathOrFirst(this.selected());
     if (path) this.open(path, false);
   }

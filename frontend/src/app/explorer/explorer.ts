@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { QualityApi } from '../quality-api';
+import { QualityApi, ReviewKind } from '../quality-api';
+import { ReviewActions } from '../review-actions/review-actions';
 import { FlatNode, ancestorIds, flattenTree } from '../tree-utils';
 
 const ROW_HEIGHT = 30;
@@ -8,7 +9,7 @@ const TYPEAHEAD_RESET_MS = 600;
 
 @Component({
   selector: 'qs-explorer',
-  imports: [FormsModule],
+  imports: [FormsModule, ReviewActions],
   templateUrl: './explorer.html',
   styleUrl: './explorer.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,8 +17,10 @@ const TYPEAHEAD_RESET_MS = 600;
 export class Explorer {
   readonly api = inject(QualityApi);
   readonly selectedPath = input.required<string>();
+  readonly activeKind = input.required<ReviewKind>();
   readonly viewportHeight = input.required<number>();
   readonly nodeOpen = output<string>();
+  readonly kindSelect = output<ReviewKind>();
 
   readonly expanded = signal(new Set<string>(['quality-studio', 'src', 'api']));
   readonly query = signal('');
@@ -38,6 +41,7 @@ export class Explorer {
     const id = this.activeId();
     return id === null ? -1 : this.filteredRows().findIndex(row => row.id === id);
   });
+  readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(node => node.path === this.selectedPath()));
   /**
    * Logical "focus lives in the tree" flag, tracked independently of document.activeElement.
    * A recycled or entirely-replaced row (virtualization scroll, or the tree dataset itself

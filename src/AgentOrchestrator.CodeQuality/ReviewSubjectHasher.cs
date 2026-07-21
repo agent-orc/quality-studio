@@ -53,6 +53,32 @@ public static class ReviewSubjectHasher
         return Convert.ToHexStringLower(SHA256.HashData(buffer.WrittenSpan));
     }
 
+    public static string ComputeAggregateMembersHash(IReadOnlyList<AggregateMemberHash> members)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("domain", "quality-studio/aggregate-members/v1");
+            writer.WritePropertyName("excluded");
+            writer.WriteStartArray();
+            writer.WriteEndArray();
+            writer.WritePropertyName("members");
+            writer.WriteStartArray();
+            foreach (var member in members.OrderBy(member => member.UnitId, StringComparer.Ordinal))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("path", member.Path);
+                writer.WriteString("subjectHash", member.SubjectHash);
+                writer.WriteString("unitId", member.UnitId);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(buffer.WrittenSpan));
+    }
+
     private static Encoding DetectEncoding(byte[] bytes, out int preambleLength)
     {
         if (bytes.AsSpan().StartsWith(Encoding.UTF8.Preamble))
@@ -82,3 +108,5 @@ public sealed record SubjectInputHash(
     [property: JsonPropertyOrder(0)] string Path,
     [property: JsonPropertyOrder(1)] string Selector,
     [property: JsonPropertyOrder(2)] string ContentHash);
+
+public sealed record AggregateMemberHash(string UnitId, string Path, string SubjectHash);

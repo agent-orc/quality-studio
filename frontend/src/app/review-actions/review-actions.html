@@ -1,0 +1,12 @@
+<div class="review-actions" [class.compact]="compact()" aria-label="Start review">
+  <select aria-label="Review kind" [ngModel]="activeKind()" (ngModelChange)="kindSelect.emit($event)">
+    @for (kind of reviewKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
+  </select>
+  @if (!compact()) {
+    <input aria-label="Review model" placeholder="Runner default model" [ngModel]="model()" (ngModelChange)="model.set($event)" />
+  }
+  <button type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
+    {{ activeOnNode() ? 'Review running' : starting() ? 'Queuing…' : 'Start review' }}
+    @if (node()?.level !== 'file') { <small>{{ fileCount() }} files</small> }
+  </button>
+</div>

@@ -2,9 +2,11 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output, si
 import { formatDateTime } from '../format';
 import { HandoverRequest, QualityApi, ReviewFinding, ReviewKind } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { ReviewActions } from '../review-actions/review-actions';
 
 @Component({
   selector: 'qs-review-panel',
+  imports: [ReviewActions],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,6 +18,7 @@ export class ReviewPanel {
   readonly selectedNode = input<FlatNode | undefined>();
   readonly selectedFinding = input<ReviewFinding | null>(null);
   readonly findingSelect = output<ReviewFinding>();
+  readonly kindSelect = output<ReviewKind>();
 
   readonly handoverStatus = signal<Record<string, string>>({});
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
@@ -47,4 +50,6 @@ export class ReviewPanel {
   }
 
   scannedAt(value: string): string { return formatDateTime(value); }
+
+  runProgress(completed: number, total: number): number { return total ? completed / total * 100 : 0; }
 }

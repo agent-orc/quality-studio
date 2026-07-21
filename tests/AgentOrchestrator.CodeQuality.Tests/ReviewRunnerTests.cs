@@ -205,15 +205,25 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
-    public async Task ReviewAsync_RejectsNonFileLevelBeforeCallingAgent()
+    public async Task ReviewAsync_WritesAggregateMetadataForNonFileLevel()
     {
-        var agent = new FakeAgent();
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var agent = new FakeAgent();
+            var result = await new ReviewRunner(agent).ReviewAsync(new ReviewRequest(
+                ".", Level: ReviewLevel.Project, RepositoryRoot: root,
+                UnitId: "qs-v1/dotnet/project/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", SubjectFiles: ["src/Small.cs"], DisplayName: "Test project"),
+                TestContext.Current.CancellationToken);
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() => new ReviewRunner(agent).ReviewAsync(
-            new ReviewRequest("unused", Level: ReviewLevel.Project), TestContext.Current.CancellationToken));
-
-        Assert.Contains("file-level", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Null(agent.Prompt);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, TestContext.Current.CancellationToken));
+            Assert.Equal("project", document.RootElement.GetProperty("unit").GetProperty("level").GetString());
+            Assert.Equal("qs-v1/dotnet/project/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", document.RootElement.GetProperty("unit").GetProperty("id").GetString());
+            Assert.Equal("Test project", document.RootElement.GetProperty("unit").GetProperty("displayName").GetString());
+            Assert.Equal("aggregate-members", Assert.Single(document.RootElement.GetProperty("subjectInputs").EnumerateArray()).GetProperty("selector").GetString());
+            Assert.Empty(document.RootElement.GetProperty("aggregate").GetProperty("excluded").EnumerateArray());
+            Assert.Single(document.RootElement.GetProperty("aggregate").GetProperty("members").EnumerateArray());
+            Assert.Contains("src/Small.cs", agent.Prompt, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
