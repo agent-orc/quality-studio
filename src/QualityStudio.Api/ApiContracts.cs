@@ -185,3 +185,18 @@ public sealed record HandoverRequest(
     string FindingText,
     string ReviewKind,
     string MetaReference);
+
+/// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
+public sealed record AgentStudioImportResultResponse(
+    string ProjectId,
+    string DisplayName,
+    string? RepositoryPath,
+    string Status,
+    string? RepositoryId,
+    string? Reason);
+
+public sealed record AgentStudioImportResponse(
+    IReadOnlyList<AgentStudioImportResultResponse> Results,
+    int Imported,
+    int Skipped,
+    int Failed);

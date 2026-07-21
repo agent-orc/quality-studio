@@ -53,6 +53,39 @@ public sealed class AgentStudioTaskClientTests
         Assert.Contains("\"project\": \"QS\"", output.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task GetProjects_lists_projects_with_repository_paths()
+    {
+        var handler = new RecordingHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                "[{\"id\":\"PROJ-002\",\"displayName\":\"Agent Studio\",\"shortCode\":\"AS\",\"repositoryPath\":\"C:\\\\Projects\\\\agent-taskboard-dev\",\"archived\":false}]",
+                Encoding.UTF8, "application/json"),
+        });
+        var client = new AgentStudioTaskClient(new HttpClient(handler), Configured());
+
+        var projects = await client.GetProjectsAsync(TestContext.Current.CancellationToken);
+
+        var project = Assert.Single(projects);
+        Assert.Equal("PROJ-002", project.Id);
+        Assert.Equal("Agent Studio", project.DisplayName);
+        Assert.Equal("AS", project.ShortCode);
+        Assert.Equal(@"C:\Projects\agent-taskboard-dev", project.RepositoryPath);
+        Assert.False(project.Archived);
+        Assert.Equal(new Uri("http://agent-studio.test/api/projects"), handler.Request!.RequestUri);
+        Assert.Equal(HttpMethod.Get, handler.Request.Method);
+    }
+
+    [Fact]
+    public async Task GetProjects_requires_a_configured_base_url()
+    {
+        var client = new AgentStudioTaskClient(
+            new HttpClient(new RecordingHandler(new HttpResponseMessage(HttpStatusCode.OK))),
+            new AgentStudioTaskOptions());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetProjectsAsync(TestContext.Current.CancellationToken));
+    }
+
     private static AgentStudioTaskOptions Configured(bool? dryRun = null) => new()
     {
         BaseUrl = "http://agent-studio.test",

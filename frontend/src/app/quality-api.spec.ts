@@ -147,4 +147,26 @@ describe('QualityApi', () => {
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
   });
+
+  it('imports repositories from Agent Studio and refreshes the registry', async () => {
+    const importing = api.importFromAgentStudio();
+    http.expectOne('/api/repos/import-from-agent-studio').flush({
+      results: [
+        { projectId: 'PROJ-002', displayName: 'Agent Studio', repositoryPath: 'C:\\Projects\\agent-taskboard-dev', status: 'imported', repositoryId: 'agent-studio', reason: null },
+        { projectId: 'PROJ-016', displayName: 'Quality Studio', repositoryPath: 'C:\\Projects\\quality-studio', status: 'skipped', repositoryId: null, reason: 'Already registered.' },
+      ],
+      imported: 1,
+      skipped: 1,
+      failed: 0,
+    });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos').flush({ repositories: [], defaultRepositoryId: 'default' });
+
+    const result = await importing;
+
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.results[0].status).toBe('imported');
+    expect(result.results[1].reason).toBe('Already registered.');
+  });
 });

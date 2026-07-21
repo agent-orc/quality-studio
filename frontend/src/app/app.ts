@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, v
 import { FormsModule } from '@angular/forms';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
-import { QualityApi, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
+import { AgentStudioImportResponse, QualityApi, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
 import { flattenTree } from './tree-utils';
 
@@ -51,6 +51,10 @@ export class App {
   readonly editingRepositoryId = signal<string | null>(null);
   readonly repositoryError = signal('');
   readonly repositorySaving = signal(false);
+  readonly agentStudioImportDialogOpen = signal(false);
+  readonly agentStudioImporting = signal(false);
+  readonly agentStudioImportResult = signal<AgentStudioImportResponse | null>(null);
+  readonly agentStudioImportError = signal('');
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
   readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(n => n.path === this.selected()));
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
@@ -160,6 +164,30 @@ export class App {
     const repository = this.api.selectedRepository() ?? this.api.repositories()[0];
     if (repository) this.editRepository(repository);
     this.repositoryDialogOpen.set(true);
+  }
+
+  openAgentStudioImport(): void {
+    this.repositoryMenuOpen.set(false);
+    this.agentStudioImportDialogOpen.set(true);
+    void this.runAgentStudioImport();
+  }
+
+  closeAgentStudioImportDialog(): void {
+    this.agentStudioImportDialogOpen.set(false);
+  }
+
+  async runAgentStudioImport(): Promise<void> {
+    this.agentStudioImporting.set(true);
+    this.agentStudioImportError.set('');
+    this.agentStudioImportResult.set(null);
+    try {
+      const result = await this.api.importFromAgentStudio();
+      this.agentStudioImportResult.set(result);
+    } catch (error) {
+      this.agentStudioImportError.set(this.api.errorMessage(error));
+    } finally {
+      this.agentStudioImporting.set(false);
+    }
   }
 
   editRepository(repository: RepositoryRegistration): void {

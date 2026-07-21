@@ -41,6 +41,14 @@ public sealed record AgentStudioTaskCard(
 
 public sealed record AgentStudioTaskResult(bool DryRun, string? TaskId, AgentStudioTaskCard Card);
 
+/// <summary>The subset of Agent Studio's project registry used to discover local repositories.</summary>
+public sealed record AgentStudioProject(
+    string Id,
+    string DisplayName,
+    string? ShortCode,
+    string? RepositoryPath,
+    bool Archived);
+
 /// <summary>Creates normal Agent Studio tasks from selected Quality Studio findings.</summary>
 public sealed class AgentStudioTaskClient
 {
@@ -101,6 +109,22 @@ public sealed class AgentStudioTaskClient
         }
 
         return new AgentStudioTaskResult(false, created.Id, card);
+    }
+
+    /// <summary>Lists Agent Studio's known projects, used to discover local repositories to onboard.</summary>
+    public async Task<IReadOnlyList<AgentStudioProject>> GetProjectsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _))
+        {
+            throw new InvalidOperationException("Agent Studio target requires an absolute BaseUrl.");
+        }
+
+        var endpoint = new Uri(new Uri(options.BaseUrl!.TrimEnd('/') + "/", UriKind.Absolute), "api/projects");
+        using var response = await httpClient.GetAsync(endpoint, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        var projects = await response.Content.ReadFromJsonAsync<List<AgentStudioProject>>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+        return projects ?? [];
     }
 
     public static AgentStudioTaskCard BuildCard(FindingTaskTemplate finding, string project)

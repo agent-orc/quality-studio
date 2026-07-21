@@ -74,6 +74,16 @@ export interface RepositoryRegistrationRequest {
   inputBudgetCharacters: number;
   enabledReviewKinds: ReviewKind[];
 }
+export type AgentStudioImportStatus = 'imported' | 'skipped' | 'failed';
+export interface AgentStudioImportResult {
+  projectId: string;
+  displayName: string;
+  repositoryPath: string | null;
+  status: AgentStudioImportStatus;
+  repositoryId: string | null;
+  reason: string | null;
+}
+export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
 export type ReviewRunState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 export interface ReviewFileProgress { path: string; state: ReviewRunState; startedAt: string | null; finishedAt: string | null; error: string | null; }
 export interface ReviewRun {
@@ -234,6 +244,13 @@ export class QualityApi {
   async archiveRepository(id: string): Promise<void> {
     await firstValueFrom(this.http.delete(`/api/repos/${encodeURIComponent(id)}`));
     await this.loadRepositories(id === this.selectedRepositoryId() ? null : this.selectedRepositoryId());
+  }
+
+  async importFromAgentStudio(): Promise<AgentStudioImportResponse> {
+    const result = await firstValueFrom(this.http.post<AgentStudioImportResponse>('/api/repos/import-from-agent-studio', {}));
+    console.info(JSON.stringify({ event: 'qs.repositories.agent-studio-import', imported: result.imported, skipped: result.skipped, failed: result.failed }));
+    await this.loadRepositories(this.selectedRepositoryId());
+    return result;
   }
 
   async loadTree(): Promise<void> {

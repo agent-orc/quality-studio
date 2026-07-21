@@ -19,6 +19,7 @@
           <div class="menu-actions">
             <button type="button" (click)="onboardRepository()">+ Onboard repository</button>
             <button type="button" (click)="manageRepositories()">Configure repositories</button>
+            <button class="menu-actions-wide" type="button" (click)="openAgentStudioImport()">Import from Agent Studio</button>
           </div>
         </div>
       }
@@ -109,6 +110,50 @@
             </button>
           </footer>
         </form>
+      </div>
+    </section>
+  </div>
+}
+
+@if (agentStudioImportDialogOpen()) {
+  <div class="dialog-backdrop" (click)="closeAgentStudioImportDialog()">
+    <section class="repository-dialog agent-studio-dialog" role="dialog" aria-modal="true" aria-labelledby="agent-studio-import-title" (click)="$event.stopPropagation()">
+      <header>
+        <div>
+          <span class="eyebrow">Agent Studio</span>
+          <h2 id="agent-studio-import-title">Import repositories</h2>
+        </div>
+        <button class="icon-button" type="button" aria-label="Close import dialog" (click)="closeAgentStudioImportDialog()">×</button>
+      </header>
+      <div class="dialog-body agent-studio-body">
+        @if (agentStudioImporting()) {
+          <p class="import-status">Fetching projects from Agent Studio…</p>
+        } @else if (agentStudioImportError()) {
+          <div class="form-error" role="alert">{{ agentStudioImportError() }}</div>
+        } @else if (agentStudioImportResult(); as result) {
+          <p class="import-summary">{{ result.imported }} imported · {{ result.skipped }} already present · {{ result.failed }} failed</p>
+          <ul class="import-results">
+            @for (item of result.results; track item.projectId) {
+              <li>
+                <span class="status" [class.fresh]="item.status === 'imported'" [class.stale]="item.status === 'skipped'" [class.missing]="item.status === 'failed'"></span>
+                <span class="import-name">
+                  <strong>{{ item.displayName }}</strong>
+                  <small>{{ item.repositoryPath }}</small>
+                </span>
+                <span class="import-reason">{{ item.reason ?? (item.status === 'imported' ? 'Onboarded' : 'Already registered') }}</span>
+              </li>
+            } @empty {
+              <li class="import-empty">No Agent Studio projects with a local repository path were found.</li>
+            }
+          </ul>
+        }
+        <footer>
+          <span class="footer-spacer"></span>
+          @if (agentStudioImportError()) {
+            <button class="secondary-button" type="button" (click)="runAgentStudioImport()">Retry</button>
+          }
+          <button class="primary-button" type="button" (click)="closeAgentStudioImportDialog()">Done</button>
+        </footer>
       </div>
     </section>
   </div>

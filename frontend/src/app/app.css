@@ -10,7 +10,7 @@
 .menu-heading{padding:7px 9px;color:var(--studio-fg-dim);font-size:9px;text-transform:uppercase}
 .repository-menu>button{display:flex;align-items:center;gap:9px;width:100%;padding:8px;border:0;border-radius:5px;background:transparent;color:inherit;cursor:pointer;text-align:left}.repository-menu>button:hover{background:var(--studio-bg-elevated)}
 .repository-menu>button span:nth-child(2){display:flex;min-width:0;flex-direction:column;gap:2px}.repository-menu strong{font-size:11px}.repository-menu small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--studio-fg-dim);font:9px var(--font-mono)}
-.menu-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px;padding-top:6px;border-top:1px solid var(--studio-border-soft)}.menu-actions button{padding:7px;border:0;border-radius:4px;background:var(--studio-bg-elevated);color:inherit;font-size:10px;cursor:pointer}
+.menu-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px;padding-top:6px;border-top:1px solid var(--studio-border-soft)}.menu-actions button{padding:7px;border:0;border-radius:4px;background:var(--studio-bg-elevated);color:inherit;font-size:10px;cursor:pointer}.menu-actions-wide{grid-column:1/-1}
 .health{margin-left:auto;margin-right:14px;display:flex;align-items:center;gap:7px;font-size:11px;color:var(--studio-fg-muted)}
 .embedded-badge{padding:3px 6px;border:1px solid var(--studio-border);border-radius:999px;background:var(--studio-bg-surface);font-size:9px;text-transform:uppercase}
 .workspace{height:calc(100% - 48px);display:grid;grid-template-columns:280px 6px minmax(400px,1fr) 6px 320px;grid-template-rows:minmax(0,1fr);border:1px solid var(--studio-border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow)}
@@ -27,4 +27,17 @@
 .repository-form fieldset{display:flex;gap:16px;margin:0;padding:11px;border:1px solid var(--studio-border);border-radius:6px}.repository-form legend{padding:0 5px;font-size:11px}.kind-option{display:flex;align-items:center;gap:6px;font-size:11px;text-transform:capitalize;cursor:pointer}.kind-option input{margin:0}
 .form-error{padding:9px;border:1px solid color-mix(in srgb,#e05252 55%,var(--studio-border));border-radius:5px;background:color-mix(in srgb,#e05252 12%,transparent);color:#e87878;font-size:11px}
 .repository-form footer{display:flex;align-items:center;gap:8px;padding-top:5px}.footer-spacer{flex:1}.primary-button,.secondary-button,.danger-button{height:32px;padding:0 12px;border:1px solid var(--studio-border);border-radius:5px;cursor:pointer}.primary-button{border-color:var(--studio-accent);background:var(--studio-accent);color:var(--studio-bg-surface)}.primary-button:disabled{opacity:.5;cursor:default}.secondary-button{background:var(--studio-bg-elevated)}.danger-button{border-color:color-mix(in srgb,#e05252 55%,var(--studio-border));background:transparent;color:#e87878}
+.agent-studio-dialog{width:min(560px,calc(100vw - 60px))}
+.agent-studio-body{display:flex;flex-direction:column;gap:12px;padding:18px;min-height:220px;max-height:calc(100vh - 130px);overflow:auto}
+.import-status{color:var(--studio-fg-muted);font-size:11px}
+.import-summary{margin:0;color:var(--studio-fg-muted);font-size:11px}
+.import-results{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;overflow:auto}
+.import-results li{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:5px}
+.import-results li:not(.import-empty):hover{background:var(--studio-bg-elevated)}
+.import-name{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}
+.import-name strong{font-size:11px}
+.import-name small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--studio-fg-dim);font:9px var(--font-mono)}
+.import-reason{flex:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--studio-fg-dim);font-size:10px}
+.import-empty{color:var(--studio-fg-dim);font-size:11px}
+.agent-studio-body footer{display:flex;align-items:center;gap:8px;padding-top:5px;border-top:1px solid var(--studio-border-soft)}
 @media(max-width:1050px){.shell{padding:0}.topbar{height:42px}.workspace{height:calc(100% - 42px);border-radius:0}}

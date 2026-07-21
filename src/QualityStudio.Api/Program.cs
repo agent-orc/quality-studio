@@ -70,6 +70,8 @@ app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, Reposito
     return Results.Created($"/api/repos/{created.Id}", created);
 });
 
+app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
+
 app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
     RepositoryRegistry registry, CancellationToken cancellationToken) =>
     Results.Ok(await registry.UpdateAsync(repoId, request, cancellationToken)));
@@ -275,6 +277,83 @@ static async Task<IResult> Handover(
         "Handed over finding for {FilePath} and {ReviewKind} in repository {RepositoryId}; DryRun={DryRun}, TaskId={TaskId}, ElapsedMilliseconds={ElapsedMilliseconds}",
         filePath, request.ReviewKind, registration.Id, result.DryRun, result.TaskId, stopwatch.ElapsedMilliseconds);
     return Results.Ok(result);
+}
+
+static async Task<IResult> ImportFromAgentStudio(
+    RepositoryRegistry registry,
+    AgentStudioTaskClient client,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    // Fetch the full project list before touching the registry: if Agent Studio is offline or
+    // unconfigured, this throws and the exception middleware returns a clear error with zero writes.
+    var projects = await client.GetProjectsAsync(cancellationToken);
+    var knownPaths = registry.List(includeArchived: true)
+        .Select(repository => repository.RootPath)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var results = new List<AgentStudioImportResultResponse>();
+    foreach (var project in projects)
+    {
+        if (project.Archived || string.IsNullOrWhiteSpace(project.RepositoryPath))
+        {
+            continue;
+        }
+
+        string normalizedPath;
+        try
+        {
+            normalizedPath = Path.GetFullPath(project.RepositoryPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            results.Add(new AgentStudioImportResultResponse(
+                project.Id, project.DisplayName, project.RepositoryPath, "failed", null, "Repository path is not a valid local path."));
+            continue;
+        }
+
+        if (!Directory.Exists(normalizedPath))
+        {
+            results.Add(new AgentStudioImportResultResponse(
+                project.Id, project.DisplayName, normalizedPath, "failed", null, "Repository path does not exist."));
+            continue;
+        }
+
+        if (knownPaths.Contains(normalizedPath))
+        {
+            results.Add(new AgentStudioImportResultResponse(
+                project.Id, project.DisplayName, normalizedPath, "skipped", null, "Already registered."));
+            continue;
+        }
+
+        try
+        {
+            var created = await registry.CreateAsync(new RepositoryRegistrationRequest(
+                string.IsNullOrWhiteSpace(project.ShortCode) ? null : project.ShortCode,
+                project.DisplayName,
+                normalizedPath,
+                null,
+                null,
+                null), cancellationToken);
+            knownPaths.Add(created.RootPath);
+            results.Add(new AgentStudioImportResultResponse(
+                project.Id, project.DisplayName, created.RootPath, "imported", created.Id, null));
+        }
+        catch (RepositoryRegistryValidationException exception)
+        {
+            results.Add(new AgentStudioImportResultResponse(
+                project.Id, project.DisplayName, normalizedPath, "failed", null, exception.Message));
+        }
+    }
+
+    var imported = results.Count(result => result.Status == "imported");
+    var skipped = results.Count(result => result.Status == "skipped");
+    var failed = results.Count(result => result.Status == "failed");
+    logger.LogInformation(new EventId(1404, "RepositoriesImportedFromAgentStudio"),
+        "Imported {ImportedCount} repositories from Agent Studio ({SkippedCount} skipped, {FailedCount} failed, {ProjectCount} projects seen) in {ElapsedMilliseconds} ms",
+        imported, skipped, failed, projects.Count, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(new AgentStudioImportResponse(results, imported, skipped, failed));
 }
 
 static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRepository(
