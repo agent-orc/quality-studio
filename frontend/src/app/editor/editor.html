@@ -128,6 +128,8 @@
           <span>{{ lineEndingLabel() }}</span>
           @if (activeMeta(); as meta) {
             <span class="statusbar-review"><i class="status" [class]="'status ' + activeState()"></i>{{ activeKind() }} {{ meta.grade.band }} &middot; {{ reviewed(meta.reviewedAt) }}</span>
+          } @else {
+            <span class="statusbar-review"><i class="status" [class]="'status ' + activeState()"></i>{{ activeKind() }} no review</span>
           }
         </div>
       } @else {

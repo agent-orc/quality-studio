@@ -30,6 +30,7 @@ const LANGUAGE_BY_EXTENSION: Record<string, string> = {
 export function languageForPath(path: string | undefined | null): string {
   const fileName = (path ?? '').split('/').at(-1) ?? '';
   const dotIndex = fileName.lastIndexOf('.');
-  const extension = dotIndex > 0 ? fileName.slice(dotIndex + 1).toLowerCase() : fileName.toLowerCase();
+  const hasExtension = dotIndex > 0 || (dotIndex === 0 && fileName.length > 1 && fileName.indexOf('.', 1) === -1);
+  const extension = hasExtension ? fileName.slice(dotIndex + 1).toLowerCase() : fileName.toLowerCase();
   return LANGUAGE_BY_EXTENSION[extension] ?? 'Plain text';
 }

@@ -174,7 +174,7 @@ export class Explorer {
 
   private arrowRight(rows: FlatNode[], node: FlatNode, index: number): void {
     if (node.level === 'file') {
-      this.fileOpen.emit(node.path);
+      this.nodeOpen.emit(node.path);
       return;
     }
     if (!node.children.length) return;
@@ -199,7 +199,7 @@ export class Explorer {
   }
 
   private activateNode(node: FlatNode): void {
-    if (node.level === 'file') this.fileOpen.emit(node.path);
+    if (node.level === 'file') this.nodeOpen.emit(node.path);
     else if (node.children.length) this.toggle(node);
   }
 
