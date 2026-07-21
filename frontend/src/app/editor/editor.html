@@ -93,17 +93,37 @@
       }
     }
 
-    <div class="code-viewport" (scroll)="codeScrollTop.set($any($event.target).scrollTop)">
+    <div class="code-viewport" [scrollTop]="codeScrollTop()" (scroll)="codeScrollTop.set($any($event.target).scrollTop)">
       @if (api.loading()) { <div class="loading">Opening file...</div> }
-      <div class="code-space" [style.height.px]="codeLines().length * lineHeight">
-        @for (line of visibleLines(); track line.number) {
-          <div class="code-line" [class.has-finding]="line.findings.length" [style.top.px]="line.top">
-            <span class="line-number">{{ line.number }}</span>
-            @if (line.findings.length) {
-              <button class="finding-marker" [class]="'finding-marker ' + severity(line.findings)" [title]="findingTitle(line.findings)" [attr.aria-label]="findingTitle(line.findings)" (mouseenter)="findingSelect.emit(line.findings[0])" (focus)="findingSelect.emit(line.findings[0])" (click)="findingSelect.emit(line.findings[0])"></button>
-            }
-            <code>{{ line.text }}</code>
-          </div>
+      <div class="code-space" [style.height.px]="codeSpaceHeight()">
+        @for (row of visibleRows(); track row.key) {
+          @if (row.kind === 'code') {
+            <div class="code-line" [class.has-finding]="row.findings.length" [style.top.px]="row.top">
+              <span class="line-number">{{ row.number }}</span>
+              @if (row.findings.length) {
+                <button class="finding-marker" [class]="'finding-marker ' + severity(row.findings)" [title]="findingTitle(row.findings)" [attr.aria-label]="findingTitle(row.findings)" (mouseenter)="findingSelect.emit(row.findings[0])" (focus)="findingSelect.emit(row.findings[0])" (click)="findingSelect.emit(row.findings[0])"></button>
+              }
+              <button class="comment-add" type="button" title="Add review comment" [attr.aria-label]="'Add comment on line ' + row.number" (click)="composingLine.set(composingLine() === row.number ? null : row.number)">+</button>
+              <code>{{ row.text }}</code>
+            </div>
+          } @else if (row.kind === 'thread') {
+            <article class="inline-thread" [class.expanded]="row.expanded" [class.resolved]="row.thread.status === 'resolved'" [class.healed]="row.thread.anchorState === 'healed'" [style.top.px]="row.top" [style.height.px]="row.height">
+              <button class="thread-summary" type="button" (click)="toggleThread(row.thread)" [attr.aria-expanded]="row.expanded">
+                <span class="thread-icon">{{ row.expanded ? '−' : '+' }}</span><b>{{ row.thread.entries.length }} comment{{ row.thread.entries.length === 1 ? '' : 's' }}</b><span>{{ threadAuthors(row.thread) }} author{{ threadAuthors(row.thread) === 1 ? '' : 's' }}</span>
+                @if (linkedSeverity(row.thread); as severityLabel) { <i class="severity" [class]="'severity ' + severityLabel">{{ severityLabel }}</i> }
+                @if (row.thread.anchorState === 'healed') { <i class="anchor-badge">anchor healed</i> }
+                <time>{{ lastActivity(row.thread) }}</time>
+              </button>
+              @if (row.expanded) {
+                <div class="thread-body">
+                  @for (entry of row.thread.entries; track entry.id) { <div class="thread-entry"><b>{{ threadAuthor(entry) }}</b><time>{{ reviewed(entry.createdAt) }}</time><p>{{ entry.body }}</p></div> }
+                  <div class="thread-reply"><input [value]="drafts()[row.thread.id] ?? ''" (input)="setDraft(row.thread.id, $any($event.target).value)" placeholder="Reply to this thread" (keydown.enter)="reply(row.thread)"><button type="button" (click)="reply(row.thread)">Reply</button><button type="button" class="status-action" (click)="setThreadStatus(row.thread)">{{ row.thread.status === 'open' ? 'Resolve' : 'Reopen' }}</button></div>
+                </div>
+              }
+            </article>
+          } @else {
+            <div class="inline-composer" [style.top.px]="row.top"><textarea [value]="drafts()['line:' + row.line] ?? ''" (input)="setDraft('line:' + row.line, $any($event.target).value)" [placeholder]="'Comment on line ' + row.line"></textarea><div><button type="button" (click)="composingLine.set(null)">Cancel</button><button type="button" (click)="addThread(row.line)">Comment</button></div></div>
+          }
         }
       </div>
     </div>

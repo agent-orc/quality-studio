@@ -50,6 +50,9 @@ public sealed record ReviewMetaDocument
 
     [JsonPropertyOrder(13), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ReviewAggregate? Aggregate { get; init; }
+
+    [JsonPropertyOrder(14)]
+    public IReadOnlyList<ReviewThread> Threads { get; init; } = [];
 }
 
 public sealed record ReviewUnit(
@@ -139,6 +142,37 @@ public sealed record FindingRange(
 public sealed record FindingPosition(
     [property: JsonPropertyOrder(0)] int Line,
     [property: JsonPropertyOrder(1)] int Column);
+
+public sealed record ReviewThread(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] ReviewThreadAnchor Anchor,
+    [property: JsonPropertyOrder(2)] ReviewThreadStatus Status,
+    [property: JsonPropertyOrder(3)] IReadOnlyList<ReviewThreadEntry> Entries,
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewAnchorState? AnchorState = null,
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? HealedAt = null);
+
+public sealed record ReviewThreadAnchor(
+    [property: JsonPropertyOrder(0)] string Path,
+    [property: JsonPropertyOrder(1)] string Fingerprint,
+    [property: JsonPropertyOrder(2)] string ContextHash,
+    [property: JsonPropertyOrder(3)] FindingRange LastKnownRange);
+
+public sealed record ReviewThreadEntry(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] ReviewThreadAuthor Author,
+    [property: JsonPropertyOrder(2)] DateTimeOffset CreatedAt,
+    [property: JsonPropertyOrder(3)] string Body,
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReplyTo = null);
+
+public sealed record ReviewThreadAuthor(
+    [property: JsonPropertyOrder(0)] ReviewAuthorKind Kind,
+    [property: JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Agent = null,
+    [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Model = null,
+    [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Name = null);
+
+public enum ReviewThreadStatus { Open, Resolved }
+public enum ReviewAnchorState { Anchored, Healed, Detached }
+public enum ReviewAuthorKind { Agent, Human }
 
 public sealed record ReviewAggregate(
     [property: JsonPropertyOrder(0)] IReadOnlyList<AggregateMember> Members,

@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
+using System.Security.Cryptography;
 using QualityStudio.Api;
 using CodingAgentRunner.Quota;
 
@@ -110,6 +112,8 @@ app.MapGet("/api/handover", HandoverConfiguration);
 app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration);
 app.MapPost("/api/handover", Handover);
 app.MapPost("/api/repos/{repoId}/handover", Handover);
+app.MapPost("/api/threads", MutateThread);
+app.MapPost("/api/repos/{repoId}/threads", MutateThread);
 
 app.Run();
 
@@ -153,6 +157,89 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
         "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}) in {ElapsedMilliseconds} ms",
         relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative), bytes.LongLength, lineEnding, encoding));
+}
+
+static async Task<IResult> MutateThread(HttpContext context, ThreadMutationRequest request,
+    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    if (string.IsNullOrWhiteSpace(request.Body) && request.Status is null)
+        throw new ArgumentException("A comment body or status change is required.");
+    if (request.Body?.Length > 20000) throw new ArgumentException("A comment body cannot exceed 20,000 characters.");
+    if (request.HumanName?.Length > 200) throw new ArgumentException("A reviewer name cannot exceed 200 characters.");
+    if (request.ReplyTo?.Length > 200) throw new ArgumentException("A reply target cannot exceed 200 characters.");
+    if (request.Status is not null && request.Status is not ("open" or "resolved"))
+        throw new ArgumentException("Thread status must be open or resolved.");
+    var (registration, repository) = ResolveRepository(context, registry);
+    var relative = repository.NormalizeRelativePath(request.Path);
+    var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
+    await writeLock.WaitAsync(cancellationToken);
+    try
+    {
+    var root = JsonNode.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken))!.AsObject();
+    var threads = root["threads"] as JsonArray ?? [];
+    root["threads"] = threads;
+    JsonObject thread;
+    if (string.IsNullOrWhiteSpace(request.ThreadId))
+    {
+        if (request.Line is null or < 1 || string.IsNullOrWhiteSpace(request.Body))
+            throw new ArgumentException("A new thread requires a line and comment body.");
+        var content = await File.ReadAllTextAsync(repository.ResolveFile(relative), cancellationToken);
+        var lineCount = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n').Length;
+        if (request.Line > lineCount) throw new ArgumentException($"Line {request.Line} is outside the file (1-{lineCount}).");
+        var range = new FindingRange(new FindingPosition(request.Line.Value, 1), new FindingPosition(request.Line.Value, 1));
+        var fingerprint = request.FindingFingerprint;
+        if (string.IsNullOrWhiteSpace(fingerprint) || fingerprint.Length != 71 || !fingerprint.StartsWith("sha256:", StringComparison.Ordinal) ||
+            !fingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
+            fingerprint = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{relative}\0{request.Line}\0{request.Body}")));
+        thread = new JsonObject
+        {
+            ["id"] = $"thread-{Guid.NewGuid():N}",
+            ["anchor"] = new JsonObject
+            {
+                ["path"] = relative, ["fingerprint"] = fingerprint,
+                ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
+                ["lastKnownRange"] = new JsonObject
+                {
+                    ["start"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                    ["end"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                },
+            },
+            ["status"] = request.Status ?? "open", ["anchorState"] = "anchored", ["entries"] = new JsonArray(),
+        };
+        threads.Add(thread);
+    }
+    else
+    {
+        thread = threads.OfType<JsonObject>().SingleOrDefault(candidate => candidate["id"]?.GetValue<string>() == request.ThreadId)
+            ?? throw new KeyNotFoundException($"Review thread '{request.ThreadId}' was not found.");
+    }
+    if (!string.IsNullOrWhiteSpace(request.Body))
+    {
+        var entry = new JsonObject
+        {
+            ["id"] = $"entry-{Guid.NewGuid():N}",
+            ["author"] = new JsonObject { ["kind"] = "human", ["name"] = string.IsNullOrWhiteSpace(request.HumanName) ? "Reviewer" : request.HumanName.Trim() },
+            ["createdAt"] = DateTime.UtcNow.ToString("O"), ["body"] = request.Body.Trim(),
+        };
+        if (!string.IsNullOrWhiteSpace(request.ReplyTo)) entry["replyTo"] = request.ReplyTo;
+        thread["entries"]!.AsArray().Add(entry);
+    }
+    if (request.Status is not null) thread["status"] = request.Status;
+    var temporary = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+    await File.WriteAllTextAsync(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine,
+        new UTF8Encoding(false), cancellationToken);
+    File.Move(temporary, metaPath, true);
+    logger.LogInformation(new EventId(1500, "ReviewThreadMutated"),
+        "Mutated review thread {ThreadId} for {FilePath} in repository {RepositoryId}; Status={Status}, HasEntry={HasEntry}, ElapsedMilliseconds={ElapsedMilliseconds}",
+        thread["id"]!.GetValue<string>(), relative, registration.Id, thread["status"]!.GetValue<string>(), !string.IsNullOrWhiteSpace(request.Body), stopwatch.ElapsedMilliseconds);
+    return Results.Ok(thread);
+    }
+    finally
+    {
+        writeLock.Release();
+    }
 }
 
 static (string Encoding, string Content) DecodeFileContent(byte[] bytes)

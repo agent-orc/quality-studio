@@ -75,13 +75,19 @@ public sealed class ReviewRunner
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
+        var unitId = request.UnitId ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
+        var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
+        var openThreads = new JsonArray(threads.OfType<JsonObject>()
+            .Where(thread => thread["status"]?.GetValue<string>() == "open")
+            .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
         var prompt = _promptBuilder.Build(
             relativePath,
             request.Kind,
             globalGuidelines,
             projectGuidelines,
-            fileContent);
-        var unitId = request.UnitId ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+            fileContent,
+            openThreads);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
@@ -119,6 +125,13 @@ public sealed class ReviewRunner
 
             var adapter = GetAdapter(files[0]);
             var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
+            var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
+            await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+            threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
+            ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
+            ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
             var meta = CreateMeta(
                 response,
                 relativePath,
@@ -133,8 +146,8 @@ public sealed class ReviewRunner
                 inputs,
                 request.Level,
                 request.DisplayName,
-                usage);
-            var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
+                usage,
+                threads);
             Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
             var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
             await File.WriteAllTextAsync(
@@ -143,6 +156,11 @@ public sealed class ReviewRunner
                 new UTF8Encoding(false),
                 cancellationToken).ConfigureAwait(false);
             File.Move(temporaryPath, metaPath, true);
+            }
+            finally
+            {
+                writeLock.Release();
+            }
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage);
         }
@@ -184,7 +202,8 @@ public sealed class ReviewRunner
         ResolvedInputs inputs,
         ReviewLevel level,
         string? displayName,
-        ReviewUsageEntry usage)
+        ReviewUsageEntry usage,
+        JsonArray threads)
     {
         var promptHash = "sha256:" + Sha256(prompt);
         var effectiveHash = Sha256($"quality-studio-review-inputs-v1\0{kind}\0{promptHash}");
@@ -259,6 +278,7 @@ public sealed class ReviewRunner
             ["summary"] = response["summary"]!.DeepClone(),
             ["aspects"] = response["aspects"]!.DeepClone(),
             ["findings"] = response["findings"]!.DeepClone(),
+            ["threads"] = threads.DeepClone(),
         };
         if (aggregateMembers is not null)
         {

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
-import { FindingSeverity, QualityApi, ReviewFinding, ReviewKind } from '../quality-api';
+import { FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
 
@@ -9,6 +9,10 @@ const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mix
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
 type FolderSortColumn = 'name' | ReviewKind | 'state' | 'findings' | 'reviewedAt' | 'size' | 'lines';
 type SortDirection = 'asc' | 'desc';
+type CodeLayoutRow =
+  | { key: string; kind: 'code'; top: number; height: number; text: string; number: number; findings: ReviewFinding[] }
+  | { key: string; kind: 'thread'; top: number; height: number; thread: ReviewThread; line: number; expanded: boolean }
+  | { key: string; kind: 'composer'; top: number; height: number; line: number };
 
 @Component({
   selector: 'qs-editor',
@@ -33,6 +37,9 @@ export class Editor {
   readonly codeScrollTop = signal(0);
   readonly folderScrollTop = signal(0);
   readonly folderSort = signal<{ column: FolderSortColumn; direction: SortDirection }>({ column: 'name', direction: 'asc' });
+  readonly expandedThreads = signal<Record<string, boolean>>({});
+  readonly composingLine = signal<number | null>(null);
+  readonly drafts = signal<Record<string, string>>({});
   readonly isContainer = computed(() => !!this.selectedNode() && this.selectedNode()?.level !== 'file');
   readonly codeLines = computed(() => this.api.file()?.content.split(/\r?\n/) ?? []);
   readonly activeMeta = computed(() => this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null);
@@ -47,13 +54,45 @@ export class Editor {
     }
     return map;
   });
-  readonly visibleLines = computed(() => {
-    const start = Math.max(0, Math.floor(this.codeScrollTop() / this.lineHeight) - 10);
-    const count = Math.ceil(this.viewportHeight() / this.lineHeight) + 25;
-    const markers = this.findingsByLine();
-    return this.codeLines().slice(start, start + count).map((text, i) => ({ text, number: start + i + 1, top: (start + i) * this.lineHeight, findings: markers.get(start + i + 1) ?? [] }));
+  readonly threadsByLine = computed(() => {
+    const map = new Map<number, ReviewThread[]>();
+    const path = this.api.file()?.path;
+    for (const thread of this.activeMeta()?.threads ?? []) {
+      if (thread.anchor.path !== path || thread.anchorState === 'detached') continue;
+      const line = thread.anchor.lastKnownRange.end.line;
+      map.set(line, [...(map.get(line) ?? []), thread]);
+    }
+    return map;
   });
-  readonly topVisibleLine = computed(() => Math.floor(this.codeScrollTop() / this.lineHeight) + 1);
+  readonly layoutRows = computed<CodeLayoutRow[]>(() => {
+    const rows: CodeLayoutRow[] = [];
+    const markers = this.findingsByLine();
+    const threads = this.threadsByLine();
+    let top = 0;
+    this.codeLines().forEach((text, index) => {
+      const number = index + 1;
+      rows.push({ key: `line:${number}`, kind: 'code', text, number, top, height: this.lineHeight, findings: markers.get(number) ?? [] });
+      top += this.lineHeight;
+      for (const thread of threads.get(number) ?? []) {
+        const expanded = !!this.expandedThreads()[thread.id];
+        const height = expanded ? 82 + thread.entries.length * 54 : 34;
+        rows.push({ key: `thread:${thread.id}`, kind: 'thread', thread, line: number, top, height, expanded });
+        top += height;
+      }
+      if (this.composingLine() === number) {
+        rows.push({ key: `composer:${number}`, kind: 'composer', line: number, top, height: 86 });
+        top += 86;
+      }
+    });
+    return rows;
+  });
+  readonly codeSpaceHeight = computed(() => { const last = this.layoutRows().at(-1); return last ? last.top + last.height : 0; });
+  readonly visibleRows = computed(() => {
+    const start = Math.max(0, this.codeScrollTop() - 240);
+    const end = this.codeScrollTop() + this.viewportHeight() + 400;
+    return this.layoutRows().filter(row => row.top + row.height >= start && row.top <= end);
+  });
+  readonly topVisibleLine = computed(() => this.visibleRows().find(row => row.kind === 'code')?.number ?? 1);
   readonly pathParts = computed(() => {
     const path = this.api.file()?.path ?? '';
     const slash = path.lastIndexOf('/');
@@ -86,6 +125,15 @@ export class Editor {
 
   constructor() {
     effect(() => { this.selectedPath(); this.codeScrollTop.set(0); this.folderScrollTop.set(0); });
+    effect(() => {
+      const id = this.api.focusedThreadId();
+      if (!id) return;
+      this.expandedThreads.update(value => ({ ...value, [id]: true }));
+      queueMicrotask(() => {
+        const row = this.layoutRows().find(candidate => candidate.kind === 'thread' && candidate.thread.id === id);
+        if (row) this.codeScrollTop.set(Math.max(0, row.top - 80));
+      });
+    });
   }
 
   selectKind(kind: ReviewKind): void { this.kindSelect.emit(kind); }
@@ -93,6 +141,39 @@ export class Editor {
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
 
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
+
+  toggleThread(thread: ReviewThread): void {
+    this.expandedThreads.update(value => ({ ...value, [thread.id]: !value[thread.id] }));
+    this.api.focusedThreadId.set(thread.id);
+  }
+
+  threadAuthor(entry: ReviewThread['entries'][number]): string { return entry.author.name ?? entry.author.agent ?? 'Reviewer'; }
+  threadAuthors(thread: ReviewThread): number { return new Set(thread.entries.map(entry => this.threadAuthor(entry))).size; }
+  linkedSeverity(thread: ReviewThread): FindingSeverity | null { return this.activeMeta()?.findings.find(finding => finding.fingerprint === thread.anchor.fingerprint)?.severity ?? null; }
+  lastActivity(thread: ReviewThread): string { return this.reviewed(thread.entries.at(-1)?.createdAt ?? this.activeMeta()!.reviewedAt); }
+  setDraft(key: string, value: string): void { this.drafts.update(drafts => ({ ...drafts, [key]: value })); }
+
+  async addThread(line: number): Promise<void> {
+    const body = this.drafts()[`line:${line}`]?.trim();
+    const file = this.api.file();
+    if (!body || !file) return;
+    const finding = this.findingsByLine().get(line)?.[0];
+    const created = await this.api.mutateThread({ path: file.path, kind: this.activeKind(), line, body, findingFingerprint: finding?.fingerprint, humanName: 'Reviewer' });
+    this.composingLine.set(null); this.setDraft(`line:${line}`, ''); this.api.focusedThreadId.set(created.id);
+  }
+
+  async reply(thread: ReviewThread): Promise<void> {
+    const body = this.drafts()[thread.id]?.trim();
+    const file = this.api.file();
+    if (!body || !file) return;
+    await this.api.mutateThread({ path: file.path, kind: this.activeKind(), threadId: thread.id, body, replyTo: thread.entries.at(-1)?.id, humanName: 'Reviewer' });
+    this.setDraft(thread.id, '');
+  }
+
+  async setThreadStatus(thread: ReviewThread): Promise<void> {
+    const file = this.api.file(); if (!file) return;
+    await this.api.mutateThread({ path: file.path, kind: this.activeKind(), threadId: thread.id, status: thread.status === 'open' ? 'resolved' : 'open' });
+  }
 
   reviewed(value: string): string { return formatDateTime(value); }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 using Xunit;
 
@@ -286,6 +287,87 @@ public sealed class ReviewRunnerTests
             Assert.Equal("run-test", Assert.Single((await UsageLedger.QueryAsync(root,
                 cancellationToken: TestContext.Current.CancellationToken)).Recent).RunId);
         });
+    }
+
+    [Fact]
+    public async Task ReviewAsync_AppendsAgentReplyAndPreservesThreadHistory()
+    {
+        await WithReviewFileAsync(async (root, file) =>
+        {
+            var initial = await new ReviewRunner(new FakeAgent()).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), TestContext.Current.CancellationToken);
+            var content = await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken);
+            var range = new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 1));
+            var meta = JsonNode.Parse(await File.ReadAllTextAsync(initial.MetaPath, TestContext.Current.CancellationToken))!.AsObject();
+            meta["threads"] = new JsonArray(new JsonObject
+            {
+                ["id"] = "thread-1",
+                ["anchor"] = new JsonObject
+                {
+                    ["path"] = "src/Small.cs", ["fingerprint"] = "sha256:" + new string('a', 64),
+                    ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
+                    ["lastKnownRange"] = new JsonObject { ["start"] = new JsonObject { ["line"] = 1, ["column"] = 1 }, ["end"] = new JsonObject { ["line"] = 1, ["column"] = 1 } },
+                },
+                ["status"] = "open", ["entries"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = "entry-human", ["author"] = new JsonObject { ["kind"] = "human", ["name"] = "Ada" },
+                    ["createdAt"] = "2026-07-21T10:00:00.000Z", ["body"] = "Is this intentional?",
+                }),
+            });
+            await File.WriteAllTextAsync(initial.MetaPath, meta.ToJsonString(), TestContext.Current.CancellationToken);
+            var response = ReviewResponseParserTests.ValidResponse.TrimEnd().TrimEnd('}') +
+                ",\n\"threadUpdates\":[{\"threadId\":\"thread-1\",\"body\":\"Yes; the type is deliberately internal.\",\"replyTo\":\"entry-human\",\"status\":\"resolved\"}]}";
+            var agent = new FakeAgent(response);
+
+            await new ReviewRunner(agent).ReviewAsync(new ReviewRequest("src/Small.cs", RepositoryRoot: root), TestContext.Current.CancellationToken);
+
+            Assert.Contains("Is this intentional?", agent.Prompt, StringComparison.Ordinal);
+            using var stored = JsonDocument.Parse(await File.ReadAllTextAsync(initial.MetaPath, TestContext.Current.CancellationToken));
+            var thread = Assert.Single(stored.RootElement.GetProperty("threads").EnumerateArray());
+            Assert.Equal("resolved", thread.GetProperty("status").GetString());
+            var entries = thread.GetProperty("entries").EnumerateArray().ToArray();
+            Assert.Equal(2, entries.Length);
+            Assert.Equal("Ada", entries[0].GetProperty("author").GetProperty("name").GetString());
+            Assert.Equal("test-agent", entries[1].GetProperty("author").GetProperty("agent").GetString());
+            Assert.Equal("deterministic", entries[1].GetProperty("author").GetProperty("model").GetString());
+        });
+    }
+
+    [Fact]
+    public void LoadAndHeal_MovesToNearestMatchingContextAndDetachesMissingContext()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-thread-heal-");
+        try
+        {
+            var range = new FindingRange(new FindingPosition(2, 1), new FindingPosition(2, 1));
+            var contextHash = ReviewThreadManager.ComputeContextHash("before\ntarget\nafter", range);
+            var metaPath = Path.Combine(root.FullName, "meta.json");
+            static JsonObject Thread(string id, string fingerprint, string hash, int line) => new()
+            {
+                ["id"] = id,
+                ["anchor"] = new JsonObject
+                {
+                    ["path"] = "a.cs", ["fingerprint"] = fingerprint, ["contextHash"] = hash,
+                    ["lastKnownRange"] = new JsonObject
+                    {
+                        ["start"] = new JsonObject { ["line"] = line, ["column"] = 1 },
+                        ["end"] = new JsonObject { ["line"] = line, ["column"] = 1 },
+                    },
+                },
+                ["status"] = "open", ["entries"] = new JsonArray(),
+            };
+            var stored = new JsonObject { ["threads"] = new JsonArray(
+                Thread("moving", "sha256:" + new string('a', 64), contextHash, 2),
+                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1)) };
+            File.WriteAllText(metaPath, stored.ToJsonString());
+
+            var threads = ReviewThreadManager.LoadAndHeal(metaPath, "a.cs", "added\nbefore\ntarget\nafter");
+
+            Assert.Equal("healed", threads[0]!["anchorState"]!.GetValue<string>());
+            Assert.Equal(3, threads[0]!["anchor"]!["lastKnownRange"]!["start"]!["line"]!.GetValue<int>());
+            Assert.Equal("detached", threads[1]!["anchorState"]!.GetValue<string>());
+        }
+        finally { root.Delete(true); }
     }
 
     [Fact]

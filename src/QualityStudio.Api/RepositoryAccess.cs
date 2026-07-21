@@ -82,6 +82,19 @@ public sealed class RepositoryAccess
         return result;
     }
 
+    public string FindMetaDocument(string relativePath, string kind)
+    {
+        var normalized = NormalizeRelativePath(relativePath);
+        foreach (var candidate in Directory.EnumerateFiles(root, $"*.review-meta.{kind}.json", ConfinedEnumeration))
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(candidate));
+            if (document.RootElement.TryGetProperty("unit", out var unit) &&
+                unit.TryGetProperty("path", out var unitPath) &&
+                string.Equals(NormalizeStoredPath(unitPath.GetString()), normalized, StringComparison.Ordinal)) return candidate;
+        }
+        throw new FileNotFoundException($"No {kind} review metadata exists for '{normalized}'.", normalized);
+    }
+
     private static string? NormalizeStoredPath(string? path) => path?.Replace('\\', '/').TrimStart('/');
 
     private void RejectReparseTraversal(string absolute)

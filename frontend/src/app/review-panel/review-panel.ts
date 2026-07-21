@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { HandoverRequest, QualityApi, ReviewFinding, ReviewKind } from '../quality-api';
+import { HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewThread } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
 
@@ -21,6 +21,7 @@ export class ReviewPanel {
   readonly kindSelect = output<ReviewKind>();
 
   readonly handoverStatus = signal<Record<string, string>>({});
+  readonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
@@ -28,6 +29,15 @@ export class ReviewPanel {
   readonly securityNodeState = computed(() => this.selectedNode()?.kinds['security']?.direct ?? 'missing');
   readonly activeInputs = computed(() => this.api.inputs()[this.activeKind()] ?? null);
   readonly metaPath = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.metaPath ?? null);
+  readonly filteredThreads = computed(() => (this.activeMeta()?.threads ?? []).filter(thread =>
+    this.threadFilter() === 'detached' ? thread.anchorState === 'detached' : thread.status === this.threadFilter() && thread.anchorState !== 'detached'));
+
+  focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }
+
+  threadAuthor(thread: ReviewThread): string {
+    const author = thread.entries.at(-1)?.author;
+    return author?.name ?? author?.agent ?? 'Reviewer';
+  }
 
   async createTask(finding: ReviewFinding): Promise<void> {
     const key = `${this.activeKind()}:${finding.id}`;

@@ -26,6 +26,7 @@ public sealed class ReviewMetaContractTests
         Assert.Single(loaded.Findings);
         Assert.Equal(original.Findings[0].Id, loaded.Findings[0].Id);
         Assert.Equal(original.Findings[0].Locations[0], loaded.Findings[0].Locations[0]);
+        Assert.Equal("thread-1", Assert.Single(loaded.Threads).Id);
         Assert.Equal(json, ReviewMetaJson.Serialize(loaded));
         Assert.True(json.IndexOf("\"$schema\"", StringComparison.Ordinal) <
                     json.IndexOf("\"schemaVersion\"", StringComparison.Ordinal));
@@ -173,6 +174,14 @@ public sealed class ReviewMetaContractTests
             "Use a domain name in production code.",
             [new FindingLocation("src/a.ts", new FindingRange(
                 new FindingPosition(1, 7), new FindingPosition(1, 8)))])],
+        Threads = [new ReviewThread(
+            "thread-1",
+            new ReviewThreadAnchor("src/a.ts", "sha256:" + new string('c', 64), "sha256:" + new string('d', 64),
+                new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 8))),
+            ReviewThreadStatus.Open,
+            [new ReviewThreadEntry("entry-1", new ReviewThreadAuthor(ReviewAuthorKind.Human, Name: "Ada"),
+                new DateTimeOffset(2026, 7, 11, 15, 0, 0, TimeSpan.Zero), "Could this be clearer?")],
+            ReviewAnchorState.Anchored)],
     };
 
     private static string FindRepositoryRoot()

@@ -89,6 +89,23 @@ public sealed partial class ReviewResponseParser
             }
         }
 
+        if (root["threadUpdates"] is JsonArray updates)
+        {
+            var threadIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var updateNode in updates)
+            {
+                var update = updateNode?.AsObject() ?? throw Invalid("threadUpdate");
+                var threadId = RequireString(update, "threadId");
+                var body = RequireString(update, "body");
+                if (body.Length > 20000) throw Invalid("body");
+                if (update.ContainsKey("replyTo")) RequireString(update, "replyTo");
+                if (!threadIds.Add(threadId)) throw new ReviewResponseException($"Duplicate thread update '{threadId}'.");
+                if (update["status"] is JsonValue statusNode &&
+                    (!statusNode.TryGetValue<string>(out var status) || status is not ("open" or "resolved")))
+                    throw Invalid("status");
+            }
+        }
+
         return root;
     }
 

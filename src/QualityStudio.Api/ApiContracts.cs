@@ -186,6 +186,17 @@ public sealed record HandoverRequest(
     string ReviewKind,
     string MetaReference);
 
+public sealed record ThreadMutationRequest(
+    string Path,
+    string Kind,
+    string? ThreadId,
+    string? Body,
+    string? ReplyTo,
+    string? Status,
+    string? HumanName,
+    int? Line,
+    string? FindingFingerprint);
+
 /// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
 public sealed record AgentStudioImportResultResponse(
     string ProjectId,
