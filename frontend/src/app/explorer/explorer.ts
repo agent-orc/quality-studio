@@ -31,7 +31,6 @@ export class Explorer {
   });
 
   constructor() {
-    this.api.loadTree();
     // One-shot: once the tree is available, expand down to the deep-linked path.
     const reveal = effect(() => {
       if (!this.api.tree().length) return;

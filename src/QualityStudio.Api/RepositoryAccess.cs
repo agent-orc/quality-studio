@@ -1,22 +1,23 @@
 using System.Text.Json;
-using AgentOrchestrator.CodeQuality;
-using Microsoft.Extensions.Options;
 
 namespace QualityStudio.Api;
 
+/// <summary>Confines repository operations to one immutable registry entry.</summary>
 public sealed class RepositoryAccess
 {
+    private static readonly EnumerationOptions ConfinedEnumeration = new()
+    {
+        RecurseSubdirectories = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
+    };
     private readonly string root;
 
-    public RepositoryAccess(IOptions<RepositoryOptions> options, IHostEnvironment environment)
+    public RepositoryAccess(string root)
     {
-        var configured = options.Value.RepositoryRoot;
-        root = Path.GetFullPath(Path.IsPathRooted(configured)
-            ? configured
-            : Path.Combine(environment.ContentRootPath, configured));
-        if (!Directory.Exists(root))
+        this.root = Path.GetFullPath(root);
+        if (!Directory.Exists(this.root))
         {
-            throw new DirectoryNotFoundException($"Configured repository root does not exist: {root}");
+            throw new DirectoryNotFoundException($"Repository root does not exist: {this.root}");
         }
     }
 
@@ -38,8 +39,10 @@ public sealed class RepositoryAccess
         var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
         if (!absolute.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Path escapes the configured repository root.", nameof(path));
+            throw new ArgumentException("Path escapes the selected repository root.", nameof(path));
         }
+
+        RejectReparseTraversal(absolute);
 
         return Path.GetRelativePath(root, absolute).Replace('\\', '/');
     }
@@ -64,7 +67,7 @@ public sealed class RepositoryAccess
     public IReadOnlyList<JsonElement> ReadMetaDocuments(string relativePath)
     {
         var result = new List<JsonElement>();
-        foreach (var candidate in Directory.EnumerateFiles(root, "*.json", SearchOption.AllDirectories)
+        foreach (var candidate in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
                      .Where(candidate => candidate.Contains(".review-meta.", StringComparison.Ordinal)))
         {
             using var document = JsonDocument.Parse(File.ReadAllText(candidate));
@@ -80,4 +83,19 @@ public sealed class RepositoryAccess
     }
 
     private static string? NormalizeStoredPath(string? path) => path?.Replace('\\', '/').TrimStart('/');
+
+    private void RejectReparseTraversal(string absolute)
+    {
+        var relative = Path.GetRelativePath(root, absolute);
+        var current = root;
+        foreach (var segment in relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        {
+            current = Path.Combine(current, segment);
+            if ((Directory.Exists(current) || File.Exists(current)) &&
+                File.GetAttributes(current).HasFlag(FileAttributes.ReparsePoint))
+            {
+                throw new ArgumentException("Repository paths cannot traverse symbolic links or junctions.", nameof(absolute));
+            }
+        }
+    }
 }

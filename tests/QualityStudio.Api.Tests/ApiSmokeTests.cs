@@ -13,6 +13,7 @@ namespace QualityStudio.Api.Tests;
 public sealed class ApiSmokeTests : IAsyncLifetime
 {
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-tests", Guid.NewGuid().ToString("N"));
+    private readonly string hostRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-hosts", Guid.NewGuid().ToString("N"));
     private TestApplication? application;
 
     [Fact]
@@ -110,16 +111,83 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal("QualityStudio.Api", json.GetProperty("service").GetString());
     }
 
+    [Fact]
+    public async Task Registry_onboards_and_scopes_a_second_repository()
+    {
+        var secondRoot = repositoryRoot + "-second";
+        Directory.CreateDirectory(secondRoot);
+        await File.WriteAllTextAsync(Path.Combine(secondRoot, "Second.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(secondRoot, "Second.cs"), "namespace Second; public sealed class Marker;", TestContext.Current.CancellationToken);
+        await RunGitInDirectoryAsync(secondRoot, "init", "--quiet");
+
+        try
+        {
+            using var client = application!.CreateClient();
+            var create = await client.PostAsJsonAsync("/api/repos", new
+            {
+                id = "second",
+                displayName = "Second repository",
+                rootPath = secondRoot,
+                globalInputsDirectory = (string?)null,
+                inputBudgetCharacters = 8000,
+                enabledReviewKinds = new[] { "code", "security" },
+            }, TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+            using var scopedFile = await client.GetAsync("/api/repos/second/file?path=Second.cs", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, scopedFile.StatusCode);
+            var file = await scopedFile.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Contains("namespace Second", file.GetProperty("content").GetString());
+
+            using var traversal = await client.GetAsync($"/api/file?path=../{Path.GetFileName(secondRoot)}/Second.cs", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, traversal.StatusCode);
+
+            var persisted = await File.ReadAllTextAsync(Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken);
+            Assert.Contains("Second repository", persisted);
+        }
+        finally
+        {
+            Directory.Delete(secondRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task Registry_rejects_a_directory_that_is_not_a_git_repository()
+    {
+        var invalidRoot = repositoryRoot + "-not-git";
+        Directory.CreateDirectory(invalidRoot);
+        try
+        {
+            using var client = application!.CreateClient();
+            var response = await client.PostAsJsonAsync("/api/repos", new
+            {
+                displayName = "Invalid repository",
+                rootPath = invalidRoot,
+                inputBudgetCharacters = 12000,
+                enabledReviewKinds = new[] { "code" },
+            }, TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Contains("not a Git repository", problem.GetProperty("detail").GetString());
+        }
+        finally
+        {
+            Directory.Delete(invalidRoot, true);
+        }
+    }
+
     public async ValueTask InitializeAsync()
     {
         Directory.CreateDirectory(repositoryRoot);
+        Directory.CreateDirectory(hostRoot);
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.cs"), "namespace Sample; public static class Greeter { public static string Hello() => \"hello\"; }");
         Directory.CreateDirectory(Path.Combine(repositoryRoot, ".quality", "inputs"));
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, ".quality", "inputs", "sample.md"),
             "---\nid: sample-rules\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nPrefer explicit names.\n");
         await RunGitAsync("init", "--quiet");
-        application = new TestApplication(repositoryRoot);
+        application = new TestApplication(repositoryRoot, hostRoot);
     }
 
     public async ValueTask DisposeAsync()
@@ -132,6 +200,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         try
         {
             Directory.Delete(repositoryRoot, true);
+            Directory.Delete(hostRoot, true);
         }
         catch (IOException)
         {
@@ -140,11 +209,16 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
     private async Task RunGitAsync(params string[] arguments)
     {
+        await RunGitInDirectoryAsync(repositoryRoot, arguments);
+    }
+
+    private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
+    {
         using var process = new System.Diagnostics.Process
         {
             StartInfo = new System.Diagnostics.ProcessStartInfo("git")
             {
-                WorkingDirectory = repositoryRoot,
+                WorkingDirectory = workingDirectory,
                 UseShellExecute = false,
             },
         };
@@ -158,10 +232,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(0, process.ExitCode);
     }
 
-    private sealed class TestApplication(string root) : WebApplicationFactory<Program>
+    private sealed class TestApplication(string root, string contentRoot) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseContentRoot(contentRoot);
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {

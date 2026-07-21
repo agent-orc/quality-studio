@@ -13,6 +13,12 @@ namespace AgentOrchestrator.CodeQuality;
 /// </summary>
 public static partial class RepositoryHierarchyBuilder
 {
+    private static readonly EnumerationOptions ConfinedEnumeration = new()
+    {
+        RecurseSubdirectories = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
+    };
+
     public static IReadOnlyList<HierarchyNode> BuildDotNet(string repositoryPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
@@ -66,7 +72,7 @@ public static partial class RepositoryHierarchyBuilder
             ReviewLevel.Module,
             relativeProject);
         var projectDirectory = Path.GetDirectoryName(projectFile)!;
-        var files = Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.AllDirectories)
+        var files = Directory.EnumerateFiles(projectDirectory, "*.cs", ConfinedEnumeration)
             .Where(path => !IsBuildOutput(projectDirectory, path))
             .Order(StringComparer.Ordinal);
 
@@ -128,7 +134,7 @@ public static partial class RepositoryHierarchyBuilder
     }
 
     private static IEnumerable<string> FindProjectFiles(string root) =>
-        Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+        Directory.EnumerateFiles(root, "*.csproj", ConfinedEnumeration)
             .Where(path => !IsBuildOutput(root, path));
 
     private static bool IsBuildOutput(string basePath, string path)

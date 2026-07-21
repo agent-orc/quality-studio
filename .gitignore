@@ -1,6 +1,7 @@
 bin/
 obj/
 TestResults/
+src/QualityStudio.Api/.quality-studio/
 *.user
 *.suo
 .vs/

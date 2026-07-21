@@ -7,11 +7,17 @@ namespace AgentOrchestrator.CodeQuality;
 /// <summary>Discovers review-meta sidecars and attaches matching documents by unit ID.</summary>
 public static class ReviewMetaDiscovery
 {
+    private static readonly EnumerationOptions ConfinedEnumeration = new()
+    {
+        RecurseSubdirectories = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
+    };
+
     public static void AttachDiscovered(string repositoryPath, IEnumerable<HierarchyNode> projects)
     {
         var root = Path.GetFullPath(repositoryPath);
         var nodes = Flatten(projects).ToDictionary(node => node.Id, StringComparer.Ordinal);
-        foreach (var path in Directory.EnumerateFiles(root, "*.json", SearchOption.AllDirectories)
+        foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
             using var json = JsonDocument.Parse(File.ReadAllText(path));

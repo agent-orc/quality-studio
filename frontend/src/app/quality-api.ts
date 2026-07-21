@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -44,6 +44,23 @@ export interface ResolvedInput { id: string; source: string; scope: 'global' | '
 export interface InputOmission { id: string; source: string; reason: string; omittedCharacters: number; }
 export interface ResolvedInputs { kind: ReviewKind; level: string; budgetCharacters: number; includedCharacters: number; complete: boolean; inputs: ResolvedInput[]; omissions: InputOmission[]; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
+export interface RepositoryRegistration {
+  id: string;
+  displayName: string;
+  rootPath: string;
+  globalInputsDirectory: string | null;
+  inputBudgetCharacters: number;
+  enabledReviewKinds: ReviewKind[];
+  archived: boolean;
+}
+export interface RepositoryRegistrationRequest {
+  id?: string;
+  displayName: string;
+  rootPath: string;
+  globalInputsDirectory: string | null;
+  inputBudgetCharacters: number;
+  enabledReviewKinds: ReviewKind[];
+}
 
 const demoFile = `using System.Diagnostics;
 using AgentOrchestrator.CodeQuality;
@@ -123,6 +140,7 @@ const demoSecurity: SecurityScanResponse = {
 @Injectable({ providedIn: 'root' })
 export class QualityApi {
   private readonly http = inject(HttpClient);
+  private legacyApi = false;
   readonly tree = signal<TreeNode[]>(demoTree);
   readonly file = signal<FileDocument | null>(null);
   readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, missingCount: 3 });
@@ -143,14 +161,62 @@ export class QualityApi {
   readonly handoverConfigured = signal(false);
   readonly handoverDryRun = signal(true);
   readonly inputs = signal<Partial<Record<ReviewKind, ResolvedInputs>>>({});
+  readonly repositories = signal<RepositoryRegistration[]>([]);
+  readonly selectedRepositoryId = signal('default');
+  readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
+
+  async loadRepositories(preferredId?: string | null): Promise<void> {
+    try {
+      const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
+      this.legacyApi = false;
+      this.repositories.set(result.repositories);
+      const selected = result.repositories.some(repository => repository.id === preferredId)
+        ? preferredId!
+        : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
+          ? this.selectedRepositoryId()
+          : result.defaultRepositoryId;
+      this.selectedRepositoryId.set(selected);
+    } catch (error) {
+      // A pre-registry server still exposes the legacy default endpoints.
+      this.legacyApi = true;
+      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false }]);
+      this.selectedRepositoryId.set('default');
+      console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
+    }
+  }
+
+  async selectRepository(id: string): Promise<void> {
+    this.selectedRepositoryId.set(id);
+    this.connectionState.set('connecting');
+    this.file.set(null);
+    await this.loadTree();
+    console.info(JSON.stringify({ event: 'qs.repository.selected', repositoryId: id }));
+  }
+
+  async createRepository(request: RepositoryRegistrationRequest): Promise<RepositoryRegistration> {
+    const created = await firstValueFrom(this.http.post<RepositoryRegistration>('/api/repos', request));
+    await this.loadRepositories(created.id);
+    return created;
+  }
+
+  async updateRepository(id: string, request: RepositoryRegistrationRequest): Promise<RepositoryRegistration> {
+    const updated = await firstValueFrom(this.http.put<RepositoryRegistration>(`/api/repos/${encodeURIComponent(id)}`, request));
+    await this.loadRepositories(id);
+    return updated;
+  }
+
+  async archiveRepository(id: string): Promise<void> {
+    await firstValueFrom(this.http.delete(`/api/repos/${encodeURIComponent(id)}`));
+    await this.loadRepositories(id === this.selectedRepositoryId() ? null : this.selectedRepositoryId());
+  }
 
   async loadTree(): Promise<void> {
     try {
       const [tree, scan, security, inputs] = await Promise.all([
-        firstValueFrom(this.http.get<{ nodes: TreeNode[] }>('/api/tree?path=')),
-        firstValueFrom(this.http.get<ScanReport>('/api/scan')),
-        firstValueFrom(this.http.get<SecurityScanResponse>('/api/security/scan')),
-        firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>('/api/inputs')),
+        firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${this.repositoryApiBase()}/tree?path=`)),
+        firstValueFrom(this.http.get<ScanReport>(`${this.repositoryApiBase()}/scan`)),
+        firstValueFrom(this.http.get<SecurityScanResponse>(`${this.repositoryApiBase()}/security/scan`)),
+        firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${this.repositoryApiBase()}/inputs`)),
       ]);
       this.tree.set(tree.nodes); this.scan.set(scan); this.security.set(security); this.inputs.set(inputs.kinds); this.connectionState.set('live');
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
@@ -165,7 +231,7 @@ export class QualityApi {
   async loadFile(path: string): Promise<void> {
     this.loading.set(true);
     try {
-      const file = await firstValueFrom(this.http.get<FileDocument>('/api/file', { params: { path } }));
+      const file = await firstValueFrom(this.http.get<FileDocument>(`${this.repositoryApiBase()}/file`, { params: { path } }));
       this.file.set(file); this.connectionState.set('live');
     } catch (error) {
       this.file.set({ path, content: demoFile, metaDocuments: demoMeta });
@@ -175,17 +241,28 @@ export class QualityApi {
   }
 
   async createTask(request: HandoverRequest): Promise<HandoverResult> {
-    return firstValueFrom(this.http.post<HandoverResult>('/api/handover', request));
+    return firstValueFrom(this.http.post<HandoverResult>(`${this.repositoryApiBase()}/handover`, request));
   }
 
   private async loadHandoverConfiguration(): Promise<void> {
     try {
-      const configuration = await firstValueFrom(this.http.get<{ targetConfigured: boolean; dryRun: boolean }>('/api/handover'));
+      const configuration = await firstValueFrom(this.http.get<{ targetConfigured: boolean; dryRun: boolean }>(`${this.repositoryApiBase()}/handover`));
       this.handoverConfigured.set(configuration.targetConfigured);
       this.handoverDryRun.set(configuration.dryRun);
     } catch {
       this.handoverConfigured.set(false);
     }
+  }
+
+  errorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      return error.error?.detail || error.error?.title || error.message;
+    }
+    return error instanceof Error ? error.message : 'The repository request failed.';
+  }
+
+  private repositoryApiBase(): string {
+    return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(this.selectedRepositoryId())}`;
   }
 }
 

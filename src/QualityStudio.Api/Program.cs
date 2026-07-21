@@ -14,7 +14,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
-builder.Services.AddSingleton<RepositoryAccess>();
+builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<InputResolver>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
@@ -37,6 +37,8 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var (status, title) = exception switch
     {
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
+        RepositoryRegistryValidationException => (StatusCodes.Status400BadRequest, "Invalid repository configuration"),
+        KeyNotFoundException => (StatusCodes.Status404NotFound, "Repository not found"),
         FileNotFoundException => (StatusCodes.Status404NotFound, "File not found"),
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
         StalenessScanException => (StatusCodes.Status422UnprocessableEntity, "Repository scan failed"),
@@ -55,9 +57,47 @@ app.UseCors("dev-frontend");
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
 
-app.MapGet("/api/tree", (string? path, RepositoryAccess repository, ILogger<Program> logger) =>
+app.MapGet("/api/repos", (bool? includeArchived, RepositoryRegistry registry) =>
+    Results.Ok(new { repositories = registry.List(includeArchived == true), defaultRepositoryId = RepositoryRegistry.DefaultRepositoryId }));
+
+app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry, CancellationToken cancellationToken) =>
+{
+    var created = await registry.CreateAsync(request, cancellationToken);
+    return Results.Created($"/api/repos/{created.Id}", created);
+});
+
+app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
+    RepositoryRegistry registry, CancellationToken cancellationToken) =>
+    Results.Ok(await registry.UpdateAsync(repoId, request, cancellationToken)));
+
+app.MapDelete("/api/repos/{repoId}", async (string repoId, RepositoryRegistry registry, CancellationToken cancellationToken) =>
+    Results.Ok(await registry.ArchiveAsync(repoId, cancellationToken)));
+
+app.MapGet("/api/tree", Tree);
+app.MapGet("/api/repos/{repoId}/tree", Tree);
+app.MapGet("/api/file", FileContent);
+app.MapGet("/api/repos/{repoId}/file", FileContent);
+app.MapGet("/api/inputs", Inputs);
+app.MapGet("/api/repos/{repoId}/inputs", Inputs);
+app.MapGet("/api/scan", Scan);
+app.MapGet("/api/repos/{repoId}/scan", Scan);
+app.MapGet("/api/security/scan", SecurityScan);
+app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
+
+app.MapPost("/api/review", ReviewUnavailable);
+app.MapPost("/api/repos/{repoId}/review", ReviewUnavailable);
+
+app.MapGet("/api/handover", HandoverConfiguration);
+app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration);
+app.MapPost("/api/handover", Handover);
+app.MapPost("/api/repos/{repoId}/handover", Handover);
+
+app.Run();
+
+static IResult Tree(HttpContext context, string? path, RepositoryRegistry registry, ILogger<Program> logger)
 {
     var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
     var requested = repository.NormalizeRelativePath(path);
     var projects = RepositoryHierarchyBuilder.BuildDotNet(repository.Root);
     ReviewMetaDiscovery.AttachDiscovered(repository.Root, projects);
@@ -75,76 +115,92 @@ app.MapGet("/api/tree", (string? path, RepositoryAccess repository, ILogger<Prog
     }
 
     logger.LogInformation(new EventId(1100, "TreeLoaded"),
-        "Loaded {NodeCount} tree roots for {RepositoryPath} in {ElapsedMilliseconds} ms",
-        selected.Count, requested, stopwatch.ElapsedMilliseconds);
+        "Loaded {NodeCount} tree roots for repository {RepositoryId} at {RepositoryPath} in {ElapsedMilliseconds} ms",
+        selected.Count, registration.Id, requested, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new TreeResponse(requested, selected.Select(TreeNodeResponse.From).ToArray()));
-});
+}
 
-app.MapGet("/api/file", async (string? path, RepositoryAccess repository, CancellationToken cancellationToken) =>
+static async Task<IResult> FileContent(HttpContext context, string? path, RepositoryRegistry registry,
+    ILogger<Program> logger, CancellationToken cancellationToken)
 {
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
     var relative = repository.NormalizeRelativePath(path);
     var absolute = repository.ResolveFile(relative);
     var content = await File.ReadAllTextAsync(absolute, cancellationToken);
+    logger.LogInformation(new EventId(1101, "FileLoaded"),
+        "Loaded {FilePath} from repository {RepositoryId} in {ElapsedMilliseconds} ms",
+        relative, registration.Id, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative)));
-});
+}
 
-app.MapGet("/api/inputs", (RepositoryAccess repository, InputResolver resolver,
-    Microsoft.Extensions.Options.IOptions<RepositoryOptions> configured, ILogger<Program> logger) =>
+static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputResolver resolver, ILogger<Program> logger)
 {
     var stopwatch = Stopwatch.StartNew();
-    var options = configured.Value;
-    var globalDirectory = string.IsNullOrWhiteSpace(options.GlobalInputsDirectory)
+    var (registration, repository) = ResolveRepository(context, registry);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
         ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
-        : options.GlobalInputsDirectory;
-    var kinds = Enum.GetValues<ReviewKind>().ToDictionary(
-        kind => kind.ToString().ToLowerInvariant(),
-        kind => resolver.Resolve(repository.Root, kind.ToString(), ReviewLevel.File,
-            globalDirectory, options.InputBudgetCharacters),
+        : registration.GlobalInputsDirectory;
+    var kinds = registration.EnabledReviewKinds.ToDictionary(
+        kind => kind,
+        kind => resolver.Resolve(repository.Root, kind, ReviewLevel.File,
+            globalDirectory, registration.InputBudgetCharacters),
         StringComparer.Ordinal);
     logger.LogInformation(new EventId(1102, "InputsResolved"),
-        "Resolved review inputs for {KindCount} kinds in {ElapsedMilliseconds} ms",
-        kinds.Count, stopwatch.ElapsedMilliseconds);
+        "Resolved review inputs for {KindCount} kinds in repository {RepositoryId} in {ElapsedMilliseconds} ms",
+        kinds.Count, registration.Id, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new { level = "file", kinds });
-});
+}
 
-app.MapGet("/api/scan", async (RepositoryAccess repository, StalenessEvaluator evaluator,
-    ILogger<Program> logger, CancellationToken cancellationToken) =>
+static async Task<IResult> Scan(HttpContext context, RepositoryRegistry registry, StalenessEvaluator evaluator,
+    ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
     var report = await evaluator.ScanAsync(repository.Root, cancellationToken: cancellationToken);
     logger.LogInformation(new EventId(1200, "ScanCompleted"),
-        "Scanned repository with {FileCount} files in {ElapsedMilliseconds} ms",
-        report.Files.Count, stopwatch.ElapsedMilliseconds);
+        "Scanned repository {RepositoryId} with {FileCount} files in {ElapsedMilliseconds} ms",
+        registration.Id, report.Files.Count, stopwatch.ElapsedMilliseconds);
     return Results.Ok(report);
-});
+}
 
-app.MapGet("/api/security/scan", async (RepositoryAccess repository, GitleaksSecurityScanner scanner,
-    ILogger<Program> logger, CancellationToken cancellationToken) =>
+static async Task<IResult> SecurityScan(HttpContext context, RepositoryRegistry registry, GitleaksSecurityScanner scanner,
+    ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
     var result = await scanner.ScanAsync(new SecurityScanRequest(repository.Root), cancellationToken);
     logger.LogInformation(new EventId(1201, "SecurityScanCompleted"),
-        "Scanned repository for secrets with verdict {Verdict} in {ElapsedMilliseconds} ms",
-        result.Report.Verdict.ToString().ToLowerInvariant(), stopwatch.ElapsedMilliseconds);
+        "Scanned repository {RepositoryId} for secrets with verdict {Verdict} in {ElapsedMilliseconds} ms",
+        registration.Id, result.Report.Verdict.ToString().ToLowerInvariant(), stopwatch.ElapsedMilliseconds);
     return Results.Ok(Map(result));
-});
+}
 
-app.MapPost("/api/review", () => Results.Problem(
-    statusCode: StatusCodes.Status501NotImplemented,
-    title: "Review runner unavailable",
-    detail: "Review triggering requires the optional QS-6 review runner, which is not available in this build."));
+static IResult ReviewUnavailable(HttpContext context, RepositoryRegistry registry)
+{
+    registry.Get(RouteRepositoryId(context));
+    return Results.Problem(
+        statusCode: StatusCodes.Status501NotImplemented,
+        title: "Review runner unavailable",
+        detail: "Review triggering requires the optional QS-6 review runner, which is not available in this build.");
+}
 
-app.MapGet("/api/handover", (AgentStudioTaskOptions options) => Results.Ok(
-    new HandoverConfigurationResponse(options.IsTargetConfigured, options.DryRun, options.Project)));
+static IResult HandoverConfiguration(HttpContext context, RepositoryRegistry registry, AgentStudioTaskOptions options)
+{
+    registry.Get(RouteRepositoryId(context));
+    return Results.Ok(new HandoverConfigurationResponse(options.IsTargetConfigured, options.DryRun, options.Project));
+}
 
-app.MapPost("/api/handover", async (
+static async Task<IResult> Handover(
+    HttpContext context,
     HandoverRequest request,
-    RepositoryAccess repository,
+    RepositoryRegistry registry,
     AgentStudioTaskClient client,
     ILogger<Program> logger,
-    CancellationToken cancellationToken) =>
+    CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
     var filePath = repository.NormalizeRelativePath(request.FilePath);
     repository.ResolveFile(filePath);
     var result = await client.CreateTaskAsync(new FindingTaskTemplate(
@@ -154,12 +210,21 @@ app.MapPost("/api/handover", async (
         request.ReviewKind,
         request.MetaReference), cancellationToken);
     logger.LogInformation(new EventId(1300, "FindingHandedOver"),
-        "Handed over finding for {FilePath} and {ReviewKind}; DryRun={DryRun}, TaskId={TaskId}, ElapsedMilliseconds={ElapsedMilliseconds}",
-        filePath, request.ReviewKind, result.DryRun, result.TaskId, stopwatch.ElapsedMilliseconds);
+        "Handed over finding for {FilePath} and {ReviewKind} in repository {RepositoryId}; DryRun={DryRun}, TaskId={TaskId}, ElapsedMilliseconds={ElapsedMilliseconds}",
+        filePath, request.ReviewKind, registration.Id, result.DryRun, result.TaskId, stopwatch.ElapsedMilliseconds);
     return Results.Ok(result);
-});
+}
 
-app.Run();
+static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRepository(
+    HttpContext context, RepositoryRegistry registry)
+{
+    var id = RouteRepositoryId(context);
+    var registration = registry.Get(id);
+    return (registration, new RepositoryAccess(registration.RootPath));
+}
+
+static string? RouteRepositoryId(HttpContext context) =>
+    context.Request.RouteValues.TryGetValue("repoId", out var routeId) ? routeId?.ToString() : null;
 
 static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
 {

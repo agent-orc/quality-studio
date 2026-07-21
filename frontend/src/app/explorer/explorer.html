@@ -5,7 +5,7 @@
   <div class="virtual-tree" (scroll)="scrollTop.set($any($event.target).scrollTop)">
     <div class="tree-space" [style.height.px]="filteredRows().length * 30">
       @for (item of visibleRows(); track item.node.id) {
-        <button class="tree-row" [class.selected]="selectedPath() === item.node.path" [style.top.px]="item.top" [style.padding-left.px]="10 + item.node.depth * 16" (click)="item.node.children.length ? toggle(item.node) : fileOpen.emit(item.node.path)">
+        <button class="tree-row" [class.selected]="selectedPath() === item.node.path" [style.top.px]="item.top" [style.padding-left.px]="10 + item.node.depth * 16" (click)="item.node.level === 'file' ? fileOpen.emit(item.node.path) : item.node.children.length ? toggle(item.node) : null">
           <span class="chevron" [class.open]="expanded().has(item.node.id)">{{ item.node.children.length ? '›' : '' }}</span>
           <span class="node-icon">{{ item.node.children.length ? '▰' : '≡' }}</span><span class="node-name">{{ item.node.name }}</span>
           <span class="tree-states" aria-label="Rolled-up review states">

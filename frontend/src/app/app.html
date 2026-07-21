@@ -1,6 +1,28 @@
 <div class="shell">
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">Q</span><span>Quality Studio</span><span class="branch">main</span></div>
+    <div class="brand"><span class="brand-mark">Q</span><span>Quality Studio</span></div>
+    <div class="repository-switcher">
+      <button class="repository-trigger" type="button" (click)="repositoryMenuOpen.set(!repositoryMenuOpen())" aria-haspopup="menu" [attr.aria-expanded]="repositoryMenuOpen()">
+        <span class="repository-label">Repository</span>
+        <strong>{{ api.selectedRepository()?.displayName ?? 'Default repository' }}</strong>
+        <span aria-hidden="true">⌄</span>
+      </button>
+      @if (repositoryMenuOpen()) {
+        <div class="repository-menu" role="menu">
+          <div class="menu-heading">Switch repository</div>
+          @for (repository of api.repositories(); track repository.id) {
+            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
+              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
+              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
+            </button>
+          }
+          <div class="menu-actions">
+            <button type="button" (click)="onboardRepository()">+ Onboard repository</button>
+            <button type="button" (click)="manageRepositories()">Configure repositories</button>
+          </div>
+        </div>
+      }
+    </div>
     <div class="health" [attr.data-connection-state]="api.connectionState()">
       <span class="status" [class.fresh]="api.connectionState() === 'live'" [class.stale]="api.connectionState() === 'preview'" [class.missing]="api.connectionState() !== 'live' && api.connectionState() !== 'preview'"></span>
       <span>{{ api.connectionLabel() }}</span>
@@ -15,3 +37,75 @@
     <qs-review-panel [activeKind]="activeKind()" [selectedPath]="selected()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" (findingSelect)="selectFinding($event)" />
   </main>
 </div>
+
+@if (repositoryDialogOpen()) {
+  <div class="dialog-backdrop" (click)="repositoryDialogOpen.set(false)">
+    <section class="repository-dialog" role="dialog" aria-modal="true" aria-labelledby="repository-dialog-title" (click)="$event.stopPropagation()">
+      <header>
+        <div>
+          <span class="eyebrow">Repository registry</span>
+          <h2 id="repository-dialog-title">{{ editingRepositoryId() ? 'Configure repository' : 'Onboard a repository' }}</h2>
+        </div>
+        <button class="icon-button" type="button" aria-label="Close repository dialog" (click)="repositoryDialogOpen.set(false)">×</button>
+      </header>
+      <div class="dialog-body">
+        <nav class="repository-list" aria-label="Configured repositories">
+          @for (repository of api.repositories(); track repository.id) {
+            <button type="button" [class.active]="repository.id === editingRepositoryId()" (click)="editRepository(repository)">
+              <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+            </button>
+          }
+          <button class="add-repository" type="button" (click)="onboardRepository()">+ Add repository</button>
+        </nav>
+        <form class="repository-form" (ngSubmit)="saveRepository()">
+          <label>
+            <span>Display name</span>
+            <input name="displayName" [(ngModel)]="repositoryForm.displayName" required maxlength="100" placeholder="Payments service">
+          </label>
+          @if (!editingRepositoryId()) {
+            <label>
+              <span>Repository id <small>optional; generated from name</small></span>
+              <input name="id" [(ngModel)]="repositoryForm.id" maxlength="64" pattern="[a-z0-9-]+" placeholder="payments-service">
+            </label>
+          }
+          <label>
+            <span>Root path</span>
+            <input name="rootPath" [(ngModel)]="repositoryForm.rootPath" required placeholder="C:\Projects\payments">
+            <small>Must be an existing Git repository. Relative paths resolve from the API directory.</small>
+          </label>
+          <label>
+            <span>Global inputs directory <small>optional</small></span>
+            <input name="globalInputsDirectory" [(ngModel)]="repositoryForm.globalInputsDirectory" placeholder="C:\Quality\inputs">
+          </label>
+          <label>
+            <span>Input budget (characters)</span>
+            <input name="inputBudgetCharacters" [(ngModel)]="repositoryForm.inputBudgetCharacters" required type="number" min="1000" max="1000000">
+          </label>
+          <fieldset>
+            <legend>Enabled review kinds</legend>
+            @for (kind of reviewKinds; track kind) {
+              <label class="kind-option">
+                <input type="checkbox" [checked]="repositoryForm.enabledReviewKinds.includes(kind)" (change)="toggleReviewKind(kind, $any($event.target).checked)">
+                <span class="status" [class.fresh]="repositoryForm.enabledReviewKinds.includes(kind)" [class.missing]="!repositoryForm.enabledReviewKinds.includes(kind)"></span>
+                {{ kind }}
+              </label>
+            }
+          </fieldset>
+          @if (repositoryError()) { <div class="form-error" role="alert">{{ repositoryError() }}</div> }
+          <footer>
+            @if (editingRepository(); as repository) {
+              @if (repository.id !== 'default') {
+              <button class="danger-button" type="button" (click)="archiveRepository(repository)">Archive</button>
+              }
+            }
+            <span class="footer-spacer"></span>
+            <button class="secondary-button" type="button" (click)="repositoryDialogOpen.set(false)">Cancel</button>
+            <button class="primary-button" type="submit" [disabled]="repositorySaving() || !repositoryForm.displayName || !repositoryForm.rootPath || repositoryForm.enabledReviewKinds.length === 0">
+              {{ repositorySaving() ? 'Saving…' : editingRepositoryId() ? 'Save changes' : 'Onboard repository' }}
+            </button>
+          </footer>
+        </form>
+      </div>
+    </section>
+  </div>
+}

@@ -38,9 +38,9 @@ describe('QualityApi', () => {
     };
 
     const loading = api.loadTree();
-    http.expectOne('/api/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
-    http.expectOne('/api/scan').flush({ files: [], freshCount: 0, staleCount: 0, missingCount: 0 });
-    http.expectOne('/api/security/scan').flush({
+    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, missingCount: 0 });
+    http.expectOne('/api/repos/default/security/scan').flush({
       verdict: 'pass',
       available: true,
       scanner: 'gitleaks',
@@ -76,10 +76,10 @@ describe('QualityApi', () => {
       },
       findings: [],
     });
-    http.expectOne('/api/inputs').flush({ kinds: { code: input } });
+    http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
 
     await new Promise(resolve => setTimeout(resolve));
-    http.expectOne('/api/handover').flush({ targetConfigured: false, dryRun: true });
+    http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
     await loading;
 
     expect(api.connected()).toBeTrue();
@@ -91,9 +91,9 @@ describe('QualityApi', () => {
 
   it('keeps a live API connection when a file lookup falls back to preview content', async () => {
     const loading = api.loadTree();
-    http.expectOne('/api/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
-    http.expectOne('/api/scan').flush({ files: [], freshCount: 0, staleCount: 0, missingCount: 0 });
-    http.expectOne('/api/security/scan').flush({
+    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, missingCount: 0 });
+    http.expectOne('/api/repos/default/security/scan').flush({
       verdict: 'pass',
       available: true,
       scanner: 'gitleaks',
@@ -129,20 +129,22 @@ describe('QualityApi', () => {
       },
       findings: [],
     });
-    http.expectOne('/api/inputs').flush({ kinds: {
+    http.expectOne('/api/repos/default/inputs').flush({ kinds: {
       code: { kind: 'code', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
       security: { kind: 'security', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
       performance: { kind: 'performance', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
     } });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
     await loading;
 
     const fileLoading = api.loadFile('missing.cs');
-    http.expectOne('/api/file?path=missing.cs').flush('missing', { status: 404, statusText: 'Not Found' });
+    http.expectOne('/api/repos/default/file?path=missing.cs').flush('missing', { status: 404, statusText: 'Not Found' });
     await fileLoading;
 
     expect(api.connectionState()).toBe('live');
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
-    expect(api.file()?.content).toContain('demo');
+    expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
   });
 });
