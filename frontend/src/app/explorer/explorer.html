@@ -16,6 +16,9 @@
             [title]="item.node.children.length ? 'Toggle container without opening it' : ''"
             (click)="onChevronClick($event, item.node)">{{ item.node.children.length ? '›' : '' }}</span>
           <span class="node-icon">{{ item.node.children.length ? '▰' : '≡' }}</span><span class="node-name">{{ item.node.name }}</span>
+          @if (item.node.excluded?.length) {
+            <span class="scope-exclusion-badge" [title]="exclusionTitle(item.node)">⊘ {{ item.node.excluded?.length }}</span>
+          }
           <span class="tree-states" aria-label="Rolled-up review states">
             @for (decoration of item.node.decorations; track decoration.kind) { <i class="status" [class]="'status ' + decoration.state" [title]="decoration.label"><span class="sr-only">{{ decoration.label }}</span></i> }
           </span>

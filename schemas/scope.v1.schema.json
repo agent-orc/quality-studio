@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/scope.v1.schema.json",
+  "title": "Quality Studio repository review scope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rules"],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-orchestrator.dev/quality/schemas/scope.v1.schema.json"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action", "pattern"],
+        "properties": {
+          "action": { "enum": ["include", "exclude"] },
+          "pattern": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "action": { "const": "exclude" } },
+              "required": ["action"]
+            },
+            "then": { "required": ["reason"] }
+          }
+        ]
+      }
+    }
+  }
+}

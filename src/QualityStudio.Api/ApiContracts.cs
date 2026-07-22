@@ -6,6 +6,8 @@ namespace QualityStudio.Api;
 
 public sealed record TreeResponse(string Path, IReadOnlyList<TreeNodeResponse> Nodes);
 
+public sealed record ScopeExclusionResponse(string Path, string Reason);
+
 public sealed record TreeNodeResponse(
     string Id,
     string Name,
@@ -17,6 +19,7 @@ public sealed record TreeNodeResponse(
     string? ReviewedAt,
     long? SizeBytes,
     int? LineCount,
+    IReadOnlyList<ScopeExclusionResponse> Excluded,
     IReadOnlyList<TreeNodeResponse> Children)
 {
     public static TreeNodeResponse From(HierarchyNode node, IReadOnlyDictionary<string, FindingStateRecord> states)
@@ -36,6 +39,9 @@ public sealed record TreeNodeResponse(
             reviewSummary.ReviewedAt,
             node.SizeBytes,
             node.LineCount,
+            node.Exclusions.OrderBy(item => item.Path, StringComparer.Ordinal)
+                .ThenBy(item => item.Reason, StringComparer.Ordinal)
+                .Select(item => new ScopeExclusionResponse(item.Path, item.Reason)).ToArray(),
             node.Children.Select(child => From(child, states)).ToArray());
     }
 

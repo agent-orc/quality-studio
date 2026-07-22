@@ -22,6 +22,7 @@ public static partial class RepositoryHierarchyBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
         var root = Path.GetFullPath(repositoryPath);
+        var scope = RepositoryScope.Load(root);
         var solutions = Directory.EnumerateFiles(root, "*.sln", SearchOption.TopDirectoryOnly)
             .Concat(Directory.EnumerateFiles(root, "*.slnx", SearchOption.TopDirectoryOnly))
             .Where(path => !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
@@ -30,15 +31,15 @@ public static partial class RepositoryHierarchyBuilder
 
         if (solutions.Length == 0)
         {
-            return [BuildProject(root, null, FindProjectFiles(root))];
+            return [BuildProject(root, scope, null, FindProjectFiles(root))];
         }
 
         return solutions.Select(solution =>
-                BuildProject(root, solution, FindSolutionProjects(root, solution)))
+                BuildProject(root, scope, solution, FindSolutionProjects(root, solution)))
             .ToArray();
     }
 
-    private static HierarchyNode BuildProject(string root, string? solution, IEnumerable<string> projects)
+    private static HierarchyNode BuildProject(string root, RepositoryScope scope, string? solution, IEnumerable<string> projects)
     {
         var projectPath = solution is null ? "." : Relative(root, solution);
         var projectTuple = solution is null
@@ -57,13 +58,23 @@ public static partial class RepositoryHierarchyBuilder
                 continue;
             }
 
-            project.AddChild(BuildModule(root, project, projectFile));
+            var relativeProjectFile = Relative(root, projectFile);
+            var decision = scope.Evaluate(relativeProjectFile, projectFile);
+            if (!decision.Included)
+            {
+                project.AddExclusion(new ScopeExclusion(relativeProjectFile, decision.Reason!));
+                continue;
+            }
+
+            var module = BuildModule(root, scope, project, projectFile);
+            project.AddChild(module);
+            project.AddExclusions(module.Exclusions);
         }
 
         return project;
     }
 
-    private static HierarchyNode BuildModule(string root, HierarchyNode project, string projectFile)
+    private static HierarchyNode BuildModule(string root, RepositoryScope scope, HierarchyNode project, string projectFile)
     {
         var relativeProject = Relative(root, projectFile);
         var module = new HierarchyNode(
@@ -72,9 +83,15 @@ public static partial class RepositoryHierarchyBuilder
             ReviewLevel.Module,
             relativeProject);
         var projectDirectory = Path.GetDirectoryName(projectFile)!;
-        var files = Directory.EnumerateFiles(projectDirectory, "*.cs", ConfinedEnumeration)
-            .Where(path => !IsBuildOutput(projectDirectory, path))
-            .Order(StringComparer.Ordinal);
+        var candidates = Directory.EnumerateFiles(projectDirectory, "*.cs", ConfinedEnumeration)
+            .Order(StringComparer.Ordinal)
+            .Select(path => (Path: path, Relative: Relative(root, path), Decision: scope.Evaluate(Relative(root, path), path)))
+            .ToArray();
+        foreach (var candidate in candidates.Where(candidate => !candidate.Decision.Included))
+        {
+            module.AddExclusion(new ScopeExclusion(candidate.Relative, candidate.Decision.Reason!));
+        }
+        var files = candidates.Where(candidate => candidate.Decision.Included).Select(candidate => candidate.Path);
 
         foreach (var group in files.GroupBy(ReadNamespace).OrderBy(group => group.Key, StringComparer.Ordinal))
         {
@@ -138,8 +155,7 @@ public static partial class RepositoryHierarchyBuilder
     }
 
     private static IEnumerable<string> FindProjectFiles(string root) =>
-        Directory.EnumerateFiles(root, "*.csproj", ConfinedEnumeration)
-            .Where(path => !IsBuildOutput(root, path));
+        Directory.EnumerateFiles(root, "*.csproj", ConfinedEnumeration);
 
     private static bool IsBuildOutput(string basePath, string path)
     {

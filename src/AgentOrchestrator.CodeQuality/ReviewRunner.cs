@@ -19,7 +19,8 @@ public sealed record ReviewRequest(
     IReadOnlyList<string>? SubjectFiles = null,
     string? DisplayName = null,
     IReadOnlyList<ReviewSubjectFile>? SubjectUnits = null,
-    IReadOnlyList<string>? AggregateControls = null);
+    IReadOnlyList<string>? AggregateControls = null,
+    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -115,6 +116,7 @@ public sealed class ReviewRunner
                     unitId,
                     initialSubject.Inputs,
                     initialSubject.Members,
+                    initialSubject.Exclusions,
                     reviewedHash,
                     agentResult.RunId,
                     inputs,
@@ -172,6 +174,15 @@ public sealed class ReviewRunner
             if (!File.Exists(file)) throw new FileNotFoundException("Review target does not exist.", file);
         }
 
+        var scope = RepositoryScope.Load(root);
+        for (var index = 0; index < files.Length; index++)
+        {
+            var decision = scope.Evaluate(subjectPaths[index], files[index]);
+            if (!decision.Included)
+                throw new ArgumentException(
+                    $"Review target '{subjectPaths[index]}' is excluded: {decision.Reason}", nameof(request));
+        }
+
         var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
         var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
             request.GlobalInputsDirectory, request.InputBudgetCharacters);
@@ -215,6 +226,7 @@ public sealed class ReviewRunner
         string unitId,
         IReadOnlyList<SubjectInputHash> subjectInputs,
         IReadOnlyList<AggregateMemberHash>? aggregateMembers,
+        IReadOnlyList<ScopeExclusion>? aggregateExclusions,
         string reviewedHash,
         string runId,
         ResolvedInputs inputs,
@@ -308,7 +320,14 @@ public sealed class ReviewRunner
                     ["path"] = member.Path,
                     ["subjectHash"] = member.SubjectHash,
                 }).ToArray()),
-                ["excluded"] = new JsonArray(),
+                ["excluded"] = new JsonArray((aggregateExclusions ?? []).Distinct()
+                    .OrderBy(item => item.Path, StringComparer.Ordinal)
+                    .ThenBy(item => item.Reason, StringComparer.Ordinal)
+                    .Select(item => (JsonNode)new JsonObject
+                    {
+                        ["path"] = item.Path,
+                        ["reason"] = item.Reason,
+                    }).ToArray()),
             };
         }
         return meta;
@@ -385,7 +404,7 @@ public sealed class ReviewRunner
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
         var fileInputs = await HashInputsAsync(paths, files, cancellationToken).ConfigureAwait(false);
-        if (request.Level == ReviewLevel.File) return new PreparedSubject(fileInputs, null);
+        if (request.Level == ReviewLevel.File) return new PreparedSubject(fileInputs, null, null);
 
         var units = request.SubjectUnits?.ToDictionary(unit => unit.Path, StringComparer.Ordinal);
         var members = fileInputs.Select(input =>
@@ -397,7 +416,7 @@ public sealed class ReviewRunner
         }).OrderBy(member => member.UnitId, StringComparer.Ordinal).ToArray();
         var aggregateInputs = new List<SubjectInputHash>
         {
-            new(relativePath, "aggregate-members", ReviewSubjectHasher.ComputeAggregateMembersHash(members)),
+            new(relativePath, "aggregate-members", ReviewSubjectHasher.ComputeAggregateMembersHash(members, request.AggregateExclusions)),
         };
         var controls = request.AggregateControls?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
             ?? Enumerable.Empty<string>();
@@ -408,7 +427,7 @@ public sealed class ReviewRunner
             if (File.Exists(controlFile))
                 aggregateInputs.Add(new(normalized, "aggregate-control", await ReviewSubjectHasher.ComputeFileContentHashAsync(controlFile, cancellationToken).ConfigureAwait(false)));
         }
-        return new PreparedSubject(aggregateInputs, members);
+        return new PreparedSubject(aggregateInputs, members, request.AggregateExclusions ?? []);
     }
 
     private static string NormalizeRelativePath(string root, string path)
@@ -475,7 +494,10 @@ public sealed class ReviewRunner
         }
     }
 
-    private sealed record PreparedSubject(IReadOnlyList<SubjectInputHash> Inputs, IReadOnlyList<AggregateMemberHash>? Members);
+    private sealed record PreparedSubject(
+        IReadOnlyList<SubjectInputHash> Inputs,
+        IReadOnlyList<AggregateMemberHash>? Members,
+        IReadOnlyList<ScopeExclusion>? Exclusions);
 
     private sealed record PreparedPrompt(
         string Root,

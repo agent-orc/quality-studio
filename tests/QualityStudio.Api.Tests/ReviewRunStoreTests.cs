@@ -103,6 +103,31 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Recovered_aggregate_run_uses_exclusions_from_the_durable_manifest()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        try
+        {
+            var exclusion = new ScopeExclusion("Generated.cs", "Generated source");
+            var stored = fixture.CreateRun("excluded-resume", "queued", "project", [exclusion]);
+
+            await using var application = fixture.CreateApplication(executor);
+            using var client = application.CreateClient();
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+
+            Assert.Equal("done", run.GetProperty("aggregateState").GetString());
+            var aggregate = Assert.Single(executor.Requests, request => request.Level == ReviewLevel.Project);
+            Assert.Equal(exclusion, Assert.Single(aggregate.AggregateExclusions!));
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task File_running_at_crash_is_requeued_and_attempted_again()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -261,15 +286,23 @@ public sealed class ReviewRunStoreTests
             return new DurableRunFixture(repositoryRoot, hostRoot);
         }
 
-        public StoredReviewRun CreateRun(string suffix, string state)
+        public StoredReviewRun CreateRun(
+            string suffix,
+            string state,
+            string level = "file",
+            IReadOnlyList<ScopeExclusion>? aggregateExclusions = null)
         {
             var runId = $"review-{suffix}-{Guid.NewGuid():N}";
             var createdAt = DateTimeOffset.UtcNow;
+            var aggregate = string.Equals(level, "project", StringComparison.Ordinal);
             var manifest = new ReviewRunManifest(
                 runId,
                 RepositoryRegistry.DefaultRepositoryId,
-                new ReviewRunPlanNode("file-sample", "Sample.cs", "Sample.cs"),
-                "file",
+                new ReviewRunPlanNode(
+                    aggregate ? "project-sample" : "file-sample",
+                    aggregate ? "Sample" : "Sample.cs",
+                    aggregate ? "." : "Sample.cs"),
+                level,
                 "code",
                 null,
                 "adapter-that-does-not-exist",
@@ -277,7 +310,8 @@ public sealed class ReviewRunStoreTests
                 [new ReviewRunPlanTarget(
                     "file-sample", "Sample.cs", "Sample.cs",
                     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")],
-                null);
+                aggregate ? [] : null,
+                aggregateExclusions);
             var status = new ReviewRunStatus(
                 runId,
                 state,
@@ -356,6 +390,30 @@ public sealed class ReviewRunStoreTests
                     request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
+            }
+        }
+    }
+
+    private sealed class CapturingExecutorFactory : IReviewExecutorFactory
+    {
+        private readonly List<ReviewRequest> requests = [];
+        public IReadOnlyList<ReviewRequest> Requests
+        {
+            get
+            {
+                lock (requests) return requests.ToArray();
+            }
+        }
+
+        public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+            Action<ReviewUsageEntry> usageRecorded) => new CapturingExecutor(requests);
+
+        private sealed class CapturingExecutor(List<ReviewRequest> requests) : IReviewExecutor
+        {
+            public Task ReviewAsync(ReviewRequest request, CancellationToken cancellationToken)
+            {
+                lock (requests) requests.Add(request);
+                return Task.CompletedTask;
             }
         }
     }

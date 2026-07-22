@@ -27,6 +27,15 @@
       </div>
     </header>
 
+    @if ((selectedNode()?.excluded?.length ?? 0) > 0) {
+      <section class="scope-diagnostics" aria-label="Review scope exclusions">
+        <header><b>Excluded from review scope</b><span>{{ selectedNode()?.excluded?.length }} item(s)</span></header>
+        @for (exclusion of selectedNode()?.excluded ?? []; track exclusion.path + ':' + exclusion.reason) {
+          <div><code>{{ exclusion.path }}</code><span>{{ exclusion.reason }}</span></div>
+        }
+      </section>
+    }
+
     <div class="folder-table" role="table" aria-label="Direct children of selected container">
       <div class="folder-columns" role="row">
         <button type="button" role="columnheader" (click)="sortBy('name')">Name{{ sortIndicator('name') }}</button>

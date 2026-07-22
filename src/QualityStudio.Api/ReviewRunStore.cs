@@ -31,6 +31,7 @@ public sealed record ReviewRunManifest(
     DateTimeOffset CreatedAt,
     IReadOnlyList<ReviewRunPlanTarget> Targets,
     IReadOnlyList<string>? AggregateControls,
+    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
     ReviewRunEstimate? Estimate = null,
     long? TokenCap = null,
     decimal? CostCap = null);

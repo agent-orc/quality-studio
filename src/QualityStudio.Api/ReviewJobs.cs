@@ -162,6 +162,7 @@ public sealed class ReviewJobService : BackgroundService
             DateTimeOffset.UtcNow,
             targets,
             AggregateControls(node),
+            node.Level == ReviewLevel.File ? null : node.Exclusions,
             estimate,
             tokenCap,
             costCap);
@@ -277,7 +278,8 @@ public sealed class ReviewJobService : BackgroundService
             SubjectUnits: level == ReviewLevel.File
                 ? null
                 : plan.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
-            AggregateControls: AggregateControls(plan.Node));
+            AggregateControls: AggregateControls(plan.Node),
+            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions);
 
     private static (long? TokenCap, decimal? CostCap) ResolveCap(
         RepositoryRegistration registration, long? requestedTokens, decimal? requestedCost)
@@ -521,7 +523,8 @@ public sealed class ReviewJobService : BackgroundService
             SubjectUnits: level == ReviewLevel.File
                 ? null
                 : item.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
-            AggregateControls: item.AggregateControls);
+            AggregateControls: item.AggregateControls,
+            AggregateExclusions: item.AggregateExclusions);
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {
@@ -628,6 +631,7 @@ public sealed class ReviewJobService : BackgroundService
         public HierarchyNode Node { get; }
         public IReadOnlyList<HierarchyNode> Files { get; }
         public IReadOnlyList<string>? AggregateControls => manifest.AggregateControls;
+        public IReadOnlyList<ScopeExclusion>? AggregateExclusions => manifest.AggregateExclusions;
         public string Kind => manifest.Kind;
         public string? Model => manifest.Model;
         public string CliType => manifest.CliType;

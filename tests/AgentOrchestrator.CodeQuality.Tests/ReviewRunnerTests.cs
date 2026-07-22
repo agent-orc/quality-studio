@@ -239,7 +239,8 @@ public sealed class ReviewRunnerTests
             var agent = new FakeAgent();
             var result = await new ReviewRunner(agent).ReviewAsync(new ReviewRequest(
                 ".", Level: ReviewLevel.Project, RepositoryRoot: root,
-                UnitId: "qs-v1/dotnet/project/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", SubjectFiles: ["src/Small.cs"], DisplayName: "Test project"),
+                UnitId: "qs-v1/dotnet/project/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", SubjectFiles: ["src/Small.cs"], DisplayName: "Test project",
+                AggregateExclusions: [new ScopeExclusion("src/Generated.g.cs", "Generated source")]),
                 TestContext.Current.CancellationToken);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, TestContext.Current.CancellationToken));
@@ -247,10 +248,56 @@ public sealed class ReviewRunnerTests
             Assert.Equal("qs-v1/dotnet/project/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", document.RootElement.GetProperty("unit").GetProperty("id").GetString());
             Assert.Equal("Test project", document.RootElement.GetProperty("unit").GetProperty("displayName").GetString());
             Assert.Equal("aggregate-members", Assert.Single(document.RootElement.GetProperty("subjectInputs").EnumerateArray()).GetProperty("selector").GetString());
-            Assert.Empty(document.RootElement.GetProperty("aggregate").GetProperty("excluded").EnumerateArray());
+            var excluded = Assert.Single(document.RootElement.GetProperty("aggregate").GetProperty("excluded").EnumerateArray());
+            Assert.Equal("src/Generated.g.cs", excluded.GetProperty("path").GetString());
+            Assert.Equal("Generated source", excluded.GetProperty("reason").GetString());
             Assert.Single(document.RootElement.GetProperty("aggregate").GetProperty("members").EnumerateArray());
             Assert.Contains("src/Small.cs", agent.Prompt, StringComparison.Ordinal);
         });
+    }
+
+    [Fact]
+    public async Task ScopeChangeMakesStoredAggregateStale()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "quality-review-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "src", "Demo"));
+        Directory.CreateDirectory(Path.Combine(root, ".quality"));
+        await File.WriteAllTextAsync(Path.Combine(root, "Demo.slnx"),
+            "<Solution><Project Path=\"src/Demo/Demo.csproj\" /></Solution>", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(root, "src", "Demo", "Demo.csproj"),
+            "<Project Sdk=\"Microsoft.NET.Sdk\" />", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(root, "src", "Demo", "Keep.cs"),
+            "namespace Demo; internal sealed class Keep { }", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(root, "src", "Demo", "Fixture.cs"),
+            "namespace Demo; internal sealed class Fixture { }", TestContext.Current.CancellationToken);
+        var scopePath = Path.Combine(root, ".quality", "scope.json");
+        await File.WriteAllTextAsync(scopePath,
+            "{\"rules\":[{\"action\":\"exclude\",\"pattern\":\"**/Fixture.cs\",\"reason\":\"Test fixture\"}]}",
+            TestContext.Current.CancellationToken);
+        try
+        {
+            var original = Assert.Single(RepositoryHierarchyBuilder.BuildDotNet(root));
+            var originalFiles = original.Children.SelectMany(module => module.Children)
+                .SelectMany(ns => ns.Children).Where(node => node.Level == ReviewLevel.File).ToArray();
+            await new ReviewRunner(new FakeAgent()).ReviewAsync(new ReviewRequest(
+                original.Path, Level: ReviewLevel.Project, RepositoryRoot: root, UnitId: original.Id,
+                SubjectFiles: originalFiles.Select(file => file.Path).ToArray(),
+                SubjectUnits: originalFiles.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
+                AggregateExclusions: original.Exclusions), TestContext.Current.CancellationToken);
+
+            await File.WriteAllTextAsync(scopePath,
+                "{\"rules\":[{\"action\":\"include\",\"pattern\":\"**/Fixture.cs\"}]}",
+                TestContext.Current.CancellationToken);
+            var changed = Assert.Single(RepositoryHierarchyBuilder.BuildDotNet(root));
+            ReviewMetaDiscovery.AttachDiscovered(root, [changed]);
+
+            Assert.Equal(ReviewState.Stale, changed.Documents[ReviewKind.Code].State);
+            Assert.Empty(changed.Exclusions);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     [Fact]
@@ -269,6 +316,22 @@ public sealed class ReviewRunnerTests
         {
             Directory.Delete(root, true);
         }
+    }
+
+    [Fact]
+    public async Task ReviewAsync_RejectsDirectTargetExcludedByRepositoryScope()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, ".gitignore"), "src/Small.cs\n",
+                TestContext.Current.CancellationToken);
+
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => new ReviewRunner(new FakeAgent()).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), TestContext.Current.CancellationToken));
+
+            Assert.Contains("is excluded", exception.Message, StringComparison.Ordinal);
+            Assert.Contains(".gitignore:1", exception.Message, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

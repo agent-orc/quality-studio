@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing';
 export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
+export interface ScopeExclusion { path: string; reason: string; }
 export interface TreeNode {
   id: string;
   name: string;
@@ -15,6 +16,7 @@ export interface TreeNode {
   reviewedAt?: string | null;
   sizeBytes?: number | null;
   lineCount?: number | null;
+  excluded?: ScopeExclusion[];
   children: TreeNode[];
 }
 export type ReviewKind = 'code' | 'security' | 'performance';

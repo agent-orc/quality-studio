@@ -45,6 +45,7 @@
 .rollups>span{min-width:88px;padding:7px 9px;display:grid;grid-template-columns:10px 1fr;gap:2px 6px;border:1px solid var(--studio-border);border-radius:5px;background:var(--studio-bg-editor)}
 .rollups b{font-size:9px;text-transform:capitalize}
 .rollups small{grid-column:2;color:var(--studio-fg-dim);font:9px var(--font-mono)}
+.scope-diagnostics{max-height:150px;overflow:auto;padding:8px 16px;border-bottom:1px solid color-mix(in srgb,var(--status-stale) 35%,var(--studio-border));background:color-mix(in srgb,var(--status-stale) 8%,var(--studio-bg-editor));font-size:9px}.scope-diagnostics header,.scope-diagnostics div{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr);gap:12px;padding:3px 0}.scope-diagnostics header{color:var(--status-stale)}.scope-diagnostics header span,.scope-diagnostics div span{color:var(--studio-fg-muted)}.scope-diagnostics code{overflow:hidden;text-overflow:ellipsis;color:var(--studio-fg);font:9px var(--font-mono);white-space:nowrap}
 .folder-table{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--studio-bg-editor)}
 .folder-columns,.folder-row{min-width:1040px;display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(76px,.7fr)) minmax(90px,.8fr) 130px 116px 72px 58px;align-items:center}
 .folder-columns{position:sticky;top:0;z-index:3;height:34px;border-bottom:1px solid var(--studio-border);background:var(--studio-bg-surface)}
