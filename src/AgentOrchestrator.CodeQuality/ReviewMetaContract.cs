@@ -126,8 +126,8 @@ public sealed record ReviewFinding(
     [property: JsonPropertyOrder(4)] string Description,
     [property: JsonPropertyOrder(5)] string Recommendation,
     [property: JsonPropertyOrder(6)] IReadOnlyList<FindingLocation> Locations,
-    [property: JsonPropertyOrder(7), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Fingerprint = null,
-    [property: JsonPropertyOrder(8), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RuleId = null,
+    [property: JsonPropertyOrder(7)] string Fingerprint,
+    [property: JsonPropertyOrder(8)] string RuleId,
     [property: JsonPropertyOrder(9), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Evidence = null);
 
 public enum FindingSeverity { Critical, High, Medium, Low, Info }

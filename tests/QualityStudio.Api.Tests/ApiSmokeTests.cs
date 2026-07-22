@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -155,6 +156,84 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("ok", json.GetProperty("status").GetString());
         Assert.Equal("QualityStudio.Api", json.GetProperty("service").GetString());
+    }
+
+    [Fact]
+    public async Task Finding_state_action_projects_state_and_rejects_a_conflicting_write()
+    {
+        var fingerprint = "sha256:" + new string('d', 64);
+        var findingId = "finding-" + new string('d', 64);
+        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        Directory.CreateDirectory(metadataDirectory);
+        var metadataPath = Path.Combine(metadataDirectory, "file.test.review-meta.code.json");
+        var metadata = new JsonObject
+        {
+            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
+            ["reviewedAt"] = "2026-07-22T09:00:00.000Z",
+            ["kind"] = "code",
+            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
+            ["grade"] = new JsonObject { ["score"] = 60, ["band"] = "D", ["rationale"] = "One finding." },
+            ["summary"] = "One finding.",
+            ["findings"] = new JsonArray(new JsonObject
+            {
+                ["id"] = findingId,
+                ["fingerprint"] = fingerprint,
+                ["ruleId"] = "correctness.test",
+                ["aspect"] = "correctness",
+                ["severity"] = "high",
+                ["title"] = "Test finding",
+                ["description"] = "A finding used by the API test.",
+                ["recommendation"] = "Review it.",
+                ["locations"] = new JsonArray(new JsonObject { ["path"] = "Sample.cs" }),
+            }),
+        };
+        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        var identity = new FindingIdentityRecord(fingerprint, findingId, "Sample.cs", "correctness.test");
+        var store = new FindingStateStore(repositoryRoot);
+        var state = (await store.MergeReviewAsync([identity], [], "test", TestContext.Current.CancellationToken))[fingerprint];
+
+        try
+        {
+            using var client = application!.CreateClient();
+            var before = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var finding = Assert.Single(Assert.Single(before.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.Equal("open", finding.GetProperty("state").GetString());
+
+            using var acceptedResponse = await client.PostAsJsonAsync("/api/findings/state", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                state = "accepted",
+                author = "Ada",
+                reason = "Risk is understood and tracked.",
+                expectedTimestamp = state.Timestamp,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, acceptedResponse.StatusCode);
+
+            var after = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var projected = Assert.Single(Assert.Single(after.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.Equal("accepted", projected.GetProperty("state").GetString());
+            Assert.Equal("Ada", projected.GetProperty("stateAuthor").GetString());
+
+            using var conflict = await client.PostAsJsonAsync("/api/findings/state", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                state = "waived",
+                author = "Grace",
+                reason = "A conflicting decision.",
+                expectedTimestamp = state.Timestamp,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        }
+        finally
+        {
+            File.Delete(metadataPath);
+        }
     }
 
     [Fact]

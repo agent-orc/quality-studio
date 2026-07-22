@@ -63,7 +63,7 @@
                   <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')" [title]="kind + ': ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
                 }
               </span>
-              <span role="cell">{{ item.node.findingsCount ?? 0 }}</span>
+              <span role="cell" [title]="'Open · Accepted · Waived · False positive'">{{ findingCountsLabel(item.node) }}</span>
               <span class="reviewed-cell" role="cell">{{ reviewedOrDash(item.node.reviewedAt) }}</span>
               <span role="cell">{{ formatBytes(item.node.sizeBytes) }}</span>
               <span role="cell">{{ item.node.lineCount ?? '-' }}</span>

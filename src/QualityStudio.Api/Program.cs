@@ -88,6 +88,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
+        FindingStateConflictException => (StatusCodes.Status409Conflict, "Finding state changed"),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected API error"),
     };
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("QualityStudio.Api.Errors");
@@ -235,11 +236,13 @@ app.MapPost("/api/handover", Handover).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/handover", Handover).RequireRateLimiting("spend");
 app.MapPost("/api/threads", MutateThread);
 app.MapPost("/api/repos/{repoId}/threads", MutateThread);
+app.MapPost("/api/findings/state", MutateFindingState);
+app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
 
 app.Run();
 
-static IResult Tree(HttpContext context, string? path, RepositoryRegistry registry,
-    RepositoryHierarchyCache hierarchyCache, ILogger<Program> logger)
+static async Task<IResult> Tree(HttpContext context, string? path, RepositoryRegistry registry,
+    RepositoryHierarchyCache hierarchyCache, ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
@@ -253,6 +256,7 @@ static IResult Tree(HttpContext context, string? path, RepositoryRegistry regist
         return Results.StatusCode(StatusCodes.Status304NotModified);
     }
     var projects = snapshot.Roots;
+    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
     IReadOnlyList<HierarchyNode> selected = requested == "."
         ? projects
         : Flatten(projects).Where(node => string.Equals(node.Path, requested, StringComparison.Ordinal)).ToArray();
@@ -269,7 +273,7 @@ static IResult Tree(HttpContext context, string? path, RepositoryRegistry regist
     logger.LogInformation(new EventId(1100, "TreeLoaded"),
         "Loaded {NodeCount} tree roots for repository {RepositoryId} at {RepositoryPath} in {ElapsedMilliseconds} ms",
         selected.Count, registration.Id, requested, stopwatch.ElapsedMilliseconds);
-    return Results.Ok(new TreeResponse(requested, selected.Select(TreeNodeResponse.From).ToArray()));
+    return Results.Ok(new TreeResponse(requested, selected.Select(node => TreeNodeResponse.From(node, findingStates)).ToArray()));
 }
 
 static async Task<IResult> FileContent(HttpContext context, string? path, RepositoryRegistry registry,
@@ -282,10 +286,51 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     var bytes = await File.ReadAllBytesAsync(absolute, cancellationToken);
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
+    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
     logger.LogInformation(new EventId(1101, "FileLoaded"),
         "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}) in {ElapsedMilliseconds} ms",
         relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
-    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative), bytes.LongLength, lineEnding, encoding));
+    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates), bytes.LongLength, lineEnding, encoding));
+}
+
+static async Task<IResult> MutateFindingState(HttpContext context, FindingStateMutationRequest request,
+    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var relative = repository.NormalizeRelativePath(request.Path);
+    var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    FindingIdentityRecord identity;
+    using (var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken)))
+    {
+        var finding = metadata.RootElement.GetProperty("findings").EnumerateArray().FirstOrDefault(candidate =>
+            candidate.TryGetProperty("fingerprint", out var value) && value.GetString() == request.Fingerprint);
+        if (finding.ValueKind == JsonValueKind.Undefined)
+            throw new KeyNotFoundException($"Finding '{request.Fingerprint}' was not found in the selected review.");
+        identity = new FindingIdentityRecord(
+            request.Fingerprint,
+            finding.GetProperty("id").GetString()!,
+            finding.GetProperty("locations")[0].GetProperty("path").GetString()!,
+            finding.GetProperty("ruleId").GetString()!);
+    }
+
+    var state = request.State switch
+    {
+        "open" => FindingState.Open,
+        "accepted" => FindingState.Accepted,
+        "waived" => FindingState.Waived,
+        "false-positive" => FindingState.FalsePositive,
+        _ => throw new ArgumentException("Finding state must be open, accepted, waived, or false-positive."),
+    };
+    var store = new FindingStateStore(repository.Root);
+    await store.MergeReviewAsync([identity], [], "quality-studio", cancellationToken);
+    var updated = await store.SetAsync(
+        request.Fingerprint, state, request.Author, request.Reason, request.ExpiresAt,
+        request.ExpectedTimestamp, cancellationToken);
+    logger.LogInformation(new EventId(1501, "FindingStateMutated"),
+        "Set finding {FindingFingerprint} to {FindingState} for {FilePath} in repository {RepositoryId} by {Author}; ElapsedMilliseconds={ElapsedMilliseconds}",
+        updated.Fingerprint, FindingStateStore.StateName(updated.State), relative, registration.Id, updated.Author, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(updated);
 }
 
 static async Task<IResult> MutateThread(HttpContext context, ThreadMutationRequest request,

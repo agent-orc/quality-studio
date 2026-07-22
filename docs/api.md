@@ -102,7 +102,18 @@ curl "http://127.0.0.1:5127/api/usage?since=2026-07-01T00:00:00Z&kind=code"
 
 curl "http://127.0.0.1:5127/api/quotas"
 # 200 {"at":"...","ttlSeconds":600,"providers":[...]}
+
+curl -X POST "http://127.0.0.1:5127/api/findings/state" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"src/Thing.cs","kind":"code","fingerprint":"sha256:...","state":"waived","author":"Ada","reason":"Covered by the migration policy.","expiresAt":"2026-09-01T00:00:00Z","expectedTimestamp":"2026-07-22T09:00:00Z"}'
+# 200 {"fingerprint":"sha256:...","state":"waived",...}
 ```
+
+Finding state mutations accept `open`, `accepted`, `waived`, or `false-positive`.
+Author and reason are required; expiry is optional. `expectedTimestamp` is the state
+timestamp returned by the file response and enables optimistic concurrency. A stale
+write returns `409 Conflict` instead of replacing another reviewer's decision. See
+[finding-lifecycle.md](finding-lifecycle.md) for identity, merge, and grading rules.
 
 `since` is an optional ISO 8601 timestamp and `kind` is an optional exact review
 kind (`code`, `security`, or `performance`). The usage response includes totals,
@@ -119,7 +130,8 @@ All repository operations also have a scoped form, for example
 `/api/repos/payments/tree?path=`, `/api/repos/payments/file?path=README.md`,
 `/api/repos/payments/scan`, `/api/repos/payments/security/scan`,
 `/api/repos/payments/inputs`, `/api/repos/payments/handover`, and
-`/api/repos/payments/review`. Usage also has the scoped form
+`/api/repos/payments/review`. Finding state uses
+`/api/repos/payments/findings/state`. Usage also has the scoped form
 `/api/repos/payments/usage`; quotas are per signed-in user/provider and remain global.
 The unscoped routes above remain aliases for the active
 `default` registration so existing callers continue to work.

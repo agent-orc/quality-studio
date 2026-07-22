@@ -56,9 +56,13 @@ public sealed partial class ReviewResponseParser
         foreach (var findingNode in findings)
         {
             var finding = findingNode?.AsObject() ?? throw Invalid("finding");
-            foreach (var property in new[] { "id", "aspect", "severity", "title", "description", "recommendation" })
+            foreach (var property in new[] { "id", "ruleId", "aspect", "severity", "title", "description", "recommendation" })
             {
                 RequireString(finding, property);
+            }
+            if (finding["ruleId"]!.GetValue<string>().Length > 200)
+            {
+                throw Invalid("ruleId");
             }
 
             var aspect = finding["aspect"]!.GetValue<string>();
@@ -86,6 +90,14 @@ public sealed partial class ReviewResponseParser
                 var range = RequireObject(location, "range");
                 ValidatePosition(RequireObject(range, "start"));
                 ValidatePosition(RequireObject(range, "end"));
+            }
+
+            if (finding["fingerprint"] is JsonValue fingerprintNode &&
+                (!fingerprintNode.TryGetValue<string>(out var fingerprint) ||
+                 fingerprint.Length != 71 || !fingerprint.StartsWith("sha256:", StringComparison.Ordinal) ||
+                 !fingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f')))
+            {
+                throw Invalid("fingerprint");
             }
         }
 

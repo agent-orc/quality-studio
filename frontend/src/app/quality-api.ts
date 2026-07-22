@@ -11,6 +11,7 @@ export interface TreeNode {
   path: string;
   kinds: Record<string, KindState>;
   findingsCount?: number;
+  findingCounts?: FindingStateCounts;
   reviewedAt?: string | null;
   sizeBytes?: number | null;
   lineCount?: number | null;
@@ -18,17 +19,20 @@ export interface TreeNode {
 }
 export type ReviewKind = 'code' | 'security' | 'performance';
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type FindingState = 'open' | 'accepted' | 'waived' | 'false-positive' | 'resolved';
+export interface FindingStateCounts { open: number; accepted: number; waived: number; falsePositive: number; resolved: number; }
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId?: string; accepted?: boolean; locations: FindingLocation[]; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId?: string; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
 export interface ReviewThreadEntry { id: string; author: ReviewThreadAuthor; createdAt: string; body: string; replyTo?: string; }
 export interface ReviewThread { id: string; anchor: { path: string; fingerprint: string; contextHash: string; lastKnownRange: { start: FindingPosition; end: FindingPosition } }; status: ThreadStatus; anchorState?: AnchorState; healedAt?: string; entries: ReviewThreadEntry[]; }
 export interface TokenUsage { inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null; reasoningOutputTokens: number | null; durationMs: number; }
-export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string } }; grade: { score: number; band: string; rationale: string }; summary: string; findings: ReviewFinding[]; threads?: ReviewThread[]; }
+export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string } }; grade: { score: number; band: string; rationale: string }; summary: string; findings: ReviewFinding[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
+export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
 export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
 export interface SecurityScanProvenance { scanner: string; version: string; mode: string; range: string | null; configPath: string | null; baselinePath: string | null; scannedAt: string; }
 export interface SecurityScanCounts { filesScanned: number; newFindings: number; acceptedFindings: number; blockFindings: number; warnFindings: number; cleanFiles: number; }
@@ -409,6 +413,12 @@ export class QualityApi {
     await this.loadFile(request.path);
     console.info(JSON.stringify({ event: 'qs.thread.mutated', threadId: thread.id, path: request.path, status: thread.status, hasEntry: !!request.body }));
     return thread;
+  }
+
+  async mutateFindingState(request: FindingStateMutationRequest): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.repositoryApiBase()}/findings/state`, request));
+    await Promise.all([this.loadFile(request.path), this.loadTree()]);
+    console.info(JSON.stringify({ event: 'qs.finding.state-mutated', fingerprint: request.fingerprint, path: request.path, state: request.state }));
   }
 
   private async loadHandoverConfiguration(): Promise<void> {

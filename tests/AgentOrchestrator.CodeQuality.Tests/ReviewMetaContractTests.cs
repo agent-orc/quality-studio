@@ -212,7 +212,9 @@ public sealed class ReviewMetaContractTests
             "The name is intentionally short for this sample.",
             "Use a domain name in production code.",
             [new FindingLocation("src/a.ts", new FindingRange(
-                new FindingPosition(1, 7), new FindingPosition(1, 8)))])],
+                new FindingPosition(1, 7), new FindingPosition(1, 8)))],
+            "sha256:" + new string('e', 64),
+            "style.prefer-domain-name")],
         Threads = [new ReviewThread(
             "thread-1",
             new ReviewThreadAnchor("src/a.ts", "sha256:" + new string('c', 64), "sha256:" + new string('d', 64),

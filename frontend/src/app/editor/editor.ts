@@ -256,6 +256,11 @@ export class Editor {
 
   reviewedOrDash(value: string | null | undefined): string { return value ? this.reviewed(value) : '—'; }
 
+  findingCountsLabel(node: FlatNode['children'][number]): string {
+    const counts = node.findingCounts;
+    return counts ? `O ${counts.open} · A ${counts.accepted} · W ${counts.waived} · FP ${counts.falsePositive}` : `${node.findingsCount ?? 0}`;
+  }
+
   private sortValue(node: FlatNode['children'][number], column: FolderSortColumn): string | number | null {
     if (column === 'name') return node.name;
     if (column === 'code' || column === 'security' || column === 'performance') return node.kinds[column]?.score;

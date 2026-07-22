@@ -1,3 +1,7 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using AgentOrchestrator.CodeQuality;
+
 namespace QualityStudio.Api;
 
 /// <summary>Confines repository operations to one immutable registry entry.</summary>
@@ -58,11 +62,24 @@ public sealed class RepositoryAccess
         return absolute;
     }
 
-    public IReadOnlyList<System.Text.Json.JsonElement> ReadMetaDocuments(string relativePath)
+    public IReadOnlyList<JsonElement> ReadMetaDocuments(
+        string relativePath,
+        IReadOnlyDictionary<string, FindingStateRecord>? states = null)
     {
         var normalized = NormalizeRelativePath(relativePath);
-        return (metaIndex ?? throw new InvalidOperationException("Review metadata indexing is unavailable."))
+        var documents = (metaIndex ?? throw new InvalidOperationException("Review metadata indexing is unavailable."))
             .Read(root, normalized);
+        if (states is null)
+        {
+            return documents;
+        }
+
+        return documents.Select(document =>
+        {
+            var metadata = JsonNode.Parse(document.GetRawText())!.AsObject();
+            using var projected = JsonDocument.Parse(FindingStateProjection.Apply(metadata, states).ToJsonString());
+            return projected.RootElement.Clone();
+        }).ToArray();
     }
 
     public string FindMetaDocument(string relativePath, string kind)

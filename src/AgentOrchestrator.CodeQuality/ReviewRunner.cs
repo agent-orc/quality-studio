@@ -124,39 +124,45 @@ public sealed class ReviewRunner
                 throw new ReviewRunException("The review target changed while the agent was reviewing it; no metadata was written.");
             }
 
+            var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, cancellationToken).ConfigureAwait(false);
+            var findingIdentities = FindingIdentity.Assign(response, subjectContents);
+
             var adapter = AdapterFromUnitId(unitId);
             var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-            threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
-            ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
-            ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
-            var meta = CreateMeta(
-                response,
-                relativePath,
-                request.Kind,
-                adapter,
-                unitId,
-                initialSubject.Inputs,
-                initialSubject.Members,
-                reviewedHash,
-                prompt,
-                agentResult.RunId,
-                inputs,
-                request.Level,
-                request.DisplayName,
-                usage,
-                threads);
-            Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
-            var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-            await File.WriteAllTextAsync(
-                temporaryPath,
-                meta.ToJsonString(JsonOptions) + Environment.NewLine,
-                new UTF8Encoding(false),
-                cancellationToken).ConfigureAwait(false);
-            File.Move(temporaryPath, metaPath, true);
+                var previousFindings = LoadFindingIdentities(metaPath);
+                await new FindingStateStore(root).MergeReviewAsync(
+                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
+                threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
+                ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
+                ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
+                var meta = CreateMeta(
+                    response,
+                    relativePath,
+                    request.Kind,
+                    adapter,
+                    unitId,
+                    initialSubject.Inputs,
+                    initialSubject.Members,
+                    reviewedHash,
+                    prompt,
+                    agentResult.RunId,
+                    inputs,
+                    request.Level,
+                    request.DisplayName,
+                    usage,
+                    threads);
+                Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
+                var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+                await File.WriteAllTextAsync(
+                    temporaryPath,
+                    meta.ToJsonString(JsonOptions) + Environment.NewLine,
+                    new UTF8Encoding(false),
+                    cancellationToken).ConfigureAwait(false);
+                File.Move(temporaryPath, metaPath, true);
             }
             finally
             {
@@ -328,6 +334,27 @@ public sealed class ReviewRunner
             builder.AppendLine(await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false));
         }
         return builder.ToString();
+    }
+
+    private static async Task<IReadOnlyDictionary<string, string>> ReadSubjectContentsAsync(
+        IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = 0; index < files.Count; index++)
+            result[paths[index]] = await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false);
+        return result;
+    }
+
+    private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(string metaPath)
+    {
+        if (!File.Exists(metaPath)) return [];
+        var root = JsonNode.Parse(File.ReadAllText(metaPath))?.AsObject();
+        return root?["findings"]?.AsArray().OfType<JsonObject>().Select(finding => new FindingIdentityRecord(
+            finding["fingerprint"]?.GetValue<string>() ?? string.Empty,
+            finding["id"]?.GetValue<string>() ?? string.Empty,
+            finding["locations"]?.AsArray().OfType<JsonObject>().FirstOrDefault()?["path"]?.GetValue<string>() ?? string.Empty,
+            finding["ruleId"]?.GetValue<string>() ?? string.Empty))
+            .Where(finding => !string.IsNullOrWhiteSpace(finding.Fingerprint)).ToArray() ?? [];
     }
 
     private static async Task<IReadOnlyList<SubjectInputHash>> HashInputsAsync(

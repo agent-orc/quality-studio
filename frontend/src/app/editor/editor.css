@@ -45,7 +45,7 @@
 .rollups b{font-size:9px;text-transform:capitalize}
 .rollups small{grid-column:2;color:var(--studio-fg-dim);font:9px var(--font-mono)}
 .folder-table{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--studio-bg-editor)}
-.folder-columns,.folder-row{min-width:980px;display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(76px,.7fr)) minmax(90px,.8fr) 70px 116px 72px 58px;align-items:center}
+.folder-columns,.folder-row{min-width:1040px;display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(76px,.7fr)) minmax(90px,.8fr) 130px 116px 72px 58px;align-items:center}
 .folder-columns{position:sticky;top:0;z-index:3;height:34px;border-bottom:1px solid var(--studio-border);background:var(--studio-bg-surface)}
 .folder-columns button{height:34px;padding:0 9px;border:0;border-right:1px solid var(--studio-border-soft);background:transparent;color:var(--studio-fg-dim);font-size:8px;font-weight:700;text-align:left;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
 .folder-columns button:hover{color:var(--studio-fg);background:var(--studio-bg-elevated)}

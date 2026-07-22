@@ -71,8 +71,10 @@
   "findings": [
     {
       "id": "prefer-const-name",
+      "fingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "aspect": "correctness",
       "severity": "info",
+      "ruleId": "style.prefer-domain-name",
       "title": "Name could express intent",
       "description": "The name is intentionally short for this conformance sample.",
       "recommendation": "Use a domain name in production code.",
