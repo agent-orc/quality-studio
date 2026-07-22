@@ -2,8 +2,15 @@
   <select aria-label="Review kind" [ngModel]="activeKind()" (ngModelChange)="kindSelect.emit($event)">
     @for (kind of reviewKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
   </select>
-  @if (!compact()) {
-    <input aria-label="Review model" placeholder="Runner default model" [ngModel]="model()" (ngModelChange)="model.set($event)" />
+  <select aria-label="Review CLI" [ngModel]="cliType()" (ngModelChange)="cliType.set($event)">
+    @for (cli of ['codex', 'claude', 'antigravity', 'gemini']; track cli) { <option [value]="cli">{{ cli }}</option> }
+  </select>
+  <input aria-label="Review model" placeholder="Runner default model" [ngModel]="model()" (ngModelChange)="model.set($event)" />
+  <select aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="capKind.set($event)">
+    <option value="repository">repo cap</option><option value="tokens">tokens</option><option value="cost">cost</option>
+  </select>
+  @if (capKind() !== 'repository') {
+    <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="capValue.set($event)" />
   }
   <button type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
     {{ activeOnNode() ? 'Review running' : starting() ? 'Queuing…' : 'Start review' }}

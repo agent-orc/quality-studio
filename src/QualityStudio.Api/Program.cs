@@ -42,6 +42,7 @@ builder.Services.AddSingleton(serviceProvider =>
 builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton<AgentStudioTaskClient>();
 builder.Services.Configure<ReviewJobsOptions>(builder.Configuration.GetSection(ReviewJobsOptions.SectionName));
+builder.Services.AddSingleton<IReviewExecutorFactory, ReviewExecutorFactory>();
 builder.Services.AddSingleton<ReviewJobService>();
 builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<ReviewJobService>());
 builder.Services.AddSingleton(_ => new QuotaService(
@@ -59,10 +60,10 @@ builder.Services.AddCors(options => options.AddPolicy("dev-frontend", policy =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         RateLimitPartition.GetConcurrencyLimiter("api-host", _ => new ConcurrencyLimiterOptions
         {
-            PermitLimit = corsOptions.Security.MaxConcurrentRequests,
+            PermitLimit = context.RequestServices.GetRequiredService<ApiSecurity>().MaxConcurrentRequests,
             QueueLimit = 0,
         }));
     options.AddPolicy("spend", context => RateLimitPartition.GetFixedWindowLimiter(
@@ -71,7 +72,7 @@ builder.Services.AddRateLimiter(options =>
             : context.Connection.RemoteIpAddress?.ToString() ?? "local",
         _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = corsOptions.Security.SpendRequestsPerMinute,
+            PermitLimit = context.RequestServices.GetRequiredService<ApiSecurity>().SpendRequestsPerMinute,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true,
@@ -242,6 +243,8 @@ app.MapGet("/api/quotas", Quotas);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
+app.MapPost("/api/review/estimate", EstimateReview);
+app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
@@ -718,6 +721,17 @@ static async Task<IResult> StartReview(
     return Results.Accepted($"{basePath}/{run.Id}", run);
 }
 
+static async Task<IResult> EstimateReview(
+    HttpContext context,
+    StartReviewRequest request,
+    RepositoryRegistry registry,
+    ReviewJobService jobs,
+    CancellationToken cancellationToken)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(await jobs.EstimateAsync(repository.Id, request, cancellationToken));
+}
+
 static IResult ReviewRuns(HttpContext context, RepositoryRegistry registry, ReviewJobService jobs)
 {
     var repository = registry.Get(RouteRepositoryId(context));
@@ -742,10 +756,11 @@ static IResult PauseReview(HttpContext context, string id, RepositoryRegistry re
     return Results.Ok(jobs.Pause(repository.Id, id));
 }
 
-static IResult ResumeReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
+static IResult ResumeReview(
+    HttpContext context, string id, ResumeReviewRequest? request, RepositoryRegistry registry, ReviewJobService jobs)
 {
     var repository = registry.Get(RouteRepositoryId(context));
-    return Results.Ok(jobs.Resume(repository.Id, id));
+    return Results.Ok(jobs.Resume(repository.Id, id, request));
 }
 
 static IResult HandoverConfiguration(HttpContext context, RepositoryRegistry registry, AgentStudioTaskOptions options)

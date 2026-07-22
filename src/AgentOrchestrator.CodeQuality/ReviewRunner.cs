@@ -25,6 +25,8 @@ public sealed record ReviewSubjectFile(string UnitId, string Path);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
+public sealed record ReviewPromptMeasurement(int Characters, string Path, string Level);
+
 public sealed class ReviewRunner
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
@@ -51,44 +53,10 @@ public sealed class ReviewRunner
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var root = Path.GetFullPath(request.RepositoryRoot ?? Directory.GetCurrentDirectory());
-        var relativePath = NormalizeRelativePath(root, request.FilePath);
-        string[] subjectPaths = request.Level == ReviewLevel.File
-            ? [relativePath]
-            : request.SubjectFiles?.Select(path => NormalizeRelativePath(root, path)).Distinct(StringComparer.Ordinal).ToArray()
-              ?? [];
-        if (subjectPaths.Length == 0)
-        {
-            throw new ArgumentException("An aggregate review requires at least one descendant file.", nameof(request));
-        }
-        var files = subjectPaths.Select(path => Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar))).ToArray();
-        foreach (var file in files)
-        {
-            EnsureContained(root, file);
-            if (!File.Exists(file)) throw new FileNotFoundException("Review target does not exist.", file);
-        }
-
-        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
-        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+        var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
+        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
-        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
-        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
-        var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
-            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
-        var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
-        var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
-        var openThreads = new JsonArray(threads.OfType<JsonObject>()
-            .Where(thread => thread["status"]?.GetValue<string>() == "open")
-            .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
-        var prompt = _promptBuilder.Build(
-            relativePath,
-            request.Kind,
-            globalGuidelines,
-            projectGuidelines,
-            fileContent,
-            openThreads);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
@@ -175,6 +143,51 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
         }
+    }
+
+    public async Task<ReviewPromptMeasurement> MeasurePromptAsync(
+        ReviewRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
+        return new ReviewPromptMeasurement(prepared.Prompt.Length, prepared.RelativePath,
+            request.Level.ToString().ToLowerInvariant());
+    }
+
+    private async Task<PreparedPrompt> PreparePromptAsync(ReviewRequest request, CancellationToken cancellationToken)
+    {
+        var root = Path.GetFullPath(request.RepositoryRoot ?? Directory.GetCurrentDirectory());
+        var relativePath = NormalizeRelativePath(root, request.FilePath);
+        string[] subjectPaths = request.Level == ReviewLevel.File
+            ? [relativePath]
+            : request.SubjectFiles?.Select(path => NormalizeRelativePath(root, path)).Distinct(StringComparer.Ordinal).ToArray()
+              ?? [];
+        if (subjectPaths.Length == 0)
+            throw new ArgumentException("An aggregate review requires at least one descendant file.", nameof(request));
+
+        var files = subjectPaths.Select(path => Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar))).ToArray();
+        foreach (var file in files)
+        {
+            EnsureContained(root, file);
+            if (!File.Exists(file)) throw new FileNotFoundException("Review target does not exist.", file);
+        }
+
+        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
+        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
+            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
+        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
+        var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
+            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
+        var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
+        var openThreads = new JsonArray(threads.OfType<JsonObject>()
+            .Where(thread => thread["status"]?.GetValue<string>() == "open")
+            .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
+        var prompt = _promptBuilder.Build(relativePath, request.Kind, globalGuidelines,
+            projectGuidelines, fileContent, openThreads);
+        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
+            prompt, unitId, metaPath, threads);
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
@@ -463,6 +476,18 @@ public sealed class ReviewRunner
     }
 
     private sealed record PreparedSubject(IReadOnlyList<SubjectInputHash> Inputs, IReadOnlyList<AggregateMemberHash>? Members);
+
+    private sealed record PreparedPrompt(
+        string Root,
+        string RelativePath,
+        string[] SubjectPaths,
+        string[] Files,
+        string FileContent,
+        ResolvedInputs Inputs,
+        string Prompt,
+        string UnitId,
+        string MetaPath,
+        JsonArray Threads);
 }
 
 public sealed class ReviewRunException(string message) : Exception(message);

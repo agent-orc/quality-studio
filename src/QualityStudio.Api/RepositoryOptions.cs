@@ -14,6 +14,8 @@ public sealed class RepositoryOptions
 
     public int InputBudgetCharacters { get; set; } = AgentOrchestrator.CodeQuality.InputResolver.DefaultBudgetCharacters;
 
+    public long? DefaultReviewTokenCap { get; set; } = 100_000;
+
     public ApiSecurityOptions Security { get; set; } = new();
 }
 

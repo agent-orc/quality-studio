@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewThread } from '../quality-api';
+import { FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
 
@@ -106,4 +106,26 @@ export class ReviewPanel {
   }
 
   formatDuration(value: number): string { return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`; }
+
+  spendLabel(run: ReviewRun): string {
+    if (run.tokenCap !== null) {
+      const spent = (run.usage.inputTokens ?? 0) + (run.usage.outputTokens ?? 0);
+      return `${this.formatTokens(spent)} / ${this.formatTokens(run.tokenCap)}`;
+    }
+    if (run.costCap !== null) return `${this.formatCost(run.costSpent, run.currency)} / ${this.formatCost(run.costCap, run.currency)}`;
+    return run.costSpent === null ? `cost ${run.priceStatus}` : this.formatCost(run.costSpent, run.currency);
+  }
+
+  async resumeCapped(run: ReviewRun): Promise<void> {
+    const current = run.tokenCap ?? run.costCap;
+    const entered = prompt(`Raise the ${run.tokenCap !== null ? 'token' : 'cost'} cap to resume ${run.skippedFiles} skipped file(s):`, current === null ? '' : String(current * 2));
+    if (entered === null) return;
+    const cap = Number(entered);
+    if (!Number.isFinite(cap) || cap <= 0) return;
+    await this.api.resumeReview(run.id, run.tokenCap !== null ? { tokenCap: cap } : { costCap: cap });
+  }
+
+  private formatCost(value: number | null, currency: string | null): string {
+    return value === null ? 'unavailable' : `${value.toFixed(4)} ${currency ?? 'USD'}`;
+  }
 }

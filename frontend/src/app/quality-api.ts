@@ -85,6 +85,8 @@ export interface RepositoryRegistration {
   inputBudgetCharacters: number;
   enabledReviewKinds: ReviewKind[];
   archived: boolean;
+  defaultReviewTokenCap: number | null;
+  defaultReviewCostCap: number | null;
 }
 export interface RepositoryRegistrationRequest {
   id?: string;
@@ -93,6 +95,8 @@ export interface RepositoryRegistrationRequest {
   globalInputsDirectory: string | null;
   inputBudgetCharacters: number;
   enabledReviewKinds: ReviewKind[];
+  defaultReviewTokenCap?: number | null;
+  defaultReviewCostCap?: number | null;
 }
 export type AgentStudioImportStatus = 'imported' | 'skipped' | 'failed';
 export interface AgentStudioImportResult {
@@ -104,14 +108,21 @@ export interface AgentStudioImportResult {
   reason: string | null;
 }
 export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
-export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
-export interface ReviewFileProgress { path: string; state: ReviewRunState; startedAt: string | null; finishedAt: string | null; error: string | null; }
+export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped';
+export type ReviewUnitState = ReviewRunState | 'skipped';
+export interface ReviewFileProgress { path: string; state: ReviewUnitState; startedAt: string | null; finishedAt: string | null; error: string | null; }
+export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; }
+export interface ReviewEstimateDeviation { inputTokensPercent: number; outputTokensPercent: number; costPercent: number | null; note: string; }
+export interface ReviewPreflight { repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null; }
 export interface ReviewRun {
   id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; cliType: string;
   state: ReviewRunState; totalFiles: number; completedFiles: number; failedFiles: number; createdAt: string;
   startedAt: string | null; finishedAt: string | null; files: ReviewFileProgress[]; errors: string[]; usageOperations: number; usage: TokenUsage;
+  estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
+  priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
+  deviation: ReviewEstimateDeviation | null;
 }
-export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; }
+export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; tokenCap?: number | null; costCap?: number | null; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; }
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; recent: UsageEntry[]; }
@@ -248,7 +259,7 @@ export class QualityApi {
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
-      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false }]);
+      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
       this.selectedRepositoryId.set('default');
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }
@@ -323,13 +334,23 @@ export class QualityApi {
     }
   }
 
+  async estimateReview(request: StartReviewRequest): Promise<ReviewPreflight> {
+    this.reviewError.set('');
+    try {
+      return await firstValueFrom(this.http.post<ReviewPreflight>(`${this.repositoryApiBase()}/review/estimate`, request));
+    } catch (error) {
+      this.reviewError.set(this.errorMessage(error));
+      throw error;
+    }
+  }
+
   async loadReviewRuns(): Promise<void> {
     if (!this.connected()) return;
     try {
       const before = new Map(this.reviewRuns().map(run => [run.id, run.state]));
       const result = await firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase()}/review/runs`));
       this.reviewRuns.set(result.runs);
-      const completed = result.runs.some(run => ['done', 'failed', 'cancelled'].includes(run.state) && ['queued', 'running'].includes(before.get(run.id) ?? ''));
+      const completed = result.runs.some(run => ['done', 'failed', 'cancelled', 'capped'].includes(run.state) && ['queued', 'running'].includes(before.get(run.id) ?? ''));
       if (completed) {
         const openPath = this.file()?.path;
         await this.loadTree();
@@ -386,9 +407,9 @@ export class QualityApi {
     }
   }
 
-  async resumeReview(id: string): Promise<void> {
+  async resumeReview(id: string, cap: { tokenCap?: number | null; costCap?: number | null } = {}): Promise<void> {
     try {
-      const run = await firstValueFrom(this.http.post<ReviewRun>(`${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/resume`, {}));
+      const run = await firstValueFrom(this.http.post<ReviewRun>(`${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/resume`, cap));
       this.reviewRuns.update(runs => runs.map(candidate => candidate.id === run.id ? run : candidate));
       this.scheduleReviewPoll();
     } catch (error) {

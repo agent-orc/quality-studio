@@ -291,6 +291,8 @@ export class App implements OnDestroy {
       globalInputsDirectory: repository.globalInputsDirectory,
       inputBudgetCharacters: repository.inputBudgetCharacters,
       enabledReviewKinds: [...repository.enabledReviewKinds],
+      defaultReviewTokenCap: repository.defaultReviewTokenCap,
+      defaultReviewCostCap: repository.defaultReviewCostCap,
     };
     this.repositoryError.set('');
   }
@@ -299,6 +301,16 @@ export class App implements OnDestroy {
     this.repositoryForm.enabledReviewKinds = enabled
       ? [...new Set([...this.repositoryForm.enabledReviewKinds, kind])]
       : this.repositoryForm.enabledReviewKinds.filter(existing => existing !== kind);
+  }
+
+  setDefaultTokenCap(value: number | null): void {
+    this.repositoryForm.defaultReviewTokenCap = value;
+    if (value !== null) this.repositoryForm.defaultReviewCostCap = null;
+  }
+
+  setDefaultCostCap(value: number | null): void {
+    this.repositoryForm.defaultReviewCostCap = value;
+    if (value !== null) this.repositoryForm.defaultReviewTokenCap = null;
   }
 
   async saveRepository(): Promise<void> {
@@ -448,7 +460,7 @@ export class App implements OnDestroy {
   }
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {
-    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'] };
+    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], defaultReviewTokenCap: 100000, defaultReviewCostCap: null };
   }
 
   private emptyGuidelineForm(): GuidelineForm {

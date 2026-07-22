@@ -12,7 +12,9 @@ public sealed record RepositoryRegistration(
     int InputBudgetCharacters,
     IReadOnlyList<string> EnabledReviewKinds,
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
-    bool Archived = false);
+    bool Archived = false,
+    long? DefaultReviewTokenCap = null,
+    decimal? DefaultReviewCostCap = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -21,7 +23,9 @@ public sealed record RepositoryRegistrationRequest(
     string? GlobalInputsDirectory,
     int? InputBudgetCharacters,
     IReadOnlyList<string>? EnabledReviewKinds,
-    IReadOnlyList<RepositorySensorConfiguration>? Sensors = null);
+    IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
+    long? DefaultReviewTokenCap = null,
+    decimal? DefaultReviewCostCap = null);
 
 public sealed record RepositorySensorConfiguration(
     string Id,
@@ -200,7 +204,8 @@ public sealed class RepositoryRegistry
             ValidateOptionalDirectory(legacyOptions.GlobalInputsDirectory, root),
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
-            DefaultSensors());
+            DefaultSensors(),
+            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
@@ -281,8 +286,17 @@ public sealed class RepositoryRegistry
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
 
+        if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
+            throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
+        if (request.DefaultReviewTokenCap is <= 0 or > 1_000_000_000)
+            throw new RepositoryRegistryValidationException("Default review token cap must be between 1 and 1,000,000,000 tokens.");
+        if (request.DefaultReviewCostCap is <= 0 or > 1_000_000)
+            throw new RepositoryRegistryValidationException("Default review cost cap must be between 0 and 1,000,000.");
+
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
-            ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors);
+            ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors,
+            DefaultReviewTokenCap: request.DefaultReviewTokenCap,
+            DefaultReviewCostCap: request.DefaultReviewCostCap);
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken)
