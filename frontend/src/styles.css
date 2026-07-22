@@ -4,7 +4,7 @@
   --studio-bg-elevated: #eef1f5; --studio-border: #d8dce3; --studio-border-soft: #e5e8ed;
   --studio-fg: #242830; --studio-fg-muted: #66707e; --studio-fg-dim: #949ca7;
   --studio-accent: #0e639c; --studio-accent-soft: #e4f0f8; --studio-selected: #e7f1f8;
-  --status-fresh: #2da96b; --status-stale: #d89524; --status-missing: #9ca3ad;
+  --status-fresh: #2da96b; --status-stale: #d89524; --status-policy: #7c63d9; --status-missing: #9ca3ad;
   --syntax-comment: color-mix(in srgb, var(--studio-fg-muted) 78%, var(--studio-fg));
   --syntax-string: color-mix(in srgb, var(--status-fresh) 68%, var(--studio-fg));
   --syntax-keyword: var(--studio-accent); --syntax-number: color-mix(in srgb, var(--status-stale) 60%, var(--studio-fg));
@@ -22,7 +22,7 @@
   --studio-bg-elevated: #32363f; --studio-border: #3c414c; --studio-border-soft: #333740;
   --studio-fg: #e5e7eb; --studio-fg-muted: #a3aab5; --studio-fg-dim: #6f7886;
   --studio-accent: #8fb8ff; --studio-accent-soft: #26364f; --studio-selected: #2b3749;
-  --status-fresh: #54c98a; --status-stale: #e2a94b; --status-missing: #707887;
+  --status-fresh: #54c98a; --status-stale: #e2a94b; --status-policy: #a78bfa; --status-missing: #707887;
   --shadow: 0 10px 36px rgba(0, 0, 0, .2);
 }
 * { box-sizing: border-box; }
@@ -46,5 +46,5 @@ button { color: inherit; }
 .pane-header { height: 60px; padding: 11px 13px; border-bottom: 1px solid var(--studio-border-soft); display: flex; align-items: center; justify-content: space-between; }
 .pane-header div { display: flex; flex-direction: column; gap: 2px; } .pane-header strong { font-size: 13px; } .eyebrow { font-size: 9px; color: var(--studio-fg-dim); text-transform: uppercase; }
 .icon-button, .quiet { border: 1px solid var(--studio-border); background: var(--studio-bg-surface); width: 29px; height: 29px; border-radius: 6px; cursor: pointer; }
-.status { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 14%, transparent); } .status.fresh { background: var(--status-fresh); color: var(--status-fresh); } .status.stale { background: var(--status-stale); color: var(--status-stale); } .status.missing { background: var(--status-missing); color: var(--status-missing); }
+.status { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 14%, transparent); } .status.fresh { background: var(--status-fresh); color: var(--status-fresh); } .status.stale { background: var(--status-stale); color: var(--status-stale); } .status.policy-drift { border-radius:2px;background: var(--status-policy); color: var(--status-policy); transform:rotate(45deg); } .status.missing { background: var(--status-missing); color: var(--status-missing); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

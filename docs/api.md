@@ -86,13 +86,27 @@ curl "http://127.0.0.1:5127/api/file?path=src/QualityStudio.Api/appsettings.json
 # 200 {"path":"src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[]}
 
 curl "http://127.0.0.1:5127/api/scan"
-# 200 {"files":[...],"freshCount":0,"staleCount":0,"missingCount":20}
+# 200 {"files":[...],"freshCount":0,"staleCount":0,"policyDriftCount":0,"missingCount":20}
 
 curl "http://127.0.0.1:5127/api/security/scan"
 # 200 {"verdict":"pass","available":true,"scanner":"gitleaks",...}
 
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}
+
+curl "http://127.0.0.1:5127/api/guidelines"
+# 200 {"guidelines":[...],"catalogue":[...],"traces":[...]}
+
+curl -X POST "http://127.0.0.1:5127/api/guidelines" -H "Content-Type: application/json" \
+  -d '{"id":"api-boundaries","enabled":true,"priority":80,"kinds":["code"],"levels":["file"],"content":"Validate public boundary input."}'
+# 201 and writes .quality/inputs/api-boundaries.md
+
+curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/security-boundaries/install"
+# 201 and installs an editable repository copy
+
+curl -X POST "http://127.0.0.1:5127/api/guidelines/impact" -H "Content-Type: application/json" \
+  -d '{"guideline":{"id":"api-boundaries","enabled":true,"priority":80,"kinds":["code"],"levels":["file"],"content":"Validate all public boundary input."},"samplePaths":["src/Api.cs"],"kind":"code"}'
+# 200 {"addedCount":1,"removedCount":0,"changed":true,"files":[...]}
 
 curl -X POST "http://127.0.0.1:5127/api/review" -H "Content-Type: application/json" -d "{}"
 # 202 {"id":"review-...","state":"queued",...}
@@ -131,7 +145,9 @@ All repository operations also have a scoped form, for example
 `/api/repos/payments/scan`, `/api/repos/payments/security/scan`,
 `/api/repos/payments/inputs`, `/api/repos/payments/handover`, and
 `/api/repos/payments/review`. Finding state uses
-`/api/repos/payments/findings/state`. Usage also has the scoped form
+`/api/repos/payments/findings/state`. Guideline CRUD, catalogue install, trace,
+and impact also have scoped forms under `/api/repos/payments/guidelines`. Usage
+has the scoped form
 `/api/repos/payments/usage`; quotas are per signed-in user/provider and remain global.
 The unscoped routes above remain aliases for the active
 `default` registration so existing callers continue to work.

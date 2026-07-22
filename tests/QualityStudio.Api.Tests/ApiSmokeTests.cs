@@ -128,6 +128,26 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Guideline_authoring_endpoint_writes_a_resolver_compatible_repository_file()
+    {
+        using var client = application!.CreateClient();
+        using var created = await client.PostAsJsonAsync("/api/guidelines", new
+        {
+            id = "ui-created-rule", enabled = true, priority = 90,
+            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Prefer immutable values.",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var path = Path.Combine(repositoryRoot, ".quality", "inputs", "ui-created-rule.md");
+        Assert.True(File.Exists(path));
+        Assert.Contains("enabled: true", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        using var inputsResponse = await client.GetAsync("/api/inputs", TestContext.Current.CancellationToken);
+        var inputs = await inputsResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains(inputs.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
+            input => input.GetProperty("id").GetString() == "ui-created-rule");
+    }
+
+    [Fact]
     public async Task Security_scan_returns_redacted_scan_summary()
     {
         using var client = application!.CreateClient();

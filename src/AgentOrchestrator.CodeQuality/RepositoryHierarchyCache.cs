@@ -15,11 +15,16 @@ public sealed class RepositoryHierarchyCache
 {
     private readonly ConcurrentDictionary<string, CacheSlot> slots = new(StringComparer.OrdinalIgnoreCase);
 
-    public RepositoryHierarchySnapshot Get(string repositoryPath)
+    public RepositoryHierarchySnapshot Get(
+        string repositoryPath,
+        InputResolver? inputResolver = null,
+        string? globalInputsDirectory = null,
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
         var root = Path.GetFullPath(repositoryPath);
-        var state = ComputeGitState(root);
+        var state = ComputeGitState(root) + "\0" +
+                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
         var slot = slots.GetOrAdd(root, _ => new CacheSlot());
         lock (slot.Gate)
         {
@@ -29,7 +34,8 @@ public sealed class RepositoryHierarchyCache
             }
 
             var hierarchy = RepositoryHierarchyBuilder.Build(root);
-            ReviewMetaDiscovery.AttachDiscovered(root, hierarchy);
+            ReviewMetaDiscovery.AttachDiscovered(
+                root, hierarchy, inputResolver, globalInputsDirectory, inputBudgetCharacters);
             var etagHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
             slot.Snapshot = new RepositoryHierarchySnapshot(hierarchy, state, $"\"{etagHash}\"");
             return slot.Snapshot;
@@ -61,6 +67,37 @@ public sealed class RepositoryHierarchyCache
             }
 
             using var stream = File.OpenRead(absolutePath);
+            var buffer = new byte[16 * 1024];
+            int read;
+            while ((read = stream.Read(buffer)) > 0) hash.AppendData(buffer, 0, read);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    private static string ComputeGlobalInputsState(string? directory, int budgetCharacters)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, budgetCharacters.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            Append(hash, "none");
+            return Convert.ToHexStringLower(hash.GetHashAndReset());
+        }
+
+        var root = Path.GetFullPath(directory);
+        Append(hash, root);
+        if (!Directory.Exists(root))
+        {
+            Append(hash, "missing");
+            return Convert.ToHexStringLower(hash.GetHashAndReset());
+        }
+
+        foreach (var path in Directory.EnumerateFiles(root, "*.md", SearchOption.TopDirectoryOnly)
+                     .Where(path => !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+                     .Order(StringComparer.Ordinal))
+        {
+            Append(hash, Path.GetFileName(path));
+            using var stream = File.OpenRead(path);
             var buffer = new byte[16 * 1024];
             int read;
             while ((read = stream.Read(buffer)) > 0) hash.AppendData(buffer, 0, read);

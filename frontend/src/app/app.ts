@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject
 import { FormsModule } from '@angular/forms';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
-import { AgentStudioImportResponse, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
+import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
 import { flattenTree } from './tree-utils';
 
@@ -23,6 +23,7 @@ interface WorkspaceLayout {
 }
 
 type ResizablePane = 'explorer' | 'review';
+interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds: string; levels: string; content: string; }
 
 @Component({
   selector: 'app-root',
@@ -55,11 +56,18 @@ export class App implements OnDestroy {
   readonly agentStudioImporting = signal(false);
   readonly agentStudioImportResult = signal<AgentStudioImportResponse | null>(null);
   readonly agentStudioImportError = signal('');
+  readonly guidelineDialogOpen = signal(false);
+  readonly editingGuidelineId = signal<string | null>(null);
+  readonly guidelineError = signal('');
+  readonly guidelineSaving = signal(false);
+  readonly guidelineDryRunning = signal(false);
+  readonly guidelineImpact = signal<GuidelineImpact | null>(null);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
   readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(n => n.path === this.selected()));
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
   readonly reviewKinds: ReviewKind[] = ['code', 'security', 'performance'];
   repositoryForm: RepositoryRegistrationRequest = this.emptyRepositoryForm();
+  guidelineForm: GuidelineForm = this.emptyGuidelineForm();
 
   // Panel visibility/width and drag state. Persisted layout is loaded once here so the
   // initial signal values already reflect it (no flash of the default layout on load).
@@ -168,6 +176,65 @@ export class App implements OnDestroy {
   }
 
   selectFinding(finding: ReviewFinding): void { this.selectedFinding.set(finding); }
+
+  openGuidelines(): void {
+    this.guidelineDialogOpen.set(true);
+    const first = this.api.guidelines()[0];
+    if (first) this.editGuideline(first); else this.newGuideline();
+  }
+
+  newGuideline(): void {
+    this.editingGuidelineId.set(null);
+    this.guidelineForm = this.emptyGuidelineForm();
+    this.guidelineError.set('');
+    this.guidelineImpact.set(null);
+  }
+
+  editGuideline(guideline: Guideline): void {
+    this.editingGuidelineId.set(guideline.id);
+    this.guidelineForm = { id: guideline.id, enabled: guideline.enabled, priority: guideline.priority,
+      kinds: guideline.kinds.join(', '), levels: guideline.levels.join(', '), content: guideline.content };
+    this.guidelineError.set('');
+    this.guidelineImpact.set(null);
+  }
+
+  async saveGuideline(): Promise<void> {
+    this.guidelineSaving.set(true); this.guidelineError.set('');
+    try {
+      const draft = this.guidelineDraft();
+      const existing = this.editingGuidelineId();
+      const saved = existing ? await this.api.updateGuideline(existing, draft) : await this.api.createGuideline(draft);
+      this.editGuideline(saved);
+    } catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+    finally { this.guidelineSaving.set(false); }
+  }
+
+  async deleteGuideline(): Promise<void> {
+    const id = this.editingGuidelineId();
+    if (!id || !confirm(`Delete guideline ${id}? The repository file will be removed.`)) return;
+    try { await this.api.deleteGuideline(id); this.api.guidelines().length ? this.editGuideline(this.api.guidelines()[0]) : this.newGuideline(); }
+    catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+  }
+
+  async installGuideline(id: string): Promise<void> {
+    try { this.editGuideline(await this.api.installGuideline(id)); }
+    catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+  }
+
+  async dryRunGuideline(): Promise<void> {
+    const sample = this.api.file()?.path ?? flattenTree(this.api.tree(), new Set(), true).find(node => node.level === 'file')?.path;
+    if (!sample) { this.guidelineError.set('Open or select a sample file first.'); return; }
+    this.guidelineDryRunning.set(true); this.guidelineError.set(''); this.guidelineImpact.set(null);
+    const requestedKind = this.guidelineDraft().kinds.find(kind => ['code', 'security', 'performance'].includes(kind)) as ReviewKind | undefined;
+    try { this.guidelineImpact.set(await this.api.guidelineImpact(this.guidelineDraft(), [sample], requestedKind ?? this.activeKind())); }
+    catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+    finally { this.guidelineDryRunning.set(false); }
+  }
+
+  guidelineTrace(id: string) { return this.api.guidelineTraces().find(trace => trace.guidelineId === id); }
+  guidelineInstalled(id: string): boolean { return this.api.guidelines().some(guideline => guideline.id === id); }
+
+  openTrace(path: string): void { this.guidelineDialogOpen.set(false); this.open(path); }
 
   async switchRepository(id: string): Promise<void> {
     this.repositoryMenuOpen.set(false);
@@ -382,6 +449,17 @@ export class App implements OnDestroy {
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {
     return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'] };
+  }
+
+  private emptyGuidelineForm(): GuidelineForm {
+    return { id: '', enabled: true, priority: 50, kinds: 'code', levels: 'file', content: '' };
+  }
+
+  private guidelineDraft(): GuidelineDraft {
+    const values = (value: string) => value.split(',').map(item => item.trim().toLowerCase()).filter(Boolean);
+    return { id: this.guidelineForm.id.trim(), enabled: this.guidelineForm.enabled,
+      priority: Number(this.guidelineForm.priority), kinds: values(this.guidelineForm.kinds),
+      levels: values(this.guidelineForm.levels), content: this.guidelineForm.content };
   }
 
   private detectEmbedded(): boolean {

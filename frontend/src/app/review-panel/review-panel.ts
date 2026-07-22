@@ -32,6 +32,7 @@ export class ReviewPanel {
   readonly activeState = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.direct ?? 'missing');
   readonly securityNodeState = computed(() => this.selectedNode()?.kinds['security']?.direct ?? 'missing');
   readonly activeInputs = computed(() => this.api.inputs()[this.activeKind()] ?? null);
+  readonly inputTraces = computed(() => new Map(this.api.guidelineTraces().map(trace => [trace.guidelineId, trace])));
   readonly metaPath = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.metaPath ?? null);
   readonly filteredThreads = computed(() => (this.activeMeta()?.threads ?? []).filter(thread =>
     this.threadFilter() === 'detached' ? thread.anchorState === 'detached' : thread.status === this.threadFilter() && thread.anchorState !== 'detached'));

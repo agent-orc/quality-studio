@@ -27,6 +27,8 @@ builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<InputResolver>();
+builder.Services.AddSingleton<GuidelineStore>();
+builder.Services.AddTransient<GuidelineImpactAnalyzer>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
 builder.Services.AddSingleton<GitleaksSecurityScanner>();
 builder.Services.Configure<AgentStudioTaskOptions>(
@@ -209,6 +211,18 @@ app.MapGet("/api/file", FileContent);
 app.MapGet("/api/repos/{repoId}/file", FileContent);
 app.MapGet("/api/inputs", Inputs);
 app.MapGet("/api/repos/{repoId}/inputs", Inputs);
+app.MapGet("/api/guidelines", Guidelines);
+app.MapGet("/api/repos/{repoId}/guidelines", Guidelines);
+app.MapPost("/api/guidelines", CreateGuideline);
+app.MapPost("/api/repos/{repoId}/guidelines", CreateGuideline);
+app.MapPut("/api/guidelines/{guidelineId}", UpdateGuideline);
+app.MapPut("/api/repos/{repoId}/guidelines/{guidelineId}", UpdateGuideline);
+app.MapDelete("/api/guidelines/{guidelineId}", DeleteGuideline);
+app.MapDelete("/api/repos/{repoId}/guidelines/{guidelineId}", DeleteGuideline);
+app.MapPost("/api/guidelines/catalog/{catalogueId}/install", InstallGuideline);
+app.MapPost("/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install", InstallGuideline);
+app.MapPost("/api/guidelines/impact", GuidelineImpact);
+app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
 app.MapGet("/api/scan", Scan);
 app.MapGet("/api/repos/{repoId}/scan", Scan);
 app.MapGet("/api/security/scan", SecurityScan);
@@ -242,12 +256,17 @@ app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
 app.Run();
 
 static async Task<IResult> Tree(HttpContext context, string? path, RepositoryRegistry registry,
-    RepositoryHierarchyCache hierarchyCache, ILogger<Program> logger, CancellationToken cancellationToken)
+    RepositoryHierarchyCache hierarchyCache, InputResolver inputResolver, ILogger<Program> logger,
+    CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var requested = repository.NormalizeRelativePath(path);
-    var snapshot = hierarchyCache.Get(repository.Root);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    var snapshot = hierarchyCache.Get(
+        repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
     var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0" + requested)))}\"";
     context.Response.Headers.ETag = etag;
     if (context.Request.Headers.IfNoneMatch.Any(value => value!.Split(',').Select(candidate => candidate.Trim())
@@ -465,13 +484,102 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
     return Results.Ok(new { level = "file", kinds });
 }
 
+static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var guidelines = store.List(repository.Root);
+    return Results.Ok(new
+    {
+        guidelines,
+        catalogue = GuidelineStore.Catalogue,
+        traces = BuildGuidelineTraces(repository.Root, guidelines.Select(value => value.Id)),
+    });
+}
+
+static IResult CreateGuideline(HttpContext context, GuidelineDraft request, RepositoryRegistry registry, GuidelineStore store)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var created = store.Create(repository.Root, request);
+    return Results.Created($"{context.Request.Path}/{Uri.EscapeDataString(created.Id)}", created);
+}
+
+static IResult UpdateGuideline(HttpContext context, string guidelineId, GuidelineDraft request,
+    RepositoryRegistry registry, GuidelineStore store)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    return Results.Ok(store.Update(repository.Root, guidelineId, request));
+}
+
+static IResult DeleteGuideline(HttpContext context, string guidelineId, RepositoryRegistry registry, GuidelineStore store)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    store.Delete(repository.Root, guidelineId);
+    return Results.NoContent();
+}
+
+static IResult InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry, GuidelineStore store)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var installed = store.Install(repository.Root, catalogueId);
+    return Results.Created($"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}", installed);
+}
+
+static async Task<IResult> GuidelineImpact(HttpContext context, GuidelineImpactRequest request,
+    RepositoryRegistry registry, GuidelineImpactAnalyzer analyzer, CancellationToken cancellationToken)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    var configured = request with
+    {
+        GlobalInputsDirectory = globalDirectory,
+        InputBudgetCharacters = registration.InputBudgetCharacters,
+    };
+    return Results.Ok(await analyzer.AnalyzeAsync(repository.Root, configured, cancellationToken));
+}
+
+static IReadOnlyList<GuidelineTraceResponse> BuildGuidelineTraces(string repositoryRoot, IEnumerable<string> guidelineIds)
+{
+    var ids = guidelineIds.ToHashSet(StringComparer.Ordinal);
+    var findings = ids.ToDictionary(id => id, _ => new List<GuidelineTraceFindingResponse>(), StringComparer.Ordinal);
+    foreach (var path in Directory.EnumerateFiles(repositoryRoot, "*.json", SearchOption.AllDirectories)
+                 .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        var root = document.RootElement;
+        if (!root.TryGetProperty("findings", out var values) || values.ValueKind != JsonValueKind.Array) continue;
+        var kind = root.TryGetProperty("kind", out var kindValue) ? kindValue.GetString() ?? "code" : "code";
+        var unitPath = root.TryGetProperty("unit", out var unit) && unit.TryGetProperty("path", out var unitPathValue)
+            ? unitPathValue.GetString() ?? string.Empty : string.Empty;
+        foreach (var finding in values.EnumerateArray())
+        {
+            if (!finding.TryGetProperty("ruleId", out var ruleIdValue) || ruleIdValue.GetString() is not { } ruleId ||
+                !findings.TryGetValue(ruleId, out var target)) continue;
+            target.Add(new GuidelineTraceFindingResponse(
+                finding.GetProperty("id").GetString()!, ruleId, finding.GetProperty("title").GetString()!,
+                finding.GetProperty("severity").GetString()!, kind, unitPath,
+                Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')));
+        }
+    }
+    return findings.Select(pair => new GuidelineTraceResponse(pair.Key, pair.Value.Count, pair.Value)).ToArray();
+}
+
 static async Task<IResult> Scan(HttpContext context, RepositoryRegistry registry, StalenessEvaluator evaluator,
     RepositoryHierarchyCache hierarchyCache, ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
-    _ = hierarchyCache.Get(repository.Root);
-    var report = await evaluator.ScanAsync(repository.Root, cancellationToken: cancellationToken);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    _ = hierarchyCache.Get(repository.Root, globalInputsDirectory: globalDirectory,
+        inputBudgetCharacters: registration.InputBudgetCharacters);
+    var report = await evaluator.ScanAsync(repository.Root, new StalenessEvaluatorOptions
+    {
+        GlobalInputsDirectory = globalDirectory,
+        InputBudgetCharacters = registration.InputBudgetCharacters,
+    }, cancellationToken);
     logger.LogInformation(new EventId(1200, "ScanCompleted"),
         "Scanned repository {RepositoryId} with {FileCount} files in {ElapsedMilliseconds} ms",
         registration.Id, report.Files.Count, stopwatch.ElapsedMilliseconds);

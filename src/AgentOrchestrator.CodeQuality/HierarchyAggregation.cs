@@ -31,8 +31,8 @@ public static class HierarchyAggregation
         Enum.GetValues<ReviewKind>().ToDictionary(kind => kind, kind => For(node, kind));
 
     /// <summary>
-    /// Returns stale when any reviewed input is stale, current when at least one reviewed
-    /// input is current and none is stale, and not-reviewed only when no reviewed input exists.
+    /// Returns stale when code changed, policy drift when only guidelines changed, current
+    /// when reviewed evidence remains applicable, and not-reviewed only when none exists.
     /// </summary>
     public static ReviewState WorstOf(IEnumerable<ReviewState> states)
     {
@@ -45,7 +45,13 @@ public static class HierarchyAggregation
                 return ReviewState.Stale;
             }
 
-            if (state is ReviewState.Current)
+            if (state is ReviewState.PolicyDrift)
+            {
+                result = ReviewState.PolicyDrift;
+                continue;
+            }
+
+            if (state is ReviewState.Current && result is ReviewState.NotReviewed)
             {
                 result = ReviewState.Current;
             }

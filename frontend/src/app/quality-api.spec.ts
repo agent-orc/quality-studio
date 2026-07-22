@@ -39,7 +39,7 @@ describe('QualityApi', () => {
 
     const loading = api.loadTree();
     http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
-    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, missingCount: 0 });
+    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
     http.expectOne('/api/repos/default/security/scan').flush({
       verdict: 'pass',
       available: true,
@@ -77,6 +77,7 @@ describe('QualityApi', () => {
       findings: [],
     });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
+    http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
 
     await new Promise(resolve => setTimeout(resolve));
     http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
@@ -92,7 +93,7 @@ describe('QualityApi', () => {
   it('keeps a live API connection when a file lookup falls back to preview content', async () => {
     const loading = api.loadTree();
     http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
-    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, missingCount: 0 });
+    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
     http.expectOne('/api/repos/default/security/scan').flush({
       verdict: 'pass',
       available: true,
@@ -134,6 +135,7 @@ describe('QualityApi', () => {
       security: { kind: 'security', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
       performance: { kind: 'performance', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
     } });
+    http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
     await new Promise(resolve => setTimeout(resolve));
     http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
     await loading;

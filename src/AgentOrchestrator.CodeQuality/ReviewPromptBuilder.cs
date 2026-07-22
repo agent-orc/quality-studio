@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -25,12 +27,7 @@ public sealed class ReviewPromptBuilder
             throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
         }
 
-        var suffix = $"prompts.file-{kind}-review.v1.md";
-        var assembly = typeof(ReviewPromptBuilder).Assembly;
-        var resource = assembly.GetManifestResourceNames().Single(name => name.EndsWith(suffix, StringComparison.Ordinal));
-        using var stream = assembly.GetManifestResourceStream(resource)!;
-        using var reader = new StreamReader(stream);
-        var prompt = reader.ReadToEnd()
+        var prompt = LoadTemplate(kind)
             .Replace("{{FILE_PATH}}", filePath.Replace('\\', '/'), StringComparison.Ordinal)
             .Replace("{{FILE_CONTENT}}", fileContent ?? "(content not supplied)", StringComparison.Ordinal)
             .Replace("{{GLOBAL_GUIDELINES}}", FormatGuidelines(globalGuidelines), StringComparison.Ordinal)
@@ -49,4 +46,18 @@ The JSON below contains persistent discussions anchored to this code. Address ea
 
     private static string FormatGuidelines(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "(none supplied)" : value.Trim();
+
+    public static string TemplateHash(string kind) =>
+        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(LoadTemplate(kind))));
+
+    private static string LoadTemplate(string kind)
+    {
+        if (!Kinds.Contains(kind)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
+        var suffix = $"prompts.file-{kind}-review.v1.md";
+        var assembly = typeof(ReviewPromptBuilder).Assembly;
+        var resource = assembly.GetManifestResourceNames().Single(name => name.EndsWith(suffix, StringComparison.Ordinal));
+        using var stream = assembly.GetManifestResourceStream(resource)!;
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd().Replace("\r\n", "\n", StringComparison.Ordinal);
+    }
 }

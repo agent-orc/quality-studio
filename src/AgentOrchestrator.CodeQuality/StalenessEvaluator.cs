@@ -9,6 +9,10 @@ namespace AgentOrchestrator.CodeQuality;
 
 public sealed class StalenessEvaluator
 {
+    private readonly InputResolver inputResolver;
+
+    public StalenessEvaluator(InputResolver? inputResolver = null) => this.inputResolver = inputResolver ?? new InputResolver();
+
     public async Task<StalenessReport> ScanAsync(
         string repositoryRoot,
         StalenessEvaluatorOptions? options = null,
@@ -60,7 +64,7 @@ public sealed class StalenessEvaluator
                     continue;
                 }
 
-                var state = await EvaluateMetadataAsync(root, metadata, cancellationToken).ConfigureAwait(false);
+                var state = await EvaluateMetadataAsync(root, metadata, options, cancellationToken).ConfigureAwait(false);
                 yield return new FileStaleness(relativePath, state, options.ReviewKind, metadata.MetaRelativePath);
             }
         }
@@ -70,9 +74,10 @@ public sealed class StalenessEvaluator
         }
     }
 
-    private static async Task<StalenessState> EvaluateMetadataAsync(
+    private async Task<StalenessState> EvaluateMetadataAsync(
         string root,
         ReviewMetadata metadata,
+        StalenessEvaluatorOptions options,
         CancellationToken cancellationToken)
     {
         var currentInputs = new List<SubjectInputHash>(metadata.Inputs.Count);
@@ -97,9 +102,14 @@ public sealed class StalenessEvaluator
         }
 
         var currentHash = ReviewSubjectHasher.ComputeManifestHash(metadata.UnitId, currentInputs);
-        return string.Equals(currentHash, metadata.ReviewedHash, StringComparison.Ordinal)
+        if (!string.Equals(currentHash, metadata.ReviewedHash, StringComparison.Ordinal)) return StalenessState.Stale;
+        if (metadata.ReviewInputHash is null) return StalenessState.Fresh;
+        var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
+            options.GlobalInputsDirectory, options.InputBudgetCharacters);
+        var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
+        return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh
-            : StalenessState.Stale;
+            : StalenessState.PolicyDrift;
     }
 
     private static async Task<Dictionary<string, ReviewMetadata>> LoadMetadataAsync(
@@ -140,12 +150,22 @@ public sealed class StalenessEvaluator
                         NormalizeRelativePath(input.GetProperty("path").GetString()!),
                         input.GetProperty("selector").GetString()!))
                     .ToArray();
+                var levelText = unit.GetProperty("level").GetString()!;
+                var level = Enum.TryParse<ReviewLevel>(levelText, true, out var parsedLevel) ? parsedLevel : ReviewLevel.File;
+                var reviewInputHash = json.TryGetProperty("reviewInputs", out var reviewInputs) &&
+                                      reviewInputs.TryGetProperty("effectiveHash", out var effectiveHash) &&
+                                      effectiveHash.TryGetProperty("value", out var effectiveValue)
+                    ? effectiveValue.GetString()
+                    : null;
                 metadata = new ReviewMetadata(
                     NormalizeRelativePath(unit.GetProperty("path").GetString()!),
                     unit.GetProperty("id").GetString()!,
                     json.GetProperty("reviewedHash").GetProperty("value").GetString()!,
                     NormalizeRelativePath(relativePath),
-                    inputs);
+                    inputs,
+                    kind!,
+                    level,
+                    reviewInputHash);
             }
             catch (Exception exception) when (exception is IOException or JsonException or KeyNotFoundException or InvalidOperationException)
             {
@@ -286,7 +306,10 @@ public sealed class StalenessEvaluator
         string UnitId,
         string ReviewedHash,
         string MetaRelativePath,
-        IReadOnlyList<StoredSubjectInput> Inputs);
+        IReadOnlyList<StoredSubjectInput> Inputs,
+        string Kind,
+        ReviewLevel Level,
+        string? ReviewInputHash);
 }
 
 [EventSource(Name = "AgentOrchestrator-CodeQuality")]

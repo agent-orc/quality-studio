@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 using Xunit;
 
@@ -82,6 +83,30 @@ public sealed class StalenessEvaluatorTests
     }
 
     [Fact]
+    public async Task Guideline_change_reports_policy_drift_without_changing_the_code_hash()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var fixture = await RepositoryFixture.CreateAsync();
+        await fixture.WriteSourceAsync("src/stable.cs", "class Stable {}\n");
+        await fixture.WriteSourceAsync(".quality/inputs/style.md", "---\nid: stable-style\nenabled: true\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nBefore.\n");
+        var metaPath = await fixture.WriteMetaAsync("src/stable.cs", "class Stable {}\n");
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken))!.AsObject();
+        var resolved = new InputResolver().Resolve(fixture.Root, "code", ReviewLevel.File);
+        root["reviewInputs"] = new JsonObject { ["effectiveHash"] = new JsonObject { ["value"] = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash("code")) } };
+        await File.WriteAllTextAsync(metaPath, root.ToJsonString(), cancellationToken);
+        var reviewedHash = root["reviewedHash"]!["value"]!.GetValue<string>();
+        await fixture.WriteSourceAsync(".quality/inputs/style.md", "---\nid: stable-style\nenabled: true\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nAfter.\n");
+
+        var report = await new StalenessEvaluator().ScanAsync(fixture.Root,
+            new StalenessEvaluatorOptions { IncludeGlobs = ["**/*.cs"] }, cancellationToken);
+
+        Assert.Equal(StalenessState.PolicyDrift, Assert.Single(report.Files).State);
+        Assert.Equal(1, report.PolicyDriftCount);
+        using var unchanged = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken));
+        Assert.Equal(reviewedHash, unchanged.RootElement.GetProperty("reviewedHash").GetProperty("value").GetString());
+    }
+
+    [Fact]
     public void Hasher_matches_the_normative_conformance_vector()
     {
         var hash = ReviewSubjectHasher.ComputeManifestHash(
@@ -112,7 +137,7 @@ public sealed class StalenessEvaluatorTests
             await File.WriteAllTextAsync(path, content);
         }
 
-        public async Task WriteMetaAsync(string subjectPath, string reviewedContent)
+        public async Task<string> WriteMetaAsync(string subjectPath, string reviewedContent)
         {
             var unitId = "qs-v1/test/file/" + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(subjectPath)));
             var contentPath = Path.Combine(Root, subjectPath.Replace('/', Path.DirectorySeparatorChar));
@@ -136,6 +161,7 @@ public sealed class StalenessEvaluatorTests
                 subjectInputs = new[] { new { path = subjectPath, selector = "file", contentHash } },
             };
             await File.WriteAllTextAsync(metaPath, JsonSerializer.Serialize(document));
+            return metaPath;
         }
 
         public void Dispose()

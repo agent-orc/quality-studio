@@ -38,6 +38,7 @@
         <span class="quota-chip missing" title="No provider quota has been reported yet. The API refreshes the runner quota cache in the background.">Quota unavailable</span>
       }
     </div>
+    <button class="guidelines-button" type="button" (click)="openGuidelines()">Guidelines <b>{{ api.guidelines().length }}</b></button>
     <button class="icon-button" type="button" (click)="toggleExplorer()" [attr.aria-label]="(explorerVisible() ? 'Hide' : 'Show') + ' explorer'" [title]="(explorerVisible() ? 'Hide' : 'Show') + ' explorer · Ctrl+B'">◧</button>
     <button class="icon-button" type="button" (click)="toggleReview()" [attr.aria-label]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel'" [title]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel · Ctrl+Alt+B'">◨</button>
     <button class="icon-button" (click)="setTheme()" [attr.aria-label]="'Switch to ' + (theme() === 'dark' ? 'light' : 'dark') + ' theme'">{{ theme() === 'dark' ? '☼' : '◐' }}</button>
@@ -51,6 +52,51 @@
     <qs-review-panel [activeKind]="activeKind()" [selectedPath]="selected()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" (findingSelect)="selectFinding($event)" (kindSelect)="selectKind($event)" />
   </main>
 </div>
+
+@if (guidelineDialogOpen()) {
+  <div class="dialog-backdrop" (click)="guidelineDialogOpen.set(false)">
+    <section class="repository-dialog guideline-dialog" role="dialog" aria-modal="true" aria-labelledby="guideline-dialog-title" (click)="$event.stopPropagation()">
+      <header><div><span class="eyebrow">Repository policy</span><h2 id="guideline-dialog-title">Guidelines</h2></div><button class="icon-button" type="button" aria-label="Close guidelines" (click)="guidelineDialogOpen.set(false)">×</button></header>
+      <div class="dialog-body guideline-body">
+        <nav class="repository-list guideline-list" aria-label="Repository guidelines">
+          <button class="add-repository" type="button" (click)="newGuideline()">+ New guideline</button>
+          @for (guideline of api.guidelines(); track guideline.id) {
+            <button type="button" [class.active]="guideline.id === editingGuidelineId()" (click)="editGuideline(guideline)">
+              <span><strong>{{ guideline.id }}</strong><small>{{ guideline.enabled ? 'enabled' : 'disabled' }} · {{ guidelineTrace(guideline.id)?.findingsCount ?? 0 }} findings</small></span>
+            </button>
+          }
+          <div class="menu-heading">Starter catalogue</div>
+          @for (entry of api.guidelineCatalogue(); track entry.id) {
+            <article class="catalogue-card"><strong>{{ entry.title }}</strong><small>{{ entry.technology }} · {{ entry.description }}</small><button type="button" [disabled]="guidelineInstalled(entry.id)" (click)="installGuideline(entry.id)">{{ guidelineInstalled(entry.id) ? 'Installed' : 'Install editable copy' }}</button></article>
+          }
+        </nav>
+        <form class="repository-form guideline-form" (ngSubmit)="saveGuideline()">
+          <div class="guideline-fields">
+            <label><span>Rule id</span><input name="guidelineId" [(ngModel)]="guidelineForm.id" required pattern="[a-z0-9][a-z0-9._-]+" maxlength="128"></label>
+            <label><span>Priority</span><input name="guidelinePriority" [(ngModel)]="guidelineForm.priority" type="number" min="-100000" max="100000" required></label>
+            <label><span>Review kinds <small>comma-separated</small></span><input name="guidelineKinds" [(ngModel)]="guidelineForm.kinds" required placeholder="code, security"></label>
+            <label><span>Levels <small>comma-separated</small></span><input name="guidelineLevels" [(ngModel)]="guidelineForm.levels" required placeholder="file"></label>
+          </div>
+          <label class="enabled-field"><input name="guidelineEnabled" [(ngModel)]="guidelineForm.enabled" type="checkbox"><span>Enabled for the next review</span></label>
+          <label class="content-field"><span>Guideline content</span><textarea name="guidelineContent" [(ngModel)]="guidelineForm.content" required maxlength="100000" placeholder="Describe a concrete, reviewable engineering rule…"></textarea></label>
+          @if (editingGuidelineId(); as id) {
+            <section class="trace-panel"><span class="eyebrow">Finding trace</span><strong>{{ guidelineTrace(id)?.findingsCount ?? 0 }} findings produced</strong>
+              @for (finding of guidelineTrace(id)?.findings ?? []; track finding.metaPath + ':' + finding.id) { <button type="button" (click)="openTrace(finding.unitPath)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><span><b>{{ finding.title }}</b><small>{{ finding.kind }} · {{ finding.unitPath }}</small></span></button> }
+            </section>
+          }
+          @if (guidelineImpact(); as impact) { <section class="impact-result" [class.changed]="impact.changed"><b>{{ impact.changed ? 'Dry-run found a diff' : 'No finding diff in sample' }}</b><span>{{ impact.addedCount }} added · {{ impact.removedCount }} removed across {{ impact.files.length }} file(s)</span>@for (file of impact.files; track file.path) { @for (finding of file.added; track finding.id) { <small>+ {{ finding.severity }} · {{ finding.title }} · {{ file.path }}</small> } @for (finding of file.removed; track finding.id) { <small>− {{ finding.severity }} · {{ finding.title }} · {{ file.path }}</small> } }</section> }
+          @if (guidelineError()) { <div class="form-error" role="alert">{{ guidelineError() }}</div> }
+          <footer>
+            @if (editingGuidelineId()) { <button class="danger-button" type="button" (click)="deleteGuideline()">Delete file</button> }
+            <span class="footer-spacer"></span>
+            <button class="secondary-button" type="button" (click)="dryRunGuideline()" [disabled]="guidelineDryRunning() || !guidelineForm.id || !guidelineForm.content">{{ guidelineDryRunning() ? 'Running sample…' : 'Dry-run sample' }}</button>
+            <button class="primary-button" type="submit" [disabled]="guidelineSaving() || !guidelineForm.id || !guidelineForm.content">{{ guidelineSaving() ? 'Writing…' : editingGuidelineId() ? 'Save file' : 'Create file' }}</button>
+          </footer>
+        </form>
+      </div>
+    </section>
+  </div>
+}
 
 @if (repositoryDialogOpen()) {
   <div class="dialog-backdrop" (click)="repositoryDialogOpen.set(false)">

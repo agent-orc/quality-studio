@@ -264,7 +264,7 @@ export class Editor {
   private sortValue(node: FlatNode['children'][number], column: FolderSortColumn): string | number | null {
     if (column === 'name') return node.name;
     if (column === 'code' || column === 'security' || column === 'performance') return node.kinds[column]?.score;
-    if (column === 'state') return Math.max(...Object.values(node.kinds).map(kind => kind.overall === 'missing' ? 2 : kind.overall === 'stale' ? 1 : 0), 0);
+    if (column === 'state') return Math.max(...Object.values(node.kinds).map(kind => kind.overall === 'missing' ? 3 : kind.overall === 'stale' ? 2 : kind.overall === 'policy-drift' ? 1 : 0), 0);
     if (column === 'findings') return node.findingsCount ?? 0;
     if (column === 'reviewedAt') return node.reviewedAt ? Date.parse(node.reviewedAt) : null;
     if (column === 'size') return node.sizeBytes ?? null;

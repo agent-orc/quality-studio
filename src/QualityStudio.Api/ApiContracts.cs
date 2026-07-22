@@ -141,6 +141,7 @@ public sealed record KindStateResponse(
     {
         ReviewState.Current => "fresh",
         ReviewState.Stale => "stale",
+        ReviewState.PolicyDrift => "policy-drift",
         _ => "missing",
     };
 }
@@ -152,6 +153,20 @@ public sealed record FileResponse(
     long SizeBytes,
     string LineEnding,
     string Encoding);
+
+public sealed record GuidelineTraceFindingResponse(
+    string Id,
+    string RuleId,
+    string Title,
+    string Severity,
+    string Kind,
+    string UnitPath,
+    string MetaPath);
+
+public sealed record GuidelineTraceResponse(
+    string GuidelineId,
+    int FindingsCount,
+    IReadOnlyList<GuidelineTraceFindingResponse> Findings);
 
 public sealed record HandoverConfigurationResponse(bool TargetConfigured, bool DryRun, string? Project);
 

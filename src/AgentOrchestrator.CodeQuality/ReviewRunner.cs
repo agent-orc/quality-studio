@@ -148,7 +148,6 @@ public sealed class ReviewRunner
                     initialSubject.Inputs,
                     initialSubject.Members,
                     reviewedHash,
-                    prompt,
                     agentResult.RunId,
                     inputs,
                     request.Level,
@@ -204,7 +203,6 @@ public sealed class ReviewRunner
         IReadOnlyList<SubjectInputHash> subjectInputs,
         IReadOnlyList<AggregateMemberHash>? aggregateMembers,
         string reviewedHash,
-        string prompt,
         string runId,
         ResolvedInputs inputs,
         ReviewLevel level,
@@ -212,8 +210,8 @@ public sealed class ReviewRunner
         ReviewUsageEntry usage,
         JsonArray threads)
     {
-        var promptHash = "sha256:" + Sha256(prompt);
-        var effectiveHash = Sha256($"quality-studio-review-inputs-v1\0{kind}\0{promptHash}");
+        var promptHash = ReviewPromptBuilder.TemplateHash(kind);
+        var effectiveHash = inputs.EffectiveHash(promptHash);
         var reviewer = new JsonObject
         {
             ["agent"] = _agent.AgentName,

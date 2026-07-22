@@ -89,7 +89,9 @@
         <div class="review-provenance"><b>{{ meta.grade.score }} / 100</b><span>Reviewed {{ reviewed(meta.reviewedAt) }} by {{ meta.reviewer.agent }} &middot; {{ meta.reviewer.model }}</span></div>
       </header>
       @if (activeState() === 'stale') {
-        <div class="stale-banner" role="status"><b>Stale review</b><span>This grade and its findings describe an older version. Keep browsing, but rerun this {{ activeKind() }} review before acting.</span></div>
+        <div class="stale-banner" role="status"><b>Code changed</b><span>This grade and its findings describe an older code version. Rerun this {{ activeKind() }} review before acting.</span></div>
+      } @else if (activeState() === 'policy-drift') {
+        <div class="stale-banner policy-drift-banner" role="status"><b>Guideline changed</b><span>The code hash is unchanged, but the effective review policy differs. Rerun this {{ activeKind() }} review to apply it.</span></div>
       }
     }
 

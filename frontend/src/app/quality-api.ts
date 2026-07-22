@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-export type ReviewState = 'fresh' | 'stale' | 'missing';
+export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing';
 export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
 export interface TreeNode {
   id: string;
@@ -23,7 +23,7 @@ export type FindingState = 'open' | 'accepted' | 'waived' | 'false-positive' | '
 export interface FindingStateCounts { open: number; accepted: number; waived: number; falsePositive: number; resolved: number; }
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId?: string; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
@@ -61,12 +61,21 @@ export interface SecurityScanResponse {
 export type LineEnding = 'lf' | 'crlf' | 'mixed';
 export type FileEncoding = 'utf-8' | 'utf-8-bom' | 'other';
 export interface FileDocument { path: string; content: string; metaDocuments: ReviewMetaDocument[]; sizeBytes: number; lineEnding: LineEnding; encoding: FileEncoding; }
-export interface ScanReport { files: unknown[]; freshCount: number; staleCount: number; missingCount: number; }
+export interface ScanFile { relativePath: string; state: ReviewState; reviewKind: string; metaRelativePath?: string | null; }
+export interface ScanReport { files: ScanFile[]; freshCount: number; staleCount: number; policyDriftCount: number; missingCount: number; }
 export interface HandoverRequest { findingSummary: string; filePath: string; findingText: string; reviewKind: string; metaReference: string; }
 export interface HandoverResult { dryRun: boolean; taskId: string | null; card: { title: string }; }
 export interface ResolvedInput { id: string; source: string; scope: 'global' | 'project'; priority: number; includedContent: string; content: string; truncated: boolean; }
 export interface InputOmission { id: string; source: string; reason: string; omittedCharacters: number; }
 export interface ResolvedInputs { kind: ReviewKind; level: string; budgetCharacters: number; includedCharacters: number; complete: boolean; inputs: ResolvedInput[]; omissions: InputOmission[]; }
+export interface GuidelineDraft { id: string; enabled: boolean; priority: number; kinds: string[]; levels: string[]; content: string; }
+export interface Guideline extends GuidelineDraft { fileName: string; }
+export interface GuidelineCatalogueEntry { id: string; title: string; technology: string; description: string; guideline: GuidelineDraft; }
+export interface GuidelineTraceFinding { id: string; ruleId: string; title: string; severity: FindingSeverity; kind: ReviewKind; unitPath: string; metaPath: string; }
+export interface GuidelineTrace { guidelineId: string; findingsCount: number; findings: GuidelineTraceFinding[]; }
+export interface ImpactFinding { id: string; ruleId: string; severity: FindingSeverity; title: string; path: string; line: number | null; }
+export interface FileGuidelineImpact { path: string; before: ImpactFinding[]; after: ImpactFinding[]; added: ImpactFinding[]; removed: ImpactFinding[]; }
+export interface GuidelineImpact { guidelineId: string; kind: ReviewKind; files: FileGuidelineImpact[]; addedCount: number; removedCount: number; changed: boolean; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
 export interface RepositoryRegistration {
   id: string;
@@ -161,8 +170,8 @@ const demoTree: TreeNode[] = [{ id: 'quality-studio', name: 'Quality Studio', le
 ]}];
 
 const demoMeta: ReviewMetaDocument[] = [
-  { reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Clear request boundaries and consistent error handling.' }, summary: 'The API entry point is compact and readable. One low-risk diagnostic gap remains.', findings: [{ id: 'route-timing', aspect: 'observability', severity: 'low', title: 'File route has no timing event', description: 'The user-visible file read is not timed, making slow repository access difficult to diagnose.', recommendation: 'Record a structured duration for the file-read path.', evidence: 'The route awaits File.ReadAllTextAsync and returns without a timing log.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 17, column: 1 }, end: { line: 21, column: 3 } } }] }] },
-  { reviewedAt: '2026-07-09T10:05:00.000Z', kind: 'performance', reviewer: { agent: 'perf-reviewer', model: 'gpt-5' }, grade: { score: 72, band: 'C', rationale: 'Repository hierarchy work is repeated on the request path.' }, summary: 'The endpoint is correct, but the stored review predates the current file and should be rerun.', findings: [{ id: 'rebuild-tree', aspect: 'request-path', severity: 'high', title: 'Hierarchy rebuilt for every request', description: 'A full project hierarchy build runs synchronously whenever the tree endpoint is requested.', recommendation: 'Cache the derived hierarchy and invalidate it from repository scan events.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 10, column: 1 }, end: { line: 15, column: 3 } } }] }] },
+  { reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Clear request boundaries and consistent error handling.' }, summary: 'The API entry point is compact and readable. One low-risk diagnostic gap remains.', findings: [{ id: 'route-timing', ruleId: 'dotnet-api-safety', aspect: 'observability', severity: 'low', title: 'File route has no timing event', description: 'The user-visible file read is not timed, making slow repository access difficult to diagnose.', recommendation: 'Record a structured duration for the file-read path.', evidence: 'The route awaits File.ReadAllTextAsync and returns without a timing log.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 17, column: 1 }, end: { line: 21, column: 3 } } }] }] },
+  { reviewedAt: '2026-07-09T10:05:00.000Z', kind: 'performance', reviewer: { agent: 'perf-reviewer', model: 'gpt-5' }, grade: { score: 72, band: 'C', rationale: 'Repository hierarchy work is repeated on the request path.' }, summary: 'The endpoint is correct, but the stored review predates the current file and should be rerun.', findings: [{ id: 'rebuild-tree', ruleId: 'built-in:performance', aspect: 'request-path', severity: 'high', title: 'Hierarchy rebuilt for every request', description: 'A full project hierarchy build runs synchronously whenever the tree endpoint is requested.', recommendation: 'Cache the derived hierarchy and invalidate it from repository scan events.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 10, column: 1 }, end: { line: 15, column: 3 } } }] }] },
   { reviewedAt: '2026-07-10T13:40:00.000Z', kind: 'security', reviewer: { agent: 'gitleaks', model: '8.24.2' }, grade: { score: 86, band: 'B', rationale: 'Repository access is constrained by the API service.' }, summary: 'No exploitable issue was identified in this file.', findings: [] },
 ];
 
@@ -194,7 +203,7 @@ export class QualityApi {
   private legacyApi = false;
   readonly tree = signal<TreeNode[]>(demoTree);
   readonly file = signal<FileDocument | null>(null);
-  readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, missingCount: 3 });
+  readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, policyDriftCount: 0, missingCount: 3 });
   readonly security = signal<SecurityScanResponse | null>(null);
   readonly connectionState = signal<ApiConnectionState>('connecting');
   readonly connected = computed(() => this.connectionState() === 'live');
@@ -212,6 +221,9 @@ export class QualityApi {
   readonly handoverConfigured = signal(false);
   readonly handoverDryRun = signal(true);
   readonly inputs = signal<Partial<Record<ReviewKind, ResolvedInputs>>>({});
+  readonly guidelines = signal<Guideline[]>([]);
+  readonly guidelineCatalogue = signal<GuidelineCatalogueEntry[]>([]);
+  readonly guidelineTraces = signal<GuidelineTrace[]>([]);
   readonly repositories = signal<RepositoryRegistration[]>([]);
   readonly selectedRepositoryId = signal('default');
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
@@ -279,13 +291,15 @@ export class QualityApi {
 
   async loadTree(): Promise<void> {
     try {
-      const [tree, scan, security, inputs] = await Promise.all([
+      const [tree, scan, security, inputs, guidelines] = await Promise.all([
         firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${this.repositoryApiBase()}/tree?path=`)),
         firstValueFrom(this.http.get<ScanReport>(`${this.repositoryApiBase()}/scan`)),
         firstValueFrom(this.http.get<SecurityScanResponse>(`${this.repositoryApiBase()}/security/scan`)),
         firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${this.repositoryApiBase()}/inputs`)),
+        firstValueFrom(this.http.get<{ guidelines: Guideline[]; catalogue: GuidelineCatalogueEntry[]; traces: GuidelineTrace[] }>(`${this.repositoryApiBase()}/guidelines`)),
       ]);
-      this.tree.set(tree.nodes); this.scan.set(scan); this.security.set(security); this.inputs.set(inputs.kinds); this.connectionState.set('live');
+      this.tree.set(tree.nodes); this.scan.set(scan); this.security.set(security); this.inputs.set(inputs.kinds);
+      this.guidelines.set(guidelines.guidelines); this.guidelineCatalogue.set(guidelines.catalogue); this.guidelineTraces.set(guidelines.traces); this.connectionState.set('live');
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
       this.security.set(demoSecurity);
@@ -419,6 +433,33 @@ export class QualityApi {
     await firstValueFrom(this.http.post(`${this.repositoryApiBase()}/findings/state`, request));
     await Promise.all([this.loadFile(request.path), this.loadTree()]);
     console.info(JSON.stringify({ event: 'qs.finding.state-mutated', fingerprint: request.fingerprint, path: request.path, state: request.state }));
+  }
+
+  async createGuideline(draft: GuidelineDraft): Promise<Guideline> {
+    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.repositoryApiBase()}/guidelines`, draft));
+    await this.loadTree();
+    return guideline;
+  }
+
+  async updateGuideline(existingId: string, draft: GuidelineDraft): Promise<Guideline> {
+    const guideline = await firstValueFrom(this.http.put<Guideline>(`${this.repositoryApiBase()}/guidelines/${encodeURIComponent(existingId)}`, draft));
+    await this.loadTree();
+    return guideline;
+  }
+
+  async deleteGuideline(id: string): Promise<void> {
+    await firstValueFrom(this.http.delete(`${this.repositoryApiBase()}/guidelines/${encodeURIComponent(id)}`));
+    await this.loadTree();
+  }
+
+  async installGuideline(catalogueId: string): Promise<Guideline> {
+    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.repositoryApiBase()}/guidelines/catalog/${encodeURIComponent(catalogueId)}/install`, {}));
+    await this.loadTree();
+    return guideline;
+  }
+
+  async guidelineImpact(guideline: GuidelineDraft, samplePaths: string[], kind: ReviewKind): Promise<GuidelineImpact> {
+    return firstValueFrom(this.http.post<GuidelineImpact>(`${this.repositoryApiBase()}/guidelines/impact`, { guideline, samplePaths, kind }));
   }
 
   private async loadHandoverConfiguration(): Promise<void> {

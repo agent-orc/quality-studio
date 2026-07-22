@@ -13,7 +13,12 @@ public static class ReviewMetaDiscovery
         AttributesToSkip = FileAttributes.ReparsePoint,
     };
 
-    public static void AttachDiscovered(string repositoryPath, IEnumerable<HierarchyNode> projects)
+    public static void AttachDiscovered(
+        string repositoryPath,
+        IEnumerable<HierarchyNode> projects,
+        InputResolver? inputResolver = null,
+        string? globalInputsDirectory = null,
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
     {
         var root = Path.GetFullPath(repositoryPath);
         var nodes = Flatten(projects).ToDictionary(node => node.Id, StringComparer.Ordinal);
@@ -39,17 +44,23 @@ public static class ReviewMetaDiscovery
             node.Attach(new AttachedReviewMetaDocument(
                 unitId,
                 kind,
-                IsStale(root, node, document) ? ReviewState.Stale : ReviewState.Current,
+                DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
                 Path.GetRelativePath(root, path).Replace('\\', '/'),
                 document.GetRawText()));
         }
     }
 
-    private static bool IsStale(string root, HierarchyNode node, JsonElement document)
+    private static ReviewState DetermineState(
+        string root,
+        HierarchyNode node,
+        JsonElement document,
+        InputResolver inputResolver,
+        string? globalInputsDirectory,
+        int inputBudgetCharacters)
     {
         if (!document.TryGetProperty("subjectInputs", out var inputs))
         {
-            return false;
+            return ReviewState.Current;
         }
 
         foreach (var input in inputs.EnumerateArray())
@@ -67,7 +78,7 @@ public static class ReviewMetaDiscovery
                         return new AggregateMemberHash(candidate.Id, candidate.Path, subjectHash);
                     }).ToArray();
                 if (!StringComparer.Ordinal.Equals(input.GetProperty("contentHash").GetString(),
-                        ReviewSubjectHasher.ComputeAggregateMembersHash(members))) return true;
+                        ReviewSubjectHasher.ComputeAggregateMembersHash(members))) return ReviewState.Stale;
                 continue;
             }
             if (selector is not ("file" or "aggregate-control"))
@@ -78,17 +89,27 @@ public static class ReviewMetaDiscovery
             var path = Path.GetFullPath(input.GetProperty("path").GetString()!, root);
             if (!IsConfinedFile(root, path))
             {
-                return true;
+                return ReviewState.Stale;
             }
 
             var expected = input.GetProperty("contentHash").GetString();
             if (!StringComparer.Ordinal.Equals(expected, HashNormalizedText(path)))
             {
-                return true;
+                return ReviewState.Stale;
             }
         }
 
-        return false;
+        if (!document.TryGetProperty("reviewInputs", out var reviewInputs) ||
+            !reviewInputs.TryGetProperty("effectiveHash", out var effectiveHash) ||
+            !effectiveHash.TryGetProperty("value", out var expectedHash)) return ReviewState.Current;
+        var kind = document.GetProperty("kind").GetString()!;
+        var levelText = document.GetProperty("unit").GetProperty("level").GetString()!;
+        if (!Enum.TryParse<ReviewLevel>(levelText, true, out var level)) return ReviewState.Current;
+        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters);
+        var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
+        return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
+            ? ReviewState.Current
+            : ReviewState.PolicyDrift;
     }
 
     private static string HashNormalizedText(string path)

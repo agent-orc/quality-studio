@@ -10,6 +10,7 @@ public sealed record StalenessReport(IReadOnlyList<FileStaleness> Files)
 {
     public int FreshCount => Files.Count(file => file.State == StalenessState.Fresh);
     public int StaleCount => Files.Count(file => file.State == StalenessState.Stale);
+    public int PolicyDriftCount => Files.Count(file => file.State == StalenessState.PolicyDrift);
     public int MissingCount => Files.Count(file => file.State == StalenessState.Missing);
 }
 
@@ -25,6 +26,8 @@ public sealed record StalenessEvaluatorOptions
     ];
 
     public string ReviewKind { get; init; } = "code";
+    public string? GlobalInputsDirectory { get; init; }
+    public int InputBudgetCharacters { get; init; } = InputResolver.DefaultBudgetCharacters;
 }
 
 public sealed class StalenessScanException(string message, Exception? innerException = null)
