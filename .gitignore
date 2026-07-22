@@ -13,3 +13,6 @@ bin/
 obj/
 .vs/
 TestResults/
+
+# orchestrator task-pipeline artifacts stay out of the repo
+/.orchestrator/
