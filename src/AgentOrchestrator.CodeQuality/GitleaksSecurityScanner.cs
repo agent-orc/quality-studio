@@ -8,7 +8,7 @@ using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public class GitleaksSecurityScanner
+public class GitleaksSecurityScanner : IReviewSensor
 {
     private readonly GitleaksBinaryResolver _resolver;
     private readonly HttpClient _httpClient;
@@ -17,6 +17,87 @@ public class GitleaksSecurityScanner
     {
         _httpClient = httpClient ?? new HttpClient();
         _resolver = resolver ?? new GitleaksBinaryResolver(_httpClient);
+    }
+
+    public string Id => "gitleaks";
+
+    public string Version => GitleaksBinaryResolver.PinnedVersion;
+
+    public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository, SensorScope.Path];
+
+    public virtual async Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _resolver.ResolveAsync(Environment.GetEnvironmentVariable("QUALITY_GITLEAKS_PATH"), cancellationToken)
+                .ConfigureAwait(false);
+            return new SensorAvailability(true, ToolVersions: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["gitleaks"] = GitleaksBinaryResolver.PinnedVersion,
+            });
+        }
+        catch (Exception exception) when (exception is SecurityScannerUnavailableException or IOException or InvalidOperationException or Win32Exception)
+        {
+            return new SensorAvailability(false, GetUnavailableReason(exception));
+        }
+    }
+
+    public virtual async Task<SensorScanResult> RunAsync(SensorScanRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!SupportedScopes.Contains(request.Scope))
+        {
+            throw new ArgumentException($"Sensor '{Id}' does not support {request.Scope.ToString().ToLowerInvariant()} scope.");
+        }
+
+        var target = ResolveSensorTarget(request);
+        var configuration = request.Configuration ?? new Dictionary<string, string>();
+        var mode = configuration.TryGetValue("mode", out var configuredMode) &&
+                   Enum.TryParse<SecurityScanMode>(configuredMode, true, out var parsedMode)
+            ? parsedMode
+            : SecurityScanMode.Repository;
+        var result = await ScanAsync(new SecurityScanRequest(
+            target,
+            mode,
+            configuration.GetValueOrDefault("range"),
+            configuration.GetValueOrDefault("configPath"),
+            configuration.GetValueOrDefault("baselinePath"),
+            request.PersistMetadata), cancellationToken).ConfigureAwait(false);
+        var findings = result.Findings.Select(ToReviewFinding).ToArray();
+        return new SensorScanResult(
+            result.Report.Available,
+            result.Report.UnavailableReason,
+            findings,
+            new SensorProvenance(
+                Id,
+                result.Provenance.Version,
+                request.Scope.ToString().ToLowerInvariant(),
+                request.Scope == SensorScope.Repository ? "." : request.Path!,
+                result.Provenance.ScannedAt,
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["gitleaks"] = result.Provenance.Version }));
+    }
+
+    private static string ResolveSensorTarget(SensorScanRequest request)
+    {
+        var root = Path.GetFullPath(request.RepositoryRoot);
+        if (request.Scope == SensorScope.Repository)
+        {
+            return root;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Path))
+        {
+            throw new ArgumentException("Path scope requires a path.");
+        }
+
+        var target = Path.GetFullPath(Path.Combine(root, request.Path));
+        var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+        if (!target.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) || !Directory.Exists(target))
+        {
+            throw new ArgumentException("Sensor path must be an existing directory inside the repository.");
+        }
+
+        return target;
     }
 
     public virtual async Task<SecurityScanResult> ScanAsync(SecurityScanRequest request, CancellationToken cancellationToken = default)

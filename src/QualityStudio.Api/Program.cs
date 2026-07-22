@@ -31,6 +31,10 @@ builder.Services.AddSingleton<GuidelineStore>();
 builder.Services.AddTransient<GuidelineImpactAnalyzer>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
 builder.Services.AddSingleton<GitleaksSecurityScanner>();
+builder.Services.AddSingleton<DependencyVulnerabilitySensor>();
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
+builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
@@ -82,6 +86,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     {
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
         RepositoryRegistryValidationException validation => (StatusCodes.Status400BadRequest, validation.PublicTitle),
+        SensorNotFoundException => (StatusCodes.Status404NotFound, "Sensor not found"),
         KeyNotFoundException => (StatusCodes.Status404NotFound, "Repository not found"),
         FileNotFoundException => (StatusCodes.Status404NotFound, "File not found"),
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
@@ -227,6 +232,10 @@ app.MapGet("/api/scan", Scan);
 app.MapGet("/api/repos/{repoId}/scan", Scan);
 app.MapGet("/api/security/scan", SecurityScan);
 app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
+app.MapGet("/api/sensors", Sensors);
+app.MapGet("/api/repos/{repoId}/sensors", Sensors);
+app.MapPost("/api/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/quotas", Quotas);
@@ -596,6 +605,59 @@ static async Task<IResult> SecurityScan(HttpContext context, RepositoryRegistry 
         "Scanned repository {RepositoryId} for secrets with verdict {Verdict} in {ElapsedMilliseconds} ms",
         registration.Id, result.Report.Verdict.ToString().ToLowerInvariant(), stopwatch.ElapsedMilliseconds);
     return Results.Ok(Map(result));
+}
+
+static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repositories, SensorRegistry sensors,
+    CancellationToken cancellationToken)
+{
+    var registration = repositories.Get(RouteRepositoryId(context));
+    var configured = (registration.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
+        .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
+    var descriptors = new List<object>();
+    foreach (var sensor in sensors.List())
+    {
+        var availability = await sensor.ProbeAvailabilityAsync(cancellationToken);
+        configured.TryGetValue(sensor.Id, out var repositoryConfiguration);
+        descriptors.Add(new
+        {
+            sensor.Id,
+            sensor.Version,
+            Scopes = sensor.SupportedScopes.Select(scope => scope.ToString().ToLowerInvariant()).ToArray(),
+            Enabled = repositoryConfiguration?.Enabled == true,
+            Configuration = repositoryConfiguration?.Configuration,
+            availability.Available,
+            availability.UnavailableReason,
+            availability.ToolVersions,
+        });
+    }
+
+    return Results.Ok(new { sensors = descriptors });
+}
+
+static async Task<IResult> SensorScan(HttpContext context, string id, string? path,
+    RepositoryRegistry repositories, SensorRegistry sensors, ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var registration = repositories.Get(RouteRepositoryId(context));
+    var sensor = sensors.Get(id);
+    var repositoryConfiguration = (registration.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
+        .FirstOrDefault(configuration => string.Equals(configuration.Id, id, StringComparison.OrdinalIgnoreCase));
+    if (repositoryConfiguration is null || !repositoryConfiguration.Enabled)
+    {
+        throw new RepositoryRegistryValidationException($"Sensor '{id}' is not enabled for repository '{registration.Id}'.");
+    }
+
+    var scope = string.IsNullOrWhiteSpace(path) ? SensorScope.Repository : SensorScope.Path;
+    var result = await sensor.RunAsync(new SensorScanRequest(
+        registration.RootPath,
+        scope,
+        path,
+        repositoryConfiguration.Configuration), cancellationToken);
+    logger.LogInformation(new EventId(1202, "SensorScanCompleted"),
+        "Ran sensor {SensorId} for repository {RepositoryId}; Available={Available}, Findings={FindingCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
+        sensor.Id, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(result);
 }
 
 static async Task<IResult> Usage(HttpContext context, DateTimeOffset? since, string? kind,

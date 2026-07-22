@@ -167,6 +167,40 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Sensors_list_enablement_availability_and_versions()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/sensors", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(2, json.GetProperty("sensors").GetArrayLength());
+        var dependency = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
+            sensor => sensor.GetProperty("id").GetString() == "dependencies");
+        Assert.Equal("1.0.0", dependency.GetProperty("version").GetString());
+        Assert.True(dependency.GetProperty("enabled").GetBoolean());
+        Assert.True(dependency.GetProperty("available").GetBoolean());
+        Assert.Contains("path", dependency.GetProperty("scopes").EnumerateArray().Select(scope => scope.GetString()));
+    }
+
+    [Fact]
+    public async Task Dependency_sensor_scan_returns_normalized_findings_and_provenance()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsync("/api/sensors/dependencies/scan", null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(json.GetProperty("available").GetBoolean());
+        Assert.Equal("dependencies", json.GetProperty("provenance").GetProperty("sensorId").GetString());
+        var finding = Assert.Single(json.GetProperty("findings").EnumerateArray());
+        Assert.Equal("GHSA-test-advisory", finding.GetProperty("ruleId").GetString());
+        Assert.Equal("high", finding.GetProperty("severity").GetString());
+        Assert.Contains("fixedVersion", finding.GetProperty("evidence").GetString());
+    }
+
+    [Fact]
     public async Task Health_returns_ok_for_the_dev_launcher()
     {
         using var client = application!.CreateClient();
@@ -351,6 +385,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 globalInputsDirectory = (string?)null,
                 inputBudgetCharacters = 8000,
                 enabledReviewKinds = new[] { "code", "security" },
+                sensors = new object[]
+                {
+                    new { id = "gitleaks", enabled = true },
+                    new { id = "dependencies", enabled = false, configuration = new { ecosystems = "npm" } },
+                },
             }, TestContext.Current.CancellationToken);
 
             Assert.Equal(HttpStatusCode.Created, create.StatusCode);
@@ -359,11 +398,19 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             var file = await scopedFile.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
             Assert.Contains("namespace Second", file.GetProperty("content").GetString());
 
+            using var sensors = await client.GetAsync("/api/repos/second/sensors", TestContext.Current.CancellationToken);
+            var sensorsJson = await sensors.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            var dependency = Assert.Single(sensorsJson.GetProperty("sensors").EnumerateArray(),
+                sensor => sensor.GetProperty("id").GetString() == "dependencies");
+            Assert.False(dependency.GetProperty("enabled").GetBoolean());
+            Assert.Equal("npm", dependency.GetProperty("configuration").GetProperty("ecosystems").GetString());
+
             using var traversal = await client.GetAsync($"/api/file?path=../{Path.GetFileName(secondRoot)}/Second.cs", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, traversal.StatusCode);
 
             var persisted = await File.ReadAllTextAsync(Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken);
             Assert.Contains("Second repository", persisted);
+            Assert.Contains("ecosystems", persisted);
         }
         finally
         {
@@ -481,6 +528,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 services.RemoveAll<QuotaService>();
                 services.AddSingleton(new QuotaService([]));
                 services.AddSingleton<GitleaksSecurityScanner, FakeSecurityScanner>();
+                services.RemoveAll<IReviewSensor>();
+                services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
+                services.AddSingleton<IReviewSensor, FakeDependencySensor>();
             });
         }
     }
@@ -488,6 +538,10 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     private sealed class FakeSecurityScanner : GitleaksSecurityScanner
     {
         public FakeSecurityScanner() : base(null, null) { }
+
+        public override Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(true,
+                ToolVersions: new Dictionary<string, string> { ["gitleaks"] = "8.24.2" }));
 
         public override Task<SecurityScanResult> ScanAsync(SecurityScanRequest request, CancellationToken cancellationToken = default)
         {
@@ -528,6 +582,36 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             var provenance = new SecurityScanProvenance("gitleaks", "8.24.2", "repository", null, null, null, scannedAt);
             var counts = new SecurityScanCounts(1, 1, 0, 1, 0, 0);
             return Task.FromResult(new SecurityScanResult(report, provenance, counts, [finding]));
+        }
+    }
+
+    private sealed class FakeDependencySensor : IReviewSensor
+    {
+        public string Id => "dependencies";
+
+        public string Version => "1.0.0";
+
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository, SensorScope.Path];
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(true, ToolVersions: new Dictionary<string, string> { ["npm"] = "11.4.2" }));
+
+        public Task<SensorScanResult> RunAsync(SensorScanRequest request, CancellationToken cancellationToken = default)
+        {
+            var finding = new ReviewFinding(
+                "dependency-test",
+                "dependencies",
+                FindingSeverity.High,
+                "Vulnerable dependency: sample 1.0.0",
+                "sample 1.0.0 is affected by advisory GHSA-test-advisory.",
+                "Upgrade sample to 1.0.1.",
+                [new FindingLocation("Sample.csproj")],
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "GHSA-test-advisory",
+                "{\"package\":\"sample\",\"version\":\"1.0.0\",\"fixedVersion\":\"1.0.1\"}");
+            return Task.FromResult(new SensorScanResult(true, null, [finding],
+                new SensorProvenance(Id, Version, "repository", ".", DateTime.UtcNow.ToString("O"),
+                    new Dictionary<string, string> { ["npm"] = "11.4.2" })));
         }
     }
 }

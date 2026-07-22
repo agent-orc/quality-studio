@@ -20,7 +20,7 @@ the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
 Repository registrations are server-owned state persisted at
 `<API content root>/.quality-studio/repositories.json`. Each entry stores its id,
 display name, normalized root path, optional global inputs directory, input character
-budget, enabled review kinds, and archive state. This is the single canonical registry;
+budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
 there are no environment-specific registry copies. Repository roots must be existing
 directories with a `.git` directory or worktree `.git` file.
 
@@ -90,6 +90,12 @@ curl "http://127.0.0.1:5127/api/scan"
 
 curl "http://127.0.0.1:5127/api/security/scan"
 # 200 {"verdict":"pass","available":true,"scanner":"gitleaks",...}
+
+curl "http://127.0.0.1:5127/api/sensors"
+# 200 {"sensors":[{"id":"dependencies","version":"1.0.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
+
+curl -X POST "http://127.0.0.1:5127/api/sensors/dependencies/scan?path=frontend"
+# 200 {"available":true,"unavailableReason":null,"findings":[...],"provenance":{...}}
 
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}

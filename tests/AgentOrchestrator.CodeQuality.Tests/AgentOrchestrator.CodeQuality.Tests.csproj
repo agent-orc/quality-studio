@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Fixtures/**/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

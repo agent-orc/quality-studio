@@ -11,6 +11,7 @@ public sealed record RepositoryRegistration(
     string? GlobalInputsDirectory,
     int InputBudgetCharacters,
     IReadOnlyList<string> EnabledReviewKinds,
+    IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false);
 
 public sealed record RepositoryRegistrationRequest(
@@ -19,7 +20,13 @@ public sealed record RepositoryRegistrationRequest(
     string RootPath,
     string? GlobalInputsDirectory,
     int? InputBudgetCharacters,
-    IReadOnlyList<string>? EnabledReviewKinds);
+    IReadOnlyList<string>? EnabledReviewKinds,
+    IReadOnlyList<RepositorySensorConfiguration>? Sensors = null);
+
+public sealed record RepositorySensorConfiguration(
+    string Id,
+    bool Enabled = true,
+    IReadOnlyDictionary<string, string>? Configuration = null);
 
 public sealed class RepositoryRegistry
 {
@@ -30,16 +37,18 @@ public sealed class RepositoryRegistry
     private readonly string contentRoot;
     private readonly RepositoryOptions legacyOptions;
     private readonly string[] allowedRoots;
+    private readonly IReadOnlyList<string> supportedSensors;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
     private readonly SemaphoreSlim gate = new(1, 1);
     private List<RepositoryRegistration> entries;
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
-        ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex)
+        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex)
     {
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
+        supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
         this.logger = logger;
         this.metaIndex = metaIndex;
         if (legacyOptions.AllowedRoots.Length == 0)
@@ -109,7 +118,11 @@ public sealed class RepositoryRegistry
                 throw new RepositoryRegistryValidationException("Archived repositories cannot be edited.");
             }
 
-            var updated = Validate(request with { Id = existing.Id }, existing.Id);
+            var updated = Validate(request with
+            {
+                Id = existing.Id,
+                Sensors = request.Sensors ?? existing.Sensors,
+            }, existing.Id);
             entries[entries.IndexOf(existing)] = updated;
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1401, "RepositoryUpdated"),
@@ -164,8 +177,11 @@ public sealed class RepositoryRegistry
                 var loaded = JsonSerializer.Deserialize<List<RepositoryRegistration>>(File.ReadAllText(registryPath), JsonOptions());
                 if (loaded is { Count: > 0 })
                 {
-                    foreach (var entry in loaded) ValidatePersistedEntry(entry);
-                    return loaded;
+                    var migrated = loaded.Select(entry => entry.Sensors is null
+                        ? entry with { Sensors = DefaultSensors() }
+                        : entry).ToList();
+                    foreach (var entry in migrated) ValidatePersistedEntry(entry);
+                    return migrated;
                 }
             }
             catch (Exception exception) when (exception is JsonException or IOException)
@@ -183,7 +199,8 @@ public sealed class RepositoryRegistry
             root,
             ValidateOptionalDirectory(legacyOptions.GlobalInputsDirectory, root),
             legacyOptions.InputBudgetCharacters,
-            SupportedKinds);
+            SupportedKinds,
+            DefaultSensors());
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
@@ -241,8 +258,31 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException("Select at least one supported review kind: code, security, or performance.");
         }
 
+        var requestedSensors = request.Sensors ?? DefaultSensors();
+        if (requestedSensors.Any(sensor => string.IsNullOrWhiteSpace(sensor.Id)))
+        {
+            throw new RepositoryRegistryValidationException("Every sensor configuration requires an id.");
+        }
+
+        var sensors = requestedSensors
+            .Select(sensor => sensor with
+            {
+                Id = sensor.Id.Trim().ToLowerInvariant(),
+                Configuration = sensor.Configuration is null
+                    ? null
+                    : new Dictionary<string, string>(sensor.Configuration, StringComparer.Ordinal),
+            })
+            .ToArray();
+        if (sensors.Length == 0 ||
+            sensors.Any(sensor => !supportedSensors.Contains(sensor.Id, StringComparer.Ordinal)) ||
+            sensors.Select(sensor => sensor.Id).Distinct(StringComparer.Ordinal).Count() != sensors.Length)
+        {
+            throw new RepositoryRegistryValidationException(
+                $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
+        }
+
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
-            ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds);
+            ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors);
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken)
@@ -314,6 +354,9 @@ public sealed class RepositoryRegistry
 
     private static StringComparer PathComparer =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
+        supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
 }
 
 public sealed class RepositoryRegistryValidationException : Exception

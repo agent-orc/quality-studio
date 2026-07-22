@@ -6,6 +6,9 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class ReviewMetaContractTests
 {
+    private static readonly Lazy<JsonSchema> ReviewMetaSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
+        FindRepositoryRoot(), "schemas", "review-meta.v1.schema.json"))));
+
     [Fact]
     public void SerializerRoundTripsAndIgnoresUnknownFields()
     {
@@ -93,12 +96,10 @@ public sealed class ReviewMetaContractTests
     public void HandWrittenSampleValidatesAgainstSchemaAndLoads()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            repositoryRoot, "schemas", "review-meta.v1.schema.json")));
         using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
             repositoryRoot, "samples", "review-meta.v1.sample.json")));
 
-        var result = schema.Evaluate(sample.RootElement, new EvaluationOptions
+        var result = ReviewMetaSchema.Value.Evaluate(sample.RootElement, new EvaluationOptions
         {
             OutputFormat = OutputFormat.List,
         });
@@ -146,6 +147,24 @@ public sealed class ReviewMetaContractTests
         var exception = Assert.Throws<JsonException>(() => ReviewMetaJson.Deserialize(json));
 
         Assert.Contains("requires review metadata schemaVersion '2'", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DependencyRealRunSidecarValidatesAgainstSchemaAndLoads()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            repositoryRoot, "samples", "dependency-vulnerability.real-run.review-meta.security.json")));
+
+        var result = ReviewMetaSchema.Value.Evaluate(sample.RootElement, new EvaluationOptions
+        {
+            OutputFormat = OutputFormat.List,
+        });
+
+        Assert.True(result.IsValid, result.ToString());
+        var loaded = ReviewMetaJson.Deserialize(sample.RootElement.GetRawText());
+        Assert.Equal(ReviewKind.Security, loaded.Kind);
+        Assert.Equal("GHSA-v2hh-gcrm-f6hx", Assert.Single(loaded.Findings).RuleId);
     }
 
     [Fact]
