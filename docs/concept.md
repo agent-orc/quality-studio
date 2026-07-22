@@ -746,7 +746,7 @@ canonical units and parent/child edges for the five review levels. Physical
 folders may also appear in the UI, but folder badges are projections of
 descendants; a folder does not silently become a sixth review level.
 
-### Rules shared by both adapters
+### Rules shared by all adapters
 
 - Repository root is the Git worktree root containing the selected entry file.
   An explicit CLI/API entry path wins. Without one, adapters discover every
@@ -810,6 +810,22 @@ tokens excluding trivia, decorators, documentation, and the body. An overload
 group uses the implementation header. It never uses compiler pretty-printed type
 text, so a TypeScript upgrade cannot silently reformat IDs. The resulting
 `symbolId` is `typescript-symbol-key-v1:<64 lowercase hex>`.
+
+### Generic path adapter and review-meta v2 compatibility
+
+Repositories with neither a .NET solution/project nor an Angular/TypeScript
+workspace use a path-derived hierarchy. The repository is one Project and one
+root Module; each canonical repository directory is a Namespace and every
+non-ignored, non-build-output file beneath it is a File. Generic units use the
+unchanged ID envelope `qs-v1/generic/<level>/<identity-hash>`; TypeScript
+function derivation remains outside this slice.
+
+Adding the closed `generic` adapter value is a contract change, not an additive
+v1 edit. New writers therefore emit `review-meta.v2` with schema version 2. The
+v1 schema artifact remains byte-for-byte compatible and readers continue to
+accept matching v1 schema/version pairs, so existing Angular and .NET sidecars
+remain attached to their unchanged canonical IDs. A mismatched or unknown
+schema/version pair is rejected rather than treated as current.
 
 ### .NET solution adapter
 

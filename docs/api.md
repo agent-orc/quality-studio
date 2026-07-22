@@ -77,7 +77,10 @@ The following commands were exercised against the live host at
 
 ```shell
 curl "http://127.0.0.1:5127/api/tree?path="
-# 200 {"path":".","nodes":[...]} (1 project root)
+# 200 ETag: "..." {"path":".","nodes":[...]}
+
+curl "http://127.0.0.1:5127/api/tree?path=" -H 'If-None-Match: "..."'
+# 304 when the repository HEAD, index, and worktree are unchanged
 
 curl "http://127.0.0.1:5127/api/file?path=src/QualityStudio.Api/appsettings.json"
 # 200 {"path":"src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[]}

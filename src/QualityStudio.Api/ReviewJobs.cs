@@ -48,14 +48,16 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ReviewJobsOptions options;
     private readonly ILogger<ReviewJobService> logger;
     private readonly QuotaService quotas;
+    private readonly RepositoryHierarchyCache hierarchyCache;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
-        ILogger<ReviewJobService> logger, QuotaService quotas)
+        ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache)
     {
         this.repositories = repositories;
         this.options = options.Value;
         this.logger = logger;
         this.quotas = quotas;
+        this.hierarchyCache = hierarchyCache;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -72,7 +74,7 @@ public sealed class ReviewJobService : BackgroundService
 
         var access = new RepositoryAccess(registration.RootPath);
         var path = access.NormalizeRelativePath(request.Path);
-        var hierarchy = RepositoryHierarchyBuilder.BuildDotNet(registration.RootPath);
+        var hierarchy = hierarchyCache.Get(registration.RootPath).Roots;
         var node = Flatten(hierarchy).FirstOrDefault(candidate =>
             candidate.Level != ReviewLevel.Function && string.Equals(candidate.Path, path, StringComparison.Ordinal));
         if (node is null) throw new KeyNotFoundException($"No reviewable hierarchy node exists at '{path}'.");

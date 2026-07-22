@@ -35,6 +35,50 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Tree_returns_etag_and_honours_conditional_request()
+    {
+        using var client = application!.CreateClient();
+        using var first = await client.GetAsync("/api/tree?path=", TestContext.Current.CancellationToken);
+        Assert.NotNull(first.Headers.ETag);
+        var etag = first.Headers.ETag.Tag;
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/tree?path=");
+        request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+
+        using var cached = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotModified, cached.StatusCode);
+        Assert.Equal(etag, cached.Headers.ETag?.Tag);
+    }
+
+    [Fact]
+    public async Task Mixed_repository_tree_exposes_typescript_and_can_queue_file_review()
+    {
+        Directory.CreateDirectory(Path.Combine(repositoryRoot, "frontend", "src", "app"));
+        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "frontend", "angular.json"),
+            "{\"projects\":{\"frontend\":{\"root\":\"\",\"sourceRoot\":\"src\"}}}", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "frontend", "src", "app", "app.component.ts"),
+            "@Component({standalone: true}) export class AppComponent {}", TestContext.Current.CancellationToken);
+        using var client = application!.CreateClient();
+
+        using var treeResponse = await client.GetAsync("/api/tree?path=", TestContext.Current.CancellationToken);
+        var tree = await treeResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var nodes = FlattenTree(tree.GetProperty("nodes")).ToArray();
+        Assert.Contains(nodes, node => node.GetProperty("path").GetString() == "frontend/src/app/app.component.ts");
+
+        using var review = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "frontend/src/app/app.component.ts",
+            kind = "code",
+            cliType = "adapter-that-does-not-exist",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Accepted, review.StatusCode);
+        var accepted = await review.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("frontend/src/app/app.component.ts", accepted.GetProperty("path").GetString());
+        Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
+    }
+
+    [Fact]
     public async Task Scan_returns_staleness_report()
     {
         using var client = application!.CreateClient();
@@ -287,6 +331,15 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     private async Task RunGitAsync(params string[] arguments)
     {
         await RunGitInDirectoryAsync(repositoryRoot, arguments);
+    }
+
+    private static IEnumerable<JsonElement> FlattenTree(JsonElement nodes)
+    {
+        foreach (var node in nodes.EnumerateArray())
+        {
+            yield return node;
+            foreach (var child in FlattenTree(node.GetProperty("children"))) yield return child;
+        }
     }
 
     private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)

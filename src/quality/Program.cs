@@ -36,7 +36,7 @@ internal static class QualityCommand
         var timer = Stopwatch.StartNew();
         try
         {
-            var projects = RepositoryHierarchyBuilder.BuildDotNet(root);
+            var projects = RepositoryHierarchyBuilder.Build(root);
             ReviewMetaDiscovery.AttachDiscovered(root, projects);
             if (byLevel)
             {

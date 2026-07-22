@@ -75,7 +75,8 @@ public sealed class ReviewRunner
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
-        var unitId = request.UnitId ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
+            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
         var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
         var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
@@ -123,7 +124,7 @@ public sealed class ReviewRunner
                 throw new ReviewRunException("The review target changed while the agent was reviewing it; no metadata was written.");
             }
 
-            var adapter = GetAdapter(files[0]);
+            var adapter = AdapterFromUnitId(unitId);
             var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -225,8 +226,8 @@ public sealed class ReviewRunner
 
         var meta = new JsonObject
         {
-            ["$schema"] = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json",
-            ["schemaVersion"] = 1,
+            ["$schema"] = ReviewMetaDocument.SchemaId,
+            ["schemaVersion"] = ReviewMetaDocument.CurrentSchemaVersion,
             ["unit"] = new JsonObject
             {
                 ["id"] = unitId,
@@ -380,7 +381,32 @@ public sealed class ReviewRunner
     }
 
     private static string GetAdapter(string file) =>
-        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "angular";
+        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "generic";
+
+    private static string AdapterFromUnitId(string unitId)
+    {
+        var segments = unitId.Split('/');
+        return segments.Length == 4 && segments[0] == "qs-v1" &&
+               segments[1] is "angular" or "dotnet" or "generic"
+            ? segments[1]
+            : throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter.");
+    }
+
+    private static string? ResolveUnitId(string root, string relativePath, ReviewLevel level) =>
+        FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
+            .Where(node => node.Level == level && StringComparer.Ordinal.Equals(node.Path, relativePath))
+            .OrderBy(node => node.Id, StringComparer.Ordinal)
+            .Select(node => node.Id)
+            .FirstOrDefault();
+
+    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
+    {
+        foreach (var node in roots)
+        {
+            yield return node;
+            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
+        }
+    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

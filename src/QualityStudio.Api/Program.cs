@@ -19,6 +19,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
 builder.Services.AddSingleton<RepositoryRegistry>();
+builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<InputResolver>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
@@ -121,13 +122,21 @@ app.MapPost("/api/repos/{repoId}/threads", MutateThread);
 
 app.Run();
 
-static IResult Tree(HttpContext context, string? path, RepositoryRegistry registry, ILogger<Program> logger)
+static IResult Tree(HttpContext context, string? path, RepositoryRegistry registry,
+    RepositoryHierarchyCache hierarchyCache, ILogger<Program> logger)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var requested = repository.NormalizeRelativePath(path);
-    var projects = RepositoryHierarchyBuilder.BuildDotNet(repository.Root);
-    ReviewMetaDiscovery.AttachDiscovered(repository.Root, projects);
+    var snapshot = hierarchyCache.Get(repository.Root);
+    var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0" + requested)))}\"";
+    context.Response.Headers.ETag = etag;
+    if (context.Request.Headers.IfNoneMatch.Any(value => value!.Split(',').Select(candidate => candidate.Trim())
+            .Any(candidate => candidate == "*" || StringComparer.Ordinal.Equals(candidate, etag))))
+    {
+        return Results.StatusCode(StatusCodes.Status304NotModified);
+    }
+    var projects = snapshot.Roots;
     IReadOnlyList<HierarchyNode> selected = requested == "."
         ? projects
         : Flatten(projects).Where(node => string.Equals(node.Path, requested, StringComparison.Ordinal)).ToArray();
@@ -298,10 +307,11 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
 }
 
 static async Task<IResult> Scan(HttpContext context, RepositoryRegistry registry, StalenessEvaluator evaluator,
-    ILogger<Program> logger, CancellationToken cancellationToken)
+    RepositoryHierarchyCache hierarchyCache, ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
+    _ = hierarchyCache.Get(repository.Root);
     var report = await evaluator.ScanAsync(repository.Root, cancellationToken: cancellationToken);
     logger.LogInformation(new EventId(1200, "ScanCompleted"),
         "Scanned repository {RepositoryId} with {FileCount} files in {ElapsedMilliseconds} ms",
