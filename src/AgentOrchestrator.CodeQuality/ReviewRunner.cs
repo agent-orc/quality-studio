@@ -25,6 +25,8 @@ public sealed record ReviewSubjectFile(string UnitId, string Path);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
+public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
+
 public sealed class ReviewRunner
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
@@ -33,22 +35,34 @@ public sealed class ReviewRunner
     private readonly ReviewResponseParser _responseParser;
     private readonly InputResolver _inputResolver;
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
+    private readonly StalenessEvaluator _stalenessEvaluator;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
         ReviewPromptBuilder? promptBuilder = null,
         ReviewResponseParser? responseParser = null,
         InputResolver? inputResolver = null,
-        Action<ReviewUsageEntry>? usageRecorded = null)
+        Action<ReviewUsageEntry>? usageRecorded = null,
+        StalenessEvaluator? stalenessEvaluator = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
         _inputResolver = inputResolver ?? new InputResolver();
         _usageRecorded = usageRecorded;
+        _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
+    {
+        var execution = await ReviewIfNeededAsync(request, force: true, cancellationToken).ConfigureAwait(false);
+        return execution.Review!;
+    }
+
+    public async Task<ReviewExecutionResult> ReviewIfNeededAsync(
+        ReviewRequest request,
+        bool force = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var root = Path.GetFullPath(request.RepositoryRoot ?? Directory.GetCurrentDirectory());
@@ -89,6 +103,14 @@ public sealed class ReviewRunner
             fileContent,
             openThreads);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
+        var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
+        var reviewInputsHash = ComputeReviewInputsHash(request.Kind, prompt);
+        if (!force)
+        {
+            var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
+                metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
+            if (freshness.IsFresh) return new ReviewExecutionResult(true, null);
+        }
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
         QualityStudioEventSource.Log.ReviewStarted(relativePath, request.Kind, _agent.AgentName);
@@ -124,7 +146,6 @@ public sealed class ReviewRunner
             }
 
             var adapter = GetAdapter(files[0]);
-            var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -162,7 +183,9 @@ public sealed class ReviewRunner
                 writeLock.Release();
             }
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
-            return new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage);
+            return new ReviewExecutionResult(
+                false,
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage));
         }
         catch (Exception exception)
         {
@@ -206,7 +229,7 @@ public sealed class ReviewRunner
         JsonArray threads)
     {
         var promptHash = "sha256:" + Sha256(prompt);
-        var effectiveHash = Sha256($"quality-studio-review-inputs-v1\0{kind}\0{promptHash}");
+        var effectiveHash = ComputeReviewInputsHash(kind, prompt);
         var reviewer = new JsonObject
         {
             ["agent"] = _agent.AgentName,
@@ -384,6 +407,12 @@ public sealed class ReviewRunner
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    internal static string ComputeReviewInputsHash(string kind, string prompt)
+    {
+        var promptHash = "sha256:" + Sha256(prompt);
+        return Sha256($"quality-studio-review-inputs-v1\0{kind}\0{promptHash}");
+    }
 
     private static string Combine(string resolved, string? supplied) =>
         string.IsNullOrWhiteSpace(supplied)

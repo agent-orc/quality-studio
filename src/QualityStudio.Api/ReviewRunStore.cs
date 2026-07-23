@@ -18,7 +18,8 @@ public sealed record ReviewRunManifest(
     string CliType,
     DateTimeOffset CreatedAt,
     IReadOnlyList<ReviewRunPlanTarget> Targets,
-    IReadOnlyList<string>? AggregateControls);
+    IReadOnlyList<string>? AggregateControls,
+    bool Force = false);
 
 public sealed record ReviewRunFileTransition(
     string Path,
@@ -40,7 +41,8 @@ public sealed record ReviewRunStatus(
     DateTimeOffset? FinishedAt,
     IReadOnlyList<string> Errors,
     int UsageOperations,
-    TokenUsage Usage);
+    TokenUsage Usage,
+    int SkippedFiles = 0);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,

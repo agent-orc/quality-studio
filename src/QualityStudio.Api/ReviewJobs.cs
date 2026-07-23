@@ -8,7 +8,12 @@ using Microsoft.Extensions.Options;
 
 namespace QualityStudio.Api;
 
-public sealed record StartReviewRequest(string Path, string Kind, string? Model = null, string? CliType = null);
+public sealed record StartReviewRequest(
+    string Path,
+    string Kind,
+    string? Model = null,
+    string? CliType = null,
+    bool Force = false);
 
 public sealed record ReviewFileProgress(string Path, string State, DateTimeOffset? StartedAt, DateTimeOffset? FinishedAt, string? Error);
 
@@ -30,7 +35,8 @@ public sealed record ReviewRunResponse(
     IReadOnlyList<ReviewFileProgress> Files,
     IReadOnlyList<string> Errors,
     int UsageOperations,
-    TokenUsage Usage);
+    TokenUsage Usage,
+    int SkippedFiles);
 
 public sealed class ReviewJobsOptions
 {
@@ -103,7 +109,8 @@ public sealed class ReviewJobService : BackgroundService
             string.IsNullOrWhiteSpace(request.CliType) ? "codex" : request.CliType.Trim(),
             DateTimeOffset.UtcNow,
             targets,
-            AggregateControls(node));
+            AggregateControls(node),
+            request.Force);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -238,9 +245,11 @@ public sealed class ReviewJobService : BackgroundService
                     }
                     try
                     {
-                        await CreateRunner(item).ReviewAsync(
-                            CreateRequest(item, file, ReviewLevel.File, [file.Path]), cancellationToken);
-                        item.FinishFile(file.Path, null);
+                        var execution = await CreateRunner(item).ReviewIfNeededAsync(
+                            CreateRequest(item, file, ReviewLevel.File, [file.Path]),
+                            item.Force,
+                            cancellationToken);
+                        if (execution.SkippedFresh) item.SkipFile(file.Path); else item.FinishFile(file.Path, null);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -257,8 +266,10 @@ public sealed class ReviewJobService : BackgroundService
 
             if (item.Node.Level != ReviewLevel.File)
             {
-                await CreateRunner(item).ReviewAsync(
-                    CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()), linked.Token);
+                await CreateRunner(item).ReviewIfNeededAsync(
+                    CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
+                    item.Force,
+                    linked.Token);
             }
             if (item.Complete())
             {
