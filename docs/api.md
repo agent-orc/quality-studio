@@ -4,6 +4,8 @@ The finding handover endpoints and Agent Studio configuration are documented in
 [concepts/handover.md](concepts/handover.md).
 Review token persistence, usage response semantics, and quota ownership are
 documented in [usage-telemetry.md](usage-telemetry.md).
+Attack catalogue, ledger, provenance, and matrix semantics are documented in
+[attack-coverage.md](attack-coverage.md).
 
 Run the development host from the repository root:
 
@@ -91,6 +93,14 @@ curl "http://127.0.0.1:5127/api/scan"
 curl "http://127.0.0.1:5127/api/security/scan"
 # 200 {"verdict":"pass","available":true,"scanner":"gitleaks",...}
 
+curl "http://127.0.0.1:5127/api/security/attack-coverage?path=src/QualityStudio.Api"
+# 200 {"cellCount":...,"notYetCheckedCount":...,"staleCount":...,"rows":[...]}
+
+curl -X POST "http://127.0.0.1:5127/api/security/attack-coverage/judgements?path=src/QualityStudio.Api" \
+  -H "Content-Type: application/json" \
+  -d '{"assessmentId":"assessment-42","boundaryId":"...","attackId":"OWASP-API7-SSRF","verdict":"pass","reasoning":"The target is selected from a fixed allowlist.","evidence":[{"kind":"code","reference":"src/Api.cs#symbol:Fetch","summary":"Allowlist checked immediately before the HTTP call."}],"deterministicSensorInput":[],"source":"agent","reviewer":{"agent":"security-reviewer","model":"routed-model","thinkingLevel":"routed-level"},"tokenCost":{"inputTokens":1200,"outputTokens":180,"cachedInputTokens":0,"reasoningOutputTokens":80},"commit":"...","commitRange":"base..head"}'
+# 201 and appends .quality/attacks/coverage-ledger.jsonl
+
 curl "http://127.0.0.1:5127/api/sensors"
 # 200 {"sensors":[{"id":"dependencies","version":"1.0.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
 
@@ -153,6 +163,7 @@ not as unlimited quota.
 All repository operations also have a scoped form, for example
 `/api/repos/payments/tree?path=`, `/api/repos/payments/file?path=README.md`,
 `/api/repos/payments/scan`, `/api/repos/payments/security/scan`,
+`/api/repos/payments/security/attack-coverage`,
 `/api/repos/payments/inputs`, `/api/repos/payments/handover`, and
 `/api/repos/payments/review`. Finding state uses
 `/api/repos/payments/findings/state`. Guideline CRUD, catalogue install, trace,

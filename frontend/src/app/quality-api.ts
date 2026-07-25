@@ -60,6 +60,49 @@ export interface SecurityScanResponse {
   counts: SecurityScanCounts;
   findings: SecurityScanFinding[];
 }
+export type AttackCoverageVerdict = 'pass' | 'finding' | 'notApplicable' | 'notYetChecked';
+export type AttackCoverageStaleness = 'boundaryChanged' | 'codeChanged' | 'catalogueChanged' | 'promptChanged';
+export interface AttackEvidence { kind: string; reference: string; summary: string; }
+export interface AttackReviewerIdentity { agent: string; model: string; thinkingLevel: string; }
+export interface AttackTokenCost { inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; totalTokens: number; }
+export interface AttackObservation {
+  schemaVersion: number; assessmentId: string; boundaryId: string; attackId: string;
+  verdict: Exclude<AttackCoverageVerdict, 'notYetChecked'>; reasoning: string;
+  evidence: AttackEvidence[]; deterministicSensorInput: string[];
+  findingId: string | null; findingFingerprint: string | null; source: 'agent' | 'deterministicSensor' | 'human';
+  reviewer: AttackReviewerIdentity; promptVersion: string; promptHash: string;
+  catalogueVersion: string; catalogueEntryHash: string; boundaryDefinitionHash: string;
+  coveredCodeHash: string; tokenCost: AttackTokenCost; checkedAt: string;
+  commit: string | null; commitRange: string | null;
+}
+export interface AttackHistory {
+  assessmentId: string; checkedAt: string; verdict: AttackCoverageVerdict; disagreement: boolean;
+  judgements: AttackObservation[]; commit: string | null; commitRange: string | null;
+}
+export interface AttackCoverageCell {
+  boundaryId: string; attackId: string; verdict: AttackCoverageVerdict; reason: string;
+  evidence: AttackEvidence[]; findingId: string | null; findingFingerprint: string | null;
+  disagreement: boolean; deterministicOverride: boolean; needsHumanAttention: boolean;
+  requiredJudgements: number; independentJudgements: number; confidence: string;
+  checkedAt: string | null; ageDays: number | null; stalenessReasons: AttackCoverageStaleness[];
+  provenance: AttackObservation[]; history: AttackHistory[];
+}
+export interface AttackCatalogueEntry {
+  id: string; version: string; title: string; description: string;
+  applicability: { boundaryKinds: string[]; directions?: string[] | null };
+  evidenceRequirements: string[]; severity: FindingSeverity; severityFrame: string;
+  deterministicRuleIds: string[]; deterministicPassConclusive: boolean; enabled: boolean;
+}
+export interface AttackCoverageRow {
+  boundary: { id: string; kind: string; direction: string; name: string; transport: string; location: { path: string; line: number } };
+  boundaryDefinitionHash: string; coveredCodeHash: string; codeChangeCount: number;
+  oldestVerdictAt: string | null; cells: AttackCoverageCell[];
+}
+export interface AttackCoverageMatrix {
+  schemaVersion: number; catalogueVersion: string; promptVersion: string; promptHash: string;
+  generatedAt: string; scope: string; attacks: AttackCatalogueEntry[]; rows: AttackCoverageRow[];
+  cellCount: number; notYetCheckedCount: number; staleCount: number; disagreementCount: number;
+}
 export type LineEnding = 'lf' | 'crlf' | 'mixed';
 export type FileEncoding = 'utf-8' | 'utf-8-bom' | 'other';
 export interface FileDocument { path: string; content: string; metaDocuments: ReviewMetaDocument[]; sizeBytes: number; lineEnding: LineEnding; encoding: FileEncoding; }
@@ -218,6 +261,9 @@ export class QualityApi {
   readonly file = signal<FileDocument | null>(null);
   readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, policyDriftCount: 0, missingCount: 3 });
   readonly security = signal<SecurityScanResponse | null>(null);
+  readonly attackCoverage = signal<AttackCoverageMatrix | null>(null);
+  readonly attackCoverageLoading = signal(false);
+  readonly attackCoverageError = signal('');
   readonly connectionState = signal<ApiConnectionState>('connecting');
   readonly connected = computed(() => this.connectionState() === 'live');
   readonly connectionLabel = computed(() => {
@@ -271,6 +317,7 @@ export class QualityApi {
     this.selectedRepositoryId.set(id);
     this.connectionState.set('connecting');
     this.file.set(null);
+    this.attackCoverage.set(null);
     this.usage.set(emptyUsageReport());
     await this.loadTree();
     await this.loadReviewRuns();
@@ -320,6 +367,23 @@ export class QualityApi {
       console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
     }
     await this.loadHandoverConfiguration();
+  }
+
+  async loadAttackCoverage(scope = 'src/QualityStudio.Api'): Promise<AttackCoverageMatrix> {
+    this.attackCoverageLoading.set(true);
+    this.attackCoverageError.set('');
+    try {
+      const matrix = await firstValueFrom(this.http.get<AttackCoverageMatrix>(
+        `${this.repositoryApiBase()}/security/attack-coverage`, { params: { path: scope } }));
+      this.attackCoverage.set(matrix);
+      console.info(JSON.stringify({ event: 'qs.security.attack-coverage-loaded', scope, cells: matrix.cellCount, stale: matrix.staleCount, deferred: matrix.notYetCheckedCount, disagreements: matrix.disagreementCount }));
+      return matrix;
+    } catch (error) {
+      this.attackCoverageError.set(this.errorMessage(error));
+      throw error;
+    } finally {
+      this.attackCoverageLoading.set(false);
+    }
   }
 
   async startReview(request: StartReviewRequest): Promise<ReviewRun> {

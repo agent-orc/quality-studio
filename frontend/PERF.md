@@ -36,4 +36,4 @@ The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-cont
 - Finding ranges are indexed once per loaded review/aspect; only markers belonging to the visible 80-line window enter the DOM.
 - Aspect switching selects an already-loaded `metaDocuments` entry and does not fetch file content again.
 - The first-content path displays plain escaped text. Supported files up to 200 KB are tokenized only after that paint in a cancellable single-concurrency worker and delivered in 200-line chunks; whole-file main-thread highlighting is prohibited.
-- Production bundle budgets are enforced at 350 KB warning / 450 KB error initially and 10/12 KB per component stylesheet.
+- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 10/12 KB per component stylesheet. The attack matrix is a deferred 17 KB lazy chunk and is not paid on the editor's first-content path.

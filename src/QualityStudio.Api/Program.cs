@@ -33,6 +33,8 @@ builder.Services.AddSingleton<GitleaksBinaryResolver>();
 builder.Services.AddSingleton<GitleaksSecurityScanner>();
 builder.Services.AddSingleton<DependencyVulnerabilitySensor>();
 builder.Services.AddSingleton<BoundaryInventorySensor>();
+builder.Services.AddSingleton<AttackCatalogueResolver>();
+builder.Services.AddSingleton<AttackCoverageService>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -95,6 +97,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
         StalenessScanException => (StatusCodes.Status422UnprocessableEntity, "Repository scan failed"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
+        JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
@@ -235,6 +238,10 @@ app.MapGet("/api/scan", Scan);
 app.MapGet("/api/repos/{repoId}/scan", Scan);
 app.MapGet("/api/security/scan", SecurityScan);
 app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
+app.MapGet("/api/security/attack-coverage", AttackCoverage);
+app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage);
+app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
 app.MapPost("/api/sensors/{id}/scan", SensorScan);
@@ -610,6 +617,69 @@ static async Task<IResult> SecurityScan(HttpContext context, RepositoryRegistry 
         "Scanned repository {RepositoryId} for secrets with verdict {Verdict} in {ElapsedMilliseconds} ms",
         registration.Id, result.Report.Verdict.ToString().ToLowerInvariant(), stopwatch.ElapsedMilliseconds);
     return Results.Ok(Map(result));
+}
+
+static async Task<IResult> AttackCoverage(
+    HttpContext context,
+    string? path,
+    bool? recheck,
+    RepositoryRegistry registry,
+    BoundaryInventorySensor boundaries,
+    AttackCatalogueResolver catalogues,
+    AttackCoverageService coverage,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var scope = string.IsNullOrWhiteSpace(path) ? "." : repository.NormalizeRelativePath(path);
+    var request = scope == "."
+        ? new SensorScanRequest(repository.Root, PersistMetadata: false)
+        : new SensorScanRequest(repository.Root, SensorScope.Path, scope, PersistMetadata: false);
+    var inventory = await boundaries.InventoryAsync(request, cancellationToken);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    var catalogue = catalogues.Resolve(repository.Root, globalDirectory);
+    var matrix = await coverage.BuildAsync(
+        repository.Root, inventory, catalogue, scope, recheckDeterministic: recheck == true, cancellationToken);
+    logger.LogInformation(new EventId(1203, "AttackCoverageLoaded"),
+        "Loaded {CellCount} attack coverage cells for repository {RepositoryId} scope {Scope}; Stale={StaleCount}, Deferred={DeferredCount}, Disagreement={DisagreementCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
+        matrix.CellCount, registration.Id, scope, matrix.StaleCount, matrix.NotYetCheckedCount,
+        matrix.DisagreementCount, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(matrix);
+}
+
+static async Task<IResult> RecordAttackJudgement(
+    HttpContext context,
+    string? path,
+    AttackJudgementSubmission request,
+    RepositoryRegistry registry,
+    BoundaryInventorySensor boundaries,
+    AttackCatalogueResolver catalogues,
+    AttackCoverageService coverage,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var scope = string.IsNullOrWhiteSpace(path) ? "." : repository.NormalizeRelativePath(path);
+    var sensorRequest = scope == "."
+        ? new SensorScanRequest(repository.Root, PersistMetadata: false)
+        : new SensorScanRequest(repository.Root, SensorScope.Path, scope, PersistMetadata: false);
+    var inventory = await boundaries.InventoryAsync(sensorRequest, cancellationToken);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    var catalogue = catalogues.Resolve(repository.Root, globalDirectory);
+    var observation = await coverage.RecordAsync(
+        repository.Root, inventory, catalogue, request, cancellationToken);
+    logger.LogInformation(new EventId(1204, "AttackJudgementRecorded"),
+        "Recorded {Verdict} judgement for boundary {BoundaryId}, attack {AttackId}, repository {RepositoryId}, assessment {AssessmentId}",
+        observation.Verdict, observation.BoundaryId, observation.AttackId, registration.Id,
+        observation.AssessmentId);
+    return Results.Created(
+        $"/api/repos/{registration.Id}/security/attack-coverage?path={Uri.EscapeDataString(scope)}",
+        observation);
 }
 
 static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repositories, SensorRegistry sensors,

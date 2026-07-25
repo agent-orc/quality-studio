@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
 import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
@@ -27,7 +28,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, AttackCoverage],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,6 +63,7 @@ export class App implements OnDestroy {
   readonly guidelineSaving = signal(false);
   readonly guidelineDryRunning = signal(false);
   readonly guidelineImpact = signal<GuidelineImpact | null>(null);
+  readonly attackCoverageDialogOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
   readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(n => n.path === this.selected()));
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
@@ -241,6 +243,10 @@ export class App implements OnDestroy {
     await this.api.selectRepository(id);
     const path = this.selectionPathOrFirst('');
     if (path) this.open(path, false);
+  }
+
+  async openAttackCoverage(): Promise<void> {
+    this.attackCoverageDialogOpen.set(true);
   }
 
   onboardRepository(): void {

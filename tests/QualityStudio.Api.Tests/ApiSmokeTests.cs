@@ -170,6 +170,57 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Attack_coverage_api_exposes_complete_cells_and_appends_judgements()
+    {
+        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Coverage.cs"), """
+            var app = WebApplication.Create();
+            app.MapGet("/api/coverage", () => Results.Ok());
+            app.Run();
+            """, TestContext.Current.CancellationToken);
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync("/api/security/attack-coverage?path=",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var matrix = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(matrix.GetProperty("cellCount").GetInt32() > 0);
+        var row = Assert.Single(matrix.GetProperty("rows").EnumerateArray(), candidate =>
+            candidate.GetProperty("boundary").GetProperty("name").GetString() == "GET /api/coverage");
+        var cells = row.GetProperty("cells").EnumerateArray().ToArray();
+        Assert.NotEmpty(cells);
+        Assert.All(cells, cell => Assert.True(cell.TryGetProperty("verdict", out _)));
+        Assert.All(cells.Where(cell => cell.GetProperty("verdict").GetString() != "notYetChecked"),
+            cell => Assert.NotEmpty(cell.GetProperty("provenance").EnumerateArray()));
+        var deferred = cells.First(cell => cell.GetProperty("verdict").GetString() == "notYetChecked");
+
+        using var created = await client.PostAsJsonAsync(
+            "/api/security/attack-coverage/judgements?path=",
+            new
+            {
+                assessmentId = "api-acceptance",
+                boundaryId = row.GetProperty("boundary").GetProperty("id").GetString(),
+                attackId = deferred.GetProperty("attackId").GetString(),
+                verdict = "pass",
+                reasoning = "The test supplied positive evidence for the exact boundary input.",
+                evidence = new[] { new { kind = "test", reference = "Coverage.cs", summary = "Acceptance evidence." } },
+                deterministicSensorInput = Array.Empty<string>(),
+                source = "agent",
+                reviewer = new { agent = "api-test", model = "fixture-model", thinkingLevel = "high" },
+                tokenCost = new { inputTokens = 20, outputTokens = 10, cachedInputTokens = 0, reasoningOutputTokens = 5 },
+                commit = "test-commit",
+                commitRange = "base..test-commit",
+            }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.True(File.Exists(Path.Combine(repositoryRoot, AttackCoverageLedger.RelativePath)));
+        var observation = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("api-test", observation.GetProperty("reviewer").GetProperty("agent").GetString());
+        Assert.Equal("fixture-model", observation.GetProperty("reviewer").GetProperty("model").GetString());
+        Assert.Equal("high", observation.GetProperty("reviewer").GetProperty("thinkingLevel").GetString());
+    }
+
+    [Fact]
     public async Task Sensors_list_enablement_availability_and_versions()
     {
         using var client = application!.CreateClient();
