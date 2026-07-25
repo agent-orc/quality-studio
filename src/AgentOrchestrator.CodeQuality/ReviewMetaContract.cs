@@ -6,8 +6,10 @@ namespace AgentOrchestrator.CodeQuality;
 
 public sealed record ReviewMetaDocument
 {
-    public const int CurrentSchemaVersion = 1;
-    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json";
+    public const int CurrentSchemaVersion = 2;
+    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v2.schema.json";
+    public const int LegacySchemaVersion = 1;
+    public const string LegacySchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json";
 
     [JsonPropertyName("$schema"), JsonPropertyOrder(0)]
     public string Schema { get; init; } = SchemaId;
@@ -63,7 +65,7 @@ public sealed record ReviewUnit(
     [property: JsonPropertyOrder(4)] string DisplayName,
     [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SymbolId = null);
 
-public enum ReviewAdapter { Angular, Dotnet }
+public enum ReviewAdapter { Angular, Dotnet, Generic }
 
 public sealed record ReviewerIdentity(
     [property: JsonPropertyOrder(0)] string Agent,
@@ -241,14 +243,17 @@ public static class ReviewMetaJson
 
     private static void ValidateContractVersion(ReviewMetaDocument document)
     {
-        if (document.SchemaVersion != ReviewMetaDocument.CurrentSchemaVersion)
+        var current = document.SchemaVersion == ReviewMetaDocument.CurrentSchemaVersion &&
+                      string.Equals(document.Schema, ReviewMetaDocument.SchemaId, StringComparison.Ordinal);
+        var legacy = document.SchemaVersion == ReviewMetaDocument.LegacySchemaVersion &&
+                     string.Equals(document.Schema, ReviewMetaDocument.LegacySchemaId, StringComparison.Ordinal);
+        if (!current && !legacy)
         {
             throw new JsonException($"Unsupported review metadata schemaVersion '{document.SchemaVersion}'.");
         }
-
-        if (!string.Equals(document.Schema, ReviewMetaDocument.SchemaId, StringComparison.Ordinal))
+        if (legacy && document.Unit.Adapter == ReviewAdapter.Generic)
         {
-            throw new JsonException($"Unsupported review metadata schema '{document.Schema}'.");
+            throw new JsonException("The generic review adapter requires review metadata schemaVersion '2'.");
         }
 
         if (document.ReviewedAt.Offset != TimeSpan.Zero)

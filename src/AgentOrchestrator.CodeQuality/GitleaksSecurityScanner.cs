@@ -176,6 +176,11 @@ public class GitleaksSecurityScanner
         string? baselinePath,
         CancellationToken cancellationToken)
     {
+        var hierarchyFiles = FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
+            .Where(node => node.Level == ReviewLevel.File)
+            .GroupBy(node => node.Path, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.OrderBy(node => node.Id, StringComparer.Ordinal).First(),
+                StringComparer.Ordinal);
         foreach (var fileGroup in grouped)
         {
             var relativePath = NormalizeRelativePath(fileGroup.Key);
@@ -201,8 +206,9 @@ public class GitleaksSecurityScanner
                 continue;
             }
 
-            var adapter = GetAdapter(absolutePath);
-            var unitId = $"qs-v1/{adapter}/file/{Sha256($"{adapter}\0{relativePath}")}";
+            var canonicalUnit = hierarchyFiles.GetValueOrDefault(relativePath);
+            var adapter = canonicalUnit is null ? GetAdapter(absolutePath) : AdapterFromUnitId(canonicalUnit.Id);
+            var unitId = canonicalUnit?.Id ?? $"qs-v1/{adapter}/file/{Sha256($"{adapter}\0{relativePath}")}";
             var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(
                 unitId,
                 [new SubjectInputHash(relativePath, "file", fileContentHash)]);
@@ -211,7 +217,7 @@ public class GitleaksSecurityScanner
                 : $"{acceptedFindings.Length} accepted placeholder match(es) were recorded by Gitleaks.";
             var doc = new ReviewMetaDocument
             {
-                Unit = new ReviewUnit(unitId, adapter == "dotnet" ? ReviewAdapter.Dotnet : ReviewAdapter.Angular, ReviewLevel.File, relativePath, Path.GetFileName(relativePath)),
+                Unit = new ReviewUnit(unitId, ParseAdapter(adapter), ReviewLevel.File, relativePath, Path.GetFileName(relativePath)),
                 ReviewedAt = DateTimeOffset.UtcNow,
                 Kind = ReviewKind.Security,
                 Reviewer = new ReviewerIdentity("gitleaks", GitleaksBinaryResolver.PinnedVersion),
@@ -679,7 +685,26 @@ public class GitleaksSecurityScanner
     private static string NormalizeRelativePath(string path) => path.Replace('\\', '/').TrimStart('/');
 
     private static string GetAdapter(string file) =>
-        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "angular";
+        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "generic";
+
+    private static string AdapterFromUnitId(string unitId) => unitId.Split('/')[1];
+
+    private static ReviewAdapter ParseAdapter(string adapter) => adapter switch
+    {
+        "angular" => ReviewAdapter.Angular,
+        "dotnet" => ReviewAdapter.Dotnet,
+        "generic" => ReviewAdapter.Generic,
+        _ => throw new ArgumentException($"Unsupported hierarchy adapter '{adapter}'."),
+    };
+
+    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
+    {
+        foreach (var node in roots)
+        {
+            yield return node;
+            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
+        }
+    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

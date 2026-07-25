@@ -13,8 +13,8 @@ public sealed class ReviewMetaContractTests
 
         var json = ReviewMetaJson.Serialize(original);
         var withFutureField = json.Replace(
-            "\"schemaVersion\": 1,",
-            "\"schemaVersion\": 1,\n  \"x-future-field\": { \"enabled\": true },",
+            "\"schemaVersion\": 2,",
+            "\"schemaVersion\": 2,\n  \"x-future-field\": { \"enabled\": true },",
             StringComparison.Ordinal);
         var loaded = ReviewMetaJson.Deserialize(withFutureField);
 
@@ -40,7 +40,7 @@ public sealed class ReviewMetaContractTests
     public void LoaderRejectsUnsupportedSchemaVersion()
     {
         var json = ReviewMetaJson.Serialize(CreateDocument())
-            .Replace("\"schemaVersion\": 1", "\"schemaVersion\": 2", StringComparison.Ordinal);
+            .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 3", StringComparison.Ordinal);
 
         var exception = Assert.Throws<JsonException>(() => ReviewMetaJson.Deserialize(json));
 
@@ -107,6 +107,45 @@ public sealed class ReviewMetaContractTests
         var loaded = ReviewMetaJson.Deserialize(sample.RootElement.GetRawText());
         Assert.Equal(ReviewKind.Code, loaded.Kind);
         Assert.Equal(1240, loaded.Reviewer.Usage?.InputTokens);
+    }
+
+    [Fact]
+    public void V2SchemaAcceptsGenericAdapterWhileV1SidecarsRemainReadable()
+    {
+        var document = CreateDocument() with
+        {
+            Unit = new ReviewUnit(
+                "qs-v1/generic/file/7b1bd2568ea481d83c2b97850fafd54c0e1981d94960926ab3b4cc5180daec3e",
+                ReviewAdapter.Generic,
+                ReviewLevel.File,
+                "src/a.py",
+                "a.py"),
+        };
+        using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
+        var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json")));
+
+        var result = schema.Evaluate(json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+        Assert.True(result.IsValid, result.ToString());
+        Assert.Equal(2, json.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal("generic", json.RootElement.GetProperty("unit").GetProperty("adapter").GetString());
+    }
+
+    [Fact]
+    public void GenericAdapterCannotMasqueradeAsV1Contract()
+    {
+        var json = ReviewMetaJson.Serialize(CreateDocument() with
+        {
+            Unit = new ReviewUnit(
+                "qs-v1/generic/file/7b1bd2568ea481d83c2b97850fafd54c0e1981d94960926ab3b4cc5180daec3e",
+                ReviewAdapter.Generic, ReviewLevel.File, "src/a.py", "a.py"),
+        }).Replace(ReviewMetaDocument.SchemaId, ReviewMetaDocument.LegacySchemaId, StringComparison.Ordinal)
+          .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 1", StringComparison.Ordinal);
+
+        var exception = Assert.Throws<JsonException>(() => ReviewMetaJson.Deserialize(json));
+
+        Assert.Contains("requires review metadata schemaVersion '2'", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

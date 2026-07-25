@@ -7,9 +7,8 @@ using System.Xml.Linq;
 namespace AgentOrchestrator.CodeQuality;
 
 /// <summary>
-/// Derives the five-level .NET hierarchy from solution, project, and C# source files.
-/// It intentionally uses source-only parsing; richer adapters can replace discovery while
-/// retaining <see cref="HierarchyNode"/> and the aggregation contract.
+/// Derives five-level repository hierarchies through content-selected adapters.
+/// The .NET entry point remains public so its canonical IDs and existing callers stay stable.
 /// </summary>
 public static partial class RepositoryHierarchyBuilder
 {
