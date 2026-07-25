@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using AgentOrchestrator.CodeQuality;
 
 return await QualityCli.RunAsync(args);
@@ -26,6 +28,11 @@ internal static class QualityCli
         if (string.Equals(args[0], "boundaries", StringComparison.Ordinal))
         {
             return await RunBoundariesAsync(args[1..]);
+        }
+
+        if (string.Equals(args[0], "flow", StringComparison.Ordinal))
+        {
+            return await RunFlowAsync(args[1..]);
         }
 
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
@@ -172,6 +179,58 @@ internal static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
         {
             Console.Error.WriteLine($"quality boundaries scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunFlowAsync(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help")
+        {
+            PrintFlowUsage();
+            return args.Length == 0 ? 2 : 0;
+        }
+        if (!string.Equals(args[0], "review", StringComparison.Ordinal) || args.Length != 2)
+        {
+            Console.Error.WriteLine("A flow review accepts exactly one request JSON path.");
+            PrintFlowUsage();
+            return 2;
+        }
+
+        try
+        {
+            var requestPath = Path.GetFullPath(args[1]);
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+            await using var stream = new FileStream(requestPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                4096, FileOptions.Asynchronous);
+            var request = await JsonSerializer.DeserializeAsync<FlowReviewRequest>(
+                stream, options, CancellationToken.None)
+                ?? throw new JsonException("Flow review request must be a JSON object.");
+            var stopwatch = Stopwatch.StartNew();
+            var result = await new FlowReviewRunner().ReviewAsync(request);
+            Console.WriteLine(
+                $"quality flow review: {result.Report.Verdict.ToString().ToLowerInvariant()} | flow {result.Report.Flow.Id} | findings {result.Report.Findings.Count} | false-positive {result.Report.FindingCounts.FalsePositive} | cost {FormatCost(result.Report.Provenance.Cost)} | {stopwatch.ElapsedMilliseconds} ms");
+            if (result.Report.UndeterminedReason is not null)
+                Console.WriteLine($"undetermined: {result.Report.UndeterminedReason}");
+            foreach (var finding in result.Report.Findings)
+            {
+                var weakest = finding.FlowPath[finding.WeakestPointIndex];
+                Console.WriteLine(
+                    $"{finding.Severity.ToString().ToLowerInvariant(),-8} {weakest.Path}:{weakest.Line} {finding.RuleId} state={FindingStateStore.StateName(finding.State)}");
+            }
+            return result.Report.Verdict switch
+            {
+                FlowReviewVerdict.Pass => 0,
+                FlowReviewVerdict.Fail => 1,
+                FlowReviewVerdict.Undetermined => 2,
+                _ => 2,
+            };
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
+                   FileNotFoundException or JsonException or ReviewResponseException or ReviewRunException)
+        {
+            Console.Error.WriteLine($"quality flow review failed: {exception.Message}");
             return 2;
         }
     }
@@ -330,13 +389,21 @@ internal static class QualityCli
         };
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private static void PrintBoundariesUsage() => Console.WriteLine(
         "Usage:\n  quality boundaries scan [path]");
+
+    private static void PrintFlowUsage() => Console.WriteLine(
+        "Usage:\n  quality flow review <request.json>");
+
+    private static string FormatCost(FlowReviewCost cost) =>
+        cost.Amount.HasValue
+            ? $"{cost.Amount.Value:0.########} {cost.Currency}"
+            : cost.Status;
 
     private sealed record ReviewCliOptions(string File, string Kind, string? GlobalInputsDirectory,
         int BudgetCharacters, bool ExplainInputs);
