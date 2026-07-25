@@ -369,7 +369,12 @@ public class GitleaksSecurityScanner : IReviewSensor
             finding.Locations,
             finding.Fingerprint,
             finding.RuleId,
-            finding.Evidence);
+            finding.Evidence,
+            new FindingSource(
+                FindingSourceKind.Deterministic,
+                "gitleaks",
+                "gitleaks",
+                GitleaksBinaryResolver.PinnedVersion));
 
     private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath)
     {

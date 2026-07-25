@@ -36,6 +36,9 @@ export class ReviewPanel {
   readonly metaPath = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.metaPath ?? null);
   readonly filteredThreads = computed(() => (this.activeMeta()?.threads ?? []).filter(thread =>
     this.threadFilter() === 'detached' ? thread.anchorState === 'detached' : thread.status === this.threadFilter() && thread.anchorState !== 'detached'));
+  readonly analyzerEvidence = computed(() => this.activeMeta()?.deterministicEvidence ?? []);
+  readonly analyzerFindingCount = computed(() => this.analyzerEvidence()
+    .reduce((count, evidence) => count + evidence.findings.length, 0));
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }
 

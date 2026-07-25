@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Microsoft.CodeAnalysis",
+          "semanticVersion": "4.14.0",
+          "rules": [
+            {
+              "id": "CA1822",
+              "name": "MarkMembersAsStatic",
+              "shortDescription": { "text": "Mark members as static" },
+              "fullDescription": { "text": "Members that do not access instance data can be marked static." },
+              "help": { "text": "Mark the member static when its behavior does not require instance state." },
+              "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822",
+              "defaultConfiguration": { "level": "warning" },
+              "properties": { "category": "Performance", "tags": [ "Telemetry" ] }
+            }
+          ]
+        }
+      },
+      "originalUriBaseIds": {
+        "SRCROOT": { "uri": "./" }
+      },
+      "results": [
+        {
+          "ruleId": "CA1822",
+          "ruleIndex": 0,
+          "message": { "text": "Member 'Calculate' does not access instance data." },
+          "partialFingerprints": { "roslynFingerprint": "CA1822:src/Calculator.cs:5" },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/Calculator.cs", "uriBaseId": "SRCROOT" },
+                "region": { "startLine": 5, "startColumn": 5, "endLine": 5, "endColumn": 14 }
+              },
+              "logicalLocations": [
+                { "fullyQualifiedName": "Sample.Calculator.Calculate" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

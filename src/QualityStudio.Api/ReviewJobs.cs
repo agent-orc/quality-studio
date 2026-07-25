@@ -113,11 +113,12 @@ public sealed class ReviewJobService : BackgroundService
     private readonly QuotaService quotas;
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly IReviewExecutorFactory executors;
+    private readonly SensorRegistry sensors;
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
-        IReviewExecutorFactory executors)
+        IReviewExecutorFactory executors, SensorRegistry sensors)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -125,6 +126,7 @@ public sealed class ReviewJobService : BackgroundService
         this.quotas = quotas;
         this.hierarchyCache = hierarchyCache;
         this.executors = executors;
+        this.sensors = sensors;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -405,12 +407,14 @@ public sealed class ReviewJobService : BackgroundService
         logger.LogInformation(new EventId(1501, "ReviewStarted"), "Started review {ReviewRunId}", item.Id);
         try
         {
+            var deterministicEvidence = await CollectDeterministicEvidenceAsync(item, linked.Token)
+                .ConfigureAwait(false);
             if (item.HasCap)
             {
                 foreach (var file in item.PendingFiles())
                 {
                     if (item.TryStopAtCap()) break;
-                    await RunFileAsync(item, file, linked.Token).ConfigureAwait(false);
+                    await RunFileAsync(item, file, deterministicEvidence, linked.Token).ConfigureAwait(false);
                     if (item.TryStopAtCap()) break;
                 }
             }
@@ -422,7 +426,8 @@ public sealed class ReviewJobService : BackgroundService
                         MaxDegreeOfParallelism = Math.Clamp(options.MaxConcurrency, 1, 16),
                         CancellationToken = linked.Token,
                     },
-                    (file, cancellationToken) => RunFileAsync(item, file, cancellationToken)).ConfigureAwait(false);
+                    (file, cancellationToken) => RunFileAsync(
+                        item, file, deterministicEvidence, cancellationToken)).ConfigureAwait(false);
             }
 
             if (item.State == "running" && item.Node.Level != ReviewLevel.File)
@@ -431,7 +436,8 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     item.StartAggregate();
                     await CreateRunner(item).ReviewAsync(
-                        CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()), linked.Token);
+                        CreateRequest(item, item.Node, item.Node.Level,
+                            item.Files.Select(file => file.Path).ToArray(), deterministicEvidence), linked.Token);
                     item.FinishAggregate();
                 }
             }
@@ -461,7 +467,10 @@ public sealed class ReviewJobService : BackgroundService
     }
 
     private async ValueTask RunFileAsync(
-        ReviewWorkItem item, HierarchyNode file, CancellationToken cancellationToken)
+        ReviewWorkItem item,
+        HierarchyNode file,
+        IReadOnlyList<SensorScanResult> deterministicEvidence,
+        CancellationToken cancellationToken)
     {
         if (!item.StartFile(file.Path))
         {
@@ -471,7 +480,8 @@ public sealed class ReviewJobService : BackgroundService
         try
         {
             await CreateRunner(item).ReviewAsync(
-                CreateRequest(item, file, ReviewLevel.File, [file.Path]), cancellationToken).ConfigureAwait(false);
+                CreateRequest(item, file, ReviewLevel.File, [file.Path], deterministicEvidence), cancellationToken)
+                .ConfigureAwait(false);
             item.FinishFile(file.Path, null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -512,7 +522,8 @@ public sealed class ReviewJobService : BackgroundService
         ReviewWorkItem item,
         HierarchyNode node,
         ReviewLevel level,
-        IReadOnlyList<string> files) =>
+        IReadOnlyList<string> files,
+        IReadOnlyList<SensorScanResult>? deterministicEvidence = null) =>
         new(node.Path, item.Kind, level,
             RepositoryRoot: item.Repository.RootPath,
             GlobalInputsDirectory: item.Repository.GlobalInputsDirectory,
@@ -524,7 +535,47 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : item.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: item.AggregateControls,
-            AggregateExclusions: item.AggregateExclusions);
+            AggregateExclusions: item.AggregateExclusions,
+            DeterministicEvidence: deterministicEvidence);
+
+    private async Task<IReadOnlyList<SensorScanResult>> CollectDeterministicEvidenceAsync(
+        ReviewWorkItem item,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<SensorScanResult>();
+        foreach (var configuration in item.Repository.Sensors ?? [])
+        {
+            if (!configuration.Enabled) continue;
+            var sensor = sensors.Get(configuration.Id);
+            if (sensor is not IReviewEvidenceSensor) continue;
+            try
+            {
+                results.Add(await sensor.RunAsync(new SensorScanRequest(
+                    item.Repository.RootPath,
+                    Configuration: configuration.Configuration,
+                    PersistMetadata: false), cancellationToken).ConfigureAwait(false));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                results.Add(new SensorScanResult(
+                    false,
+                    $"{sensor.Id} is unavailable: {exception.Message}",
+                    [],
+                    new SensorProvenance(
+                        sensor.Id,
+                        sensor.Version,
+                        "repository",
+                        ".",
+                        DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                        new Dictionary<string, string>(StringComparer.Ordinal))));
+            }
+        }
+        return results;
+    }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {

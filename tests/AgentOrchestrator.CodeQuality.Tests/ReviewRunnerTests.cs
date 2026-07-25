@@ -232,6 +232,55 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
+    public async Task ReviewAsync_KeepsDeterministicEvidenceSeparateAndMakesItPriorPromptFacts()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var finding = new ReviewFinding(
+                "roslyn-ca1822-aaaaaaaaaaaa",
+                "analyzer",
+                FindingSeverity.Medium,
+                "Mark members as static",
+                "Member does not access instance data.",
+                "Mark the member static.",
+                [new FindingLocation("src/Small.cs", new FindingRange(
+                    new FindingPosition(1, 1), new FindingPosition(1, 8)))],
+                "sha256:" + new string('a', 64),
+                "CA1822",
+                Source: new FindingSource(
+                    FindingSourceKind.Deterministic, "sarif", "Microsoft.CodeAnalysis", "4.14.0", 0));
+            var evidence = new SensorScanResult(
+                true,
+                null,
+                [finding],
+                new SensorProvenance(
+                    "sarif", "1.0.0", "repository", ".", "2026-07-25T10:00:00.000Z",
+                    new Dictionary<string, string> { ["Microsoft.CodeAnalysis"] = "4.14.0" }));
+            var agent = new FakeAgent();
+
+            var result = await new ReviewRunner(agent).ReviewAsync(new ReviewRequest(
+                "src/Small.cs",
+                RepositoryRoot: root,
+                DeterministicEvidence: [evidence]),
+                TestContext.Current.CancellationToken);
+
+            using var document = JsonDocument.Parse(
+                await File.ReadAllTextAsync(result.MetaPath, TestContext.Current.CancellationToken));
+            Assert.Empty(document.RootElement.GetProperty("findings").EnumerateArray());
+            var recordedEvidence = Assert.Single(
+                document.RootElement.GetProperty("deterministicEvidence").EnumerateArray());
+            var recordedFinding = Assert.Single(recordedEvidence.GetProperty("findings").EnumerateArray());
+            Assert.Equal("CA1822", recordedFinding.GetProperty("ruleId").GetString());
+            Assert.Equal("deterministic",
+                recordedFinding.GetProperty("source").GetProperty("kind").GetString());
+            Assert.Equal(95, document.RootElement.GetProperty("grade").GetProperty("score").GetInt32());
+            Assert.Contains("prior machine-produced evidence", agent.Prompt, StringComparison.Ordinal);
+            Assert.Contains("deduplicate", agent.Prompt, StringComparison.Ordinal);
+            Assert.Contains("CA1822", agent.Prompt, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesAggregateMetadataForNonFileLevel()
     {
         await WithReviewFileAsync(async (root, _) =>
