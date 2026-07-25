@@ -1,7 +1,9 @@
 import { chromium } from 'playwright-core';
 
-const executablePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const browser = await chromium.launch({ executablePath, headless: true });
+const executablePath = process.env.CHROME_BIN || (process.platform === 'win32'
+  ? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  : chromium.executablePath());
+const browser = await chromium.launch({ executablePath, headless: true, args: process.platform === 'linux' ? ['--no-sandbox'] : [] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 const events = [];
 let fileRequestCount = 0;
@@ -34,6 +36,8 @@ await page.getByRole('textbox', { name: 'Filter files' }).fill('Program.cs');
 // directly instead of relying on the previous file selection to be retained.
 await page.locator('.tree-row').first().click();
 await page.waitForFunction(() => performance.getEntriesByName('qs.file.first-content').length >= 1);
+const largeFileMode = await page.getByText('Large file · plain text', { exact: true }).isVisible();
+const highlightedTokenCount = await page.locator('.code-line code span:not(.tok-plain)').count();
 await page.getByRole('tab', { name: /performance/i }).click();
 await page.waitForFunction(() => performance.getEntriesByName('qs.review.aspect-switch').length >= 1);
 
@@ -41,10 +45,11 @@ const measures = await page.evaluate(() => performance.getEntriesByType('measure
   name: entry.name,
   durationMs: Number(entry.duration.toFixed(2)),
 })));
-const result = { measuredAt: new Date().toISOString(), browser: await browser.version(), payloadBytes: Buffer.byteLength(payload), fileRequestCount, measures, events };
+const result = { measuredAt: new Date().toISOString(), browser: await browser.version(), payloadBytes: Buffer.byteLength(payload), fileRequestCount, largeFileMode, highlightedTokenCount, measures, events };
 console.log(JSON.stringify(result, null, 2));
 await browser.close();
 
 if (measures.some(item => item.name === 'qs.tree.toggle' && item.durationMs >= 50) ||
     measures.some(item => item.name === 'qs.file.first-content' && item.durationMs >= 150) ||
-    measures.some(item => item.name === 'qs.review.aspect-switch' && item.durationMs >= 50) || fileRequestCount !== 2) process.exitCode = 1;
+    measures.some(item => item.name === 'qs.review.aspect-switch' && item.durationMs >= 50) ||
+    fileRequestCount !== 2 || !largeFileMode || highlightedTokenCount !== 0) process.exitCode = 1;

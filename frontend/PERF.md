@@ -11,6 +11,8 @@ The interaction budgets are contracts, not aspirations:
 
 Re-measured for QS-9 on 2026-07-11 in Microsoft Edge 150.0.4078.65 (Chromium), headless at 1600 × 1000. The file route returned 333,782 bytes, deliberately above the 200 KB acceptance boundary, together with two review documents. The view split the response into lines but inserted only 80 overscanned line rows. Tree expand/collapse inserted only the visible fixed-height window. Network time is included in the file-open mark because it starts at selection and ends on the first animation frame after visible content renders. The aspect switch reused the loaded file response; the request counter remained at two (initial file plus opened file) after switching.
 
+QS-31 repeated the automated regression check on 2026-07-22 in Chromium 149.0.7827.55 at 1600 × 1000. First visible file content was 46.4 ms for the same 333,782-byte fixture. The harness also asserted that the explicit large-file mode was visible and that no highlighted tokens were produced above 200 KB. Syntax evidence for a supported-size C# file was captured from the production build in both the [dark theme](evidence/qs-31-syntax-dark.png) and [light theme](evidence/qs-31-syntax-light.png); each capture contains multiline strings/comments and four finding gutter markers.
+
 ## Repeat the automated measurement
 
 1. Run `npm start` (the harness defaults to `http://127.0.0.1:4200`; set `QS_URL` to use another URL).
@@ -33,5 +35,5 @@ The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-cont
 - The code view renders an overscanned 80-line window regardless of file length.
 - Finding ranges are indexed once per loaded review/aspect; only markers belonging to the visible 80-line window enter the DOM.
 - Aspect switching selects an already-loaded `metaDocuments` entry and does not fetch file content again.
-- The first-content path displays plain escaped text. Syntax coloring can be added only as idle, chunked work or in a worker; whole-file main-thread highlighting is prohibited.
+- The first-content path displays plain escaped text. Supported files up to 200 KB are tokenized only after that paint in a cancellable single-concurrency worker and delivered in 200-line chunks; whole-file main-thread highlighting is prohibited.
 - Production bundle budgets are enforced at 350 KB warning / 450 KB error initially and 10/12 KB per component stylesheet.

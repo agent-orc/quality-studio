@@ -104,7 +104,7 @@
                 <button class="finding-marker" [class]="'finding-marker ' + severity(row.findings)" [title]="findingTitle(row.findings)" [attr.aria-label]="findingTitle(row.findings)" (mouseenter)="findingSelect.emit(row.findings[0])" (focus)="findingSelect.emit(row.findings[0])" (click)="findingSelect.emit(row.findings[0])"></button>
               }
               <button class="comment-add" type="button" title="Add review comment" [attr.aria-label]="'Add comment on line ' + row.number" (click)="composingLine.set(composingLine() === row.number ? null : row.number)">+</button>
-              <code>{{ row.text }}</code>
+              <code>@for (token of tokensForLine(row.number, row.text); track $index) {<span [class]="'tok-' + token.kind">{{ token.text }}</span>}</code>
             </div>
           } @else if (row.kind === 'thread') {
             <article class="inline-thread" [class.expanded]="row.expanded" [class.resolved]="row.thread.status === 'resolved'" [class.healed]="row.thread.anchorState === 'healed'" [style.top.px]="row.top" [style.height.px]="row.height">
@@ -143,6 +143,8 @@
           <span>Ln {{ topVisibleLine() }}</span>
           <span>{{ codeLines().length }} lines</span>
           <span>{{ fileSizeLabel() }}</span>
+          @if (syntaxState() === 'large') { <span title="Files above 200 KB stay plain to protect navigation performance">Large file &middot; plain text</span> }
+          @else if (syntaxState() === 'loading') { <span>Highlighting&hellip;</span> }
           <span>{{ language() }}</span>
           <span>{{ encodingLabel() }}</span>
           <span>{{ lineEndingLabel() }}</span>

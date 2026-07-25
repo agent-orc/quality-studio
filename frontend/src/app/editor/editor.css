@@ -24,7 +24,6 @@
 .code-line.has-finding{background:color-mix(in srgb,var(--status-stale) 6%,transparent)}
 .line-number{position:sticky;left:0;width:48px;flex:none;padding-right:13px;text-align:right;color:var(--studio-fg-dim);user-select:none;background:var(--studio-bg-editor)}
 .code-line code{color:var(--studio-fg);padding-left:11px}
-.code-line code::first-letter{color:var(--studio-accent)}
 .finding-marker{position:sticky;left:40px;z-index:1;flex:none;width:6px;height:18px;margin:2px 1px 0 -7px;padding:0;border:0;border-radius:3px;background:var(--status-stale);cursor:pointer}
 .finding-marker.critical{background:#e5484d}
 .finding-marker.high{background:#f06449}

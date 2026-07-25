@@ -5,6 +5,14 @@
   --studio-fg: #242830; --studio-fg-muted: #66707e; --studio-fg-dim: #949ca7;
   --studio-accent: #0e639c; --studio-accent-soft: #e4f0f8; --studio-selected: #e7f1f8;
   --status-fresh: #2da96b; --status-stale: #d89524; --status-missing: #9ca3ad;
+  --syntax-comment: color-mix(in srgb, var(--studio-fg-muted) 78%, var(--studio-fg));
+  --syntax-string: color-mix(in srgb, var(--status-fresh) 68%, var(--studio-fg));
+  --syntax-keyword: var(--studio-accent); --syntax-number: color-mix(in srgb, var(--status-stale) 60%, var(--studio-fg));
+  --syntax-operator: color-mix(in srgb, var(--studio-accent) 65%, var(--studio-fg)); --syntax-punctuation: var(--studio-fg-muted);
+  --syntax-function: color-mix(in srgb, var(--status-stale) 56%, var(--studio-fg));
+  --syntax-type: color-mix(in srgb, var(--studio-accent) 55%, var(--status-fresh));
+  --syntax-property: color-mix(in srgb, var(--studio-accent) 72%, var(--studio-fg)); --syntax-variable: var(--studio-fg);
+  --syntax-heading: var(--studio-accent); --syntax-strong: var(--studio-fg); --syntax-emphasis: var(--studio-fg-muted);
   --shadow: 0 8px 32px rgba(31, 36, 46, .08); --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
@@ -23,6 +31,15 @@ button, input { font: inherit; }
 button { color: inherit; }
 ::selection { background: color-mix(in srgb, var(--studio-accent) 30%, transparent); }
 ::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--studio-fg-dim) 55%, transparent); border: 3px solid transparent; background-clip: padding-box; border-radius: 8px; }
+
+/* Worker-produced syntax classes are global so the same semantic palette can be
+   reused by future code surfaces without increasing component style budgets. */
+.tok-comment{color:var(--syntax-comment);font-style:italic}.tok-string,.tok-regex{color:var(--syntax-string)}
+.tok-keyword{color:var(--syntax-keyword)}.tok-number,.tok-boolean{color:var(--syntax-number)}
+.tok-operator{color:var(--syntax-operator)}.tok-punctuation{color:var(--syntax-punctuation)}
+.tok-function{color:var(--syntax-function)}.tok-type,.tok-tag{color:var(--syntax-type)}
+.tok-property,.tok-attribute,.tok-selector{color:var(--syntax-property)}.tok-variable{color:var(--syntax-variable)}
+.tok-heading{color:var(--syntax-heading);font-weight:700}.tok-strong{color:var(--syntax-strong);font-weight:700}.tok-emphasis{color:var(--syntax-emphasis);font-style:italic}
 
 /* Shared workbench primitives reused across shell panes (Explorer, Editor, ReviewPanel). */
 .pane { min-width: 0; min-height: 0; overflow: hidden; background: var(--studio-bg-surface); }
