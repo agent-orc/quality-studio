@@ -23,6 +23,11 @@ internal static class QualityCli
             return await RunSecurityAsync(args[1..]);
         }
 
+        if (string.Equals(args[0], "boundaries", StringComparison.Ordinal))
+        {
+            return await RunBoundariesAsync(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -127,6 +132,46 @@ internal static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or SecurityScannerUnavailableException)
         {
             Console.Error.WriteLine($"quality security scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunBoundariesAsync(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help")
+        {
+            PrintBoundariesUsage();
+            return args.Length == 0 ? 2 : 0;
+        }
+        if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine($"Unknown boundaries command: {args[0]}");
+            PrintBoundariesUsage();
+            return 2;
+        }
+        if (args.Length > 2 || (args.Length == 2 && args[1].StartsWith("-", StringComparison.Ordinal)))
+        {
+            Console.Error.WriteLine("The boundaries scan accepts one optional repository path.");
+            return 2;
+        }
+
+        try
+        {
+            var path = args.Length == 2 ? args[1] : ".";
+            var stopwatch = Stopwatch.StartNew();
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
+            Console.WriteLine(
+                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+            foreach (var finding in inventory.Findings)
+            {
+                Console.WriteLine(
+                    $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Locations[0].Path}:{finding.Locations[0].Range?.Start.Line} {finding.RuleId}");
+            }
+            return inventory.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
+        {
+            Console.Error.WriteLine($"quality boundaries scan failed: {exception.Message}");
             return 2;
         }
     }
@@ -285,10 +330,13 @@ internal static class QualityCli
         };
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
+
+    private static void PrintBoundariesUsage() => Console.WriteLine(
+        "Usage:\n  quality boundaries scan [path]");
 
     private sealed record ReviewCliOptions(string File, string Kind, string? GlobalInputsDirectory,
         int BudgetCharacters, bool ExplainInputs);

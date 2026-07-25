@@ -119,6 +119,20 @@ The default globs cover common programming and web source extensions. Repeat
 `--include` to replace them with a custom set, or select a sibling review kind
 with `--kind security` or `--kind performance`.
 
+## Boundary inventory
+
+Derive the repository's externally callable, host, browser, process, filesystem,
+and caller-influenced outbound surfaces and run the standard mechanical checks:
+
+```shell
+dotnet run --project src/quality-cli -- boundaries scan .
+```
+
+The stable result is written to `.quality/boundaries/inventory.json`, so boundary
+changes appear in normal source-control diffs. See
+[`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and
+derivation rules.
+
 ## Security scan
 
 Run the deterministic Gitleaks sensor to produce structured security findings and

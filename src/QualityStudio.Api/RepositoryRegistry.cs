@@ -181,9 +181,10 @@ public sealed class RepositoryRegistry
                 var loaded = JsonSerializer.Deserialize<List<RepositoryRegistration>>(File.ReadAllText(registryPath), JsonOptions());
                 if (loaded is { Count: > 0 })
                 {
-                    var migrated = loaded.Select(entry => entry.Sensors is null
-                        ? entry with { Sensors = DefaultSensors() }
-                        : entry).ToList();
+                    var migrated = loaded.Select(entry => entry with
+                    {
+                        Sensors = MergeSupportedSensors(entry.Sensors),
+                    }).ToList();
                     foreach (var entry in migrated) ValidatePersistedEntry(entry);
                     return migrated;
                 }
@@ -371,6 +372,18 @@ public sealed class RepositoryRegistry
 
     private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
         supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
+
+    private IReadOnlyList<RepositorySensorConfiguration> MergeSupportedSensors(
+        IReadOnlyList<RepositorySensorConfiguration>? configured)
+    {
+        var existing = (configured ?? Array.Empty<RepositorySensorConfiguration>())
+            .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
+        return supportedSensors
+            .Select(id => existing.TryGetValue(id, out var sensor)
+                ? sensor
+                : new RepositorySensorConfiguration(id))
+            .ToArray();
+    }
 }
 
 public sealed class RepositoryRegistryValidationException : Exception

@@ -97,6 +97,10 @@ curl "http://127.0.0.1:5127/api/sensors"
 curl -X POST "http://127.0.0.1:5127/api/sensors/dependencies/scan?path=frontend"
 # 200 {"available":true,"unavailableReason":null,"findings":[...],"provenance":{...}}
 
+curl -X POST "http://127.0.0.1:5127/api/sensors/boundaries/scan"
+# 200 {"available":true,"findings":[...],"provenance":{"sensorId":"boundaries",...}}
+# also writes <repository>/.quality/boundaries/inventory.json
+
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}
 

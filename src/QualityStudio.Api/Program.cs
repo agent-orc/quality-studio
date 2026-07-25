@@ -32,8 +32,10 @@ builder.Services.AddTransient<GuidelineImpactAnalyzer>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
 builder.Services.AddSingleton<GitleaksSecurityScanner>();
 builder.Services.AddSingleton<DependencyVulnerabilitySensor>();
+builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));

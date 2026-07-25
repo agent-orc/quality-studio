@@ -177,13 +177,32 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal(2, json.GetProperty("sensors").GetArrayLength());
+        Assert.Equal(3, json.GetProperty("sensors").GetArrayLength());
         var dependency = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
             sensor => sensor.GetProperty("id").GetString() == "dependencies");
         Assert.Equal("1.0.0", dependency.GetProperty("version").GetString());
         Assert.True(dependency.GetProperty("enabled").GetBoolean());
         Assert.True(dependency.GetProperty("available").GetBoolean());
         Assert.Contains("path", dependency.GetProperty("scopes").EnumerateArray().Select(scope => scope.GetString()));
+        var boundaries = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
+            sensor => sensor.GetProperty("id").GetString() == "boundaries");
+        Assert.True(boundaries.GetProperty("enabled").GetBoolean());
+        Assert.True(boundaries.GetProperty("available").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Boundary_sensor_scan_persists_repository_owned_inventory()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsync("/api/sensors/boundaries/scan", null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
+        Assert.True(File.Exists(path));
+        using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal("boundaries", inventory.RootElement.GetProperty("sensor").GetString());
     }
 
     [Fact]
@@ -537,6 +556,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 services.RemoveAll<IReviewSensor>();
                 services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
                 services.AddSingleton<IReviewSensor, FakeDependencySensor>();
+                services.AddSingleton<IReviewSensor, BoundaryInventorySensor>();
             });
         }
     }
