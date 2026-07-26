@@ -354,6 +354,55 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
+    public async Task ReviewIfNeededAsync_skips_unchanged_files_and_aggregates_and_invalidates_affected_units()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var root = Path.Combine(Path.GetTempPath(), "quality-review-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "src"));
+        var firstPath = Path.Combine(root, "src", "First.cs");
+        var secondPath = Path.Combine(root, "src", "Second.cs");
+        await File.WriteAllTextAsync(firstPath, "internal static class First { }\n", cancellationToken);
+        await File.WriteAllTextAsync(secondPath, "internal static class Second { }\n", cancellationToken);
+        try
+        {
+            var agent = new FakeAgent();
+            var recordedUsage = new List<ReviewUsageEntry>();
+            var runner = new ReviewRunner(agent, usageRecorded: recordedUsage.Add);
+            var first = new ReviewRequest("src/First.cs", RepositoryRoot: root);
+            var second = new ReviewRequest("src/Second.cs", RepositoryRoot: root);
+            var aggregate = new ReviewRequest(
+                ".",
+                Level: ReviewLevel.Project,
+                RepositoryRoot: root,
+                UnitId: "qs-v1/dotnet/project/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                SubjectFiles: ["src/First.cs", "src/Second.cs"],
+                DisplayName: "Test project");
+
+            await runner.ReviewAsync(first, cancellationToken);
+            await runner.ReviewAsync(second, cancellationToken);
+            await runner.ReviewAsync(aggregate, cancellationToken);
+
+            Assert.True((await runner.ReviewIfNeededAsync(first, cancellationToken: cancellationToken)).SkippedFresh);
+            Assert.True((await runner.ReviewIfNeededAsync(second, cancellationToken: cancellationToken)).SkippedFresh);
+            Assert.True((await runner.ReviewIfNeededAsync(aggregate, cancellationToken: cancellationToken)).SkippedFresh);
+            Assert.Equal(3, agent.RunCount);
+            Assert.Equal(3, recordedUsage.Count);
+
+            await File.AppendAllTextAsync(firstPath, "// changed\n", cancellationToken);
+
+            Assert.False((await runner.ReviewIfNeededAsync(first, cancellationToken: cancellationToken)).SkippedFresh);
+            Assert.True((await runner.ReviewIfNeededAsync(second, cancellationToken: cancellationToken)).SkippedFresh);
+            Assert.False((await runner.ReviewIfNeededAsync(aggregate, cancellationToken: cancellationToken)).SkippedFresh);
+            Assert.Equal(5, agent.RunCount);
+            Assert.Equal(5, recordedUsage.Count);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task ScopeChangeMakesStoredAggregateStale()
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-review-tests", Guid.NewGuid().ToString("N"));
@@ -395,6 +444,69 @@ public sealed class ReviewRunnerTests
         {
             Directory.Delete(root, true);
         }
+    }
+
+    [Fact]
+    public async Task ReviewIfNeededAsync_rereviews_when_review_inputs_change()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var agent = new FakeAgent();
+            var runner = new ReviewRunner(agent);
+            var request = new ReviewRequest("src/Small.cs", RepositoryRoot: root);
+            await runner.ReviewAsync(request, TestContext.Current.CancellationToken);
+            var inputDirectory = Path.Combine(root, ".quality", "inputs");
+            Directory.CreateDirectory(inputDirectory);
+            await File.WriteAllTextAsync(Path.Combine(inputDirectory, "code.md"),
+                "---\nid: current-rule\nkinds: [code]\nlevels: [file]\npriority: 50\n---\nApply the current rule.\n",
+                TestContext.Current.CancellationToken);
+
+            var execution = await runner.ReviewIfNeededAsync(
+                request, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.False(execution.SkippedFresh);
+            Assert.Equal(2, agent.RunCount);
+        });
+    }
+
+    [Fact]
+    public async Task ReviewIfNeededAsync_rereviews_when_requested_model_changes()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var request = new ReviewRequest("src/Small.cs", RepositoryRoot: root);
+            var firstAgent = new FakeAgent(model: "model-a");
+            await new ReviewRunner(firstAgent).ReviewAsync(request, TestContext.Current.CancellationToken);
+
+            var secondAgent = new FakeAgent(model: "model-b");
+            var secondRunner = new ReviewRunner(secondAgent);
+            var changed = await secondRunner.ReviewIfNeededAsync(
+                request, cancellationToken: TestContext.Current.CancellationToken);
+            var unchanged = await secondRunner.ReviewIfNeededAsync(
+                request, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.False(changed.SkippedFresh);
+            Assert.True(unchanged.SkippedFresh);
+            Assert.Equal(1, secondAgent.RunCount);
+        });
+    }
+
+    [Fact]
+    public async Task ReviewIfNeededAsync_force_bypasses_freshness_gate()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var agent = new FakeAgent();
+            var runner = new ReviewRunner(agent);
+            var request = new ReviewRequest("src/Small.cs", RepositoryRoot: root);
+            await runner.ReviewAsync(request, TestContext.Current.CancellationToken);
+
+            var execution = await runner.ReviewIfNeededAsync(
+                request, force: true, TestContext.Current.CancellationToken);
+
+            Assert.False(execution.SkippedFresh);
+            Assert.Equal(2, agent.RunCount);
+        });
     }
 
     [Fact]
@@ -586,28 +698,33 @@ public sealed class ReviewRunnerTests
     {
         private readonly string _response;
         private readonly Action? _onRun;
+        private readonly string _model;
 
-        public FakeAgent(string? response = null, Action? onRun = null)
+        public FakeAgent(string? response = null, Action? onRun = null, string model = "deterministic")
         {
             _response = response ?? ReviewResponseParserTests.ValidResponse;
             _onRun = onRun;
+            _model = model;
         }
 
         public string AgentName => "test-agent";
 
-        public string? Model => "deterministic";
+        public string? Model => _model;
 
         public string? Prompt { get; private set; }
 
         public string? WorkingDirectory { get; private set; }
 
+        public int RunCount { get; private set; }
+
         public Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default)
         {
+            RunCount++;
             Prompt = prompt;
             WorkingDirectory = workingDirectory;
             _onRun?.Invoke();
             return Task.FromResult(new ReviewAgentResult("run-test", $"```json\n{_response}\n```",
-                new TokenUsage(120, 34, 56, 7, 890), "deterministic"));
+                new TokenUsage(120, 34, 56, 7, 890), _model));
         }
     }
 

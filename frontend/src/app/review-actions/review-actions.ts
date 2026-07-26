@@ -18,6 +18,7 @@ export class ReviewActions {
   readonly starting = signal(false);
   readonly cliType = signal('codex');
   readonly model = signal('');
+  readonly force = signal(false);
   readonly capKind = signal<'repository' | 'tokens' | 'cost'>('repository');
   readonly capValue = signal<number | null>(null);
   readonly fileCount = computed(() => this.countFiles(this.node()));
@@ -41,6 +42,7 @@ export class ReviewActions {
         cliType: this.cliType(),
         tokenCap: this.capKind() === 'tokens' ? this.capValue() : null,
         costCap: this.capKind() === 'cost' ? this.capValue() : null,
+        force: this.force(),
       };
       const preflight = await this.api.estimateReview(request);
       const estimate = preflight.estimate;

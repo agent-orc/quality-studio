@@ -34,7 +34,8 @@ public sealed record ReviewRunManifest(
     IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
     ReviewRunEstimate? Estimate = null,
     long? TokenCap = null,
-    decimal? CostCap = null);
+    decimal? CostCap = null,
+    bool Force = false);
 
 public sealed record ReviewRunFileTransition(
     string Path,

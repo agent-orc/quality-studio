@@ -12,6 +12,7 @@
   @if (capKind() !== 'repository') {
     <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="capValue.set($event)" />
   }
+  <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="force.set($event)" /> Force re-review</label>
   <button type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
     {{ activeOnNode() ? 'Review running' : starting() ? 'Queuing…' : 'Start review' }}
     @if (node()?.level !== 'file') { <small>{{ fileCount() }} files</small> }

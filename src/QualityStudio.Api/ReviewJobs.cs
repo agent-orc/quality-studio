@@ -16,7 +16,8 @@ public sealed record StartReviewRequest(
     string? Model = null,
     string? CliType = null,
     long? TokenCap = null,
-    decimal? CostCap = null);
+    decimal? CostCap = null,
+    bool Force = false);
 
 public sealed record ResumeReviewRequest(long? TokenCap = null, decimal? CostCap = null);
 
@@ -71,7 +72,10 @@ public sealed record ReviewRunResponse(
 
 public interface IReviewExecutor
 {
-    Task ReviewAsync(ReviewRequest request, CancellationToken cancellationToken);
+    Task<ReviewExecutionResult> ReviewIfNeededAsync(
+        ReviewRequest request,
+        bool force,
+        CancellationToken cancellationToken);
 }
 
 public interface IReviewExecutorFactory
@@ -80,17 +84,22 @@ public interface IReviewExecutorFactory
         Action<ReviewUsageEntry> usageRecorded);
 }
 
-public sealed class ReviewExecutorFactory(SensorRegistry sensors) : IReviewExecutorFactory
+public sealed class ReviewExecutorFactory(
+    SensorRegistry sensors,
+    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(cliType, model, eventObserver: eventObserver),
-            usageRecorded: usageRecorded, sensorRegistry: sensors));
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
-        public async Task ReviewAsync(ReviewRequest request, CancellationToken cancellationToken) =>
-            _ = await runner.ReviewAsync(request, cancellationToken).ConfigureAwait(false);
+        public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+            ReviewRequest request,
+            bool force,
+            CancellationToken cancellationToken) =>
+            runner.ReviewIfNeededAsync(request, force, cancellationToken);
     }
 }
 
@@ -167,7 +176,8 @@ public sealed class ReviewJobService : BackgroundService
             node.Level == ReviewLevel.File ? null : node.Exclusions,
             estimate,
             tokenCap,
-            costCap);
+            costCap,
+            request.Force);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -431,10 +441,14 @@ public sealed class ReviewJobService : BackgroundService
             {
                 if (!item.TryStopAtCap())
                 {
-                    item.StartAggregate();
-                    await CreateRunner(item).ReviewAsync(
-                        CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()), linked.Token);
-                    item.FinishAggregate();
+                    if (item.StartAggregate())
+                    {
+                        var execution = await CreateRunner(item).ReviewIfNeededAsync(
+                            CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
+                            item.Force,
+                            linked.Token).ConfigureAwait(false);
+                        if (execution.SkippedFresh) item.SkipAggregateFresh(); else item.FinishAggregate();
+                    }
                 }
             }
             if (item.Complete())
@@ -472,9 +486,11 @@ public sealed class ReviewJobService : BackgroundService
         }
         try
         {
-            await CreateRunner(item).ReviewAsync(
-                CreateRequest(item, file, ReviewLevel.File, [file.Path]), cancellationToken).ConfigureAwait(false);
-            item.FinishFile(file.Path, null);
+            var execution = await CreateRunner(item).ReviewIfNeededAsync(
+                CreateRequest(item, file, ReviewLevel.File, [file.Path]),
+                item.Force,
+                cancellationToken).ConfigureAwait(false);
+            if (execution.SkippedFresh) item.SkipFileFresh(file.Path); else item.FinishFile(file.Path, null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -620,7 +636,7 @@ public sealed class ReviewJobService : BackgroundService
                 foreach (var transition in transitions)
                 {
                     if (!progress.TryGetValue(transition.Path, out var file) ||
-                        transition.State is not ("queued" or "running" or "done" or "failed" or "cancelled" or "skipped")) continue;
+                        transition.State is not ("queued" or "running" or "done" or "failed" or "cancelled" or "skipped" or "skipped-fresh")) continue;
                     file.State = transition.State;
                     file.StartedAt = transition.StartedAt;
                     file.FinishedAt = transition.FinishedAt;
@@ -653,6 +669,7 @@ public sealed class ReviewJobService : BackgroundService
         public string Kind => manifest.Kind;
         public string? Model => manifest.Model;
         public string CliType => manifest.CliType;
+        public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
         public DateTimeOffset? StartedAt { get; private set; }
         public DateTimeOffset? FinishedAt { get; private set; }
@@ -725,6 +742,19 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
+        public void SkipFileFresh(string path)
+        {
+            lock (gate)
+            {
+                var file = progress[path];
+                if (file.State != "running") return;
+                file.State = "skipped-fresh";
+                file.Error = null;
+                file.FinishedAt = DateTimeOffset.UtcNow;
+                Append(file);
+            }
+        }
+
         public void RequeueFile(string path)
         {
             lock (gate)
@@ -746,13 +776,14 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public void StartAggregate()
+        public bool StartAggregate()
         {
             lock (gate)
             {
-                if (state != "running" || aggregateState != "queued") return;
+                if (state != "running" || aggregateState != "queued") return false;
                 aggregateState = "running";
                 PersistStatus();
+                return true;
             }
         }
 
@@ -762,6 +793,16 @@ public sealed class ReviewJobService : BackgroundService
             {
                 if (aggregateState != "running") return;
                 aggregateState = "done";
+                PersistStatus();
+            }
+        }
+
+        public void SkipAggregateFresh()
+        {
+            lock (gate)
+            {
+                if (aggregateState != "running") return;
+                aggregateState = "skipped-fresh";
                 PersistStatus();
             }
         }
@@ -951,11 +992,12 @@ public sealed class ReviewJobService : BackgroundService
                 return new ReviewRunResponse(
                     Id, Repository.Id, Node.Path, manifest.Level, Kind, Model, CliType, state,
                     files.Length,
-                    files.Count(file => file.State is "done" or "failed"),
+                    files.Count(file => IsCompletedFileState(file.State)),
                     files.Count(file => file.State == "failed"),
                     CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage,
                     manifest.Estimate, tokenCap, costCap, costSpent, currency, priceStatus,
-                    files.Count(file => file.State == "skipped"), aggregateState, stopReason, Deviation());
+                    files.Count(file => file.State is "skipped" or "skipped-fresh"),
+                    aggregateState, stopReason, Deviation());
             }
         }
 
@@ -987,15 +1029,19 @@ public sealed class ReviewJobService : BackgroundService
         private ReviewRunStatus DurableStatusCore()
         {
             var ordered = manifest.Targets.Select(target => progress[target.Path]).ToArray();
-            var completed = ordered.Count(file => file.State is "done" or "failed");
+            var completed = ordered.Count(file => IsCompletedFileState(file.State));
             var cursor = 0;
-            while (cursor < ordered.Length && ordered[cursor].State is "done" or "failed") cursor++;
+            while (cursor < ordered.Length && IsCompletedFileState(ordered[cursor].State)) cursor++;
             return new ReviewRunStatus(
                 Id, state, ordered.Length, completed, ordered.Count(file => file.State == "failed"), cursor,
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
-                ordered.Count(file => file.State == "skipped"), aggregateState, stopReason);
+                ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
+                aggregateState, stopReason);
         }
+
+        private static bool IsCompletedFileState(string fileState) =>
+            fileState is "done" or "failed" or "skipped-fresh";
 
         private bool CapReached() =>
             tokenCap.HasValue && ConsumedTokens() >= tokenCap.Value ||

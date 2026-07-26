@@ -30,5 +30,13 @@ public sealed record StalenessEvaluatorOptions
     public int InputBudgetCharacters { get; init; } = InputResolver.DefaultBudgetCharacters;
 }
 
+public sealed record ReviewFreshness(
+    bool SubjectUnchanged,
+    bool ReviewInputsUnchanged,
+    bool ModelUnchanged)
+{
+    public bool IsFresh => SubjectUnchanged && ReviewInputsUnchanged && ModelUnchanged;
+}
+
 public sealed class StalenessScanException(string message, Exception? innerException = null)
     : Exception(message, innerException);

@@ -13,6 +13,43 @@ public sealed class StalenessEvaluator
 
     public StalenessEvaluator(InputResolver? inputResolver = null) => this.inputResolver = inputResolver ?? new InputResolver();
 
+    public async Task<ReviewFreshness> EvaluateReviewAsync(
+        string metaPath,
+        string currentSubjectHash,
+        string currentReviewInputsHash,
+        string? requestedModel,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(metaPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentSubjectHash);
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentReviewInputsHash);
+        if (!File.Exists(metaPath)) return new(false, false, false);
+
+        try
+        {
+            await using var stream = File.OpenRead(metaPath);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            var root = document.RootElement;
+            var storedSubjectHash = root.GetProperty("reviewedHash").GetProperty("value").GetString();
+            var storedReviewInputsHash = root.GetProperty("reviewInputs").GetProperty("effectiveHash")
+                .GetProperty("value").GetString();
+            var storedModel = root.GetProperty("reviewer").GetProperty("model").GetString();
+            var modelUnchanged = string.IsNullOrWhiteSpace(requestedModel)
+                ? !string.IsNullOrWhiteSpace(storedModel)
+                : string.Equals(storedModel, requestedModel.Trim(), StringComparison.Ordinal);
+            return new ReviewFreshness(
+                string.Equals(storedSubjectHash, currentSubjectHash, StringComparison.Ordinal),
+                string.Equals(storedReviewInputsHash, currentReviewInputsHash, StringComparison.Ordinal),
+                modelUnchanged);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException
+                                           or KeyNotFoundException or InvalidOperationException)
+        {
+            return new(false, false, false);
+        }
+    }
+
     public async Task<StalenessReport> ScanAsync(
         string repositoryRoot,
         StalenessEvaluatorOptions? options = null,

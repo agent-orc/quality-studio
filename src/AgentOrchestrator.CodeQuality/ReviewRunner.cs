@@ -28,6 +28,8 @@ public sealed record ReviewSubjectFile(string UnitId, string Path);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
+public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
+
 public sealed record ReviewPromptMeasurement(int Characters, string Path, string Level);
 
 public sealed class ReviewRunner
@@ -38,6 +40,7 @@ public sealed class ReviewRunner
     private readonly ReviewResponseParser _responseParser;
     private readonly InputResolver _inputResolver;
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
+    private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
 
     public ReviewRunner(
@@ -46,17 +49,28 @@ public sealed class ReviewRunner
         ReviewResponseParser? responseParser = null,
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
-        SensorRegistry? sensorRegistry = null)
+        SensorRegistry? sensorRegistry = null,
+        StalenessEvaluator? stalenessEvaluator = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
         _inputResolver = inputResolver ?? new InputResolver();
         _usageRecorded = usageRecorded;
+        _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
+    {
+        var execution = await ReviewIfNeededAsync(request, force: true, cancellationToken).ConfigureAwait(false);
+        return execution.Review!;
+    }
+
+    public async Task<ReviewExecutionResult> ReviewIfNeededAsync(
+        ReviewRequest request,
+        bool force = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
@@ -64,6 +78,14 @@ public sealed class ReviewRunner
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
+        var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
+        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
+        if (!force)
+        {
+            var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
+                metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
+            if (freshness.IsFresh) return new ReviewExecutionResult(true, null);
+        }
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
         QualityStudioEventSource.Log.ReviewStarted(relativePath, request.Kind, _agent.AgentName);
@@ -119,7 +141,6 @@ public sealed class ReviewRunner
             }
 
             var adapter = AdapterFromUnitId(unitId);
-            var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -161,7 +182,9 @@ public sealed class ReviewRunner
                 writeLock.Release();
             }
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
-            return new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage);
+            return new ReviewExecutionResult(
+                false,
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage));
         }
         catch (Exception exception)
         {
