@@ -133,14 +133,6 @@ the staged candidate snapshot. The scanner is pinned and verified; if it cannot
 be resolved, the command reports an explicit unavailable state instead of a
 false pass.
 
-## Analyzer evidence
-
-SARIF 2.1.0, Roslyn build diagnostics, ESLint SARIF, and `tsc --noEmit` errors can
-be supplied to reviews as provenance-preserving deterministic evidence. They
-remain separate from agent findings and do not compute the grade. See
-[`docs/deterministic-analyzer-evidence.md`](docs/deterministic-analyzer-evidence.md)
-for per-repository command/report configuration and unavailable behavior.
-
 ## Review inputs
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.

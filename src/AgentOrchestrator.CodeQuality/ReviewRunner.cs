@@ -20,8 +20,7 @@ public sealed record ReviewRequest(
     string? DisplayName = null,
     IReadOnlyList<ReviewSubjectFile>? SubjectUnits = null,
     IReadOnlyList<string>? AggregateControls = null,
-    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -56,8 +55,7 @@ public sealed class ReviewRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
-            deterministicEvidence) = prepared;
+        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
@@ -125,8 +123,7 @@ public sealed class ReviewRunner
                     request.Level,
                     request.DisplayName,
                     usage,
-                    threads,
-                    deterministicEvidence);
+                    threads);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 await File.WriteAllTextAsync(
@@ -198,11 +195,10 @@ public sealed class ReviewRunner
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
             .Where(thread => thread["status"]?.GetValue<string>() == "open")
             .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
-        var deterministicEvidence = FilterEvidence(request.DeterministicEvidence, subjectPaths);
         var prompt = _promptBuilder.Build(relativePath, request.Kind, globalGuidelines,
-            projectGuidelines, fileContent, openThreads, deterministicEvidence);
+            projectGuidelines, fileContent, openThreads);
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
-            prompt, unitId, metaPath, threads, deterministicEvidence);
+            prompt, unitId, metaPath, threads);
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
@@ -237,8 +233,7 @@ public sealed class ReviewRunner
         ReviewLevel level,
         string? displayName,
         ReviewUsageEntry usage,
-        JsonArray threads,
-        IReadOnlyList<SensorScanResult> deterministicEvidence)
+        JsonArray threads)
     {
         var promptHash = ReviewPromptBuilder.TemplateHash(kind);
         var effectiveHash = inputs.EffectiveHash(promptHash);
@@ -314,8 +309,6 @@ public sealed class ReviewRunner
             ["aspects"] = response["aspects"]!.DeepClone(),
             ["findings"] = response["findings"]!.DeepClone(),
             ["threads"] = threads.DeepClone(),
-            ["deterministicEvidence"] = JsonSerializer.SerializeToNode(
-                deterministicEvidence, ReviewMetaJson.Options),
         };
         if (aggregateMembers is not null)
         {
@@ -480,34 +473,6 @@ public sealed class ReviewRunner
             ? resolved
             : resolved == "(none supplied)" ? supplied.Trim() : resolved + "\n\n" + supplied.Trim();
 
-    private static IReadOnlyList<SensorScanResult> FilterEvidence(
-        IReadOnlyList<SensorScanResult>? evidence,
-        IReadOnlyCollection<string> subjectPaths)
-    {
-        if (evidence is not { Count: > 0 }) return [];
-        foreach (var result in evidence)
-        {
-            if (!result.Available && result.Findings.Count > 0)
-                throw new ArgumentException("Unavailable deterministic evidence cannot contain findings.");
-            if (!result.Available && string.IsNullOrWhiteSpace(result.UnavailableReason))
-                throw new ArgumentException("Unavailable deterministic evidence requires an unavailable reason.");
-            if (result.Findings.Any(finding =>
-                    finding.Source is null ||
-                    finding.Source.Kind != FindingSourceKind.Deterministic ||
-                    !string.Equals(
-                        finding.Source.SensorId, result.Provenance.SensorId, StringComparison.OrdinalIgnoreCase)))
-                throw new ArgumentException(
-                    "Every deterministic finding must identify the sensor that produced its evidence.");
-        }
-        var paths = subjectPaths.ToHashSet(StringComparer.Ordinal);
-        return evidence.Select(result => result with
-        {
-            Findings = result.Findings.Where(finding =>
-                finding.Locations.Count == 0 ||
-                finding.Locations.Any(location => paths.Contains(location.Path.Replace('\\', '/')))).ToArray(),
-        }).ToArray();
-    }
-
     private static void EnsureContained(string root, string file, bool allowRoot = false)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -544,8 +509,7 @@ public sealed class ReviewRunner
         string Prompt,
         string UnitId,
         string MetaPath,
-        JsonArray Threads,
-        IReadOnlyList<SensorScanResult> DeterministicEvidence);
+        JsonArray Threads);
 }
 
 public sealed class ReviewRunException(string message) : Exception(message);

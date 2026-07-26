@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -16,8 +15,7 @@ public sealed class ReviewPromptBuilder
         string? globalGuidelines = null,
         string? projectGuidelines = null,
         string? fileContent = null,
-        JsonArray? openThreads = null,
-        IReadOnlyList<SensorScanResult>? deterministicEvidence = null)
+        JsonArray? openThreads = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -34,19 +32,6 @@ public sealed class ReviewPromptBuilder
             .Replace("{{FILE_CONTENT}}", fileContent ?? "(content not supplied)", StringComparison.Ordinal)
             .Replace("{{GLOBAL_GUIDELINES}}", FormatGuidelines(globalGuidelines), StringComparison.Ordinal)
             .Replace("{{PROJECT_GUIDELINES}}", FormatGuidelines(projectGuidelines), StringComparison.Ordinal);
-        if (deterministicEvidence is { Count: > 0 })
-        {
-            prompt += """
-
-
-## Deterministic analyzer evidence
-
-The JSON below is prior machine-produced evidence, not agent-authored findings. Judge its relevance and severity, deduplicate overlapping diagnostics, and prioritise what matters. Do not copy a diagnostic into your `findings` list merely to repeat it; add an agent finding only when you reach a distinct review conclusion. The final grade remains your explicit judgement, and the report will display this evidence separately from your findings. An unavailable sensor is unknown evidence, never a clean result.
-
-```json
-""" + JsonSerializer.Serialize(deterministicEvidence, ReviewMetaJson.Options) + "\n```";
-        }
-
         if (openThreads is not { Count: > 0 }) return prompt;
         return prompt + """
 

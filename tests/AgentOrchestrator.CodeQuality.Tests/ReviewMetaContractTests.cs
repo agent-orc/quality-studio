@@ -113,13 +113,7 @@ public sealed class ReviewMetaContractTests
     [Fact]
     public void V2SchemaAcceptsGenericAdapterWhileV1SidecarsRemainReadable()
     {
-        var baseDocument = CreateDocument();
-        var deterministicFinding = baseDocument.Findings[0] with
-        {
-            Source = new FindingSource(
-                FindingSourceKind.Deterministic, "sarif", "fixture-analyzer", "1.2.3", 0),
-        };
-        var document = baseDocument with
+        var document = CreateDocument() with
         {
             Unit = new ReviewUnit(
                 "qs-v1/generic/file/7b1bd2568ea481d83c2b97850fafd54c0e1981d94960926ab3b4cc5180daec3e",
@@ -127,20 +121,6 @@ public sealed class ReviewMetaContractTests
                 ReviewLevel.File,
                 "src/a.py",
                 "a.py"),
-            DeterministicEvidence =
-            [
-                new SensorScanResult(
-                    true,
-                    null,
-                    [deterministicFinding],
-                    new SensorProvenance(
-                        "sarif",
-                        "1.0.0",
-                        "repository",
-                        ".",
-                        "2026-07-11T14:32:09.417Z",
-                        new Dictionary<string, string> { ["fixture-analyzer"] = "1.2.3" })),
-            ],
         };
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
         var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
@@ -151,8 +131,6 @@ public sealed class ReviewMetaContractTests
         Assert.True(result.IsValid, result.ToString());
         Assert.Equal(2, json.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("generic", json.RootElement.GetProperty("unit").GetProperty("adapter").GetString());
-        Assert.Equal("deterministic", json.RootElement.GetProperty("deterministicEvidence")[0]
-            .GetProperty("findings")[0].GetProperty("source").GetProperty("kind").GetString());
     }
 
     [Fact]

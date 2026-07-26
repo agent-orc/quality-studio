@@ -370,9 +370,7 @@ public sealed class RepositoryRegistry
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
-        supportedSensors.Select(id => new RepositorySensorConfiguration(
-            id,
-            id is "gitleaks" or "dependencies")).ToArray();
+        supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
 }
 
 public sealed class RepositoryRegistryValidationException : Exception

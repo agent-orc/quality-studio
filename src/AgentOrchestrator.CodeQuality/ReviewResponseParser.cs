@@ -56,11 +56,6 @@ public sealed partial class ReviewResponseParser
         foreach (var findingNode in findings)
         {
             var finding = findingNode?.AsObject() ?? throw Invalid("finding");
-            if (finding["source"] is not null)
-            {
-                throw new ReviewResponseException(
-                    "Agent findings cannot declare a deterministic source; sensor evidence is stored separately.");
-            }
             foreach (var property in new[] { "id", "ruleId", "aspect", "severity", "title", "description", "recommendation" })
             {
                 RequireString(finding, property);

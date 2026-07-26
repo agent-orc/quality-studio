@@ -82,10 +82,6 @@
       "type": "array",
       "items": { "$ref": "#/$defs/thread" }
     },
-    "deterministicEvidence": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/sensorScanResult" }
-    },
     "aggregate": {
       "$ref": "#/$defs/aggregate"
     }
@@ -628,9 +624,6 @@
           "minLength": 1,
           "maxLength": 10000
         },
-        "source": {
-          "$ref": "#/$defs/findingSource"
-        },
         "recommendation": {
           "type": "string",
           "minLength": 1,
@@ -640,94 +633,6 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/location"
-          }
-        }
-      }
-    },
-    "findingSource": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "sensorId", "producer"],
-      "properties": {
-        "kind": { "const": "deterministic" },
-        "sensorId": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9._-]{1,63}$"
-        },
-        "producer": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 300
-        },
-        "producerVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200
-        },
-        "runIndex": {
-          "type": "integer",
-          "minimum": 0
-        }
-      }
-    },
-    "sensorScanResult": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["available", "findings", "provenance"],
-      "properties": {
-        "available": { "type": "boolean" },
-        "unavailableReason": {
-          "type": ["string", "null"],
-          "minLength": 1,
-          "maxLength": 4000
-        },
-        "findings": {
-          "type": "array",
-          "items": {
-            "allOf": [
-              { "$ref": "#/$defs/finding" },
-              {
-                "type": "object",
-                "required": ["source"]
-              }
-            ]
-          }
-        },
-        "provenance": {
-          "$ref": "#/$defs/sensorProvenance"
-        }
-      }
-    },
-    "sensorProvenance": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["sensorId", "sensorVersion", "scope", "target", "scannedAt", "toolVersions"],
-      "properties": {
-        "sensorId": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9._-]{1,63}$"
-        },
-        "sensorVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100
-        },
-        "scope": { "enum": ["repository", "path"] },
-        "target": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 2000
-        },
-        "scannedAt": {
-          "type": "string",
-          "format": "date-time",
-          "pattern": "Z$"
-        },
-        "toolVersions": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string",
-            "maxLength": 500
           }
         }
       }
