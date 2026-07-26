@@ -524,7 +524,8 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : item.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: item.AggregateControls,
-            AggregateExclusions: item.AggregateExclusions);
+            AggregateExclusions: item.AggregateExclusions,
+            ReviewRunId: item.Id);
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {

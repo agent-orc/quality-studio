@@ -177,7 +177,8 @@ describe('QualityApi', () => {
     const usageLoading = api.loadUsage(undefined, 'code');
     http.expectOne(request => request.url === '/api/repos/default/usage' && request.params.get('kind') === 'code').flush({
       generatedAt: '2026-07-21T10:00:00Z', runs: 1, inputTokens: 100, outputTokens: 20,
-      cachedInputTokens: 50, reasoningOutputTokens: 5, durationMs: 900, byModel: [], byKind: [], byDay: [], recent: [],
+      cachedInputTokens: 50, reasoningOutputTokens: 5, durationMs: 900,
+      byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [],
     });
     await usageLoading;
 

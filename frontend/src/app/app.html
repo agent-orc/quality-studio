@@ -40,6 +40,9 @@
     </div>
     <button class="guidelines-button security-landing-button" type="button" (click)="openAttackCoverage()">Security matrix</button>
     <button class="guidelines-button" type="button" (click)="openGuidelines()">Guidelines <b>{{ api.guidelines().length }}</b></button>
+    <button #usageButton class="usage-button" type="button" (click)="openUsageHistory()" aria-haspopup="dialog">
+      Usage <b>{{ usageTotalLabel() }}</b>
+    </button>
     <button class="icon-button" type="button" (click)="toggleExplorer()" [attr.aria-label]="(explorerVisible() ? 'Hide' : 'Show') + ' explorer'" [title]="(explorerVisible() ? 'Hide' : 'Show') + ' explorer · Ctrl+B'">◧</button>
     <button class="icon-button" type="button" (click)="toggleReview()" [attr.aria-label]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel'" [title]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel · Ctrl+Alt+B'">◨</button>
     <button class="icon-button" (click)="setTheme()" [attr.aria-label]="'Switch to ' + (theme() === 'dark' ? 'light' : 'dark') + ' theme'">{{ theme() === 'dark' ? '☼' : '◐' }}</button>
@@ -103,6 +106,12 @@
       </div>
     </section>
   </div>
+}
+
+@defer (when usageHistoryOpen()) {
+  @if (usageHistoryOpen()) {
+    <qs-usage-history (closed)="closeUsageHistory()" />
+  }
 }
 
 @if (repositoryDialogOpen()) {

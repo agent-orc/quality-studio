@@ -132,7 +132,7 @@ curl -X POST "http://127.0.0.1:5127/api/review" -H "Content-Type: application/js
 # 202 {"id":"review-...","state":"queued",...}
 
 curl "http://127.0.0.1:5127/api/usage?since=2026-07-01T00:00:00Z&kind=code"
-# 200 {"runs":12,"inputTokens":...,"byModel":[...],"byKind":[...],"byDay":[...],"recent":[...]}
+# 200 {"runs":12,"inputTokens":...,"byModel":[...],"byKind":[...],"byDay":[...],"byReviewRun":[...],"recent":[...]}
 
 curl "http://127.0.0.1:5127/api/quotas"
 # 200 {"at":"...","ttlSeconds":600,"providers":[...]}
@@ -151,8 +151,10 @@ write returns `409 Conflict` instead of replacing another reviewer's decision. S
 
 `since` is an optional ISO 8601 timestamp and `kind` is an optional exact review
 kind (`code`, `security`, or `performance`). The usage response includes totals,
-`byModel`, `byKind`, and `byDay` aggregates plus the 50 newest matching ledger
-entries. Token totals treat unavailable token fields as zero while each recent
+`byModel`, `byKind`, `byDay`, and `byReviewRun` aggregates plus the 50 newest
+matching ledger entries. A `byReviewRun` item totals every operation sharing a
+durable v2 `reviewRunId`; legacy v1 entries fall back to their per-operation
+`runId`. Token totals treat unavailable token fields as zero while each recent
 entry preserves `null`, distinguishing unreported usage from a reported zero.
 
 `/api/quotas` is a global, presentation-safe snapshot from Coding Agent Runner's

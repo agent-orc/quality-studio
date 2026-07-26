@@ -20,7 +20,8 @@ public sealed record ReviewRequest(
     string? DisplayName = null,
     IReadOnlyList<ReviewSubjectFile>? SubjectUnits = null,
     IReadOnlyList<string>? AggregateControls = null,
-    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null);
+    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
+    string? ReviewRunId = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -205,7 +206,8 @@ public sealed class ReviewRunner
         DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
         new(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
-            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath);
+            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
+            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {

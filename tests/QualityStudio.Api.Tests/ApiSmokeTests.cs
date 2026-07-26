@@ -368,7 +368,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     {
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);
         await UsageLedger.AppendAsync(repositoryRoot, new ReviewUsageEntry("usage-api-run", timestamp, "gpt-5", "codex",
-            new TokenUsage(200, 50, 80, 10, 2400), "performance", "file", "Sample.cs"), TestContext.Current.CancellationToken);
+            new TokenUsage(200, 50, 80, 10, 2400), "performance", "file", "Sample.cs",
+            "review-api-sweep", 2), TestContext.Current.CancellationToken);
 
         using var client = application!.CreateClient();
         var since = Uri.EscapeDataString(timestamp.AddMinutes(-1).ToString("O"));
@@ -379,7 +380,10 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(1, json.GetProperty("runs").GetInt32());
         Assert.Equal(200, json.GetProperty("inputTokens").GetInt64());
         Assert.Equal("gpt-5", Assert.Single(json.GetProperty("byModel").EnumerateArray()).GetProperty("key").GetString());
-        Assert.Equal("usage-api-run", Assert.Single(json.GetProperty("recent").EnumerateArray()).GetProperty("runId").GetString());
+        Assert.Equal("review-api-sweep", Assert.Single(json.GetProperty("byReviewRun").EnumerateArray()).GetProperty("key").GetString());
+        var recent = Assert.Single(json.GetProperty("recent").EnumerateArray());
+        Assert.Equal("usage-api-run", recent.GetProperty("runId").GetString());
+        Assert.Equal("review-api-sweep", recent.GetProperty("reviewRunId").GetString());
     }
 
     [Fact]

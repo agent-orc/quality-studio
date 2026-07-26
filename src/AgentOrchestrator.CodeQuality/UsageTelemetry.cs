@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -28,6 +29,7 @@ public sealed record ReviewUsageEntry(
     string Kind,
     string Level,
     string Path,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReviewRunId = null,
     int SchemaVersion = 1);
 
 public sealed record UsageAggregate(string Key, int Runs, long InputTokens, long OutputTokens,
@@ -44,11 +46,13 @@ public sealed record UsageReport(
     IReadOnlyList<UsageAggregate> ByModel,
     IReadOnlyList<UsageAggregate> ByKind,
     IReadOnlyList<UsageAggregate> ByDay,
+    IReadOnlyList<UsageAggregate> ByReviewRun,
     IReadOnlyList<ReviewUsageEntry> Recent);
 
 /// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
 {
+    public const int CurrentSchemaVersion = 2;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -57,6 +61,9 @@ public static class UsageLedger
 
     public static async Task AppendAsync(string repositoryRoot, ReviewUsageEntry entry, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (!IsSupported(entry))
+            throw new ArgumentException("Usage ledger entries must conform to schema version 1 or 2.", nameof(entry));
         var path = GetLedgerPath(repositoryRoot, entry.Timestamp);
         var gate = Locks.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -89,7 +96,8 @@ public static class UsageLedger
                     try
                     {
                         var entry = JsonSerializer.Deserialize<ReviewUsageEntry>(line, JsonOptions);
-                        if (entry is not null && (!since.HasValue || entry.Timestamp >= since.Value) &&
+                        if (entry is not null && IsSupported(entry) &&
+                            (!since.HasValue || entry.Timestamp >= since.Value) &&
                             (string.IsNullOrWhiteSpace(kind) || string.Equals(entry.Kind, kind, StringComparison.Ordinal)))
                             entries.Add(entry);
                     }
@@ -108,11 +116,31 @@ public static class UsageLedger
             ordered.Sum(entry => entry.Tokens.DurationMs),
             Aggregate(ordered, entry => entry.Model), Aggregate(ordered, entry => entry.Kind),
             Aggregate(ordered, entry => entry.Timestamp.UtcDateTime.ToString("yyyy-MM-dd")),
+            Aggregate(ordered, entry => entry.ReviewRunId ?? entry.RunId),
             ordered.Take(Math.Clamp(recentLimit, 1, 200)).ToArray());
     }
 
     private static long Sum(IEnumerable<ReviewUsageEntry> entries, Func<ReviewUsageEntry, long?> selector) =>
         entries.Sum(entry => selector(entry) ?? 0);
+
+    private static bool IsSupported(ReviewUsageEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.RunId) ||
+            string.IsNullOrWhiteSpace(entry.Model) ||
+            string.IsNullOrWhiteSpace(entry.CliType) ||
+            string.IsNullOrWhiteSpace(entry.Kind) ||
+            string.IsNullOrWhiteSpace(entry.Level) ||
+            string.IsNullOrWhiteSpace(entry.Path) ||
+            entry.Tokens is null)
+            return false;
+
+        return entry.SchemaVersion switch
+        {
+            1 => entry.ReviewRunId is null,
+            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ReviewRunId),
+            _ => false,
+        };
+    }
 
     private static IReadOnlyList<UsageAggregate> Aggregate(IEnumerable<ReviewUsageEntry> entries, Func<ReviewUsageEntry, string> key) =>
         entries.GroupBy(key, StringComparer.Ordinal).Select(group => new UsageAggregate(group.Key, group.Count(),

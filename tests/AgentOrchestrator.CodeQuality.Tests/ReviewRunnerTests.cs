@@ -358,12 +358,16 @@ public sealed class ReviewRunnerTests
             var runner = new ReviewRunner(new FakeAgent(response: "{}"), usageRecorded: recorded.Add);
 
             await Assert.ThrowsAsync<ReviewResponseException>(() => runner.ReviewAsync(
-                new ReviewRequest("src/Small.cs", RepositoryRoot: root), TestContext.Current.CancellationToken));
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root, ReviewRunId: "review-sweep-test"),
+                TestContext.Current.CancellationToken));
 
             Assert.Equal("run-test", Assert.Single(recorded).RunId);
+            Assert.Equal("review-sweep-test", recorded[0].ReviewRunId);
+            Assert.Equal(2, recorded[0].SchemaVersion);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
-            Assert.Equal("run-test", Assert.Single((await UsageLedger.QueryAsync(root,
-                cancellationToken: TestContext.Current.CancellationToken)).Recent).RunId);
+            var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal("run-test", Assert.Single(report.Recent).RunId);
+            Assert.Equal("review-sweep-test", Assert.Single(report.ByReviewRun).Key);
         });
     }
 
