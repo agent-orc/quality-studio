@@ -87,6 +87,12 @@
     },
     "security": {
       "$ref": "#/$defs/securityReview"
+    },
+    "deterministicEvidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deterministicSensorResult"
+      }
     }
   },
   "allOf": [
@@ -404,6 +410,41 @@
         }
       }
     },
+    "deterministicSensorResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "unavailableReason", "findings", "provenance"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "unavailableReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
+        "findings": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/finding" },
+              { "required": ["fingerprint", "ruleId", "source"] }
+            ]
+          }
+        },
+        "provenance": { "$ref": "#/$defs/deterministicSensorProvenance" }
+      }
+    },
+    "deterministicSensorProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sensorId", "sensorVersion", "scope", "target", "scannedAt", "toolVersions"],
+      "properties": {
+        "sensorId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "sensorVersion": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "scope": { "enum": ["repository", "path"] },
+        "target": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "scannedAt": { "type": "string", "format": "date-time", "pattern": "Z$" },
+        "toolVersions": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "maxLength": 200 }
+        }
+      }
+    },
     "tokenUsage": {
       "type": "object",
       "additionalProperties": false,
@@ -674,6 +715,9 @@
           "minLength": 1,
           "maxLength": 10000
         },
+        "source": {
+          "$ref": "#/$defs/findingSource"
+        },
         "recommendation": {
           "type": "string",
           "minLength": 1,
@@ -685,6 +729,18 @@
             "$ref": "#/$defs/location"
           }
         }
+      }
+    },
+    "findingSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "sensorId", "producer"],
+      "properties": {
+        "kind": { "const": "deterministic" },
+        "sensorId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "producer": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "producerVersion": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "runIndex": { "type": "integer", "minimum": 0 }
       }
     },
     "thread": {

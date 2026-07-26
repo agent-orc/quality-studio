@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Microsoft.CodeAnalysis",
+          "semanticVersion": "4.14.0",
+          "rules": [
+            {
+              "id": "CA1822",
+              "name": "MarkMembersAsStatic",
+              "shortDescription": { "text": "Mark members as static" },
+              "fullDescription": { "text": "Members that do not access instance data can be static." },
+              "help": { "text": "Make the member static or document why it must remain an instance member." },
+              "defaultConfiguration": { "level": "warning" },
+              "properties": { "category": "Performance", "precision": "high" }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CA1822",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": { "text": "Member 'Calculate' does not access instance data." },
+          "partialFingerprints": { "roslyn/v1": "CA1822:src/Calculator.cs:5" },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/Calculator.cs" },
+                "region": { "startLine": 5, "startColumn": 12, "endLine": 5, "endColumn": 21 }
+              },
+              "logicalLocations": [
+                { "fullyQualifiedName": "Sample.Calculator.Calculate" }
+              ]
+            }
+          ]
+        },
+        {
+          "ruleId": "CA1822",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": { "text": "Member 'Calculate' does not access instance data." },
+          "partialFingerprints": { "roslyn/v1": "CA1822:src/Calculator.cs:5" },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/Calculator.cs" },
+                "region": { "startLine": 5, "startColumn": 12 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

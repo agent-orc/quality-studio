@@ -58,6 +58,9 @@ public sealed record ReviewMetaDocument
 
     [JsonPropertyOrder(15), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SecurityReviewMetadata? Security { get; init; }
+
+    [JsonPropertyOrder(16)]
+    public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; init; } = [];
 }
 
 public sealed record ReviewUnit(
@@ -151,9 +154,19 @@ public sealed record ReviewFinding(
     [property: JsonPropertyOrder(6)] IReadOnlyList<FindingLocation> Locations,
     [property: JsonPropertyOrder(7)] string Fingerprint,
     [property: JsonPropertyOrder(8)] string RuleId,
-    [property: JsonPropertyOrder(9), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Evidence = null);
+    [property: JsonPropertyOrder(9), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Evidence = null,
+    [property: JsonPropertyOrder(10), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingSource? Source = null);
 
 public enum FindingSeverity { Critical, High, Medium, Low, Info }
+
+public enum FindingSourceKind { Deterministic }
+
+public sealed record FindingSource(
+    [property: JsonPropertyOrder(0)] FindingSourceKind Kind,
+    [property: JsonPropertyOrder(1)] string SensorId,
+    [property: JsonPropertyOrder(2)] string Producer,
+    [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ProducerVersion = null,
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? RunIndex = null);
 
 public sealed record FindingLocation(
     [property: JsonPropertyOrder(0)] string Path,

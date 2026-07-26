@@ -162,6 +162,13 @@ the staged candidate snapshot. The scanner is pinned and verified; if it cannot
 be resolved, the command reports an explicit unavailable state instead of a
 false pass.
 
+## Deterministic analyzer evidence
+
+Repository-configured Roslyn, ESLint and TypeScript diagnostics, plus producer-neutral
+SARIF 2.1.0, are supplied to the review agent as prior facts while staying separate
+from its findings and grade. Configuration and unavailable behavior are documented in
+[`docs/deterministic-analyzer-evidence.md`](docs/deterministic-analyzer-evidence.md).
+
 ## Review inputs
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.

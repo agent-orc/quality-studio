@@ -59,6 +59,26 @@ public sealed class QualityReportTests
     }
 
     [Fact]
+    public async Task Report_ShowsAgentAndDeterministicFindingsWithoutChangingGrade()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(88);
+        await fixture.AddDeterministicEvidenceAsync();
+
+        var report = await new QualityReportBuilder().BuildAsync(
+            [fixture.Request], TestContext.Current.CancellationToken);
+
+        var repository = Assert.Single(report.Repositories);
+        Assert.Equal(88, repository.Scorecard.Score);
+        Assert.Equal(2, repository.Findings.Count);
+        var analyzer = Assert.Single(repository.Findings, finding => finding.Source == "deterministic");
+        Assert.Equal("ESLint", analyzer.Producer);
+        Assert.Equal("@typescript-eslint/no-floating-promises", analyzer.RuleId);
+        var markdown = QualityReportRenderer.Render(report, QualityReportFormat.Markdown);
+        Assert.Contains("deterministic:ESLint", markdown, StringComparison.Ordinal);
+        Assert.Contains("/agent]", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Cli_exit_codes_cover_passing_failing_and_invalid_gates()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(68);
@@ -152,6 +172,49 @@ public sealed class QualityReportTests
             await WriteSidecarAsync();
             await RunGitAsync(Root, "add", ".");
             await RunGitAsync(Root, "commit", "--quiet", "-m", $"score {nextScore}");
+        }
+
+        public async Task AddDeterministicEvidenceAsync()
+        {
+            var metadata = JsonNode.Parse(await File.ReadAllTextAsync(
+                sidecarPath, TestContext.Current.CancellationToken))!.AsObject();
+            metadata["deterministicEvidence"] = new JsonArray(new JsonObject
+            {
+                ["available"] = true,
+                ["unavailableReason"] = null,
+                ["provenance"] = new JsonObject
+                {
+                    ["sensorId"] = "eslint",
+                    ["sensorVersion"] = "1.0.0",
+                    ["scope"] = "repository",
+                    ["target"] = ".",
+                    ["scannedAt"] = "2026-07-26T10:00:00.000Z",
+                    ["toolVersions"] = new JsonObject(),
+                },
+                ["findings"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = "eslint-no-floating-promises-cccccccccccc",
+                    ["ruleId"] = "@typescript-eslint/no-floating-promises",
+                    ["fingerprint"] = "sha256:" + new string('c', 64),
+                    ["aspect"] = "analyzer",
+                    ["severity"] = "medium",
+                    ["title"] = "Promise is not awaited",
+                    ["description"] = "The analyzer found an unhandled promise.",
+                    ["recommendation"] = "Await the promise.",
+                    ["source"] = new JsonObject
+                    {
+                        ["kind"] = "deterministic",
+                        ["sensorId"] = "eslint",
+                        ["producer"] = "ESLint",
+                    },
+                    ["locations"] = new JsonArray(new JsonObject
+                    {
+                        ["path"] = "src/App.cs",
+                    }),
+                }),
+            });
+            await File.WriteAllTextAsync(
+                sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
         }
 
         private async Task WriteSidecarAsync()

@@ -23,12 +23,26 @@
       @for (model of api.usage().byModel.slice(0, 3); track model.key) { <p><span>{{ model.key }}</span><b>{{ model.runs }} · {{ formatTokens(model.inputTokens + model.outputTokens) }}</b></p> }
     </section>
     @if (activeMeta(); as meta) {
-      <section class="summary-card"><div class="card-top"><span class="status" [class]="'status ' + activeState()"></span><div><b>{{ meta.grade.rationale }}</b><p>{{ meta.summary }}</p></div><span class="band">{{ meta.grade.band }}</span></div><div class="meter"><span [style.width.%]="meta.grade.score"></span></div><div class="meter-label"><span>Historical quality score</span><b>{{ meta.grade.score }} / 100</b></div></section>
+      <section class="summary-card"><div class="card-top"><span class="status" [class]="'status ' + activeState()"></span><div><b>{{ meta.grade.rationale }}</b><p>{{ meta.summary }}</p></div><span class="band">{{ meta.grade.band }}</span></div><div class="meter"><span [style.width.%]="meta.grade.score"></span></div><div class="meter-label"><span>Agent grade · analyzer evidence is separate</span><b>{{ meta.grade.score }} / 100</b></div></section>
       @if (activeKind() === 'security' && meta.security; as security) {
         <section class="merged-security" aria-label="Merged security evidence">
           <div class="merged-security-head"><span class="verdict" [class]="'verdict ' + security.verdict">{{ security.verdict }}</span><div><b>Agent judgement + machine evidence</b><small>{{ security.combinationRule }}</small></div></div>
           @for (sensor of security.sensors; track sensor.id) {
             <div class="sensor-proof"><span><i [class]="'status ' + (sensor.available ? sensor.verdict === 'pass' ? 'fresh' : 'stale' : 'missing')"></i><b>{{ sensor.id }} {{ sensor.version }}</b></span><strong>{{ sensor.verdict }}</strong><code [title]="sensor.resultHash">{{ sensor.resultHash.slice(0, 20) }}…</code>@if (sensor.unavailableReason) { <p>{{ sensor.unavailableReason }}</p> }</div>
+          }
+        </section>
+      }
+      @if ((meta.deterministicEvidence?.length ?? 0) > 0) {
+        <div class="section-title"><span>Deterministic analyzer evidence</span><small>{{ deterministicFindingCount() }} facts · does not set grade</small></div>
+        <section class="analyzer-evidence" aria-label="Deterministic analyzer evidence">
+          @for (result of meta.deterministicEvidence ?? []; track result.provenance.sensorId) {
+            <article class="analyzer-result">
+              <div class="analyzer-heading"><span><i [class]="'status ' + (result.available ? 'fresh' : 'missing')"></i><b>{{ result.provenance.sensorId }}</b></span><small>{{ result.available ? result.findings.length + ' findings' : 'unavailable' }}</small></div>
+              @if (result.unavailableReason) { <p class="analyzer-unavailable">{{ result.unavailableReason }}</p> }
+              @for (finding of result.findings; track finding.fingerprint ?? finding.id) {
+                <div class="analyzer-finding"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><b>{{ finding.title }}</b><code>{{ finding.source?.producer ?? result.provenance.sensorId }} · {{ finding.ruleId }}</code><p>{{ finding.description }}</p></div>
+              }
+            </article>
           }
         </section>
       }

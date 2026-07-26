@@ -167,6 +167,56 @@ public sealed class ReviewMetaContractTests
     }
 
     [Fact]
+    public void V2SchemaAcceptsSeparateDeterministicAnalyzerEvidence()
+    {
+        var finding = new ReviewFinding(
+            "roslyn-ca1822-aaaaaaaaaaaa",
+            "analyzer",
+            FindingSeverity.Medium,
+            "Mark members as static",
+            "Member does not access instance data.",
+            "Make the member static.",
+            [new FindingLocation("src/Small.cs")],
+            "sha256:" + new string('a', 64),
+            "CA1822",
+            Source: new FindingSource(
+                FindingSourceKind.Deterministic,
+                "roslyn",
+                "Microsoft.CodeAnalysis",
+                "4.14.0",
+                0));
+        var document = CreateDocument() with
+        {
+            DeterministicEvidence =
+            [
+                new SensorScanResult(
+                    true,
+                    null,
+                    [finding],
+                    new SensorProvenance(
+                        "roslyn",
+                        "1.0.0",
+                        "repository",
+                        ".",
+                        "2026-07-26T10:00:00.000Z",
+                        new Dictionary<string, string>
+                        {
+                            ["Microsoft.CodeAnalysis"] = "4.14.0",
+                        })),
+            ],
+        };
+
+        using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
+        var result = ReviewMetaV2Schema.Value.Evaluate(
+            json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+        Assert.True(result.IsValid, result.ToString());
+        Assert.Equal("deterministic",
+            json.RootElement.GetProperty("deterministicEvidence")[0].GetProperty("findings")[0]
+                .GetProperty("source").GetProperty("kind").GetString());
+    }
+
+    [Fact]
     public void GenericAdapterCannotMasqueradeAsV1Contract()
     {
         var json = ReviewMetaJson.Serialize(CreateDocument() with
