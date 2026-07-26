@@ -92,6 +92,15 @@ public sealed class ReviewRunner
                 agentResult.EffectiveModel, startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
+            if (request.Level == ReviewLevel.Project &&
+                string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
+                request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
+                !response["aspects"]!.AsArray().OfType<JsonObject>().Any(aspect =>
+                    string.Equals(aspect["id"]?.GetValue<string>(), "architecture", StringComparison.Ordinal)))
+            {
+                throw new ReviewResponseException(
+                    "A project-level code review must include the required 'architecture' aspect.");
+            }
             var finalSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
             if (!initialSubject.Inputs.SequenceEqual(finalSubject.Inputs))
             {

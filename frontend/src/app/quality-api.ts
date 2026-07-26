@@ -198,6 +198,34 @@ export interface UsageReport { generatedAt: string; runs: number; inputTokens: n
 export interface QuotaWindow { label: string; usedPct: number | null; remainingPct: number | null; used: number | null; limit: number | null; unit: string | null; resetAt: string | null; resetLabel: string | null; }
 export interface QuotaProvider { provider: string; plan: string | null; fetchedAt: string; source: string | null; error: string | null; windows: QuotaWindow[]; }
 export interface QuotaReport { at: string; ttlSeconds: number; providers: QuotaProvider[]; }
+export interface ProjectGrade { kind: ReviewKind; state: ReviewState; score: number | null; band: string | null; path: string; }
+export interface ProjectFindings { open: number; bySeverity: Record<FindingSeverity, number>; byReviewState: Record<'fresh' | 'stale', number>; path: string; }
+export interface ProjectStaleness { fresh: number; stale: number; missing: number; total: number; path: string; }
+export interface ProjectReviewCoverage { reviewedFiles: number; totalFiles: number; percent: number; path: string; }
+export interface ProjectTestCoverage { status: 'reported' | 'invalid' | 'unavailable'; linePercent: number | null; coveredLines: number | null; totalLines: number | null; source: string | null; path: string; }
+export interface ProjectLanguageMetric { language: string; files: number; lines: number; bytes: number; path: string; }
+export interface ProjectDistributionBucket { label: string; count: number; }
+export interface ProjectDuplicationCandidate { fingerprint: string; lines: number; bytes: number; paths: string[]; }
+export interface ProjectDependencyEdge { source: string; sourcePath: string; target: string; targetPath: string; kind: string; }
+export interface ProjectStructuralMetrics {
+  fileCount: number; folderCount: number; bytes: number; lines: number;
+  languages: ProjectLanguageMetric[];
+  fileSizeDistribution: ProjectDistributionBucket[];
+  folderSizeDistribution: ProjectDistributionBucket[];
+  duplicationCandidates: ProjectDuplicationCandidate[];
+  dependencyEdges: ProjectDependencyEdge[];
+}
+export interface ProjectHotspot { path: string; churn: number; grade: number | null; findings: number; findingsPerKloc: number; risk: number; }
+export interface ProjectDashboard {
+  generatedAt: string;
+  grades: ProjectGrade[];
+  findings: ProjectFindings;
+  staleness: ProjectStaleness;
+  reviewCoverage: ProjectReviewCoverage;
+  testCoverage: ProjectTestCoverage;
+  metrics: ProjectStructuralMetrics;
+  hotspots: ProjectHotspot[];
+}
 
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
 const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
@@ -308,6 +336,9 @@ export class QualityApi {
   readonly attackCoverageLoading = signal(false);
   readonly attackCoverageError = signal('');
   readonly risk = signal<RiskReport>({ days: 90, currentCommit: null, rows: [], matrix: [] });
+  readonly project = signal<ProjectDashboard | null>(null);
+  readonly projectLoading = signal(true);
+  readonly projectError = signal('');
   readonly connectionState = signal<ApiConnectionState>('connecting');
   readonly connected = computed(() => this.connectionState() === 'live');
   readonly connectionLabel = computed(() => {
@@ -362,8 +393,11 @@ export class QualityApi {
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
+    this.project.set(null);
     this.usage.set(emptyUsageReport());
+    const dashboardLoading = this.loadProjectDashboard();
     await this.loadTree();
+    void dashboardLoading;
     await this.loadReviewRuns();
     await this.loadUsage();
     console.info(JSON.stringify({ event: 'qs.repository.selected', repositoryId: id }));
@@ -464,6 +498,7 @@ export class QualityApi {
       if (completed) {
         const openPath = this.file()?.path;
         await this.loadTree();
+        void this.loadProjectDashboard();
         if (openPath) await this.loadFile(openPath);
         await Promise.all([this.loadUsage(), this.loadQuotas()]);
       }
@@ -501,6 +536,7 @@ export class QualityApi {
       this.reviewRuns.update(runs => runs.map(candidate => candidate.id === run.id ? run : candidate));
       const openPath = this.file()?.path;
       await this.loadTree();
+      void this.loadProjectDashboard();
       if (openPath) await this.loadFile(openPath);
       this.scheduleReviewPoll();
     } catch (error) {
@@ -548,6 +584,26 @@ export class QualityApi {
   }
 
   clearFile(): void { this.file.set(null); }
+
+  async loadProjectDashboard(): Promise<void> {
+    this.projectLoading.set(true);
+    this.projectError.set('');
+    const start = performance.now();
+    try {
+      this.project.set(await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase()}/project`)));
+      requestAnimationFrame(() => {
+        const duration = performance.now() - start;
+        performance.measure('qs.project.first-interactive', { start, end: performance.now(), detail: { budget: 150 } });
+        console.info(JSON.stringify({ event: 'qs.project.first-interactive', durationMs: +duration.toFixed(2), budgetMs: 150, withinBudget: duration < 150 }));
+      });
+    } catch (error) {
+      this.project.set(null);
+      this.projectError.set(this.errorMessage(error));
+      console.warn(JSON.stringify({ event: 'qs.project.unavailable', reason: this.errorMessage(error) }));
+    } finally {
+      this.projectLoading.set(false);
+    }
+  }
 
   async createTask(request: HandoverRequest): Promise<HandoverResult> {
     return firstValueFrom(this.http.post<HandoverResult>(`${this.repositoryApiBase()}/handover`, request));

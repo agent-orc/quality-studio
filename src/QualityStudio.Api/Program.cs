@@ -25,6 +25,7 @@ builder.Services.AddSingleton<ApiSecurity>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
+builder.Services.AddSingleton<ProjectDashboardService>();
 builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<QualityReportBuilder>();
 builder.Services.AddSingleton<InputResolver>();
@@ -225,6 +226,8 @@ app.MapGet("/api/tree", Tree);
 app.MapGet("/api/repos/{repoId}/tree", Tree);
 app.MapGet("/api/risk", Risk);
 app.MapGet("/api/repos/{repoId}/risk", Risk);
+app.MapGet("/api/project", ProjectDashboard);
+app.MapGet("/api/repos/{repoId}/project", ProjectDashboard);
 app.MapGet("/api/file", FileContent);
 app.MapGet("/api/repos/{repoId}/file", FileContent);
 app.MapGet("/api/inputs", Inputs);
@@ -327,6 +330,31 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
         selected.Count, registration.Id, requested, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new TreeResponse(requested,
         selected.Select(node => TreeNodeResponse.From(node, findingStates, coverage, currentCommit)).ToArray()));
+}
+
+static IResult ProjectDashboard(
+    HttpContext context,
+    RepositoryRegistry registry,
+    RepositoryHierarchyCache hierarchyCache,
+    ProjectDashboardService dashboards,
+    ILogger<Program> logger)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var snapshot = hierarchyCache.Get(repository.Root);
+    var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0project-dashboard-v1")))}\"";
+    context.Response.Headers.ETag = etag;
+    if (context.Request.Headers.IfNoneMatch.Any(value => value!.Split(',').Select(candidate => candidate.Trim())
+            .Any(candidate => candidate == "*" || StringComparer.Ordinal.Equals(candidate, etag))))
+    {
+        return Results.StatusCode(StatusCodes.Status304NotModified);
+    }
+
+    var dashboard = dashboards.Get(repository.Root, snapshot);
+    logger.LogInformation(new EventId(1110, "ProjectDashboardLoaded"),
+        "Loaded project dashboard for repository {RepositoryId} with {FileCount} files in {ElapsedMilliseconds} ms",
+        registration.Id, dashboard.Metrics.FileCount, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(dashboard);
 }
 
 static async Task<IResult> FileContent(HttpContext context, string? path, RepositoryRegistry registry,

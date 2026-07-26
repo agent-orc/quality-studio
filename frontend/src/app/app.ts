@@ -5,6 +5,7 @@ import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
 import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
+import { ProjectDashboardView } from './project-dashboard/project-dashboard';
 import { flattenTree } from './tree-utils';
 import { UsageHistory } from './usage-history/usage-history';
 
@@ -29,7 +30,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel, AttackCoverage, UsageHistory],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, AttackCoverage, UsageHistory, ProjectDashboardView],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,7 +48,7 @@ export class App implements OnDestroy {
   readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
   readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (localStorage.getItem('qs-theme') as 'dark' | 'light') || 'dark');
-  readonly selected = signal(new URLSearchParams(location.search).get('path') || 'src/QualityStudio.Api/Program.cs');
+  readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
   readonly repositoryMenuOpen = signal(false);
@@ -68,7 +69,13 @@ export class App implements OnDestroy {
   readonly attackCoverageDialogOpen = signal(false);
   readonly usageHistoryOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
-  readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(n => n.path === this.selected()));
+  readonly selectedNode = computed(() => {
+    const nodes = flattenTree(this.api.tree(), new Set(), true);
+    return nodes.find(node => node.path === this.selected())
+      ?? (this.selected() === '.' ? nodes.find(node => node.level === 'project') : undefined);
+  });
+  readonly explorerSelectedPath = computed(() => this.selected() === '.' ? this.selectedNode()?.path ?? '.' : this.selected());
+  readonly isProjectView = computed(() => this.selected() === '.' || this.selectedNode()?.level === 'project');
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
   readonly usageTotalLabel = computed(() => new Intl.NumberFormat('en-US').format(
     this.api.usage().inputTokens + this.api.usage().outputTokens));
@@ -127,7 +134,9 @@ export class App implements OnDestroy {
   private async initialize(): Promise<void> {
     const preferredRepository = new URLSearchParams(location.search).get('repo');
     await this.api.loadRepositories(preferredRepository);
+    const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
+    void dashboardLoading;
     await this.api.loadReviewRuns();
     await Promise.all([this.api.loadUsage(), this.api.loadQuotas()]);
     if (!this.api.quotas().providers.length) setTimeout(() => void this.api.loadQuotas(), 2_000);
@@ -476,8 +485,9 @@ export class App implements OnDestroy {
 
   private selectionPathOrFirst(preferred: string): string | null {
     const nodes = flattenTree(this.api.tree(), new Set(), true);
+    if (!preferred || preferred === '.') return '.';
     const preferredNode = nodes.find(node => node.path === preferred);
-    return preferredNode?.path ?? nodes.find(node => node.level === 'file')?.path ?? null;
+    return preferredNode?.path ?? '.';
   }
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {

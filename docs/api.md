@@ -90,6 +90,11 @@ curl "http://127.0.0.1:5127/api/tree?path="
 curl "http://127.0.0.1:5127/api/tree?path=" -H 'If-None-Match: "..."'
 # 304 when the repository HEAD, index, and worktree are unchanged
 
+curl "http://127.0.0.1:5127/api/project"
+# 200 {"grades":[...],"findings":{...},"staleness":{...},"reviewCoverage":{...},
+#      "testCoverage":{...},"metrics":{"languages":[...],"dependencyEdges":[...]},
+#      "hotspots":[...]}
+
 curl "http://127.0.0.1:5127/api/file?path=src/QualityStudio.Api/appsettings.json"
 # 200 {"path":"src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[]}
 
@@ -170,7 +175,7 @@ not as unlimited quota.
 
 All repository operations also have a scoped form, for example
 `/api/repos/payments/tree?path=`, `/api/repos/payments/file?path=README.md`,
-`/api/repos/payments/scan`, `/api/repos/payments/security/scan`,
+`/api/repos/payments/project`, `/api/repos/payments/scan`, `/api/repos/payments/security/scan`,
 `/api/repos/payments/security/attack-coverage`,
 `/api/repos/payments/inputs`, `/api/repos/payments/handover`, and
 `/api/repos/payments/review`. Finding state uses

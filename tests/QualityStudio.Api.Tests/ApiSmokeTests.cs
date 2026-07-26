@@ -55,6 +55,25 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Project_returns_repository_dashboard_and_honours_conditional_request()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/project", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(response.Headers.ETag);
+        var dashboard = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(3, dashboard.GetProperty("grades").GetArrayLength());
+        Assert.Equal(3, dashboard.GetProperty("metrics").GetProperty("fileCount").GetInt32());
+        Assert.True(dashboard.GetProperty("hotspots").GetArrayLength() <= 30);
+
+        using var cachedRequest = new HttpRequestMessage(HttpMethod.Get, "/api/project");
+        cachedRequest.Headers.TryAddWithoutValidation("If-None-Match", response.Headers.ETag.Tag);
+        using var cached = await client.SendAsync(cachedRequest, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotModified, cached.StatusCode);
+    }
+
+    [Fact]
     public async Task Mixed_repository_tree_exposes_typescript_and_can_queue_file_review()
     {
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "frontend", "src", "app"));
