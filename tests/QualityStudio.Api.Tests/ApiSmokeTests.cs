@@ -97,6 +97,49 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Report_returns_scorecard_sarif_and_registry_comparison()
+    {
+        var secondRoot = repositoryRoot + "-report-second";
+        Directory.CreateDirectory(secondRoot);
+        await File.WriteAllTextAsync(Path.Combine(secondRoot, "Second.cs"),
+            "namespace Second; public sealed class Marker;", TestContext.Current.CancellationToken);
+        await RunGitInDirectoryAsync(secondRoot, "init", "--quiet");
+        try
+        {
+            using var client = application!.CreateClient();
+            using var created = await client.PostAsJsonAsync("/api/repos", new
+            {
+                id = "report-second",
+                displayName = "Report second",
+                rootPath = secondRoot,
+                inputBudgetCharacters = 8000,
+                enabledReviewKinds = new[] { "code" },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+            using var response = await client.GetAsync("/api/report", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal(2, json.GetProperty("repositories").GetArrayLength());
+            Assert.Equal(2, json.GetProperty("comparison").GetProperty("repositories").GetArrayLength());
+            Assert.All(json.GetProperty("repositories").EnumerateArray(),
+                repository => Assert.True(repository.GetProperty("scorecard").TryGetProperty("coverage", out _)));
+
+            using var sarifResponse = await client.GetAsync(
+                "/api/repos/report-second/report?format=sarif", TestContext.Current.CancellationToken);
+            Assert.Equal("application/sarif+json", sarifResponse.Content.Headers.ContentType?.MediaType);
+            var sarif = await sarifResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal("2.1.0", sarif.GetProperty("version").GetString());
+            Assert.Single(sarif.GetProperty("runs").EnumerateArray());
+        }
+        finally
+        {
+            Directory.Delete(secondRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task Handover_dry_run_returns_the_would_be_card()
     {
         using var client = application!.CreateClient();

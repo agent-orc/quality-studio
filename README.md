@@ -159,6 +159,19 @@ The API exposes repository usage aggregates and provider quota availability. See
 [`docs/usage-telemetry.md`](docs/usage-telemetry.md) for the versioned storage
 contracts, endpoint semantics, quota source of truth, and unavailable behavior.
 
+## Quality reports
+
+Export the project scorecard, Git-backed score trend, findings, coverage, sensor
+posture, and registry comparison as Markdown, HTML, JSON, or SARIF:
+
+```shell
+dotnet run --project src/quality-cli -- report . --format sarif --output quality-report.sarif
+```
+
+CI gates use `--fail-under <score>` and `--fail-on <severity>`. See
+[`docs/quality-reports.md`](docs/quality-reports.md) for report semantics,
+endpoint formats, and documented exit codes.
+
 ## Repository layout
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.

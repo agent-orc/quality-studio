@@ -7,6 +7,12 @@ documented in [usage-telemetry.md](usage-telemetry.md).
 Attack catalogue, ledger, provenance, and matrix semantics are documented in
 [attack-coverage.md](attack-coverage.md).
 
+Quality scorecards, Git-backed trends, registry comparison, and export formats
+are documented in [quality-reports.md](quality-reports.md). Use
+`GET /api/report` for all accessible registry repositories or
+`GET /api/repos/{repoId}/report` for one repository. JSON is the default;
+`?format=markdown|html|json|sarif` selects another representation.
+
 Run the development host from the repository root:
 
 ```powershell

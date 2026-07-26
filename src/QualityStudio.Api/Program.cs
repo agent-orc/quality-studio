@@ -26,6 +26,7 @@ builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<StalenessEvaluator>();
+builder.Services.AddSingleton<QualityReportBuilder>();
 builder.Services.AddSingleton<InputResolver>();
 builder.Services.AddSingleton<GuidelineStore>();
 builder.Services.AddTransient<GuidelineImpactAnalyzer>();
@@ -96,6 +97,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         FileNotFoundException => (StatusCodes.Status404NotFound, "File not found"),
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
         StalenessScanException => (StatusCodes.Status422UnprocessableEntity, "Repository scan failed"),
+        QualityReportException => (StatusCodes.Status422UnprocessableEntity, "Quality report failed"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
         JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
@@ -162,6 +164,7 @@ app.Use(async (context, next) =>
     var path = context.Request.Path.Value ?? string.Empty;
     var repositoryId = RouteRepositoryId(context);
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
+    var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
     if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
     {
@@ -177,7 +180,7 @@ app.Use(async (context, next) =>
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
         return;
     }
-    else if (repositoryId is null && !isRepositoryCollection &&
+    else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
              !string.Equals(path, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
@@ -248,6 +251,8 @@ app.MapPost("/api/sensors/{id}/scan", SensorScan);
 app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
+app.MapGet("/api/report", Report);
+app.MapGet("/api/repos/{repoId}/report", Report);
 app.MapGet("/api/quotas", Quotas);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
@@ -745,6 +750,40 @@ static async Task<IResult> Usage(HttpContext context, DateTimeOffset? since, str
         "Loaded {UsageRunCount} usage entries for repository {RepositoryId} in {ElapsedMilliseconds} ms",
         report.Runs, registration.Id, stopwatch.ElapsedMilliseconds);
     return Results.Ok(report);
+}
+
+static async Task<IResult> Report(HttpContext context, string? format,
+    RepositoryRegistry registry, SensorRegistry sensorRegistry, ApiSecurity security,
+    QualityReportBuilder builder, ILogger<Program> logger, CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var requestedId = RouteRepositoryId(context);
+    var registrations = requestedId is null
+        ? registry.List().Where(repository => security.Identity(context).CanAccess(repository.Id)).ToArray()
+        : [registry.Get(requestedId)];
+    if (registrations.Length == 0) throw new KeyNotFoundException("No accessible repositories were found.");
+
+    var repositories = registrations.Select(registration => new QualityReportRepository(
+        registration.Id,
+        registration.DisplayName,
+        registration.RootPath,
+        registration.EnabledReviewKinds,
+        (registration.Sensors ?? []).Select(configuration =>
+        {
+            var sensor = sensorRegistry.Get(configuration.Id);
+            return new QualityReportSensor(sensor.Id, sensor.Version, configuration.Enabled);
+        }).ToArray(),
+        registration.GlobalInputsDirectory,
+        registration.InputBudgetCharacters)).ToArray();
+    var report = await builder.BuildAsync(repositories, cancellationToken);
+    var selectedFormat = string.IsNullOrWhiteSpace(format)
+        ? QualityReportFormat.Json
+        : QualityReportRenderer.ParseFormat(format);
+    var rendered = QualityReportRenderer.Render(report, selectedFormat);
+    logger.LogInformation(new EventId(1600, "QualityReportGenerated"),
+        "Generated {ReportFormat} quality report for {RepositoryCount} repositories in {ElapsedMilliseconds} ms",
+        selectedFormat, repositories.Length, stopwatch.ElapsedMilliseconds);
+    return Results.Text(rendered, QualityReportRenderer.ContentType(selectedFormat), Encoding.UTF8);
 }
 
 static IResult Quotas(QuotaService quotas, ILogger<Program> logger, CancellationToken cancellationToken)

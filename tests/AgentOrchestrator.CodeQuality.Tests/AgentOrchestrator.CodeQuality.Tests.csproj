@@ -14,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
+    <ProjectReference Include="../../src/quality-cli/quality-cli.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
