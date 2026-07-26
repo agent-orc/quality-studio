@@ -5,6 +5,21 @@ import { firstValueFrom } from 'rxjs';
 export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing';
 export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
 export interface ScopeExclusion { path: string; reason: string; }
+export type CoverageState = 'current' | 'stale' | 'unknown';
+export interface CoverageFact {
+  state: CoverageState;
+  coveredLines: number;
+  totalLines: number;
+  coveredBranches: number;
+  totalBranches: number;
+  linePercent: number | null;
+  branchPercent: number | null;
+  commit: string | null;
+  measuredAt: string | null;
+  filesWithData: number;
+  uncoveredLines?: number[] | null;
+  uncoveredBranchLines?: number[] | null;
+}
 export interface TreeNode {
   id: string;
   name: string;
@@ -16,6 +31,7 @@ export interface TreeNode {
   reviewedAt?: string | null;
   sizeBytes?: number | null;
   lineCount?: number | null;
+  coverage?: CoverageFact;
   excluded?: ScopeExclusion[];
   children: TreeNode[];
 }
@@ -110,7 +126,10 @@ export interface AttackCoverageMatrix {
 }
 export type LineEnding = 'lf' | 'crlf' | 'mixed';
 export type FileEncoding = 'utf-8' | 'utf-8-bom' | 'other';
-export interface FileDocument { path: string; content: string; metaDocuments: ReviewMetaDocument[]; sizeBytes: number; lineEnding: LineEnding; encoding: FileEncoding; }
+export interface FileDocument { path: string; content: string; metaDocuments: ReviewMetaDocument[]; sizeBytes: number; lineEnding: LineEnding; encoding: FileEncoding; coverage?: CoverageFact; }
+export interface RiskRow { path: string; name: string; gradeScore: number | null; gradeBand: string | null; reviewState: ReviewState; coverage: CoverageFact; changes: number; riskScore: number | null; }
+export interface RiskMatrixCell { grade: string; coverage: string; files: number; changes: number; }
+export interface RiskReport { days: number; currentCommit: string | null; rows: RiskRow[]; matrix: RiskMatrixCell[]; }
 export interface ScanFile { relativePath: string; state: ReviewState; reviewKind: string; metaRelativePath?: string | null; }
 export interface ScanReport { files: ScanFile[]; freshCount: number; staleCount: number; policyDriftCount: number; missingCount: number; }
 export interface HandoverRequest { findingSummary: string; filePath: string; findingText: string; reviewKind: string; metaReference: string; }
@@ -181,6 +200,7 @@ export interface QuotaProvider { provider: string; plan: string | null; fetchedA
 export interface QuotaReport { at: string; ttlSeconds: number; providers: QuotaProvider[]; }
 
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
+const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
 
 const demoFile = `using System.Diagnostics;
 using AgentOrchestrator.CodeQuality;
@@ -287,6 +307,7 @@ export class QualityApi {
   readonly attackCoverage = signal<AttackCoverageMatrix | null>(null);
   readonly attackCoverageLoading = signal(false);
   readonly attackCoverageError = signal('');
+  readonly risk = signal<RiskReport>({ days: 90, currentCommit: null, rows: [], matrix: [] });
   readonly connectionState = signal<ApiConnectionState>('connecting');
   readonly connected = computed(() => this.connectionState() === 'live');
   readonly connectionLabel = computed(() => {
@@ -374,14 +395,16 @@ export class QualityApi {
 
   async loadTree(): Promise<void> {
     try {
-      const [tree, scan, inputs, guidelines] = await Promise.all([
+      const [tree, scan, inputs, guidelines, risk] = await Promise.all([
         firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${this.repositoryApiBase()}/tree?path=`)),
         firstValueFrom(this.http.get<ScanReport>(`${this.repositoryApiBase()}/scan`)),
         firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${this.repositoryApiBase()}/inputs`)),
         firstValueFrom(this.http.get<{ guidelines: Guideline[]; catalogue: GuidelineCatalogueEntry[]; traces: GuidelineTrace[] }>(`${this.repositoryApiBase()}/guidelines`)),
+        firstValueFrom(this.http.get<RiskReport>(`${this.repositoryApiBase()}/risk?days=90`)),
       ]);
       this.tree.set(tree.nodes); this.scan.set(scan); this.inputs.set(inputs.kinds);
       this.guidelines.set(guidelines.guidelines); this.guidelineCatalogue.set(guidelines.catalogue); this.guidelineTraces.set(guidelines.traces); this.connectionState.set('live');
+      this.risk.set(risk);
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
       this.connectionState.set('preview');
@@ -518,7 +541,7 @@ export class QualityApi {
       const file = await firstValueFrom(this.http.get<FileDocument>(`${this.repositoryApiBase()}/file`, { params: { path } }));
       this.file.set(file); this.connectionState.set('live');
     } catch (error) {
-      this.file.set({ path, content: demoFile, metaDocuments: demoMeta, sizeBytes: demoFileSizeBytes, lineEnding: 'lf', encoding: 'utf-8' });
+      this.file.set({ path, content: demoFile, metaDocuments: demoMeta, sizeBytes: demoFileSizeBytes, lineEnding: 'lf', encoding: 'utf-8', coverage: unknownCoverage() });
       if (this.connectionState() !== 'live') this.connectionState.set('preview');
       console.warn(JSON.stringify({ event: 'qs.data.file-demo-fallback', path, reason: error instanceof Error ? error.message : 'API unavailable' }));
     } finally { this.loading.set(false); }

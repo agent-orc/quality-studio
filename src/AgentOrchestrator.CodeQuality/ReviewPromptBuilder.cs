@@ -8,6 +8,7 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class ReviewPromptBuilder
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
+    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v2-coverage-evidence";
 
     public string Build(
         string filePath,
@@ -17,7 +18,8 @@ public sealed class ReviewPromptBuilder
         string? fileContent = null,
         JsonArray? openThreads = null,
         string? securitySensorEvidence = null,
-        ReviewLevel level = ReviewLevel.File)
+        ReviewLevel level = ReviewLevel.File,
+        string? coverageEvidence = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -38,6 +40,14 @@ public sealed class ReviewPromptBuilder
                 string.IsNullOrWhiteSpace(securitySensorEvidence) ? "{\"verdict\":\"pass\",\"sensors\":[]}" : securitySensorEvidence,
                 StringComparison.Ordinal)
             .Replace("{{SECURITY_SCOPE_EXPECTATIONS}}", SecurityScopeExpectations(level), StringComparison.Ordinal);
+        prompt += """
+
+
+## Test coverage evidence
+
+""" + (string.IsNullOrWhiteSpace(coverageEvidence)
+            ? "No coverage data is available. Treat coverage as unknown; do not infer 0% coverage."
+            : coverageEvidence.Trim());
         if (openThreads is not { Count: > 0 }) return prompt;
         return prompt + """
 
@@ -59,7 +69,8 @@ The JSON below contains persistent discussions anchored to this code. Address ea
             : "Assess the security aspects evidenced by this unit. Sensor finding aspect ids must also appear in the aspects array.";
 
     public static string TemplateHash(string kind) =>
-        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(LoadTemplate(kind))));
+        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
+            Encoding.UTF8.GetBytes(LoadTemplate(kind) + BuilderContractVersion)));
 
     private static string LoadTemplate(string kind)
     {

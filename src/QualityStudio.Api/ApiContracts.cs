@@ -19,12 +19,19 @@ public sealed record TreeNodeResponse(
     string? ReviewedAt,
     long? SizeBytes,
     int? LineCount,
+    CoverageAggregate Coverage,
     IReadOnlyList<ScopeExclusionResponse> Excluded,
     IReadOnlyList<TreeNodeResponse> Children)
 {
-    public static TreeNodeResponse From(HierarchyNode node, IReadOnlyDictionary<string, FindingStateRecord> states)
+    public static TreeNodeResponse From(
+        HierarchyNode node,
+        IReadOnlyDictionary<string, FindingStateRecord> states,
+        CoverageSnapshot? coverage = null,
+        string? currentCommit = null)
     {
         var reviewSummary = DirectReviewSummary.FromTree(node, states);
+        var descendantFiles = Flatten(node).Where(candidate => candidate.Level == ReviewLevel.File)
+            .Select(candidate => candidate.Path).Distinct(StringComparer.Ordinal).ToArray();
         return new(
             node.Id,
             node.Name,
@@ -39,10 +46,19 @@ public sealed record TreeNodeResponse(
             reviewSummary.ReviewedAt,
             node.SizeBytes,
             node.LineCount,
+            CoverageProjection.ForPath(coverage, currentCommit, node.Path, node.Level == ReviewLevel.File, descendantFiles),
             node.Exclusions.OrderBy(item => item.Path, StringComparer.Ordinal)
                 .ThenBy(item => item.Reason, StringComparer.Ordinal)
                 .Select(item => new ScopeExclusionResponse(item.Path, item.Reason)).ToArray(),
-            node.Children.Select(child => From(child, states)).ToArray());
+            node.Children.Select(child => From(child, states, coverage, currentCommit)).ToArray());
+    }
+
+    private static IEnumerable<HierarchyNode> Flatten(HierarchyNode node)
+    {
+        yield return node;
+        foreach (var child in node.Children)
+        foreach (var descendant in Flatten(child))
+            yield return descendant;
     }
 
     private sealed record DirectReviewSummary(int FindingsCount, FindingStateCounts Counts, string? ReviewedAt)
@@ -158,7 +174,30 @@ public sealed record FileResponse(
     IReadOnlyList<JsonElement> MetaDocuments,
     long SizeBytes,
     string LineEnding,
-    string Encoding);
+    string Encoding,
+    CoverageAggregate Coverage);
+
+public sealed record RiskRowResponse(
+    string Path,
+    string Name,
+    int? GradeScore,
+    string? GradeBand,
+    string ReviewState,
+    CoverageAggregate Coverage,
+    int Changes,
+    decimal? RiskScore);
+
+public sealed record RiskMatrixCellResponse(
+    string Grade,
+    string Coverage,
+    int Files,
+    int Changes);
+
+public sealed record RiskResponse(
+    int Days,
+    string? CurrentCommit,
+    IReadOnlyList<RiskRowResponse> Rows,
+    IReadOnlyList<RiskMatrixCellResponse> Matrix);
 
 public sealed record GuidelineTraceFindingResponse(
     string Id,

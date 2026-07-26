@@ -211,10 +211,15 @@ public sealed class ReviewRunner
             .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
         var sensorEvidence = await CollectSensorEvidenceAsync(
             request, root, subjectPaths, cancellationToken).ConfigureAwait(false);
+        var coverageEvidence = CoverageProjection.Evidence(
+            CoverageSnapshot.Load(root),
+            CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD"),
+            subjectPaths);
         var prompt = _promptBuilder.Build(relativePath, request.Kind, globalGuidelines,
             projectGuidelines, fileContent, openThreads,
             request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
-            request.Level);
+            request.Level,
+            coverageEvidence);
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
             prompt, unitId, metaPath, threads, sensorEvidence);
     }

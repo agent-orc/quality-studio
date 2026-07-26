@@ -36,12 +36,50 @@
       </section>
     }
 
+    <details class="risk-view">
+      <summary>
+        <span><b>Risk view</b> · grade × coverage × Git churn over {{ api.risk().days }} days</span>
+        <small>{{ riskRows().length }} files</small>
+      </summary>
+      <div class="risk-matrix" aria-label="Compact risk matrix">
+        @for (cell of api.risk().matrix; track cell.grade + ':' + cell.coverage) {
+          <span [class.hot]="cell.changes > 0 && (cell.grade === 'weak' || cell.grade === 'mediocre') && cell.coverage === 'low'"
+            [title]="cell.changes + ' changes'">
+            <small>{{ cell.grade }} · {{ cell.coverage }}</small><b>{{ cell.files }}</b>
+          </span>
+        } @empty {
+          <span class="unknown"><small>grade · coverage</small><b>Unknown</b></span>
+        }
+      </div>
+      <div class="risk-table" role="table" aria-label="Files sorted by combined quality risk">
+        <div class="risk-columns" role="row">
+          <button type="button" role="columnheader" (click)="sortRiskBy('path')">File{{ riskSortIndicator('path') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('grade')">Grade{{ riskSortIndicator('grade') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('coverage')">Coverage{{ riskSortIndicator('coverage') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('changes')">Changes{{ riskSortIndicator('changes') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('risk')">Risk{{ riskSortIndicator('risk') }}</button>
+        </div>
+        @for (row of riskRows().slice(0, 100); track row.path) {
+          <button class="risk-row" type="button" role="row" (click)="nodeOpen.emit(row.path)">
+            <span role="cell">{{ row.path }}</span>
+            <span role="cell">{{ row.gradeBand ?? 'Unknown' }} @if (row.gradeScore != null) { · {{ row.gradeScore }} }</span>
+            <span role="cell" [class.stale-coverage]="row.coverage.state === 'stale'" [title]="coverageTitle(row.coverage)">{{ coverageLabel(row.coverage) }}</span>
+            <span role="cell">{{ row.changes }}</span>
+            <b role="cell">{{ riskLabel(row) }}</b>
+          </button>
+        } @empty {
+          <div class="empty-folder">No files are available for this risk scope.</div>
+        }
+      </div>
+    </details>
+
     <div class="folder-table" role="table" aria-label="Direct children of selected container">
       <div class="folder-columns" role="row">
         <button type="button" role="columnheader" (click)="sortBy('name')">Name{{ sortIndicator('name') }}</button>
         @for (kind of reviewKinds; track kind) {
           <button type="button" role="columnheader" (click)="sortBy(kind)">{{ kind }}{{ sortIndicator(kind) }}</button>
         }
+        <button type="button" role="columnheader" (click)="sortBy('coverage')">Coverage{{ sortIndicator('coverage') }}</button>
         <button type="button" role="columnheader" (click)="sortBy('state')">Review{{ sortIndicator('state') }}</button>
         <button type="button" role="columnheader" (click)="sortBy('findings')">Findings{{ sortIndicator('findings') }}</button>
         <button type="button" role="columnheader" (click)="sortBy('reviewedAt')">Reviewed{{ sortIndicator('reviewedAt') }}</button>
@@ -67,6 +105,8 @@
                   <small>{{ item.node.kinds[kind]?.score ?? '-' }}</small>
                 </span>
               }
+              <span class="coverage-cell" role="cell" [class.stale-coverage]="item.node.coverage?.state === 'stale'"
+                [title]="coverageTitle(item.node.coverage)">{{ coverageLabel(item.node.coverage) }}</span>
               <span class="state-cell" role="cell" aria-label="Review states">
                 @for (kind of reviewKinds; track kind) {
                   <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')" [title]="kind + ': ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
@@ -159,6 +199,7 @@
           <span>{{ language() }}</span>
           <span>{{ encodingLabel() }}</span>
           <span>{{ lineEndingLabel() }}</span>
+          <span class="statusbar-coverage" [class.stale-coverage]="file.coverage?.state === 'stale'" [title]="coverageTitle(file.coverage)">Coverage {{ coverageLabel(file.coverage) }}</span>
           @if (activeMeta(); as meta) {
             <span class="statusbar-review"><i class="status" [class]="'status ' + activeState()"></i>{{ activeKind() }} {{ meta.grade.band }} &middot; {{ reviewed(meta.reviewedAt) }}</span>
           } @else {

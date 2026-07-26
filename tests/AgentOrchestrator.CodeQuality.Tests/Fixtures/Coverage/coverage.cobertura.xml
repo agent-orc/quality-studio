@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="0.6667" branch-rate="0.5">
+  <packages>
+    <package name="Fixture">
+      <classes>
+        <class name="Calculator" filename="src/Calculator.cs">
+          <lines>
+            <line number="10" hits="1" />
+            <line number="11" hits="0" branch="true" condition-coverage="50% (1/2)" />
+            <line number="12" hits="3" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

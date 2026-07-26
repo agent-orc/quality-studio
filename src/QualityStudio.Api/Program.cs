@@ -36,9 +36,11 @@ builder.Services.AddSingleton<DependencyVulnerabilitySensor>();
 builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
 builder.Services.AddSingleton<AttackCoverageService>();
+builder.Services.AddSingleton<CoverageSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<CoverageSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
@@ -221,6 +223,8 @@ app.MapDelete("/api/repos/{repoId}", async (string repoId, RepositoryRegistry re
 
 app.MapGet("/api/tree", Tree);
 app.MapGet("/api/repos/{repoId}/tree", Tree);
+app.MapGet("/api/risk", Risk);
+app.MapGet("/api/repos/{repoId}/risk", Risk);
 app.MapGet("/api/file", FileContent);
 app.MapGet("/api/repos/{repoId}/file", FileContent);
 app.MapGet("/api/inputs", Inputs);
@@ -293,7 +297,9 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
         : registration.GlobalInputsDirectory;
     var snapshot = hierarchyCache.Get(
         repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
-    var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0" + requested)))}\"";
+    var coverage = CoverageSnapshot.Load(repository.Root);
+    var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+        snapshot.GitState + "\0" + requested + "\0" + coverage?.MeasuredAt)))}\"";
     context.Response.Headers.ETag = etag;
     if (context.Request.Headers.IfNoneMatch.Any(value => value!.Split(',').Select(candidate => candidate.Trim())
             .Any(candidate => candidate == "*" || StringComparer.Ordinal.Equals(candidate, etag))))
@@ -302,6 +308,7 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
     }
     var projects = snapshot.Roots;
     var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
     IReadOnlyList<HierarchyNode> selected = requested == "."
         ? projects
         : Flatten(projects).Where(node => string.Equals(node.Path, requested, StringComparison.Ordinal)).ToArray();
@@ -318,7 +325,8 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
     logger.LogInformation(new EventId(1100, "TreeLoaded"),
         "Loaded {NodeCount} tree roots for repository {RepositoryId} at {RepositoryPath} in {ElapsedMilliseconds} ms",
         selected.Count, registration.Id, requested, stopwatch.ElapsedMilliseconds);
-    return Results.Ok(new TreeResponse(requested, selected.Select(node => TreeNodeResponse.From(node, findingStates)).ToArray()));
+    return Results.Ok(new TreeResponse(requested,
+        selected.Select(node => TreeNodeResponse.From(node, findingStates, coverage, currentCommit)).ToArray()));
 }
 
 static async Task<IResult> FileContent(HttpContext context, string? path, RepositoryRegistry registry,
@@ -332,10 +340,75 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
     var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var coverage = CoverageProjection.ForPath(
+        CoverageSnapshot.Load(repository.Root),
+        CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD"),
+        relative,
+        file: true);
     logger.LogInformation(new EventId(1101, "FileLoaded"),
         "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}) in {ElapsedMilliseconds} ms",
         relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
-    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates), bytes.LongLength, lineEnding, encoding));
+    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates),
+        bytes.LongLength, lineEnding, encoding, coverage));
+}
+
+static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegistry registry,
+    RepositoryHierarchyCache hierarchyCache, InputResolver inputResolver, CancellationToken cancellationToken)
+{
+    var window = days ?? 90;
+    if (window is < 1 or > 3650) throw new ArgumentException("Risk churn window must be between 1 and 3,650 days.");
+    var (registration, repository) = ResolveRepository(context, registry);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    var roots = hierarchyCache.Get(repository.Root, inputResolver, globalDirectory,
+        registration.InputBudgetCharacters).Roots;
+    var states = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var snapshot = CoverageSnapshot.Load(repository.Root);
+    var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
+    var churn = new GitChurnAnalyzer().Analyze(repository.Root, window);
+    var files = Flatten(roots).Where(node => node.Level == ReviewLevel.File)
+        .DistinctBy(node => node.Path, StringComparer.Ordinal).ToArray();
+    var maxChanges = Math.Max(1, files.Select(file => churn.GetValueOrDefault(file.Path)).DefaultIfEmpty().Max());
+    var rows = files.Select(file =>
+    {
+        var kind = KindStateResponse.From(file, file.AggregatedStates[ReviewKind.Code], states);
+        var fileCoverage = CoverageProjection.ForPath(snapshot, currentCommit, file.Path, file: true);
+        var changes = churn.GetValueOrDefault(file.Path);
+        decimal? score = kind.Score.HasValue && fileCoverage.LinePercent.HasValue
+            ? Math.Round(
+                (100 - kind.Score.Value) * 0.4m +
+                (100 - fileCoverage.LinePercent.Value) * 0.4m +
+                changes * 20m / maxChanges,
+                2,
+                MidpointRounding.AwayFromZero)
+            : null;
+        return new RiskRowResponse(file.Path, file.Name, kind.Score, kind.Band, kind.Overall,
+            fileCoverage, changes, score);
+    }).OrderByDescending(row => row.RiskScore.HasValue).ThenByDescending(row => row.RiskScore)
+        .ThenByDescending(row => row.Changes).ThenBy(row => row.Path, StringComparer.Ordinal).ToArray();
+    var matrix = rows.GroupBy(row => new
+        {
+            Grade = row.GradeScore switch
+            {
+                null => "unknown",
+                < 70 => "weak",
+                < 80 => "mediocre",
+                _ => "strong",
+            },
+            Coverage = row.Coverage.LinePercent switch
+            {
+                null => "unknown",
+                < 50 => "low",
+                < 80 => "medium",
+                _ => "high",
+            },
+        })
+        .Select(group => new RiskMatrixCellResponse(group.Key.Grade, group.Key.Coverage,
+            group.Count(), group.Sum(row => row.Changes)))
+        .OrderBy(cell => cell.Grade, StringComparer.Ordinal).ThenBy(cell => cell.Coverage, StringComparer.Ordinal)
+        .ToArray();
+    return Results.Ok(new RiskResponse(window, currentCommit, rows, matrix));
 }
 
 static async Task<IResult> MutateFindingState(HttpContext context, FindingStateMutationRequest request,

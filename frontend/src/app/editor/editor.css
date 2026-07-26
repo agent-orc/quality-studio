@@ -47,7 +47,7 @@
 .rollups small{grid-column:2;color:var(--studio-fg-dim);font:9px var(--font-mono)}
 .scope-diagnostics{max-height:150px;overflow:auto;padding:8px 16px;border-bottom:1px solid color-mix(in srgb,var(--status-stale) 35%,var(--studio-border));background:color-mix(in srgb,var(--status-stale) 8%,var(--studio-bg-editor));font-size:9px}.scope-diagnostics header,.scope-diagnostics div{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr);gap:12px;padding:3px 0}.scope-diagnostics header{color:var(--status-stale)}.scope-diagnostics header span,.scope-diagnostics div span{color:var(--studio-fg-muted)}.scope-diagnostics code{overflow:hidden;text-overflow:ellipsis;color:var(--studio-fg);font:9px var(--font-mono);white-space:nowrap}
 .folder-table{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--studio-bg-editor)}
-.folder-columns,.folder-row{min-width:1040px;display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(76px,.7fr)) minmax(90px,.8fr) 130px 116px 72px 58px;align-items:center}
+.folder-columns,.folder-row{min-width:1120px;display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(76px,.7fr)) minmax(82px,.7fr) minmax(90px,.8fr) 130px 116px 72px 58px;align-items:center}
 .folder-columns{position:sticky;top:0;z-index:3;height:34px;border-bottom:1px solid var(--studio-border);background:var(--studio-bg-surface)}
 .folder-columns button{height:34px;padding:0 9px;border:0;border-right:1px solid var(--studio-border-soft);background:transparent;color:var(--studio-fg-dim);font-size:8px;font-weight:700;text-align:left;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
 .folder-columns button:hover{color:var(--studio-fg);background:var(--studio-bg-elevated)}
@@ -56,6 +56,8 @@
 .folder-row{position:absolute;left:0;right:0;height:38px;padding:0;border:0;border-bottom:1px solid var(--studio-border-soft);background:transparent;color:var(--studio-fg-muted);font-size:9px;text-align:left;cursor:pointer}
 .folder-row:hover,.folder-row:focus-visible{background:var(--studio-selected);outline:none}
 .folder-row>span{min-width:0;padding:0 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coverage-cell{font:700 9px var(--font-mono);color:var(--status-fresh)}
+.stale-coverage{color:var(--status-stale)!important}
 .name-cell{display:flex;align-items:center;gap:8px}
 .name-cell>i{color:var(--studio-accent);font-style:normal}
 .name-cell span{min-width:0;display:flex;flex-direction:column}
@@ -73,4 +75,5 @@
 .statusbar-path-name{flex:none;white-space:nowrap}
 .statusbar-meta{display:flex;align-items:center;gap:16px;flex:none;white-space:nowrap}
 .statusbar-review{display:flex;align-items:center;gap:5px;text-transform:capitalize}
+.statusbar-coverage{color:var(--status-fresh);font-family:var(--font-mono)}
 .statusbar-empty{color:var(--studio-fg-dim)}
