@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "ESLint",
+          "version": "9.31.0",
+          "rules": [
+            {
+              "id": "@typescript-eslint/no-floating-promises",
+              "name": "no-floating-promises",
+              "shortDescription": { "text": "Promises must be awaited" },
+              "helpUri": "https://typescript-eslint.io/rules/no-floating-promises",
+              "messageStrings": {
+                "floating": { "text": "Promises must be awaited: {0}." }
+              },
+              "properties": { "category": "Possible Errors" }
+            }
+          ]
+        }
+      },
+      "artifacts": [
+        { "location": { "uri": "frontend/src/app.ts" } },
+        { "location": { "uri": "frontend/src/service.ts" } }
+      ],
+      "results": [
+        {
+          "rule": { "id": "@typescript-eslint/no-floating-promises", "index": 0 },
+          "level": "error",
+          "message": { "id": "floating", "arguments": ["loadData()"] },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "index": 0 },
+                "region": { "startLine": 4, "startColumn": 3 }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "index": 1 },
+                "region": { "startLine": 8, "startColumn": 1 }
+              }
+            }
+          ],
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "physicalLocation": {
+                          "artifactLocation": { "index": 1 },
+                          "region": { "startLine": 12, "startColumn": 5 }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

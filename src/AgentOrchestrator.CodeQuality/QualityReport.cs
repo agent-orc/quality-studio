@@ -85,7 +85,10 @@ public sealed record QualityFinding(
     string Description,
     string Recommendation,
     string Fingerprint,
-    IReadOnlyList<QualityFindingLocation> Locations);
+    IReadOnlyList<QualityFindingLocation> Locations,
+    string Source = "agent",
+    string? SensorId = null,
+    string? Producer = null);
 
 public sealed record QualityFindingLocation(
     string Path,
@@ -268,36 +271,62 @@ public sealed class QualityReportBuilder
         var findings = new List<QualityFinding>();
         foreach (var finding in metadata["findings"]?.AsArray().OfType<JsonObject>() ?? [])
         {
-            var id = finding["id"]?.GetValue<string>();
-            if (id is null) continue;
-            var ruleId = finding["ruleId"]?.GetValue<string>() ?? id;
-            var locations = (finding["locations"]?.AsArray().OfType<JsonObject>() ?? [])
-                .Select(location =>
-                {
-                    var range = location["range"]?.AsObject();
-                    return new QualityFindingLocation(
-                        location["path"]?.GetValue<string>() ?? ".",
-                        IntAt(range, "start", "line"),
-                        IntAt(range, "start", "column"),
-                        IntAt(range, "end", "line"),
-                        IntAt(range, "end", "column"));
-                }).ToArray();
-            var fingerprint = finding["fingerprint"]?.GetValue<string>() ??
-                              LegacyFingerprint(kind, ruleId, finding, locations);
-            findings.Add(new QualityFinding(
-                repositoryId,
-                id,
-                ruleId,
-                kind,
-                finding["severity"]?.GetValue<string>()?.ToLowerInvariant() ?? "info",
-                finding["state"]?.GetValue<string>()?.ToLowerInvariant() ?? "open",
-                finding["title"]?.GetValue<string>() ?? id,
-                finding["description"]?.GetValue<string>() ?? string.Empty,
-                finding["recommendation"]?.GetValue<string>() ?? string.Empty,
-                fingerprint,
-                locations));
+            if (ParseFinding(finding, repositoryId, kind, "agent", null, null) is { } parsed)
+                findings.Add(parsed);
+        }
+        foreach (var sensor in metadata["deterministicEvidence"]?.AsArray().OfType<JsonObject>() ?? [])
+        {
+            var sensorId = sensor["provenance"]?["sensorId"]?.GetValue<string>();
+            foreach (var finding in sensor["findings"]?.AsArray().OfType<JsonObject>() ?? [])
+            {
+                var producer = finding["source"]?["producer"]?.GetValue<string>();
+                if (ParseFinding(
+                        finding, repositoryId, kind, "deterministic", sensorId, producer) is { } parsed)
+                    findings.Add(parsed);
+            }
         }
         return new Observation(kind, level, Math.Clamp(score.Value, 0, 100), findings);
+    }
+
+    private static QualityFinding? ParseFinding(
+        JsonObject finding,
+        string repositoryId,
+        string kind,
+        string source,
+        string? sensorId,
+        string? producer)
+    {
+        var id = finding["id"]?.GetValue<string>();
+        if (id is null) return null;
+        var ruleId = finding["ruleId"]?.GetValue<string>() ?? id;
+        var locations = (finding["locations"]?.AsArray().OfType<JsonObject>() ?? [])
+            .Select(location =>
+            {
+                var range = location["range"]?.AsObject();
+                return new QualityFindingLocation(
+                    location["path"]?.GetValue<string>() ?? ".",
+                    IntAt(range, "start", "line"),
+                    IntAt(range, "start", "column"),
+                    IntAt(range, "end", "line"),
+                    IntAt(range, "end", "column"));
+            }).ToArray();
+        var fingerprint = finding["fingerprint"]?.GetValue<string>() ??
+                          LegacyFingerprint(kind, ruleId, finding, locations);
+        return new QualityFinding(
+            repositoryId,
+            id,
+            ruleId,
+            kind,
+            finding["severity"]?.GetValue<string>()?.ToLowerInvariant() ?? "info",
+            finding["state"]?.GetValue<string>()?.ToLowerInvariant() ?? "open",
+            finding["title"]?.GetValue<string>() ?? id,
+            finding["description"]?.GetValue<string>() ?? string.Empty,
+            finding["recommendation"]?.GetValue<string>() ?? string.Empty,
+            fingerprint,
+            locations,
+            source,
+            sensorId,
+            producer);
     }
 
     private static string LegacyFingerprint(
@@ -556,7 +585,10 @@ public static class QualityReportRenderer
                 var location = finding.Locations.FirstOrDefault();
                 var at = location is null ? string.Empty :
                     $" — {EscapeMarkdown(location.Path)}{(location.StartLine.HasValue ? $":{location.StartLine}" : string.Empty)}";
-                text.AppendLine($"- [{EscapeMarkdown(finding.Severity)}/{EscapeMarkdown(finding.State)}] {EscapeMarkdown(finding.Title)}{at}");
+                var source = finding.Source == "deterministic"
+                    ? $"deterministic:{finding.Producer ?? finding.SensorId ?? "analyzer"}"
+                    : "agent";
+                text.AppendLine($"- [{EscapeMarkdown(finding.Severity)}/{EscapeMarkdown(finding.State)}/{EscapeMarkdown(source)}] {EscapeMarkdown(finding.Title)}{at}");
             }
             text.AppendLine();
             text.AppendLine("### Staleness");
@@ -637,6 +669,9 @@ public static class QualityReportRenderer
                         ["severity"] = finding.Severity,
                         ["state"] = finding.State,
                         ["recommendation"] = finding.Recommendation,
+                        ["source"] = finding.Source,
+                        ["sensorId"] = finding.SensorId,
+                        ["producer"] = finding.Producer,
                     },
                     ["locations"] = new JsonArray(finding.Locations.Select(location =>
                     {

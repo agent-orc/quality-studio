@@ -56,6 +56,11 @@ public sealed partial class ReviewResponseParser
         foreach (var findingNode in findings)
         {
             var finding = findingNode?.AsObject() ?? throw Invalid("finding");
+            if (finding.ContainsKey("source"))
+            {
+                throw new ReviewResponseException(
+                    "Agent-authored findings cannot claim deterministic source provenance.");
+            }
             foreach (var property in new[] { "id", "ruleId", "aspect", "severity", "title", "description", "recommendation" })
             {
                 RequireString(finding, property);

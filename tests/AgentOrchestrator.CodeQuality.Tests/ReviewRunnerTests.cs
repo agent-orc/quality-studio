@@ -93,6 +93,23 @@ public sealed class ReviewResponseParserTests
         Assert.Contains("ruleId", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Parse_RejectsAgentClaimingDeterministicSource()
+    {
+        var response = ValidResponse.Replace(
+            "\"findings\": []",
+            "\"findings\": [" + ValidFinding.Replace(
+                "\"locations\":",
+                "\"source\":{\"kind\":\"deterministic\",\"sensorId\":\"fake\",\"producer\":\"fake\"},\"locations\":",
+                StringComparison.Ordinal) + "]",
+            StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ReviewResponseException>(() =>
+            new ReviewResponseParser().Parse(response));
+
+        Assert.Contains("cannot claim deterministic", exception.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not json")]
@@ -268,6 +285,63 @@ public sealed class ReviewRunnerTests
             Assert.Contains("\"id\": \"gitleaks\"", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("machine-produced sensor evidence", agent.Prompt, StringComparison.OrdinalIgnoreCase);
             Assert.Single(Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories));
+        });
+    }
+
+    [Fact]
+    public async Task DeterministicEvidence_RemainsSeparateAndDoesNotMoveAgentGrade()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var finding = new ReviewFinding(
+                "roslyn-ca1822-aaaaaaaaaaaa",
+                "analyzer",
+                FindingSeverity.Medium,
+                "Mark members as static",
+                "Member does not access instance data.",
+                "Make the member static.",
+                [new FindingLocation("src/Small.cs", new FindingRange(
+                    new FindingPosition(1, 1), new FindingPosition(1, 5)))],
+                "sha256:" + new string('a', 64),
+                "CA1822",
+                Source: new FindingSource(
+                    FindingSourceKind.Deterministic,
+                    "roslyn",
+                    "Microsoft.CodeAnalysis",
+                    "4.14.0",
+                    0));
+            var evidence = new SensorScanResult(
+                true,
+                null,
+                [finding],
+                new SensorProvenance(
+                    "roslyn",
+                    "1.0.0",
+                    "repository",
+                    ".",
+                    "2026-07-26T10:00:00.000Z",
+                    new Dictionary<string, string> { ["Microsoft.CodeAnalysis"] = "4.14.0" }));
+            var agent = new FakeAgent();
+
+            var result = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest(
+                    "src/Small.cs",
+                    RepositoryRoot: root,
+                    DeterministicEvidence: [evidence]),
+                TestContext.Current.CancellationToken);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
+                result.MetaPath, TestContext.Current.CancellationToken));
+            Assert.Equal(95, document.RootElement.GetProperty("grade").GetProperty("score").GetInt32());
+            Assert.Empty(document.RootElement.GetProperty("findings").EnumerateArray());
+            var stored = Assert.Single(document.RootElement.GetProperty("deterministicEvidence").EnumerateArray());
+            var storedFinding = Assert.Single(stored.GetProperty("findings").EnumerateArray());
+            Assert.Equal("CA1822", storedFinding.GetProperty("ruleId").GetString());
+            Assert.Equal("deterministic",
+                storedFinding.GetProperty("source").GetProperty("kind").GetString());
+            Assert.Contains("Judge their applicability", agent.Prompt, StringComparison.Ordinal);
+            Assert.Contains("deduplicate", agent.Prompt, StringComparison.Ordinal);
+            Assert.Contains("does not set or cap", agent.Prompt, StringComparison.Ordinal);
         });
     }
 

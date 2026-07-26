@@ -38,10 +38,18 @@ builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
 builder.Services.AddSingleton<AttackCoverageService>();
 builder.Services.AddSingleton<CoverageSensor>();
+builder.Services.AddSingleton<SarifSensor>();
+builder.Services.AddSingleton<RoslynAnalyzerSensor>();
+builder.Services.AddSingleton<EslintAnalyzerSensor>();
+builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<CoverageSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<SarifSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<RoslynAnalyzerSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));

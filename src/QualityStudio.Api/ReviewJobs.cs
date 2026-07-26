@@ -113,12 +113,13 @@ public sealed class ReviewJobService : BackgroundService
     private readonly QuotaService quotas;
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly IReviewExecutorFactory executors;
+    private readonly SensorRegistry sensorRegistry;
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
-        IReviewExecutorFactory executors, ProjectDashboardService dashboards)
+        IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -127,6 +128,7 @@ public sealed class ReviewJobService : BackgroundService
         this.hierarchyCache = hierarchyCache;
         this.executors = executors;
         this.dashboards = dashboards;
+        this.sensorRegistry = sensorRegistry;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -407,6 +409,15 @@ public sealed class ReviewJobService : BackgroundService
         logger.LogInformation(new EventId(1501, "ReviewStarted"), "Started review {ReviewRunId}", item.Id);
         try
         {
+            item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
+                .CollectAsync(
+                    item.Repository.RootPath,
+                    (item.Repository.Sensors ?? [])
+                        .Where(sensor => sensor.Enabled)
+                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                        .ToArray(),
+                    linked.Token)
+                .ConfigureAwait(false);
             if (item.HasCap)
             {
                 foreach (var file in item.PendingFiles())
@@ -538,10 +549,12 @@ public sealed class ReviewJobService : BackgroundService
             ReviewRunId: item.Id,
             Sensors: item.Kind == "security"
                 ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
-                    .Where(sensor => sensor.Enabled)
+                    .Where(sensor => sensor.Enabled &&
+                                     sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
-                : null);
+                : null,
+            DeterministicEvidence: item.DeterministicEvidence);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -659,6 +672,7 @@ public sealed class ReviewJobService : BackgroundService
         public string State { get { lock (gate) return state; } }
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
+        public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
 
         public void PrepareForRecovery()
         {

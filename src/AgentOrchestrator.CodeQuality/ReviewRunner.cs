@@ -22,7 +22,9 @@ public sealed record ReviewRequest(
     IReadOnlyList<string>? AggregateControls = null,
     IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
     string? ReviewRunId = null,
-    IReadOnlyList<ReviewSensorConfiguration>? Sensors = null);
+    IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
+    IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -60,7 +62,8 @@ public sealed class ReviewRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads, sensorEvidence) = prepared;
+        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
+            sensorEvidence, deterministicEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
@@ -146,7 +149,8 @@ public sealed class ReviewRunner
                     request.DisplayName,
                     usage,
                     threads,
-                    sensorEvidence);
+                    sensorEvidence,
+                    deterministicEvidence);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 await File.WriteAllTextAsync(
@@ -220,6 +224,10 @@ public sealed class ReviewRunner
             .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
         var sensorEvidence = await CollectSensorEvidenceAsync(
             request, root, subjectPaths, cancellationToken).ConfigureAwait(false);
+        var deterministicEvidence = DeterministicEvidenceProjection.ForSubjects(
+            request.DeterministicEvidence ??
+            await CollectDeterministicEvidenceAsync(request, root, cancellationToken).ConfigureAwait(false),
+            subjectPaths);
         var coverageEvidence = CoverageProjection.Evidence(
             CoverageSnapshot.Load(root),
             CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD"),
@@ -228,9 +236,10 @@ public sealed class ReviewRunner
             projectGuidelines, fileContent, openThreads,
             request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
             request.Level,
-            coverageEvidence);
+            coverageEvidence,
+            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
-            prompt, unitId, metaPath, threads, sensorEvidence);
+            prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
 
     private async Task<SecurityEvidenceBundle> CollectSensorEvidenceAsync(
@@ -245,6 +254,19 @@ public sealed class ReviewRunner
             throw new InvalidOperationException("Security sensors were configured for the review, but no sensor registry is available.");
         return await new SecurityEvidenceCollector(_sensorRegistry)
             .CollectAsync(root, subjectPaths, request.Sensors, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<SensorScanResult>> CollectDeterministicEvidenceAsync(
+        ReviewRequest request,
+        string root,
+        CancellationToken cancellationToken)
+    {
+        if (request.DeterministicSensors is not { Count: > 0 }) return [];
+        if (_sensorRegistry is null)
+            throw new InvalidOperationException(
+                "Deterministic analyzer sensors were configured for the review, but no sensor registry is available.");
+        return await new DeterministicEvidenceCollector(_sensorRegistry)
+            .CollectAsync(root, request.DeterministicSensors, cancellationToken).ConfigureAwait(false);
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
@@ -281,7 +303,8 @@ public sealed class ReviewRunner
         string? displayName,
         ReviewUsageEntry usage,
         JsonArray threads,
-        SecurityEvidenceBundle sensorEvidence)
+        SecurityEvidenceBundle sensorEvidence,
+        IReadOnlyList<SensorScanResult> deterministicEvidence)
     {
         var promptHash = ReviewPromptBuilder.TemplateHash(kind);
         var effectiveHash = inputs.EffectiveHash(promptHash);
@@ -357,6 +380,8 @@ public sealed class ReviewRunner
             ["aspects"] = response["aspects"]!.DeepClone(),
             ["findings"] = response["findings"]!.DeepClone(),
             ["threads"] = threads.DeepClone(),
+            ["deterministicEvidence"] = JsonSerializer.SerializeToNode(
+                deterministicEvidence, ReviewMetaJson.Options),
         };
         if (kind == "security" && sensorEvidence.Sensors.Count > 0)
         {
@@ -568,7 +593,8 @@ public sealed class ReviewRunner
         string UnitId,
         string MetaPath,
         JsonArray Threads,
-        SecurityEvidenceBundle SensorEvidence);
+        SecurityEvidenceBundle SensorEvidence,
+        IReadOnlyList<SensorScanResult> DeterministicEvidence);
 }
 
 public sealed class ReviewRunException(string message) : Exception(message);

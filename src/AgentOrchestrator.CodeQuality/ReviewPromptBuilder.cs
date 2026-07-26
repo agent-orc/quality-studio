@@ -8,7 +8,7 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class ReviewPromptBuilder
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
-    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v2-coverage-evidence";
+    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v3-deterministic-evidence";
 
     public string Build(
         string filePath,
@@ -19,7 +19,8 @@ public sealed class ReviewPromptBuilder
         JsonArray? openThreads = null,
         string? securitySensorEvidence = null,
         ReviewLevel level = ReviewLevel.File,
-        string? coverageEvidence = null)
+        string? coverageEvidence = null,
+        string? deterministicEvidence = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -48,6 +49,19 @@ public sealed class ReviewPromptBuilder
 """ + (string.IsNullOrWhiteSpace(coverageEvidence)
             ? "No coverage data is available. Treat coverage as unknown; do not infer 0% coverage."
             : coverageEvidence.Trim());
+        prompt += """
+
+
+## Deterministic analyzer evidence
+
+The JSON below contains prior machine-produced facts, not conclusions authored by the review agent.
+Judge their applicability, deduplicate them against issues you independently confirm, and prioritise them
+with the rest of the review. Do not repeat an analyzer result as an agent finding merely because it appears
+here. Keep its producer and `ruleId` visible whenever you refer to it. Your grade remains your own explicit
+judgement; analyzer evidence does not set or cap it.
+
+```json
+""" + (string.IsNullOrWhiteSpace(deterministicEvidence) ? "[]" : deterministicEvidence.Trim()) + "\n```";
         if (openThreads is not { Count: > 0 }) return prompt;
         return prompt + """
 

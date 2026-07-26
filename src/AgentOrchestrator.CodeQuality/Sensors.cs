@@ -49,6 +49,12 @@ public interface IReviewSensor
     Task<SensorScanResult> RunAsync(SensorScanRequest request, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Marks sensor output that is safe to expose to an agent as prior deterministic evidence.
+/// The evidence remains separate from findings authored by the review agent.
+/// </summary>
+public interface IDeterministicEvidenceSensor : IReviewSensor;
+
 public sealed class SensorRegistry
 {
     private readonly IReadOnlyDictionary<string, IReviewSensor> sensors;

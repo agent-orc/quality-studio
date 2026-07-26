@@ -41,7 +41,8 @@ export type FindingState = 'open' | 'accepted' | 'waived' | 'false-positive' | '
 export interface FindingStateCounts { open: number; accepted: number; waived: number; falsePositive: number; resolved: number; }
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+export interface FindingSource { kind: 'deterministic'; sensorId: string; producer: string; producerVersion?: string; runIndex?: number; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
@@ -53,7 +54,9 @@ export interface ReviewAspect { id: string; title: string; grade: ReviewGrade; }
 export interface ReviewSensorReference { id: string; version: string; resultHash: string; }
 export interface SecuritySensorMetadata extends ReviewSensorReference { available: boolean; unavailableReason: string | null; verdict: SecurityVerdict; toolVersions: Record<string, string>; }
 export interface SecurityReviewMetadata { verdict: SecurityVerdict; combinationRule: string; sensors: SecuritySensorMetadata[]; }
-export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
+export interface SensorProvenance { sensorId: string; sensorVersion: string; scope: string; target: string; scannedAt: string; toolVersions: Record<string, string>; }
+export interface DeterministicSensorResult { available: boolean; unavailableReason: string | null; findings: ReviewFinding[]; provenance: SensorProvenance; }
+export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
 export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
 export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
