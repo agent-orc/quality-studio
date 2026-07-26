@@ -1,0 +1,118 @@
+{
+  "$schema": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "schemaVersion": 1,
+  "changeSet": {
+    "provider": "git-merge-range",
+    "baseCommit": "d38a8dc9c43cb1d8ba9cc945a4042074d9410c32",
+    "headCommit": "0d03986269a9792c112776af558eddccf5a3f56b",
+    "title": "docs: add QS-24 telemetry requirement to concept links",
+    "committedAt": "2026-07-21T14:58:09+02:00",
+    "touchedFiles": [
+      {
+        "path": "docs/concept.md.meta.json",
+        "kind": "modified",
+        "additions": 6,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      }
+    ]
+  },
+  "reviewedAt": "2026-07-25T11:13:38.1808749+00:00",
+  "touchedUnits": [
+    {
+      "id": "path:project:.",
+      "adapter": "path",
+      "level": "project",
+      "path": ".",
+      "displayName": "Repository"
+    },
+    {
+      "id": "path:module:docs",
+      "adapter": "path",
+      "level": "module",
+      "path": "docs",
+      "displayName": "docs"
+    },
+    {
+      "id": "path:file:090a3fbe83d6e2f433775d44e95d6f8566d6f579fe67222e69cb9b90dc4d61b3",
+      "adapter": "path",
+      "level": "file",
+      "path": "docs/concept.md.meta.json",
+      "displayName": "concept.md.meta.json"
+    }
+  ],
+  "delta": {
+    "grades": [],
+    "findings": {
+      "new": [],
+      "resolved": [],
+      "persisting": []
+    },
+    "newlyStale": [],
+    "boundaries": {
+      "new": [],
+      "changed": [],
+      "removed": []
+    },
+    "coverage": {
+      "status": "unavailable",
+      "reason": "Coverage ingestion is not available."
+    },
+    "churn": {
+      "filesTouched": 1,
+      "filesAdded": 0,
+      "filesModified": 1,
+      "filesDeleted": 0,
+      "filesMoved": 0,
+      "linesAdded": 6,
+      "linesDeleted": 0,
+      "repositoryFiles": 135,
+      "blastRadiusPercent": 0.74
+    },
+    "onlyMoves": false,
+    "hasQualityDelta": false
+  },
+  "judgement": {
+    "status": "not-run",
+    "reviewer": "none",
+    "aspects": [
+      {
+        "id": "risk",
+        "title": "Risk of the change",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "test-evidence",
+        "title": "Test evidence",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "scope-discipline",
+        "title": "Scope discipline",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "architecture-drift",
+        "title": "Architecture drift",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      }
+    ],
+    "summary": "Deterministic evidence only."
+  },
+  "economy": {
+    "diffFiles": 1,
+    "fullSweepFiles": 1,
+    "diffLines": 18,
+    "diffCharacters": 640,
+    "fullSweepCharacters": 2077,
+    "evidenceRatioPercent": 30.81,
+    "savedPercent": 69.19
+  },
+  "verdict": "no-quality-delta",
+  "summary": "No quality delta was observed in the standing review evidence for the touched units."
+}

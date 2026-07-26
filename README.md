@@ -133,6 +133,21 @@ changes appear in normal source-control diffs. See
 [`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and
 derivation rules.
 
+## Change-set review
+
+Review one merge range, or backfill an integration trajectory, without sweeping
+untouched units:
+
+```shell
+dotnet run --project src/quality-cli -- diff . --base <base> --head <head> --fail-on-regression
+dotnet run --project src/quality-cli -- diff . --last 20
+```
+
+Change truth is committed under `.quality/changes/`. See
+[`docs/change-reviews.md`](docs/change-reviews.md) for provider semantics,
+deterministic delta fields, agent aspects, economy measurements, and gate exit
+codes.
+
 ## Security scan
 
 Run the deterministic Gitleaks sensor to produce structured security findings and

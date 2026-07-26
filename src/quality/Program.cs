@@ -9,13 +9,18 @@ internal static class QualityCommand
     {
         if (args.Length == 0 || args[0] is "--help" or "-h")
         {
-            output.WriteLine("Usage: quality scan [path] [--by-level]\n       quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
+            output.WriteLine("Usage: quality scan [path] [--by-level]\n       quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression]\n       quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
             return 0;
         }
 
         if (StringComparer.OrdinalIgnoreCase.Equals(args[0], "security"))
         {
             return RunSecurity(args.Skip(1).ToArray(), output, error);
+        }
+
+        if (StringComparer.OrdinalIgnoreCase.Equals(args[0], "diff"))
+        {
+            return ChangeDiffCommand.RunAsync(args.Skip(1).ToArray(), output, error).GetAwaiter().GetResult();
         }
 
         if (!StringComparer.OrdinalIgnoreCase.Equals(args[0], "scan"))

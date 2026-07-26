@@ -1,0 +1,515 @@
+{
+  "$schema": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "schemaVersion": 1,
+  "changeSet": {
+    "provider": "git-merge-range",
+    "baseCommit": "e3619ed227b03f7cc501d5627bb663341d3bd46a",
+    "headCommit": "e4cc1d14752690df02cc8e16dcdefdcdc90d882b",
+    "title": "QS telemetry: persist token usage for all review operations and show available quotas in the topbar",
+    "committedAt": "2026-07-21T13:02:40+02:00",
+    "touchedFiles": [
+      {
+        "path": "docs/api.md",
+        "kind": "modified",
+        "additions": 10,
+        "deletions": 2,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "docs/usage-telemetry.md",
+        "kind": "added",
+        "additions": 30,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/app.css",
+        "kind": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/app.html",
+        "kind": "modified",
+        "additions": 9,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/app.ts",
+        "kind": "modified",
+        "additions": 28,
+        "deletions": 3,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/quality-api.spec.ts",
+        "kind": "modified",
+        "additions": 20,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/quality-api.ts",
+        "kind": "modified",
+        "additions": 38,
+        "deletions": 2,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-panel/review-panel.css",
+        "kind": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-panel/review-panel.html",
+        "kind": "modified",
+        "additions": 6,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-panel/review-panel.ts",
+        "kind": "modified",
+        "additions": 7,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "samples/review-meta.v1.sample.json",
+        "kind": "modified",
+        "additions": 10,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "schemas/review-meta.v1.schema.json",
+        "kind": "modified",
+        "additions": 16,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "schemas/usage-ledger.v1.schema.json",
+        "kind": "added",
+        "additions": 33,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+        "kind": "modified",
+        "additions": 69,
+        "deletions": 14,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaContract.cs",
+        "kind": "modified",
+        "additions": 2,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+        "kind": "modified",
+        "additions": 60,
+        "deletions": 7,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs",
+        "kind": "modified",
+        "additions": 5,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+        "kind": "added",
+        "additions": 122,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "kind": "modified",
+        "additions": 52,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/ReviewJobs.cs",
+        "kind": "modified",
+        "additions": 26,
+        "deletions": 5,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewMetaContractTests.cs",
+        "kind": "modified",
+        "additions": 33,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+        "kind": "modified",
+        "additions": 58,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs",
+        "kind": "modified",
+        "additions": 35,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      }
+    ]
+  },
+  "reviewedAt": "2026-07-25T11:13:37.1024536+00:00",
+  "touchedUnits": [
+    {
+      "id": "path:project:.",
+      "adapter": "path",
+      "level": "project",
+      "path": ".",
+      "displayName": "Repository"
+    },
+    {
+      "id": "path:module:docs",
+      "adapter": "path",
+      "level": "module",
+      "path": "docs",
+      "displayName": "docs"
+    },
+    {
+      "id": "path:module:frontend",
+      "adapter": "path",
+      "level": "module",
+      "path": "frontend",
+      "displayName": "frontend"
+    },
+    {
+      "id": "path:module:samples",
+      "adapter": "path",
+      "level": "module",
+      "path": "samples",
+      "displayName": "samples"
+    },
+    {
+      "id": "path:module:schemas",
+      "adapter": "path",
+      "level": "module",
+      "path": "schemas",
+      "displayName": "schemas"
+    },
+    {
+      "id": "path:module:src/AgentOrchestrator.CodeQuality",
+      "adapter": "path",
+      "level": "module",
+      "path": "src/AgentOrchestrator.CodeQuality",
+      "displayName": "src/AgentOrchestrator.CodeQuality"
+    },
+    {
+      "id": "path:module:src/QualityStudio.Api",
+      "adapter": "path",
+      "level": "module",
+      "path": "src/QualityStudio.Api",
+      "displayName": "src/QualityStudio.Api"
+    },
+    {
+      "id": "path:module:tests",
+      "adapter": "path",
+      "level": "module",
+      "path": "tests",
+      "displayName": "tests"
+    },
+    {
+      "id": "path:file:9eddf4dc51bf6a0125ca7fb094468ad284112270385c41cebce4f8f0a29620ab",
+      "adapter": "path",
+      "level": "file",
+      "path": "docs/api.md",
+      "displayName": "api.md"
+    },
+    {
+      "id": "path:file:df3cf729ba3b18c4eb87722fee91f2dcf9c745c5abb29efeba5fd8e604eac2c5",
+      "adapter": "path",
+      "level": "file",
+      "path": "docs/usage-telemetry.md",
+      "displayName": "usage-telemetry.md"
+    },
+    {
+      "id": "path:file:bad518df85a11d06f099908c4148162444500761ce70da16499a216ae98684c1",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.css",
+      "displayName": "app.css"
+    },
+    {
+      "id": "path:file:3f38c1bd0aad87f3b4cdd64e171013e5fd0c436a6d86554df0b2a46bd3158bf0",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.html",
+      "displayName": "app.html"
+    },
+    {
+      "id": "path:file:0091d0264f0bfcffa7fe38c04c7cbcb6edc5b965d372bfc5754d5dbb353c3465",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.ts",
+      "displayName": "app.ts"
+    },
+    {
+      "id": "path:file:5efa03ddd5da686597ff11495b6f73d3d6399fecad1fc2c1ba6b45a6ee700231",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/quality-api.spec.ts",
+      "displayName": "quality-api.spec.ts"
+    },
+    {
+      "id": "path:file:a93e52831b4966d96147f8ee697982fb6f37005ffe7aba206ecf5bc821e2f9a7",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/quality-api.ts",
+      "displayName": "quality-api.ts"
+    },
+    {
+      "id": "path:file:54e2663a5eba56f2a4c1dbc76fe6eb3e94ae4090163f29a60fefa5da1fadeab0",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-panel/review-panel.css",
+      "displayName": "review-panel.css"
+    },
+    {
+      "id": "path:file:88ca91be57b6c67f3b921bcbec335c32414a74ef728fbf3ea027256a4c764925",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-panel/review-panel.html",
+      "displayName": "review-panel.html"
+    },
+    {
+      "id": "path:file:ebcfd80e3b83a97e60ec2d672ec9fa99dbfdf4836dc27382caa7290dabd0c7bf",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-panel/review-panel.ts",
+      "displayName": "review-panel.ts"
+    },
+    {
+      "id": "path:file:d1d6e2c7b1d61afb2308b28c5ddda48684c3a473ca90ce64c0671d974b7206c5",
+      "adapter": "path",
+      "level": "file",
+      "path": "samples/review-meta.v1.sample.json",
+      "displayName": "review-meta.v1.sample.json"
+    },
+    {
+      "id": "path:file:be00c5e5976023b45f96ed4ca5d304a963289e2e54545d103dbb09c3c178e4af",
+      "adapter": "path",
+      "level": "file",
+      "path": "schemas/review-meta.v1.schema.json",
+      "displayName": "review-meta.v1.schema.json"
+    },
+    {
+      "id": "path:file:41bad8f4191619f1cee1d47dcdf635ed7cac4b73b21c3e324b77ad7ac05ac1da",
+      "adapter": "path",
+      "level": "file",
+      "path": "schemas/usage-ledger.v1.schema.json",
+      "displayName": "usage-ledger.v1.schema.json"
+    },
+    {
+      "id": "path:file:697697e362c05eed96ed623c585ac2beb90bf5d93a0545f6dd35c754da107811",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+      "displayName": "ReviewAgent.cs"
+    },
+    {
+      "id": "path:file:bd6bda2a8078b5822d6f53f8e3993dc69ac1142b98c03b8d0a1d762326a22c1f",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaContract.cs",
+      "displayName": "ReviewMetaContract.cs"
+    },
+    {
+      "id": "path:file:28830e2ae9b873b288508b6241763b316d8434662592f9a4fd27e31fe8d8db84",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+      "displayName": "ReviewRunner.cs"
+    },
+    {
+      "id": "path:file:b3952b4314d6e26727f40b606b876d21c8cbfd9f354e7d89e504a87bbeb5af09",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs",
+      "displayName": "StalenessEvaluator.cs"
+    },
+    {
+      "id": "path:file:a1792a8d22b4116601cbcb7e1a4c613c33672acfb3f878d6700e7e36f3e25b3a",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+      "displayName": "UsageTelemetry.cs"
+    },
+    {
+      "id": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "displayName": "Program.cs"
+    },
+    {
+      "id": "path:file:13a72d97525ff664ccf9081867e06fd426c977bba1423eec5c868ac1ee736058",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewJobs.cs",
+      "displayName": "ReviewJobs.cs"
+    },
+    {
+      "id": "path:file:2e472c91a17815accf1b58545d13f3a3f1d9a50134e9992631a31a317a993450",
+      "adapter": "path",
+      "level": "file",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewMetaContractTests.cs",
+      "displayName": "ReviewMetaContractTests.cs"
+    },
+    {
+      "id": "path:file:9b4dda33159cf580697ebb7ed27ffbeaedc1643247028d20170f23afd58c613a",
+      "adapter": "path",
+      "level": "file",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "displayName": "ReviewRunnerTests.cs"
+    },
+    {
+      "id": "path:file:b78f468c0da150b51f5e550566cf8a2730d75b45fb5d3313a55fc188073b8239",
+      "adapter": "path",
+      "level": "file",
+      "path": "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs",
+      "displayName": "ApiSmokeTests.cs"
+    }
+  ],
+  "delta": {
+    "grades": [],
+    "findings": {
+      "new": [],
+      "resolved": [],
+      "persisting": []
+    },
+    "newlyStale": [],
+    "boundaries": {
+      "new": [
+        {
+          "identity": "boundary:298342de6acb68027b6e9b09a6fb62b982e4b7586de551c45dfdc45bb0e3e1a5",
+          "kind": "http-endpoint",
+          "name": "GET /api/usage",
+          "path": "src/QualityStudio.Api/Program.cs",
+          "line": 96,
+          "unitId": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9"
+        },
+        {
+          "identity": "boundary:6773b644a1bf96914de64c3977ab0ef21c72705aaaddf453540a0fbb61f9c196",
+          "kind": "http-endpoint",
+          "name": "GET /api/repos/{repoId}/usage",
+          "path": "src/QualityStudio.Api/Program.cs",
+          "line": 97,
+          "unitId": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9"
+        },
+        {
+          "identity": "boundary:3a3c2d5313c9cccce122d57bc631828bd5c0101d26d6c42782a07f97ef6d9744",
+          "kind": "http-endpoint",
+          "name": "GET /api/quotas",
+          "path": "src/QualityStudio.Api/Program.cs",
+          "line": 98,
+          "unitId": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9"
+        }
+      ],
+      "changed": [],
+      "removed": []
+    },
+    "coverage": {
+      "status": "unavailable",
+      "reason": "Coverage ingestion is not available."
+    },
+    "churn": {
+      "filesTouched": 23,
+      "filesAdded": 3,
+      "filesModified": 20,
+      "filesDeleted": 0,
+      "filesMoved": 0,
+      "linesAdded": 671,
+      "linesDeleted": 37,
+      "repositoryFiles": 130,
+      "blastRadiusPercent": 17.69
+    },
+    "onlyMoves": false,
+    "hasQualityDelta": true
+  },
+  "judgement": {
+    "status": "not-run",
+    "reviewer": "none",
+    "aspects": [
+      {
+        "id": "risk",
+        "title": "Risk of the change",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "test-evidence",
+        "title": "Test evidence",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "scope-discipline",
+        "title": "Scope discipline",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "architecture-drift",
+        "title": "Architecture drift",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      }
+    ],
+    "summary": "Deterministic evidence only."
+  },
+  "economy": {
+    "diffFiles": 23,
+    "fullSweepFiles": 23,
+    "diffLines": 1217,
+    "diffCharacters": 70820,
+    "fullSweepCharacters": 246500,
+    "evidenceRatioPercent": 28.73,
+    "savedPercent": 71.27
+  },
+  "verdict": "regression",
+  "summary": "Regression: 3 externally reachable boundary/boundaries are new."
+}

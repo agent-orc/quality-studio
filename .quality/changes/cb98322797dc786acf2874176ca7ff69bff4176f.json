@@ -1,0 +1,527 @@
+{
+  "$schema": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "schemaVersion": 1,
+  "changeSet": {
+    "provider": "git-merge-range",
+    "baseCommit": "7c8ae67b3227429fa25c45c620292f8a4bc7ea3f",
+    "headCommit": "cb98322797dc786acf2874176ca7ff69bff4176f",
+    "title": "integrate: QS-41 (operator acceptance 25.07.)",
+    "committedAt": "2026-07-25T12:15:06+02:00",
+    "touchedFiles": [
+      {
+        "path": "docs/review-runs.md",
+        "kind": "modified",
+        "additions": 23,
+        "deletions": 5,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/app.html",
+        "kind": "modified",
+        "additions": 8,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/app.ts",
+        "kind": "modified",
+        "additions": 13,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/quality-api.ts",
+        "kind": "modified",
+        "additions": 28,
+        "deletions": 7,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-actions/review-actions.css",
+        "kind": "modified",
+        "additions": 1,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-actions/review-actions.html",
+        "kind": "modified",
+        "additions": 9,
+        "deletions": 2,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-actions/review-actions.ts",
+        "kind": "modified",
+        "additions": 36,
+        "deletions": 2,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-panel/review-panel.css",
+        "kind": "modified",
+        "additions": 1,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-panel/review-panel.html",
+        "kind": "modified",
+        "additions": 5,
+        "deletions": 3,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/review-panel/review-panel.ts",
+        "kind": "modified",
+        "additions": 23,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "results/operator-acceptance-25-07.md",
+        "kind": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+        "kind": "modified",
+        "additions": 61,
+        "deletions": 36,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "kind": "modified",
+        "additions": 20,
+        "deletions": 5,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+        "kind": "modified",
+        "additions": 2,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+        "kind": "modified",
+        "additions": 18,
+        "deletions": 4,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/ReviewJobs.cs",
+        "kind": "modified",
+        "additions": 386,
+        "deletions": 68,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+        "kind": "modified",
+        "additions": 26,
+        "deletions": 3,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/appsettings.json",
+        "kind": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs",
+        "kind": "modified",
+        "additions": 90,
+        "deletions": 2,
+        "contentChanged": true,
+        "binary": false
+      }
+    ]
+  },
+  "reviewedAt": "2026-07-25T11:13:41.4323904+00:00",
+  "touchedUnits": [
+    {
+      "id": "path:project:.",
+      "adapter": "path",
+      "level": "project",
+      "path": ".",
+      "displayName": "Repository"
+    },
+    {
+      "id": "path:module:docs",
+      "adapter": "path",
+      "level": "module",
+      "path": "docs",
+      "displayName": "docs"
+    },
+    {
+      "id": "path:module:frontend",
+      "adapter": "path",
+      "level": "module",
+      "path": "frontend",
+      "displayName": "frontend"
+    },
+    {
+      "id": "path:module:results",
+      "adapter": "path",
+      "level": "module",
+      "path": "results",
+      "displayName": "results"
+    },
+    {
+      "id": "path:module:src/AgentOrchestrator.CodeQuality",
+      "adapter": "path",
+      "level": "module",
+      "path": "src/AgentOrchestrator.CodeQuality",
+      "displayName": "src/AgentOrchestrator.CodeQuality"
+    },
+    {
+      "id": "path:module:src/QualityStudio.Api",
+      "adapter": "path",
+      "level": "module",
+      "path": "src/QualityStudio.Api",
+      "displayName": "src/QualityStudio.Api"
+    },
+    {
+      "id": "path:module:tests",
+      "adapter": "path",
+      "level": "module",
+      "path": "tests",
+      "displayName": "tests"
+    },
+    {
+      "id": "path:file:42127c6fda713b285d79979f5102657981720d2d928179e99c4355564a126073",
+      "adapter": "path",
+      "level": "file",
+      "path": "docs/review-runs.md",
+      "displayName": "review-runs.md"
+    },
+    {
+      "id": "path:file:3f38c1bd0aad87f3b4cdd64e171013e5fd0c436a6d86554df0b2a46bd3158bf0",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.html",
+      "displayName": "app.html"
+    },
+    {
+      "id": "path:file:0091d0264f0bfcffa7fe38c04c7cbcb6edc5b965d372bfc5754d5dbb353c3465",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.ts",
+      "displayName": "app.ts"
+    },
+    {
+      "id": "path:file:a93e52831b4966d96147f8ee697982fb6f37005ffe7aba206ecf5bc821e2f9a7",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/quality-api.ts",
+      "displayName": "quality-api.ts"
+    },
+    {
+      "id": "path:file:934fd8be3861de60fd7f0c8dd6478fc6e9ba2f58eefcc5db60c88bd2886f41dc",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-actions/review-actions.css",
+      "displayName": "review-actions.css"
+    },
+    {
+      "id": "path:file:c42c0f896884a93de60db25a6a1a3dd084ef89c55b9b4b3cfcccc1cc77d0acbb",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-actions/review-actions.html",
+      "displayName": "review-actions.html"
+    },
+    {
+      "id": "path:file:cbd37a7b78e156568b91779dc38c1c8fbef6093e6bbbef0e510c8a155687362e",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-actions/review-actions.ts",
+      "displayName": "review-actions.ts"
+    },
+    {
+      "id": "path:file:54e2663a5eba56f2a4c1dbc76fe6eb3e94ae4090163f29a60fefa5da1fadeab0",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-panel/review-panel.css",
+      "displayName": "review-panel.css"
+    },
+    {
+      "id": "path:file:88ca91be57b6c67f3b921bcbec335c32414a74ef728fbf3ea027256a4c764925",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-panel/review-panel.html",
+      "displayName": "review-panel.html"
+    },
+    {
+      "id": "path:file:ebcfd80e3b83a97e60ec2d672ec9fa99dbfdf4836dc27382caa7290dabd0c7bf",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/review-panel/review-panel.ts",
+      "displayName": "review-panel.ts"
+    },
+    {
+      "id": "path:file:292724b2235bcc76934c296cfb0700c7777657b3d79b9112577cabbea9b7b306",
+      "adapter": "path",
+      "level": "file",
+      "path": "results/operator-acceptance-25-07.md",
+      "displayName": "operator-acceptance-25-07.md"
+    },
+    {
+      "id": "path:file:28830e2ae9b873b288508b6241763b316d8434662592f9a4fd27e31fe8d8db84",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+      "displayName": "ReviewRunner.cs"
+    },
+    {
+      "id": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "displayName": "Program.cs"
+    },
+    {
+      "id": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+      "adapter": "dotnet",
+      "level": "file",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "displayName": "Program.cs"
+    },
+    {
+      "id": "path:file:8527f236bac4a209b85d46d21166f63f1f616d1be9ce7d8bd73326f43194b656",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+      "displayName": "RepositoryOptions.cs"
+    },
+    {
+      "id": "path:file:9c7e726502fb0be694c08f2ada009af6a7244ae9e6135ec411b4ac2d837c2ff4",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+      "displayName": "RepositoryRegistry.cs"
+    },
+    {
+      "id": "path:file:13a72d97525ff664ccf9081867e06fd426c977bba1423eec5c868ac1ee736058",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewJobs.cs",
+      "displayName": "ReviewJobs.cs"
+    },
+    {
+      "id": "path:file:b28e3e6049c451c6257b010900fece08e78563ae47d22dc4964b0b015072b11c",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "displayName": "ReviewRunStore.cs"
+    },
+    {
+      "id": "path:file:cc8afba752175f9fde6bc65038f1836892f828db9c69784720004bd36d8701ef",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/appsettings.json",
+      "displayName": "appsettings.json"
+    },
+    {
+      "id": "path:file:4f0f7aa6e06dafc04842cb183365d052be52ebe12d3e416693bfb510d45782b5",
+      "adapter": "path",
+      "level": "file",
+      "path": "tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs",
+      "displayName": "ReviewRunStoreTests.cs"
+    }
+  ],
+  "delta": {
+    "grades": [
+      {
+        "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+        "unitPath": "src/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "before": {
+          "score": 76,
+          "band": "C"
+        },
+        "after": {
+          "score": 76,
+          "band": "C"
+        },
+        "scoreChange": 0,
+        "regression": false
+      }
+    ],
+    "findings": {
+      "new": [],
+      "resolved": [],
+      "persisting": [
+        {
+          "identity": "QS-PROGRAM-001",
+          "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+          "unitPath": "src/QualityStudio.Api/Program.cs",
+          "kind": "code",
+          "ruleId": "unknown",
+          "severity": "medium",
+          "title": "Broad exception types are mapped to unrelated domain errors"
+        },
+        {
+          "identity": "QS-PROGRAM-002",
+          "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+          "unitPath": "src/QualityStudio.Api/Program.cs",
+          "kind": "code",
+          "ruleId": "unknown",
+          "severity": "medium",
+          "title": "Raw exception messages are exposed to API clients"
+        },
+        {
+          "identity": "QS-PROGRAM-003",
+          "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+          "unitPath": "src/QualityStudio.Api/Program.cs",
+          "kind": "code",
+          "ruleId": "unknown",
+          "severity": "medium",
+          "title": "File endpoint loads files into memory without a size limit"
+        },
+        {
+          "identity": "QS-PROGRAM-004",
+          "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+          "unitPath": "src/QualityStudio.Api/Program.cs",
+          "kind": "code",
+          "ruleId": "unknown",
+          "severity": "medium",
+          "title": "Security finding mapping dereferences a nullable range"
+        },
+        {
+          "identity": "QS-PROGRAM-005",
+          "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+          "unitPath": "src/QualityStudio.Api/Program.cs",
+          "kind": "code",
+          "ruleId": "unknown",
+          "severity": "low",
+          "title": "Line-ending detection labels unsupported cases as LF"
+        },
+        {
+          "identity": "QS-PROGRAM-006",
+          "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+          "unitPath": "src/QualityStudio.Api/Program.cs",
+          "kind": "code",
+          "ruleId": "unknown",
+          "severity": "low",
+          "title": "Endpoint workflows are embedded as private static methods in Program"
+        },
+        {
+          "identity": "QS-PROGRAM-007",
+          "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+          "unitPath": "src/QualityStudio.Api/Program.cs",
+          "kind": "code",
+          "ruleId": "unknown",
+          "severity": "low",
+          "title": "HttpClient is registered directly as a singleton"
+        }
+      ]
+    },
+    "newlyStale": [],
+    "boundaries": {
+      "new": [
+        {
+          "identity": "boundary:11ada427358aa2b15b34cc19ef18dc3890ed420bb7b4943e253de6917345c387",
+          "kind": "http-endpoint",
+          "name": "POST /api/review/estimate",
+          "path": "src/QualityStudio.Api/Program.cs",
+          "line": 246,
+          "unitId": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9"
+        },
+        {
+          "identity": "boundary:b5f8fdcc96d02aace75406793ce08e950e693a8fe608cb4b09e52da1819a2b6b",
+          "kind": "http-endpoint",
+          "name": "POST /api/repos/{repoId}/review/estimate",
+          "path": "src/QualityStudio.Api/Program.cs",
+          "line": 247,
+          "unitId": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9"
+        }
+      ],
+      "changed": [],
+      "removed": []
+    },
+    "coverage": {
+      "status": "unavailable",
+      "reason": "Coverage ingestion is not available."
+    },
+    "churn": {
+      "filesTouched": 19,
+      "filesAdded": 0,
+      "filesModified": 19,
+      "filesDeleted": 0,
+      "filesMoved": 0,
+      "linesAdded": 752,
+      "linesDeleted": 141,
+      "repositoryFiles": 171,
+      "blastRadiusPercent": 11.11
+    },
+    "onlyMoves": false,
+    "hasQualityDelta": true
+  },
+  "judgement": {
+    "status": "not-run",
+    "reviewer": "none",
+    "aspects": [
+      {
+        "id": "risk",
+        "title": "Risk of the change",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "test-evidence",
+        "title": "Test evidence",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "scope-discipline",
+        "title": "Scope discipline",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "architecture-drift",
+        "title": "Architecture drift",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      }
+    ],
+    "summary": "Deterministic evidence only."
+  },
+  "economy": {
+    "diffFiles": 19,
+    "fullSweepFiles": 19,
+    "diffLines": 1514,
+    "diffCharacters": 95959,
+    "fullSweepCharacters": 271377,
+    "evidenceRatioPercent": 35.36,
+    "savedPercent": 64.64
+  },
+  "verdict": "regression",
+  "summary": "Regression: 2 externally reachable boundary/boundaries are new."
+}
