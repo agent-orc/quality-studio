@@ -49,6 +49,48 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Skipped_fresh_file_is_durable_and_is_not_repeated_after_restart()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateRun("skipped", "queued");
+            fixture.Store.AppendProgress(new ReviewRunFileTransition(
+                "Sample.cs", "skipped-fresh", stored.Manifest.CreatedAt, DateTimeOffset.UtcNow,
+                stored.Manifest.RunId, null));
+            fixture.Store.WriteStatus(stored.Status with
+            {
+                State = "running",
+                CompletedFiles = 1,
+                SkippedFiles = 1,
+                Cursor = 1,
+                StartedAt = stored.Manifest.CreatedAt,
+            });
+            var progressPath = fixture.ProgressPath(stored.Manifest.RunId);
+            var transitionsBefore = File.ReadAllLines(progressPath).Length;
+
+            await using var application = fixture.CreateApplication();
+            using var client = application.CreateClient();
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+
+            Assert.Equal(1, run.GetProperty("completedFiles").GetInt32());
+            Assert.Equal(1, run.GetProperty("skippedFiles").GetInt32());
+            Assert.Equal("skipped-fresh",
+                Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
+            Assert.Equal(transitionsBefore, File.ReadAllLines(progressPath).Length);
+
+            var reloaded = Assert.Single(fixture.Store.LoadAll());
+            Assert.Equal(1, reloaded.Status.SkippedFiles);
+            Assert.Equal("skipped-fresh", reloaded.Progress[^1].State);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task File_running_at_crash_is_requeued_and_attempted_again()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

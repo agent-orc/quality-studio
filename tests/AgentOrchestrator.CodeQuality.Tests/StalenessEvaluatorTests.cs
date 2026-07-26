@@ -91,6 +91,48 @@ public sealed class StalenessEvaluatorTests
         Assert.Equal("8ea241557b3e9f1bd4f3c9bf88f5e36684fd86a59829e98e11fabadd5462531f", hash);
     }
 
+    [Theory]
+    [InlineData("subject-current", "inputs-current", "model-current", true, true, true)]
+    [InlineData("subject-old", "inputs-current", "model-current", false, true, true)]
+    [InlineData("subject-current", "inputs-old", "model-current", true, false, true)]
+    [InlineData("subject-current", "inputs-current", "model-old", true, true, false)]
+    public async Task EvaluateReview_compares_subject_inputs_and_model_independently(
+        string storedSubject,
+        string storedInputs,
+        string storedModel,
+        bool subjectUnchanged,
+        bool inputsUnchanged,
+        bool modelUnchanged)
+    {
+        var directory = Directory.CreateTempSubdirectory("quality-review-freshness-");
+        try
+        {
+            var metaPath = Path.Combine(directory.FullName, "review-meta.json");
+            await File.WriteAllTextAsync(metaPath, JsonSerializer.Serialize(new
+            {
+                reviewedHash = new { value = storedSubject },
+                reviewInputs = new { effectiveHash = new { value = storedInputs } },
+                reviewer = new { model = storedModel },
+            }), TestContext.Current.CancellationToken);
+
+            var result = await new StalenessEvaluator().EvaluateReviewAsync(
+                metaPath,
+                "subject-current",
+                "inputs-current",
+                "model-current",
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(subjectUnchanged, result.SubjectUnchanged);
+            Assert.Equal(inputsUnchanged, result.ReviewInputsUnchanged);
+            Assert.Equal(modelUnchanged, result.ModelUnchanged);
+            Assert.Equal(subjectUnchanged && inputsUnchanged && modelUnchanged, result.IsFresh);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
     private sealed class RepositoryFixture : IDisposable
     {
         private RepositoryFixture(string root) => Root = root;

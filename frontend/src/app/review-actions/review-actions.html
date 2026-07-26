@@ -4,6 +4,7 @@
   </select>
   @if (!compact()) {
     <input aria-label="Review model" placeholder="Runner default model" [ngModel]="model()" (ngModelChange)="model.set($event)" />
+    <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="force.set($event)" /> Force re-review</label>
   }
   <button type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
     {{ activeOnNode() ? 'Review running' : starting() ? 'Queuing…' : 'Start review' }}

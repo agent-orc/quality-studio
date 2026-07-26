@@ -398,7 +398,7 @@ public sealed class ReviewJobService : BackgroundService
                 foreach (var transition in transitions)
                 {
                     if (!progress.TryGetValue(transition.Path, out var file) ||
-                        transition.State is not ("queued" or "running" or "done" or "failed" or "cancelled")) continue;
+                        transition.State is not ("queued" or "running" or "done" or "failed" or "cancelled" or "skipped-fresh")) continue;
                     file.State = transition.State;
                     file.StartedAt = transition.StartedAt;
                     file.FinishedAt = transition.FinishedAt;
@@ -430,6 +430,7 @@ public sealed class ReviewJobService : BackgroundService
         public string Kind => manifest.Kind;
         public string? Model => manifest.Model;
         public string CliType => manifest.CliType;
+        public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
         public DateTimeOffset? StartedAt { get; private set; }
         public DateTimeOffset? FinishedAt { get; private set; }
@@ -496,6 +497,19 @@ public sealed class ReviewJobService : BackgroundService
                 file.Error = error;
                 file.FinishedAt = DateTimeOffset.UtcNow;
                 if (error is not null) errors.Add($"{path}: {error}");
+                Append(file);
+            }
+        }
+
+        public void SkipFile(string path)
+        {
+            lock (gate)
+            {
+                var file = progress[path];
+                if (file.State != "running") return;
+                file.State = "skipped-fresh";
+                file.Error = null;
+                file.FinishedAt = DateTimeOffset.UtcNow;
                 Append(file);
             }
         }
@@ -647,9 +661,10 @@ public sealed class ReviewJobService : BackgroundService
                 return new ReviewRunResponse(
                     Id, Repository.Id, Node.Path, manifest.Level, Kind, Model, CliType, state,
                     files.Length,
-                    files.Count(file => file.State is "done" or "failed"),
+                    files.Count(file => IsCompletedFileState(file.State)),
                     files.Count(file => file.State == "failed"),
-                    CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage);
+                    CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage,
+                    files.Count(file => file.State == "skipped-fresh"));
             }
         }
 
@@ -681,13 +696,17 @@ public sealed class ReviewJobService : BackgroundService
         private ReviewRunStatus DurableStatusCore()
         {
             var ordered = manifest.Targets.Select(target => progress[target.Path]).ToArray();
-            var completed = ordered.Count(file => file.State is "done" or "failed");
+            var completed = ordered.Count(file => IsCompletedFileState(file.State));
             var cursor = 0;
-            while (cursor < ordered.Length && ordered[cursor].State is "done" or "failed") cursor++;
+            while (cursor < ordered.Length && IsCompletedFileState(ordered[cursor].State)) cursor++;
             return new ReviewRunStatus(
                 Id, state, ordered.Length, completed, ordered.Count(file => file.State == "failed"), cursor,
-                CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage);
+                CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
+                ordered.Count(file => file.State == "skipped-fresh"));
         }
+
+        private static bool IsCompletedFileState(string fileState) =>
+            fileState is "done" or "failed" or "skipped-fresh";
 
         private static long? Add(long? left, long? right) =>
             left.HasValue || right.HasValue ? (left ?? 0) + (right ?? 0) : null;

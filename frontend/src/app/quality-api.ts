@@ -92,13 +92,14 @@ export interface AgentStudioImportResult {
 }
 export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
 export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
-export interface ReviewFileProgress { path: string; state: ReviewRunState; startedAt: string | null; finishedAt: string | null; error: string | null; }
+export type ReviewFileState = ReviewRunState | 'skipped-fresh';
+export interface ReviewFileProgress { path: string; state: ReviewFileState; startedAt: string | null; finishedAt: string | null; error: string | null; }
 export interface ReviewRun {
   id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; cliType: string;
-  state: ReviewRunState; totalFiles: number; completedFiles: number; failedFiles: number; createdAt: string;
+  state: ReviewRunState; totalFiles: number; completedFiles: number; failedFiles: number; skippedFiles: number; createdAt: string;
   startedAt: string | null; finishedAt: string | null; files: ReviewFileProgress[]; errors: string[]; usageOperations: number; usage: TokenUsage;
 }
-export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; }
+export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; force?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; }
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; recent: UsageEntry[]; }

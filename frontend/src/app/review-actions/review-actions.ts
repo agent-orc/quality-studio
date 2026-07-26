@@ -17,6 +17,7 @@ export class ReviewActions {
   readonly kindSelect = output<ReviewKind>();
   readonly starting = signal(false);
   readonly model = signal('');
+  readonly force = signal(false);
   readonly fileCount = computed(() => this.countFiles(this.node()));
   readonly activeOnNode = computed(() => this.api.reviewRuns().some(run =>
     run.path === this.node()?.path && (run.state === 'queued' || run.state === 'running' || run.state === 'paused')));
@@ -28,7 +29,13 @@ export class ReviewActions {
     if (node.level === 'project' && !confirm(`Start a ${this.activeKind()} review of this project? ${this.fileCount()} files will be reviewed.`)) return;
     this.starting.set(true);
     try {
-      await this.api.startReview({ path: node.path, kind: this.activeKind(), model: this.model() || null, cliType: 'codex' });
+      await this.api.startReview({
+        path: node.path,
+        kind: this.activeKind(),
+        model: this.model() || null,
+        cliType: 'codex',
+        force: this.force(),
+      });
     } catch {
       // QualityApi exposes the actionable problem in reviewError for every action surface.
     } finally {
