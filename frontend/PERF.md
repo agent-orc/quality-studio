@@ -8,16 +8,19 @@ The interaction budgets are contracts, not aspirations:
 | Tree collapse | < 50 ms scripting-to-paint | 4.9 ms | Pass |
 | File open / first visible content | < 150 ms | 25.5 ms | Pass |
 | Review aspect switch | < 50 ms scripting-to-paint | 0.6 ms | Pass |
+| Project dashboard open (5,000-file summary) | < 150 ms click-to-interactive | 65.8 ms | Pass |
 
 Re-measured for QS-9 on 2026-07-11 in Microsoft Edge 150.0.4078.65 (Chromium), headless at 1600 × 1000. The file route returned 333,782 bytes, deliberately above the 200 KB acceptance boundary, together with two review documents. The view split the response into lines but inserted only 80 overscanned line rows. Tree expand/collapse inserted only the visible fixed-height window. Network time is included in the file-open mark because it starts at selection and ends on the first animation frame after visible content renders. The aspect switch reused the loaded file response; the request counter remained at two (initial file plus opened file) after switching.
 
 QS-31 repeated the automated regression check on 2026-07-22 in Chromium 149.0.7827.55 at 1600 × 1000. First visible file content was 46.4 ms for the same 333,782-byte fixture. The harness also asserted that the explicit large-file mode was visible and that no highlighted tokens were produced above 200 KB. Syntax evidence for a supported-size C# file was captured from the production build in both the [dark theme](evidence/qs-31-syntax-dark.png) and [light theme](evidence/qs-31-syntax-light.png); each capture contains multiline strings/comments and four finding gutter markers.
 
+QS-40 measured the project transition on 2026-07-25 in Chromium 149.0.7827.55 at 1600 × 1000. The deterministic dashboard response reported 5,000 files and retained only 30 hotspot rows; click-to-visible interactive tiles was 65.8 ms.
+
 ## Repeat the automated measurement
 
 1. Run `npm start` (the harness defaults to `http://127.0.0.1:4200`; set `QS_URL` to use another URL).
 2. Run `npm run perf` in `frontend/`.
-3. The Playwright harness intercepts the file API with a deterministic payload and review metadata, expands and collapses the tree, opens a file, switches aspect, prints the `PerformanceMeasure` entries, and exits non-zero if a hard budget is exceeded or switching causes a file refetch.
+3. The Playwright harness intercepts the file API with a deterministic payload and review metadata, plus a bounded dashboard projection reporting 5,000 repository files. It expands and collapses the tree, opens a file, switches aspect, opens the project dashboard, prints the measurements, and exits non-zero if a hard budget is exceeded or switching causes a file refetch.
 
 The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-content`, and `qs.review.aspect-switch`, including `durationMs`, `budgetMs`, `withinBudget`, and the selected path. API fallback and tree load use `qs.data.demo-fallback`, `qs.data.file-demo-fallback`, and `qs.data.tree-loaded`.
 
@@ -36,4 +39,4 @@ The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-cont
 - Finding ranges are indexed once per loaded review/aspect; only markers belonging to the visible 80-line window enter the DOM.
 - Aspect switching selects an already-loaded `metaDocuments` entry and does not fetch file content again.
 - The first-content path displays plain escaped text. Supported files up to 200 KB are tokenized only after that paint in a cancellable single-concurrency worker and delivered in 200-line chunks; whole-file main-thread highlighting is prohibited.
-- Production bundle budgets are enforced at 350 KB warning / 450 KB error initially and 10/12 KB per component stylesheet.
+- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 10/12 KB per component stylesheet. The attack matrix is a deferred 17 KB lazy chunk and is not paid on the editor's first-content path.

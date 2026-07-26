@@ -1,0 +1,112 @@
+<section class="project-dashboard" aria-label="Repository dashboard">
+  <header class="project-heading">
+    <div>
+      <span class="eyebrow">Project</span>
+      <h1>{{ api.selectedRepository()?.displayName ?? api.tree()[0]?.name ?? 'Repository' }}</h1>
+      <p>Repository health, structural facts, and the places where change hurts.</p>
+    </div>
+    @if (api.project(); as project) {
+      <div class="inventory"><b>{{ project.metrics.fileCount }}</b> files <span>·</span> <b>{{ project.metrics.lines }}</b> lines <span>·</span> {{ bytes(project.metrics.bytes) }}</div>
+    }
+  </header>
+
+  @if (api.projectLoading() && !api.project()) {
+    <div class="dashboard-loading" role="status">Building the repository dashboard…</div>
+  } @else if (api.project(); as project) {
+    <section class="dashboard-section" aria-labelledby="health-heading">
+      <div class="section-heading"><div><span class="eyebrow">Reviews</span><h2 id="health-heading">Project health</h2></div><small>Grades are review judgments. Metrics below are measured facts.</small></div>
+      <div class="health-grid">
+        @for (grade of project.grades; track grade.kind) {
+          <button class="health-card grade-card" type="button" (click)="open(grade.path)">
+            <span class="card-label"><i class="status" [class]="'status ' + grade.state"></i>{{ grade.kind }} review</span>
+            <strong>{{ grade.band ?? '—' }}</strong>
+            <small>{{ grade.score === null ? 'Not graded' : grade.score + ' / 100' }} · {{ grade.state }}</small>
+          </button>
+        }
+        <button class="health-card findings-card" type="button" (click)="open(project.findings.path)">
+          <span class="card-label">Open findings</span><strong>{{ project.findings.open }}</strong>
+            <span class="severity-strip">@for (severity of severities; track severity) { <i [class]="'severity ' + severity">{{ project.findings.bySeverity[severity] }} {{ severity }}</i> }</span>
+          <small>{{ project.findings.byReviewState.fresh }} current · {{ project.findings.byReviewState.stale }} from stale reviews</small>
+        </button>
+        <button class="health-card" type="button" (click)="open(project.staleness.path)">
+          <span class="card-label">Staleness</span><strong>{{ project.staleness.stale }}</strong>
+          <span class="stacked-bar" aria-label="Staleness distribution">
+            @for (state of states; track state) {
+              <i [class]="state" [style.flex-grow]="project.staleness[state]" [title]="state + ': ' + project.staleness[state]"></i>
+            }
+          </span>
+          <small>{{ project.staleness.fresh }} fresh · {{ project.staleness.missing }} missing · {{ project.staleness.total }} files</small>
+        </button>
+        <button class="health-card" type="button" (click)="open(project.reviewCoverage.path)">
+          <span class="card-label">Review coverage</span><strong>{{ project.reviewCoverage.percent }}%</strong>
+          <span class="progress"><i [style.width.%]="project.reviewCoverage.percent"></i></span>
+          <small>{{ project.reviewCoverage.reviewedFiles }} of {{ project.reviewCoverage.totalFiles }} files reviewed</small>
+        </button>
+        <button class="health-card" type="button" (click)="open(project.testCoverage.path)">
+          <span class="card-label">Test coverage</span><strong>{{ project.testCoverage.linePercent === null ? '—' : project.testCoverage.linePercent + '%' }}</strong>
+          <span class="progress"><i [style.width.%]="project.testCoverage.linePercent ?? 0"></i></span>
+          <small>{{ project.testCoverage.status === 'reported' ? (project.testCoverage.source ?? 'Coverage report') : project.testCoverage.status }}</small>
+        </button>
+        <button class="health-card" type="button" (click)="open(securityPath())">
+          <span class="card-label">Security posture</span>
+          <strong class="security-verdict" [class]="api.security()?.verdict ?? 'unavailable'">{{ api.security()?.verdict ?? '—' }}</strong>
+          <small>@if (api.security()?.available) { {{ api.security()?.newFindings ?? 0 }} new · {{ api.security()?.acceptedFindings ?? 0 }} accepted } @else { Scanner unavailable }</small>
+        </button>
+      </div>
+    </section>
+
+    <section class="dashboard-section facts" aria-labelledby="facts-heading">
+      <div class="section-heading"><div><span class="eyebrow">Measured facts</span><h2 id="facts-heading">Repository structure</h2></div><small>Deterministic from tracked and unignored repository content.</small></div>
+      <div class="facts-grid">
+        <article class="fact-panel language-panel">
+          <h3>Lines by language</h3>
+          @for (language of project.metrics.languages; track language.language) {
+            <button type="button" (click)="open(language.path)">
+              <span><b>{{ language.language }}</b><small>{{ language.files }} files · {{ bytes(language.bytes) }}</small></span>
+              <strong>{{ language.lines }}</strong>
+            </button>
+          } @empty { <p class="empty">No recognized text languages.</p> }
+        </article>
+        <button class="fact-panel distribution-panel" type="button" (click)="open(metricPath())">
+          <h3>File size distribution</h3>
+          @for (bucket of project.metrics.fileSizeDistribution; track bucket.label) {
+            <span class="distribution-row"><small>{{ bucket.label }}</small><i><b [style.width.%]="bucket.count * 100 / distributionMax(project.metrics.fileSizeDistribution)"></b></i><strong>{{ bucket.count }}</strong></span>
+          }
+        </button>
+        <button class="fact-panel distribution-panel" type="button" (click)="open(metricPath())">
+          <h3>Folder size distribution</h3>
+          @for (bucket of project.metrics.folderSizeDistribution; track bucket.label) {
+            <span class="distribution-row"><small>{{ bucket.label }}</small><i><b [style.width.%]="bucket.count * 100 / distributionMax(project.metrics.folderSizeDistribution)"></b></i><strong>{{ bucket.count }}</strong></span>
+          }
+        </button>
+        <article class="fact-panel">
+          <h3>Duplication candidates <small>{{ project.metrics.duplicationCandidates.length }}</small></h3>
+          @for (candidate of project.metrics.duplicationCandidates.slice(0, 6); track candidate.fingerprint) {
+            <button class="candidate" type="button" (click)="open(candidate.paths[0])"><span><b>{{ candidate.paths.length }} matching files</b><small>{{ candidate.lines }} lines · {{ bytes(candidate.bytes) }}</small></span><code>{{ candidate.paths[0] }}</code></button>
+          } @empty { <p class="empty">No exact normalized-file candidates.</p> }
+        </article>
+        <article class="fact-panel dependency-panel">
+          <h3>Module dependencies <small>{{ project.metrics.dependencyEdges.length }}</small></h3>
+          @for (edge of project.metrics.dependencyEdges.slice(0, 8); track edge.sourcePath + edge.targetPath) {
+            <div class="edge"><button type="button" (click)="open(edge.sourcePath)">{{ edge.source }}</button><span>→</span><button type="button" (click)="open(edge.targetPath)">{{ edge.target }}</button></div>
+          } @empty { <p class="empty">No declared module edges discovered.</p> }
+        </article>
+      </div>
+    </section>
+
+    <section class="dashboard-section hotspots" aria-labelledby="hotspots-heading">
+      <div class="section-heading"><div><span class="eyebrow">Churn × quality</span><h2 id="hotspots-heading">Repository hotspots</h2></div><small>Recent Git additions/deletions weighted by grade and finding density.</small></div>
+      <div class="hotspot-table" role="table" aria-label="Repository hotspots">
+        <div class="hotspot-head" role="row"><span>Path</span><span>Churn</span><span>Grade</span><span>Findings / KLOC</span><span>Risk</span></div>
+        @for (hotspot of project.hotspots; track hotspot.path) {
+          <button class="hotspot-row" type="button" role="row" (click)="open(hotspot.path)">
+            <span><code>{{ hotspot.path }}</code></span><span>{{ hotspot.churn }}</span><span>{{ hotspot.grade ?? '—' }}</span><span>{{ hotspot.findingsPerKloc }}</span>
+            <span class="risk"><i [style.width.%]="hotspot.risk * 100 / maxHotspotRisk()"></i><b>{{ hotspot.risk }}</b></span>
+          </button>
+        } @empty { <p class="empty">No reviewable files were found.</p> }
+      </div>
+    </section>
+  } @else {
+    <div class="dashboard-error" role="alert"><b>Project dashboard unavailable</b><span>{{ api.projectError() || 'The repository facts could not be loaded.' }}</span><button type="button" (click)="api.loadProjectDashboard()">Retry</button></div>
+  }
+</section>

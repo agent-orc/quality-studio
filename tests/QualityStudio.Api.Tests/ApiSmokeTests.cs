@@ -55,6 +55,25 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Project_returns_repository_dashboard_and_honours_conditional_request()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/project", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(response.Headers.ETag);
+        var dashboard = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(3, dashboard.GetProperty("grades").GetArrayLength());
+        Assert.Equal(3, dashboard.GetProperty("metrics").GetProperty("fileCount").GetInt32());
+        Assert.True(dashboard.GetProperty("hotspots").GetArrayLength() <= 30);
+
+        using var cachedRequest = new HttpRequestMessage(HttpMethod.Get, "/api/project");
+        cachedRequest.Headers.TryAddWithoutValidation("If-None-Match", response.Headers.ETag.Tag);
+        using var cached = await client.SendAsync(cachedRequest, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotModified, cached.StatusCode);
+    }
+
+    [Fact]
     public async Task Mixed_repository_tree_exposes_typescript_and_can_queue_file_review()
     {
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "frontend", "src", "app"));
@@ -94,6 +113,49 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var file = Assert.Single(json.GetProperty("files").EnumerateArray());
         Assert.Equal("Sample.cs", file.GetProperty("relativePath").GetString());
         Assert.Equal("missing", file.GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Report_returns_scorecard_sarif_and_registry_comparison()
+    {
+        var secondRoot = repositoryRoot + "-report-second";
+        Directory.CreateDirectory(secondRoot);
+        await File.WriteAllTextAsync(Path.Combine(secondRoot, "Second.cs"),
+            "namespace Second; public sealed class Marker;", TestContext.Current.CancellationToken);
+        await RunGitInDirectoryAsync(secondRoot, "init", "--quiet");
+        try
+        {
+            using var client = application!.CreateClient();
+            using var created = await client.PostAsJsonAsync("/api/repos", new
+            {
+                id = "report-second",
+                displayName = "Report second",
+                rootPath = secondRoot,
+                inputBudgetCharacters = 8000,
+                enabledReviewKinds = new[] { "code" },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+            using var response = await client.GetAsync("/api/report", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal(2, json.GetProperty("repositories").GetArrayLength());
+            Assert.Equal(2, json.GetProperty("comparison").GetProperty("repositories").GetArrayLength());
+            Assert.All(json.GetProperty("repositories").EnumerateArray(),
+                repository => Assert.True(repository.GetProperty("scorecard").TryGetProperty("coverage", out _)));
+
+            using var sarifResponse = await client.GetAsync(
+                "/api/repos/report-second/report?format=sarif", TestContext.Current.CancellationToken);
+            Assert.Equal("application/sarif+json", sarifResponse.Content.Headers.ContentType?.MediaType);
+            var sarif = await sarifResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal("2.1.0", sarif.GetProperty("version").GetString());
+            Assert.Single(sarif.GetProperty("runs").EnumerateArray());
+        }
+        finally
+        {
+            Directory.Delete(secondRoot, true);
+        }
     }
 
     [Fact]
@@ -170,6 +232,57 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Attack_coverage_api_exposes_complete_cells_and_appends_judgements()
+    {
+        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Coverage.cs"), """
+            var app = WebApplication.Create();
+            app.MapGet("/api/coverage", () => Results.Ok());
+            app.Run();
+            """, TestContext.Current.CancellationToken);
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync("/api/security/attack-coverage?path=",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var matrix = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(matrix.GetProperty("cellCount").GetInt32() > 0);
+        var row = Assert.Single(matrix.GetProperty("rows").EnumerateArray(), candidate =>
+            candidate.GetProperty("boundary").GetProperty("name").GetString() == "GET /api/coverage");
+        var cells = row.GetProperty("cells").EnumerateArray().ToArray();
+        Assert.NotEmpty(cells);
+        Assert.All(cells, cell => Assert.True(cell.TryGetProperty("verdict", out _)));
+        Assert.All(cells.Where(cell => cell.GetProperty("verdict").GetString() != "notYetChecked"),
+            cell => Assert.NotEmpty(cell.GetProperty("provenance").EnumerateArray()));
+        var deferred = cells.First(cell => cell.GetProperty("verdict").GetString() == "notYetChecked");
+
+        using var created = await client.PostAsJsonAsync(
+            "/api/security/attack-coverage/judgements?path=",
+            new
+            {
+                assessmentId = "api-acceptance",
+                boundaryId = row.GetProperty("boundary").GetProperty("id").GetString(),
+                attackId = deferred.GetProperty("attackId").GetString(),
+                verdict = "pass",
+                reasoning = "The test supplied positive evidence for the exact boundary input.",
+                evidence = new[] { new { kind = "test", reference = "Coverage.cs", summary = "Acceptance evidence." } },
+                deterministicSensorInput = Array.Empty<string>(),
+                source = "agent",
+                reviewer = new { agent = "api-test", model = "fixture-model", thinkingLevel = "high" },
+                tokenCost = new { inputTokens = 20, outputTokens = 10, cachedInputTokens = 0, reasoningOutputTokens = 5 },
+                commit = "test-commit",
+                commitRange = "base..test-commit",
+            }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.True(File.Exists(Path.Combine(repositoryRoot, AttackCoverageLedger.RelativePath)));
+        var observation = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("api-test", observation.GetProperty("reviewer").GetProperty("agent").GetString());
+        Assert.Equal("fixture-model", observation.GetProperty("reviewer").GetProperty("model").GetString());
+        Assert.Equal("high", observation.GetProperty("reviewer").GetProperty("thinkingLevel").GetString());
+    }
+
+    [Fact]
     public async Task Sensors_list_enablement_availability_and_versions()
     {
         using var client = application!.CreateClient();
@@ -177,13 +290,32 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal(2, json.GetProperty("sensors").GetArrayLength());
+        Assert.Equal(3, json.GetProperty("sensors").GetArrayLength());
         var dependency = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
             sensor => sensor.GetProperty("id").GetString() == "dependencies");
         Assert.Equal("1.0.0", dependency.GetProperty("version").GetString());
         Assert.True(dependency.GetProperty("enabled").GetBoolean());
         Assert.True(dependency.GetProperty("available").GetBoolean());
         Assert.Contains("path", dependency.GetProperty("scopes").EnumerateArray().Select(scope => scope.GetString()));
+        var boundaries = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
+            sensor => sensor.GetProperty("id").GetString() == "boundaries");
+        Assert.True(boundaries.GetProperty("enabled").GetBoolean());
+        Assert.True(boundaries.GetProperty("available").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Boundary_sensor_scan_persists_repository_owned_inventory()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsync("/api/sensors/boundaries/scan", null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
+        Assert.True(File.Exists(path));
+        using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal("boundaries", inventory.RootElement.GetProperty("sensor").GetString());
     }
 
     [Fact]
@@ -298,7 +430,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     {
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);
         await UsageLedger.AppendAsync(repositoryRoot, new ReviewUsageEntry("usage-api-run", timestamp, "gpt-5", "codex",
-            new TokenUsage(200, 50, 80, 10, 2400), "performance", "file", "Sample.cs"), TestContext.Current.CancellationToken);
+            new TokenUsage(200, 50, 80, 10, 2400), "performance", "file", "Sample.cs",
+            "review-api-sweep", 2), TestContext.Current.CancellationToken);
 
         using var client = application!.CreateClient();
         var since = Uri.EscapeDataString(timestamp.AddMinutes(-1).ToString("O"));
@@ -309,7 +442,10 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(1, json.GetProperty("runs").GetInt32());
         Assert.Equal(200, json.GetProperty("inputTokens").GetInt64());
         Assert.Equal("gpt-5", Assert.Single(json.GetProperty("byModel").EnumerateArray()).GetProperty("key").GetString());
-        Assert.Equal("usage-api-run", Assert.Single(json.GetProperty("recent").EnumerateArray()).GetProperty("runId").GetString());
+        Assert.Equal("review-api-sweep", Assert.Single(json.GetProperty("byReviewRun").EnumerateArray()).GetProperty("key").GetString());
+        var recent = Assert.Single(json.GetProperty("recent").EnumerateArray());
+        Assert.Equal("usage-api-run", recent.GetProperty("runId").GetString());
+        Assert.Equal("review-api-sweep", recent.GetProperty("reviewRunId").GetString());
     }
 
     [Fact]
@@ -537,6 +673,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 services.RemoveAll<IReviewSensor>();
                 services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
                 services.AddSingleton<IReviewSensor, FakeDependencySensor>();
+                services.AddSingleton<IReviewSensor, BoundaryInventorySensor>();
             });
         }
     }

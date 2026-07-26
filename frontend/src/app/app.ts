@@ -1,10 +1,13 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
 import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
+import { ProjectDashboardView } from './project-dashboard/project-dashboard';
 import { flattenTree } from './tree-utils';
+import { UsageHistory } from './usage-history/usage-history';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
 const RESIZE_HANDLE_WIDTH = 6;
@@ -27,7 +30,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, AttackCoverage, UsageHistory, ProjectDashboardView],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,9 +45,10 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 export class App implements OnDestroy {
   readonly api = inject(QualityApi);
   readonly explorer = viewChild(Explorer);
+  readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
   readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (localStorage.getItem('qs-theme') as 'dark' | 'light') || 'dark');
-  readonly selected = signal(new URLSearchParams(location.search).get('path') || 'src/QualityStudio.Api/Program.cs');
+  readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
   readonly repositoryMenuOpen = signal(false);
@@ -62,9 +66,19 @@ export class App implements OnDestroy {
   readonly guidelineSaving = signal(false);
   readonly guidelineDryRunning = signal(false);
   readonly guidelineImpact = signal<GuidelineImpact | null>(null);
+  readonly attackCoverageDialogOpen = signal(false);
+  readonly usageHistoryOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
-  readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(n => n.path === this.selected()));
+  readonly selectedNode = computed(() => {
+    const nodes = flattenTree(this.api.tree(), new Set(), true);
+    return nodes.find(node => node.path === this.selected())
+      ?? (this.selected() === '.' ? nodes.find(node => node.level === 'project') : undefined);
+  });
+  readonly explorerSelectedPath = computed(() => this.selected() === '.' ? this.selectedNode()?.path ?? '.' : this.selected());
+  readonly isProjectView = computed(() => this.selected() === '.' || this.selectedNode()?.level === 'project');
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
+  readonly usageTotalLabel = computed(() => new Intl.NumberFormat('en-US').format(
+    this.api.usage().inputTokens + this.api.usage().outputTokens));
   readonly reviewKinds: ReviewKind[] = ['code', 'security', 'performance'];
   repositoryForm: RepositoryRegistrationRequest = this.emptyRepositoryForm();
   guidelineForm: GuidelineForm = this.emptyGuidelineForm();
@@ -120,7 +134,9 @@ export class App implements OnDestroy {
   private async initialize(): Promise<void> {
     const preferredRepository = new URLSearchParams(location.search).get('repo');
     await this.api.loadRepositories(preferredRepository);
+    const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
+    void dashboardLoading;
     await this.api.loadReviewRuns();
     await Promise.all([this.api.loadUsage(), this.api.loadQuotas()]);
     if (!this.api.quotas().providers.length) setTimeout(() => void this.api.loadQuotas(), 2_000);
@@ -243,6 +259,10 @@ export class App implements OnDestroy {
     if (path) this.open(path, false);
   }
 
+  async openAttackCoverage(): Promise<void> {
+    this.attackCoverageDialogOpen.set(true);
+  }
+
   onboardRepository(): void {
     this.repositoryMenuOpen.set(false);
     this.editingRepositoryId.set(null);
@@ -356,6 +376,16 @@ export class App implements OnDestroy {
     localStorage.setItem('qs-theme', next);
   }
 
+  openUsageHistory(): void {
+    this.usageHistoryOpen.set(true);
+    void this.api.loadUsage();
+  }
+
+  closeUsageHistory(): void {
+    this.usageHistoryOpen.set(false);
+    queueMicrotask(() => this.usageButton().nativeElement.focus());
+  }
+
   toggleExplorer(): void { this.explorerVisible.update(visible => !visible); }
 
   toggleReview(): void { this.reviewVisible.update(visible => !visible); }
@@ -455,8 +485,9 @@ export class App implements OnDestroy {
 
   private selectionPathOrFirst(preferred: string): string | null {
     const nodes = flattenTree(this.api.tree(), new Set(), true);
+    if (!preferred || preferred === '.') return '.';
     const preferredNode = nodes.find(node => node.path === preferred);
-    return preferredNode?.path ?? nodes.find(node => node.level === 'file')?.path ?? null;
+    return preferredNode?.path ?? '.';
   }
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {

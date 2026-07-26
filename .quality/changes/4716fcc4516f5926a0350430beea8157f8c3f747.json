@@ -1,0 +1,355 @@
+{
+  "$schema": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "schemaVersion": 1,
+  "changeSet": {
+    "provider": "git-merge-range",
+    "baseCommit": "12b834ad678e3ef68baef9c0316cf757e9111181",
+    "headCommit": "c05ab081bbdb443a35419bbe370ee1ca72616ed3",
+    "mergeCommit": "4716fcc4516f5926a0350430beea8157f8c3f747",
+    "title": "integrate: QS-31 (operator acceptance 25.07., Grade A) - web-worker syntax highlighting, XSS-safe token rendering, both themes",
+    "committedAt": "2026-07-25T11:31:31+02:00",
+    "touchedFiles": [
+      {
+        "path": "frontend/PERF.md",
+        "kind": "modified",
+        "additions": 3,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/evidence/qs-31-syntax-dark.png",
+        "kind": "added",
+        "contentChanged": true,
+        "binary": true
+      },
+      {
+        "path": "frontend/evidence/qs-31-syntax-light.png",
+        "kind": "added",
+        "contentChanged": true,
+        "binary": true
+      },
+      {
+        "path": "frontend/package-lock.json",
+        "kind": "modified",
+        "additions": 18,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/package.json",
+        "kind": "modified",
+        "additions": 4,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/editor.css",
+        "kind": "modified",
+        "additions": 0,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/editor.html",
+        "kind": "modified",
+        "additions": 3,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/editor.ts",
+        "kind": "modified",
+        "additions": 67,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/syntax-highlighting.ts",
+        "kind": "added",
+        "additions": 95,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/syntax-language.ts",
+        "kind": "added",
+        "additions": 21,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/syntax-tokenizer.spec.ts",
+        "kind": "added",
+        "additions": 60,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/syntax-tokenizer.ts",
+        "kind": "added",
+        "additions": 99,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/syntax-types.ts",
+        "kind": "added",
+        "additions": 45,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/editor/syntax.worker.ts",
+        "kind": "added",
+        "additions": 42,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/styles.css",
+        "kind": "modified",
+        "additions": 17,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/tests/perf.mjs",
+        "kind": "modified",
+        "additions": 9,
+        "deletions": 4,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/tests/syntax-evidence.mjs",
+        "kind": "added",
+        "additions": 72,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      }
+    ]
+  },
+  "reviewedAt": "2026-07-25T11:13:39.8013044+00:00",
+  "touchedUnits": [
+    {
+      "id": "path:project:.",
+      "adapter": "path",
+      "level": "project",
+      "path": ".",
+      "displayName": "Repository"
+    },
+    {
+      "id": "path:module:frontend",
+      "adapter": "path",
+      "level": "module",
+      "path": "frontend",
+      "displayName": "frontend"
+    },
+    {
+      "id": "path:file:251abbc55b6136341e88c037f5de7a059b670d3cd89d5044007ea49d51b8881e",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/PERF.md",
+      "displayName": "PERF.md"
+    },
+    {
+      "id": "path:file:26104588682b74092d264d8b4528264368b09b0de052f66c35129cefa60218dd",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/evidence/qs-31-syntax-dark.png",
+      "displayName": "qs-31-syntax-dark.png"
+    },
+    {
+      "id": "path:file:62dc3c0c6469beb36d791ee58b9063b93e00d558e37328a4d532f08468ab72be",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/evidence/qs-31-syntax-light.png",
+      "displayName": "qs-31-syntax-light.png"
+    },
+    {
+      "id": "path:file:4a2d9aa3e849b134993936ca81b83fb139edd2b0218077ab0f403b8c4803c62a",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/package-lock.json",
+      "displayName": "package-lock.json"
+    },
+    {
+      "id": "path:file:da6498268e99511d9ba0df3c13e439d10556a812881c9d03955b2ef7c6c1c655",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/package.json",
+      "displayName": "package.json"
+    },
+    {
+      "id": "path:file:2bbcc9c98a4c90ff50c780b7c9ad46f8f1d9b0259e2ac281ec2f3ad8a6ecde80",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/editor.css",
+      "displayName": "editor.css"
+    },
+    {
+      "id": "path:file:46e92a09a315fe9f4c3b62dd505c73a48416d4bc7bb9bfefae1fd30173f2edda",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/editor.html",
+      "displayName": "editor.html"
+    },
+    {
+      "id": "path:file:54d17ecc21b0e875a161d713c4ce5165649520e8320b82e38fac6d6e54b631b1",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/editor.ts",
+      "displayName": "editor.ts"
+    },
+    {
+      "id": "path:file:d709dcab4d85fae08b600aa53b72adda06365c73a3660d0ae437f8245bf1510f",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/syntax-highlighting.ts",
+      "displayName": "syntax-highlighting.ts"
+    },
+    {
+      "id": "path:file:160d9d01657b1ea2f0478bb3e4dadb698b0f0b9f8aa44d5e0e575c2b9ebba643",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/syntax-language.ts",
+      "displayName": "syntax-language.ts"
+    },
+    {
+      "id": "path:file:d6a32273fc44560c2c7656337e2f8e14801419854d734af2c2f1697f16ed3151",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/syntax-tokenizer.spec.ts",
+      "displayName": "syntax-tokenizer.spec.ts"
+    },
+    {
+      "id": "path:file:c769e052d5a8ccbec59a9ba4fe6eb8f525b8cc1d39d392747c7d230283e5beba",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/syntax-tokenizer.ts",
+      "displayName": "syntax-tokenizer.ts"
+    },
+    {
+      "id": "path:file:e03f6c72c76adde9df43d5aa90ca8035ccfc67f92d127b3cb3dd8b1022b93286",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/syntax-types.ts",
+      "displayName": "syntax-types.ts"
+    },
+    {
+      "id": "path:file:7098bcf296d76cf8da8e907fa5a10a02a9ce2b64f190650ac21f820d7879eb13",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/editor/syntax.worker.ts",
+      "displayName": "syntax.worker.ts"
+    },
+    {
+      "id": "path:file:b484d4c671a5e5627a90a560bf955cb4b2d487d422e4ec4606026048ebc50600",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/styles.css",
+      "displayName": "styles.css"
+    },
+    {
+      "id": "path:file:bff90c2008a54a326c6b3e14d42cc3d6e716676e41ad4353d5436a86a13f07c7",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/tests/perf.mjs",
+      "displayName": "perf.mjs"
+    },
+    {
+      "id": "path:file:26e4aa20319e1dee5a8e3cb76e411ded5c8826e711dfd0e618c2f06963c1a735",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/tests/syntax-evidence.mjs",
+      "displayName": "syntax-evidence.mjs"
+    }
+  ],
+  "delta": {
+    "grades": [],
+    "findings": {
+      "new": [],
+      "resolved": [],
+      "persisting": []
+    },
+    "newlyStale": [],
+    "boundaries": {
+      "new": [],
+      "changed": [],
+      "removed": []
+    },
+    "coverage": {
+      "status": "unavailable",
+      "reason": "Coverage ingestion is not available."
+    },
+    "churn": {
+      "filesTouched": 17,
+      "filesAdded": 9,
+      "filesModified": 8,
+      "filesDeleted": 0,
+      "filesMoved": 0,
+      "linesAdded": 555,
+      "linesDeleted": 9,
+      "repositoryFiles": 153,
+      "blastRadiusPercent": 11.11
+    },
+    "onlyMoves": false,
+    "hasQualityDelta": false
+  },
+  "judgement": {
+    "status": "not-run",
+    "reviewer": "none",
+    "aspects": [
+      {
+        "id": "risk",
+        "title": "Risk of the change",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "test-evidence",
+        "title": "Test evidence",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "scope-discipline",
+        "title": "Scope discipline",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "architecture-drift",
+        "title": "Architecture drift",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      }
+    ],
+    "summary": "Deterministic evidence only."
+  },
+  "economy": {
+    "diffFiles": 15,
+    "fullSweepFiles": 15,
+    "diffLines": 803,
+    "diffCharacters": 37746,
+    "fullSweepCharacters": 378086,
+    "evidenceRatioPercent": 9.98,
+    "savedPercent": 90.02
+  },
+  "verdict": "no-quality-delta",
+  "summary": "No quality delta was observed in the standing review evidence for the touched units."
+}

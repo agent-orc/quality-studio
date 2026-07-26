@@ -55,6 +55,9 @@ public sealed record ReviewMetaDocument
 
     [JsonPropertyOrder(14)]
     public IReadOnlyList<ReviewThread> Threads { get; init; } = [];
+
+    [JsonPropertyOrder(15), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SecurityReviewMetadata? Security { get; init; }
 }
 
 public sealed record ReviewUnit(
@@ -72,7 +75,27 @@ public sealed record ReviewerIdentity(
     [property: JsonPropertyOrder(1)] string Model,
     [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AgentVersion = null,
     [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RunId = null,
-    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewerUsage? Usage = null);
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewerUsage? Usage = null,
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ReviewerSensorReference>? Sensors = null);
+
+public sealed record ReviewerSensorReference(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] string Version,
+    [property: JsonPropertyOrder(2)] string ResultHash);
+
+public sealed record SecurityReviewMetadata(
+    [property: JsonPropertyOrder(0)] string Verdict,
+    [property: JsonPropertyOrder(1)] string CombinationRule,
+    [property: JsonPropertyOrder(2)] IReadOnlyList<SecuritySensorMetadata> Sensors);
+
+public sealed record SecuritySensorMetadata(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] string Version,
+    [property: JsonPropertyOrder(2)] string ResultHash,
+    [property: JsonPropertyOrder(3)] bool Available,
+    [property: JsonPropertyOrder(4)] string? UnavailableReason,
+    [property: JsonPropertyOrder(5)] string Verdict,
+    [property: JsonPropertyOrder(6)] IReadOnlyDictionary<string, string> ToolVersions);
 
 public sealed record ManifestHash(
     [property: JsonPropertyOrder(0)] string Algorithm,

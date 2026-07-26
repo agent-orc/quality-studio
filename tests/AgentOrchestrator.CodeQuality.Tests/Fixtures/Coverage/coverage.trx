@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <ResultSummary outcome="Completed">
+    <CollectorDataEntries>
+      <Collector agentName="fixture" uri="datacollector://microsoft/CodeCoverage/2.0">
+        <UriAttachments>
+          <UriAttachment>
+            <A href="fixture.coverage">fixture.coverage</A>
+          </UriAttachment>
+        </UriAttachments>
+      </Collector>
+    </CollectorDataEntries>
+  </ResultSummary>
+</TestRun>

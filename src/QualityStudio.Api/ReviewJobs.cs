@@ -80,12 +80,12 @@ public interface IReviewExecutorFactory
         Action<ReviewUsageEntry> usageRecorded);
 }
 
-public sealed class ReviewExecutorFactory : IReviewExecutorFactory
+public sealed class ReviewExecutorFactory(SensorRegistry sensors) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(cliType, model, eventObserver: eventObserver),
-            usageRecorded: usageRecorded));
+            usageRecorded: usageRecorded, sensorRegistry: sensors));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -114,10 +114,11 @@ public sealed class ReviewJobService : BackgroundService
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly IReviewExecutorFactory executors;
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
+    private readonly ProjectDashboardService dashboards;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
-        IReviewExecutorFactory executors)
+        IReviewExecutorFactory executors, ProjectDashboardService dashboards)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -125,6 +126,7 @@ public sealed class ReviewJobService : BackgroundService
         this.quotas = quotas;
         this.hierarchyCache = hierarchyCache;
         this.executors = executors;
+        this.dashboards = dashboards;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -508,12 +510,20 @@ public sealed class ReviewJobService : BackgroundService
         if (!known) throw new ArgumentException("Model must be present in the coding-agent runner catalogue.");
     }
 
-    private static ReviewRequest CreateRequest(
+    private ReviewRequest CreateRequest(
         ReviewWorkItem item,
         HierarchyNode node,
         ReviewLevel level,
-        IReadOnlyList<string> files) =>
-        new(node.Path, item.Kind, level,
+        IReadOnlyList<string> files)
+    {
+        var architectureContext = level == ReviewLevel.Project &&
+                                  string.Equals(item.Kind, "code", StringComparison.Ordinal)
+            ? dashboards.ArchitectureReviewContext(
+                item.Repository.RootPath,
+                hierarchyCache.Get(item.Repository.RootPath))
+            : null;
+        return new ReviewRequest(node.Path, item.Kind, level,
+            ProjectGuidelines: architectureContext,
             RepositoryRoot: item.Repository.RootPath,
             GlobalInputsDirectory: item.Repository.GlobalInputsDirectory,
             InputBudgetCharacters: item.Repository.InputBudgetCharacters,
@@ -524,7 +534,15 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : item.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: item.AggregateControls,
-            AggregateExclusions: item.AggregateExclusions);
+            AggregateExclusions: item.AggregateExclusions,
+            ReviewRunId: item.Id,
+            Sensors: item.Kind == "security"
+                ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
+                    .Where(sensor => sensor.Enabled)
+                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                    .ToArray()
+                : null);
+    }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {

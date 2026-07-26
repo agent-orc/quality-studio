@@ -32,6 +32,10 @@ public sealed record SensorScanResult(
     IReadOnlyList<ReviewFinding> Findings,
     SensorProvenance Provenance);
 
+public sealed record ReviewSensorConfiguration(
+    string Id,
+    IReadOnlyDictionary<string, string>? Configuration = null);
+
 public interface IReviewSensor
 {
     string Id { get; }

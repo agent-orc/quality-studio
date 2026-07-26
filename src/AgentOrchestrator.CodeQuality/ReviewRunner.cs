@@ -20,7 +20,9 @@ public sealed record ReviewRequest(
     string? DisplayName = null,
     IReadOnlyList<ReviewSubjectFile>? SubjectUnits = null,
     IReadOnlyList<string>? AggregateControls = null,
-    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null);
+    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
+    string? ReviewRunId = null,
+    IReadOnlyList<ReviewSensorConfiguration>? Sensors = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -36,26 +38,29 @@ public sealed class ReviewRunner
     private readonly ReviewResponseParser _responseParser;
     private readonly InputResolver _inputResolver;
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
+    private readonly SensorRegistry? _sensorRegistry;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
         ReviewPromptBuilder? promptBuilder = null,
         ReviewResponseParser? responseParser = null,
         InputResolver? inputResolver = null,
-        Action<ReviewUsageEntry>? usageRecorded = null)
+        Action<ReviewUsageEntry>? usageRecorded = null,
+        SensorRegistry? sensorRegistry = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
         _inputResolver = inputResolver ?? new InputResolver();
         _usageRecorded = usageRecorded;
+        _sensorRegistry = sensorRegistry;
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads) = prepared;
+        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads, sensorEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
@@ -87,6 +92,15 @@ public sealed class ReviewRunner
                 agentResult.EffectiveModel, startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
+            if (request.Level == ReviewLevel.Project &&
+                string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
+                request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
+                !response["aspects"]!.AsArray().OfType<JsonObject>().Any(aspect =>
+                    string.Equals(aspect["id"]?.GetValue<string>(), "architecture", StringComparison.Ordinal)))
+            {
+                throw new ReviewResponseException(
+                    "A project-level code review must include the required 'architecture' aspect.");
+            }
             var finalSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
             if (!initialSubject.Inputs.SequenceEqual(finalSubject.Inputs))
             {
@@ -94,7 +108,15 @@ public sealed class ReviewRunner
             }
 
             var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, cancellationToken).ConfigureAwait(false);
-            var findingIdentities = FindingIdentity.Assign(response, subjectContents);
+            if (request.Kind == "security")
+            {
+                SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
+            }
+            var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+            if (request.Kind == "security")
+            {
+                findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
+            }
 
             var adapter = AdapterFromUnitId(unitId);
             var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
@@ -123,7 +145,8 @@ public sealed class ReviewRunner
                     request.Level,
                     request.DisplayName,
                     usage,
-                    threads);
+                    threads,
+                    sensorEvidence);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 await File.WriteAllTextAsync(
@@ -195,17 +218,41 @@ public sealed class ReviewRunner
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
             .Where(thread => thread["status"]?.GetValue<string>() == "open")
             .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
+        var sensorEvidence = await CollectSensorEvidenceAsync(
+            request, root, subjectPaths, cancellationToken).ConfigureAwait(false);
+        var coverageEvidence = CoverageProjection.Evidence(
+            CoverageSnapshot.Load(root),
+            CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD"),
+            subjectPaths);
         var prompt = _promptBuilder.Build(relativePath, request.Kind, globalGuidelines,
-            projectGuidelines, fileContent, openThreads);
+            projectGuidelines, fileContent, openThreads,
+            request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
+            request.Level,
+            coverageEvidence);
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
-            prompt, unitId, metaPath, threads);
+            prompt, unitId, metaPath, threads, sensorEvidence);
+    }
+
+    private async Task<SecurityEvidenceBundle> CollectSensorEvidenceAsync(
+        ReviewRequest request,
+        string root,
+        IReadOnlyList<string> subjectPaths,
+        CancellationToken cancellationToken)
+    {
+        if (request.Kind != "security" || request.Sensors is not { Count: > 0 })
+            return SecurityEvidenceBundle.Empty;
+        if (_sensorRegistry is null)
+            throw new InvalidOperationException("Security sensors were configured for the review, but no sensor registry is available.");
+        return await new SecurityEvidenceCollector(_sensorRegistry)
+            .CollectAsync(root, subjectPaths, request.Sensors, cancellationToken).ConfigureAwait(false);
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
         DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
         new(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
-            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath);
+            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
+            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {
@@ -233,7 +280,8 @@ public sealed class ReviewRunner
         ReviewLevel level,
         string? displayName,
         ReviewUsageEntry usage,
-        JsonArray threads)
+        JsonArray threads,
+        SecurityEvidenceBundle sensorEvidence)
     {
         var promptHash = ReviewPromptBuilder.TemplateHash(kind);
         var effectiveHash = inputs.EffectiveHash(promptHash);
@@ -310,6 +358,16 @@ public sealed class ReviewRunner
             ["findings"] = response["findings"]!.DeepClone(),
             ["threads"] = threads.DeepClone(),
         };
+        if (kind == "security" && sensorEvidence.Sensors.Count > 0)
+        {
+            reviewer["sensors"] = new JsonArray(sensorEvidence.Sensors.Select(sensor => (JsonNode)new JsonObject
+            {
+                ["id"] = sensor.SensorId,
+                ["version"] = sensor.SensorVersion,
+                ["resultHash"] = sensor.ResultHash,
+            }).ToArray());
+            meta["security"] = SecurityReviewCombiner.Metadata(sensorEvidence);
+        }
         if (aggregateMembers is not null)
         {
             meta["aggregate"] = new JsonObject
@@ -509,7 +567,8 @@ public sealed class ReviewRunner
         string Prompt,
         string UnitId,
         string MetaPath,
-        JsonArray Threads);
+        JsonArray Threads,
+        SecurityEvidenceBundle SensorEvidence);
 }
 
 public sealed class ReviewRunException(string message) : Exception(message);

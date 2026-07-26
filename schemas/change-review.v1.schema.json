@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "title": "Quality Studio change review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "changeSet",
+    "reviewedAt",
+    "touchedUnits",
+    "delta",
+    "judgement",
+    "economy",
+    "verdict",
+    "summary"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/change-review.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "changeSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "baseCommit", "headCommit", "title", "committedAt", "touchedFiles"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "baseCommit": { "$ref": "#/$defs/commit" },
+        "headCommit": { "$ref": "#/$defs/commit" },
+        "mergeCommit": { "$ref": "#/$defs/commit" },
+        "title": { "type": "string" },
+        "committedAt": { "type": "string", "format": "date-time" },
+        "touchedFiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "kind", "contentChanged", "binary"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["added", "modified", "deleted", "renamed", "copied"] },
+              "previousPath": { "type": "string", "minLength": 1 },
+              "additions": { "type": "integer", "minimum": 0 },
+              "deletions": { "type": "integer", "minimum": 0 },
+              "contentChanged": { "type": "boolean" },
+              "binary": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "reviewedAt": { "type": "string", "format": "date-time" },
+    "touchedUnits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/unit" }
+    },
+    "delta": {
+      "type": "object",
+      "required": ["grades", "findings", "newlyStale", "boundaries", "coverage", "churn", "onlyMoves", "hasQualityDelta"],
+      "properties": {
+        "grades": { "type": "array", "items": { "$ref": "#/$defs/gradeDelta" } },
+        "findings": {
+          "type": "object",
+          "required": ["new", "resolved", "persisting"],
+          "properties": {
+            "new": { "$ref": "#/$defs/findingItems" },
+            "resolved": { "$ref": "#/$defs/findingItems" },
+            "persisting": { "$ref": "#/$defs/findingItems" }
+          }
+        },
+        "newlyStale": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["unitId", "unitPath", "kind", "reasons"],
+            "properties": {
+              "unitId": { "type": "string" },
+              "unitPath": { "type": "string" },
+              "kind": { "type": "string" },
+              "reasons": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+            }
+          }
+        },
+        "boundaries": {
+          "type": "object",
+          "required": ["new", "changed", "removed"],
+          "properties": {
+            "new": { "$ref": "#/$defs/boundaryItems" },
+            "changed": { "$ref": "#/$defs/boundaryItems" },
+            "removed": { "$ref": "#/$defs/boundaryItems" }
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["available", "unavailable"] },
+            "beforePercent": { "type": "number", "minimum": 0, "maximum": 100 },
+            "afterPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+            "percentagePointChange": { "type": "number", "minimum": -100, "maximum": 100 },
+            "reason": { "type": "string" }
+          }
+        },
+        "churn": {
+          "type": "object",
+          "required": ["filesTouched", "filesAdded", "filesModified", "filesDeleted", "filesMoved", "linesAdded", "linesDeleted", "repositoryFiles", "blastRadiusPercent"],
+          "properties": {
+            "filesTouched": { "type": "integer", "minimum": 0 },
+            "filesAdded": { "type": "integer", "minimum": 0 },
+            "filesModified": { "type": "integer", "minimum": 0 },
+            "filesDeleted": { "type": "integer", "minimum": 0 },
+            "filesMoved": { "type": "integer", "minimum": 0 },
+            "linesAdded": { "type": "integer", "minimum": 0 },
+            "linesDeleted": { "type": "integer", "minimum": 0 },
+            "repositoryFiles": { "type": "integer", "minimum": 0 },
+            "blastRadiusPercent": { "type": "number", "minimum": 0 }
+          }
+        },
+        "onlyMoves": { "type": "boolean" },
+        "hasQualityDelta": { "type": "boolean" }
+      }
+    },
+    "judgement": {
+      "type": "object",
+      "required": ["status", "reviewer", "aspects", "summary"],
+      "properties": {
+        "status": { "enum": ["not-run", "complete"] },
+        "reviewer": { "type": "string" },
+        "aspects": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "verdict", "rationale"],
+            "properties": {
+              "id": { "enum": ["risk", "test-evidence", "scope-discipline", "architecture-drift"] },
+              "title": { "type": "string" },
+              "verdict": { "type": "string" },
+              "rationale": { "type": "string" }
+            }
+          }
+        },
+        "summary": { "type": "string" }
+      }
+    },
+    "economy": {
+      "type": "object",
+      "required": ["diffFiles", "fullSweepFiles", "diffLines", "diffCharacters", "fullSweepCharacters", "evidenceRatioPercent", "savedPercent"],
+      "properties": {
+        "diffFiles": { "type": "integer", "minimum": 0 },
+        "fullSweepFiles": { "type": "integer", "minimum": 0 },
+        "diffLines": { "type": "integer", "minimum": 0 },
+        "diffCharacters": { "type": "integer", "minimum": 0 },
+        "fullSweepCharacters": { "type": "integer", "minimum": 0 },
+        "evidenceRatioPercent": { "type": "number", "minimum": 0 },
+        "savedPercent": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "verdict": { "enum": ["no-quality-delta", "improved", "neutral", "regression"] },
+    "summary": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "unit": {
+      "type": "object",
+      "required": ["id", "adapter", "level", "path", "displayName"],
+      "properties": {
+        "id": { "type": "string" },
+        "adapter": { "type": "string" },
+        "level": { "type": "string" },
+        "path": { "type": "string" },
+        "displayName": { "type": "string" }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] }
+      }
+    },
+    "gradeDelta": {
+      "type": "object",
+      "required": ["unitId", "unitPath", "kind", "regression"],
+      "properties": {
+        "unitId": { "type": "string" },
+        "unitPath": { "type": "string" },
+        "kind": { "type": "string" },
+        "before": { "$ref": "#/$defs/grade" },
+        "after": { "$ref": "#/$defs/grade" },
+        "scoreChange": { "type": "integer", "minimum": -100, "maximum": 100 },
+        "regression": { "type": "boolean" }
+      }
+    },
+    "findingItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["identity", "unitId", "unitPath", "kind", "ruleId", "severity", "title"],
+        "properties": {
+          "identity": { "type": "string" },
+          "unitId": { "type": "string" },
+          "unitPath": { "type": "string" },
+          "kind": { "type": "string" },
+          "ruleId": { "type": "string" },
+          "severity": { "type": "string" },
+          "title": { "type": "string" }
+        }
+      }
+    },
+    "boundaryItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["identity", "kind", "name", "path", "line", "unitId"],
+        "properties": {
+          "identity": { "type": "string" },
+          "kind": { "type": "string" },
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1 },
+          "unitId": { "type": "string" }
+        }
+      }
+    }
+  }
+}

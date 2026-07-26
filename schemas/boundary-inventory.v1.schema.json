@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/boundary-inventory.v1.schema.json",
+  "title": "Quality Studio derived boundary inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "sensor", "sensorVersion", "entries", "findings" ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/boundary-inventory.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "sensor": { "const": "boundaries" },
+    "sensorVersion": { "type": "string", "minLength": 1 },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
+  },
+  "$defs": {
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "path", "line" ],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "value", "derivedFrom" ],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "derivedFrom": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "value", "derivedFrom" ],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "derivedFrom": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "name", "source", "type" ],
+      "properties": {
+        "name": { "type": "string" },
+        "source": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "required": { "type": [ "boolean", "null" ] }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "shape" ],
+      "properties": {
+        "shape": { "type": "string", "minLength": 1 },
+        "contentType": { "type": [ "string", "null" ] }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "kind", "direction", "name", "transport", "location",
+        "reachability", "authentication", "authorization", "inputs",
+        "response", "sideEffects", "rateLimit", "sizeLimit",
+        "knownConsumers", "evidence"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "direction": { "enum": [ "inbound", "outbound" ] },
+        "name": { "type": "string", "minLength": 1 },
+        "transport": { "type": "string", "minLength": 1 },
+        "location": { "$ref": "#/$defs/location" },
+        "reachability": { "$ref": "#/$defs/fact" },
+        "authentication": { "$ref": "#/$defs/fact" },
+        "authorization": { "$ref": "#/$defs/fact" },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/input" }
+        },
+        "response": { "$ref": "#/$defs/response" },
+        "sideEffects": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "rateLimit": { "$ref": "#/$defs/limit" },
+        "sizeLimit": { "$ref": "#/$defs/limit" },
+        "knownConsumers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/location" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

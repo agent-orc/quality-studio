@@ -1,8 +1,8 @@
 # Review usage telemetry
 
 Every agent-backed review operation writes the runner-reported model, CLI type,
-token counts, duration, timestamp, review kind, hierarchy level, path, and run ID
-to two places:
+token counts, duration, timestamp, review kind, hierarchy level, path, and run
+identifiers to two places:
 
 - the review-meta `reviewer.usage` block, alongside `reviewer.model` and
   `reviewer.runId`; and
@@ -10,13 +10,35 @@ to two places:
 
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
-contract in `schemas/usage-ledger.v1.schema.json`. The additive optional field in
-`review-meta.v1.schema.json` preserves compatibility with existing v1 documents.
+contracts in `schemas/usage-ledger.v1.schema.json` and
+`schemas/usage-ledger.v2.schema.json`. In both versions, `runId` is the ID returned
+by the CLI for one operation. Version 2 adds `reviewRunId`, the durable sweep/job
+ID shared by all file and aggregate operations in the review. Existing v1 lines
+remain valid and are never migrated or rewritten.
 
 `GET /api/usage?since=&kind=` (and its repository-scoped equivalent) reads the
-ledger and returns totals, model/kind/day aggregates, and at most 50 recent
-entries. A malformed historical JSONL line is skipped so one interrupted write
-cannot make the rest of the ledger unavailable.
+ledger and returns totals, model/kind/day/review-run aggregates, and at most 50
+recent entries. `byReviewRun` groups v2 entries by `reviewRunId`, making a
+completed sweep's token total recoverable without the in-memory job object and
+after an API restart. A v1 entry has no sweep ID, so it is retained as a
+singleton group keyed by its CLI `runId`. A malformed historical JSONL line is
+skipped so one interrupted write cannot make the rest of the ledger unavailable.
+
+The Usage button in the top bar opens the repository history view. It shows
+input-plus-output token spend, model and daily aggregates, and keyboard-accessible
+recent-entry details containing both run identifiers.
+
+## Git history policy
+
+`.quality/usage/YYYY-MM.jsonl` is committed repository history. The files are
+monthly and append-only; do not compact, reorder, rewrite, or discard prior
+lines. `.gitignore` explicitly keeps these files committable and `.gitattributes`
+uses Git's union merge driver so independent appends are retained during merges.
+The application intentionally does not invoke Git: the active monthly file is
+staged and committed through the repository's normal development workflow.
+
+This policy begins with the ledger data available in each repository. Missing
+historical entries are not fabricated retroactively.
 
 ## Quota ownership
 

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/usage-ledger.v2.schema.json",
+  "title": "Quality Studio usage ledger entry v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["runId", "timestamp", "model", "cliType", "tokens", "kind", "level", "path", "reviewRunId", "schemaVersion"],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Provider or CLI run identifier for this individual review operation."
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "tokens": { "$ref": "#/$defs/tokens" },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "path": { "type": "string", "minLength": 1 },
+    "reviewRunId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Durable sweep/job identifier shared by every operation in one review run."
+    },
+    "schemaVersion": { "const": 2 }
+  },
+  "$defs": {
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

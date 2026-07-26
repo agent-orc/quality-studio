@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/flow-review.v1.schema.json",
+  "title": "Quality Studio flow review v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "flow",
+    "verdict",
+    "summary",
+    "findings",
+    "findingCounts",
+    "provenance"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/flow-review.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "flow": { "$ref": "#/$defs/flow" },
+    "verdict": { "enum": ["pass", "fail", "undetermined"] },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "undeterminedReason": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "findingCounts": { "$ref": "#/$defs/counts" },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "verdict": { "const": "pass" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": { "findings": { "maxItems": 0 } },
+        "not": { "required": ["undeterminedReason"] }
+      }
+    },
+    {
+      "if": {
+        "properties": { "verdict": { "const": "fail" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": { "findings": { "minItems": 1 } },
+        "not": { "required": ["undeterminedReason"] }
+      }
+    },
+    {
+      "if": {
+        "properties": { "verdict": { "const": "undetermined" } },
+        "required": ["verdict"]
+      },
+      "then": { "required": ["undeterminedReason"] }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "description", "entryBoundaryIds"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "entryBoundaryIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "externalDependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fingerprint",
+        "ruleId",
+        "class",
+        "severity",
+        "title",
+        "description",
+        "recommendation",
+        "weakestPointIndex",
+        "flowPath",
+        "state"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^finding-[0-9a-f]{64}$" },
+        "fingerprint": { "$ref": "#/$defs/sha256" },
+        "ruleId": { "type": "string", "pattern": "^deep-flow/" },
+        "class": {
+          "enum": [
+            "sessionLifecycle",
+            "horizontalPrivilegeEscalation",
+            "verticalPrivilegeEscalation",
+            "objectOwnership",
+            "flowBypass",
+            "replay",
+            "raceCondition",
+            "quotaAbuse",
+            "unenforcedInvariant"
+          ]
+        },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "recommendation": { "type": "string", "minLength": 1 },
+        "weakestPointIndex": { "type": "integer", "minimum": 0 },
+        "flowPath": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/pathStep" }
+        },
+        "state": { "enum": ["open", "accepted", "waived", "falsePositive", "resolved"] }
+      }
+    },
+    "pathStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "stage", "path", "line", "symbol", "action"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 0 },
+        "stage": {
+          "enum": ["entry", "authentication", "authorization", "stateTransition", "persistence", "response", "external"]
+        },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "symbol": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "open", "accepted", "waived", "falsePositive", "resolved"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "open": { "type": "integer", "minimum": 0 },
+        "accepted": { "type": "integer", "minimum": 0 },
+        "waived": { "type": "integer", "minimum": 0 },
+        "falsePositive": { "type": "integer", "minimum": 0 },
+        "resolved": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["durationMs"],
+      "properties": {
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "cachedInputTokens": { "type": "integer", "minimum": 0 },
+        "reasoningOutputTokens": { "type": "integer", "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "enum": ["resolved", "unknownModel", "noPriceForDate", "usageUnavailable"]
+        },
+        "amount": { "type": "number", "minimum": 0 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent",
+        "model",
+        "runId",
+        "promptId",
+        "promptVersion",
+        "promptHash",
+        "inputHash",
+        "boundaryCatalogueHash",
+        "reviewedAt",
+        "usage",
+        "cost"
+      ],
+      "properties": {
+        "agent": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "promptId": { "const": "flow-business-logic-review" },
+        "promptVersion": { "const": "1.0.0" },
+        "promptHash": { "$ref": "#/$defs/sha256" },
+        "inputHash": { "$ref": "#/$defs/sha256" },
+        "boundaryCatalogueHash": { "$ref": "#/$defs/sha256" },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "usage": { "$ref": "#/$defs/usage" },
+        "cost": { "$ref": "#/$defs/cost" }
+      }
+    }
+  }
+}

@@ -119,6 +119,35 @@ The default globs cover common programming and web source extensions. Repeat
 `--include` to replace them with a custom set, or select a sibling review kind
 with `--kind security` or `--kind performance`.
 
+## Boundary inventory
+
+Derive the repository's externally callable, host, browser, process, filesystem,
+and caller-influenced outbound surfaces and run the standard mechanical checks:
+
+```shell
+dotnet run --project src/quality-cli -- boundaries scan .
+```
+
+The stable result is written to `.quality/boundaries/inventory.json`, so boundary
+changes appear in normal source-control diffs. See
+[`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and
+derivation rules.
+
+## Change-set review
+
+Review one merge range, or backfill an integration trajectory, without sweeping
+untouched units:
+
+```shell
+dotnet run --project src/quality-cli -- diff . --base <base> --head <head> --fail-on-regression
+dotnet run --project src/quality-cli -- diff . --last 20
+```
+
+Change truth is committed under `.quality/changes/`. See
+[`docs/change-reviews.md`](docs/change-reviews.md) for provider semantics,
+deterministic delta fields, agent aspects, economy measurements, and gate exit
+codes.
+
 ## Security scan
 
 Run the deterministic Gitleaks sensor to produce structured security findings and
@@ -144,6 +173,19 @@ identity both with the review truth and in a repository-local append-only ledger
 The API exposes repository usage aggregates and provider quota availability. See
 [`docs/usage-telemetry.md`](docs/usage-telemetry.md) for the versioned storage
 contracts, endpoint semantics, quota source of truth, and unavailable behavior.
+
+## Quality reports
+
+Export the project scorecard, Git-backed score trend, findings, coverage, sensor
+posture, and registry comparison as Markdown, HTML, JSON, or SARIF:
+
+```shell
+dotnet run --project src/quality-cli -- report . --format sarif --output quality-report.sarif
+```
+
+CI gates use `--fail-under <score>` and `--fail-on <severity>`. See
+[`docs/quality-reports.md`](docs/quality-reports.md) for report semantics,
+endpoint formats, and documented exit codes.
 
 ## Repository layout
 
