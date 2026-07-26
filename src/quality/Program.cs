@@ -79,7 +79,9 @@ internal static class QualityCommand
         {
             var (path, options) = ParseSecurityArguments(args.Skip(1).ToArray());
             var timer = Stopwatch.StartNew();
-            var result = new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(path, options.Mode, options.Range, options.ConfigPath, options.BaselinePath)).GetAwaiter().GetResult();
+            var result = new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+                path, options.Mode, options.Range, options.ConfigPath, options.BaselinePath,
+                PersistMetadata: false)).GetAwaiter().GetResult();
             timer.Stop();
             output.WriteLine($"Scanned {result.Report.FilesScanned} file(s); verdict {result.Report.Verdict.ToString().ToLowerInvariant()}; new {result.Report.NewFindings}; accepted {result.Report.AcceptedFindings}; {timer.ElapsedMilliseconds} ms");
             foreach (var finding in result.Findings)

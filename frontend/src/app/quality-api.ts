@@ -32,7 +32,12 @@ export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; m
 export interface ReviewThreadEntry { id: string; author: ReviewThreadAuthor; createdAt: string; body: string; replyTo?: string; }
 export interface ReviewThread { id: string; anchor: { path: string; fingerprint: string; contextHash: string; lastKnownRange: { start: FindingPosition; end: FindingPosition } }; status: ThreadStatus; anchorState?: AnchorState; healedAt?: string; entries: ReviewThreadEntry[]; }
 export interface TokenUsage { inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null; reasoningOutputTokens: number | null; durationMs: number; }
-export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string } }; grade: { score: number; band: string; rationale: string }; summary: string; findings: ReviewFinding[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; }
+export interface ReviewGrade { score: number; band: string; rationale: string; }
+export interface ReviewAspect { id: string; title: string; grade: ReviewGrade; }
+export interface ReviewSensorReference { id: string; version: string; resultHash: string; }
+export interface SecuritySensorMetadata extends ReviewSensorReference { available: boolean; unavailableReason: string | null; verdict: SecurityVerdict; toolVersions: Record<string, string>; }
+export interface SecurityReviewMetadata { verdict: SecurityVerdict; combinationRule: string; sensors: SecuritySensorMetadata[]; }
+export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
 export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
 export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
@@ -228,30 +233,48 @@ const demoTree: TreeNode[] = [{ id: 'quality-studio', name: 'Quality Studio', le
 const demoMeta: ReviewMetaDocument[] = [
   { reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Clear request boundaries and consistent error handling.' }, summary: 'The API entry point is compact and readable. One low-risk diagnostic gap remains.', findings: [{ id: 'route-timing', ruleId: 'dotnet-api-safety', aspect: 'observability', severity: 'low', title: 'File route has no timing event', description: 'The user-visible file read is not timed, making slow repository access difficult to diagnose.', recommendation: 'Record a structured duration for the file-read path.', evidence: 'The route awaits File.ReadAllTextAsync and returns without a timing log.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 17, column: 1 }, end: { line: 21, column: 3 } } }] }] },
   { reviewedAt: '2026-07-09T10:05:00.000Z', kind: 'performance', reviewer: { agent: 'perf-reviewer', model: 'gpt-5' }, grade: { score: 72, band: 'C', rationale: 'Repository hierarchy work is repeated on the request path.' }, summary: 'The endpoint is correct, but the stored review predates the current file and should be rerun.', findings: [{ id: 'rebuild-tree', ruleId: 'built-in:performance', aspect: 'request-path', severity: 'high', title: 'Hierarchy rebuilt for every request', description: 'A full project hierarchy build runs synchronously whenever the tree endpoint is requested.', recommendation: 'Cache the derived hierarchy and invalidate it from repository scan events.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 10, column: 1 }, end: { line: 15, column: 3 } } }] }] },
-  { reviewedAt: '2026-07-10T13:40:00.000Z', kind: 'security', reviewer: { agent: 'gitleaks', model: '8.24.2' }, grade: { score: 86, band: 'B', rationale: 'Repository access is constrained by the API service.' }, summary: 'No exploitable issue was identified in this file.', findings: [] },
+  {
+    reviewedAt: '2026-07-25T13:40:00.000Z',
+    kind: 'security',
+    reviewer: {
+      agent: 'security-reviewer',
+      model: 'gpt-5',
+      sensors: [{ id: 'gitleaks', version: '8.24.2', resultHash: `sha256:${'a'.repeat(64)}` }],
+    },
+    grade: { score: 59, band: 'F', rationale: 'Machine sensors reported blocking security evidence. Agent judgement: request boundaries are otherwise constrained.' },
+    summary: 'Machine sensors reported blocking security evidence. One planted credential must be removed and rotated.',
+    aspects: [
+      { id: 'secrets', title: 'Secrets', grade: { score: 59, band: 'F', rationale: 'A high-confidence secret was detected.' } },
+      { id: 'authentication-authorization', title: 'Authentication / authorization', grade: { score: 86, band: 'B', rationale: 'Repository access is constrained.' } },
+    ],
+    security: {
+      verdict: 'block',
+      combinationRule: 'security-sensor-agent-v1',
+      sensors: [{
+        id: 'gitleaks',
+        version: '8.24.2',
+        resultHash: `sha256:${'a'.repeat(64)}`,
+        available: true,
+        unavailableReason: null,
+        verdict: 'block',
+        toolVersions: { gitleaks: '8.24.2' },
+      }],
+    },
+    findingCounts: { open: 1, accepted: 0, waived: 0, falsePositive: 0, resolved: 0 },
+    findings: [{
+      id: 'gitleaks-secret-demo',
+      ruleId: 'generic-api-key',
+      aspect: 'secrets',
+      severity: 'high',
+      title: 'Hard-coded API token',
+      description: 'Gitleaks detected a high-confidence credential in the reviewed unit.',
+      recommendation: 'Revoke the credential, remove it from history, and load the replacement from a secret store.',
+      fingerprint: `sha256:${'b'.repeat(64)}`,
+      evidence: JSON.stringify({ source: 'machine-sensor', sensorId: 'gitleaks', sensorVersion: '8.24.2', resultHash: `sha256:${'a'.repeat(64)}`, fact: null }, null, 2),
+      locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 6, column: 1 }, end: { line: 6, column: 38 } } }],
+    }],
+  },
 ];
-
-const demoSecurity: SecurityScanResponse = {
-  verdict: 'pass',
-  available: true,
-  scanner: 'gitleaks',
-  version: '8.24.2',
-  mode: 'repository',
-  range: null,
-  configPath: null,
-  baselinePath: null,
-  scannedAt: '2026-07-11T16:20:00.000Z',
-  filesScanned: 1,
-  newFindings: 0,
-  acceptedFindings: 0,
-  blockFindings: 0,
-  warnFindings: 0,
-  cleanFiles: 1,
-  unavailableReason: null,
-  provenance: { scanner: 'gitleaks', version: '8.24.2', mode: 'repository', range: null, configPath: null, baselinePath: null, scannedAt: '2026-07-11T16:20:00.000Z' },
-  counts: { filesScanned: 1, newFindings: 0, acceptedFindings: 0, blockFindings: 0, warnFindings: 0, cleanFiles: 1 },
-  findings: [],
-};
 
 @Injectable({ providedIn: 'root' })
 export class QualityApi {
@@ -351,18 +374,16 @@ export class QualityApi {
 
   async loadTree(): Promise<void> {
     try {
-      const [tree, scan, security, inputs, guidelines] = await Promise.all([
+      const [tree, scan, inputs, guidelines] = await Promise.all([
         firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${this.repositoryApiBase()}/tree?path=`)),
         firstValueFrom(this.http.get<ScanReport>(`${this.repositoryApiBase()}/scan`)),
-        firstValueFrom(this.http.get<SecurityScanResponse>(`${this.repositoryApiBase()}/security/scan`)),
         firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${this.repositoryApiBase()}/inputs`)),
         firstValueFrom(this.http.get<{ guidelines: Guideline[]; catalogue: GuidelineCatalogueEntry[]; traces: GuidelineTrace[] }>(`${this.repositoryApiBase()}/guidelines`)),
       ]);
-      this.tree.set(tree.nodes); this.scan.set(scan); this.security.set(security); this.inputs.set(inputs.kinds);
+      this.tree.set(tree.nodes); this.scan.set(scan); this.inputs.set(inputs.kinds);
       this.guidelines.set(guidelines.guidelines); this.guidelineCatalogue.set(guidelines.catalogue); this.guidelineTraces.set(guidelines.traces); this.connectionState.set('live');
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
-      this.security.set(demoSecurity);
       this.connectionState.set('preview');
       console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
     }

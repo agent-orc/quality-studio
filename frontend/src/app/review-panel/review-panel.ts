@@ -30,7 +30,6 @@ export class ReviewPanel {
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
   readonly activeState = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.direct ?? 'missing');
-  readonly securityNodeState = computed(() => this.selectedNode()?.kinds['security']?.direct ?? 'missing');
   readonly activeInputs = computed(() => this.api.inputs()[this.activeKind()] ?? null);
   readonly inputTraces = computed(() => new Map(this.api.guidelineTraces().map(trace => [trace.guidelineId, trace])));
   readonly metaPath = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.metaPath ?? null);

@@ -80,12 +80,12 @@ public interface IReviewExecutorFactory
         Action<ReviewUsageEntry> usageRecorded);
 }
 
-public sealed class ReviewExecutorFactory : IReviewExecutorFactory
+public sealed class ReviewExecutorFactory(SensorRegistry sensors) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(cliType, model, eventObserver: eventObserver),
-            usageRecorded: usageRecorded));
+            usageRecorded: usageRecorded, sensorRegistry: sensors));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -525,7 +525,13 @@ public sealed class ReviewJobService : BackgroundService
                 : item.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: item.AggregateControls,
             AggregateExclusions: item.AggregateExclusions,
-            ReviewRunId: item.Id);
+            ReviewRunId: item.Id,
+            Sensors: item.Kind == "security"
+                ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
+                    .Where(sensor => sensor.Enabled)
+                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                    .ToArray()
+                : null);
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {

@@ -40,42 +40,6 @@ describe('QualityApi', () => {
     const loading = api.loadTree();
     http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
-    http.expectOne('/api/repos/default/security/scan').flush({
-      verdict: 'pass',
-      available: true,
-      scanner: 'gitleaks',
-      version: '8.24.2',
-      mode: 'repository',
-      range: null,
-      configPath: null,
-      baselinePath: null,
-      scannedAt: '2026-07-11T16:20:00.000Z',
-      filesScanned: 0,
-      newFindings: 0,
-      acceptedFindings: 0,
-      blockFindings: 0,
-      warnFindings: 0,
-      cleanFiles: 0,
-      unavailableReason: null,
-      provenance: {
-        scanner: 'gitleaks',
-        version: '8.24.2',
-        mode: 'repository',
-        range: null,
-        configPath: null,
-        baselinePath: null,
-        scannedAt: '2026-07-11T16:20:00.000Z',
-      },
-      counts: {
-        filesScanned: 0,
-        newFindings: 0,
-        acceptedFindings: 0,
-        blockFindings: 0,
-        warnFindings: 0,
-        cleanFiles: 0,
-      },
-      findings: [],
-    });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
     http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
 
@@ -94,42 +58,6 @@ describe('QualityApi', () => {
     const loading = api.loadTree();
     http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
-    http.expectOne('/api/repos/default/security/scan').flush({
-      verdict: 'pass',
-      available: true,
-      scanner: 'gitleaks',
-      version: '8.24.2',
-      mode: 'repository',
-      range: null,
-      configPath: null,
-      baselinePath: null,
-      scannedAt: '2026-07-11T16:20:00.000Z',
-      filesScanned: 0,
-      newFindings: 0,
-      acceptedFindings: 0,
-      blockFindings: 0,
-      warnFindings: 0,
-      cleanFiles: 0,
-      unavailableReason: null,
-      provenance: {
-        scanner: 'gitleaks',
-        version: '8.24.2',
-        mode: 'repository',
-        range: null,
-        configPath: null,
-        baselinePath: null,
-        scannedAt: '2026-07-11T16:20:00.000Z',
-      },
-      counts: {
-        filesScanned: 0,
-        newFindings: 0,
-        acceptedFindings: 0,
-        blockFindings: 0,
-        warnFindings: 0,
-        cleanFiles: 0,
-      },
-      findings: [],
-    });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: {
       code: { kind: 'code', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
       security: { kind: 'security', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },

@@ -79,9 +79,15 @@ internal static class QualityCli
             }
 
             var stopwatch = Stopwatch.StartNew();
-            var result = await new ReviewRunner().ReviewAsync(new ReviewRequest(
+            var sensors = options.Kind == "security"
+                ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()])
+                : null;
+            var result = await new ReviewRunner(sensorRegistry: sensors).ReviewAsync(new ReviewRequest(
                 options.File, options.Kind, GlobalInputsDirectory: globalInputs,
-                InputBudgetCharacters: options.BudgetCharacters));
+                InputBudgetCharacters: options.BudgetCharacters,
+                Sensors: options.Kind == "security"
+                    ? [new ReviewSensorConfiguration("gitleaks"), new ReviewSensorConfiguration("dependencies")]
+                    : null));
             Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;
         }
@@ -116,7 +122,8 @@ internal static class QualityCli
                 options.Mode,
                 options.Range,
                 options.ConfigPath,
-                options.BaselinePath));
+                options.BaselinePath,
+                PersistMetadata: false));
 
             Console.WriteLine(
                 $"quality security scan: {result.Report.Verdict.ToString().ToLowerInvariant()} | files {result.Report.FilesScanned} | new {result.Report.NewFindings} | accepted {result.Report.AcceptedFindings} | block {result.Report.BlockFindings} | warn {result.Report.WarnFindings} | {stopwatch.ElapsedMilliseconds} ms");

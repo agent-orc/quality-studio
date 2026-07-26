@@ -63,6 +63,17 @@ public static class FindingStateProjection
             ? 100
             : (int)Math.Round(100 - (100 - rawScore) * (includedWeight / (double)totalWeight), MidpointRounding.AwayFromZero);
         adjusted = Math.Clamp(adjusted, rawScore, 100);
+        if (metadata["security"] is JsonObject security &&
+            security["verdict"]?.GetValue<string>() is { } securityVerdict)
+        {
+            var sensorMaximum = securityVerdict switch
+            {
+                "warn" => 79,
+                "block" or "unavailable" => 59,
+                _ => 100,
+            };
+            adjusted = Math.Min(adjusted, sensorMaximum);
+        }
         grade["score"] = adjusted;
         grade["band"] = adjusted switch { >= 90 => "A", >= 80 => "B", >= 70 => "C", >= 60 => "D", _ => "F" };
         grade["rationale"] = grade["rationale"]!.GetValue<string>() +

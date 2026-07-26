@@ -8,6 +8,8 @@ public sealed class ReviewMetaContractTests
 {
     private static readonly Lazy<JsonSchema> ReviewMetaSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
         FindRepositoryRoot(), "schemas", "review-meta.v1.schema.json"))));
+    private static readonly Lazy<JsonSchema> ReviewMetaV2Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
+        FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json"))));
 
     [Fact]
     public void SerializerRoundTripsAndIgnoresUnknownFields()
@@ -123,14 +125,45 @@ public sealed class ReviewMetaContractTests
                 "a.py"),
         };
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json")));
-
-        var result = schema.Evaluate(json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        var result = ReviewMetaV2Schema.Value.Evaluate(
+            json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
         Assert.Equal(2, json.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("generic", json.RootElement.GetProperty("unit").GetProperty("adapter").GetString());
+    }
+
+    [Fact]
+    public void V2SchemaAcceptsMergedSecurityProvenance()
+    {
+        var resultHash = "sha256:" + new string('b', 64);
+        var document = CreateDocument() with
+        {
+            Kind = ReviewKind.Security,
+            Reviewer = new ReviewerIdentity(
+                "codex",
+                "gpt-5",
+                Sensors: [new ReviewerSensorReference("gitleaks", "8.24.2", resultHash)]),
+            Security = new SecurityReviewMetadata(
+                "block",
+                "security-sensor-agent-v1",
+                [new SecuritySensorMetadata(
+                    "gitleaks",
+                    "8.24.2",
+                    resultHash,
+                    true,
+                    null,
+                    "block",
+                    new Dictionary<string, string> { ["gitleaks"] = "8.24.2" })]),
+        };
+        using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
+        var result = ReviewMetaV2Schema.Value.Evaluate(
+            json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+        Assert.True(result.IsValid, result.ToString());
+        Assert.Equal(resultHash,
+            json.RootElement.GetProperty("reviewer").GetProperty("sensors")[0].GetProperty("resultHash").GetString());
+        Assert.Equal("block", json.RootElement.GetProperty("security").GetProperty("verdict").GetString());
     }
 
     [Fact]

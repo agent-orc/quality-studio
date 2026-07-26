@@ -63,7 +63,7 @@ public class GitleaksSecurityScanner : IReviewSensor
             configuration.GetValueOrDefault("configPath"),
             configuration.GetValueOrDefault("baselinePath"),
             request.PersistMetadata), cancellationToken).ConfigureAwait(false);
-        var findings = result.Findings.Select(ToReviewFinding).ToArray();
+        var findings = result.Findings.Where(finding => !finding.Accepted).Select(ToReviewFinding).ToArray();
         return new SensorScanResult(
             result.Report.Available,
             result.Report.UnavailableReason,

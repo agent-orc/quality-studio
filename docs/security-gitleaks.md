@@ -1,6 +1,6 @@
 # Gitleaks security scanning
 
-Quality Studio treats Gitleaks as a deterministic secret-detection sensor, not as console noise. The scanner writes structured security findings into review-meta sidecars and exposes a redacted security summary through the API and CLI.
+Quality Studio treats Gitleaks as a deterministic secret-detection sensor, not as console noise. Security reviews consume its redacted findings and combine them with agent judgement in one review-meta sidecar according to [the security combination rule](security-review-combination.md).
 
 ## Versioning and licensing
 
@@ -30,3 +30,4 @@ Quality Studio treats Gitleaks as a deterministic secret-detection sensor, not a
 - `quality security scan . --mode range --range main..HEAD`
 - `quality security scan . --mode staged`
 
+These diagnostic scan commands report evidence but do not write review sidecars. Run a normal `security` review to persist the combined statement.

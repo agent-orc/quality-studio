@@ -232,6 +232,103 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
+    public async Task SecurityReview_MergesPlantedSecretIntoOneBlockingStatement()
+    {
+        await WithReviewFileAsync(async (root, file) =>
+        {
+            await File.WriteAllTextAsync(file, "const string Token = \"planted-test-secret\";\n",
+                TestContext.Current.CancellationToken);
+            var sensor = FakeSensor.BlockingSecret();
+            var registry = new SensorRegistry([sensor]);
+            var agentResponse = ReviewResponseParserTests.ValidResponse.Replace(
+                "\"findings\": []",
+                "\"findings\": [" + ReviewResponseParserTests.ValidFinding + "]",
+                StringComparison.Ordinal);
+            var agent = new FakeAgent(agentResponse);
+
+            var result = await new ReviewRunner(agent, sensorRegistry: registry).ReviewAsync(new ReviewRequest(
+                "src/Small.cs",
+                "security",
+                RepositoryRoot: root,
+                Sensors: [new ReviewSensorConfiguration(sensor.Id)]),
+                TestContext.Current.CancellationToken);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
+                result.MetaPath, TestContext.Current.CancellationToken));
+            var metadata = document.RootElement;
+            Assert.Equal("block", metadata.GetProperty("security").GetProperty("verdict").GetString());
+            Assert.Equal(59, metadata.GetProperty("grade").GetProperty("score").GetInt32());
+            var finding = Assert.Single(metadata.GetProperty("findings").EnumerateArray());
+            Assert.Equal("gitleaks-planted-secret", finding.GetProperty("id").GetString());
+            Assert.Equal("secrets", finding.GetProperty("aspect").GetString());
+            Assert.Contains("\"source\": \"machine-sensor\"", finding.GetProperty("evidence").GetString(), StringComparison.Ordinal);
+            var sensorReference = Assert.Single(metadata.GetProperty("reviewer").GetProperty("sensors").EnumerateArray());
+            Assert.Equal("gitleaks", sensorReference.GetProperty("id").GetString());
+            Assert.Matches("^sha256:[a-f0-9]{64}$", sensorReference.GetProperty("resultHash").GetString());
+            Assert.Contains("\"id\": \"gitleaks\"", agent.Prompt, StringComparison.Ordinal);
+            Assert.Contains("machine-produced sensor evidence", agent.Prompt, StringComparison.OrdinalIgnoreCase);
+            Assert.Single(Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories));
+        });
+    }
+
+    [Fact]
+    public async Task SecurityReview_UnavailableSensorCannotBecomeClean()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var sensor = FakeSensor.Unavailable();
+            var result = await new ReviewRunner(new FakeAgent(), sensorRegistry: new SensorRegistry([sensor]))
+                .ReviewAsync(new ReviewRequest(
+                    "src/Small.cs",
+                    "security",
+                    RepositoryRoot: root,
+                    Sensors: [new ReviewSensorConfiguration(sensor.Id)]),
+                    TestContext.Current.CancellationToken);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
+                result.MetaPath, TestContext.Current.CancellationToken));
+            var metadata = document.RootElement;
+            Assert.Equal("unavailable", metadata.GetProperty("security").GetProperty("verdict").GetString());
+            Assert.Equal("F", metadata.GetProperty("grade").GetProperty("band").GetString());
+            Assert.Equal(59, metadata.GetProperty("grade").GetProperty("score").GetInt32());
+            Assert.Contains("not a clean result", metadata.GetProperty("summary").GetString(), StringComparison.Ordinal);
+            var storedSensor = Assert.Single(metadata.GetProperty("security").GetProperty("sensors").EnumerateArray());
+            Assert.False(storedSensor.GetProperty("available").GetBoolean());
+            Assert.Equal("test sensor is offline", storedSensor.GetProperty("unavailableReason").GetString());
+            Assert.Empty(metadata.GetProperty("findings").EnumerateArray());
+        });
+    }
+
+    [Fact]
+    public async Task ProjectSecurityReview_UsesNamedPostureAspects()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var sensor = FakeSensor.Pass();
+            var result = await new ReviewRunner(new FakeAgent(), sensorRegistry: new SensorRegistry([sensor]))
+                .ReviewAsync(new ReviewRequest(
+                    ".",
+                    "security",
+                    ReviewLevel.Project,
+                    RepositoryRoot: root,
+                    UnitId: "qs-v1/dotnet/project/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    SubjectFiles: ["src/Small.cs"],
+                    Sensors: [new ReviewSensorConfiguration(sensor.Id)]),
+                    TestContext.Current.CancellationToken);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
+                result.MetaPath, TestContext.Current.CancellationToken));
+            var aspects = document.RootElement.GetProperty("aspects").EnumerateArray()
+                .Select(aspect => aspect.GetProperty("id").GetString()).ToHashSet(StringComparer.Ordinal);
+            Assert.Contains("secrets", aspects);
+            Assert.Contains("dependencies", aspects);
+            Assert.Contains("authentication-authorization", aspects);
+            Assert.Contains("input-validation", aspects);
+            Assert.Contains("configuration-iac", aspects);
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesAggregateMetadataForNonFileLevel()
     {
         await WithReviewFileAsync(async (root, _) =>
@@ -522,6 +619,55 @@ public sealed class ReviewRunnerTests
         public Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default) =>
             Task.FromException<ReviewAgentResult>(new ReviewAgentRunException("failed-run",
                 new TokenUsage(321, 12, 30, 2, 456), "effective-model", new IOException("stream failed")));
+    }
+
+    private sealed class FakeSensor(
+        bool available,
+        string? unavailableReason,
+        IReadOnlyList<ReviewFinding> findings) : IReviewSensor
+    {
+        public string Id => "gitleaks";
+        public string Version => "8.24.2";
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(available, unavailableReason,
+                new Dictionary<string, string> { ["gitleaks"] = Version }));
+
+        public Task<SensorScanResult> RunAsync(
+            SensorScanRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorScanResult(
+                available,
+                unavailableReason,
+                findings,
+                new SensorProvenance(
+                    Id,
+                    Version,
+                    "repository",
+                    ".",
+                    "2026-07-25T10:00:00.000Z",
+                    new Dictionary<string, string> { ["gitleaks"] = Version })));
+
+        public static FakeSensor BlockingSecret() => new(
+            true,
+            null,
+            [new ReviewFinding(
+                "gitleaks-planted-secret",
+                "secrets",
+                FindingSeverity.High,
+                "Planted test secret",
+                "Gitleaks detected a high-confidence test secret.",
+                "Remove and rotate the credential.",
+                [new FindingLocation(
+                    "src/Small.cs",
+                    new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 8)))],
+                "sha256:" + new string('b', 64),
+                "generic-api-key")]);
+
+        public static FakeSensor Unavailable() => new(false, "test sensor is offline", []);
+
+        public static FakeSensor Pass() => new(true, null, []);
     }
 }
 

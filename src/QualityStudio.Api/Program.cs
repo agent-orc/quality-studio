@@ -612,7 +612,7 @@ static async Task<IResult> SecurityScan(HttpContext context, RepositoryRegistry 
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
-    var result = await scanner.ScanAsync(new SecurityScanRequest(repository.Root), cancellationToken);
+    var result = await scanner.ScanAsync(new SecurityScanRequest(repository.Root, PersistMetadata: false), cancellationToken);
     logger.LogInformation(new EventId(1201, "SecurityScanCompleted"),
         "Scanned repository {RepositoryId} for secrets with verdict {Verdict} in {ElapsedMilliseconds} ms",
         registration.Id, result.Report.Verdict.ToString().ToLowerInvariant(), stopwatch.ElapsedMilliseconds);
