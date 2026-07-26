@@ -6,8 +6,10 @@ namespace AgentOrchestrator.CodeQuality;
 
 public sealed record ReviewMetaDocument
 {
-    public const int CurrentSchemaVersion = 1;
-    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json";
+    public const int CurrentSchemaVersion = 2;
+    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v2.schema.json";
+    public const int LegacySchemaVersion = 1;
+    public const string LegacySchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json";
 
     [JsonPropertyName("$schema"), JsonPropertyOrder(0)]
     public string Schema { get; init; } = SchemaId;
@@ -53,6 +55,9 @@ public sealed record ReviewMetaDocument
 
     [JsonPropertyOrder(14)]
     public IReadOnlyList<ReviewThread> Threads { get; init; } = [];
+
+    [JsonPropertyOrder(15), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SecurityReviewMetadata? Security { get; init; }
 }
 
 public sealed record ReviewUnit(
@@ -63,14 +68,34 @@ public sealed record ReviewUnit(
     [property: JsonPropertyOrder(4)] string DisplayName,
     [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SymbolId = null);
 
-public enum ReviewAdapter { Angular, Dotnet }
+public enum ReviewAdapter { Angular, Dotnet, Generic }
 
 public sealed record ReviewerIdentity(
     [property: JsonPropertyOrder(0)] string Agent,
     [property: JsonPropertyOrder(1)] string Model,
     [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AgentVersion = null,
     [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RunId = null,
-    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewerUsage? Usage = null);
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewerUsage? Usage = null,
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ReviewerSensorReference>? Sensors = null);
+
+public sealed record ReviewerSensorReference(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] string Version,
+    [property: JsonPropertyOrder(2)] string ResultHash);
+
+public sealed record SecurityReviewMetadata(
+    [property: JsonPropertyOrder(0)] string Verdict,
+    [property: JsonPropertyOrder(1)] string CombinationRule,
+    [property: JsonPropertyOrder(2)] IReadOnlyList<SecuritySensorMetadata> Sensors);
+
+public sealed record SecuritySensorMetadata(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] string Version,
+    [property: JsonPropertyOrder(2)] string ResultHash,
+    [property: JsonPropertyOrder(3)] bool Available,
+    [property: JsonPropertyOrder(4)] string? UnavailableReason,
+    [property: JsonPropertyOrder(5)] string Verdict,
+    [property: JsonPropertyOrder(6)] IReadOnlyDictionary<string, string> ToolVersions);
 
 public sealed record ManifestHash(
     [property: JsonPropertyOrder(0)] string Algorithm,
@@ -124,8 +149,8 @@ public sealed record ReviewFinding(
     [property: JsonPropertyOrder(4)] string Description,
     [property: JsonPropertyOrder(5)] string Recommendation,
     [property: JsonPropertyOrder(6)] IReadOnlyList<FindingLocation> Locations,
-    [property: JsonPropertyOrder(7), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Fingerprint = null,
-    [property: JsonPropertyOrder(8), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RuleId = null,
+    [property: JsonPropertyOrder(7)] string Fingerprint,
+    [property: JsonPropertyOrder(8)] string RuleId,
     [property: JsonPropertyOrder(9), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Evidence = null);
 
 public enum FindingSeverity { Critical, High, Medium, Low, Info }
@@ -241,14 +266,17 @@ public static class ReviewMetaJson
 
     private static void ValidateContractVersion(ReviewMetaDocument document)
     {
-        if (document.SchemaVersion != ReviewMetaDocument.CurrentSchemaVersion)
+        var current = document.SchemaVersion == ReviewMetaDocument.CurrentSchemaVersion &&
+                      string.Equals(document.Schema, ReviewMetaDocument.SchemaId, StringComparison.Ordinal);
+        var legacy = document.SchemaVersion == ReviewMetaDocument.LegacySchemaVersion &&
+                     string.Equals(document.Schema, ReviewMetaDocument.LegacySchemaId, StringComparison.Ordinal);
+        if (!current && !legacy)
         {
             throw new JsonException($"Unsupported review metadata schemaVersion '{document.SchemaVersion}'.");
         }
-
-        if (!string.Equals(document.Schema, ReviewMetaDocument.SchemaId, StringComparison.Ordinal))
+        if (legacy && document.Unit.Adapter == ReviewAdapter.Generic)
         {
-            throw new JsonException($"Unsupported review metadata schema '{document.Schema}'.");
+            throw new JsonException("The generic review adapter requires review metadata schemaVersion '2'.");
         }
 
         if (document.ReviewedAt.Offset != TimeSpan.Zero)

@@ -8,6 +8,18 @@ public sealed record ReviewRunPlanNode(string Id, string Name, string Path);
 
 public sealed record ReviewRunPlanTarget(string Id, string Name, string Path, string SubjectHash);
 
+public sealed record ReviewRunEstimate(
+    int Files,
+    int Operations,
+    long PromptCharacters,
+    long InputTokens,
+    long OutputTokens,
+    decimal? Cost,
+    string? Currency,
+    string PriceStatus,
+    int HistorySamples,
+    string Method);
+
 public sealed record ReviewRunManifest(
     string RunId,
     string RepositoryId,
@@ -19,6 +31,10 @@ public sealed record ReviewRunManifest(
     DateTimeOffset CreatedAt,
     IReadOnlyList<ReviewRunPlanTarget> Targets,
     IReadOnlyList<string>? AggregateControls,
+    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
+    ReviewRunEstimate? Estimate = null,
+    long? TokenCap = null,
+    decimal? CostCap = null,
     bool Force = false);
 
 public sealed record ReviewRunFileTransition(
@@ -42,7 +58,14 @@ public sealed record ReviewRunStatus(
     IReadOnlyList<string> Errors,
     int UsageOperations,
     TokenUsage Usage,
-    int SkippedFiles = 0);
+    long? TokenCap = null,
+    decimal? CostCap = null,
+    decimal? CostSpent = null,
+    string? Currency = null,
+    string PriceStatus = "unknownModel",
+    int SkippedFiles = 0,
+    string? AggregateState = null,
+    string? StopReason = null);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
@@ -162,7 +185,7 @@ public sealed class ReviewRunStore
         return loaded;
     }
 
-    public static bool IsTerminal(string state) => state is "done" or "failed" or "cancelled";
+    public static bool IsTerminal(string state) => state is "done" or "failed" or "cancelled" or "capped";
 
     private IReadOnlyList<ReviewRunFileTransition> ReadProgress(string directory, string runId)
     {

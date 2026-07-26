@@ -59,6 +59,22 @@ public sealed class InputResolverTests : IDisposable
         Assert.False(result.Complete);
     }
 
+    [Fact]
+    public void Ui_store_writes_a_valid_editable_file_that_the_resolver_uses()
+    {
+        var store = new GuidelineStore();
+        var created = store.Create(root, new GuidelineDraft("api-boundaries", true, 42, ["code"], ["file"], "Validate boundary input."));
+
+        var resolved = new InputResolver().Resolve(root, "code", ReviewLevel.File);
+
+        Assert.Equal("api-boundaries.md", created.FileName);
+        Assert.Equal("Validate boundary input.", Assert.Single(resolved.Inputs).IncludedContent);
+        Assert.Contains("enabled: true", File.ReadAllText(Path.Combine(Project, created.FileName)), StringComparison.Ordinal);
+
+        store.Update(root, created.Id, new GuidelineDraft(created.Id, false, 42, ["code"], ["file"], created.Content));
+        Assert.Empty(new InputResolver().Resolve(root, "code", ReviewLevel.File).Inputs);
+    }
+
     private string Project => Path.Combine(root, ".quality", "inputs");
 
     private static void Write(string directory, string file, string id, string kinds, string levels, int priority, string body) =>

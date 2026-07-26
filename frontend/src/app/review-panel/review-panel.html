@@ -7,10 +7,12 @@
     <section class="runs-panel" aria-label="Active and recent review runs">
       @for (run of api.reviewRuns().slice(0, 8); track run.id) {
         <article class="run-row">
-          <div class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></div>
+          <div class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></div>
           <div class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></div>
-          <div class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped } @if (run.failedFiles) { · {{ run.failedFiles }} failed }</span>@if (run.state === 'queued' || run.state === 'running') { <button type="button" (click)="api.pauseReview(run.id)">Pause</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'paused') { <button type="button" (click)="api.resumeReview(run.id)">Resume</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> }</div>
-          @if (run.usageOperations) { <div class="run-usage"><span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatTokens(run.usage.cachedInputTokens) }} cached</span><span>{{ formatDuration(run.usage.durationMs) }}</span></div> }
+          <div class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span>@if (run.state === 'queued' || run.state === 'running') { <button type="button" (click)="api.pauseReview(run.id)">Pause</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'paused') { <button type="button" (click)="api.resumeReview(run.id)">Resume</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'capped') { <button type="button" (click)="resumeCapped(run)">Raise &amp; resume</button> }</div>
+          <div class="run-usage"><span>Spend {{ spendLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }</div>
+          @if (run.stopReason) { <small class="run-stop">{{ run.stopReason }}</small> }
+          @if (run.deviation; as deviation) { <small class="run-deviation">Estimate deviation: input {{ deviation.inputTokensPercent }}% · output {{ deviation.outputTokensPercent }}%@if (deviation.costPercent !== null) { · cost {{ deviation.costPercent }}% }</small> }
           @if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }
         </article>
       } @empty { <div class="empty-findings">No review runs yet.</div> }
@@ -22,9 +24,17 @@
     </section>
     @if (activeMeta(); as meta) {
       <section class="summary-card"><div class="card-top"><span class="status" [class]="'status ' + activeState()"></span><div><b>{{ meta.grade.rationale }}</b><p>{{ meta.summary }}</p></div><span class="band">{{ meta.grade.band }}</span></div><div class="meter"><span [style.width.%]="meta.grade.score"></span></div><div class="meter-label"><span>Historical quality score</span><b>{{ meta.grade.score }} / 100</b></div></section>
-      <div class="section-title"><span>Findings</span><small>{{ meta.findings.length }}</small></div>
-      @for (finding of meta.findings; track finding.id) { <button class="finding-card" [class.selected]="selectedFinding()?.id === finding.id" (click)="findingSelect.emit(finding)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><b>{{ finding.title }}</b><p>{{ finding.description }}</p></button> } @empty { <div class="empty-findings">No findings in this review.</div> }
-      @if (selectedFinding(); as finding) { <section class="finding-detail" aria-live="polite"><span class="eyebrow">Selected finding</span><h3>{{ finding.title }}</h3><p>{{ finding.description }}</p>@if (finding.evidence) { <b>Evidence</b><p>{{ finding.evidence }}</p> }<b>Recommendation</b><p>{{ finding.recommendation }}</p>@if (api.handoverConfigured()) { <button class="create-task-button" (click)="createTask(finding)" [disabled]="handoverStatus()[activeKind() + ':' + finding.id] === 'Creating…'">{{ handoverStatus()[activeKind() + ':' + finding.id] || (api.handoverDryRun() ? 'Create task · dry run' : 'Create task') }}</button> }</section> }
+      @if (activeKind() === 'security' && meta.security; as security) {
+        <section class="merged-security" aria-label="Merged security evidence">
+          <div class="merged-security-head"><span class="verdict" [class]="'verdict ' + security.verdict">{{ security.verdict }}</span><div><b>Agent judgement + machine evidence</b><small>{{ security.combinationRule }}</small></div></div>
+          @for (sensor of security.sensors; track sensor.id) {
+            <div class="sensor-proof"><span><i [class]="'status ' + (sensor.available ? sensor.verdict === 'pass' ? 'fresh' : 'stale' : 'missing')"></i><b>{{ sensor.id }} {{ sensor.version }}</b></span><strong>{{ sensor.verdict }}</strong><code [title]="sensor.resultHash">{{ sensor.resultHash.slice(0, 20) }}…</code>@if (sensor.unavailableReason) { <p>{{ sensor.unavailableReason }}</p> }</div>
+          }
+        </section>
+      }
+      <div class="section-title"><span>Findings</span><small>{{ findingCount('open') }} open · {{ findingCount('accepted') }} accepted · {{ findingCount('waived') }} waived · {{ findingCount('falsePositive') }} false positive</small></div>
+      @for (finding of meta.findings; track finding.id) { <button class="finding-card" [class.selected]="selectedFinding()?.id === finding.id" (click)="findingSelect.emit(finding)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><b>{{ finding.title }}</b><span class="finding-state">{{ finding.state ?? 'open' }}</span><p>{{ finding.description }}</p></button> } @empty { <div class="empty-findings">No findings in this review.</div> }
+      @if (selectedFinding(); as finding) { <section class="finding-detail" aria-live="polite"><span class="eyebrow">Selected finding</span><h3>{{ finding.title }}</h3><b>Guideline</b><p>{{ finding.ruleId }}</p><div class="finding-state-summary"><b>{{ finding.state ?? 'open' }}</b>@if (finding.stateAuthor) { <span>{{ finding.stateAuthor }} · {{ finding.stateReason }}</span> }@if (finding.stateExpiresAt) { <span>Expires {{ scannedAt(finding.stateExpiresAt) }}</span> }</div><p>{{ finding.description }}</p>@if (finding.evidence) { <b>Evidence and provenance</b><pre class="finding-evidence">{{ finding.evidence }}</pre> }<b>Recommendation</b><p>{{ finding.recommendation }}</p><div class="finding-state-form"><input aria-label="State author" [value]="stateAuthor()" (input)="stateAuthor.set($any($event.target).value)" placeholder="Author"><textarea aria-label="State reason" [value]="stateReason()" (input)="stateReason.set($any($event.target).value)" placeholder="Reason required"></textarea><input aria-label="Optional state expiry" type="datetime-local" [value]="stateExpiry()" (input)="stateExpiry.set($any($event.target).value)"><div><button type="button" (click)="setFindingState(finding, 'open')">Reopen</button><button type="button" (click)="setFindingState(finding, 'accepted')">Accept</button><button type="button" (click)="setFindingState(finding, 'waived')">Waive</button><button type="button" (click)="setFindingState(finding, 'false-positive')">False positive</button></div>@if (stateStatus()) { <small>{{ stateStatus() }}</small> }</div>@if (api.handoverConfigured()) { <button class="create-task-button" (click)="createTask(finding)" [disabled]="handoverStatus()[activeKind() + ':' + finding.id] === 'Creating…'">{{ handoverStatus()[activeKind() + ':' + finding.id] || (api.handoverDryRun() ? 'Create task · dry run' : 'Create task') }}</button> }</section> }
       <div class="section-title"><span>Discussion threads</span><small>{{ meta.threads?.length ?? 0 }}</small></div>
       <div class="thread-filters" role="tablist" aria-label="Thread filter">@for (filter of ['open', 'resolved', 'detached']; track filter) { <button type="button" role="tab" [attr.aria-selected]="threadFilter() === filter" [class.active]="threadFilter() === filter" (click)="threadFilter.set($any(filter))">{{ filter }}</button> }</div>
       @for (thread of filteredThreads(); track thread.id) { <button type="button" class="pane-thread" (click)="focusThread(thread)" [disabled]="thread.anchorState === 'detached'"><span><b>Line {{ thread.anchor.lastKnownRange.start.line }}</b><i>{{ thread.status }}</i>@if (thread.anchorState === 'healed') { <i class="healed-label">healed</i> }</span><p>{{ thread.entries.at(-1)?.body }}</p><small>{{ thread.entries.length }} entries · {{ threadAuthor(thread) }}</small></button> } @empty { <div class="empty-findings">No {{ threadFilter() }} threads.</div> }
@@ -32,37 +42,11 @@
     <div class="section-title"><span>Review inputs</span><small>{{ activeInputs()?.includedCharacters ?? 0 }} / {{ activeInputs()?.budgetCharacters ?? 12000 }} chars</small></div>
     <section class="inputs-panel" aria-label="Resolved review inputs">
       @for (input of activeInputs()?.inputs ?? []; track input.scope + ':' + input.id) {
-        <div class="lane input-row"><span class="severity">{{ input.scope }}</span><b>{{ input.id }}</b><small>Priority {{ input.priority }} · {{ input.includedContent.length }} chars@if (input.truncated) { · truncated}</small></div>
+        <div class="lane input-row"><span class="severity">{{ input.scope }}</span><b>{{ input.id }}</b><small>Priority {{ input.priority }} · {{ input.includedContent.length }} chars · {{ inputTraces().get(input.id)?.findingsCount ?? 0 }} findings@if (input.truncated) { · truncated}</small></div>
       } @empty { <div class="empty-findings">No applicable guidelines for this review.</div> }
       @if ((activeInputs()?.omissions?.length ?? 0) > 0) { <div class="input-warning">{{ activeInputs()?.omissions?.length }} override or budget notice(s). Nothing was silently dropped.</div> }
     </section>
-    <div class="section-title"><span>Security lane</span><small>{{ api.security()?.verdict ?? 'unavailable' }}</small></div>
-    @if (api.security(); as security) {
-      <section class="lane security-lane">
-        <div class="lane-head">
-          <span class="lane-icon" [class]="'lane-icon ' + (security.verdict === 'pass' ? 'blue' : security.verdict === 'unavailable' ? 'grey' : 'amber')">{{ security.verdict === 'unavailable' ? '!' : security.verdict === 'block' ? 'B' : security.verdict === 'warn' ? 'W' : 'P' }}</span>
-          <div>
-            <b>{{ security.verdict }}</b>
-            <small>{{ security.newFindings }} new · {{ security.acceptedFindings }} accepted · {{ security.blockFindings }} block</small>
-          </div>
-          <span class="severity">{{ securityNodeState() }}</span>
-        </div>
-        <p>{{ security.unavailableReason ?? (security.verdict === 'block' ? 'High-confidence secret exposure blocks a clean security verdict.' : security.verdict === 'warn' ? 'Potential secrets were detected and should be triaged.' : 'No new secrets were detected.') }}</p>
-        <div class="tags">
-          <span>{{ security.scanner }} {{ security.version }}</span>
-          <span>{{ security.mode }}</span>
-          <span>{{ security.counts.filesScanned }} files</span>
-          <span>{{ security.counts.cleanFiles }} clean</span>
-        </div>
-        <div class="review-provenance">
-          <b>{{ security.provenance.scanner }} @ {{ security.provenance.version }}</b>
-          <span>Scanned {{ scannedAt(security.scannedAt) }}</span>
-        </div>
-      </section>
-    } @else {
-      <div class="empty-findings">Security scanner unavailable.</div>
-    }
     <div class="section-title"><span>Repository scan</span><small>Now</small></div>
-    <div class="scan-grid"><div><i class="status fresh"></i><b>{{ api.scan().freshCount }}</b><span>Fresh</span></div><div><i class="status stale"></i><b>{{ api.scan().staleCount }}</b><span>Stale</span></div><div><i class="status missing"></i><b>{{ api.scan().missingCount }}</b><span>Missing</span></div></div>
+    <div class="scan-grid"><div><i class="status fresh"></i><b>{{ api.scan().freshCount }}</b><span>Fresh</span></div><div><i class="status stale"></i><b>{{ api.scan().staleCount }}</b><span>Code</span></div><div><i class="status policy-drift"></i><b>{{ api.scan().policyDriftCount }}</b><span>Policy</span></div><div><i class="status missing"></i><b>{{ api.scan().missingCount }}</b><span>Missing</span></div></div>
   </div>
 </aside>

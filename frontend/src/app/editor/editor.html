@@ -27,12 +27,59 @@
       </div>
     </header>
 
+    @if ((selectedNode()?.excluded?.length ?? 0) > 0) {
+      <section class="scope-diagnostics" aria-label="Review scope exclusions">
+        <header><b>Excluded from review scope</b><span>{{ selectedNode()?.excluded?.length }} item(s)</span></header>
+        @for (exclusion of selectedNode()?.excluded ?? []; track exclusion.path + ':' + exclusion.reason) {
+          <div><code>{{ exclusion.path }}</code><span>{{ exclusion.reason }}</span></div>
+        }
+      </section>
+    }
+
+    <details class="risk-view">
+      <summary>
+        <span><b>Risk view</b> · grade × coverage × Git churn over {{ api.risk().days }} days</span>
+        <small>{{ riskRows().length }} files</small>
+      </summary>
+      <div class="risk-matrix" aria-label="Compact risk matrix">
+        @for (cell of api.risk().matrix; track cell.grade + ':' + cell.coverage) {
+          <span [class.hot]="cell.changes > 0 && (cell.grade === 'weak' || cell.grade === 'mediocre') && cell.coverage === 'low'"
+            [title]="cell.changes + ' changes'">
+            <small>{{ cell.grade }} · {{ cell.coverage }}</small><b>{{ cell.files }}</b>
+          </span>
+        } @empty {
+          <span class="unknown"><small>grade · coverage</small><b>Unknown</b></span>
+        }
+      </div>
+      <div class="risk-table" role="table" aria-label="Files sorted by combined quality risk">
+        <div class="risk-columns" role="row">
+          <button type="button" role="columnheader" (click)="sortRiskBy('path')">File{{ riskSortIndicator('path') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('grade')">Grade{{ riskSortIndicator('grade') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('coverage')">Coverage{{ riskSortIndicator('coverage') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('changes')">Changes{{ riskSortIndicator('changes') }}</button>
+          <button type="button" role="columnheader" (click)="sortRiskBy('risk')">Risk{{ riskSortIndicator('risk') }}</button>
+        </div>
+        @for (row of riskRows().slice(0, 100); track row.path) {
+          <button class="risk-row" type="button" role="row" (click)="nodeOpen.emit(row.path)">
+            <span role="cell">{{ row.path }}</span>
+            <span role="cell">{{ row.gradeBand ?? 'Unknown' }} @if (row.gradeScore != null) { · {{ row.gradeScore }} }</span>
+            <span role="cell" [class.stale-coverage]="row.coverage.state === 'stale'" [title]="coverageTitle(row.coverage)">{{ coverageLabel(row.coverage) }}</span>
+            <span role="cell">{{ row.changes }}</span>
+            <b role="cell">{{ riskLabel(row) }}</b>
+          </button>
+        } @empty {
+          <div class="empty-folder">No files are available for this risk scope.</div>
+        }
+      </div>
+    </details>
+
     <div class="folder-table" role="table" aria-label="Direct children of selected container">
       <div class="folder-columns" role="row">
         <button type="button" role="columnheader" (click)="sortBy('name')">Name{{ sortIndicator('name') }}</button>
         @for (kind of reviewKinds; track kind) {
           <button type="button" role="columnheader" (click)="sortBy(kind)">{{ kind }}{{ sortIndicator(kind) }}</button>
         }
+        <button type="button" role="columnheader" (click)="sortBy('coverage')">Coverage{{ sortIndicator('coverage') }}</button>
         <button type="button" role="columnheader" (click)="sortBy('state')">Review{{ sortIndicator('state') }}</button>
         <button type="button" role="columnheader" (click)="sortBy('findings')">Findings{{ sortIndicator('findings') }}</button>
         <button type="button" role="columnheader" (click)="sortBy('reviewedAt')">Reviewed{{ sortIndicator('reviewedAt') }}</button>
@@ -58,12 +105,14 @@
                   <small>{{ item.node.kinds[kind]?.score ?? '-' }}</small>
                 </span>
               }
+              <span class="coverage-cell" role="cell" [class.stale-coverage]="item.node.coverage?.state === 'stale'"
+                [title]="coverageTitle(item.node.coverage)">{{ coverageLabel(item.node.coverage) }}</span>
               <span class="state-cell" role="cell" aria-label="Review states">
                 @for (kind of reviewKinds; track kind) {
                   <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')" [title]="kind + ': ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
                 }
               </span>
-              <span role="cell">{{ item.node.findingsCount ?? 0 }}</span>
+              <span role="cell" [title]="'Open · Accepted · Waived · False positive'">{{ findingCountsLabel(item.node) }}</span>
               <span class="reviewed-cell" role="cell">{{ reviewedOrDash(item.node.reviewedAt) }}</span>
               <span role="cell">{{ formatBytes(item.node.sizeBytes) }}</span>
               <span role="cell">{{ item.node.lineCount ?? '-' }}</span>
@@ -89,7 +138,9 @@
         <div class="review-provenance"><b>{{ meta.grade.score }} / 100</b><span>Reviewed {{ reviewed(meta.reviewedAt) }} by {{ meta.reviewer.agent }} &middot; {{ meta.reviewer.model }}</span></div>
       </header>
       @if (activeState() === 'stale') {
-        <div class="stale-banner" role="status"><b>Stale review</b><span>This grade and its findings describe an older version. Keep browsing, but rerun this {{ activeKind() }} review before acting.</span></div>
+        <div class="stale-banner" role="status"><b>Code changed</b><span>This grade and its findings describe an older code version. Rerun this {{ activeKind() }} review before acting.</span></div>
+      } @else if (activeState() === 'policy-drift') {
+        <div class="stale-banner policy-drift-banner" role="status"><b>Guideline changed</b><span>The code hash is unchanged, but the effective review policy differs. Rerun this {{ activeKind() }} review to apply it.</span></div>
       }
     }
 
@@ -104,7 +155,7 @@
                 <button class="finding-marker" [class]="'finding-marker ' + severity(row.findings)" [title]="findingTitle(row.findings)" [attr.aria-label]="findingTitle(row.findings)" (mouseenter)="findingSelect.emit(row.findings[0])" (focus)="findingSelect.emit(row.findings[0])" (click)="findingSelect.emit(row.findings[0])"></button>
               }
               <button class="comment-add" type="button" title="Add review comment" [attr.aria-label]="'Add comment on line ' + row.number" (click)="composingLine.set(composingLine() === row.number ? null : row.number)">+</button>
-              <code>{{ row.text }}</code>
+              <code>@for (token of tokensForLine(row.number, row.text); track $index) {<span [class]="'tok-' + token.kind">{{ token.text }}</span>}</code>
             </div>
           } @else if (row.kind === 'thread') {
             <article class="inline-thread" [class.expanded]="row.expanded" [class.resolved]="row.thread.status === 'resolved'" [class.healed]="row.thread.anchorState === 'healed'" [style.top.px]="row.top" [style.height.px]="row.height">
@@ -143,9 +194,12 @@
           <span>Ln {{ topVisibleLine() }}</span>
           <span>{{ codeLines().length }} lines</span>
           <span>{{ fileSizeLabel() }}</span>
+          @if (syntaxState() === 'large') { <span title="Files above 200 KB stay plain to protect navigation performance">Large file &middot; plain text</span> }
+          @else if (syntaxState() === 'loading') { <span>Highlighting&hellip;</span> }
           <span>{{ language() }}</span>
           <span>{{ encodingLabel() }}</span>
           <span>{{ lineEndingLabel() }}</span>
+          <span class="statusbar-coverage" [class.stale-coverage]="file.coverage?.state === 'stale'" [title]="coverageTitle(file.coverage)">Coverage {{ coverageLabel(file.coverage) }}</span>
           @if (activeMeta(); as meta) {
             <span class="statusbar-review"><i class="status" [class]="'status ' + activeState()"></i>{{ activeKind() }} {{ meta.grade.band }} &middot; {{ reviewed(meta.reviewedAt) }}</span>
           } @else {

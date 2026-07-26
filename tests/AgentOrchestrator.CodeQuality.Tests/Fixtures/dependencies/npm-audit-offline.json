@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "ENETUNREACH",
+    "summary": "network is unreachable while requesting the npm advisory endpoint"
+  }
+}

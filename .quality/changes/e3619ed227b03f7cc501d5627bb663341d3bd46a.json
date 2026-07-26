@@ -1,0 +1,283 @@
+{
+  "$schema": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "schemaVersion": 1,
+  "changeSet": {
+    "provider": "git-merge-range",
+    "baseCommit": "fe07e6e2bafae3e5dd1c3ecd629432c3e9a064dc",
+    "headCommit": "e3619ed227b03f7cc501d5627bb663341d3bd46a",
+    "title": "QS repositories: one-click import of all Agent Studio repositories",
+    "committedAt": "2026-07-21T12:34:41+02:00",
+    "touchedFiles": [
+      {
+        "path": "frontend/src/app/app.css",
+        "kind": "modified",
+        "additions": 14,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/app.html",
+        "kind": "modified",
+        "additions": 45,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/app.ts",
+        "kind": "modified",
+        "additions": 29,
+        "deletions": 1,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/quality-api.spec.ts",
+        "kind": "modified",
+        "additions": 22,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "frontend/src/app/quality-api.ts",
+        "kind": "modified",
+        "additions": 17,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/AgentOrchestrator.CodeQuality/AgentStudioTaskClient.cs",
+        "kind": "modified",
+        "additions": 24,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/ApiContracts.cs",
+        "kind": "modified",
+        "additions": 15,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "kind": "modified",
+        "additions": 79,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "tests/AgentOrchestrator.CodeQuality.Tests/AgentStudioTaskClientTests.cs",
+        "kind": "modified",
+        "additions": 33,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "tests/QualityStudio.Api.Tests/AgentStudioImportTests.cs",
+        "kind": "added",
+        "additions": 158,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      }
+    ]
+  },
+  "reviewedAt": "2026-07-25T11:13:36.7796316+00:00",
+  "touchedUnits": [
+    {
+      "id": "path:project:.",
+      "adapter": "path",
+      "level": "project",
+      "path": ".",
+      "displayName": "Repository"
+    },
+    {
+      "id": "path:module:frontend",
+      "adapter": "path",
+      "level": "module",
+      "path": "frontend",
+      "displayName": "frontend"
+    },
+    {
+      "id": "path:module:src/AgentOrchestrator.CodeQuality",
+      "adapter": "path",
+      "level": "module",
+      "path": "src/AgentOrchestrator.CodeQuality",
+      "displayName": "src/AgentOrchestrator.CodeQuality"
+    },
+    {
+      "id": "path:module:src/QualityStudio.Api",
+      "adapter": "path",
+      "level": "module",
+      "path": "src/QualityStudio.Api",
+      "displayName": "src/QualityStudio.Api"
+    },
+    {
+      "id": "path:module:tests",
+      "adapter": "path",
+      "level": "module",
+      "path": "tests",
+      "displayName": "tests"
+    },
+    {
+      "id": "path:file:bad518df85a11d06f099908c4148162444500761ce70da16499a216ae98684c1",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.css",
+      "displayName": "app.css"
+    },
+    {
+      "id": "path:file:3f38c1bd0aad87f3b4cdd64e171013e5fd0c436a6d86554df0b2a46bd3158bf0",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.html",
+      "displayName": "app.html"
+    },
+    {
+      "id": "path:file:0091d0264f0bfcffa7fe38c04c7cbcb6edc5b965d372bfc5754d5dbb353c3465",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/app.ts",
+      "displayName": "app.ts"
+    },
+    {
+      "id": "path:file:5efa03ddd5da686597ff11495b6f73d3d6399fecad1fc2c1ba6b45a6ee700231",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/quality-api.spec.ts",
+      "displayName": "quality-api.spec.ts"
+    },
+    {
+      "id": "path:file:a93e52831b4966d96147f8ee697982fb6f37005ffe7aba206ecf5bc821e2f9a7",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/src/app/quality-api.ts",
+      "displayName": "quality-api.ts"
+    },
+    {
+      "id": "path:file:474581e7937e22f31e1a481472a665bd9f98e57ad9e4383fd288f66a7f02d0bc",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/AgentStudioTaskClient.cs",
+      "displayName": "AgentStudioTaskClient.cs"
+    },
+    {
+      "id": "path:file:78b846524d07404cd680c20952509aa3760adc0c3bfd3e19e5b58e6f2ab7609e",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ApiContracts.cs",
+      "displayName": "ApiContracts.cs"
+    },
+    {
+      "id": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9",
+      "adapter": "path",
+      "level": "file",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "displayName": "Program.cs"
+    },
+    {
+      "id": "path:file:86e649dc1525df74bce9be76ee1a5cc053c7e1675952502bc55fa1617377d1a1",
+      "adapter": "path",
+      "level": "file",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/AgentStudioTaskClientTests.cs",
+      "displayName": "AgentStudioTaskClientTests.cs"
+    },
+    {
+      "id": "path:file:a79aa7d0223845aa80c0a0d10daa77c2dfac5e7a7e622d64307d7d9b61ccd1ee",
+      "adapter": "path",
+      "level": "file",
+      "path": "tests/QualityStudio.Api.Tests/AgentStudioImportTests.cs",
+      "displayName": "AgentStudioImportTests.cs"
+    }
+  ],
+  "delta": {
+    "grades": [],
+    "findings": {
+      "new": [],
+      "resolved": [],
+      "persisting": []
+    },
+    "newlyStale": [],
+    "boundaries": {
+      "new": [
+        {
+          "identity": "boundary:00173ea2281d2db4c06e59fdb9d0dbdd5fb641dced29432ba9db97de1b22f005",
+          "kind": "http-endpoint",
+          "name": "POST /api/repos/import-from-agent-studio",
+          "path": "src/QualityStudio.Api/Program.cs",
+          "line": 73,
+          "unitId": "path:file:d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9"
+        }
+      ],
+      "changed": [],
+      "removed": []
+    },
+    "coverage": {
+      "status": "unavailable",
+      "reason": "Coverage ingestion is not available."
+    },
+    "churn": {
+      "filesTouched": 10,
+      "filesAdded": 1,
+      "filesModified": 9,
+      "filesDeleted": 0,
+      "filesMoved": 0,
+      "linesAdded": 436,
+      "linesDeleted": 2,
+      "repositoryFiles": 127,
+      "blastRadiusPercent": 7.87
+    },
+    "onlyMoves": false,
+    "hasQualityDelta": true
+  },
+  "judgement": {
+    "status": "not-run",
+    "reviewer": "none",
+    "aspects": [
+      {
+        "id": "risk",
+        "title": "Risk of the change",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "test-evidence",
+        "title": "Test evidence",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "scope-discipline",
+        "title": "Scope discipline",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "architecture-drift",
+        "title": "Architecture drift",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      }
+    ],
+    "summary": "Deterministic evidence only."
+  },
+  "economy": {
+    "diffFiles": 10,
+    "fullSweepFiles": 10,
+    "diffLines": 582,
+    "diffCharacters": 31216,
+    "fullSweepCharacters": 106340,
+    "evidenceRatioPercent": 29.35,
+    "savedPercent": 70.65
+  },
+  "verdict": "regression",
+  "summary": "Regression: 1 externally reachable boundary/boundaries are new."
+}

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -9,6 +10,7 @@ public sealed record ReviewInput(
     int Priority,
     IReadOnlyList<string> Kinds,
     IReadOnlyList<string> Levels,
+    bool Enabled,
     string Content,
     string IncludedContent,
     bool Truncated);
@@ -31,6 +33,24 @@ public sealed record ResolvedInputs(
         return selected.Length == 0
             ? "(none supplied)"
             : string.Join("\n\n", selected.Select(input => $"## {input.Id}\n{input.IncludedContent}"));
+    }
+
+    public string EffectiveHash(string promptTemplateHash)
+    {
+        var canonical = new StringBuilder("quality-studio-review-inputs-v1\0")
+            .Append(Kind).Append('\0').Append(Level).Append('\0').Append(promptTemplateHash).Append('\0');
+        foreach (var input in Inputs.Where(input => input.IncludedContent.Length > 0))
+        {
+            canonical.Append(input.Id).Append('\0').Append(input.Scope).Append('\0')
+                .Append(input.Priority).Append('\0').Append(input.IncludedContent).Append('\0');
+        }
+        foreach (var omission in Omissions.OrderBy(value => value.Id, StringComparer.Ordinal)
+                     .ThenBy(value => value.Source, StringComparer.Ordinal))
+        {
+            canonical.Append(omission.Id).Append('\0').Append(omission.Reason).Append('\0')
+                .Append(omission.OmittedCharacters).Append('\0');
+        }
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
     }
 }
 
@@ -91,12 +111,14 @@ public sealed class InputResolver
         return Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
             .Where(path => !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
             .Select(path => Parse(path, scope))
-            .Where(input => Applies(input.Kinds, kind) && Applies(input.Levels, level))
+            .Where(input => input.Enabled && Applies(input.Kinds, kind) && Applies(input.Levels, level))
             .OrderByDescending(input => input.Priority)
             .ThenBy(input => input.Id, StringComparer.Ordinal)
             .ThenBy(input => input.Source, StringComparer.Ordinal)
             .ToArray();
     }
+
+    public static ReviewInput ParseFile(string path, string scope = "project") => Parse(path, scope);
 
     private static void RejectReparseTraversal(string root, string path)
     {
@@ -141,8 +163,12 @@ public sealed class InputResolver
             : throw new InputFormatException($"Input '{path}' requires an integer priority.");
         var kinds = Values(fields, "kinds", "kind", "kind-applicability");
         var levels = Values(fields, "levels", "level", "level-applicability");
+        var enabled = !fields.TryGetValue("enabled", out var rawEnabled) ||
+                      bool.TryParse(rawEnabled, out var parsedEnabled) && parsedEnabled;
+        if (fields.TryGetValue("enabled", out rawEnabled) && !bool.TryParse(rawEnabled, out _))
+            throw new InputFormatException($"Input '{path}' requires enabled to be true or false.");
         var content = text[(end + 5)..].Trim();
-        return new ReviewInput(id.Trim(), Path.GetFullPath(path), scope, priority, kinds, levels, content, string.Empty, false);
+        return new ReviewInput(id.Trim(), Path.GetFullPath(path), scope, priority, kinds, levels, enabled, content, string.Empty, false);
     }
 
     private static IReadOnlyList<string> Values(Dictionary<string, string> fields, params string[] names)

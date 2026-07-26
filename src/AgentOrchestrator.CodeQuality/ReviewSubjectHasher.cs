@@ -53,7 +53,9 @@ public static class ReviewSubjectHasher
         return Convert.ToHexStringLower(SHA256.HashData(buffer.WrittenSpan));
     }
 
-    public static string ComputeAggregateMembersHash(IReadOnlyList<AggregateMemberHash> members)
+    public static string ComputeAggregateMembersHash(
+        IReadOnlyList<AggregateMemberHash> members,
+        IReadOnlyList<ScopeExclusion>? excluded = null)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
@@ -62,6 +64,14 @@ public static class ReviewSubjectHasher
             writer.WriteString("domain", "quality-studio/aggregate-members/v1");
             writer.WritePropertyName("excluded");
             writer.WriteStartArray();
+            foreach (var exclusion in (excluded ?? []).Distinct().OrderBy(item => item.Path, StringComparer.Ordinal)
+                         .ThenBy(item => item.Reason, StringComparer.Ordinal))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("path", exclusion.Path);
+                writer.WriteString("reason", exclusion.Reason);
+                writer.WriteEndObject();
+            }
             writer.WriteEndArray();
             writer.WritePropertyName("members");
             writer.WriteStartArray();

@@ -1,0 +1,134 @@
+<div class="usage-backdrop" (click)="closed.emit()">
+  <section
+    #dialog
+    class="usage-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="usage-history-title"
+    tabindex="-1"
+    (click)="$event.stopPropagation()">
+    <header>
+      <div>
+        <span class="eyebrow">Repository ledger</span>
+        <h2 id="usage-history-title">Usage history</h2>
+      </div>
+      <button class="icon-button" type="button" aria-label="Close usage history" (click)="closed.emit()">×</button>
+    </header>
+
+    <div class="usage-content">
+      <section class="summary-grid" aria-label="Usage totals">
+        <article class="primary-total">
+          <span>Total token spend</span>
+          <strong>{{ formatNumber(totalTokens()) }}</strong>
+          <small>Input + output tokens</small>
+        </article>
+        <article>
+          <span>Input</span>
+          <strong>{{ formatNumber(api.usage().inputTokens) }}</strong>
+          <small>{{ formatNumber(api.usage().cachedInputTokens) }} cached</small>
+        </article>
+        <article>
+          <span>Output</span>
+          <strong>{{ formatNumber(api.usage().outputTokens) }}</strong>
+          <small>{{ formatNumber(api.usage().reasoningOutputTokens) }} reasoning</small>
+        </article>
+        <article>
+          <span>Review runs</span>
+          <strong>{{ formatNumber(durableRuns()) }}</strong>
+          <small>{{ formatNumber(api.usage().runs) }} ledger operations</small>
+        </article>
+      </section>
+
+      <div class="aggregate-grid">
+        <section class="aggregate-card" aria-labelledby="usage-model-title">
+          <header>
+            <h3 id="usage-model-title">By model</h3>
+            <span>Tokens</span>
+          </header>
+          <ol>
+            @for (model of api.usage().byModel; track model.key) {
+              <li>
+                <div class="aggregate-label">
+                  <strong>{{ model.key }}</strong>
+                  <span>{{ formatNumber(tokens(model)) }}</span>
+                </div>
+                <div class="bar-track" aria-hidden="true">
+                  <span [style.width.%]="barWidth(model, api.usage().byModel)"></span>
+                </div>
+                <small>{{ model.runs }} {{ model.runs === 1 ? 'operation' : 'operations' }}</small>
+              </li>
+            } @empty {
+              <li class="empty">No usage has been recorded.</li>
+            }
+          </ol>
+        </section>
+
+        <section class="aggregate-card" aria-labelledby="usage-day-title">
+          <header>
+            <h3 id="usage-day-title">By day</h3>
+            <span>Tokens</span>
+          </header>
+          <ol>
+            @for (day of api.usage().byDay; track day.key) {
+              <li>
+                <div class="aggregate-label">
+                  <strong>{{ formatDay(day.key) }}</strong>
+                  <span>{{ formatNumber(tokens(day)) }}</span>
+                </div>
+                <div class="bar-track" aria-hidden="true">
+                  <span [style.width.%]="barWidth(day, api.usage().byDay)"></span>
+                </div>
+                <small>{{ day.runs }} {{ day.runs === 1 ? 'operation' : 'operations' }}</small>
+              </li>
+            } @empty {
+              <li class="empty">No daily history is available.</li>
+            }
+          </ol>
+        </section>
+      </div>
+
+      <section class="recent-card" aria-labelledby="recent-usage-title">
+        <header>
+          <div>
+            <h3 id="recent-usage-title">Recent entries</h3>
+            <span>Choose an entry for token and run details.</span>
+          </div>
+        </header>
+        <ol>
+          @for (entry of api.usage().recent; track entry.timestamp + entry.runId; let index = $index) {
+            <li>
+              <button
+                class="entry-summary"
+                type="button"
+                [attr.aria-expanded]="expandedEntry() === index"
+                [attr.aria-controls]="'usage-entry-' + index"
+                (click)="toggleEntry(index)">
+                <span class="entry-kind">{{ entry.kind }}</span>
+                <span class="entry-main">
+                  <strong>{{ entry.path }}</strong>
+                  <small>{{ formatDate(entry.timestamp) }} · {{ entry.model }}</small>
+                </span>
+                <span class="entry-tokens">{{ formatNumber(tokens(entry)) }}<small>tokens</small></span>
+                <span class="chevron" aria-hidden="true">{{ expandedEntry() === index ? '⌃' : '⌄' }}</span>
+              </button>
+              @if (expandedEntry() === index) {
+                <dl class="entry-details" [id]="'usage-entry-' + index">
+                  <div><dt>Review run</dt><dd>{{ entry.reviewRunId ?? 'Legacy entry' }}</dd></div>
+                  <div><dt>CLI run</dt><dd>{{ entry.runId }}</dd></div>
+                  <div><dt>Input</dt><dd>{{ formatNumber(entry.tokens.inputTokens) }}</dd></div>
+                  <div><dt>Output</dt><dd>{{ formatNumber(entry.tokens.outputTokens) }}</dd></div>
+                  <div><dt>Cached input</dt><dd>{{ formatNumber(entry.tokens.cachedInputTokens) }}</dd></div>
+                  <div><dt>Reasoning output</dt><dd>{{ formatNumber(entry.tokens.reasoningOutputTokens) }}</dd></div>
+                  <div><dt>Duration</dt><dd>{{ formatDuration(entry.tokens.durationMs) }}</dd></div>
+                  <div><dt>Source</dt><dd>{{ entry.cliType }} · {{ entry.level }}</dd></div>
+                </dl>
+              }
+            </li>
+          } @empty {
+            <li class="empty">No recent ledger entries are available.</li>
+          }
+        </ol>
+      </section>
+    </div>
+  </section>
+</div>

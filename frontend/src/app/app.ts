@@ -1,10 +1,13 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
-import { AgentStudioImportResponse, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
+import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
+import { ProjectDashboardView } from './project-dashboard/project-dashboard';
 import { flattenTree } from './tree-utils';
+import { UsageHistory } from './usage-history/usage-history';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
 const RESIZE_HANDLE_WIDTH = 6;
@@ -23,10 +26,11 @@ interface WorkspaceLayout {
 }
 
 type ResizablePane = 'explorer' | 'review';
+interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds: string; levels: string; content: string; }
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, AttackCoverage, UsageHistory, ProjectDashboardView],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -41,9 +45,10 @@ type ResizablePane = 'explorer' | 'review';
 export class App implements OnDestroy {
   readonly api = inject(QualityApi);
   readonly explorer = viewChild(Explorer);
+  readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
   readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (localStorage.getItem('qs-theme') as 'dark' | 'light') || 'dark');
-  readonly selected = signal(new URLSearchParams(location.search).get('path') || 'src/QualityStudio.Api/Program.cs');
+  readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
   readonly repositoryMenuOpen = signal(false);
@@ -55,11 +60,28 @@ export class App implements OnDestroy {
   readonly agentStudioImporting = signal(false);
   readonly agentStudioImportResult = signal<AgentStudioImportResponse | null>(null);
   readonly agentStudioImportError = signal('');
+  readonly guidelineDialogOpen = signal(false);
+  readonly editingGuidelineId = signal<string | null>(null);
+  readonly guidelineError = signal('');
+  readonly guidelineSaving = signal(false);
+  readonly guidelineDryRunning = signal(false);
+  readonly guidelineImpact = signal<GuidelineImpact | null>(null);
+  readonly attackCoverageDialogOpen = signal(false);
+  readonly usageHistoryOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
-  readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(n => n.path === this.selected()));
+  readonly selectedNode = computed(() => {
+    const nodes = flattenTree(this.api.tree(), new Set(), true);
+    return nodes.find(node => node.path === this.selected())
+      ?? (this.selected() === '.' ? nodes.find(node => node.level === 'project') : undefined);
+  });
+  readonly explorerSelectedPath = computed(() => this.selected() === '.' ? this.selectedNode()?.path ?? '.' : this.selected());
+  readonly isProjectView = computed(() => this.selected() === '.' || this.selectedNode()?.level === 'project');
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
+  readonly usageTotalLabel = computed(() => new Intl.NumberFormat('en-US').format(
+    this.api.usage().inputTokens + this.api.usage().outputTokens));
   readonly reviewKinds: ReviewKind[] = ['code', 'security', 'performance'];
   repositoryForm: RepositoryRegistrationRequest = this.emptyRepositoryForm();
+  guidelineForm: GuidelineForm = this.emptyGuidelineForm();
 
   // Panel visibility/width and drag state. Persisted layout is loaded once here so the
   // initial signal values already reflect it (no flash of the default layout on load).
@@ -112,7 +134,9 @@ export class App implements OnDestroy {
   private async initialize(): Promise<void> {
     const preferredRepository = new URLSearchParams(location.search).get('repo');
     await this.api.loadRepositories(preferredRepository);
+    const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
+    void dashboardLoading;
     await this.api.loadReviewRuns();
     await Promise.all([this.api.loadUsage(), this.api.loadQuotas()]);
     if (!this.api.quotas().providers.length) setTimeout(() => void this.api.loadQuotas(), 2_000);
@@ -169,11 +193,74 @@ export class App implements OnDestroy {
 
   selectFinding(finding: ReviewFinding): void { this.selectedFinding.set(finding); }
 
+  openGuidelines(): void {
+    this.guidelineDialogOpen.set(true);
+    const first = this.api.guidelines()[0];
+    if (first) this.editGuideline(first); else this.newGuideline();
+  }
+
+  newGuideline(): void {
+    this.editingGuidelineId.set(null);
+    this.guidelineForm = this.emptyGuidelineForm();
+    this.guidelineError.set('');
+    this.guidelineImpact.set(null);
+  }
+
+  editGuideline(guideline: Guideline): void {
+    this.editingGuidelineId.set(guideline.id);
+    this.guidelineForm = { id: guideline.id, enabled: guideline.enabled, priority: guideline.priority,
+      kinds: guideline.kinds.join(', '), levels: guideline.levels.join(', '), content: guideline.content };
+    this.guidelineError.set('');
+    this.guidelineImpact.set(null);
+  }
+
+  async saveGuideline(): Promise<void> {
+    this.guidelineSaving.set(true); this.guidelineError.set('');
+    try {
+      const draft = this.guidelineDraft();
+      const existing = this.editingGuidelineId();
+      const saved = existing ? await this.api.updateGuideline(existing, draft) : await this.api.createGuideline(draft);
+      this.editGuideline(saved);
+    } catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+    finally { this.guidelineSaving.set(false); }
+  }
+
+  async deleteGuideline(): Promise<void> {
+    const id = this.editingGuidelineId();
+    if (!id || !confirm(`Delete guideline ${id}? The repository file will be removed.`)) return;
+    try { await this.api.deleteGuideline(id); this.api.guidelines().length ? this.editGuideline(this.api.guidelines()[0]) : this.newGuideline(); }
+    catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+  }
+
+  async installGuideline(id: string): Promise<void> {
+    try { this.editGuideline(await this.api.installGuideline(id)); }
+    catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+  }
+
+  async dryRunGuideline(): Promise<void> {
+    const sample = this.api.file()?.path ?? flattenTree(this.api.tree(), new Set(), true).find(node => node.level === 'file')?.path;
+    if (!sample) { this.guidelineError.set('Open or select a sample file first.'); return; }
+    this.guidelineDryRunning.set(true); this.guidelineError.set(''); this.guidelineImpact.set(null);
+    const requestedKind = this.guidelineDraft().kinds.find(kind => ['code', 'security', 'performance'].includes(kind)) as ReviewKind | undefined;
+    try { this.guidelineImpact.set(await this.api.guidelineImpact(this.guidelineDraft(), [sample], requestedKind ?? this.activeKind())); }
+    catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+    finally { this.guidelineDryRunning.set(false); }
+  }
+
+  guidelineTrace(id: string) { return this.api.guidelineTraces().find(trace => trace.guidelineId === id); }
+  guidelineInstalled(id: string): boolean { return this.api.guidelines().some(guideline => guideline.id === id); }
+
+  openTrace(path: string): void { this.guidelineDialogOpen.set(false); this.open(path); }
+
   async switchRepository(id: string): Promise<void> {
     this.repositoryMenuOpen.set(false);
     await this.api.selectRepository(id);
     const path = this.selectionPathOrFirst('');
     if (path) this.open(path, false);
+  }
+
+  async openAttackCoverage(): Promise<void> {
+    this.attackCoverageDialogOpen.set(true);
   }
 
   onboardRepository(): void {
@@ -224,6 +311,8 @@ export class App implements OnDestroy {
       globalInputsDirectory: repository.globalInputsDirectory,
       inputBudgetCharacters: repository.inputBudgetCharacters,
       enabledReviewKinds: [...repository.enabledReviewKinds],
+      defaultReviewTokenCap: repository.defaultReviewTokenCap,
+      defaultReviewCostCap: repository.defaultReviewCostCap,
     };
     this.repositoryError.set('');
   }
@@ -232,6 +321,16 @@ export class App implements OnDestroy {
     this.repositoryForm.enabledReviewKinds = enabled
       ? [...new Set([...this.repositoryForm.enabledReviewKinds, kind])]
       : this.repositoryForm.enabledReviewKinds.filter(existing => existing !== kind);
+  }
+
+  setDefaultTokenCap(value: number | null): void {
+    this.repositoryForm.defaultReviewTokenCap = value;
+    if (value !== null) this.repositoryForm.defaultReviewCostCap = null;
+  }
+
+  setDefaultCostCap(value: number | null): void {
+    this.repositoryForm.defaultReviewCostCap = value;
+    if (value !== null) this.repositoryForm.defaultReviewTokenCap = null;
   }
 
   async saveRepository(): Promise<void> {
@@ -275,6 +374,16 @@ export class App implements OnDestroy {
     const next = this.theme() === 'dark' ? 'light' : 'dark';
     this.theme.set(next);
     localStorage.setItem('qs-theme', next);
+  }
+
+  openUsageHistory(): void {
+    this.usageHistoryOpen.set(true);
+    void this.api.loadUsage();
+  }
+
+  closeUsageHistory(): void {
+    this.usageHistoryOpen.set(false);
+    queueMicrotask(() => this.usageButton().nativeElement.focus());
   }
 
   toggleExplorer(): void { this.explorerVisible.update(visible => !visible); }
@@ -376,12 +485,24 @@ export class App implements OnDestroy {
 
   private selectionPathOrFirst(preferred: string): string | null {
     const nodes = flattenTree(this.api.tree(), new Set(), true);
+    if (!preferred || preferred === '.') return '.';
     const preferredNode = nodes.find(node => node.path === preferred);
-    return preferredNode?.path ?? nodes.find(node => node.level === 'file')?.path ?? null;
+    return preferredNode?.path ?? '.';
   }
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {
-    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'] };
+    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], defaultReviewTokenCap: 100000, defaultReviewCostCap: null };
+  }
+
+  private emptyGuidelineForm(): GuidelineForm {
+    return { id: '', enabled: true, priority: 50, kinds: 'code', levels: 'file', content: '' };
+  }
+
+  private guidelineDraft(): GuidelineDraft {
+    const values = (value: string) => value.split(',').map(item => item.trim().toLowerCase()).filter(Boolean);
+    return { id: this.guidelineForm.id.trim(), enabled: this.guidelineForm.enabled,
+      priority: Number(this.guidelineForm.priority), kinds: values(this.guidelineForm.kinds),
+      levels: values(this.guidelineForm.levels), content: this.guidelineForm.content };
   }
 
   private detectEmbedded(): boolean {

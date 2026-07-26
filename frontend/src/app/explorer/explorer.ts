@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { QualityApi, ReviewKind } from '../quality-api';
+import { QualityApi, ReviewKind, TreeNode } from '../quality-api';
 import { ReviewActions } from '../review-actions/review-actions';
 import { FlatNode, ancestorIds, flattenTree } from '../tree-utils';
 
@@ -42,6 +42,10 @@ export class Explorer {
     return id === null ? -1 : this.filteredRows().findIndex(row => row.id === id);
   });
   readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(node => node.path === this.selectedPath()));
+
+  exclusionTitle(node: TreeNode): string {
+    return (node.excluded ?? []).map(item => `${item.path}: ${item.reason}`).join('\n');
+  }
   /**
    * Logical "focus lives in the tree" flag, tracked independently of document.activeElement.
    * A recycled or entirely-replaced row (virtualization scroll, or the tree dataset itself

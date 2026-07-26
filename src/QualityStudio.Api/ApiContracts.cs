@@ -1,9 +1,12 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
 
 public sealed record TreeResponse(string Path, IReadOnlyList<TreeNodeResponse> Nodes);
+
+public sealed record ScopeExclusionResponse(string Path, string Reason);
 
 public sealed record TreeNodeResponse(
     string Id,
@@ -12,14 +15,23 @@ public sealed record TreeNodeResponse(
     string Path,
     IReadOnlyDictionary<string, KindStateResponse> Kinds,
     int FindingsCount,
+    FindingStateCounts FindingCounts,
     string? ReviewedAt,
     long? SizeBytes,
     int? LineCount,
+    CoverageAggregate Coverage,
+    IReadOnlyList<ScopeExclusionResponse> Excluded,
     IReadOnlyList<TreeNodeResponse> Children)
 {
-    public static TreeNodeResponse From(HierarchyNode node)
+    public static TreeNodeResponse From(
+        HierarchyNode node,
+        IReadOnlyDictionary<string, FindingStateRecord> states,
+        CoverageSnapshot? coverage = null,
+        string? currentCommit = null)
     {
-        var reviewSummary = DirectReviewSummary.From(node);
+        var reviewSummary = DirectReviewSummary.FromTree(node, states);
+        var descendantFiles = Flatten(node).Where(candidate => candidate.Level == ReviewLevel.File)
+            .Select(candidate => candidate.Path).Distinct(StringComparer.Ordinal).ToArray();
         return new(
             node.Id,
             node.Name,
@@ -27,20 +39,62 @@ public sealed record TreeNodeResponse(
             node.Path,
             node.AggregatedStates.ToDictionary(
                 pair => pair.Key.ToString().ToLowerInvariant(),
-                pair => KindStateResponse.From(node, pair.Value),
+                pair => KindStateResponse.From(node, pair.Value, states),
                 StringComparer.Ordinal),
             reviewSummary.FindingsCount,
+            reviewSummary.Counts,
             reviewSummary.ReviewedAt,
             node.SizeBytes,
             node.LineCount,
-            node.Children.Select(From).ToArray());
+            CoverageProjection.ForPath(coverage, currentCommit, node.Path, node.Level == ReviewLevel.File, descendantFiles),
+            node.Exclusions.OrderBy(item => item.Path, StringComparer.Ordinal)
+                .ThenBy(item => item.Reason, StringComparer.Ordinal)
+                .Select(item => new ScopeExclusionResponse(item.Path, item.Reason)).ToArray(),
+            node.Children.Select(child => From(child, states, coverage, currentCommit)).ToArray());
     }
 
-    private sealed record DirectReviewSummary(int FindingsCount, string? ReviewedAt)
+    private static IEnumerable<HierarchyNode> Flatten(HierarchyNode node)
     {
-        public static DirectReviewSummary From(HierarchyNode node)
+        yield return node;
+        foreach (var child in node.Children)
+        foreach (var descendant in Flatten(child))
+            yield return descendant;
+    }
+
+    private sealed record DirectReviewSummary(int FindingsCount, FindingStateCounts Counts, string? ReviewedAt)
+    {
+        public static DirectReviewSummary FromTree(HierarchyNode node, IReadOnlyDictionary<string, FindingStateRecord> states)
+        {
+            var direct = From(node, states);
+            var counts = direct.Counts;
+            var findingsCount = direct.FindingsCount;
+            DateTimeOffset? reviewedAt = direct.ReviewedAt is null ? null : DateTimeOffset.Parse(direct.ReviewedAt);
+            foreach (var child in node.Children)
+            {
+                var descendant = FromTree(child, states);
+                counts += descendant.Counts;
+                findingsCount += descendant.FindingsCount;
+                if (descendant.ReviewedAt is not null)
+                {
+                    var candidate = DateTimeOffset.Parse(descendant.ReviewedAt);
+                    if (reviewedAt is null || candidate > reviewedAt) reviewedAt = candidate;
+                }
+            }
+            if (node.Level == ReviewLevel.File)
+            {
+                var visible = counts.Open + counts.Accepted + counts.Waived + counts.FalsePositive;
+                var resolvedForPath = states.Values.Count(state => state.State == FindingState.Resolved &&
+                    string.Equals(state.Path, node.Path, StringComparison.Ordinal));
+                counts = counts with { Resolved = resolvedForPath };
+                findingsCount = visible;
+            }
+            return new(findingsCount, counts, reviewedAt?.ToString("O"));
+        }
+
+        private static DirectReviewSummary From(HierarchyNode node, IReadOnlyDictionary<string, FindingStateRecord> states)
         {
             var findingsCount = 0;
+            var counts = FindingStateCounts.Empty;
             DateTimeOffset? reviewedAt = null;
             foreach (var document in node.Documents.Values)
             {
@@ -55,6 +109,8 @@ public sealed record TreeNodeResponse(
                 {
                     findingsCount += findings.GetArrayLength();
                 }
+                var metadata = JsonNode.Parse(document.Payload)!.AsObject();
+                counts += FindingStateProjection.Count(metadata, states);
 
                 if (root.TryGetProperty("reviewedAt", out var reviewedAtElement) &&
                     reviewedAtElement.TryGetDateTimeOffset(out var candidate) &&
@@ -64,7 +120,7 @@ public sealed record TreeNodeResponse(
                 }
             }
 
-            return new(findingsCount, reviewedAt?.ToString("O"));
+            return new(findingsCount, counts, reviewedAt?.ToString("O"));
         }
     }
 }
@@ -77,7 +133,10 @@ public sealed record KindStateResponse(
     string? Band,
     string? MetaPath)
 {
-    public static KindStateResponse From(HierarchyNode node, KindAggregation aggregation)
+    public static KindStateResponse From(
+        HierarchyNode node,
+        KindAggregation aggregation,
+        IReadOnlyDictionary<string, FindingStateRecord> states)
     {
         int? score = null;
         string? band = null;
@@ -87,11 +146,12 @@ public sealed record KindStateResponse(
             metaPath = document.SourcePath;
             if (document.Payload is not null)
             {
-                using var json = JsonDocument.Parse(document.Payload);
-                if (json.RootElement.TryGetProperty("grade", out var grade))
+                var metadata = JsonNode.Parse(document.Payload)!.AsObject();
+                var projected = FindingStateProjection.Apply(metadata, states);
+                if (projected["grade"] is JsonObject grade)
                 {
-                    score = grade.TryGetProperty("score", out var scoreElement) ? scoreElement.GetInt32() : null;
-                    band = grade.TryGetProperty("band", out var bandElement) ? bandElement.GetString() : null;
+                    score = grade["score"]?.GetValue<int>();
+                    band = grade["band"]?.GetValue<string>();
                 }
             }
         }
@@ -103,6 +163,7 @@ public sealed record KindStateResponse(
     {
         ReviewState.Current => "fresh",
         ReviewState.Stale => "stale",
+        ReviewState.PolicyDrift => "policy-drift",
         _ => "missing",
     };
 }
@@ -113,7 +174,44 @@ public sealed record FileResponse(
     IReadOnlyList<JsonElement> MetaDocuments,
     long SizeBytes,
     string LineEnding,
-    string Encoding);
+    string Encoding,
+    CoverageAggregate Coverage);
+
+public sealed record RiskRowResponse(
+    string Path,
+    string Name,
+    int? GradeScore,
+    string? GradeBand,
+    string ReviewState,
+    CoverageAggregate Coverage,
+    int Changes,
+    decimal? RiskScore);
+
+public sealed record RiskMatrixCellResponse(
+    string Grade,
+    string Coverage,
+    int Files,
+    int Changes);
+
+public sealed record RiskResponse(
+    int Days,
+    string? CurrentCommit,
+    IReadOnlyList<RiskRowResponse> Rows,
+    IReadOnlyList<RiskMatrixCellResponse> Matrix);
+
+public sealed record GuidelineTraceFindingResponse(
+    string Id,
+    string RuleId,
+    string Title,
+    string Severity,
+    string Kind,
+    string UnitPath,
+    string MetaPath);
+
+public sealed record GuidelineTraceResponse(
+    string GuidelineId,
+    int FindingsCount,
+    IReadOnlyList<GuidelineTraceFindingResponse> Findings);
 
 public sealed record HandoverConfigurationResponse(bool TargetConfigured, bool DryRun, string? Project);
 
@@ -196,6 +294,16 @@ public sealed record ThreadMutationRequest(
     string? HumanName,
     int? Line,
     string? FindingFingerprint);
+
+public sealed record FindingStateMutationRequest(
+    string Path,
+    string Kind,
+    string Fingerprint,
+    string State,
+    string Author,
+    string Reason,
+    DateTimeOffset? ExpiresAt,
+    DateTimeOffset? ExpectedTimestamp);
 
 /// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
 public sealed record AgentStudioImportResultResponse(

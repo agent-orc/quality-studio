@@ -2,7 +2,7 @@
   <div class="pane-header"><div><span class="eyebrow">Repository</span><strong>Explorer</strong></div><button class="quiet" (click)="api.loadTree()">↻</button></div>
   <label class="search"><span>⌕</span><input aria-label="Filter files" placeholder="Filter files…" [ngModel]="query()" (ngModelChange)="query.set($event)" /></label>
   <qs-review-actions class="explorer-review-action" [node]="selectedNode()" [activeKind]="activeKind()" [compact]="true" (kindSelect)="kindSelect.emit($event)" />
-  <div class="legend"><span><i class="status fresh"></i>Fresh</span><span><i class="status stale"></i>Stale</span><span><i class="status missing"></i>Missing</span></div>
+  <div class="legend"><span><i class="status fresh"></i>Fresh</span><span><i class="status stale"></i>Code</span><span><i class="status policy-drift"></i>Policy</span><span><i class="status missing"></i>Missing</span></div>
   <div class="virtual-tree" role="tree" aria-label="Repository tree" #treeContainer (scroll)="scrollTop.set($any($event.target).scrollTop)" (keydown)="onTreeKeydown($event)" (focusin)="onTreeFocusIn()" (focusout)="onTreeFocusOut($event)">
     <div class="tree-space" [style.height.px]="filteredRows().length * 30">
       @for (item of visibleRows(); track item.node.id) {
@@ -16,6 +16,9 @@
             [title]="item.node.children.length ? 'Toggle container without opening it' : ''"
             (click)="onChevronClick($event, item.node)">{{ item.node.children.length ? '›' : '' }}</span>
           <span class="node-icon">{{ item.node.children.length ? '▰' : '≡' }}</span><span class="node-name">{{ item.node.name }}</span>
+          @if (item.node.excluded?.length) {
+            <span class="scope-exclusion-badge" [title]="exclusionTitle(item.node)">⊘ {{ item.node.excluded?.length }}</span>
+          }
           <span class="tree-states" aria-label="Rolled-up review states">
             @for (decoration of item.node.decorations; track decoration.kind) { <i class="status" [class]="'status ' + decoration.state" [title]="decoration.label"><span class="sr-only">{{ decoration.label }}</span></i> }
           </span>

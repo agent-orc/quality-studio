@@ -55,6 +55,19 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(RepositoryRegistry.DefaultRepositoryId, repository.GetProperty("id").GetString());
         Assert.DoesNotContain(ForeignRepositoryRoot,
             await file.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+
+        var aliceReport = await alice.GetFromJsonAsync<JsonElement>("/api/report",
+            TestContext.Current.CancellationToken);
+        Assert.Equal("default", Assert.Single(aliceReport.GetProperty("repositories").EnumerateArray())
+            .GetProperty("id").GetString());
+        Assert.DoesNotContain(ForeignRepositoryRoot, aliceReport.GetRawText(), StringComparison.Ordinal);
+
+        using var bob = CreateClient("bob", BobToken);
+        var bobReport = await bob.GetFromJsonAsync<JsonElement>("/api/report",
+            TestContext.Current.CancellationToken);
+        Assert.Equal("foreign", Assert.Single(bobReport.GetProperty("repositories").EnumerateArray())
+            .GetProperty("id").GetString());
+        Assert.DoesNotContain(RepositoryRoot, bobReport.GetRawText(), StringComparison.Ordinal);
     }
 
     [Fact]

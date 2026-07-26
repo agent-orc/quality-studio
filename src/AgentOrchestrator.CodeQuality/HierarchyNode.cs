@@ -7,6 +7,7 @@ public sealed class HierarchyNode
 {
     private readonly List<HierarchyNode> children = [];
     private readonly Dictionary<ReviewKind, AttachedReviewMetaDocument> documents = [];
+    private readonly List<ScopeExclusion> exclusions = [];
 
     public HierarchyNode(string id, string name, ReviewLevel level, string path, long? sizeBytes = null, int? lineCount = null)
     {
@@ -36,6 +37,9 @@ public sealed class HierarchyNode
 
     public IReadOnlyList<HierarchyNode> Children => children;
 
+    /// <summary>Files and project inputs excluded from this aggregate subtree.</summary>
+    public IReadOnlyList<ScopeExclusion> Exclusions => exclusions;
+
     /// <summary>At most one independently authored document per review kind.</summary>
     public IReadOnlyDictionary<ReviewKind, AttachedReviewMetaDocument> Documents =>
         new ReadOnlyDictionary<ReviewKind, AttachedReviewMetaDocument>(documents);
@@ -53,6 +57,20 @@ public sealed class HierarchyNode
         }
 
         children.Add(child);
+        return this;
+    }
+
+    public HierarchyNode AddExclusion(ScopeExclusion exclusion)
+    {
+        ArgumentNullException.ThrowIfNull(exclusion);
+        if (!exclusions.Contains(exclusion)) exclusions.Add(exclusion);
+        return this;
+    }
+
+    public HierarchyNode AddExclusions(IEnumerable<ScopeExclusion> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        foreach (var value in values) AddExclusion(value);
         return this;
     }
 

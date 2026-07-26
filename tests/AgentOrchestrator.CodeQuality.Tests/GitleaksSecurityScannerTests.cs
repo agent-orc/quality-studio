@@ -114,8 +114,11 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             Assert.NotNull(placeholderMetaPath);
             var resolvedPlaceholderMetaPath = placeholderMetaPath!;
             using var placeholderDocument = JsonDocument.Parse(await File.ReadAllTextAsync(resolvedPlaceholderMetaPath, cancellationToken));
-            Assert.Empty(placeholderDocument.RootElement.GetProperty("findings").EnumerateArray());
+            var acceptedFinding = Assert.Single(placeholderDocument.RootElement.GetProperty("findings").EnumerateArray());
+            Assert.Equal("accepted-placeholder", acceptedFinding.GetProperty("ruleId").GetString());
             Assert.Equal(100, placeholderDocument.RootElement.GetProperty("grade").GetProperty("score").GetInt32());
+            var lifecycle = await new FindingStateStore(root).ReadAsync(cancellationToken);
+            Assert.Equal(FindingState.Accepted, lifecycle[acceptedFinding.GetProperty("fingerprint").GetString()!].State);
         }
         finally
         {
@@ -155,7 +158,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             var finding = Assert.Single(result.Findings);
             Assert.Equal("renamed-secret", finding.RuleId);
             Assert.Equal("src/RenamedSecret.cs", finding.Path);
-            Assert.Equal("sha256:range-renamed-secret", finding.Fingerprint);
+            Assert.Matches("^sha256:[a-f0-9]{64}$", finding.Fingerprint);
             Assert.Equal(FindingSeverity.Critical, finding.Severity);
         }
         finally

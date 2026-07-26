@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewThread } from '../quality-api';
+import { FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
 
@@ -21,13 +21,17 @@ export class ReviewPanel {
   readonly kindSelect = output<ReviewKind>();
 
   readonly handoverStatus = signal<Record<string, string>>({});
+  readonly stateAuthor = signal('Reviewer');
+  readonly stateReason = signal('');
+  readonly stateExpiry = signal('');
+  readonly stateStatus = signal('');
   readonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
   readonly activeState = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.direct ?? 'missing');
-  readonly securityNodeState = computed(() => this.selectedNode()?.kinds['security']?.direct ?? 'missing');
   readonly activeInputs = computed(() => this.api.inputs()[this.activeKind()] ?? null);
+  readonly inputTraces = computed(() => new Map(this.api.guidelineTraces().map(trace => [trace.guidelineId, trace])));
   readonly metaPath = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.metaPath ?? null);
   readonly filteredThreads = computed(() => (this.activeMeta()?.threads ?? []).filter(thread =>
     this.threadFilter() === 'detached' ? thread.anchorState === 'detached' : thread.status === this.threadFilter() && thread.anchorState !== 'detached'));
@@ -59,6 +63,38 @@ export class ReviewPanel {
     }
   }
 
+  async setFindingState(finding: ReviewFinding, state: Exclude<FindingState, 'resolved'>): Promise<void> {
+    const reason = this.stateReason().trim();
+    const author = this.stateAuthor().trim();
+    const path = this.api.file()?.path;
+    if (!reason || !author) { this.stateStatus.set('Author and reason are required.'); return; }
+    if (!path || !finding.fingerprint) { this.stateStatus.set('Finding identity is unavailable.'); return; }
+    this.stateStatus.set('Saving…');
+    try {
+      await this.api.mutateFindingState({
+        path,
+        kind: this.activeKind(),
+        fingerprint: finding.fingerprint,
+        state,
+        author,
+        reason,
+        expiresAt: this.stateExpiry() ? new Date(this.stateExpiry()).toISOString() : null,
+        expectedTimestamp: finding.stateTimestamp ?? null,
+      });
+      const updated = this.api.file()?.metaDocuments
+        .find(meta => meta.kind === this.activeKind())?.findings
+        .find(candidate => candidate.fingerprint === finding.fingerprint);
+      if (updated) this.findingSelect.emit(updated);
+      this.stateReason.set(''); this.stateExpiry.set(''); this.stateStatus.set('Saved');
+    } catch (error) {
+      this.stateStatus.set(this.api.errorMessage(error));
+    }
+  }
+
+  findingCount(state: 'open' | 'accepted' | 'waived' | 'falsePositive' | 'resolved'): number {
+    return this.activeMeta()?.findingCounts?.[state] ?? 0;
+  }
+
   scannedAt(value: string): string { return formatDateTime(value); }
 
   runProgress(completed: number, total: number): number { return total ? completed / total * 100 : 0; }
@@ -69,4 +105,26 @@ export class ReviewPanel {
   }
 
   formatDuration(value: number): string { return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`; }
+
+  spendLabel(run: ReviewRun): string {
+    if (run.tokenCap !== null) {
+      const spent = (run.usage.inputTokens ?? 0) + (run.usage.outputTokens ?? 0);
+      return `${this.formatTokens(spent)} / ${this.formatTokens(run.tokenCap)}`;
+    }
+    if (run.costCap !== null) return `${this.formatCost(run.costSpent, run.currency)} / ${this.formatCost(run.costCap, run.currency)}`;
+    return run.costSpent === null ? `cost ${run.priceStatus}` : this.formatCost(run.costSpent, run.currency);
+  }
+
+  async resumeCapped(run: ReviewRun): Promise<void> {
+    const current = run.tokenCap ?? run.costCap;
+    const entered = prompt(`Raise the ${run.tokenCap !== null ? 'token' : 'cost'} cap to resume ${run.skippedFiles} skipped file(s):`, current === null ? '' : String(current * 2));
+    if (entered === null) return;
+    const cap = Number(entered);
+    if (!Number.isFinite(cap) || cap <= 0) return;
+    await this.api.resumeReview(run.id, run.tokenCap !== null ? { tokenCap: cap } : { costCap: cap });
+  }
+
+  private formatCost(value: number | null, currency: string | null): string {
+    return value === null ? 'unavailable' : `${value.toFixed(4)} ${currency ?? 'USD'}`;
+  }
 }

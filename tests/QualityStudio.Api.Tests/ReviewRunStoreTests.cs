@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AgentOrchestrator.CodeQuality;
 using CodingAgentRunner.Quota;
+using CodingAgentRunner.Events;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +14,115 @@ namespace QualityStudio.Api.Tests;
 
 public sealed class ReviewRunStoreTests
 {
+    [Fact]
+    public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new CappedExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-4-5",
+                tokenCap = 5,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal("test-agent", accepted.GetProperty("cliType").GetString());
+            Assert.Equal("claude-sonnet-4-5", accepted.GetProperty("model").GetString());
+            Assert.True(accepted.GetProperty("estimate").GetProperty("inputTokens").GetInt64() > 0);
+            Assert.True(accepted.GetProperty("estimate").GetProperty("cost").GetDecimal() > 0);
+
+            var run = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "capped", cancellationToken);
+
+            Assert.Equal(1, run.GetProperty("completedFiles").GetInt32());
+            Assert.Equal(1, run.GetProperty("skippedFiles").GetInt32());
+            Assert.Equal("skipped", run.GetProperty("aggregateState").GetString());
+            Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "done");
+            Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
+            Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
+            Assert.Equal(1, fake.OperationCount);
+
+            using var resume = await client.PostAsJsonAsync(
+                $"/api/review/runs/{accepted.GetProperty("id").GetString()}/resume",
+                new { tokenCap = 100 }, cancellationToken);
+            resume.EnsureSuccessStatusCode();
+            var completed = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+            Assert.Equal(2, completed.GetProperty("completedFiles").GetInt32());
+            Assert.Equal(0, completed.GetProperty("skippedFiles").GetInt32());
+            Assert.Equal("done", completed.GetProperty("aggregateState").GetString());
+            Assert.Equal(3, completed.GetProperty("usageOperations").GetInt32());
+            Assert.True(completed.GetProperty("deviation").GetProperty("inputTokensPercent").GetDecimal() < 0);
+            Assert.Equal(3, fake.OperationCount);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Server_reports_fresh_file_and_aggregate_skips_and_force_bypasses_them()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new FreshnessExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+
+            using var freshResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-4-5",
+            }, cancellationToken);
+            freshResponse.EnsureSuccessStatusCode();
+            var freshAccepted = await freshResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var fresh = await WaitForStateAsync(
+                client, freshAccepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(2, fresh.GetProperty("completedFiles").GetInt32());
+            Assert.Equal(2, fresh.GetProperty("skippedFiles").GetInt32());
+            Assert.All(fresh.GetProperty("files").EnumerateArray(),
+                file => Assert.Equal("skipped-fresh", file.GetProperty("state").GetString()));
+            Assert.Equal("skipped-fresh", fresh.GetProperty("aggregateState").GetString());
+            Assert.Equal(0, fresh.GetProperty("usageOperations").GetInt32());
+            Assert.Equal(0, fake.AgentCalls);
+
+            using var forcedResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-4-5",
+                force = true,
+            }, cancellationToken);
+            forcedResponse.EnsureSuccessStatusCode();
+            var forcedAccepted = await forcedResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var forced = await WaitForStateAsync(
+                client, forcedAccepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(0, forced.GetProperty("skippedFiles").GetInt32());
+            Assert.All(forced.GetProperty("files").EnumerateArray(),
+                file => Assert.Equal("done", file.GetProperty("state").GetString()));
+            Assert.Equal("done", forced.GetProperty("aggregateState").GetString());
+            Assert.Equal(3, fake.AgentCalls);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Fact]
     public async Task Non_terminal_run_resumes_after_restart_without_repeating_done_files()
     {
@@ -83,6 +193,69 @@ public sealed class ReviewRunStoreTests
             var reloaded = Assert.Single(fixture.Store.LoadAll());
             Assert.Equal(1, reloaded.Status.SkippedFiles);
             Assert.Equal("skipped-fresh", reloaded.Progress[^1].State);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Skipped_fresh_aggregate_is_durable_and_is_not_repeated_after_restart()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        try
+        {
+            var stored = fixture.CreateRun("aggregate-skipped", "queued", "project");
+            fixture.Store.AppendProgress(new ReviewRunFileTransition(
+                "Sample.cs", "skipped-fresh", stored.Manifest.CreatedAt, DateTimeOffset.UtcNow,
+                stored.Manifest.RunId, null));
+            fixture.Store.WriteStatus(stored.Status with
+            {
+                State = "running",
+                CompletedFiles = 1,
+                SkippedFiles = 1,
+                Cursor = 1,
+                StartedAt = stored.Manifest.CreatedAt,
+                AggregateState = "skipped-fresh",
+            });
+            var progressPath = fixture.ProgressPath(stored.Manifest.RunId);
+            var transitionsBefore = File.ReadAllLines(progressPath).Length;
+
+            await using var application = fixture.CreateApplication(executor);
+            using var client = application.CreateClient();
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+
+            Assert.Equal("skipped-fresh", run.GetProperty("aggregateState").GetString());
+            Assert.Empty(executor.Requests);
+            Assert.Equal(transitionsBefore, File.ReadAllLines(progressPath).Length);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Recovered_aggregate_run_uses_exclusions_from_the_durable_manifest()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        try
+        {
+            var exclusion = new ScopeExclusion("Generated.cs", "Generated source");
+            var stored = fixture.CreateRun("excluded-resume", "queued", "project", [exclusion]);
+
+            await using var application = fixture.CreateApplication(executor);
+            using var client = application.CreateClient();
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+
+            Assert.Equal("done", run.GetProperty("aggregateState").GetString());
+            var aggregate = Assert.Single(executor.Requests, request => request.Level == ReviewLevel.Project);
+            Assert.Equal(exclusion, Assert.Single(aggregate.AggregateExclusions!));
         }
         finally
         {
@@ -242,18 +415,30 @@ public sealed class ReviewRunStoreTests
             Directory.CreateDirectory(hostRoot);
             await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.cs"),
                 "namespace Sample; public static class Subject { }", cancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Second.cs"),
+                "namespace Sample; public static class Second { }", cancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"),
+                "<Project Sdk=\"Microsoft.NET.Sdk\" />", cancellationToken);
             return new DurableRunFixture(repositoryRoot, hostRoot);
         }
 
-        public StoredReviewRun CreateRun(string suffix, string state)
+        public StoredReviewRun CreateRun(
+            string suffix,
+            string state,
+            string level = "file",
+            IReadOnlyList<ScopeExclusion>? aggregateExclusions = null)
         {
             var runId = $"review-{suffix}-{Guid.NewGuid():N}";
             var createdAt = DateTimeOffset.UtcNow;
+            var aggregate = string.Equals(level, "project", StringComparison.Ordinal);
             var manifest = new ReviewRunManifest(
                 runId,
                 RepositoryRegistry.DefaultRepositoryId,
-                new ReviewRunPlanNode("file-sample", "Sample.cs", "Sample.cs"),
-                "file",
+                new ReviewRunPlanNode(
+                    aggregate ? "project-sample" : "file-sample",
+                    aggregate ? "Sample" : "Sample.cs",
+                    aggregate ? "." : "Sample.cs"),
+                level,
                 "code",
                 null,
                 "adapter-that-does-not-exist",
@@ -261,7 +446,8 @@ public sealed class ReviewRunStoreTests
                 [new ReviewRunPlanTarget(
                     "file-sample", "Sample.cs", "Sample.cs",
                     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")],
-                null);
+                aggregate ? [] : null,
+                aggregateExclusions);
             var status = new ReviewRunStatus(
                 runId,
                 state,
@@ -281,7 +467,8 @@ public sealed class ReviewRunStoreTests
 
         public string ProgressPath(string runId) => Path.Combine(Store.RunsPath, runId, "progress.jsonl");
 
-        public TestApplication CreateApplication() => new(RepositoryRoot, HostRoot);
+        public TestApplication CreateApplication(IReviewExecutorFactory? executorFactory = null) =>
+            new(RepositoryRoot, HostRoot, executorFactory);
 
         public void Dispose()
         {
@@ -295,7 +482,8 @@ public sealed class ReviewRunStoreTests
         }
     }
 
-    private sealed class TestApplication(string repositoryRoot, string contentRoot) : WebApplicationFactory<Program>
+    private sealed class TestApplication(
+        string repositoryRoot, string contentRoot, IReviewExecutorFactory? executorFactory) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -310,7 +498,87 @@ public sealed class ReviewRunStoreTests
             {
                 services.RemoveAll<QuotaService>();
                 services.AddSingleton(new QuotaService([]));
+                if (executorFactory is not null)
+                {
+                    services.RemoveAll<IReviewExecutorFactory>();
+                    services.AddSingleton(executorFactory);
+                }
             });
+        }
+    }
+
+    private sealed class CappedExecutorFactory : IReviewExecutorFactory
+    {
+        private int operationCount;
+        public int OperationCount => operationCount;
+
+        public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+            Action<ReviewUsageEntry> usageRecorded) => new CappedExecutor(this, cliType, model, usageRecorded);
+
+        private sealed class CappedExecutor(
+            CappedExecutorFactory owner, string cliType, string? model, Action<ReviewUsageEntry> usageRecorded) : IReviewExecutor
+        {
+            public async Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                Interlocked.Increment(ref owner.operationCount);
+                var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
+                    model ?? "claude-sonnet-4-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
+                    request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
+                await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
+                usageRecorded(entry);
+                return new ReviewExecutionResult(false, null);
+            }
+        }
+    }
+
+    private sealed class FreshnessExecutorFactory : IReviewExecutorFactory
+    {
+        private int agentCalls;
+        public int AgentCalls => agentCalls;
+
+        public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+            Action<ReviewUsageEntry> usageRecorded) => new FreshnessExecutor(this);
+
+        private sealed class FreshnessExecutor(FreshnessExecutorFactory owner) : IReviewExecutor
+        {
+            public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                if (force) Interlocked.Increment(ref owner.agentCalls);
+                return Task.FromResult(new ReviewExecutionResult(!force, null));
+            }
+        }
+    }
+
+    private sealed class CapturingExecutorFactory : IReviewExecutorFactory
+    {
+        private readonly List<ReviewRequest> requests = [];
+        public IReadOnlyList<ReviewRequest> Requests
+        {
+            get
+            {
+                lock (requests) return requests.ToArray();
+            }
+        }
+
+        public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+            Action<ReviewUsageEntry> usageRecorded) => new CapturingExecutor(requests);
+
+        private sealed class CapturingExecutor(List<ReviewRequest> requests) : IReviewExecutor
+        {
+            public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                lock (requests) requests.Add(request);
+                return Task.FromResult(new ReviewExecutionResult(false, null));
+            }
         }
     }
 }

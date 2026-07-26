@@ -9,13 +9,18 @@ internal static class QualityCommand
     {
         if (args.Length == 0 || args[0] is "--help" or "-h")
         {
-            output.WriteLine("Usage: quality scan [path] [--by-level]\n       quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
+            output.WriteLine("Usage: quality scan [path] [--by-level]\n       quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression]\n       quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
             return 0;
         }
 
         if (StringComparer.OrdinalIgnoreCase.Equals(args[0], "security"))
         {
             return RunSecurity(args.Skip(1).ToArray(), output, error);
+        }
+
+        if (StringComparer.OrdinalIgnoreCase.Equals(args[0], "diff"))
+        {
+            return ChangeDiffCommand.RunAsync(args.Skip(1).ToArray(), output, error).GetAwaiter().GetResult();
         }
 
         if (!StringComparer.OrdinalIgnoreCase.Equals(args[0], "scan"))
@@ -36,7 +41,7 @@ internal static class QualityCommand
         var timer = Stopwatch.StartNew();
         try
         {
-            var projects = RepositoryHierarchyBuilder.BuildDotNet(root);
+            var projects = RepositoryHierarchyBuilder.Build(root);
             ReviewMetaDiscovery.AttachDiscovered(root, projects);
             if (byLevel)
             {
@@ -79,7 +84,9 @@ internal static class QualityCommand
         {
             var (path, options) = ParseSecurityArguments(args.Skip(1).ToArray());
             var timer = Stopwatch.StartNew();
-            var result = new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(path, options.Mode, options.Range, options.ConfigPath, options.BaselinePath)).GetAwaiter().GetResult();
+            var result = new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+                path, options.Mode, options.Range, options.ConfigPath, options.BaselinePath,
+                PersistMetadata: false)).GetAwaiter().GetResult();
             timer.Stop();
             output.WriteLine($"Scanned {result.Report.FilesScanned} file(s); verdict {result.Report.Verdict.ToString().ToLowerInvariant()}; new {result.Report.NewFindings}; accepted {result.Report.AcceptedFindings}; {timer.ElapsedMilliseconds} ms");
             foreach (var finding in result.Findings)

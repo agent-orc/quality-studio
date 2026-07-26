@@ -1,0 +1,133 @@
+{
+  "$schema": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "schemaVersion": 1,
+  "changeSet": {
+    "provider": "git-merge-range",
+    "baseCommit": "0d03986269a9792c112776af558eddccf5a3f56b",
+    "headCommit": "85d781faf91b67edd3028c637273f7fca80caf5a",
+    "title": "docs: link QS-18 repositories feature in API metadata",
+    "committedAt": "2026-07-21T15:45:35+02:00",
+    "touchedFiles": [
+      {
+        "path": "docs/api.md.meta.json",
+        "kind": "modified",
+        "additions": 6,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      },
+      {
+        "path": "docs/concepts/handover.md.meta.json",
+        "kind": "added",
+        "additions": 10,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      }
+    ]
+  },
+  "reviewedAt": "2026-07-25T11:13:38.2819469+00:00",
+  "touchedUnits": [
+    {
+      "id": "path:project:.",
+      "adapter": "path",
+      "level": "project",
+      "path": ".",
+      "displayName": "Repository"
+    },
+    {
+      "id": "path:module:docs",
+      "adapter": "path",
+      "level": "module",
+      "path": "docs",
+      "displayName": "docs"
+    },
+    {
+      "id": "path:file:0b57556f3aa0055f918da12f7a917791c6c46e842ed73cd3982132037043fa42",
+      "adapter": "path",
+      "level": "file",
+      "path": "docs/api.md.meta.json",
+      "displayName": "api.md.meta.json"
+    },
+    {
+      "id": "path:file:a67917ac368cc2dd8aa739d73b3f8347c1c7d3f337af2f0c4c37df8b28eec371",
+      "adapter": "path",
+      "level": "file",
+      "path": "docs/concepts/handover.md.meta.json",
+      "displayName": "handover.md.meta.json"
+    }
+  ],
+  "delta": {
+    "grades": [],
+    "findings": {
+      "new": [],
+      "resolved": [],
+      "persisting": []
+    },
+    "newlyStale": [],
+    "boundaries": {
+      "new": [],
+      "changed": [],
+      "removed": []
+    },
+    "coverage": {
+      "status": "unavailable",
+      "reason": "Coverage ingestion is not available."
+    },
+    "churn": {
+      "filesTouched": 2,
+      "filesAdded": 1,
+      "filesModified": 1,
+      "filesDeleted": 0,
+      "filesMoved": 0,
+      "linesAdded": 16,
+      "linesDeleted": 0,
+      "repositoryFiles": 136,
+      "blastRadiusPercent": 1.47
+    },
+    "onlyMoves": false,
+    "hasQualityDelta": false
+  },
+  "judgement": {
+    "status": "not-run",
+    "reviewer": "none",
+    "aspects": [
+      {
+        "id": "risk",
+        "title": "Risk of the change",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "test-evidence",
+        "title": "Test evidence",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "scope-discipline",
+        "title": "Scope discipline",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "architecture-drift",
+        "title": "Architecture drift",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      }
+    ],
+    "summary": "Deterministic evidence only."
+  },
+  "economy": {
+    "diffFiles": 2,
+    "fullSweepFiles": 2,
+    "diffLines": 35,
+    "diffCharacters": 1080,
+    "fullSweepCharacters": 688,
+    "evidenceRatioPercent": 156.98,
+    "savedPercent": 0
+  },
+  "verdict": "no-quality-delta",
+  "summary": "No quality delta was observed in the standing review evidence for the touched units."
+}

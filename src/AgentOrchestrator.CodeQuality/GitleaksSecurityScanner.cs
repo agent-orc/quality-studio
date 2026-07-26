@@ -8,7 +8,7 @@ using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public class GitleaksSecurityScanner
+public class GitleaksSecurityScanner : IReviewSensor
 {
     private readonly GitleaksBinaryResolver _resolver;
     private readonly HttpClient _httpClient;
@@ -17,6 +17,87 @@ public class GitleaksSecurityScanner
     {
         _httpClient = httpClient ?? new HttpClient();
         _resolver = resolver ?? new GitleaksBinaryResolver(_httpClient);
+    }
+
+    public string Id => "gitleaks";
+
+    public string Version => GitleaksBinaryResolver.PinnedVersion;
+
+    public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository, SensorScope.Path];
+
+    public virtual async Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _resolver.ResolveAsync(Environment.GetEnvironmentVariable("QUALITY_GITLEAKS_PATH"), cancellationToken)
+                .ConfigureAwait(false);
+            return new SensorAvailability(true, ToolVersions: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["gitleaks"] = GitleaksBinaryResolver.PinnedVersion,
+            });
+        }
+        catch (Exception exception) when (exception is SecurityScannerUnavailableException or IOException or InvalidOperationException or Win32Exception)
+        {
+            return new SensorAvailability(false, GetUnavailableReason(exception));
+        }
+    }
+
+    public virtual async Task<SensorScanResult> RunAsync(SensorScanRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!SupportedScopes.Contains(request.Scope))
+        {
+            throw new ArgumentException($"Sensor '{Id}' does not support {request.Scope.ToString().ToLowerInvariant()} scope.");
+        }
+
+        var target = ResolveSensorTarget(request);
+        var configuration = request.Configuration ?? new Dictionary<string, string>();
+        var mode = configuration.TryGetValue("mode", out var configuredMode) &&
+                   Enum.TryParse<SecurityScanMode>(configuredMode, true, out var parsedMode)
+            ? parsedMode
+            : SecurityScanMode.Repository;
+        var result = await ScanAsync(new SecurityScanRequest(
+            target,
+            mode,
+            configuration.GetValueOrDefault("range"),
+            configuration.GetValueOrDefault("configPath"),
+            configuration.GetValueOrDefault("baselinePath"),
+            request.PersistMetadata), cancellationToken).ConfigureAwait(false);
+        var findings = result.Findings.Where(finding => !finding.Accepted).Select(ToReviewFinding).ToArray();
+        return new SensorScanResult(
+            result.Report.Available,
+            result.Report.UnavailableReason,
+            findings,
+            new SensorProvenance(
+                Id,
+                result.Provenance.Version,
+                request.Scope.ToString().ToLowerInvariant(),
+                request.Scope == SensorScope.Repository ? "." : request.Path!,
+                result.Provenance.ScannedAt,
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["gitleaks"] = result.Provenance.Version }));
+    }
+
+    private static string ResolveSensorTarget(SensorScanRequest request)
+    {
+        var root = Path.GetFullPath(request.RepositoryRoot);
+        if (request.Scope == SensorScope.Repository)
+        {
+            return root;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Path))
+        {
+            throw new ArgumentException("Path scope requires a path.");
+        }
+
+        var target = Path.GetFullPath(Path.Combine(root, request.Path));
+        var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+        if (!target.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) || !Directory.Exists(target))
+        {
+            throw new ArgumentException("Sensor path must be an existing directory inside the repository.");
+        }
+
+        return target;
     }
 
     public virtual async Task<SecurityScanResult> ScanAsync(SecurityScanRequest request, CancellationToken cancellationToken = default)
@@ -176,7 +257,14 @@ public class GitleaksSecurityScanner
         string? baselinePath,
         CancellationToken cancellationToken)
     {
-        foreach (var fileGroup in grouped)
+        var hierarchyFiles = FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
+            .Where(node => node.Level == ReviewLevel.File)
+            .GroupBy(node => node.Path, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.OrderBy(node => node.Id, StringComparer.Ordinal).First(),
+                StringComparer.Ordinal);
+        var groups = grouped.ToArray();
+        var observedPaths = groups.Select(group => NormalizeRelativePath(group.Key)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var fileGroup in groups)
         {
             var relativePath = NormalizeRelativePath(fileGroup.Key);
             var absolutePath = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
@@ -193,16 +281,18 @@ public class GitleaksSecurityScanner
 
             var fileContentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(absolutePath, cancellationToken)
                 .ConfigureAwait(false);
-            var acceptedFindings = fileGroup.Where(finding => finding.Accepted).ToArray();
-            var newFindings = fileGroup.Where(finding => !finding.Accepted).ToArray();
+            var allFindings = fileGroup.ToArray();
+            var acceptedFindings = allFindings.Where(finding => finding.Accepted).ToArray();
+            var newFindings = allFindings.Where(finding => !finding.Accepted).ToArray();
             var hasFindings = newFindings.Length > 0 || acceptedFindings.Length > 0;
             if (!hasFindings)
             {
                 continue;
             }
 
-            var adapter = GetAdapter(absolutePath);
-            var unitId = $"qs-v1/{adapter}/file/{Sha256($"{adapter}\0{relativePath}")}";
+            var canonicalUnit = hierarchyFiles.GetValueOrDefault(relativePath);
+            var adapter = canonicalUnit is null ? GetAdapter(absolutePath) : AdapterFromUnitId(canonicalUnit.Id);
+            var unitId = canonicalUnit?.Id ?? $"qs-v1/{adapter}/file/{Sha256($"{adapter}\0{relativePath}")}";
             var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(
                 unitId,
                 [new SubjectInputHash(relativePath, "file", fileContentHash)]);
@@ -211,7 +301,7 @@ public class GitleaksSecurityScanner
                 : $"{acceptedFindings.Length} accepted placeholder match(es) were recorded by Gitleaks.";
             var doc = new ReviewMetaDocument
             {
-                Unit = new ReviewUnit(unitId, adapter == "dotnet" ? ReviewAdapter.Dotnet : ReviewAdapter.Angular, ReviewLevel.File, relativePath, Path.GetFileName(relativePath)),
+                Unit = new ReviewUnit(unitId, ParseAdapter(adapter), ReviewLevel.File, relativePath, Path.GetFileName(relativePath)),
                 ReviewedAt = DateTimeOffset.UtcNow,
                 Kind = ReviewKind.Security,
                 Reviewer = new ReviewerIdentity("gitleaks", GitleaksBinaryResolver.PinnedVersion),
@@ -229,15 +319,42 @@ public class GitleaksSecurityScanner
                 Grade = BuildGrade(newFindings),
                 Summary = summary,
                 Aspects = [new ReviewAspect("secrets", "Secrets", BuildGrade(newFindings))],
-                Findings = newFindings.Select(ToReviewFinding).ToArray(),
+                Findings = allFindings.Select(ToReviewFinding).ToArray(),
             };
 
             var metaPath = Path.Combine(Path.GetDirectoryName(absolutePath)!, ".quality", "reviews", "files", $"file.{Sha256(relativePath)}.review-meta.security.json");
+            var previous = LoadPersistedFindingIdentities(metaPath);
+            var current = allFindings.Select(finding => new FindingIdentityRecord(
+                finding.Fingerprint, finding.Id, finding.Path, finding.RuleId)).ToArray();
+            var stateStore = new FindingStateStore(root);
+            var before = await stateStore.ReadAsync(cancellationToken).ConfigureAwait(false);
+            var merged = await stateStore.MergeReviewAsync(current, previous, "gitleaks", cancellationToken).ConfigureAwait(false);
+            foreach (var accepted in acceptedFindings.Where(finding => !before.ContainsKey(finding.Fingerprint)))
+            {
+                var state = merged[accepted.Fingerprint];
+                await stateStore.SetAsync(accepted.Fingerprint, FindingState.Accepted, "gitleaks-baseline",
+                    "Matched the repository Gitleaks baseline.", expectedTimestamp: state.Timestamp,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
             var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
             await File.WriteAllTextAsync(temporaryPath, ReviewMetaJson.Serialize(doc) + Environment.NewLine, new UTF8Encoding(false), cancellationToken)
                 .ConfigureAwait(false);
             File.Move(temporaryPath, metaPath, true);
+        }
+
+        if (request.Mode == SecurityScanMode.Repository)
+        {
+            foreach (var metaPath in Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories))
+            {
+                using var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken).ConfigureAwait(false));
+                var document = metadata.RootElement;
+                if (document.GetProperty("reviewer").GetProperty("agent").GetString() != "gitleaks") continue;
+                var path = document.GetProperty("unit").GetProperty("path").GetString()!;
+                if (observedPaths.Contains(path)) continue;
+                await new FindingStateStore(root).MergeReviewAsync(
+                    [], LoadPersistedFindingIdentities(metaPath), "gitleaks", cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -253,6 +370,17 @@ public class GitleaksSecurityScanner
             finding.Fingerprint,
             finding.RuleId,
             finding.Evidence);
+
+    private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath)
+    {
+        if (!File.Exists(metaPath)) return [];
+        using var document = JsonDocument.Parse(File.ReadAllText(metaPath));
+        return document.RootElement.GetProperty("findings").EnumerateArray().Select(finding => new FindingIdentityRecord(
+            finding.GetProperty("fingerprint").GetString()!,
+            finding.GetProperty("id").GetString()!,
+            finding.GetProperty("locations")[0].GetProperty("path").GetString()!,
+            finding.GetProperty("ruleId").GetString()!)).ToArray();
+    }
 
     private static ReviewGrade BuildGrade(IReadOnlyCollection<SecurityFindingRecord> findings)
     {
@@ -656,7 +784,7 @@ public class GitleaksSecurityScanner
             $"Gitleaks detected a potential secret in {normalizedPath} at lines {startLine}-{endLine}.",
             "Remove the secret, rotate any exposed credential, and keep only a narrowly audited placeholder or baseline entry if this match is intentional.",
             [location],
-            !string.IsNullOrWhiteSpace(fingerprint) ? fingerprint : computedFingerprint,
+            NormalizeScannerFingerprint(fingerprint, computedFingerprint),
             ruleId,
             null,
             normalizedPath,
@@ -679,13 +807,40 @@ public class GitleaksSecurityScanner
     private static string NormalizeRelativePath(string path) => path.Replace('\\', '/').TrimStart('/');
 
     private static string GetAdapter(string file) =>
-        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "angular";
+        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "generic";
+
+    private static string AdapterFromUnitId(string unitId) => unitId.Split('/')[1];
+
+    private static ReviewAdapter ParseAdapter(string adapter) => adapter switch
+    {
+        "angular" => ReviewAdapter.Angular,
+        "dotnet" => ReviewAdapter.Dotnet,
+        "generic" => ReviewAdapter.Generic,
+        _ => throw new ArgumentException($"Unsupported hierarchy adapter '{adapter}'."),
+    };
+
+    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
+    {
+        foreach (var node in roots)
+        {
+            yield return node;
+            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
+        }
+    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static string ComputeFingerprint(string path, string ruleId, int startLine, int startColumn, int endLine, int endColumn) =>
         $"sha256:{Sha256($"gitleaks-finding-v1\0{ruleId}\0{path}\0{startLine}\0{startColumn}\0{endLine}\0{endColumn}")}";
+
+    private static string NormalizeScannerFingerprint(string? fingerprint, string? fallback = null)
+    {
+        if (string.IsNullOrWhiteSpace(fingerprint)) return fallback ?? throw new JsonException("Gitleaks finding has no fingerprint.");
+        if (fingerprint.Length == 71 && fingerprint.StartsWith("sha256:", StringComparison.Ordinal) &&
+            fingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f')) return fingerprint;
+        return $"sha256:{Sha256($"gitleaks-source-fingerprint-v1\0{fingerprint}")}";
+    }
 
     private static FindingSeverity ParseSeverity(string? value, FindingSeverity fallback) =>
         value?.Trim().ToLowerInvariant() switch
@@ -744,7 +899,7 @@ public class GitleaksSecurityScanner
         var fingerprint = finding["Fingerprint"]?.GetValue<string>() ?? finding["fingerprint"]?.GetValue<string>();
         if (!string.IsNullOrWhiteSpace(fingerprint))
         {
-            fingerprints.Add(fingerprint);
+            fingerprints.Add(NormalizeScannerFingerprint(fingerprint));
             return;
         }
 

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://quality.studio/schemas/change-review.v1.schema.json",
+  "schemaVersion": 1,
+  "changeSet": {
+    "provider": "git-merge-range",
+    "baseCommit": "b3169fe5d049e5ecb00ea6e1c8527b008d380b6e",
+    "headCommit": "d38a8dc9c43cb1d8ba9cc945a4042074d9410c32",
+    "title": "QS telemetry: persist token usage for all review operations and show available quotas in the topbar",
+    "committedAt": "2026-07-21T14:57:47+02:00",
+    "touchedFiles": [
+      {
+        "path": "frontend/tests/quota-evidence.mjs",
+        "kind": "added",
+        "additions": 31,
+        "deletions": 0,
+        "contentChanged": true,
+        "binary": false
+      }
+    ]
+  },
+  "reviewedAt": "2026-07-25T11:13:38.0938711+00:00",
+  "touchedUnits": [
+    {
+      "id": "path:project:.",
+      "adapter": "path",
+      "level": "project",
+      "path": ".",
+      "displayName": "Repository"
+    },
+    {
+      "id": "path:module:frontend",
+      "adapter": "path",
+      "level": "module",
+      "path": "frontend",
+      "displayName": "frontend"
+    },
+    {
+      "id": "path:file:4babc560b8e334e0ecf59f00285f6912a9273ea6b92692f968748fddf4b22771",
+      "adapter": "path",
+      "level": "file",
+      "path": "frontend/tests/quota-evidence.mjs",
+      "displayName": "quota-evidence.mjs"
+    }
+  ],
+  "delta": {
+    "grades": [],
+    "findings": {
+      "new": [],
+      "resolved": [],
+      "persisting": []
+    },
+    "newlyStale": [],
+    "boundaries": {
+      "new": [],
+      "changed": [],
+      "removed": []
+    },
+    "coverage": {
+      "status": "unavailable",
+      "reason": "Coverage ingestion is not available."
+    },
+    "churn": {
+      "filesTouched": 1,
+      "filesAdded": 1,
+      "filesModified": 0,
+      "filesDeleted": 0,
+      "filesMoved": 0,
+      "linesAdded": 31,
+      "linesDeleted": 0,
+      "repositoryFiles": 135,
+      "blastRadiusPercent": 0.74
+    },
+    "onlyMoves": false,
+    "hasQualityDelta": false
+  },
+  "judgement": {
+    "status": "not-run",
+    "reviewer": "none",
+    "aspects": [
+      {
+        "id": "risk",
+        "title": "Risk of the change",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "test-evidence",
+        "title": "Test evidence",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "scope-discipline",
+        "title": "Scope discipline",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      },
+      {
+        "id": "architecture-drift",
+        "title": "Architecture drift",
+        "verdict": "not-reviewed",
+        "rationale": "Agent judgement was not requested."
+      }
+    ],
+    "summary": "Deterministic evidence only."
+  },
+  "economy": {
+    "diffFiles": 1,
+    "fullSweepFiles": 1,
+    "diffLines": 37,
+    "diffCharacters": 1361,
+    "fullSweepCharacters": 1132,
+    "evidenceRatioPercent": 120.23,
+    "savedPercent": 0
+  },
+  "verdict": "no-quality-delta",
+  "summary": "No quality delta was observed in the standing review evidence for the touched units."
+}

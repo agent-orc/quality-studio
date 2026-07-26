@@ -1,13 +1,17 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
-import { FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread } from '../quality-api';
+import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
+import { SyntaxHighlighting } from './syntax-highlighting';
+import { syntaxLanguageForPath } from './syntax-language';
+import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
 
 const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mixed: 'Mixed' };
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
-type FolderSortColumn = 'name' | ReviewKind | 'state' | 'findings' | 'reviewedAt' | 'size' | 'lines';
+type FolderSortColumn = 'name' | ReviewKind | 'coverage' | 'state' | 'findings' | 'reviewedAt' | 'size' | 'lines';
+type RiskSortColumn = 'path' | 'grade' | 'coverage' | 'changes' | 'risk';
 type SortDirection = 'asc' | 'desc';
 type CodeLayoutRow =
   | { key: string; kind: 'code'; top: number; height: number; text: string; number: number; findings: ReviewFinding[] }
@@ -23,6 +27,7 @@ type CodeLayoutRow =
 })
 export class Editor {
   readonly api = inject(QualityApi);
+  private readonly syntaxHighlighting = inject(SyntaxHighlighting);
   readonly selectedPath = input.required<string>();
   readonly activeKind = input.required<ReviewKind>();
   readonly selectedNode = input<FlatNode | undefined>();
@@ -37,9 +42,14 @@ export class Editor {
   readonly codeScrollTop = signal(0);
   readonly folderScrollTop = signal(0);
   readonly folderSort = signal<{ column: FolderSortColumn; direction: SortDirection }>({ column: 'name', direction: 'asc' });
+  readonly riskSort = signal<{ column: RiskSortColumn; direction: SortDirection }>({ column: 'risk', direction: 'desc' });
   readonly expandedThreads = signal<Record<string, boolean>>({});
   readonly composingLine = signal<number | null>(null);
   readonly drafts = signal<Record<string, string>>({});
+  readonly syntaxState = signal<'plain' | 'loading' | 'ready' | 'error' | 'large'>('plain');
+  private readonly syntaxCache = signal<{ path: string; lines: Array<TokenLine | undefined> }>({ path: '', lines: [] });
+  private cancelSyntaxRequest: (() => void) | null = null;
+  private syntaxFrame: number | null = null;
   readonly isContainer = computed(() => !!this.selectedNode() && this.selectedNode()?.level !== 'file');
   readonly codeLines = computed(() => this.api.file()?.content.split(/\r?\n/) ?? []);
   readonly activeMeta = computed(() => this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null);
@@ -99,7 +109,13 @@ export class Editor {
     return slash === -1 ? { directory: '', name: path } : { directory: path.slice(0, slash + 1), name: path.slice(slash + 1) };
   });
   readonly language = computed(() => languageForPath(this.api.file()?.path));
-  readonly fileSizeLabel = computed(() => formatBytes(this.api.file()?.sizeBytes ?? 0));
+  readonly fileSizeBytes = computed(() => {
+    const file = this.api.file();
+    if (!file) return 0;
+    return Number.isFinite(file.sizeBytes) ? file.sizeBytes : new TextEncoder().encode(file.content).byteLength;
+  });
+  readonly fileSizeLabel = computed(() => formatBytes(this.fileSizeBytes()));
+  readonly largeFileMode = computed(() => this.fileSizeBytes() > LARGE_FILE_HIGHLIGHT_LIMIT_BYTES);
   readonly lineEndingLabel = computed(() => LINE_ENDING_LABELS[this.api.file()?.lineEnding ?? 'lf']);
   readonly encodingLabel = computed(() => ENCODING_LABELS[this.api.file()?.encoding ?? 'utf-8']);
   readonly folderRows = computed(() => {
@@ -122,9 +138,64 @@ export class Editor {
     const count = Math.ceil(this.viewportHeight() / this.folderRowHeight) + 12;
     return this.folderRows().slice(start, start + count).map((node, index) => ({ node, top: (start + index) * this.folderRowHeight }));
   });
+  readonly riskRows = computed(() => {
+    const selected = this.selectedNode()?.path ?? '.';
+    const prefix = selected === '.' ? '' : selected.replace(/\/+$/, '') + '/';
+    const rows = this.api.risk().rows.filter(row => !prefix || row.path === selected || row.path.startsWith(prefix));
+    const { column, direction } = this.riskSort();
+    const factor = direction === 'asc' ? 1 : -1;
+    return [...rows].sort((left, right) => {
+      const leftValue = this.riskValue(left, column);
+      const rightValue = this.riskValue(right, column);
+      if (leftValue == null && rightValue == null) return left.path.localeCompare(right.path);
+      if (leftValue == null) return 1;
+      if (rightValue == null) return -1;
+      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
+        ? leftValue - rightValue
+        : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
+      return (comparison || left.path.localeCompare(right.path)) * factor;
+    });
+  });
 
   constructor() {
     effect(() => { this.selectedPath(); this.codeScrollTop.set(0); this.folderScrollTop.set(0); });
+    effect(onCleanup => {
+      const file = this.api.file();
+      const selectedPath = this.selectedPath();
+      const language = syntaxLanguageForPath(file?.path);
+      this.cancelHighlighting();
+      this.syntaxCache.set({ path: file?.path ?? '', lines: [] });
+      this.syntaxState.set(file && this.largeFileMode() ? 'large' : 'plain');
+
+      if (!file || file.path !== selectedPath || !language || this.largeFileMode()) return;
+      // Wait until the browser has painted plain virtualized text. Worker startup and
+      // source cloning are deliberately kept out of the first-visible-content frame.
+      this.syntaxFrame = requestAnimationFrame(() => {
+        this.syntaxFrame = null;
+        if (this.api.file() !== file || this.selectedPath() !== file.path) return;
+        this.syntaxState.set('loading');
+        this.cancelSyntaxRequest = this.syntaxHighlighting.highlight(file.path, file.content, language, {
+          chunk: (startLine, lines) => {
+            if (this.api.file() !== file) return;
+            this.syntaxCache.update(cache => {
+              if (cache.path !== file.path) return cache;
+              const next = cache.lines.slice();
+              next.splice(startLine, lines.length, ...lines);
+              return { path: cache.path, lines: next };
+            });
+          },
+          done: () => {
+            if (this.api.file() === file) this.syntaxState.set('ready');
+            this.cancelSyntaxRequest = null;
+          },
+          error: () => {
+            if (this.api.file() === file) this.syntaxState.set('error');
+            this.cancelSyntaxRequest = null;
+          },
+        });
+      });
+      onCleanup(() => this.cancelHighlighting());
+    });
     effect(() => {
       const id = this.api.focusedThreadId();
       if (!id) return;
@@ -137,6 +208,14 @@ export class Editor {
   }
 
   selectKind(kind: ReviewKind): void { this.kindSelect.emit(kind); }
+
+  tokensForLine(line: number, text: string): TokenLine {
+    const file = this.api.file();
+    const cache = this.syntaxCache();
+    return file && cache.path === file.path && cache.lines[line - 1]
+      ? cache.lines[line - 1]!
+      : [{ text, kind: 'plain' } satisfies TokenSpan];
+  }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
 
@@ -197,13 +276,57 @@ export class Editor {
 
   reviewedOrDash(value: string | null | undefined): string { return value ? this.reviewed(value) : '—'; }
 
+  coverageLabel(coverage: CoverageFact | null | undefined): string {
+    return coverage?.linePercent == null ? 'Unknown' : `${coverage.linePercent.toFixed(coverage.linePercent % 1 ? 1 : 0)}%`;
+  }
+
+  coverageTitle(coverage: CoverageFact | null | undefined): string {
+    if (!coverage || coverage.state === 'unknown') return 'No coverage data';
+    const branch = coverage.totalBranches ? `; branches ${coverage.coveredBranches}/${coverage.totalBranches}` : '';
+    return `${coverage.coveredLines}/${coverage.totalLines} lines${branch}; measured ${coverage.measuredAt ?? 'at an unknown time'}${coverage.state === 'stale' ? '; stale commit' : ''}`;
+  }
+
+  findingCountsLabel(node: FlatNode['children'][number]): string {
+    const counts = node.findingCounts;
+    return counts ? `O ${counts.open} · A ${counts.accepted} · W ${counts.waived} · FP ${counts.falsePositive}` : `${node.findingsCount ?? 0}`;
+  }
+
   private sortValue(node: FlatNode['children'][number], column: FolderSortColumn): string | number | null {
     if (column === 'name') return node.name;
     if (column === 'code' || column === 'security' || column === 'performance') return node.kinds[column]?.score;
-    if (column === 'state') return Math.max(...Object.values(node.kinds).map(kind => kind.overall === 'missing' ? 2 : kind.overall === 'stale' ? 1 : 0), 0);
+    if (column === 'coverage') return node.coverage?.linePercent ?? null;
+    if (column === 'state') return Math.max(...Object.values(node.kinds).map(kind => kind.overall === 'missing' ? 3 : kind.overall === 'stale' ? 2 : kind.overall === 'policy-drift' ? 1 : 0), 0);
     if (column === 'findings') return node.findingsCount ?? 0;
     if (column === 'reviewedAt') return node.reviewedAt ? Date.parse(node.reviewedAt) : null;
     if (column === 'size') return node.sizeBytes ?? null;
     return node.lineCount ?? null;
+  }
+
+  sortRiskBy(column: RiskSortColumn): void {
+    this.riskSort.update(current => current.column === column
+      ? { column, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+      : { column, direction: column === 'path' ? 'asc' : 'desc' });
+  }
+
+  riskSortIndicator(column: RiskSortColumn): string {
+    const current = this.riskSort();
+    return current.column === column ? (current.direction === 'asc' ? ' ↑' : ' ↓') : '';
+  }
+
+  riskLabel(row: RiskRow): string { return row.riskScore == null ? 'Unknown' : row.riskScore.toFixed(1); }
+
+  private riskValue(row: RiskRow, column: RiskSortColumn): string | number | null {
+    if (column === 'path') return row.path;
+    if (column === 'grade') return row.gradeScore;
+    if (column === 'coverage') return row.coverage.linePercent;
+    if (column === 'changes') return row.changes;
+    return row.riskScore;
+  }
+
+  private cancelHighlighting(): void {
+    if (this.syntaxFrame !== null) cancelAnimationFrame(this.syntaxFrame);
+    this.syntaxFrame = null;
+    this.cancelSyntaxRequest?.();
+    this.cancelSyntaxRequest = null;
   }
 }

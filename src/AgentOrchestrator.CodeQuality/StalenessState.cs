@@ -4,5 +4,6 @@ public enum StalenessState
 {
     Fresh,
     Stale,
+    PolicyDrift,
     Missing,
 }

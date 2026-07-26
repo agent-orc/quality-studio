@@ -19,13 +19,18 @@ public sealed record ReviewRequest(
     IReadOnlyList<string>? SubjectFiles = null,
     string? DisplayName = null,
     IReadOnlyList<ReviewSubjectFile>? SubjectUnits = null,
-    IReadOnlyList<string>? AggregateControls = null);
+    IReadOnlyList<string>? AggregateControls = null,
+    IReadOnlyList<ScopeExclusion>? AggregateExclusions = null,
+    string? ReviewRunId = null,
+    IReadOnlyList<ReviewSensorConfiguration>? Sensors = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
 public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
+
+public sealed record ReviewPromptMeasurement(int Characters, string Path, string Level);
 
 public sealed class ReviewRunner
 {
@@ -36,6 +41,7 @@ public sealed class ReviewRunner
     private readonly InputResolver _inputResolver;
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
+    private readonly SensorRegistry? _sensorRegistry;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -43,6 +49,7 @@ public sealed class ReviewRunner
         ReviewResponseParser? responseParser = null,
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
+        SensorRegistry? sensorRegistry = null,
         StalenessEvaluator? stalenessEvaluator = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
@@ -51,6 +58,7 @@ public sealed class ReviewRunner
         _inputResolver = inputResolver ?? new InputResolver();
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
+        _sensorRegistry = sensorRegistry;
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -65,46 +73,13 @@ public sealed class ReviewRunner
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var root = Path.GetFullPath(request.RepositoryRoot ?? Directory.GetCurrentDirectory());
-        var relativePath = NormalizeRelativePath(root, request.FilePath);
-        string[] subjectPaths = request.Level == ReviewLevel.File
-            ? [relativePath]
-            : request.SubjectFiles?.Select(path => NormalizeRelativePath(root, path)).Distinct(StringComparer.Ordinal).ToArray()
-              ?? [];
-        if (subjectPaths.Length == 0)
-        {
-            throw new ArgumentException("An aggregate review requires at least one descendant file.", nameof(request));
-        }
-        var files = subjectPaths.Select(path => Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar))).ToArray();
-        foreach (var file in files)
-        {
-            EnsureContained(root, file);
-            if (!File.Exists(file)) throw new FileNotFoundException("Review target does not exist.", file);
-        }
-
-        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
-        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+        var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
+        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads, sensorEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
-        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
-        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
-        var unitId = request.UnitId ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
-        var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
-        var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
-        var openThreads = new JsonArray(threads.OfType<JsonObject>()
-            .Where(thread => thread["status"]?.GetValue<string>() == "open")
-            .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
-        var prompt = _promptBuilder.Build(
-            relativePath,
-            request.Kind,
-            globalGuidelines,
-            projectGuidelines,
-            fileContent,
-            openThreads);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
-        var reviewInputsHash = ComputeReviewInputsHash(request.Kind, prompt);
+        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
@@ -139,44 +114,68 @@ public sealed class ReviewRunner
                 agentResult.EffectiveModel, startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
+            if (request.Level == ReviewLevel.Project &&
+                string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
+                request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
+                !response["aspects"]!.AsArray().OfType<JsonObject>().Any(aspect =>
+                    string.Equals(aspect["id"]?.GetValue<string>(), "architecture", StringComparison.Ordinal)))
+            {
+                throw new ReviewResponseException(
+                    "A project-level code review must include the required 'architecture' aspect.");
+            }
             var finalSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
             if (!initialSubject.Inputs.SequenceEqual(finalSubject.Inputs))
             {
                 throw new ReviewRunException("The review target changed while the agent was reviewing it; no metadata was written.");
             }
 
-            var adapter = GetAdapter(files[0]);
+            var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, cancellationToken).ConfigureAwait(false);
+            if (request.Kind == "security")
+            {
+                SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
+            }
+            var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+            if (request.Kind == "security")
+            {
+                findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
+            }
+
+            var adapter = AdapterFromUnitId(unitId);
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-            threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
-            ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
-            ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
-            var meta = CreateMeta(
-                response,
-                relativePath,
-                request.Kind,
-                adapter,
-                unitId,
-                initialSubject.Inputs,
-                initialSubject.Members,
-                reviewedHash,
-                prompt,
-                agentResult.RunId,
-                inputs,
-                request.Level,
-                request.DisplayName,
-                usage,
-                threads);
-            Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
-            var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-            await File.WriteAllTextAsync(
-                temporaryPath,
-                meta.ToJsonString(JsonOptions) + Environment.NewLine,
-                new UTF8Encoding(false),
-                cancellationToken).ConfigureAwait(false);
-            File.Move(temporaryPath, metaPath, true);
+                var previousFindings = LoadFindingIdentities(metaPath);
+                await new FindingStateStore(root).MergeReviewAsync(
+                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
+                threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
+                ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
+                ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
+                var meta = CreateMeta(
+                    response,
+                    relativePath,
+                    request.Kind,
+                    adapter,
+                    unitId,
+                    initialSubject.Inputs,
+                    initialSubject.Members,
+                    initialSubject.Exclusions,
+                    reviewedHash,
+                    agentResult.RunId,
+                    inputs,
+                    request.Level,
+                    request.DisplayName,
+                    usage,
+                    threads,
+                    sensorEvidence);
+                Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
+                var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+                await File.WriteAllTextAsync(
+                    temporaryPath,
+                    meta.ToJsonString(JsonOptions) + Environment.NewLine,
+                    new UTF8Encoding(false),
+                    cancellationToken).ConfigureAwait(false);
+                File.Move(temporaryPath, metaPath, true);
             }
             finally
             {
@@ -194,11 +193,89 @@ public sealed class ReviewRunner
         }
     }
 
+    public async Task<ReviewPromptMeasurement> MeasurePromptAsync(
+        ReviewRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
+        return new ReviewPromptMeasurement(prepared.Prompt.Length, prepared.RelativePath,
+            request.Level.ToString().ToLowerInvariant());
+    }
+
+    private async Task<PreparedPrompt> PreparePromptAsync(ReviewRequest request, CancellationToken cancellationToken)
+    {
+        var root = Path.GetFullPath(request.RepositoryRoot ?? Directory.GetCurrentDirectory());
+        var relativePath = NormalizeRelativePath(root, request.FilePath);
+        string[] subjectPaths = request.Level == ReviewLevel.File
+            ? [relativePath]
+            : request.SubjectFiles?.Select(path => NormalizeRelativePath(root, path)).Distinct(StringComparer.Ordinal).ToArray()
+              ?? [];
+        if (subjectPaths.Length == 0)
+            throw new ArgumentException("An aggregate review requires at least one descendant file.", nameof(request));
+
+        var files = subjectPaths.Select(path => Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar))).ToArray();
+        foreach (var file in files)
+        {
+            EnsureContained(root, file);
+            if (!File.Exists(file)) throw new FileNotFoundException("Review target does not exist.", file);
+        }
+
+        var scope = RepositoryScope.Load(root);
+        for (var index = 0; index < files.Length; index++)
+        {
+            var decision = scope.Evaluate(subjectPaths[index], files[index]);
+            if (!decision.Included)
+                throw new ArgumentException(
+                    $"Review target '{subjectPaths[index]}' is excluded: {decision.Reason}", nameof(request));
+        }
+
+        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
+        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
+            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
+        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
+        var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
+            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
+        var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
+        var openThreads = new JsonArray(threads.OfType<JsonObject>()
+            .Where(thread => thread["status"]?.GetValue<string>() == "open")
+            .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
+        var sensorEvidence = await CollectSensorEvidenceAsync(
+            request, root, subjectPaths, cancellationToken).ConfigureAwait(false);
+        var coverageEvidence = CoverageProjection.Evidence(
+            CoverageSnapshot.Load(root),
+            CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD"),
+            subjectPaths);
+        var prompt = _promptBuilder.Build(relativePath, request.Kind, globalGuidelines,
+            projectGuidelines, fileContent, openThreads,
+            request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
+            request.Level,
+            coverageEvidence);
+        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
+            prompt, unitId, metaPath, threads, sensorEvidence);
+    }
+
+    private async Task<SecurityEvidenceBundle> CollectSensorEvidenceAsync(
+        ReviewRequest request,
+        string root,
+        IReadOnlyList<string> subjectPaths,
+        CancellationToken cancellationToken)
+    {
+        if (request.Kind != "security" || request.Sensors is not { Count: > 0 })
+            return SecurityEvidenceBundle.Empty;
+        if (_sensorRegistry is null)
+            throw new InvalidOperationException("Security sensors were configured for the review, but no sensor registry is available.");
+        return await new SecurityEvidenceCollector(_sensorRegistry)
+            .CollectAsync(root, subjectPaths, request.Sensors, cancellationToken).ConfigureAwait(false);
+    }
+
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
         DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
         new(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
-            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath);
+            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
+            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {
@@ -219,17 +296,18 @@ public sealed class ReviewRunner
         string unitId,
         IReadOnlyList<SubjectInputHash> subjectInputs,
         IReadOnlyList<AggregateMemberHash>? aggregateMembers,
+        IReadOnlyList<ScopeExclusion>? aggregateExclusions,
         string reviewedHash,
-        string prompt,
         string runId,
         ResolvedInputs inputs,
         ReviewLevel level,
         string? displayName,
         ReviewUsageEntry usage,
-        JsonArray threads)
+        JsonArray threads,
+        SecurityEvidenceBundle sensorEvidence)
     {
-        var promptHash = "sha256:" + Sha256(prompt);
-        var effectiveHash = ComputeReviewInputsHash(kind, prompt);
+        var promptHash = ReviewPromptBuilder.TemplateHash(kind);
+        var effectiveHash = inputs.EffectiveHash(promptHash);
         var reviewer = new JsonObject
         {
             ["agent"] = _agent.AgentName,
@@ -248,8 +326,8 @@ public sealed class ReviewRunner
 
         var meta = new JsonObject
         {
-            ["$schema"] = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json",
-            ["schemaVersion"] = 1,
+            ["$schema"] = ReviewMetaDocument.SchemaId,
+            ["schemaVersion"] = ReviewMetaDocument.CurrentSchemaVersion,
             ["unit"] = new JsonObject
             {
                 ["id"] = unitId,
@@ -303,6 +381,16 @@ public sealed class ReviewRunner
             ["findings"] = response["findings"]!.DeepClone(),
             ["threads"] = threads.DeepClone(),
         };
+        if (kind == "security" && sensorEvidence.Sensors.Count > 0)
+        {
+            reviewer["sensors"] = new JsonArray(sensorEvidence.Sensors.Select(sensor => (JsonNode)new JsonObject
+            {
+                ["id"] = sensor.SensorId,
+                ["version"] = sensor.SensorVersion,
+                ["resultHash"] = sensor.ResultHash,
+            }).ToArray());
+            meta["security"] = SecurityReviewCombiner.Metadata(sensorEvidence);
+        }
         if (aggregateMembers is not null)
         {
             meta["aggregate"] = new JsonObject
@@ -313,7 +401,14 @@ public sealed class ReviewRunner
                     ["path"] = member.Path,
                     ["subjectHash"] = member.SubjectHash,
                 }).ToArray()),
-                ["excluded"] = new JsonArray(),
+                ["excluded"] = new JsonArray((aggregateExclusions ?? []).Distinct()
+                    .OrderBy(item => item.Path, StringComparer.Ordinal)
+                    .ThenBy(item => item.Reason, StringComparer.Ordinal)
+                    .Select(item => (JsonNode)new JsonObject
+                    {
+                        ["path"] = item.Path,
+                        ["reason"] = item.Reason,
+                    }).ToArray()),
             };
         }
         return meta;
@@ -352,6 +447,27 @@ public sealed class ReviewRunner
         return builder.ToString();
     }
 
+    private static async Task<IReadOnlyDictionary<string, string>> ReadSubjectContentsAsync(
+        IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = 0; index < files.Count; index++)
+            result[paths[index]] = await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false);
+        return result;
+    }
+
+    private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(string metaPath)
+    {
+        if (!File.Exists(metaPath)) return [];
+        var root = JsonNode.Parse(File.ReadAllText(metaPath))?.AsObject();
+        return root?["findings"]?.AsArray().OfType<JsonObject>().Select(finding => new FindingIdentityRecord(
+            finding["fingerprint"]?.GetValue<string>() ?? string.Empty,
+            finding["id"]?.GetValue<string>() ?? string.Empty,
+            finding["locations"]?.AsArray().OfType<JsonObject>().FirstOrDefault()?["path"]?.GetValue<string>() ?? string.Empty,
+            finding["ruleId"]?.GetValue<string>() ?? string.Empty))
+            .Where(finding => !string.IsNullOrWhiteSpace(finding.Fingerprint)).ToArray() ?? [];
+    }
+
     private static async Task<IReadOnlyList<SubjectInputHash>> HashInputsAsync(
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
@@ -369,7 +485,7 @@ public sealed class ReviewRunner
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
         var fileInputs = await HashInputsAsync(paths, files, cancellationToken).ConfigureAwait(false);
-        if (request.Level == ReviewLevel.File) return new PreparedSubject(fileInputs, null);
+        if (request.Level == ReviewLevel.File) return new PreparedSubject(fileInputs, null, null);
 
         var units = request.SubjectUnits?.ToDictionary(unit => unit.Path, StringComparer.Ordinal);
         var members = fileInputs.Select(input =>
@@ -381,7 +497,7 @@ public sealed class ReviewRunner
         }).OrderBy(member => member.UnitId, StringComparer.Ordinal).ToArray();
         var aggregateInputs = new List<SubjectInputHash>
         {
-            new(relativePath, "aggregate-members", ReviewSubjectHasher.ComputeAggregateMembersHash(members)),
+            new(relativePath, "aggregate-members", ReviewSubjectHasher.ComputeAggregateMembersHash(members, request.AggregateExclusions)),
         };
         var controls = request.AggregateControls?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
             ?? Enumerable.Empty<string>();
@@ -392,7 +508,7 @@ public sealed class ReviewRunner
             if (File.Exists(controlFile))
                 aggregateInputs.Add(new(normalized, "aggregate-control", await ReviewSubjectHasher.ComputeFileContentHashAsync(controlFile, cancellationToken).ConfigureAwait(false)));
         }
-        return new PreparedSubject(aggregateInputs, members);
+        return new PreparedSubject(aggregateInputs, members, request.AggregateExclusions ?? []);
     }
 
     private static string NormalizeRelativePath(string root, string path)
@@ -403,16 +519,35 @@ public sealed class ReviewRunner
     }
 
     private static string GetAdapter(string file) =>
-        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "angular";
+        Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "generic";
+
+    private static string AdapterFromUnitId(string unitId)
+    {
+        var segments = unitId.Split('/');
+        return segments.Length == 4 && segments[0] == "qs-v1" &&
+               segments[1] is "angular" or "dotnet" or "generic"
+            ? segments[1]
+            : throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter.");
+    }
+
+    private static string? ResolveUnitId(string root, string relativePath, ReviewLevel level) =>
+        FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
+            .Where(node => node.Level == level && StringComparer.Ordinal.Equals(node.Path, relativePath))
+            .OrderBy(node => node.Id, StringComparer.Ordinal)
+            .Select(node => node.Id)
+            .FirstOrDefault();
+
+    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
+    {
+        foreach (var node in roots)
+        {
+            yield return node;
+            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
+        }
+    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
-
-    internal static string ComputeReviewInputsHash(string kind, string prompt)
-    {
-        var promptHash = "sha256:" + Sha256(prompt);
-        return Sha256($"quality-studio-review-inputs-v1\0{kind}\0{promptHash}");
-    }
 
     private static string Combine(string resolved, string? supplied) =>
         string.IsNullOrWhiteSpace(supplied)
@@ -440,7 +575,23 @@ public sealed class ReviewRunner
         }
     }
 
-    private sealed record PreparedSubject(IReadOnlyList<SubjectInputHash> Inputs, IReadOnlyList<AggregateMemberHash>? Members);
+    private sealed record PreparedSubject(
+        IReadOnlyList<SubjectInputHash> Inputs,
+        IReadOnlyList<AggregateMemberHash>? Members,
+        IReadOnlyList<ScopeExclusion>? Exclusions);
+
+    private sealed record PreparedPrompt(
+        string Root,
+        string RelativePath,
+        string[] SubjectPaths,
+        string[] Files,
+        string FileContent,
+        ResolvedInputs Inputs,
+        string Prompt,
+        string UnitId,
+        string MetaPath,
+        JsonArray Threads,
+        SecurityEvidenceBundle SensorEvidence);
 }
 
 public sealed class ReviewRunException(string message) : Exception(message);

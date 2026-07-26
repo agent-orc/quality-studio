@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "parameters": "--vulnerable --format json",
+  "sources": ["https://api.nuget.org/v3/index.json"],
+  "projects": [
+    {
+      "path": "src/Recorded/Recorded.csproj",
+      "frameworks": [
+        {
+          "framework": "net8.0",
+          "topLevelPackages": [
+            {
+              "id": "System.Text.Json",
+              "requestedVersion": "8.0.0",
+              "resolvedVersion": "8.0.0",
+              "vulnerabilities": [
+                {
+                  "severity": "High",
+                  "advisoryurl": "https://github.com/advisories/GHSA-hh2w-p6rv-4g7w"
+                }
+              ]
+            }
+          ],
+          "transitivePackages": [
+            {
+              "id": "Example.Transitive",
+              "resolvedVersion": "1.2.3",
+              "vulnerabilities": [
+                {
+                  "severity": "Moderate",
+                  "advisoryurl": "https://github.com/advisories/GHSA-2222-3333-4444",
+                  "fixedVersion": "1.2.5"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

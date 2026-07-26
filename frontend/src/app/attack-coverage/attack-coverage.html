@@ -1,0 +1,105 @@
+<div class="coverage-backdrop" (click)="close.emit()">
+  <section class="coverage-dialog" role="dialog" aria-modal="true" aria-labelledby="coverage-dialog-title" (click)="$event.stopPropagation()">
+    <header>
+      <div>
+        <span class="eyebrow">Security landing view</span>
+        <h2 id="coverage-dialog-title">Attack coverage · {{ scope() }}</h2>
+      </div>
+      <div class="coverage-header-actions">
+        <button class="secondary-button" type="button" [disabled]="!api.attackCoverage()" (click)="export()">Export JSON</button>
+        <button class="icon-button" type="button" aria-label="Close attack coverage" (click)="close.emit()">×</button>
+      </div>
+    </header>
+    @if (api.attackCoverageLoading()) {
+      <div class="coverage-loading">Deriving boundaries, checking mechanical controls, and projecting the ledger…</div>
+    } @else if (api.attackCoverageError()) {
+      <div class="form-error coverage-error" role="alert">{{ api.attackCoverageError() }}</div>
+    } @else if (api.attackCoverage(); as matrix) {
+      <div class="coverage-summary">
+        <span><b>{{ matrix.cellCount }}</b> applicable cells</span>
+        <span class="coverage-summary-deferred"><b>{{ matrix.notYetCheckedCount }}</b> not yet checked</span>
+        <span class="coverage-summary-stale"><b>{{ matrix.staleCount }}</b> stale</span>
+        <span class="coverage-summary-disagreement"><b>{{ matrix.disagreementCount }}</b> disagreements</span>
+        <span class="coverage-summary-version">catalogue {{ matrix.catalogueVersion }} · prompt {{ matrix.promptVersion }}</span>
+      </div>
+      <div class="coverage-body" [class.has-detail]="selectedCell()">
+        <div class="coverage-table-wrap">
+          <table class="coverage-table">
+            <thead>
+              <tr>
+                <th class="coverage-boundary-column">Boundary <small>most changed, then oldest</small></th>
+                @for (attack of matrix.attacks; track attack.id) {
+                  <th [title]="attack.title + '\n' + attack.severityFrame">
+                    <span>{{ attack.id }}</span><small>{{ attack.severity }}</small>
+                  </th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of matrix.rows; track row.boundary.id) {
+                <tr>
+                  <th class="coverage-boundary-column">
+                    <strong>{{ row.boundary.name }}</strong>
+                    <small>{{ row.boundary.kind }} · {{ row.boundary.location.path }}:{{ row.boundary.location.line }}</small>
+                    @if (row.codeChangeCount) { <span class="change-count">{{ row.codeChangeCount }} code change{{ row.codeChangeCount === 1 ? '' : 's' }}</span> }
+                  </th>
+                  @for (attack of matrix.attacks; track attack.id) {
+                    <td>
+                      @if (cell(row, attack.id); as coverageCell) {
+                        <button type="button" [class]="'coverage-cell verdict-' + coverageCell.verdict" [class.stale-cell]="coverageCell.stalenessReasons.length" [class.disagreement-cell]="coverageCell.disagreement" [attr.aria-label]="row.boundary.name + ', ' + attack.title + ': ' + coverageCell.verdict" [title]="coverageCell.reason" (click)="selectedCell.set(coverageCell)">
+                          <span class="cell-verdict">{{ coverageCell.verdict === 'notYetChecked' ? '—' : coverageCell.verdict === 'notApplicable' ? 'N/A' : coverageCell.verdict === 'finding' ? '!' : '✓' }}</span>
+                          <span class="cell-overlay">{{ age(coverageCell) }} · {{ coverageCell.confidence }}</span>
+                          @if (coverageCell.stalenessReasons.length) { <span class="cell-flag">stale</span> }
+                          @if (coverageCell.disagreement) { <span class="cell-flag disagreement">≠</span> }
+                        </button>
+                      } @else {
+                        <span class="coverage-inapplicable" title="Catalogue predicate does not apply to this boundary kind">·</span>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (selectedCell(); as coverageCell) {
+          <aside class="coverage-detail">
+            <header>
+              <div><span class="eyebrow">{{ coverageCell.attackId }}</span><h3>{{ coverageCell.verdict }}</h3></div>
+              <button class="icon-button" type="button" aria-label="Close cell detail" (click)="selectedCell.set(null)">×</button>
+            </header>
+            <p>{{ coverageCell.reason }}</p>
+            <div class="coverage-detail-facts">
+              <span>Age <b>{{ age(coverageCell) }}</b></span><span>Confidence <b>{{ coverageCell.confidence }}</b></span>
+              <span>Judgements <b>{{ coverageCell.independentJudgements }}/{{ coverageCell.requiredJudgements }}</b></span>
+            </div>
+            @if (coverageCell.stalenessReasons.length) {
+              <section><h4>Staleness</h4><div class="coverage-tags">@for (reason of coverageCell.stalenessReasons; track reason) { <span>{{ reason }}</span> }</div></section>
+            }
+            @if (coverageCell.findingId || coverageCell.findingFingerprint) {
+              <section><h4>Finding lifecycle</h4><code>{{ coverageCell.findingId ?? coverageCell.findingFingerprint }}</code></section>
+            }
+            <section>
+              <h4>Evidence</h4>
+              @for (evidence of coverageCell.evidence; track evidence.kind + ':' + evidence.reference) {
+                <article class="coverage-evidence"><b>{{ evidence.kind }}</b><code>{{ evidence.reference }}</code><p>{{ evidence.summary }}</p></article>
+              } @empty { <p>No verdict evidence yet.</p> }
+            </section>
+            <section>
+              <h4>Trajectory</h4>
+              @for (event of coverageCell.history.slice().reverse(); track event.assessmentId) {
+                <article class="coverage-history" [class.history-disagreement]="event.disagreement">
+                  <div><b>{{ event.verdict }}</b><time>{{ event.checkedAt }}</time></div>
+                  <small>{{ event.commitRange ?? event.commit ?? 'uncommitted' }} · {{ event.judgements.length }} judgement(s)</small>
+                  @for (judgement of event.judgements; track judgement.reviewer.agent + ':' + judgement.reviewer.model) {
+                    <p>{{ judgement.reviewer.agent }} · {{ judgement.reviewer.model }} · {{ judgement.reviewer.thinkingLevel }} · {{ judgement.tokenCost.totalTokens }} tokens</p>
+                  }
+                </article>
+              } @empty { <p>No checks have been recorded.</p> }
+            </section>
+          </aside>
+        }
+      </div>
+    }
+  </section>
+</div>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CoverageDSPriv>
+  <Module>
+    <SourceFileNames>
+      <SourceFileName uid="1">src/Calculator.cs</SourceFileName>
+    </SourceFileNames>
+    <Functions>
+      <Function>
+        <Ranges>
+          <Range source_id="1" start_line="10" covered="yes" />
+          <Range source_id="1" start_line="11" covered="no" />
+          <Range source_id="1" start_line="12" covered="yes" />
+        </Ranges>
+      </Function>
+    </Functions>
+  </Module>
+  <source_file path="src/Calculator.cs">
+    <line number="10" visits="1" />
+    <line number="11" visits="0" />
+    <line number="12" visits="3" />
+    <branch line="11" visits="1" />
+    <branch line="11" visits="0" />
+  </source_file>
+</CoverageDSPriv>

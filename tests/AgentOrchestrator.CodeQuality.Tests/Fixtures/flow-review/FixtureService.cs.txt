@@ -1,0 +1,38 @@
+using Microsoft.AspNetCore.Builder;
+
+var app = WebApplication.CreateBuilder(args).Build();
+app.MapPost("/login", Login);
+app.MapPost("/accounts/{accountId}/transfer", Transfer).RequireAuthorization();
+app.MapPost("/orders/{orderId}/charge", Charge).RequireAuthorization();
+app.MapPost("/sso/callback", SsoCallback);
+
+static object Login(LoginRequest request, SessionStore sessions)
+{
+    var user = Passwords.Authenticate(request.Email, request.Password);
+    sessions.Save(request.SessionId, user.Id);
+    return new { sessionId = request.SessionId };
+}
+
+static object Transfer(string accountId, TransferRequest request, Claims user, Accounts accounts)
+{
+    var account = accounts.Get(accountId);
+    account.Debit(request.Amount);
+    accounts.Save(account);
+    return new { account.Balance };
+}
+
+static object Charge(string orderId, Payments payments, Orders orders)
+{
+    var order = orders.Get(orderId);
+    var receipt = payments.Capture(order.Total);
+    order.MarkPaid(receipt.Id);
+    orders.Save(order);
+    return receipt;
+}
+
+static object SsoCallback(string assertion, ExternalIdentityProvider provider, SessionStore sessions)
+{
+    var identity = provider.Validate(assertion);
+    sessions.Issue(identity.Subject);
+    return new { authenticated = true };
+}
