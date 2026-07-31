@@ -168,7 +168,7 @@ durable v2 `reviewRunId`; legacy v1 entries fall back to their per-operation
 `runId`. Token totals treat unavailable token fields as zero while each recent
 entry preserves `null`, distinguishing unreported usage from a reported zero.
 
-`/api/quotas` is a global, presentation-safe snapshot from Coding Agent Runner's
+`/api/quotas` is a global, presentation-safe snapshot from Runner's
 quota service. It may return an empty `providers` array while credentials or
 provider data are unavailable; callers must treat that as an unavailable state,
 not as unlimited quota.

@@ -3,7 +3,7 @@
 **The engineer room of the Agent Orchestrator universe: agent-driven, layered code reviews with quality truth persisted next to the code.**
 
 Part of the [Agent Orchestrator](https://agent-orchestrator.dev) universe — alongside
-Agent Studio (the cockpit), Coding Agent Runner (executes), Coding Agent Chat
+Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 (converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
 > Working state, 2026-07-11: repository founded from the operator-approved concept
@@ -93,7 +93,7 @@ and want to see the quality characteristics of what was built.
 - **Research box (open on purpose):** whether a code graph joins as a graphical meta
   layer is a research topic, not a pre-decision.
 - The package stays usable standalone (iterate code over code: write meta JSONs,
-  drive the CLI runner). Review execution runs through Coding Agent Runner;
+  drive the CLI runner). Review execution runs through Runner;
   finding handover uses Agent Studio's normal task mutation path.
 
 ## Status
