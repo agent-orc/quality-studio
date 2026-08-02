@@ -150,6 +150,7 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public void GenericFiveThousandFileScanStaysWithinBudget()
     {
         var source = Path.Combine(root, "src");
