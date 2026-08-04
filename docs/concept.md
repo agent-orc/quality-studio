@@ -1328,7 +1328,7 @@ capability. Its English outline is:
    Studio task, return through the backlink; no embedding claim.
 7. Standalone path: package, CLI sweep runner, API, and repository ownership of
    output.
-8. Ecosystem neighbors: Agent Studio, Coding Agent Runner, Coding Agent Chat,
+8. Ecosystem neighbors: Agent Studio, Runner, Coding Agent Chat,
    Token Economy, and project graph, without implying hard dependencies.
 9. Transparent roadmap/research box, documentation links, license, and a “follow
    development” call to action.
@@ -1350,7 +1350,7 @@ contradict the decided direction.
 | QS-3 Review-meta contract v1 | M (5 days); QS-1, QS-2 | Records/serializer, strict schema artifact, canonical text/manifest hashing, sample files, and compatibility policy matching this document. Proof: schema-valid examples, round trips, line-ending/encoding/hash vectors, malformed/invariant tests. |
 | QS-4 Pure staleness engine | M (4 days); QS-3 | Adapter-neutral manifest comparison and per-kind fresh/partial/stale/missing/unsupported/orphaned/invalid evaluation over supplied unit snapshots; no repository discovery claim. Proof: hash vectors and exhaustive leaf/aggregate/input-state tables, including precedence. |
 | QS-5 Hierarchy, aggregation + scan | XL (15 days); QS-3, QS-4 | Two explicit internal milestones (.NET adapter, then Angular adapter), canonical IDs, all five levels, sidecar discovery/binding, transitive leaf/control/exclusion manifests, bounded hashing, and CI-friendly `quality scan --by-level`. Proof: multi-project fixtures including standalone components, semantic namespaces, linked/multi-parent files, a 5,000-file scan, and leaf/control/exclusion add-change-delete cases. Do not collapse the second adapter when the first one works. |
-| QS-6 File review sweep runner v1 | L (8 days); QS-3, QS-5, Coding Agent Runner | A shippable `code`-only checkpoint first, followed by `performance` and separately loadable `security` kind profiles; strict structured response parsing, versioned prompt hooks, atomic sidecar writes, cancellation, and dry-run. Proof: parsing/prompt tests, opt-in live-agent tests per kind, and one committed sample; no module review yet. |
+| QS-6 File review sweep runner v1 | L (8 days); QS-3, QS-5, Runner | A shippable `code`-only checkpoint first, followed by `performance` and separately loadable `security` kind profiles; strict structured response parsing, versioned prompt hooks, atomic sidecar writes, cancellation, and dry-run. Proof: parsing/prompt tests, opt-in live-agent tests per kind, and one committed sample; no module review yet. |
 | QS-7 Minimal API | M (4 days); QS-4, QS-5; QS-6 optional | Paged tree, file/meta, scan, and optional review endpoints with repo-root confinement, ETags, cancellation, problem details, and structured timing logs. Proof: host smoke tests and curl contract examples. |
 | QS-8 Angular shell + performance rails | XL (12 days); QS-7 | Three-pane, accessible, light/dark shell with custom virtualized incremental tree and viewport editor, Agent Studio visual kinship, Git decorations, trace harness, and `PERF.md`. Proof: production build, keyboard/screen-reader checks, both-theme screenshots, and 100k-node/200KB-file p95 budgets. |
 | QS-9 Augmented browser v1 | L (7 days); QS-8, QS-5 | Per-node kind/grade/staleness meta layer, aspect switcher, inline findings, historical stale mode, and no-refetch overlay switching. Proof: interaction tests/screenshots plus unchanged QS-8 p95 budgets. This is the first product-core UI milestone. |
