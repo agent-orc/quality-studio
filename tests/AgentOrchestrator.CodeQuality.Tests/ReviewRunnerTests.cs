@@ -872,22 +872,11 @@ public sealed class LiveReviewIntegrationTests
             Assert.Skip("Set QUALITY_RUN_LIVE_REVIEW=1 to run the installed Codex CLI integration.");
         }
 
-        var root = FindRepositoryRoot();
+        var root = RepositoryTestContext.FindRepositoryRoot();
         var result = await new ReviewRunner().ReviewAsync(new ReviewRequest(
             "src/AgentOrchestrator.CodeQuality/StalenessState.cs",
             RepositoryRoot: root), TestContext.Current.CancellationToken);
         Assert.True(File.Exists(result.MetaPath));
     }
 
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "QualityStudio.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName
-            ?? throw new DirectoryNotFoundException("Could not locate the repository root.");
-    }
 }

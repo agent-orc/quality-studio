@@ -87,7 +87,7 @@ public sealed class AttackCoverageTests
     [Fact]
     public async Task Built_in_catalogue_conforms_to_the_repository_schema()
     {
-        var root = FindRepositoryRoot();
+        var root = RepositoryTestContext.FindRepositoryRoot();
         using var catalogue = JsonDocument.Parse(await File.ReadAllTextAsync(
             Path.Combine(root, "src", "AgentOrchestrator.CodeQuality", "catalogues",
                 "attack-catalogue.v1.json"),
@@ -105,7 +105,7 @@ public sealed class AttackCoverageTests
     [Fact]
     public async Task QualityStudio_Api_has_complete_mechanical_or_explicitly_deferred_coverage()
     {
-        var sourceRoot = FindRepositoryRoot();
+        var sourceRoot = RepositoryTestContext.FindRepositoryRoot();
         var root = Directory.CreateTempSubdirectory("quality-studio-api-coverage-").FullName;
         try
         {
@@ -434,12 +434,4 @@ public sealed class AttackCoverageTests
                 entry, "test", "test", version, AttackCoverageJson.Hash(entry))).ToArray(),
             ["test"]);
 
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "QualityStudio.slnx")))
-            directory = directory.Parent;
-        return directory?.FullName ??
-               throw new DirectoryNotFoundException("Quality Studio repository root was not found.");
-    }
 }

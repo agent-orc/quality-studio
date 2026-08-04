@@ -62,7 +62,7 @@ public sealed class FlowReviewRunnerTests
         using var generated = JsonDocument.Parse(await File.ReadAllTextAsync(
             fixation.ReportPath!, TestContext.Current.CancellationToken));
         var schema = JsonSchema.FromText(await File.ReadAllTextAsync(
-            Path.Combine(FindRepositoryRoot(), "schemas", "flow-review.v1.schema.json"),
+            Path.Combine(RepositoryTestContext.FindRepositoryRoot(), "schemas", "flow-review.v1.schema.json"),
             TestContext.Current.CancellationToken));
         var validation = schema.Evaluate(generated.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
@@ -196,15 +196,6 @@ public sealed class FlowReviewRunnerTests
     private static async Task<BoundaryInventory> InventoryAsync(string root) =>
         await new BoundaryInventorySensor().InventoryAsync(
             new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
-
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "QualityStudio.slnx")))
-            directory = directory.Parent;
-        return directory?.FullName
-            ?? throw new DirectoryNotFoundException("Quality Studio repository root was not found.");
-    }
 
     private static string FindingResponse(
         string findingClass,

@@ -12,7 +12,7 @@ public sealed class ChangeSetReviewTests
     [Fact]
     public void Committed_twenty_transition_sample_validates_against_the_contract()
     {
-        var root = FindRepositoryRoot();
+        var root = RepositoryTestContext.FindRepositoryRoot();
         var schema = JsonSchema.FromText(File.ReadAllText(
             Path.Combine(root, "schemas", "change-review.v1.schema.json")));
         var samples = Directory.GetFiles(Path.Combine(root, ".quality", "changes"), "*.json");
@@ -223,17 +223,6 @@ public sealed class ChangeSetReviewTests
     }
 
     private sealed record TestFinding(string Fingerprint, string RuleId, string Severity, string Title);
-
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "QualityStudio.slnx"))) return directory.FullName;
-            directory = directory.Parent;
-        }
-        throw new DirectoryNotFoundException("Cannot locate repository root.");
-    }
 
     private sealed class TestRepository : IDisposable
     {

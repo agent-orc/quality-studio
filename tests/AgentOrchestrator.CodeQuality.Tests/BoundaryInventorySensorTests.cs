@@ -175,7 +175,7 @@ public sealed class BoundaryInventorySensorTests
     [Fact]
     public async Task QualityStudio_inventory_covers_registered_routes_loopback_cors_and_gitleaks()
     {
-        var root = FindRepositoryRoot();
+        var root = RepositoryTestContext.FindRepositoryRoot();
         var inventory = await new BoundaryInventorySensor().InventoryAsync(
             new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
 
@@ -214,11 +214,4 @@ public sealed class BoundaryInventorySensorTests
 
     private sealed record Widget(string Name);
 
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "QualityStudio.slnx")))
-            directory = directory.Parent;
-        return directory?.FullName ?? throw new DirectoryNotFoundException("QualityStudio repository root was not found.");
-    }
 }
