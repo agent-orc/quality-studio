@@ -331,14 +331,7 @@ public sealed class ChangeSetReviewTests
 
         public void Dispose()
         {
-            try
-            {
-                Directory.Delete(Root, true);
-            }
-            catch (IOException)
-            {
-                // Best effort on platforms where Git briefly retains a handle.
-            }
+            TestDirectory.Delete(Root);
         }
     }
 }

@@ -287,13 +287,7 @@ public sealed class QualityReportTests
 
         public void Dispose()
         {
-            try
-            {
-                Directory.Delete(Root, true);
-            }
-            catch (IOException)
-            {
-            }
+            TestDirectory.Delete(Root);
         }
     }
 }

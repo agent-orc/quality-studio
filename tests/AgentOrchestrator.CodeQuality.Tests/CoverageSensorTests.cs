@@ -115,7 +115,7 @@ public sealed class CoverageSensorTests
 
         public string Root { get; }
         public string Report(string name) => Path.Combine(Root, name);
-        public void Dispose() => Directory.Delete(Root, true);
+        public void Dispose() => TestDirectory.Delete(Root);
     }
 
     private sealed class GitChurnFixture : IDisposable
@@ -169,6 +169,6 @@ public sealed class CoverageSensorTests
             Assert.Equal(0, process.ExitCode);
         }
 
-        public void Dispose() => Directory.Delete(Root, true);
+        public void Dispose() => TestDirectory.Delete(Root);
     }
 }
