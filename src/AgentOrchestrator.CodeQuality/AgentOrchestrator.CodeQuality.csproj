@@ -3,7 +3,7 @@
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="CodingAgentRunner" Version="0.5.0" />
+    <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
   </ItemGroup>

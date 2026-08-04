@@ -21,6 +21,10 @@ dotnet run --project src/QualityStudio.Api
 ```
 
 `QualityStudio:RepositoryRoot` defaults to `../..` relative to the API content root.
+The same repository is the only allowed root by default. Deployments that register
+repositories below another neutral host root must supply it through configuration,
+for example `QualityStudio__AllowedRoots__0=/srv/source` in the host environment;
+machine-specific paths do not belong in `appsettings.json`.
 On first start it seeds the repository with id `default`; existing single-repository
 deployments therefore need no configuration change. CORS origins are configured with
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
