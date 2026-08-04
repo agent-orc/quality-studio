@@ -52,6 +52,7 @@ public sealed class ProjectDashboardTests
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Cached_dashboard_for_5000_file_repository_is_within_interaction_budget()
     {
         var root = TemporaryRepository();

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { formatBytes } from '../format';
-import { FindingSeverity, ProjectDistributionBucket, QualityApi, ReviewState } from '../quality-api';
+import { FindingSeverity, ProjectDistributionBucket, QualityApi } from '../quality-api';
 
 @Component({
   selector: 'qs-project-dashboard',
@@ -12,7 +12,7 @@ export class ProjectDashboardView {
   readonly api = inject(QualityApi);
   readonly nodeOpen = output<string>();
   readonly severities: FindingSeverity[] = ['critical', 'high', 'medium', 'low', 'info'];
-  readonly states: ReviewState[] = ['fresh', 'stale', 'missing'];
+  readonly states = ['fresh', 'stale', 'missing'] as const;
   readonly maxHotspotRisk = computed(() => Math.max(1, ...((this.api.project()?.hotspots ?? []).map(item => item.risk))));
 
   open(path: string | null | undefined): void {

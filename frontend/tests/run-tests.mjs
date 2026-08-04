@@ -42,7 +42,10 @@ if (!chromeBin) {
 }
 
 const ngCli = join(frontendRoot, 'node_modules', '@angular', 'cli', 'bin', 'ng.js');
-const result = spawnSync(process.execPath, [ngCli, 'test', '--watch=false', '--browsers=ChromeHeadless'], {
+const browser = process.env.CHROME_NO_SANDBOX === '1'
+  ? 'ChromeHeadlessNoSandbox'
+  : 'ChromeHeadless';
+const result = spawnSync(process.execPath, [ngCli, 'test', '--watch=false', `--browsers=${browser}`], {
   cwd: frontendRoot,
   env: {
     ...process.env,
