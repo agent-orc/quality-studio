@@ -39,14 +39,14 @@ public sealed class QualityReportTests
 
         using var json = JsonDocument.Parse(QualityReportRenderer.Render(report, QualityReportFormat.Json));
         var reportSchema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            FindRepositoryRoot(), "schemas", "quality-report.v1.schema.json")));
+            RepositoryTestContext.FindRepositoryRoot(), "schemas", "quality-report.v1.schema.json")));
         var reportValidation = reportSchema.Evaluate(json.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(reportValidation.IsValid, reportValidation.ToString());
 
         using var sarif = JsonDocument.Parse(QualityReportRenderer.Render(report, QualityReportFormat.Sarif));
         var sarifSchema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            FindRepositoryRoot(), "schemas", "sarif-2.1.0-output.schema.json")));
+            RepositoryTestContext.FindRepositoryRoot(), "schemas", "sarif-2.1.0-output.schema.json")));
         var sarifValidation = sarifSchema.Evaluate(sarif.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(sarifValidation.IsValid, sarifValidation.ToString());
@@ -94,14 +94,6 @@ public sealed class QualityReportTests
             ["report", fixture.Root, "--format", "json", "--output", output, "--fail-on", "critical"]));
         Assert.Equal(2, await global::QualityCli.RunAsync(
             ["report", fixture.Root, "--fail-under", "101"]));
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        var current = AppContext.BaseDirectory;
-        while (current is not null && !File.Exists(Path.Combine(current, "QualityStudio.slnx")))
-            current = Directory.GetParent(current)?.FullName;
-        return current ?? throw new DirectoryNotFoundException("Repository root not found.");
     }
 
     private sealed class ReportRepositoryFixture : IDisposable
@@ -287,13 +279,7 @@ public sealed class QualityReportTests
 
         public void Dispose()
         {
-            try
-            {
-                Directory.Delete(Root, true);
-            }
-            catch (IOException)
-            {
-            }
+            TestDirectory.Delete(Root);
         }
     }
 }

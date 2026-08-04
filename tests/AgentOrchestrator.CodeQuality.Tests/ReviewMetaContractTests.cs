@@ -7,9 +7,9 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 public sealed class ReviewMetaContractTests
 {
     private static readonly Lazy<JsonSchema> ReviewMetaSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        FindRepositoryRoot(), "schemas", "review-meta.v1.schema.json"))));
+        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v1.schema.json"))));
     private static readonly Lazy<JsonSchema> ReviewMetaV2Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json"))));
+        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json"))));
 
     [Fact]
     public void SerializerRoundTripsAndIgnoresUnknownFields()
@@ -97,7 +97,7 @@ public sealed class ReviewMetaContractTests
     [Fact]
     public void HandWrittenSampleValidatesAgainstSchemaAndLoads()
     {
-        var repositoryRoot = FindRepositoryRoot();
+        var repositoryRoot = RepositoryTestContext.FindRepositoryRoot();
         using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
             repositoryRoot, "samples", "review-meta.v1.sample.json")));
 
@@ -235,7 +235,7 @@ public sealed class ReviewMetaContractTests
     [Fact]
     public void DependencyRealRunSidecarValidatesAgainstSchemaAndLoads()
     {
-        var repositoryRoot = FindRepositoryRoot();
+        var repositoryRoot = RepositoryTestContext.FindRepositoryRoot();
         using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
             repositoryRoot, "samples", "dependency-vulnerability.real-run.review-meta.security.json")));
 
@@ -307,7 +307,8 @@ public sealed class ReviewMetaContractTests
 
     private static void ValidateUsageLedgerLine(string line, string schemaFile)
     {
-        var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(FindRepositoryRoot(), "schemas", schemaFile)));
+        var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
+            RepositoryTestContext.FindRepositoryRoot(), "schemas", schemaFile)));
         using var json = JsonDocument.Parse(line);
         var validation = schema.Evaluate(json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());
@@ -360,14 +361,4 @@ public sealed class ReviewMetaContractTests
             ReviewAnchorState.Anchored)],
     };
 
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "QualityStudio.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new DirectoryNotFoundException("Could not locate repository root.");
-    }
 }

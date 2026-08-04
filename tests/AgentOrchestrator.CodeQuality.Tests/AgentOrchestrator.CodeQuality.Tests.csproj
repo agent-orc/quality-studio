@@ -2,6 +2,7 @@
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
+    <QualityStudioRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))</QualityStudioRepositoryRoot>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
@@ -18,5 +19,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>QualityStudioRepositoryRoot</_Parameter1>
+      <_Parameter2>$(QualityStudioRepositoryRoot)</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 </Project>
