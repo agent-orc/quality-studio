@@ -5,6 +5,12 @@
   --studio-fg: #242830; --studio-fg-muted: #66707e; --studio-fg-dim: #949ca7;
   --studio-accent: #0e639c; --studio-accent-soft: #e4f0f8; --studio-selected: #e7f1f8;
   --status-fresh: #2da96b; --status-stale: #d89524; --status-policy: #7c63d9; --status-missing: #9ca3ad;
+  --studio-severity-critical: #991b1b; --studio-severity-high: #9a3412;
+  --studio-severity-medium: #714f00; --studio-severity-low: #075985; --studio-severity-info: #4b5563;
+  --studio-font-size-label: 11px; --studio-font-size-body: 13px; --studio-font-size-title: 14px; --studio-font-size-heading: 16px;
+  --studio-line-height-body: 1.55; --studio-line-height-title: 1.35;
+  --studio-space-1: 4px; --studio-space-2: 8px; --studio-space-3: 12px; --studio-space-4: 16px;
+  --studio-radius-badge: 4px; --studio-radius-card: 6px; --studio-control-hit-compact: 24px;
   --syntax-comment: color-mix(in srgb, var(--studio-fg-muted) 78%, var(--studio-fg));
   --syntax-string: color-mix(in srgb, var(--status-fresh) 68%, var(--studio-fg));
   --syntax-keyword: var(--studio-accent); --syntax-number: color-mix(in srgb, var(--status-stale) 60%, var(--studio-fg));
@@ -25,6 +31,8 @@
   --studio-fg: #e5e7eb; --studio-fg-muted: #a3aab5; --studio-fg-dim: #6f7886;
   --studio-accent: #8fb8ff; --studio-accent-soft: #26364f; --studio-selected: #2b3749;
   --status-fresh: #54c98a; --status-stale: #e2a94b; --status-policy: #a78bfa; --status-missing: #707887;
+  --studio-severity-critical: #ff9b9f; --studio-severity-high: #ff9f87;
+  --studio-severity-medium: #f3c969; --studio-severity-low: #86cffb; --studio-severity-info: #cbd1dc;
   --shadow: 0 10px 36px rgba(0, 0, 0, .2);
 }
 * { box-sizing: border-box; }
@@ -50,6 +58,13 @@ button { color: inherit; }
 .icon-button, .quiet { border: 1px solid var(--studio-border); background: var(--studio-bg-surface); width: 29px; height: 29px; border-radius: 6px; cursor: pointer; }
 .status { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 14%, transparent); } .status.fresh { background: var(--status-fresh); color: var(--status-fresh); } .status.stale { background: var(--status-stale); color: var(--status-stale); } .status.policy-drift { border-radius:2px;background: var(--status-policy); color: var(--status-policy); transform:rotate(45deg); } .status.missing { background: var(--status-missing); color: var(--status-missing); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Finding detail stays global so the shared reading treatment does not consume
+   the review panel's component-style performance budget. */
+.review-pane .finding-detail{margin:var(--studio-space-3) 0;padding:var(--studio-space-4);border-left:2px solid var(--studio-accent);background:var(--studio-bg-surface)}
+.review-pane .finding-detail>.eyebrow{color:var(--studio-fg-muted);font-size:var(--studio-font-size-label);letter-spacing:.06em}.review-pane .finding-detail h3{margin:var(--studio-space-2) 0 var(--studio-space-3);font-size:var(--studio-font-size-heading);line-height:var(--studio-line-height-title)}.review-pane .finding-detail b{font-size:var(--studio-font-size-label);letter-spacing:.02em}.review-pane .finding-detail p{margin:var(--studio-space-1) 0 var(--studio-space-4);color:var(--studio-fg-muted);font-size:var(--studio-font-size-body);line-height:var(--studio-line-height-body)}
+.review-pane .finding-state-summary{display:flex;flex-direction:column;gap:var(--studio-space-1);margin-bottom:var(--studio-space-3);color:var(--studio-fg-muted);font-size:12px;line-height:1.45}.review-pane .finding-state-form{display:grid;gap:var(--studio-space-2);margin-top:var(--studio-space-4)}.review-pane .finding-state-form input,.review-pane .finding-state-form textarea{box-sizing:border-box;width:100%;padding:var(--studio-space-2);border:1px solid var(--studio-border);border-radius:var(--studio-radius-badge);background:var(--studio-bg-editor);color:var(--studio-fg);font:var(--studio-font-size-body) var(--font-ui)}.review-pane .finding-state-form textarea{min-height:72px;resize:vertical}.review-pane .finding-state-form div{display:flex;gap:var(--studio-space-2);flex-wrap:wrap}.review-pane .finding-state-form button{min-height:var(--studio-control-hit-compact);padding:var(--studio-space-1) var(--studio-space-2);border:1px solid var(--studio-border);border-radius:var(--studio-radius-badge);background:var(--studio-bg-elevated);color:var(--studio-fg);font-size:var(--studio-font-size-label);cursor:pointer}.review-pane .finding-state-form small{color:var(--studio-fg-muted);font-size:var(--studio-font-size-label)}
+.review-pane .finding-evidence{max-height:180px;margin:var(--studio-space-2) 0 var(--studio-space-4);padding:var(--studio-space-3);overflow:auto;border:1px solid var(--studio-border-soft);border-radius:var(--studio-radius-badge);background:var(--studio-bg-editor);color:var(--studio-fg);font:var(--studio-font-size-body)/var(--studio-line-height-body) var(--font-mono);white-space:pre-wrap;word-break:break-word}
 
 /* Repository risk view is global to keep the virtualized editor component below its style budget. */
 .risk-view{flex:none;max-height:42%;overflow:auto;border-bottom:1px solid var(--studio-border);background:var(--studio-bg-surface)}
