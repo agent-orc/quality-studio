@@ -10,6 +10,15 @@ public sealed record RepositoryHierarchySnapshot(
     string GitState,
     string ETag);
 
+public sealed record RepositoryHierarchyMeasurement(
+    RepositoryHierarchySnapshot Snapshot,
+    bool CacheHit,
+    double GitStatusMilliseconds,
+    double CacheWaitMilliseconds,
+    double ScanMilliseconds,
+    double ReviewMetaDiscoveryMilliseconds,
+    double TotalMilliseconds);
+
 /// <summary>Caches one immutable hierarchy snapshot per repository and Git state.</summary>
 public sealed class RepositoryHierarchyCache
 {
@@ -19,26 +28,56 @@ public sealed class RepositoryHierarchyCache
         string repositoryPath,
         InputResolver? inputResolver = null,
         string? globalInputsDirectory = null,
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters) =>
+        GetMeasured(repositoryPath, inputResolver, globalInputsDirectory, inputBudgetCharacters).Snapshot;
+
+    public RepositoryHierarchyMeasurement GetMeasured(
+        string repositoryPath,
+        InputResolver? inputResolver = null,
+        string? globalInputsDirectory = null,
         int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        var totalStarted = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
+        var gitStatusStarted = Stopwatch.GetTimestamp();
         var state = ComputeGitState(root) + "\0" +
                     ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
+        var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
         var slot = slots.GetOrAdd(root, _ => new CacheSlot());
+        var cacheWaitStarted = Stopwatch.GetTimestamp();
         lock (slot.Gate)
         {
+            var cacheWaitMilliseconds = Stopwatch.GetElapsedTime(cacheWaitStarted).TotalMilliseconds;
             if (slot.Snapshot is not null && StringComparer.Ordinal.Equals(slot.Snapshot.GitState, state))
             {
-                return slot.Snapshot;
+                return new RepositoryHierarchyMeasurement(
+                    slot.Snapshot,
+                    true,
+                    gitStatusMilliseconds,
+                    cacheWaitMilliseconds,
+                    0,
+                    0,
+                    Stopwatch.GetElapsedTime(totalStarted).TotalMilliseconds);
             }
 
+            var scanStarted = Stopwatch.GetTimestamp();
             var hierarchy = RepositoryHierarchyBuilder.Build(root);
+            var scanMilliseconds = Stopwatch.GetElapsedTime(scanStarted).TotalMilliseconds;
+            var discoveryStarted = Stopwatch.GetTimestamp();
             ReviewMetaDiscovery.AttachDiscovered(
                 root, hierarchy, inputResolver, globalInputsDirectory, inputBudgetCharacters);
+            var reviewMetaDiscoveryMilliseconds = Stopwatch.GetElapsedTime(discoveryStarted).TotalMilliseconds;
             var etagHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
             slot.Snapshot = new RepositoryHierarchySnapshot(hierarchy, state, $"\"{etagHash}\"");
-            return slot.Snapshot;
+            return new RepositoryHierarchyMeasurement(
+                slot.Snapshot,
+                false,
+                gitStatusMilliseconds,
+                cacheWaitMilliseconds,
+                scanMilliseconds,
+                reviewMetaDiscoveryMilliseconds,
+                Stopwatch.GetElapsedTime(totalStarted).TotalMilliseconds);
         }
     }
 

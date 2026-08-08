@@ -72,6 +72,11 @@ public sealed record ProjectHotspotResponse(
     double FindingsPerKloc,
     double Risk);
 
+public sealed record ProjectDashboardMeasurement(
+    ProjectDashboardResponse Dashboard,
+    bool CacheHit,
+    double ProjectionMilliseconds);
+
 /// <summary>
 /// Builds the repository-level read model. Facts are calculated independently of review
 /// grades, then composed only in the hotspot projection.
@@ -102,11 +107,30 @@ public sealed class ProjectDashboardService
 
     public ProjectDashboardResponse Get(
         string repositoryPath,
+        RepositoryHierarchySnapshot snapshot) =>
+        GetMeasured(repositoryPath, snapshot).Dashboard;
+
+    public ProjectDashboardMeasurement GetMeasured(
+        string repositoryPath,
         RepositoryHierarchySnapshot snapshot)
     {
+        var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
         var key = root + "\0" + snapshot.GitState;
-        return cache.GetOrAdd(key, _ => Build(root, snapshot.Roots));
+        if (cache.TryGetValue(key, out var cached))
+        {
+            return new ProjectDashboardMeasurement(
+                cached,
+                true,
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
+
+        var built = Build(root, snapshot.Roots);
+        var dashboard = cache.GetOrAdd(key, built);
+        return new ProjectDashboardMeasurement(
+            dashboard,
+            false,
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds);
     }
 
     public string ArchitectureReviewContext(

@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "node ./tests/run-tests.mjs",
-    "perf": "node tests/perf.mjs",
+    "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence"
   },

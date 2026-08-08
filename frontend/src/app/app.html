@@ -5,7 +5,9 @@
       <button class="repository-trigger" type="button" (click)="repositoryMenuOpen.set(!repositoryMenuOpen())" aria-haspopup="menu" [attr.aria-expanded]="repositoryMenuOpen()">
         <span class="repository-label">Repository</span>
         <strong>{{ api.selectedRepository()?.displayName ?? 'Default repository' }}</strong>
-        <span aria-hidden="true">⌄</span>
+        <svg class="repository-caret" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+          <path d="M2.5 4.25 6 7.75l3.5-3.5" />
+        </svg>
       </button>
       @if (repositoryMenuOpen()) {
         <div class="repository-menu" role="menu">

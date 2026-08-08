@@ -11,8 +11,22 @@
   </header>
 
   @if (api.projectLoading() && !api.project()) {
-    <div class="dashboard-loading" role="status">Building the repository dashboard…</div>
+    <div class="dashboard-skeleton" role="status" aria-live="polite" data-transition-state="skeleton">
+      <div class="refresh-status"><i class="status stale"></i><span><b>Preparing {{ api.selectedRepository()?.displayName ?? 'repository' }}</b><small>Fresh project data is loading in the background.</small></span></div>
+      <div class="phase-list" aria-label="Repository refresh phases">
+        <span class="active"><i></i><b>Git state</b><small>Checking repository changes</small></span>
+        <span><i></i><b>Repository scan</b><small>Building the hierarchy snapshot</small></span>
+        <span><i></i><b>Review metadata</b><small>Discovering grades and findings</small></span>
+        <span><i></i><b>Projection</b><small>Preparing dashboard facts</small></span>
+      </div>
+      <div class="skeleton-grid" aria-hidden="true">@for (item of [1, 2, 3, 4, 5, 6]; track item) { <i></i> }</div>
+    </div>
   } @else if (api.project(); as project) {
+    @if (api.projectLoading() || api.repositoryTransition()) {
+      <div class="dashboard-refresh" role="status" aria-live="polite" data-transition-state="stale">
+        <i class="status stale"></i><span><b>Updating {{ api.selectedRepository()?.displayName ?? 'repository' }}</b><small>Last known snapshot remains available while Git state, scan, and review metadata refresh.</small></span>
+      </div>
+    }
     <section class="dashboard-section" aria-labelledby="health-heading">
       <div class="section-heading"><div><span class="eyebrow">Reviews</span><h2 id="health-heading">Project health</h2></div><small>Grades are review judgments. Metrics below are measured facts.</small></div>
       <div class="health-grid">

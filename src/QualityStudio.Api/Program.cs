@@ -26,6 +26,8 @@ builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<ProjectDashboardService>();
+builder.Services.AddSingleton<RepositorySnapshotPrewarmer>();
+builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<RepositorySnapshotPrewarmer>());
 builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<QualityReportBuilder>();
 builder.Services.AddSingleton<InputResolver>();
@@ -205,27 +207,39 @@ app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
 
-app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry, ApiSecurity security) =>
-    Results.Ok(new
+app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
+    RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
+{
+    var repositories = registry.List(includeArchived == true)
+        .Where(repository => security.Identity(context).CanAccess(repository.Id))
+        .ToArray();
+    prewarmer.QueueAll(repositories);
+    return Results.Ok(new
     {
-        repositories = registry.List(includeArchived == true)
-            .Where(repository => security.Identity(context).CanAccess(repository.Id)),
+        repositories,
         defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
             ? RepositoryRegistry.DefaultRepositoryId
             : null,
-    }));
+    });
+});
 
-app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry, CancellationToken cancellationToken) =>
+app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry,
+    RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
 {
     var created = await registry.CreateAsync(request, cancellationToken);
+    prewarmer.Queue(created);
     return Results.Created($"/api/repos/{created.Id}", created);
 });
 
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
 
 app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
-    RepositoryRegistry registry, CancellationToken cancellationToken) =>
-    Results.Ok(await registry.UpdateAsync(repoId, request, cancellationToken)));
+    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
+{
+    var updated = await registry.UpdateAsync(repoId, request, cancellationToken);
+    prewarmer.Queue(updated);
+    return Results.Ok(updated);
+});
 
 app.MapDelete("/api/repos/{repoId}", async (string repoId, RepositoryRegistry registry, CancellationToken cancellationToken) =>
     Results.Ok(await registry.ArchiveAsync(repoId, cancellationToken)));
@@ -345,11 +359,17 @@ static IResult ProjectDashboard(
     RepositoryRegistry registry,
     RepositoryHierarchyCache hierarchyCache,
     ProjectDashboardService dashboards,
+    InputResolver inputResolver,
     ILogger<Program> logger)
 {
-    var stopwatch = Stopwatch.StartNew();
+    var started = Stopwatch.GetTimestamp();
     var (registration, repository) = ResolveRepository(context, registry);
-    var snapshot = hierarchyCache.Get(repository.Root);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    var hierarchy = hierarchyCache.GetMeasured(
+        repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
+    var snapshot = hierarchy.Snapshot;
     var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0project-dashboard-v1")))}\"";
     context.Response.Headers.ETag = etag;
     if (context.Request.Headers.IfNoneMatch.Any(value => value!.Split(',').Select(candidate => candidate.Trim())
@@ -358,10 +378,35 @@ static IResult ProjectDashboard(
         return Results.StatusCode(StatusCodes.Status304NotModified);
     }
 
-    var dashboard = dashboards.Get(repository.Root, snapshot);
+    var projection = dashboards.GetMeasured(repository.Root, snapshot);
+    var dashboard = projection.Dashboard;
+    var durationMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+    context.Response.Headers["Server-Timing"] = string.Join(", ",
+        $"git-status;dur={hierarchy.GitStatusMilliseconds:F2}",
+        $"cache-wait;dur={hierarchy.CacheWaitMilliseconds:F2}",
+        $"scan;dur={hierarchy.ScanMilliseconds:F2}",
+        $"review-meta-discovery;dur={hierarchy.ReviewMetaDiscoveryMilliseconds:F2}",
+        $"projection;dur={projection.ProjectionMilliseconds:F2}");
+    var switchEvent = JsonSerializer.Serialize(new
+    {
+        @event = "qs.repository.switch.backend",
+        repositoryId = registration.Id,
+        cache = hierarchy.CacheHit && projection.CacheHit ? "warm" : "cold",
+        durationMs = Math.Round(durationMilliseconds, 2),
+        phases = new
+        {
+            gitStatusMs = Math.Round(hierarchy.GitStatusMilliseconds, 2),
+            cacheWaitMs = Math.Round(hierarchy.CacheWaitMilliseconds, 2),
+            scanMs = Math.Round(hierarchy.ScanMilliseconds, 2),
+            reviewMetaDiscoveryMs = Math.Round(hierarchy.ReviewMetaDiscoveryMilliseconds, 2),
+            projectionMs = Math.Round(projection.ProjectionMilliseconds, 2),
+        },
+        fileCount = dashboard.Metrics.FileCount,
+    });
+    logger.LogInformation(new EventId(1111, "RepositorySwitchPhases"), "{RepositorySwitchEvent}", switchEvent);
     logger.LogInformation(new EventId(1110, "ProjectDashboardLoaded"),
         "Loaded project dashboard for repository {RepositoryId} with {FileCount} files in {ElapsedMilliseconds} ms",
-        registration.Id, dashboard.Metrics.FileCount, stopwatch.ElapsedMilliseconds);
+        registration.Id, dashboard.Metrics.FileCount, Math.Round(durationMilliseconds, 2));
     return Results.Ok(dashboard);
 }
 

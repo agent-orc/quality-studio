@@ -230,6 +230,11 @@ export interface ProjectDashboard {
   hotspots: ProjectHotspot[];
 }
 
+export interface RepositoryTransition {
+  repositoryId: string;
+  hasSnapshot: boolean;
+}
+
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
 const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
 
@@ -342,6 +347,7 @@ export class QualityApi {
   readonly project = signal<ProjectDashboard | null>(null);
   readonly projectLoading = signal(true);
   readonly projectError = signal('');
+  readonly repositoryTransition = signal<RepositoryTransition | null>(null);
   readonly connectionState = signal<ApiConnectionState>('connecting');
   readonly connected = computed(() => this.connectionState() === 'live');
   readonly connectionLabel = computed(() => {
@@ -369,6 +375,9 @@ export class QualityApi {
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
   readonly focusedThreadId = signal<string | null>(null);
+  private readonly treeSnapshots = new Map<string, TreeNode[]>();
+  private readonly projectSnapshots = new Map<string, ProjectDashboard>();
+  private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
@@ -392,17 +401,31 @@ export class QualityApi {
   }
 
   async selectRepository(id: string): Promise<void> {
+    const started = performance.now();
+    const sequence = ++this.repositorySelectionSequence;
     this.selectedRepositoryId.set(id);
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
-    this.project.set(null);
+    const treeSnapshot = this.treeSnapshots.get(id);
+    const projectSnapshot = this.projectSnapshots.get(id);
+    this.tree.set(treeSnapshot ?? []);
+    this.project.set(projectSnapshot ?? null);
+    this.repositoryTransition.set({ repositoryId: id, hasSnapshot: projectSnapshot !== undefined });
     this.usage.set(emptyUsageReport());
-    const dashboardLoading = this.loadProjectDashboard();
-    await this.loadTree();
-    void dashboardLoading;
-    await this.loadReviewRuns();
-    await this.loadUsage();
+    await Promise.all([this.loadProjectDashboard(id), this.loadTree(id, false)]);
+    if (sequence !== this.repositorySelectionSequence) return;
+    const detailsLoading = Promise.all([
+      this.loadRepositoryDetails(id),
+      this.loadReviewRuns(id),
+      this.loadUsage(undefined, undefined, id),
+    ]);
+    void detailsLoading.finally(() => {
+      const remaining = Math.max(0, 250 - (performance.now() - started));
+      setTimeout(() => {
+        if (sequence === this.repositorySelectionSequence) this.repositoryTransition.set(null);
+      }, remaining);
+    });
     console.info(JSON.stringify({ event: 'qs.repository.selected', repositoryId: id }));
   }
 
@@ -430,24 +453,22 @@ export class QualityApi {
     return result;
   }
 
-  async loadTree(): Promise<void> {
+  async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true): Promise<void> {
+    const base = this.repositoryApiBase(repositoryId);
+    const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
     try {
-      const [tree, scan, inputs, guidelines, risk] = await Promise.all([
-        firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${this.repositoryApiBase()}/tree?path=`)),
-        firstValueFrom(this.http.get<ScanReport>(`${this.repositoryApiBase()}/scan`)),
-        firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${this.repositoryApiBase()}/inputs`)),
-        firstValueFrom(this.http.get<{ guidelines: Guideline[]; catalogue: GuidelineCatalogueEntry[]; traces: GuidelineTrace[] }>(`${this.repositoryApiBase()}/guidelines`)),
-        firstValueFrom(this.http.get<RiskReport>(`${this.repositoryApiBase()}/risk?days=90`)),
-      ]);
-      this.tree.set(tree.nodes); this.scan.set(scan); this.inputs.set(inputs.kinds);
-      this.guidelines.set(guidelines.guidelines); this.guidelineCatalogue.set(guidelines.catalogue); this.guidelineTraces.set(guidelines.traces); this.connectionState.set('live');
-      this.risk.set(risk);
+      const tree = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`));
+      this.treeSnapshots.set(repositoryId, tree.nodes);
+      if (repositoryId !== this.selectedRepositoryId()) return;
+      this.tree.set(tree.nodes); this.connectionState.set('live');
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
-      this.connectionState.set('preview');
-      console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
+      if (repositoryId === this.selectedRepositoryId()) {
+        this.connectionState.set('preview');
+        console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
+      }
     }
-    await this.loadHandoverConfiguration();
+    if (detailsLoading) await detailsLoading;
   }
 
   async loadAttackCoverage(scope = 'src/QualityStudio.Api'): Promise<AttackCoverageMatrix> {
@@ -491,11 +512,12 @@ export class QualityApi {
     }
   }
 
-  async loadReviewRuns(): Promise<void> {
-    if (!this.connected()) return;
+  async loadReviewRuns(repositoryId = this.selectedRepositoryId()): Promise<void> {
+    if (!this.connected() || repositoryId !== this.selectedRepositoryId()) return;
     try {
       const before = new Map(this.reviewRuns().map(run => [run.id, run.state]));
-      const result = await firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase()}/review/runs`));
+      const result = await firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`));
+      if (repositoryId !== this.selectedRepositoryId()) return;
       this.reviewRuns.set(result.runs);
       const completed = result.runs.some(run => ['done', 'failed', 'cancelled', 'capped'].includes(run.state) && ['queued', 'running'].includes(before.get(run.id) ?? ''));
       if (completed) {
@@ -511,16 +533,19 @@ export class QualityApi {
     }
   }
 
-  async loadUsage(since?: string, kind?: ReviewKind): Promise<void> {
-    if (!this.connected()) return;
+  async loadUsage(since?: string, kind?: ReviewKind, repositoryId = this.selectedRepositoryId()): Promise<void> {
+    if (!this.connected() || repositoryId !== this.selectedRepositoryId()) return;
     try {
       const params: Record<string, string> = {};
       if (since) params['since'] = since;
       if (kind) params['kind'] = kind;
-      this.usage.set(await firstValueFrom(this.http.get<UsageReport>(`${this.repositoryApiBase()}/usage`, { params })));
+      const usage = await firstValueFrom(this.http.get<UsageReport>(`${this.repositoryApiBase(repositoryId)}/usage`, { params }));
+      if (repositoryId === this.selectedRepositoryId()) this.usage.set(usage);
     } catch (error) {
-      this.usage.set(emptyUsageReport());
-      console.warn(JSON.stringify({ event: 'qs.usage.unavailable', reason: this.errorMessage(error) }));
+      if (repositoryId === this.selectedRepositoryId()) {
+        this.usage.set(emptyUsageReport());
+        console.warn(JSON.stringify({ event: 'qs.usage.unavailable', reason: this.errorMessage(error) }));
+      }
     }
   }
 
@@ -588,23 +613,31 @@ export class QualityApi {
 
   clearFile(): void { this.file.set(null); }
 
-  async loadProjectDashboard(): Promise<void> {
-    this.projectLoading.set(true);
-    this.projectError.set('');
+  async loadProjectDashboard(repositoryId = this.selectedRepositoryId()): Promise<void> {
+    if (repositoryId === this.selectedRepositoryId()) {
+      this.projectLoading.set(true);
+      this.projectError.set('');
+    }
     const start = performance.now();
     try {
-      this.project.set(await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase()}/project`)));
+      const project = await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase(repositoryId)}/project`));
+      this.projectSnapshots.set(repositoryId, project);
+      if (repositoryId !== this.selectedRepositoryId()) return;
+      this.project.set(project);
       requestAnimationFrame(() => {
+        if (repositoryId !== this.selectedRepositoryId()) return;
         const duration = performance.now() - start;
-        performance.measure('qs.project.first-interactive', { start, end: performance.now(), detail: { budget: 150 } });
-        console.info(JSON.stringify({ event: 'qs.project.first-interactive', durationMs: +duration.toFixed(2), budgetMs: 150, withinBudget: duration < 150 }));
+        performance.measure('qs.project.first-interactive', { start, end: performance.now(), detail: { budget: 150, repositoryId } });
+        console.info(JSON.stringify({ event: 'qs.project.first-interactive', repositoryId, durationMs: +duration.toFixed(2), budgetMs: 150, withinBudget: duration < 150 }));
       });
     } catch (error) {
-      this.project.set(null);
-      this.projectError.set(this.errorMessage(error));
-      console.warn(JSON.stringify({ event: 'qs.project.unavailable', reason: this.errorMessage(error) }));
+      if (repositoryId === this.selectedRepositoryId()) {
+        if (!this.projectSnapshots.has(repositoryId)) this.project.set(null);
+        this.projectError.set(this.errorMessage(error));
+        console.warn(JSON.stringify({ event: 'qs.project.unavailable', repositoryId, reason: this.errorMessage(error) }));
+      }
     } finally {
-      this.projectLoading.set(false);
+      if (repositoryId === this.selectedRepositoryId()) this.projectLoading.set(false);
     }
   }
 
@@ -652,6 +685,27 @@ export class QualityApi {
     return firstValueFrom(this.http.post<GuidelineImpact>(`${this.repositoryApiBase()}/guidelines/impact`, { guideline, samplePaths, kind }));
   }
 
+  private async loadRepositoryDetails(repositoryId: string): Promise<void> {
+    const base = this.repositoryApiBase(repositoryId);
+    try {
+      const [scan, inputs, guidelines, risk] = await Promise.all([
+        firstValueFrom(this.http.get<ScanReport>(`${base}/scan`)),
+        firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${base}/inputs`)),
+        firstValueFrom(this.http.get<{ guidelines: Guideline[]; catalogue: GuidelineCatalogueEntry[]; traces: GuidelineTrace[] }>(`${base}/guidelines`)),
+        firstValueFrom(this.http.get<RiskReport>(`${base}/risk?days=90`)),
+      ]);
+      if (repositoryId !== this.selectedRepositoryId()) return;
+      this.scan.set(scan); this.inputs.set(inputs.kinds);
+      this.guidelines.set(guidelines.guidelines); this.guidelineCatalogue.set(guidelines.catalogue); this.guidelineTraces.set(guidelines.traces);
+      this.risk.set(risk);
+      await this.loadHandoverConfiguration();
+    } catch (error) {
+      if (repositoryId === this.selectedRepositoryId()) {
+        console.warn(JSON.stringify({ event: 'qs.repository.details-unavailable', repositoryId, reason: this.errorMessage(error) }));
+      }
+    }
+  }
+
   private async loadHandoverConfiguration(): Promise<void> {
     try {
       const configuration = await firstValueFrom(this.http.get<{ targetConfigured: boolean; dryRun: boolean }>(`${this.repositoryApiBase()}/handover`));
@@ -669,7 +723,7 @@ export class QualityApi {
     return error instanceof Error ? error.message : 'The repository request failed.';
   }
 
-  private repositoryApiBase(): string {
-    return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(this.selectedRepositoryId())}`;
+  private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {
+    return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(repositoryId)}`;
   }
 }
