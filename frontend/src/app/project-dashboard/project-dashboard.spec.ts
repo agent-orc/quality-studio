@@ -52,4 +52,25 @@ describe('ProjectDashboardView', () => {
     expect(fixture.nativeElement.querySelectorAll('.hotspot-row').length).toBe(1);
     expect(fixture.nativeElement.textContent).toContain('src/a.ts');
   });
+
+  it('shows repository phases instead of an indeterminate spinner without a snapshot', () => {
+    api.project.set(null);
+    api.projectLoading.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-transition-state="skeleton"]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Git state');
+    expect(fixture.nativeElement.textContent).toContain('Repository scan');
+    expect(fixture.nativeElement.textContent).toContain('Review metadata');
+    expect(fixture.nativeElement.textContent).toContain('Projection');
+  });
+
+  it('keeps the last snapshot interactive while fresh data loads', () => {
+    api.projectLoading.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-transition-state="stale"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.health-card').length).toBe(8);
+    expect(fixture.nativeElement.textContent).toContain('Last known snapshot remains available');
+  });
 });

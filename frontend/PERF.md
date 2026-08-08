@@ -9,6 +9,8 @@ The interaction budgets are contracts, not aspirations:
 | File open / first visible content | < 150 ms | 25.5 ms | Pass |
 | Review aspect switch | < 50 ms scripting-to-paint | 0.6 ms | Pass |
 | Project dashboard open (5,000-file summary) | < 150 ms click-to-interactive | 65.8 ms | Pass |
+| Repository transition visible | < 100 ms click-to-transition | 13.6–24.5 ms | Pass |
+| Real-backend repository switch | < 500 ms click-to-usable | 131.3 ms cold UI / 73.3 ms SWR | Pass |
 
 Re-measured for QS-9 on 2026-07-11 in Microsoft Edge 150.0.4078.65 (Chromium), headless at 1600 × 1000. The file route returned 333,782 bytes, deliberately above the 200 KB acceptance boundary, together with two review documents. The view split the response into lines but inserted only 80 overscanned line rows. Tree expand/collapse inserted only the visible fixed-height window. Network time is included in the file-open mark because it starts at selection and ends on the first animation frame after visible content renders. The aspect switch reused the loaded file response; the request counter remained at two (initial file plus opened file) after switching.
 
@@ -16,13 +18,37 @@ QS-31 repeated the automated regression check on 2026-07-22 in Chromium 149.0.78
 
 QS-40 measured the project transition on 2026-07-25 in Chromium 149.0.7827.55 at 1600 × 1000. The deterministic dashboard response reported 5,000 files and retained only 30 hotspot rows; click-to-visible interactive tiles was 65.8 ms.
 
+QS-54 measured repository switching on 2026-08-08 in Chromium 149.0.7827.55
+at 1600 × 1000. Its second harness stage starts a real QualityStudio.Api and a
+dedicated Angular proxy, creates clean Git repositories with realistic nested
+TypeScript sources, and registers a 1,600-source-file target. No Playwright
+route intercept is installed for this stage. The first target switch showed a
+transition in 13.6 ms and had a usable dashboard plus tree in 131.3 ms. A
+return switch reused the last browser snapshot, marked it as updating, and was
+usable in 73.3 ms. The target dashboard's first interactive paint was 32.2 ms.
+The backend prewarm phase measured 169.58 ms total for 1,603 tracked fixture
+files (18.20 ms Git state, 45.46 ms hierarchy scan, 3.80 ms review-meta
+discovery, and 102.07 ms projection).
+
+The new contracts are `< 100 ms` from repository click to a visibly painted
+transition and `< 500 ms` from click to a usable fresh dashboard and tree. The
+usable budget is based on the 131.3 ms deterministic real-backend run and the
+219.5–295.8 ms warm project-plus-tree measurements from the real
+agent-taskboard repository, leaving host-variance headroom without admitting
+the former multi-second wait. While revalidation continues, the dashboard
+shows the last known per-repository snapshot with an explicit updating notice.
+With no browser snapshot, a skeleton names the Git-state, repository-scan,
+review-metadata, and projection phases.
+
 ## Repeat the automated measurement
 
 1. Run `npm start` (the harness defaults to `http://127.0.0.1:4200`; set `QS_URL` to use another URL).
 2. Run `npm run perf` in `frontend/`.
-3. The Playwright harness intercepts the file API with a deterministic payload and review metadata, plus a bounded dashboard projection reporting 5,000 repository files. It expands and collapses the tree, opens a file, switches aspect, opens the project dashboard, prints the measurements, and exits non-zero if a hard budget is exceeded or switching causes a file refetch.
+3. The first Playwright stage intercepts the file API with a deterministic payload and review metadata, plus a bounded dashboard projection reporting 5,000 repository files. It protects the existing tree, file, aspect, and dashboard contracts.
+4. The second stage launches its own real API and Angular proxy, creates and commits the realistic fixture repositories, waits for the registered-repository background prewarm, and performs three repository switches without API response interception. It writes `project-switch-perf.json` and light/dark transition screenshots to `JOB_RESULTS_DIR` (or `frontend/evidence` when the variable is absent).
+5. The command exits non-zero if any existing budget, the 100 ms transition budget, the 500 ms usable-content budget, snapshot feedback, or file-refetch assertion fails.
 
-The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-content`, and `qs.review.aspect-switch`, including `durationMs`, `budgetMs`, `withinBudget`, and the selected path. API fallback and tree load use `qs.data.demo-fallback`, `qs.data.file-demo-fallback`, and `qs.data.tree-loaded`.
+The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-content`, `qs.review.aspect-switch`, `qs.repository.transition-visible`, and `qs.repository.switch.usable`, including `durationMs`, `budgetMs`, and `withinBudget`. API fallback and tree load use `qs.data.demo-fallback`, `qs.data.file-demo-fallback`, and `qs.data.tree-loaded`.
 
 ## Verify with Chrome tracing
 

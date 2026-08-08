@@ -139,11 +139,19 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
         RunGit("init", "--quiet");
         var cache = new RepositoryHierarchyCache();
 
-        var first = cache.Get(root);
-        var warm = cache.Get(root);
+        var firstMeasurement = cache.GetMeasured(root);
+        var warmMeasurement = cache.GetMeasured(root);
+        var first = firstMeasurement.Snapshot;
+        var warm = warmMeasurement.Snapshot;
         File.WriteAllText(Path.Combine(root, "main.py"), "print(2)\n");
-        var changed = cache.Get(root);
+        var changedMeasurement = cache.GetMeasured(root);
+        var changed = changedMeasurement.Snapshot;
 
+        Assert.False(firstMeasurement.CacheHit);
+        Assert.True(warmMeasurement.CacheHit);
+        Assert.Equal(0, warmMeasurement.ScanMilliseconds);
+        Assert.Equal(0, warmMeasurement.ReviewMetaDiscoveryMilliseconds);
+        Assert.False(changedMeasurement.CacheHit);
         Assert.Same(first, warm);
         Assert.NotSame(first, changed);
         Assert.NotEqual(first.ETag, changed.ETag);

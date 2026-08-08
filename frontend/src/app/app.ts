@@ -253,8 +253,18 @@ export class App implements OnDestroy {
   openTrace(path: string): void { this.guidelineDialogOpen.set(false); this.open(path); }
 
   async switchRepository(id: string): Promise<void> {
+    if (id === this.api.selectedRepositoryId()) {
+      this.repositoryMenuOpen.set(false);
+      return;
+    }
+    const started = performance.now();
     this.repositoryMenuOpen.set(false);
-    await this.api.selectRepository(id);
+    this.selected.set('.');
+    this.selectedFinding.set(null);
+    const switching = this.api.selectRepository(id);
+    requestAnimationFrame(() => this.measure('qs.repository.transition-visible', started, 100));
+    await switching;
+    requestAnimationFrame(() => this.measure('qs.repository.switch.usable', started, 500));
     const path = this.selectionPathOrFirst('');
     if (path) this.open(path, false);
   }

@@ -62,6 +62,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(response.Headers.ETag);
+        Assert.True(response.Headers.TryGetValues("Server-Timing", out var serverTiming));
+        var timing = Assert.Single(serverTiming);
+        Assert.Contains("git-status;dur=", timing, StringComparison.Ordinal);
+        Assert.Contains("scan;dur=", timing, StringComparison.Ordinal);
+        Assert.Contains("review-meta-discovery;dur=", timing, StringComparison.Ordinal);
+        Assert.Contains("projection;dur=", timing, StringComparison.Ordinal);
         var dashboard = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal(3, dashboard.GetProperty("grades").GetArrayLength());
         Assert.Equal(3, dashboard.GetProperty("metrics").GetProperty("fileCount").GetInt32());
