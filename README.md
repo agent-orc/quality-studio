@@ -185,6 +185,11 @@ The API exposes repository usage aggregates and provider quota availability. See
 [`docs/usage-telemetry.md`](docs/usage-telemetry.md) for the versioned storage
 contracts, endpoint semantics, quota source of truth, and unavailable behavior.
 
+Review model selection is governed by the synchronized Token Economy routing and price
+catalogs, including capability tiers, supported thinking levels, and retirement status.
+See [`docs/model-catalog-integration.md`](docs/model-catalog-integration.md) for the
+package-vs-snapshot decision, drift check, picker rules, and run evidence artifact.
+
 ## Quality reports
 
 Export the project scorecard, Git-backed score trend, findings, coverage, sensor

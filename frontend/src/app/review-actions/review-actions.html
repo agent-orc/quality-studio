@@ -2,10 +2,51 @@
   <select aria-label="Review kind" [ngModel]="activeKind()" (ngModelChange)="kindSelect.emit($event)">
     @for (kind of reviewKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
   </select>
-  <select aria-label="Review CLI" [ngModel]="cliType()" (ngModelChange)="cliType.set($event)">
-    @for (cli of ['codex', 'claude', 'antigravity', 'gemini']; track cli) { <option [value]="cli">{{ cli }}</option> }
+  <select aria-label="Review CLI" [ngModel]="cliType()" (ngModelChange)="selectCli($event)">
+    @for (cli of cliTypes; track cli) { <option [value]="cli">{{ cli }}</option> }
   </select>
-  <input aria-label="Review model" placeholder="Runner default model" [ngModel]="model()" (ngModelChange)="model.set($event)" />
+  <div class="model-combobox">
+    <input
+      role="combobox"
+      aria-label="Review model"
+      aria-autocomplete="list"
+      [attr.aria-controls]="modelOptionsId"
+      [attr.aria-expanded]="modelPickerOpen()"
+      [attr.aria-activedescendant]="activeModelIndex() >= 0 ? optionId(activeModelIndex()) : null"
+      placeholder="Runner default model"
+      autocomplete="off"
+      [ngModel]="model()"
+      (focus)="openModelPicker()"
+      (ngModelChange)="onModelInput($event)"
+      (keydown)="modelKeydown($event)" />
+    <button class="picker-toggle" type="button" aria-label="Open model picker" [attr.aria-expanded]="modelPickerOpen()" (click)="modelPickerOpen() ? modelPickerOpen.set(false) : openModelPicker()">⌄</button>
+    @if (modelPickerOpen()) {
+      <div [id]="modelOptionsId" class="model-options" role="listbox" aria-label="Available review models">
+        <button type="button" role="option" [id]="optionId(0)" [attr.aria-selected]="!model()" [class.active-option]="activeModelIndex() === 0" (click)="selectModel(null)">
+          <span class="model-option-title"><b>Runner default model</b><i class="capability default">default</i></span>
+          <small>No model or thinking override; preserve Runner behavior.</small>
+        </button>
+        @for (candidate of filteredModels(); track candidate.modelId; let index = $index) {
+          <button type="button" role="option" [id]="optionId(index + 1)" [attr.aria-selected]="selectedModel()?.modelId === candidate.modelId" [class.active-option]="activeModelIndex() === index + 1" (click)="selectModel(candidate)">
+            <span class="model-option-title">
+              <b>{{ candidate.modelId }}</b>
+              <i class="capability" [class]="'capability ' + candidate.capabilityTier">{{ candidate.capabilityTier }}</i>
+              @if (candidate.routingStatus === 'fallbackOnly') { <i class="route-status">fallback only</i> }
+            </span>
+            <small>{{ candidate.suitability }}</small>
+            <span class="model-evidence">{{ candidate.supportedThinkingLevels.join(' · ') }} · {{ candidate.priceAvailable ? 'priced' : 'price unavailable' }}@if (candidate.provisional) { · provisional }</span>
+          </button>
+        } @empty {
+          <div class="custom-model-hint">No qualified {{ cliType() }} model matches. Keep typing to use a new compatible model id.</div>
+        }
+        <footer>Token Economy policy {{ api.modelCatalog().policyVersion || 'unavailable' }} · free text remains available</footer>
+      </div>
+    }
+  </div>
+  <select aria-label="Review thinking level" [disabled]="!model().trim()" [ngModel]="thinkingLevel()" (ngModelChange)="thinkingLevel.set($event)">
+    <option value="">model default thinking</option>
+    @for (level of thinkingOptions(); track level) { <option [value]="level">{{ level }}</option> }
+  </select>
   <select aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="capKind.set($event)">
     <option value="repository">repo cap</option><option value="tokens">tokens</option><option value="cost">cost</option>
   </select>
@@ -13,7 +54,7 @@
     <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="capValue.set($event)" />
   }
   <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="force.set($event)" /> Force re-review</label>
-  <button type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
+  <button class="start-review" type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
     {{ activeOnNode() ? 'Review running' : starting() ? 'Queuing…' : 'Start review' }}
     @if (node()?.level !== 'file') { <small>{{ fileCount() }} files</small> }
   </button>

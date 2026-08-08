@@ -122,4 +122,26 @@ describe('QualityApi', () => {
     expect(api.usage().inputTokens).toBe(100);
     expect(api.quotas().providers[0].windows[0].remainingPct).toBe(75);
   });
+
+  it('loads the governed model catalog for review pickers', async () => {
+    const loading = api.loadModelCatalog();
+    http.expectOne('/api/models').flush({
+      schemaVersion: 1,
+      policyVersion: '2026-07-24',
+      evidenceAsOfDate: '2026-07-24',
+      sourceRepository: 'agent-orc/token-economy',
+      sourceCommit: 'abc',
+      thinkingLevels: ['medium', 'high'],
+      models: [{
+        modelId: 'gpt-5.6-sol', aliases: ['sol'], cliType: 'codex', capabilityTier: 'frontier',
+        suitability: 'Demanding reviews.', routingStatus: 'selectable', supportedThinkingLevels: ['medium', 'high'],
+        provisional: false, evidenceStatus: 'observational', note: 'Evidence note.', priceAvailable: false,
+        availableForNewRuns: true,
+      }],
+    });
+    await loading;
+
+    expect(api.modelCatalog().policyVersion).toBe('2026-07-24');
+    expect(api.modelCatalog().models[0].capabilityTier).toBe('frontier');
+  });
 });

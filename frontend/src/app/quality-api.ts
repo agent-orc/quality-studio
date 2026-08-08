@@ -182,19 +182,30 @@ export interface AgentStudioImportResult {
 export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
 export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped';
 export type ReviewUnitState = ReviewRunState | 'skipped' | 'skipped-fresh';
+export type ModelCapabilityTier = 'light' | 'balanced' | 'frontier';
+export type ModelRoutingStatus = 'selectable' | 'fallbackOnly' | 'unsupported' | 'restricted' | 'deprecated';
+export interface ReviewModelOption {
+  modelId: string; aliases: string[]; cliType: string; capabilityTier: ModelCapabilityTier; suitability: string;
+  routingStatus: ModelRoutingStatus; supportedThinkingLevels: string[]; provisional: boolean; evidenceStatus: string;
+  note: string; priceAvailable: boolean; availableForNewRuns: boolean;
+}
+export interface ReviewModelCatalog {
+  schemaVersion: number; policyVersion: string; evidenceAsOfDate: string; sourceRepository: string; sourceCommit: string;
+  thinkingLevels: string[]; models: ReviewModelOption[];
+}
 export interface ReviewFileProgress { path: string; state: ReviewUnitState; startedAt: string | null; finishedAt: string | null; error: string | null; }
 export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; }
 export interface ReviewEstimateDeviation { inputTokensPercent: number; outputTokensPercent: number; costPercent: number | null; note: string; }
-export interface ReviewPreflight { repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null; }
+export interface ReviewPreflight { repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null; }
 export interface ReviewRun {
-  id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; cliType: string;
+  id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string;
   state: ReviewRunState; totalFiles: number; completedFiles: number; failedFiles: number; createdAt: string;
   startedAt: string | null; finishedAt: string | null; files: ReviewFileProgress[]; errors: string[]; usageOperations: number; usage: TokenUsage;
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null;
 }
-export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; }
+export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; }
@@ -370,6 +381,7 @@ export class QualityApi {
   readonly repositories = signal<RepositoryRegistration[]>([]);
   readonly selectedRepositoryId = signal('default');
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
+  readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
@@ -499,6 +511,14 @@ export class QualityApi {
     } catch (error) {
       this.reviewError.set(this.errorMessage(error));
       throw error;
+    }
+  }
+
+  async loadModelCatalog(): Promise<void> {
+    try {
+      this.modelCatalog.set(await firstValueFrom(this.http.get<ReviewModelCatalog>('/api/models')));
+    } catch (error) {
+      console.warn(JSON.stringify({ event: 'qs.models.unavailable', reason: this.errorMessage(error) }));
     }
   }
 

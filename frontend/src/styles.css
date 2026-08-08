@@ -22,7 +22,10 @@
   --shadow: 0 8px 32px rgba(31, 36, 46, .08); --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
-  --studio-radius-sm: 4px; --studio-radius-md: 6px; --studio-radius-lg: 8px;
+  --studio-radius-sm: 4px; --studio-radius-md: 6px; --studio-radius-lg: 8px; --studio-radius-pill: 999px;
+  --studio-control-sm: 28px; --studio-font-2xs: 7px; --studio-font-xs: 9px; --studio-font-sm: 10px;
+  --studio-model-picker-width: 174px; --studio-model-menu-width: 390px; --studio-model-menu-height: 360px;
+  --studio-cap-input-width: 74px; --studio-compact-control-width: 88px; --studio-compact-model-width: 112px;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;

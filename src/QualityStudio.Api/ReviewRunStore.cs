@@ -35,7 +35,8 @@ public sealed record ReviewRunManifest(
     ReviewRunEstimate? Estimate = null,
     long? TokenCap = null,
     decimal? CostCap = null,
-    bool Force = false);
+    bool Force = false,
+    string? ThinkingLevel = null);
 
 public sealed record ReviewRunFileTransition(
     string Path,
@@ -66,6 +67,35 @@ public sealed record ReviewRunStatus(
     int SkippedFiles = 0,
     string? AggregateState = null,
     string? StopReason = null);
+
+/// <summary>
+/// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so
+/// downstream evidence ingestion never has to infer whether an override was absent.
+/// </summary>
+public sealed record ReviewRunResult(
+    int SchemaVersion,
+    string RunId,
+    string RepositoryId,
+    string Path,
+    string Level,
+    string Kind,
+    string Model,
+    string ThinkingLevel,
+    string Cli,
+    string State,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? FinishedAt,
+    int TotalFiles,
+    int CompletedFiles,
+    int FailedFiles,
+    int SkippedFiles,
+    int UsageOperations,
+    TokenUsage Usage,
+    decimal? CostSpent,
+    string? Currency,
+    string PriceStatus,
+    string? StopReason);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
@@ -104,6 +134,7 @@ public sealed class ReviewRunStore
             AppendProgress(new ReviewRunFileTransition(target.Path, "queued", null, null, manifest.RunId, null));
         }
         WriteStatus(status);
+        WriteResult(manifest, status);
     }
 
     public void AppendProgress(ReviewRunFileTransition transition)
@@ -150,6 +181,40 @@ public sealed class ReviewRunStore
         {
             if (File.Exists(temporary)) File.Delete(temporary);
         }
+    }
+
+    public void WriteResult(ReviewRunManifest manifest, ReviewRunStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(status);
+        if (!string.Equals(manifest.RunId, status.RunId, StringComparison.Ordinal))
+            throw new ArgumentException("The run manifest and result status must have the same run id.");
+        var result = new ReviewRunResult(
+            1,
+            manifest.RunId,
+            manifest.RepositoryId,
+            manifest.Node.Path,
+            manifest.Level,
+            manifest.Kind,
+            manifest.Model ?? "runner-default",
+            manifest.ThinkingLevel ?? "model-default",
+            manifest.CliType,
+            status.State,
+            status.CreatedAt,
+            status.StartedAt,
+            status.FinishedAt,
+            status.TotalFiles,
+            status.CompletedFiles,
+            status.FailedFiles,
+            status.SkippedFiles,
+            status.UsageOperations,
+            status.Usage,
+            status.CostSpent,
+            status.Currency,
+            status.PriceStatus,
+            status.StopReason);
+        WriteAtomic(Path.Combine(RunDirectory(status.RunId), "result.json"),
+            JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }
 
     public IReadOnlyList<StoredReviewRun> LoadAll(Action<string, Exception>? loadFailed = null)
@@ -230,5 +295,25 @@ public sealed class ReviewRunStore
             bufferSize: 4096, FileOptions.WriteThrough);
         stream.Write(bytes);
         stream.Flush(flushToDisk: true);
+    }
+
+    private static void WriteAtomic(string destination, string content)
+    {
+        var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $"result.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            var bytes = Utf8.GetBytes(content);
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       bufferSize: 4096, FileOptions.WriteThrough))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 }

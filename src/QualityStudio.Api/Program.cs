@@ -29,6 +29,7 @@ builder.Services.AddSingleton<ProjectDashboardService>();
 builder.Services.AddSingleton<RepositorySnapshotPrewarmer>();
 builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<RepositorySnapshotPrewarmer>());
 builder.Services.AddSingleton<StalenessEvaluator>();
+builder.Services.AddSingleton<ReviewModelCatalog>();
 builder.Services.AddSingleton<QualityReportBuilder>();
 builder.Services.AddSingleton<InputResolver>();
 builder.Services.AddSingleton<GuidelineStore>();
@@ -283,6 +284,7 @@ app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
 app.MapGet("/api/repos/{repoId}/report", Report);
 app.MapGet("/api/quotas", Quotas);
+app.MapGet("/api/models", (ReviewModelCatalog catalog) => Results.Ok(catalog.Snapshot));
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");

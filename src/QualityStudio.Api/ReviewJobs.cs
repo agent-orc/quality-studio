@@ -15,6 +15,7 @@ public sealed record StartReviewRequest(
     string Kind,
     string? Model = null,
     string? CliType = null,
+    string? ThinkingLevel = null,
     long? TokenCap = null,
     decimal? CostCap = null,
     bool Force = false);
@@ -27,6 +28,7 @@ public sealed record ReviewPreflightResponse(
     string Level,
     string Kind,
     string? Model,
+    string? ThinkingLevel,
     string CliType,
     ReviewRunEstimate Estimate,
     long? TokenCap,
@@ -47,6 +49,7 @@ public sealed record ReviewRunResponse(
     string Level,
     string Kind,
     string? Model,
+    string? ThinkingLevel,
     string CliType,
     string State,
     int TotalFiles,
@@ -80,7 +83,7 @@ public interface IReviewExecutor
 
 public interface IReviewExecutorFactory
 {
-    IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+    IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded);
 }
 
@@ -88,9 +91,10 @@ public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
     StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
 {
-    public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+    public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
-        new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(cliType, model, eventObserver: eventObserver),
+        new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
+                cliType, model, thinkingLevel, eventObserver: eventObserver),
             usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
@@ -125,10 +129,12 @@ public sealed class ReviewJobService : BackgroundService
     private readonly SensorRegistry sensorRegistry;
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
+    private readonly ReviewModelCatalog modelCatalog;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
-        IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry)
+        IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
+        ReviewModelCatalog modelCatalog)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -138,6 +144,7 @@ public sealed class ReviewJobService : BackgroundService
         this.executors = executors;
         this.dashboards = dashboards;
         this.sensorRegistry = sensorRegistry;
+        this.modelCatalog = modelCatalog;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -148,8 +155,9 @@ public sealed class ReviewJobService : BackgroundService
         var stopwatch = Stopwatch.StartNew();
         var plan = PreparePlan(repositoryId, request);
         var (registration, access, node, files) = plan;
-        var cliType = string.IsNullOrWhiteSpace(request.CliType) ? "codex" : request.CliType.Trim();
-        var model = string.IsNullOrWhiteSpace(request.Model) ? null : request.Model.Trim();
+        var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
+        var cliType = selection.CliType;
+        var model = selection.Model;
         var (tokenCap, costCap) = ResolveCap(registration, request.TokenCap, request.CostCap);
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
@@ -179,7 +187,8 @@ public sealed class ReviewJobService : BackgroundService
             estimate,
             tokenCap,
             costCap,
-            request.Force);
+            request.Force,
+            selection.ThinkingLevel);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -190,8 +199,9 @@ public sealed class ReviewJobService : BackgroundService
             throw new InvalidOperationException("The review queue is unavailable.");
         }
         logger.LogInformation(new EventId(1500, "ReviewQueued"),
-            "Queued review {ReviewRunId} for {RepositoryId}:{ReviewPath} ({ReviewLevel}, {ReviewKind}, {FileCount} files) in {ElapsedMilliseconds} ms",
-            item.Id, registration.Id, node.Path, node.Level, item.Kind, files.Length, stopwatch.ElapsedMilliseconds);
+            "Queued review {ReviewRunId} for {RepositoryId}:{ReviewPath} ({ReviewLevel}, {ReviewKind}, {FileCount} files) via {ReviewCli}/{ReviewModel}/{ReviewThinkingLevel} in {ElapsedMilliseconds} ms",
+            item.Id, registration.Id, node.Path, node.Level, item.Kind, files.Length, item.CliType,
+            item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default", stopwatch.ElapsedMilliseconds);
         return item.Snapshot();
     }
 
@@ -199,21 +209,22 @@ public sealed class ReviewJobService : BackgroundService
         string repositoryId, StartReviewRequest request, CancellationToken cancellationToken = default)
     {
         var plan = PreparePlan(repositoryId, request);
-        var cliType = string.IsNullOrWhiteSpace(request.CliType) ? "codex" : request.CliType.Trim();
-        var model = string.IsNullOrWhiteSpace(request.Model) ? null : request.Model.Trim();
+        var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
+        var cliType = selection.CliType;
+        var model = selection.Model;
         var (tokenCap, costCap) = ResolveCap(plan.Registration, request.TokenCap, request.CostCap);
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
         return new ReviewPreflightResponse(plan.Registration.Id, plan.Node.Path,
-            plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, cliType, estimate, tokenCap, costCap);
+            plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, selection.ThinkingLevel,
+            cliType, estimate, tokenCap, costCap);
     }
 
     private PreparedPlan PreparePlan(string repositoryId, StartReviewRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Path)) throw new ArgumentException("A hierarchy path is required.");
         if (!Kinds.Contains(request.Kind)) throw new ArgumentException("Kind must be code, security, or performance.");
-        ValidateModel(request.Model);
         var registration = repositories.Get(repositoryId);
         if (!registration.EnabledReviewKinds.Contains(request.Kind, StringComparer.Ordinal))
             throw new ArgumentException($"Review kind '{request.Kind}' is not enabled for this repository.");
@@ -416,7 +427,9 @@ public sealed class ReviewJobService : BackgroundService
         var stopwatch = Stopwatch.StartNew();
         var attemptToken = item.Start();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, attemptToken);
-        logger.LogInformation(new EventId(1501, "ReviewStarted"), "Started review {ReviewRunId}", item.Id);
+        logger.LogInformation(new EventId(1501, "ReviewStarted"),
+            "Started review {ReviewRunId} via {ReviewCli}/{ReviewModel}/{ReviewThinkingLevel}", item.Id,
+            item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
         try
         {
             item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
@@ -524,18 +537,9 @@ public sealed class ReviewJobService : BackgroundService
         return run;
     }
 
-    private IReviewExecutor CreateRunner(ReviewWorkItem item) => executors.Create(item.CliType, item.Model,
+    private IReviewExecutor CreateRunner(ReviewWorkItem item) => executors.Create(
+        item.CliType, item.Model, item.ThinkingLevel,
         (_, runEvent) => quotas.Observe(item.CliType, runEvent), item.AddUsage);
-
-    private static void ValidateModel(string? model)
-    {
-        if (string.IsNullOrWhiteSpace(model)) return;
-        var requested = model.Trim();
-        var known = ModelPriceCatalog.Default.Listings.Any(listing =>
-            string.Equals(listing.ModelId, requested, StringComparison.OrdinalIgnoreCase) ||
-            listing.Aliases.Contains(requested, StringComparer.OrdinalIgnoreCase));
-        if (!known) throw new ArgumentException("Model must be present in the coding-agent runner catalogue.");
-    }
 
     private ReviewRequest CreateRequest(
         ReviewWorkItem item,
@@ -681,6 +685,7 @@ public sealed class ReviewJobService : BackgroundService
         public IReadOnlyList<ScopeExclusion>? AggregateExclusions => manifest.AggregateExclusions;
         public string Kind => manifest.Kind;
         public string? Model => manifest.Model;
+        public string? ThinkingLevel => manifest.ThinkingLevel;
         public string CliType => manifest.CliType;
         public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
@@ -1004,7 +1009,7 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(file => new ReviewFileProgress(file.Path, file.State, file.StartedAt, file.FinishedAt, file.Error))
                     .ToArray();
                 return new ReviewRunResponse(
-                    Id, Repository.Id, Node.Path, manifest.Level, Kind, Model, CliType, state,
+                    Id, Repository.Id, Node.Path, manifest.Level, Kind, Model, ThinkingLevel, CliType, state,
                     files.Length,
                     files.Count(file => IsCompletedFileState(file.State)),
                     files.Count(file => file.State == "failed"),
@@ -1038,7 +1043,12 @@ public sealed class ReviewJobService : BackgroundService
         private void AppendProgress(MutableFileProgress file) => store.AppendProgress(
             new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error));
 
-        private void PersistStatus() => store.WriteStatus(DurableStatusCore());
+        private void PersistStatus()
+        {
+            var status = DurableStatusCore();
+            store.WriteStatus(status);
+            store.WriteResult(manifest, status);
+        }
 
         private ReviewRunStatus DurableStatusCore()
         {

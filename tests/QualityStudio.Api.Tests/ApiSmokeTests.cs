@@ -467,6 +467,24 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Models_returns_the_governed_picker_catalog_with_non_routable_statuses()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/models", TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("2026-07-24", json.GetProperty("policyVersion").GetString());
+        var models = json.GetProperty("models").EnumerateArray().ToArray();
+        var sol = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "gpt-5.6-sol");
+        Assert.Equal("frontier", sol.GetProperty("capabilityTier").GetString());
+        Assert.True(sol.GetProperty("availableForNewRuns").GetBoolean());
+        var retired = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "claude-opus-4-1");
+        Assert.Equal("deprecated", retired.GetProperty("routingStatus").GetString());
+        Assert.False(retired.GetProperty("availableForNewRuns").GetBoolean());
+    }
+
+    [Fact]
     public async Task Review_endpoint_queues_and_reports_per_file_failure_without_blocking()
     {
         using var client = application!.CreateClient();
@@ -494,6 +512,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         }
         Assert.True(File.Exists(Path.Combine(runDirectory, "progress.jsonl")));
         Assert.True(File.Exists(Path.Combine(runDirectory, "status.json")));
+        Assert.True(File.Exists(Path.Combine(runDirectory, "result.json")));
 
         JsonElement run = default;
         for (var attempt = 0; attempt < 50; attempt++)
@@ -506,6 +525,13 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal("done", run.GetProperty("state").GetString());
         Assert.Equal(1, run.GetProperty("failedFiles").GetInt32());
         Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
+        using (var result = JsonDocument.Parse(await File.ReadAllTextAsync(
+                   Path.Combine(runDirectory, "result.json"), TestContext.Current.CancellationToken)))
+        {
+            Assert.Equal("runner-default", result.RootElement.GetProperty("model").GetString());
+            Assert.Equal("model-default", result.RootElement.GetProperty("thinkingLevel").GetString());
+            Assert.Equal("adapter-that-does-not-exist", result.RootElement.GetProperty("cli").GetString());
+        }
         var list = await client.GetFromJsonAsync<JsonElement>("/api/review/runs", TestContext.Current.CancellationToken);
         Assert.Contains(list.GetProperty("runs").EnumerateArray(), candidate => candidate.GetProperty("id").GetString() == id);
     }

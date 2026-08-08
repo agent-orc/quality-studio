@@ -1,0 +1,57 @@
+[
+  {
+    "modelId": "claude-fable-5", "vendor": "anthropic",
+    "history": [{ "inputPerMTok": 10.00, "outputPerMTok": 50.00, "cacheReadPerMTok": 1.00, "cacheWritePerMTok": 12.50, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  {
+    "modelId": "claude-mythos-5", "vendor": "anthropic", "note": "Project Glasswing only; same pricing as Claude Fable 5.",
+    "history": [{ "inputPerMTok": 10.00, "outputPerMTok": 50.00, "cacheReadPerMTok": 1.00, "cacheWritePerMTok": 12.50, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  {
+    "modelId": "claude-opus-5", "vendor": "anthropic",
+    "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  {
+    "modelId": "claude-sonnet-5", "vendor": "anthropic",
+    "history": [
+      { "inputPerMTok": 2.00, "outputPerMTok": 10.00, "cacheReadPerMTok": 0.20, "cacheWritePerMTok": 2.50, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "validTo": "2026-08-31T23:59:59.9999999Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "note": "Introductory pricing, in effect through 2026-08-31 (UTC)." },
+      { "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "2026-09-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "note": "Standard pricing (introductory period ended 2026-08-31)." }
+    ]
+  },
+  {
+    "modelId": "claude-opus-4-8", "vendor": "anthropic",
+    "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  {
+    "modelId": "claude-opus-4-7", "vendor": "anthropic",
+    "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  {
+    "modelId": "claude-opus-4-6", "vendor": "anthropic",
+    "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  {
+    "modelId": "claude-opus-4-5", "vendor": "anthropic", "aliases": ["claude-opus-4-5-20251101"],
+    "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "unconfirmed": true, "note": "Opus-tier rate assumed; confirm against the Anthropic pricing page." }]
+  },
+  { "modelId": "claude-opus-4-1", "vendor": "anthropic", "aliases": ["claude-opus-4-1-20250805"], "note": "Deprecated (retires 2026-08-05). Priced on a different, higher tier than Opus 4.5+; number not confirmed here." },
+  {
+    "modelId": "claude-sonnet-4-6", "vendor": "anthropic",
+    "history": [{ "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  {
+    "modelId": "claude-sonnet-4-5", "vendor": "anthropic", "aliases": ["claude-sonnet-4-5-20250929"],
+    "history": [{ "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "unconfirmed": true, "note": "Sonnet-tier rate assumed; confirm against the Anthropic pricing page." }]
+  },
+  {
+    "modelId": "claude-haiku-4-5", "vendor": "anthropic", "aliases": ["claude-haiku-4-5-20251001"],
+    "history": [{ "inputPerMTok": 1.00, "outputPerMTok": 5.00, "cacheReadPerMTok": 0.10, "cacheWritePerMTok": 1.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+  },
+  { "modelId": "gpt-5.6-luna", "vendor": "openai", "aliases": ["luna"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
+  { "modelId": "gpt-5.6-terra", "vendor": "openai", "aliases": ["terra"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
+  { "modelId": "gpt-5.6-sol", "vendor": "openai", "aliases": ["gpt-5.6", "sol"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
+  { "modelId": "gpt-5.4-mini", "vendor": "openai", "aliases": ["mini"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
+  { "modelId": "gpt-5.5", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
+  { "modelId": "gpt-5", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
+  { "modelId": "gpt-5-codex", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." }
+]

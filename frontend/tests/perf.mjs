@@ -1,4 +1,6 @@
 import { chromium } from 'playwright-core';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 
 const executablePath = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
@@ -72,6 +74,11 @@ const measures = await page.evaluate(() => performance.getEntriesByType('measure
 })));
 const result = { measuredAt: new Date().toISOString(), browser: await browser.version(), payloadBytes: Buffer.byteLength(payload), repositoryFileCount: project.metrics.fileCount, dashboardDurationMs, fileRequestCount, largeFileMode, highlightedTokenCount, measures, events };
 console.log(JSON.stringify(result, null, 2));
+if (process.env.JOB_RESULTS_DIR) {
+  const output = resolve(process.env.JOB_RESULTS_DIR);
+  await mkdir(output, { recursive: true });
+  await writeFile(join(output, 'qs-56-perf.json'), `${JSON.stringify(result, null, 2)}\n`);
+}
 await browser.close();
 
 if (measures.some(item => item.name === 'qs.tree.toggle' && item.durationMs >= 50) ||

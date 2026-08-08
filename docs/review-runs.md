@@ -29,6 +29,15 @@ Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
 - `manifest.json` is the immutable enqueue-time plan. It records the selected node and level, kind, model, CLI type, force flag, preflight estimate, initial cap, aggregate controls, and every target file with its subject hash.
 - `progress.jsonl` is an append-only file-transition log. Each flushed line records the run and file path, state, timestamps, and any error. Recovery ignores an incomplete line left by a crash and continues from the other records.
 - `status.json` is the current overall state and its counters, cursor, timestamps, errors, usage, live cost, current cap, aggregate state, and stop reason. It is replaced atomically through a same-directory temporary file.
+- `result.json` is the stable evidence projection refreshed atomically with run state. It
+  records the chosen `model`, `thinkingLevel`, and `cli` (using explicit
+  `runner-default` / `model-default` markers when no override was chosen), together with
+  scope, outcome, counts, usage, and cost status for downstream Token Economy analysis.
+
+Model options come from the governed Token Economy snapshot described in
+[`model-catalog-integration.md`](model-catalog-integration.md). The model and optional
+thinking-level override are persisted in the manifest before enqueue and passed to the
+same CodingAgentRunner request used for every file and aggregate operation.
 
 At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed.
 

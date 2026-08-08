@@ -29,13 +29,15 @@ public sealed class ReviewRunStoreTests
                 path = ".",
                 kind = "code",
                 cliType = "test-agent",
-                model = "claude-sonnet-4-5",
+                model = "claude-sonnet-5",
+                thinkingLevel = "high",
                 tokenCap = 5,
             }, cancellationToken);
             response.EnsureSuccessStatusCode();
             var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
             Assert.Equal("test-agent", accepted.GetProperty("cliType").GetString());
-            Assert.Equal("claude-sonnet-4-5", accepted.GetProperty("model").GetString());
+            Assert.Equal("claude-sonnet-5", accepted.GetProperty("model").GetString());
+            Assert.Equal("high", accepted.GetProperty("thinkingLevel").GetString());
             Assert.True(accepted.GetProperty("estimate").GetProperty("inputTokens").GetInt64() > 0);
             Assert.True(accepted.GetProperty("estimate").GetProperty("cost").GetDecimal() > 0);
 
@@ -60,6 +62,16 @@ public sealed class ReviewRunStoreTests
             Assert.Equal(3, completed.GetProperty("usageOperations").GetInt32());
             Assert.True(completed.GetProperty("deviation").GetProperty("inputTokensPercent").GetDecimal() < 0);
             Assert.Equal(3, fake.OperationCount);
+            Assert.Equal("test-agent", fake.CliType);
+            Assert.Equal("claude-sonnet-5", fake.Model);
+            Assert.Equal("high", fake.ThinkingLevel);
+
+            using var result = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
+                fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "result.json"), cancellationToken));
+            Assert.Equal("claude-sonnet-5", result.RootElement.GetProperty("model").GetString());
+            Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
+            Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
+            Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
         }
         finally
         {
@@ -83,7 +95,7 @@ public sealed class ReviewRunStoreTests
                 path = ".",
                 kind = "code",
                 cliType = "test-agent",
-                model = "claude-sonnet-4-5",
+                model = "claude-sonnet-5",
             }, cancellationToken);
             freshResponse.EnsureSuccessStatusCode();
             var freshAccepted = await freshResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
@@ -103,7 +115,7 @@ public sealed class ReviewRunStoreTests
                 path = ".",
                 kind = "code",
                 cliType = "test-agent",
-                model = "claude-sonnet-4-5",
+                model = "claude-sonnet-5",
                 force = true,
             }, cancellationToken);
             forcedResponse.EnsureSuccessStatusCode();
@@ -511,9 +523,18 @@ public sealed class ReviewRunStoreTests
     {
         private int operationCount;
         public int OperationCount => operationCount;
+        public string? CliType { get; private set; }
+        public string? Model { get; private set; }
+        public string? ThinkingLevel { get; private set; }
 
-        public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
-            Action<ReviewUsageEntry> usageRecorded) => new CappedExecutor(this, cliType, model, usageRecorded);
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver, Action<ReviewUsageEntry> usageRecorded)
+        {
+            CliType = cliType;
+            Model = model;
+            ThinkingLevel = thinkingLevel;
+            return new CappedExecutor(this, cliType, model, usageRecorded);
+        }
 
         private sealed class CappedExecutor(
             CappedExecutorFactory owner, string cliType, string? model, Action<ReviewUsageEntry> usageRecorded) : IReviewExecutor
@@ -525,7 +546,7 @@ public sealed class ReviewRunStoreTests
             {
                 Interlocked.Increment(ref owner.operationCount);
                 var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
-                    model ?? "claude-sonnet-4-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
+                    model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
                     request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
@@ -539,7 +560,7 @@ public sealed class ReviewRunStoreTests
         private int agentCalls;
         public int AgentCalls => agentCalls;
 
-        public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
             Action<ReviewUsageEntry> usageRecorded) => new FreshnessExecutor(this);
 
         private sealed class FreshnessExecutor(FreshnessExecutorFactory owner) : IReviewExecutor
@@ -566,7 +587,7 @@ public sealed class ReviewRunStoreTests
             }
         }
 
-        public IReviewExecutor Create(string cliType, string? model, Action<string, CliRunEvent> eventObserver,
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
             Action<ReviewUsageEntry> usageRecorded) => new CapturingExecutor(requests);
 
         private sealed class CapturingExecutor(List<ReviewRequest> requests) : IReviewExecutor
