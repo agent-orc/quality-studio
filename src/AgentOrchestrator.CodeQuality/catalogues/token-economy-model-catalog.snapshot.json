@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "upstreamRepository": "agent-orc/token-economy",
+  "upstreamCommit": "28568bc197c109c60b9699901e655d783c09b82f",
+  "policyVersion": "2026-07-24",
+  "files": {
+    "model-routing-policy.json": "fcc7b151cfb4be853e0910506f19f2c7c43417f27065c4d0a23379dc35de9372",
+    "model-prices.json": "e73f722c499b1de89d216b606b2e14259ca5ba3ab5990fb8abe1ad9debd694d4"
+  }
+}

@@ -1,0 +1,204 @@
+{
+  "$schema": "model-routing-policy.schema.json",
+  "schemaVersion": 1,
+  "policyVersion": "2026-07-24",
+  "evidenceAsOfDate": "2026-07-24",
+  "authority": {
+    "repositoryPath": "docs/system/domains/model-routing-policy.md",
+    "upstreamRepository": "agent-orc/agent-studio",
+    "upstreamPath": "docs/system/domains/model-routing-policy.md",
+    "contentSha256": "7269fbd6466f8bf86f838b4297c59933d8bb7472dbdd1383ce9439f4350b4ca0",
+    "synchronization": "The repository copy is an exact snapshot of the canonical Agent Studio document. A policy change requires a new policyVersion, refreshed hash, updated machine data, regenerated public view, and passing drift tests in one change."
+  },
+  "providers": [
+    { "id": "openai", "cliId": "codex", "cliLabel": "Codex CLI", "evidenceStatus": "observed" },
+    { "id": "anthropic", "cliId": "claude-code", "cliLabel": "Claude Code CLI", "evidenceStatus": "observed" }
+  ],
+  "thinkingLevels": [
+    { "id": "minimal", "rank": 0, "evidenceStatus": "observed" },
+    { "id": "low", "rank": 1, "evidenceStatus": "observed" },
+    { "id": "medium", "rank": 2, "evidenceStatus": "observed" },
+    { "id": "high", "rank": 3, "evidenceStatus": "observed" },
+    { "id": "xhigh", "rank": 4, "evidenceStatus": "observed" },
+    { "id": "ultra", "rank": 5, "evidenceStatus": "observed" },
+    { "id": "max", "rank": 6, "evidenceStatus": "observed" }
+  ],
+  "models": [
+    {
+      "canonicalId": "gpt-5.6-luna",
+      "aliases": ["luna"],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.6-luna",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.6-luna",
+      "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh", "ultra"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "light",
+      "workflowRoles": ["coreTask"],
+      "note": "No Luna cohort existed in the 2026-07-23 benchmark; this is an unvalidated cost-saving hypothesis."
+    },
+    {
+      "canonicalId": "gpt-5.6-terra",
+      "aliases": ["terra"],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.6-terra",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.6-terra",
+      "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh", "ultra"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "balanced",
+      "workflowRoles": ["coreTask"],
+      "note": "Eight historical Terra/medium records had no known grades and no trustworthy terminal cohort."
+    },
+    {
+      "canonicalId": "gpt-5.6-sol",
+      "aliases": ["gpt-5.6", "sol"],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.6-sol",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.6-sol",
+      "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh", "ultra"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "observational",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": ["coreTask", "boundedPipelineDecision"],
+      "note": "Sol/medium has the strongest favorable historical signal; Sol/xhigh remains a correctness floor, not a blanket default."
+    },
+    {
+      "canonicalId": "gpt-5.4-mini",
+      "aliases": ["mini"],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.4-mini",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.4-mini",
+      "supportedThinkingLevels": ["low", "medium", "high"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "light",
+      "workflowRoles": ["boundedPipelineDecision"],
+      "note": "Role exception for bounded decisions over compact structured evidence; not a core-task route."
+    },
+    {
+      "canonicalId": "claude-sonnet-5",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-sonnet-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-sonnet-5",
+      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "routingStatus": "fallbackOnly",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": ["coreTask"],
+      "note": "Small favorable Claude Sonnet 5/high feature cohort; use only as an equivalent-capability provider fallback."
+    },
+    {
+      "canonicalId": "claude-mythos-5", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-mythos-5", "mediaCatalogModelId": "*", "trustModelId": "claude-mythos-5", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "restricted", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Project Glasswing only."
+    },
+    {
+      "canonicalId": "claude-opus-4-1", "aliases": ["claude-opus-4-1-20250805"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-1", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-1", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "deprecated", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Retires 2026-08-05."
+    },
+    {
+      "canonicalId": "claude-fable-5", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-fable-5", "mediaCatalogModelId": "*", "trustModelId": "claude-fable-5", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-opus-5", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-5", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-5", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-opus-4-8", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-8", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-8", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-opus-4-7", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-7", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-7", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-opus-4-6", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-6", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-6", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-opus-4-5", "aliases": ["claude-opus-4-5-20251101"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-5", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-sonnet-4-6", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-sonnet-4-6", "mediaCatalogModelId": "*", "trustModelId": "claude-sonnet-4-6", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-sonnet-4-5", "aliases": ["claude-sonnet-4-5-20250929"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-sonnet-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-sonnet-4-5", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "claude-haiku-4-5", "aliases": ["claude-haiku-4-5-20251001"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-haiku-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-haiku-4-5", "supportedThinkingLevels": ["low", "medium"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "light", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+    },
+    {
+      "canonicalId": "gpt-5.5", "aliases": [], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+    },
+    {
+      "canonicalId": "gpt-5", "aliases": [], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5", "mediaCatalogModelId": "*", "trustModelId": "gpt-5", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+    },
+    {
+      "canonicalId": "gpt-5-codex", "aliases": [], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5-codex", "mediaCatalogModelId": "*", "trustModelId": "gpt-5-codex", "supportedThinkingLevels": ["low", "medium", "high"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+    }
+  ],
+  "routes": [
+    { "id": "luna-medium", "label": "Luna / medium", "modelId": "gpt-5.6-luna", "thinkingLevel": "medium", "workflowRole": "coreTask", "minimumScore": 0, "maximumScore": 20, "rank": 0, "evidenceStatus": "provisional", "useFor": ["trivialMechanicalChange", "locallySpecifiedSmallDiff", "obviousVerificationPath"], "doNotUseFor": ["unclearBug", "crossSubsystemBehavior", "publicContract", "migration", "security", "concurrency", "distributedState"] },
+    { "id": "terra-medium", "label": "Terra / medium", "modelId": "gpt-5.6-terra", "thinkingLevel": "medium", "workflowRole": "coreTask", "minimumScore": 21, "maximumScore": 50, "rank": 1, "evidenceStatus": "provisional", "useFor": ["standardFeature", "content", "reversibleSingleSubsystemChange"], "doNotUseFor": ["p0", "fencing", "distributedAuthority", "dataLossPath", "broadArchitecturalReconstruction"] },
+    { "id": "sol-medium", "label": "Sol / medium", "modelId": "gpt-5.6-sol", "thinkingLevel": "medium", "workflowRole": "coreTask", "minimumScore": 51, "maximumScore": 69, "rank": 2, "evidenceStatus": "observational", "useFor": ["demandingImplementation", "investigation", "analysis", "broadContextSearch", "twoOrThreeSubsystems"], "doNotUseFor": ["correctnessCriticalHardFloor"] },
+    { "id": "sol-xhigh", "label": "Sol / xhigh", "modelId": "gpt-5.6-sol", "thinkingLevel": "xhigh", "workflowRole": "coreTask", "minimumScore": 70, "maximumScore": 100, "rank": 3, "evidenceStatus": "correctnessFloor", "useFor": ["p0", "fencing", "leaseOwnership", "distributedAuthority", "securityBoundary", "destructiveMigration", "dataLossPrevention", "subtleConcurrentStateMachine"], "doNotUseFor": ["routineWorkBecauseQuotaIsAvailable"] },
+    { "id": "mini-high", "label": "Mini / high", "modelId": "gpt-5.4-mini", "thinkingLevel": "high", "workflowRole": "boundedPipelineDecision", "rank": 0, "evidenceStatus": "provisional", "useFor": ["boundedOrchestratorDecision", "compactStructuredEvidence", "deterministicOutputContract"], "doNotUseFor": ["coreImplementation", "openEndedArchitecture", "ambiguousProductDecision", "unboundedContext"] }
+  ],
+  "providerFallbacks": [
+    {
+      "id": "claude-sonnet-5-high",
+      "forRouteIds": ["terra-medium", "sol-medium"],
+      "notForRouteIds": ["sol-xhigh"],
+      "modelId": "claude-sonnet-5",
+      "thinkingLevel": "high",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "note": "Small favorable feature cohort. This is not evidence of equivalence to the Sol/xhigh correctness floor."
+    }
+  ],
+  "scoringCriteria": [
+    { "id": "correctnessRisk", "maximumPoints": 35 },
+    { "id": "expectedScope", "maximumPoints": 20 },
+    { "id": "contextDemand", "maximumPoints": 20 },
+    { "id": "taskTypeAndUncertainty", "maximumPoints": 10 },
+    { "id": "empiricalConfidence", "maximumPoints": 10 },
+    { "id": "quotaAndCostHeadroom", "maximumPoints": 5 }
+  ],
+  "hardFloors": [
+    { "id": "correctnessCritical", "minimumRouteId": "sol-xhigh", "triggers": ["p0", "fencing", "leaseOwnership", "staleWriteRejection", "distributedAuthority", "securityBoundary", "credibleDataLoss"] },
+    { "id": "broadContract", "minimumRouteId": "sol-medium", "triggers": ["publicProtocol", "persistentStateMigration", "threeOrMoreRuntimeSubsystems"] },
+    { "id": "unclearBug", "minimumRouteId": "terra-medium", "triggers": ["unclearBug"] }
+  ],
+  "workflowConstraints": {
+    "boundedPipelineDefaultRouteId": "mini-high",
+    "ambiguousOrUnboundedAuthorizingDecisionMinimumRouteId": "sol-medium",
+    "authorizingDecisionTriggers": ["destructiveAction", "securityAction", "laneAffectingAction"]
+  },
+  "reissueRules": {
+    "promoteOn": ["substantiveCOrDReview", "semanticReissue"],
+    "doNotPromoteOn": ["environmentalFailure", "staleBase", "brokenTestHost", "cancellation", "quotaTruncation", "missingDeliveryPath"],
+    "empiricalConfidencePointsAfterSemanticFailure": 10,
+    "minimumCoreTierIncrease": 1,
+    "stopAfterSemanticFailuresAtStrongerTier": 2
+  },
+  "catalogContracts": {
+    "priceCatalog": "src/TokenEconomy/catalog/model-prices.json",
+    "mediaCatalog": "src/TokenEconomy/catalog/media-capabilities.json",
+    "trustEvidence": "docs/model-trust-evidence.md",
+    "namedModelTrustEvidenceStatus": "unverifiedNoDenominator",
+    "historicalIncidentAttribution": "unattributed",
+    "generatedPublicView": "docs/model-routing-knowledge.md",
+    "unknownFactsRemainUnknown": true,
+    "priceAndQuotaMayNotLowerHardFloors": true
+  }
+}

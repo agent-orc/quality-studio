@@ -134,6 +134,7 @@ export class App implements OnDestroy {
   private async initialize(): Promise<void> {
     const preferredRepository = new URLSearchParams(location.search).get('repo');
     await this.api.loadRepositories(preferredRepository);
+    await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
     void dashboardLoading;

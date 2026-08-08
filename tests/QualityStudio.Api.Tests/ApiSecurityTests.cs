@@ -107,7 +107,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Hosted_mode_protects_quota_data_and_rejects_models_outside_the_runner_catalogue()
+    public async Task Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids()
     {
         using var anonymous = CreateClient();
         using var quotas = await anonymous.GetAsync("/api/quotas", TestContext.Current.CancellationToken);

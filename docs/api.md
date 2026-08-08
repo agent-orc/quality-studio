@@ -142,6 +142,9 @@ curl -X POST "http://127.0.0.1:5127/api/guidelines/impact" -H "Content-Type: app
 curl -X POST "http://127.0.0.1:5127/api/review" -H "Content-Type: application/json" -d "{}"
 # 202 {"id":"review-...","state":"queued",...}
 
+curl "http://127.0.0.1:5127/api/models"
+# 200 {"policyVersion":"...","models":[{"modelId":"gpt-...","capabilityTier":"frontier","routingStatus":"selectable",...}]}
+
 curl "http://127.0.0.1:5127/api/usage?since=2026-07-01T00:00:00Z&kind=code"
 # 200 {"runs":12,"inputTokens":...,"byModel":[...],"byKind":[...],"byDay":[...],"byReviewRun":[...],"recent":[...]}
 

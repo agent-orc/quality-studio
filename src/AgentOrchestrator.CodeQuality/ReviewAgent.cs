@@ -40,13 +40,16 @@ public sealed class ReviewAgentRunCanceledException(
 public sealed class CodingAgentReviewAgent : IReviewAgent
 {
     private readonly string _cliType;
+    private readonly string? _thinkingLevel;
     private readonly CliRunner _runner;
     private readonly Action<string, CliRunEvent>? _eventObserver;
 
-    public CodingAgentReviewAgent(string cliType = "codex", string? model = null, CliOptions? options = null,
+    public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
+        CliOptions? options = null,
         Action<string, CliRunEvent>? eventObserver = null)
     {
         _cliType = cliType;
+        _thinkingLevel = thinkingLevel;
         Model = model;
         _runner = new CliRunner(options ?? new CliOptions());
         _eventObserver = eventObserver;
@@ -75,6 +78,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
                 Prompt = prompt,
                 WorkingDirectory = workingDirectory,
                 Model = Model,
+                ThinkingLevel = _thinkingLevel,
                 PermissionMode = "read-only",
                 ContextMode = "shared",
             }, cancellationToken))
