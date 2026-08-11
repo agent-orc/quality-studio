@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
   assertNpmAudit,
   assertNugetAudit,
@@ -37,6 +38,14 @@ test('SBOM policy rejects a manifest that silently omitted detected dependencies
     spdxVersion: 'SPDX-2.2',
     packages: [rootPackage],
   }), /no detected dependency packages/);
+});
+
+test('CI validates the generated SBOM before retaining it as evidence', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/build.yml', import.meta.url), 'utf8');
+  assert.match(
+    workflow,
+    /sbom-tool" generate[^\n]+\n\s+node scripts\/security-policy\.mjs sbom "\$RUNNER_TEMP\/quality-studio-evidence\/sbom\/_manifest\/spdx_2\.2\/manifest\.spdx\.json"/,
+  );
 });
 
 test('tracked configuration rejects a QS-53-style root and cleartext credentials', () => {
