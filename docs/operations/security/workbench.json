@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "quality-studio-security-hardening",
+  "title": "Quality Studio security hardening",
+  "summary": "Decision-ready hardening plan for untrusted repository ingestion, review-agent and sensor isolation, credential handling, dependency advisories, result rendering, and downstream handover.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-08-11T00:00:00Z",
+  "sourceTaskKeys": ["QS-58"]
+}

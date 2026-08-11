@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio security hardening decision dossier</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <p class="kicker">Quality Studio · security hardening · decision dossier</p>
+    <h1>Separate reviewed code from the Studio host</h1>
+    <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
+    <div class="meta">
+      <span><b>Status</b> decision pending</span>
+      <span><b>Phase</b> decision ready</span>
+      <span><b>Source</b> QS-58</span>
+      <span><b>Assessed</b> 2026-08-11</span>
+      <span><b>Commit</b> <code>3e0b6559faa7</code></span>
+    </div>
+  </header>
+
+  <section class="box bad" aria-labelledby="decision">
+    <h4 id="decision">Decision requested</h4>
+    <p><b>Approve Option C and slices S0–S6.</b> Until S0 is accepted, do not enable hosted multi-client operation. Until S1 and S2 are accepted, restrict reviews to repositories controlled by the same operator who owns the Studio host. Prompt wording and “read-only” agent permission are not a security boundary.</p>
+    <p>The recommended design runs review agents and executable sensors in separate, short-lived workers with a read-only source snapshot, clean service identity, restricted egress, bounded resources, and a brokered, schema-validated result write. The API—not a repository-scoped client—owns repository roots and executable analyzer profiles.</p>
+  </section>
+
+  <nav aria-label="Contents">
+    <h2><span class="no">00</span>Contents</h2>
+    <ol class="toc">
+      <li><a href="#method">Scope and method</a></li>
+      <li><a href="#boundary">Observed trust boundary</a></li>
+      <li><a href="#controls">Controls already working</a></li>
+      <li><a href="#risks">Prioritized risk register</a></li>
+      <li><a href="#findings">Evidence-backed findings</a></li>
+      <li><a href="#dependencies">Dependency advisory snapshot</a></li>
+      <li><a href="#options">Options and recommendation</a></li>
+      <li><a href="#slices">Implementation slices</a></li>
+      <li><a href="#approval">Approval packet</a></li>
+      <li><a href="#evidence">Evidence index and limits</a></li>
+    </ol>
+  </nav>
+
+  <section id="method">
+    <h2><span class="no">01</span>Scope and method</h2>
+    <p>This assessment traced bytes and authority, not feature names: repository-controlled files and sidecars; prompt construction; review-agent launch; deterministic analyzer execution; response parsing; writes under <code>.quality</code>; Angular and report rendering; and the optional Agent Studio handover. It also reviewed API identity and repository registration because those controls decide which content and commands reach the host.</p>
+    <div class="building-blocks">
+      <div class="building-block">
+        <h4>Code and history</h4>
+        <p>Manual call-chain review at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>, plus the two appsettings changes implicated by QS-53.</p>
+        <p class="evidence-link"><code>251ce81c78a7</code> added a maintainer path; <code>aca322f3d16c</code> removed it.</p>
+      </div>
+      <div class="building-block">
+        <h4>Executed audits</h4>
+        <p><code>npm audit</code>, <code>npm audit --omit=dev</code>, NuGet vulnerable-package scans for the solution and spike, the repository security scanner, a range scan, and a redacted all-ref Gitleaks scan.</p>
+        <p class="evidence-link">Registry results are a point-in-time snapshot dated 2026-08-11.</p>
+      </div>
+    </div>
+    <p class="dim">The prompt-enrichment instruction files named for this run—<code>AGENTS.md</code>, <code>frontend/AGENTS.md</code>, <code>docs/start/README.md</code>, <code>docs/start/contribution-and-style-guide.html</code>, <code>docs/quality/design-principles.md</code>, and <code>docs/system/domains/model-routing-policy.md</code>—are not present in this checkout. No model or thinking-level change is proposed here. The requested reference document was available in the operator repository, and its style block is reproduced verbatim above.</p>
+  </section>
+
+  <section id="boundary">
+    <h2><span class="no">02</span>Observed trust boundary</h2>
+    <figure>
+      <svg viewBox="0 0 1040 430" role="img" aria-labelledby="boundary-title boundary-desc">
+        <title id="boundary-title">Current review data and authority flow</title>
+        <desc id="boundary-desc">Untrusted repository content flows into host processes and a shared-context coding agent before validated results are stored and rendered.</desc>
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink-3)"></path>
+          </marker>
+        </defs>
+        <line x1="285" y1="28" x2="285" y2="402" class="s-lane"></line>
+        <line x1="738" y1="28" x2="738" y2="402" class="s-lane"></line>
+        <text x="28" y="30" class="s-tiny">UNTRUSTED / REPOSITORY-OWNED</text>
+        <text x="310" y="30" class="s-tiny">STUDIO HOST — CURRENTLY SHARED AUTHORITY</text>
+        <text x="765" y="30" class="s-tiny">EXTERNAL / OPERATOR ACTION</text>
+
+        <rect x="28" y="62" width="220" height="96" class="s-node"></rect>
+        <text x="48" y="88" class="s-label">Reviewed Git repository</text>
+        <text x="48" y="111" class="s-sub">source · guidelines · sidecars</text>
+        <text x="48" y="132" class="s-sub">lockfiles · analyzer artifacts</text>
+
+        <rect x="330" y="58" width="340" height="104" class="s-node"></rect>
+        <text x="350" y="84" class="s-label">API, registry, prompt builder</text>
+        <text x="350" y="107" class="s-sub">path confinement exists</text>
+        <text x="350" y="128" class="s-sub">content/count/sidecar bounds do not</text>
+        <rect x="552" y="72" width="98" height="28" class="badge-warn"></rect>
+        <text x="571" y="91" class="t-warn">PARTIAL</text>
+
+        <rect x="330" y="202" width="160" height="112" class="s-node"></rect>
+        <text x="350" y="229" class="s-label">Sensor processes</text>
+        <text x="350" y="252" class="s-sub">host environment</text>
+        <text x="350" y="273" class="s-sub">repo working directory</text>
+        <text x="350" y="294" class="s-sub">arbitrary configured command</text>
+
+        <rect x="510" y="202" width="160" height="112" class="s-node"></rect>
+        <text x="530" y="229" class="s-label">Coding CLI agent</text>
+        <text x="530" y="252" class="s-sub">read-only permission</text>
+        <text x="530" y="273" class="s-sub">repository as cwd</text>
+        <text x="530" y="294" class="s-sub">shared signed-in context</text>
+
+        <rect x="782" y="202" width="220" height="112" class="s-node"></rect>
+        <text x="802" y="229" class="s-label">Model provider</text>
+        <text x="802" y="252" class="s-sub">receives prompt + source</text>
+        <text x="802" y="273" class="s-label">Agent Studio handover</text>
+        <text x="802" y="296" class="s-sub">finding becomes task prompt</text>
+
+        <rect x="330" y="350" width="340" height="52" class="s-node"></rect>
+        <text x="350" y="376" class="s-label">Parser → .quality stores → escaped renderers</text>
+        <text x="350" y="394" class="s-sub">structured validation is strongest at this boundary</text>
+
+        <path d="M248 110 L330 110" class="s-flow" marker-end="url(#arrow)"></path>
+        <path d="M410 162 L410 202" class="s-flow" marker-end="url(#arrow)"></path>
+        <path d="M590 162 L590 202" class="s-flow" marker-end="url(#arrow)"></path>
+        <path d="M670 258 L782 258" class="s-flow" marker-end="url(#arrow)"></path>
+        <path d="M410 314 L455 350" class="s-flow" marker-end="url(#arrow)"></path>
+        <path d="M590 314 L545 350" class="s-flow" marker-end="url(#arrow)"></path>
+        <path d="M670 376 L782 292" class="s-flow" marker-end="url(#arrow)"></path>
+      </svg>
+      <figcaption><b>Boundary conclusion.</b> Path validation protects which repository files Studio APIs open, but it does not isolate what a spawned process can read, execute, transmit, or inherit. The recommended boundary is a worker sandbox between repository bytes and every process that interprets them.</figcaption>
+    </figure>
+    <table>
+      <thead><tr><th>Execution context</th><th>Current filesystem / credential reach</th><th>Current write path</th><th>Required boundary</th></tr></thead>
+      <tbody>
+        <tr><td><b>Studio API</b></td><td>Runs as the host service identity. Repository APIs confine selected paths to configured roots, but the process identity itself is not filesystem-sandboxed.</td><td>Registry state under the API content root plus repository-owned <code>.quality</code> state.</td><td>Keep host authority, but make it a narrow broker: register roots, create snapshots, validate results, and perform atomic writes.</td></tr>
+        <tr><td><b>Review CLI</b></td><td>Repository root as working directory; read-only agent permission; shared operator CLI home/settings/cache/memory and whatever the host identity can read.</td><td>Agent permission requests read-only; the surrounding Studio process persists accepted results.</td><td>Clean one-run identity, read-only snapshot only, no host home/sockets, provider-only egress, bounded scratch.</td></tr>
+        <tr><td><b>Analyzer process</b></td><td>Repository working directory, inherited host environment, host filesystem and network; command-backed sensors can select the executable from repository registration configuration.</td><td>Process and analyzer-dependent; SARIF command may create/delete its configured report inside the repository.</td><td>Immutable host-owned analyzer profile in a separate worker, minimal environment, no default network, bounded output/scratch.</td></tr>
+        <tr><td><b>Browser / report</b></td><td>Receives source and review JSON through the API. Current templates render text safely.</td><td>State mutations and optional handover calls return to the API.</td><td>Retain text rendering; validate payload size/schema and bind handover to canonical fingerprints.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="controls">
+    <h2><span class="no">03</span>Controls already working</h2>
+    <p>These controls reduce exposure and should be preserved as regression requirements; they do not close the critical process boundary.</p>
+    <table>
+      <thead><tr><th>Control</th><th>Observed implementation</th><th>Security value</th></tr></thead>
+      <tbody>
+        <tr><td><b>Path and link confinement</b></td><td><code>RepositoryRegistry.cs:238–251, 340–356</code>, <code>PathConfinement.cs:5–24</code>, and <code>ReviewRunner.cs:582–600</code> require an allowed Git root and reject traversal through reparse points.</td><td>Blocks ordinary <code>../</code>, absolute-path, symlink, and junction escapes through file APIs and review targets.</td></tr>
+        <tr><td><b>Finding structure</b></td><td><code>ReviewResponseParser.cs:16–126</code> parses JSON; <code>FindingIdentity.cs:27–109</code> constrains locations to review subjects and valid line ranges.</td><td>Prevents a model response from directly forging findings for unrelated paths; semantic claims still remain untrusted.</td></tr>
+        <tr><td><b>Escaped rendering</b></td><td>Angular templates use interpolation, including <code>editor/editor.html:158</code> and <code>review-panel/review-panel.html:43–51</code>. No <code>innerHTML</code> or sanitizer bypass exists under <code>frontend/src</code>. <code>QualityReport.cs:628–634</code> HTML-encodes report text.</td><td>No direct stored-XSS path was found from source/model text to the current renderers.</td></tr>
+        <tr><td><b>Secret scan redaction</b></td><td><code>GitleaksSecurityScanner.cs:417–435</code> launches Gitleaks with <code>--redact 100</code>; current repository and task-range scans returned zero findings.</td><td>Scanner output does not intentionally persist matched secret values.</td></tr>
+        <tr><td><b>Local launch binding</b></td><td><code>scripts/dev-stack.mjs:134–147</code> starts the API on <code>127.0.0.1</code>.</td><td>Reduces default local network exposure, although the API itself does not enforce loopback when Local mode is configured.</td></tr>
+        <tr><td><b>Hosted credential comparison</b></td><td><code>ApiSecurity.cs:38–64, 78–90</code> validates unique SHA-256 credential hashes and compares derived hashes in fixed time.</td><td>Avoids storing cleartext bearer credentials in the configured client list.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="risks">
+    <h2><span class="no">04</span>Prioritized risk register</h2>
+    <p>Likelihood and impact use a 1–5 scale. Score is likelihood × impact: Critical 20–25, High 12–19, Medium 6–11, Low 1–5. Likelihood reflects the current controls and intended use, not only theoretical reachability.</p>
+    <table>
+      <thead><tr><th>ID</th><th>Risk</th><th>L × I</th><th>Class</th><th>Mitigation slice</th></tr></thead>
+      <tbody>
+        <tr><td><b>R-01</b></td><td>Repo-scoped API client configures and triggers a host-executed analyzer command.</td><td>4 × 5 = 20</td><td><span class="pill open">Critical</span></td><td>S0, then S1</td></tr>
+        <tr><td><b>R-02</b></td><td>Prompt-injected repository content reaches a tool-capable agent with shared operator CLI context and repository-root working directory.</td><td>4 × 5 = 20</td><td><span class="pill open">Critical</span></td><td>S1</td></tr>
+        <tr><td><b>R-03</b></td><td>Unbounded files, aggregates, sidecars, and individual model operations exhaust memory, time, or spend.</td><td>4 × 4 = 16</td><td><span class="pill open">High</span></td><td>S2</td></tr>
+        <tr><td><b>R-04</b></td><td>Source secrets are quoted into review metadata or handover prompts that the configured Gitleaks policy excludes.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S3</td></tr>
+        <tr><td><b>R-05</b></td><td>Model-authored finding text becomes an instruction-bearing downstream Agent Studio task prompt after one UI action.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S4</td></tr>
+        <tr><td><b>R-06</b></td><td>Static hosted bearer credentials lack expiry, live revocation, and auditable key identity.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S5</td></tr>
+        <tr><td><b>R-07</b></td><td>Unchecked, repository-owned review sidecars cause memory/availability pressure or misleading UI state.</td><td>4 × 3 = 12</td><td><span class="pill open">High</span></td><td>S2, S4</td></tr>
+        <tr><td><b>R-08</b></td><td>Known Angular advisories remain in the production lock, while dependency and frontend gates are absent from CI.</td><td>2 × 4 = 8</td><td><span class="pill new">Medium</span></td><td>S0, S6</td></tr>
+        <tr><td><b>R-09</b></td><td>A maintainer-specific AllowedRoots entry is shipped again, exposing host topology and widening selectable repositories.</td><td>2 × 3 = 6</td><td><span class="pill new">Medium</span></td><td>S0, S3</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="findings">
+    <h2><span class="no">05</span>Evidence-backed findings</h2>
+
+    <h3>F-01 · Analyzer configuration crosses directly into host command execution</h3>
+    <p><span class="pill open">Critical · R-01</span></p>
+    <p><code>Program.cs:177–202</code> requires registrar privilege only for creating or importing a repository. A client allowed to access repository A may still call <code>PUT /api/repos/A</code>. <code>RepositoryRegistry.cs:267–281</code> accepts per-sensor configuration. <code>SarifSensor.cs:70–90</code> expands its <code>command</code> string and passes the first token as an executable; <code>ProcessSensorCommandRunner</code> starts it in the repository working directory while inheriting the host process environment. The scan endpoints at <code>Program.cs:277–280</code> are not spend-rate-limited. This is a complete authorization-to-command chain, not a prompt-injection hypothesis.</p>
+    <p>Repository root confinement does not reduce command authority: a configured command such as a shell or PowerShell executable can read beyond its working directory, inspect inherited credentials, use the network, and modify host-visible files. Dependency audits also execute <code>dotnet list … --vulnerable</code> and <code>npm audit --json</code> in repository directories (<code>DependencyVulnerabilitySensor.cs:118–152</code>) without a process sandbox, environment allowlist, output cap, or timeout.</p>
+    <div class="box warn"><h4>Immediate operating rule</h4><p>Disable hosted mode and executable analyzer configuration until S0. Treat deterministic sensors as code execution, even when their output is called “evidence.”</p></div>
+
+    <h3>F-02 · The review agent is read-only but not isolated</h3>
+    <p><span class="pill open">Critical · R-02</span></p>
+    <p><code>ReviewRunner.cs:209–265</code> reads repository files, repository-resolved guidelines, open threads, and sensor JSON. <code>ReviewPromptBuilder.cs:35–64</code> substitutes these values directly into the prompt. Templates label source with tags and say “Do not use tools,” but repository bytes can close or imitate those textual boundaries. There is no independent instruction/data channel.</p>
+    <p><code>ReviewAgent.cs:60–80</code> launches the coding CLI with the repository root as its working directory, <code>PermissionMode = "read-only"</code>, and <code>ContextMode = "shared"</code>. CodingAgentRunner 0.7.0 is the pinned dependency. Its installed package documentation defines shared context as the operator's normal signed-in CLI home/settings/cache/memory. Quality Studio has no model-provider API-key setting in <code>appsettings.json</code>; the review path delegates authentication to that existing CLI context. Therefore a successful prompt injection can attempt reads from every host location the CLI identity can read and can include obtained data in the provider request. Read-only prevents intended writes; it does not provide filesystem, credential, process, or egress isolation.</p>
+    <p>The correct fix is an OS/container boundary with a clean service identity, not stronger prose in the prompt. A prompt rule remains useful as defense in depth and for model behavior, but it cannot be the enforcement point.</p>
+
+    <h3>F-03 · Work and spend caps are enforced after an operation, not before it</h3>
+    <p><span class="pill open">High · R-03</span></p>
+    <p>The file API calls <code>File.ReadAllBytesAsync</code> without a size check (<code>Program.cs:413–433</code>). Review preparation reads an entire file, or concatenates every aggregate member, without byte/file-count bounds (<code>ReviewRunner.cs:462–472</code>). The token/cost cap is checked between completed operations (<code>ReviewJobs.cs:431–455, 850–875</code>), so one very large prompt can exceed a run cap before the next check. The 64 KiB HTTP request-body limit in appsettings does not bound repository content or model output.</p>
+    <p>The same availability issue exists in review sidecars: <code>ReviewMetaIndex.cs:87–108</code> parses each matching JSON file and retains its cloned root element after checking only <code>unit.path</code>, <code>kind</code>, containment, and reparse traversal. There is no maximum sidecar size or full schema validation at indexing time. Malformed JSON is caught; oversized or structurally surprising valid JSON is not quarantined.</p>
+
+    <h3>F-04 · Secret discovery is redacted, but review persistence can amplify secrets</h3>
+    <p><span class="pill open">High · R-04</span></p>
+    <p>Current and task-range repository scans returned zero findings. A redacted all-ref Gitleaks scan found one <code>generic-api-key</code> match at <code>docs/concept.md:1461</code> in commit <code>7994d81d32d…</code>; inspection showed a documented 64-hex content-derived “unit-key,” not a credential. This is a narrow false positive to suppress by fingerprint or precise rule, not a reason to disable history scanning.</p>
+    <p>The remaining leak path is review output. Raw source is sent to the model, the response permits narrative descriptions/evidence/recommendations, and results are persisted under <code>.quality/reviews</code>. Yet <code>.quality/security/gitleaks.toml:6–17</code> excludes the entire <code>.quality/reviews</code> tree. A repository secret that is echoed or summarized into review metadata can therefore become durable and may later enter a handover prompt without being checked by the current scanner. The output boundary needs secret detection/redaction before persistence, with values omitted rather than logged.</p>
+
+    <h3>F-05 · Handover creates a second-order prompt-injection path</h3>
+    <p><span class="pill open">High · R-05</span></p>
+    <p>The renderer itself is safe: model text is interpolated as text. The boundary changes when an operator clicks “Create task.” <code>review-panel.ts:48–60</code> sends the model-authored description and recommendation as <code>findingText</code>. <code>Program.cs:1037–1056</code> trusts those request fields after path normalization. <code>AgentStudioTaskClient.cs:130–157</code> interpolates them directly beneath a “Finding:” heading in a downstream agent task prompt. A malicious repository can try to make the reviewer emit instructions that survive into that task. One explicit operator action is required, which lowers likelihood but does not make the content trusted.</p>
+    <p>Handover should accept a finding fingerprint, resolve the canonical finding server-side, show the exact generated task to the operator, and attach untrusted model prose as a structured data field whose downstream contract explicitly forbids treating it as instructions.</p>
+
+    <h3>F-06 · Hosted credentials are static, and Local mode is a configuration assumption</h3>
+    <p><span class="pill open">High · R-06</span></p>
+    <p><code>ApiSecurity.cs:20–64</code> materializes credential hashes once from startup options. Tokens have no expiry, audience, key identifier, or live revocation. Rotation requires changing configuration and restarting. In Local mode, <code>ApiSecurity.cs:73–76, 100–101</code> grants wildcard registrar authority and bypasses the mutation client header. The standard launcher correctly binds loopback, but the API does not reject a non-loopback binding while configured Local. State-changing no-body endpoints such as sensor scans also lack a local Origin/CSRF check; browser CORS policy is not a server-side authorization control.</p>
+
+    <h3>F-07 · QS-53 removed the shipped maintainer path; recurrence prevention is absent</h3>
+    <p><span class="pill new">Medium · R-09</span></p>
+    <p>Commit <code>251ce81c78a7b937d5e706892b7cacb4bc332c01</code> added <code>../../../agent-taskboard-devspace</code> to the tracked <code>AllowedRoots</code> in <code>src/QualityStudio.Api/appsettings.json</code>. The QS-53 result commit <code>aca322f3d16cad1d29dfc3a7d0a28d470ee6c150</code> removed it and documented that machine-specific paths belong in environment-specific configuration. The current file contains only <code>../..</code>.</p>
+    <p>No credential was present in that path. The security issue was disclosure of maintainer filesystem topology and, more importantly, an expanded set of repositories that a registrar—or the R-01 privilege chain—could select. The instance is fixed; CI has no policy that prevents the same class of tracked configuration change.</p>
+  </section>
+
+  <section id="dependencies">
+    <h2><span class="no">06</span>Dependency advisory snapshot</h2>
+    <table>
+      <thead><tr><th>Scope</th><th>Observed result</th><th>Reachability judgment</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><b>Frontend production</b></td><td><code>npm audit --omit=dev</code>: 6 high, 0 critical, across direct Angular 20.3.26 packages. Root advisories are <a href="https://github.com/advisories/GHSA-jhpw-976m-542j">GHSA-jhpw-976m-542j</a> (HttpTransferCache cache-key ambiguity) and <a href="https://github.com/advisories/GHSA-jj27-h5hq-8x99">GHSA-jj27-h5hq-8x99</a> (i18n event-attribute XSS). Both report a fix at 20.3.27.</td><td>No use of i18n, hydration, <code>HttpTransferCache</code>, or <code>TransferState</code> was found under <code>frontend/src</code>. Exploitability in the current client-only code is therefore reduced, but the vulnerable runtime remains shipped and feature use can change.</td><td>Upgrade all Angular packages together to at least 20.3.27, regenerate the lock, run unit/E2E/build tests, and require zero production high/critical advisories.</td></tr>
+        <tr><td><b>Frontend full tree</b></td><td><code>npm audit</code>: 13 high, 6 moderate, 0 critical over 630 dependencies. Additional affected transitive packages include <code>brace-expansion</code>, <code>fast-uri</code>, <code>ip-address</code>, <code>nanoid</code>, <code>postcss</code>, <code>socket.io-parser</code>, <code>hono</code>, <code>@hono/node-server</code>, <code>undici</code>, and <code>tar</code>.</td><td>The additional findings are in dev/build tooling in this lock. Reviewed repository content is not compiled by the Studio Angular build, so this is primarily developer/CI supply-chain exposure rather than a browser runtime path.</td><td>Refresh the dev toolchain separately; do not hide it behind the production threshold. Pin CI actions by digest/SHA and retain the audit artifact.</td></tr>
+        <tr><td><b>.NET solution</b></td><td><code>dotnet list QualityStudio.slnx package --vulnerable --include-transitive --format json</code>: no known vulnerable packages.</td><td>No NuGet advisory was returned for the assessed restore graph.</td><td>Add the same command to CI; a clean point-in-time query is not a continuous gate.</td></tr>
+        <tr><td><b>.NET spike</b></td><td>The same vulnerable-package query for <code>spikes/code-graph/CodeGraphSpike.csproj</code>: no known vulnerable packages.</td><td>The spike is outside the solution and must remain an explicit scan target while it exists.</td><td>Scan it or remove/archive it deliberately.</td></tr>
+      </tbody>
+    </table>
+    <div class="box warn"><h4>CI gap</h4><p><code>.github/workflows/build.yml:24–34</code> restores, builds, and tests the .NET solution and runs a current-worktree secret scan. It does not install/build/test the frontend, query npm or NuGet advisories, or scan Git history. The green workflow therefore does not attest to the dependency state summarized above.</p></div>
+  </section>
+
+  <section id="options">
+    <h2><span class="no">07</span>Options and recommendation</h2>
+    <table>
+      <thead><tr><th>Option</th><th>What changes</th><th>Residual risk</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr><td><b>A · Prompt and policy only</b></td><td>Strengthen source delimiters, tell the model not to use tools or quote secrets, document trusted repos.</td><td>R-01 is untouched. R-02 remains because the same host identity, home, filesystem, and network are available. Prompts are not enforcement.</td><td><span class="pill open">Reject</span></td></tr>
+        <tr><td><b>B · Clean context in-process</b></td><td>Set agent context to clean, scrub environment variables, add input limits, and restrict configured commands.</td><td>Useful emergency reduction, but the child process still shares the host kernel, mount namespace, user identity, and network. An implementation mistake restores broad access.</td><td><span class="pill new">Interim only</span></td></tr>
+        <tr><td><b>C · Isolated workers and brokered results</b></td><td>Execute agents and sensors in short-lived sandboxed workers against a read-only snapshot; use service credentials, allowlisted egress, explicit analyzer profiles, resource limits, and a validated result broker.</td><td>Model/data poisoning remains possible but is bounded to a review result. Renderer, handover, audit, and credential controls address that residual path.</td><td><span class="pill queued">Recommend</span></td></tr>
+      </tbody>
+    </table>
+    <p><b>Recommendation:</b> approve Option C. Use the contained portions of Option B in S0 as an emergency brake, not as the target architecture.</p>
+  </section>
+
+  <section id="slices">
+    <h2><span class="no">08</span>Implementation slices</h2>
+    <p>Each slice is independently reviewable and carries explicit exit evidence. Effort is an engineering estimate, not elapsed calendar time.</p>
+
+    <h3>S0 · Close the authorization-to-command chain <span class="pill open">Approve now · 1–2 days</span></h3>
+    <ul>
+      <li>Require registrar privilege for repository root, global input, sensor, and archive mutations; preferably split immutable host-owned root/sensor configuration from repo-scoped display settings.</li>
+      <li>Reject free-form analyzer commands. Resolve a host-owned analyzer profile ID to an immutable executable and argument template. Disable command-backed analyzers by default in Hosted and Local modes until S1.</li>
+      <li>Apply the spend limiter to sensor scans and other expensive scans. Require a valid Origin plus a per-session anti-CSRF nonce for local mutations, and fail startup when Local mode binds a non-loopback address.</li>
+      <li>Upgrade the Angular 20.3.26 family to a fixed, mutually compatible 20.3 patch and regenerate the lock.</li>
+    </ul>
+    <div class="stx stx-open"><b>Exit:</b> an A-scoped client cannot change A's root or sensor execution profile; shell/PowerShell command fixtures are rejected; cross-origin local mutation is denied; production npm audit has no high/critical finding; authorization and configuration tests cover all mutation routes.</div>
+
+    <h3>S1 · Put agents and sensors behind a worker boundary <span class="pill open">Required for untrusted repos · 4–6 days</span></h3>
+    <ul>
+      <li>Create a per-run worker with a read-only, regular-file source snapshot and a separate writable scratch/output mount. Do not mount the Studio registry, host home, Git credentials, sockets, or unrelated repositories.</li>
+      <li>Use a clean service identity and clean CLI context. Supply only a short-lived model credential through a broker or one-run secret mount; never reuse an operator's personal signed-in CLI home.</li>
+      <li>Allow egress only to the approved model endpoint for agent workers. Sensor workers get no network unless their immutable profile requires a specifically approved registry endpoint.</li>
+      <li>Enforce wall-clock, CPU, memory, process, output-byte, and filesystem quotas. The host validates a versioned response schema and is the only component allowed to atomically write <code>.quality</code> results.</li>
+    </ul>
+    <div class="stx stx-open"><b>Exit:</b> adversarial fixtures ask the agent and analyzer to read planted host-home/environment secrets, access a sibling repository, open a network canary, fork repeatedly, and write outside scratch. Every attempt is blocked and no canary value appears in provider traffic, logs, or artifacts.</div>
+
+    <h3>S2 · Bound and quarantine repository input <span class="pill queued">2–4 days</span></h3>
+    <ul>
+      <li>Set versioned maximums for file bytes, aggregate files/bytes, prompt bytes/tokens, sidecar bytes/count, response bytes, findings, threads, and individual text fields.</li>
+      <li>Preflight the complete operation against the remaining run budget before launching a model; reject or deterministically partition oversized aggregates.</li>
+      <li>Stream or size-check file responses before allocation. Apply one regular-file/no-reparse opener to API, hierarchy, review, and sidecar reads.</li>
+      <li>Validate review sidecars against the same versioned schema used at write time; quarantine invalid/oversized files and expose a bounded diagnostic instead of their payload.</li>
+    </ul>
+    <div class="stx stx-part"><b>Exit:</b> oversized file/aggregate fixtures produce a stable 413/422 before agent launch; a valid-but-huge or schema-invalid sidecar cannot raise steady-state memory, break the tree, or enter handover; cap tests prove no single operation starts above remaining budget.</div>
+
+    <h3>S3 · Make secret handling end-to-end <span class="pill queued">2–3 days</span></h3>
+    <ul>
+      <li>Add an explicit “never reproduce credentials; cite location/type only” review rule, then independently run redaction/DLP over model output before logs, persistence, rendering, or handover.</li>
+      <li>Replace the blanket <code>.quality/reviews</code> Gitleaks exclusion with a safe metadata scan or dedicated redactor. Add an all-ref CI scan with a narrow, reviewed suppression for the documented unit-key false positive.</li>
+      <li>Add a tracked-config policy that rejects machine-specific AllowedRoots, absolute maintainer paths, cleartext credential fields, and secret-like values. Keep deployment paths and credential hashes in environment/secret-store configuration.</li>
+      <li>Document identification, revocation, and rotation without ever copying the secret into an incident artifact.</li>
+    </ul>
+    <div class="stx stx-part"><b>Exit:</b> seeded fake secrets in source and malicious model output are absent from <code>.quality</code>, API responses, handover requests, and logs; current plus all-ref scans pass with only fingerprint-specific, reviewed suppressions; a QS-53-style appsettings diff fails CI.</div>
+
+    <h3>S4 · Preserve rendering safety and make handover data-only <span class="pill queued">2–3 days</span></h3>
+    <ul>
+      <li>Keep Angular interpolation and report HTML encoding; add regression fixtures containing tags, event handlers, Markdown links, control characters, template syntax, and bidi characters.</li>
+      <li>Change handover input from free-form finding fields to repository ID + finding fingerprint. Resolve the stored finding server-side and verify its subject hash/staleness.</li>
+      <li>Present the exact downstream card for confirmation. Put model prose in a typed JSON attachment or quoted data block, label it untrusted, and keep task instructions in a host-owned template. Record source commit, finding fingerprint, prompt-template version, and approver.</li>
+    </ul>
+    <div class="stx stx-part"><b>Exit:</b> a finding containing “ignore previous instructions,” HTML, and terminal/control sequences renders as text and cannot change the host-owned task instructions; altered/stale/client-forged finding data is rejected; no task is sent before preview confirmation outside dry-run tests.</div>
+
+    <h3>S5 · Add a hosted credential lifecycle <span class="pill queued">3–5 days</span></h3>
+    <ul>
+      <li>Adopt short-lived, audience-bound signed client assertions, or reloadable high-entropy bearer hashes with key ID, expiry, repository scope, and a revocation source. Keep constant-time validation.</li>
+      <li>Separate roles for repository administration, review spending, sensor execution, state mutation, and handover. Deny by default on every route and test the complete route inventory.</li>
+      <li>Emit audit events for credential ID, action, repository, decision, and result—never the credential. Prove revocation without an API restart.</li>
+    </ul>
+    <div class="stx stx-part"><b>Exit:</b> expired, wrong-audience, revoked, wrong-repository, and wrong-role credentials fail; revocation takes effect within the declared bound without restart; audit records identify the key and authorization decision.</div>
+
+    <h3>S6 · Establish a continuous supply-chain gate <span class="pill queued">1–2 days</span></h3>
+    <ul>
+      <li>CI runs <code>npm ci</code>, frontend build/unit tests, and a production audit that fails on high/critical. Retain a separate full-tree audit so dev-only findings remain visible.</li>
+      <li>CI runs NuGet vulnerable-package checks for the solution and out-of-solution spike, generates an SBOM, and records advisory-query timestamps.</li>
+      <li>Pin GitHub Actions to immutable commit SHAs and enable scheduled dependency updates with a test-backed patch lane.</li>
+    </ul>
+    <div class="stx stx-part"><b>Exit:</b> a deliberately vulnerable fixture fails the appropriate gate; a clean locked graph produces retained npm, NuGet, SBOM, frontend test, and history-secret-scan evidence.</div>
+
+    <table>
+      <thead><tr><th>Gate</th><th>Slices</th><th>Operating capability unlocked</th></tr></thead>
+      <tbody>
+        <tr><td><b>A · Immediate containment</b></td><td>S0 + initial S6</td><td>Trusted local repositories only; hosted remains off.</td></tr>
+        <tr><td><b>B · Untrusted review</b></td><td>S1 + S2</td><td>Review third-party repositories inside the isolated worker boundary.</td></tr>
+        <tr><td><b>C · Hosted and handover</b></td><td>S3 + S4 + S5 + complete S6</td><td>Hosted multi-client use and Agent Studio handover with lifecycle, provenance, and continuous gates.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="approval">
+    <h2><span class="no">09</span>Approval packet</h2>
+    <div class="box accent">
+      <h4>Proposed operator resolution</h4>
+      <p>“Approve Option C and slices S0–S6. Effective immediately, Quality Studio remains local and limited to operator-controlled repositories. Hosted mode is blocked until Gate A. Untrusted repository review is blocked until Gate B. Non-dry-run Agent Studio handover and hosted multi-client use are blocked until Gate C. Security review signs off each slice against its stated exit evidence.”</p>
+    </div>
+    <p>The architecture decision is deliberately independent of model choice: no model can raise the correctness or confidentiality guarantee above the process boundary that supplies its tools, mounts, credentials, and network.</p>
+  </section>
+
+  <section id="evidence">
+    <h2><span class="no">10</span>Evidence index and limitations</h2>
+    <table>
+      <thead><tr><th>Question</th><th>Primary repository evidence</th></tr></thead>
+      <tbody>
+        <tr><td>What enters prompts?</td><td><code>src/AgentOrchestrator.CodeQuality/ReviewRunner.cs:209–265, 462–472</code>; <code>ReviewPromptBuilder.cs:35–64</code>; <code>prompts/file-*.md</code>.</td></tr>
+        <tr><td>What authority does the agent receive?</td><td><code>ReviewAgent.cs:60–80</code>; <code>AgentOrchestrator.CodeQuality.csproj:6</code>; installed CodingAgentRunner 0.7.0 README for clean/shared context semantics.</td></tr>
+        <tr><td>What can execute on the host?</td><td><code>DependencyVulnerabilitySensor.cs:21–60, 118–152</code>; <code>SarifSensor.cs:35–102</code>; <code>AnalyzerSensors.cs:120–169</code>; <code>ReviewJobs.cs:414–430</code>.</td></tr>
+        <tr><td>What confines filesystem paths?</td><td><code>PathConfinement.cs:5–24</code>; <code>RepositoryAccess.cs:25–63</code>; <code>RepositoryRegistry.cs:238–251, 340–356</code>; <code>ReviewRunner.cs:539–543, 582–600</code>.</td></tr>
+        <tr><td>How are results rendered and forwarded?</td><td><code>frontend/src/app/editor/editor.html:158</code>; <code>review-panel/review-panel.html:43–51</code>; <code>review-panel.ts:48–60</code>; <code>QualityReport.cs:628–634</code>; <code>Program.cs:1037–1056</code>; <code>AgentStudioTaskClient.cs:130–157</code>.</td></tr>
+        <tr><td>How are API credentials scoped?</td><td><code>ApiSecurity.cs:20–101</code>; <code>Program.cs:166–202, 226–245</code>; <code>appsettings.json:13–20</code>.</td></tr>
+        <tr><td>What happened in QS-53?</td><td>Git commits <code>251ce81c78a7b937d5e706892b7cacb4bc332c01</code> and <code>aca322f3d16cad1d29dfc3a7d0a28d470ee6c150</code>; current <code>src/QualityStudio.Api/appsettings.json:3–6</code>.</td></tr>
+        <tr><td>What was executed?</td><td><code>npm audit --json</code>; <code>npm audit --omit=dev --json</code>; NuGet <code>--vulnerable --include-transitive</code> for solution and spike; <code>quality-cli security scan</code> for repository and range; redacted Gitleaks all-ref history scan.</td></tr>
+      </tbody>
+    </table>
+    <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+</main>
+</body>
+</html>
