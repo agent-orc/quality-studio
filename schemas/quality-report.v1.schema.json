@@ -54,7 +54,9 @@
           }
         },
         "trend": { "type": "array" },
-        "findings": { "type": "array" }
+        "findings": { "type": "array" },
+        "modelRecords": { "type": "array" },
+        "unknownAspects": { "type": "array" }
       }
     }
   }

@@ -79,6 +79,47 @@ public sealed class QualityReportTests
     }
 
     [Fact]
+    public async Task TopLevelSensorFindingRetainsDeterministicProvenanceInReportAndSarif()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(59);
+        await fixture.MarkTopLevelFindingDeterministicAsync();
+
+        var report = await new QualityReportBuilder().BuildAsync(
+            [fixture.Request], TestContext.Current.CancellationToken);
+
+        var finding = Assert.Single(Assert.Single(report.Repositories).Findings);
+        Assert.Equal("deterministic", finding.Source);
+        Assert.Equal("gitleaks", finding.SensorId);
+        Assert.Equal("Gitleaks", finding.Producer);
+        using var sarif = JsonDocument.Parse(QualityReportRenderer.Render(report, QualityReportFormat.Sarif));
+        var sarifFinding = Assert.Single(Assert.Single(sarif.RootElement.GetProperty("runs").EnumerateArray())
+            .GetProperty("results").EnumerateArray());
+        Assert.Equal("deterministic",
+            sarifFinding.GetProperty("properties").GetProperty("source").GetString());
+        Assert.Equal("gitleaks",
+            sarifFinding.GetProperty("properties").GetProperty("sensorId").GetString());
+    }
+
+    [Fact]
+    public async Task ObservationReadProjectionRetainsTotalsAndExposesBothModelRecords()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(88);
+        await fixture.AppendObservationAsync("model-a", new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero));
+        await fixture.AppendObservationAsync("model-b", new DateTimeOffset(2026, 8, 11, 8, 1, 0, TimeSpan.Zero));
+
+        var report = await new QualityReportBuilder().BuildAsync(
+            [fixture.Request with { ObservationReadEnabled = true }],
+            TestContext.Current.CancellationToken);
+
+        var repository = Assert.Single(report.Repositories);
+        Assert.Equal(88, repository.Scorecard.Score);
+        Assert.Equal(1, repository.Scorecard.Findings.ByState["open"]);
+        Assert.Equal(["model-a", "model-b"], repository.ModelRecords!.Select(item => item.EffectiveModel));
+        Assert.All(repository.ModelRecords!, item => Assert.Equal("controlled", item.Comparability));
+        Assert.Empty(repository.UnknownAspects!);
+    }
+
+    [Fact]
     public async Task Cli_exit_codes_cover_passing_failing_and_invalid_gates()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(68);
@@ -207,6 +248,53 @@ public sealed class QualityReportTests
             });
             await File.WriteAllTextAsync(
                 sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        }
+
+        public async Task MarkTopLevelFindingDeterministicAsync()
+        {
+            var metadata = JsonNode.Parse(await File.ReadAllTextAsync(
+                sidecarPath, TestContext.Current.CancellationToken))!.AsObject();
+            metadata["findings"]![0]!["source"] = new JsonObject
+            {
+                ["kind"] = "deterministic",
+                ["sensorId"] = "gitleaks",
+                ["producer"] = "Gitleaks",
+                ["producerVersion"] = "8.24.2",
+            };
+            await File.WriteAllTextAsync(
+                sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        }
+
+        public async Task AppendObservationAsync(string model, DateTimeOffset observedAt)
+        {
+            var projection = JsonNode.Parse(await File.ReadAllTextAsync(
+                sidecarPath, TestContext.Current.CancellationToken))!.AsObject();
+            var observation = new QualityObservationDocument
+            {
+                ObservationId = $"observation-{model}",
+                ObservedAt = observedAt,
+                Taxonomy = QualityTaxonomyCatalogue.CoreReference,
+                Subject = new QualityObservationSubject(
+                    "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    reviewedHash,
+                    "unit"),
+                Profile = new QualityObservationProfile(
+                    "file-code-review", "1.0.0", "sha256:prompt", "sha256:inputs"),
+                Producer = new QualityObservationProducer(
+                    "agent", "codex", "openai", model, model, "high", "route-v1", model, model),
+                EvidenceStatus = "available",
+                Aspects = [new QualityObservationAspect(
+                    "code.correctness", "pass", "Fixture score.",
+                    Grade: new QualityObservationGrade(score, QualityReportBuilder.Grade(score)))],
+                Assessment = "pass",
+                Extensions = new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+                {
+                    [QualityObservationReducer.ProjectionExtension] =
+                        JsonSerializer.SerializeToElement(projection),
+                },
+            };
+            await QualityObservationLedger.AppendAsync(
+                Root, observation, TestContext.Current.CancellationToken);
         }
 
         private async Task WriteSidecarAsync()
