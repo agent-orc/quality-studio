@@ -32,6 +32,7 @@ try {
       const request = route.request();
       const url = new URL(request.url());
       const path = url.pathname;
+      if (path.endsWith('/api/models')) return json(route, modelCatalog());
       if (request.method() === 'POST' && path.endsWith('/review/estimate')) return json(route, preflight());
       if (request.method() === 'POST' && path.endsWith('/review')) {
         const id = `review-render-${runs.length + 1}`;
@@ -70,14 +71,19 @@ try {
     });
     page.on('dialog', dialog => dialog.accept());
     await page.goto(`http://127.0.0.1:${port}/?repo=default&path=src%2FCartTotals.cs&kind=code`);
-    const startReview = page.locator('qs-review-panel').getByRole('button', { name: /^Start review/ });
-    await startReview.waitFor({ state: 'visible' });
+    const reviewIntent = page.locator('.scope-review-launcher .review-intent');
+    await reviewIntent.waitFor({ state: 'visible' });
     const samples = [];
     for (let iteration = 1; iteration <= 5; iteration++) {
-      await startReview.click();
+      if (iteration > 1) {
+        await page.locator('.scope-review-launcher .active-run-actions')
+          .getByRole('button', { name: 'Review again' }).click();
+      }
+      await reviewIntent.click();
+      await page.locator('.scope-review-launcher .preflight-sheet')
+        .getByRole('button', { name: 'Start review', exact: true }).click();
       const id = `review-render-${iteration}`;
-      await page.waitForFunction(expected => Array.from(document.querySelectorAll('.run-heading span'))
-        .filter(element => element.textContent?.trim() === 'done').length >= expected, iteration);
+      await page.locator('.scope-review-launcher .active-run-strip[data-state="done"]').waitFor();
       const renderedAt = performance.now();
       const sample = timing.get(id);
       samples.push({
@@ -89,7 +95,7 @@ try {
     const result = {
       measuredAt: new Date().toISOString(),
       browser: await browser.version(),
-      mechanism: 'real Angular app; mocked local API marks each run done 100 ms after queueing; existing 1,500 ms polling path unchanged',
+      mechanism: 'real Angular app and current preflight/start workflow; mocked local API marks each run done 100 ms after queueing; existing 1,500 ms polling path unchanged',
       samples,
       terminalToVisible: summarize(samples.map(sample => sample.terminalToVisibleMs)),
       responseToVisible: summarize(samples.map(sample => sample.responseToVisibleMs)),
@@ -121,8 +127,9 @@ function coverage() { return { state: 'unknown', coveredLines: 0, totalLines: 0,
 function file() { return { path: 'src/CartTotals.cs', content: 'public static class CartTotals { }\n', metaDocuments: [], sizeBytes: 35, lineEnding: 'lf', encoding: 'utf-8', coverage: coverage() }; }
 function project() { return { generatedAt: new Date().toISOString(), grades: [], findings: { open: 0, bySeverity: {}, byReviewState: {}, path: '.' }, staleness: { fresh: 0, stale: 0, missing: 1, total: 1, path: '.' }, reviewCoverage: { reviewedFiles: 0, totalFiles: 1, percent: 0, path: '.' }, testCoverage: { status: 'unavailable', linePercent: null, coveredLines: null, totalLines: null, source: null, path: '.' }, metrics: { fileCount: 1, folderCount: 1, bytes: 35, lines: 1, languages: [], fileSizeDistribution: [], folderSizeDistribution: [], duplicationCandidates: [], dependencyEdges: [] }, hotspots: [] }; }
 function usage() { return { generatedAt: new Date().toISOString(), runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] }; }
-function preflight() { return { repositoryId: 'default', path: 'src/CartTotals.cs', level: 'file', kind: 'code', model: null, cliType: 'codex', estimate: { files: 1, operations: 1, promptCharacters: 4000, inputTokens: 1000, outputTokens: 200, cost: null, currency: null, priceStatus: 'unknownModel', historySamples: 0, method: 'render fixture' }, tokenCap: 100000, costCap: null }; }
-function reviewRun(id, state) { const done = state === 'done'; return { id, repositoryId: 'default', path: 'src/CartTotals.cs', level: 'file', kind: 'code', model: null, cliType: 'codex', state, totalFiles: 1, completedFiles: done ? 1 : 0, failedFiles: 0, createdAt: new Date().toISOString(), startedAt: new Date().toISOString(), finishedAt: done ? new Date().toISOString() : null, files: [], errors: [], usageOperations: done ? 1 : 0, usage: { inputTokens: done ? 1000 : null, outputTokens: done ? 200 : null, cachedInputTokens: done ? 500 : null, reasoningOutputTokens: done ? 50 : null, durationMs: done ? 100 : 0 }, estimate: preflight().estimate, tokenCap: 100000, costCap: null, costSpent: null, currency: null, priceStatus: 'unknownModel', skippedFiles: 0, aggregateState: null, stopReason: null, deviation: null }; }
+function modelCatalog() { return { schemaVersion: 1, policyVersion: 'render-fixture', evidenceAsOfDate: '2026-08-11', sourceRepository: 'fixture', sourceCommit: 'fixture', thinkingLevels: ['low', 'medium', 'high'], models: [] }; }
+function preflight() { return { repositoryId: 'default', path: 'src/CartTotals.cs', level: 'file', kind: 'code', model: null, thinkingLevel: null, cliType: 'codex', estimate: { files: 1, operations: 1, promptCharacters: 4000, inputTokens: 1000, outputTokens: 200, cost: null, currency: null, priceStatus: 'unknownModel', historySamples: 0, method: 'render fixture', expectedFreshSkips: 0 }, tokenCap: 100000, costCap: null, recommendation: { policyVersion: 'render-fixture', recommendedModel: 'runner-default', recommendedThinkingLevel: 'model-default', capabilityTier: 'frontier', score: 100, correctnessFloor: 'runner-default', reason: 'Controlled rendering fixture.', selectionSource: 'fixture' }, overrideBelowFloor: false }; }
+function reviewRun(id, state) { const done = state === 'done'; return { id, repositoryId: 'default', path: 'src/CartTotals.cs', level: 'file', kind: 'code', model: null, thinkingLevel: null, cliType: 'codex', state, totalFiles: 1, completedFiles: done ? 1 : 0, failedFiles: 0, createdAt: new Date().toISOString(), startedAt: new Date().toISOString(), finishedAt: done ? new Date().toISOString() : null, files: [], errors: [], usageOperations: done ? 1 : 0, usage: { inputTokens: done ? 1000 : null, outputTokens: done ? 200 : null, cachedInputTokens: done ? 500 : null, reasoningOutputTokens: done ? 50 : null, durationMs: done ? 100 : 0 }, estimate: preflight().estimate, tokenCap: 100000, costCap: null, costSpent: null, currency: null, priceStatus: 'unknownModel', skippedFiles: 0, aggregateState: null, stopReason: null, deviation: null }; }
 
 function json(route, body) { return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }); }
 
