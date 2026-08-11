@@ -42,10 +42,27 @@ export type ReviewKind = 'code' | 'security' | 'performance';
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type FindingState = 'open' | 'accepted' | 'waived' | 'false-positive' | 'resolved';
 export interface FindingStateCounts { open: number; accepted: number; waived: number; falsePositive: number; resolved: number; }
+export type FindingAssessmentStatus = 'unassessed' | 'confirmed' | 'dismissed' | 'disputed';
+export type FindingResolutionStatus = 'open' | 'planned' | 'fixed' | 'risk-accepted' | 'obsolete' | 'fixed-by-absence';
+export interface FindingAssessment { status: FindingAssessmentStatus; assessedBy?: string | null; reason?: string | null; assessedAt?: string | null; revision: number; source: 'none' | 'human' | 'compatibility'; }
+export interface FindingResolution { status: FindingResolutionStatus; taskKey?: string | null; resolvedAt?: string | null; }
+export interface FindingSuppression { ruleId: string; reason: string; author: string; expiresAt?: string | null; }
+export interface FindingAssessmentCounts { unassessed: number; confirmed: number; dismissed: number; disputed: number; }
+export type FindingResolutionCounts = Record<FindingResolutionStatus, number>;
+export interface FindingSuppressionCounts { suppressed: number; visible: number; }
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
 export interface FindingSource { kind: 'deterministic'; sensorId: string; producer: string; producerVersion?: string; runIndex?: number; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+export interface ReviewRoute { model: string | null; thinkingLevel: string | null; }
+export interface ExecutedReviewRoute extends ReviewRoute { cli: string; }
+export interface CapturedExcerpt { text: string; language: string; contentHash: string; excerptHash: string; }
+export interface FindingAnchor { id: string; role: 'primary' | 'related'; path: string; range: { start: FindingPosition; end: FindingPosition }; capturedExcerpt: CapturedExcerpt; symbolId?: string | null; }
+export type FindingEvidenceClass = 'source-span' | 'deterministic-result' | 'test-result' | 'runtime-observation' | 'external-reference' | 'legacy-claim';
+export interface FindingEvidence { id: string; class: FindingEvidenceClass; status: 'observed' | 'verified' | 'claimed' | 'blocked' | 'unknown'; summary: string; anchorId?: string | null; reference?: string | null; }
+export type ReproductionStatus = 'verified' | 'specified' | 'not-applicable' | 'blocked' | 'unknown';
+export interface FindingReproduction { status: ReproductionStatus; steps: string[]; expected?: string | null; observed?: string | null; reason?: string | null; attempts?: Array<{ attemptedAt: string; executor: string; result: string; artifactReference?: string | null }>; }
+export interface FindingOrigin { kind: 'agent' | 'deterministic' | 'human'; reviewRunId?: string | null; operationRunId: string; requested: ReviewRoute; executed: ExecutedReviewRoute; prompt: { id: string; version: string; contentHash: string }; reviewInputHash: string; subjectManifestHash: string; sourceRevision: string; observedAt: string; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; problem?: string; impact?: string; remediation?: string; anchors?: FindingAnchor[]; evidence?: string | FindingEvidence[]; reproduction?: FindingReproduction; origin?: FindingOrigin; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; assessment?: FindingAssessment; resolution?: FindingResolution; suppression?: FindingSuppression | null; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
@@ -59,9 +76,12 @@ export interface SecuritySensorMetadata extends ReviewSensorReference { availabl
 export interface SecurityReviewMetadata { verdict: SecurityVerdict; combinationRule: string; sensors: SecuritySensorMetadata[]; }
 export interface SensorProvenance { sensorId: string; sensorVersion: string; scope: string; target: string; scannedAt: string; toolVersions: Record<string, string>; }
 export interface DeterministicSensorResult { available: boolean; unavailableReason: string | null; findings: ReviewFinding[]; provenance: SensorProvenance; }
-export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
+export interface ReviewMetaDocument { schemaVersion?: number; reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; requested?: ReviewRoute; executed?: ExecutedReviewRoute; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; assessmentCounts?: FindingAssessmentCounts; resolutionCounts?: FindingResolutionCounts; suppressionCounts?: FindingSuppressionCounts; suppressionRevision?: number; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
 export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
+export interface FindingAssessmentMutationRequest { path: string; kind: ReviewKind; fingerprint: string; assessment?: FindingAssessmentStatus | null; resolution?: FindingResolutionStatus | null; actor: string; reason: string; expectedRevision: number; reviewRunId?: string | null; operationRunId?: string | null; taskKey?: string | null; }
+export interface FindingSuppressionRule { id: string; enabled: boolean; match: { fingerprint?: string | null; ruleId?: string | null; pathPattern?: string | null; reviewKinds?: ReviewKind[] | null; sourceKinds?: Array<'agent' | 'deterministic'> | null }; effect: 'suppress'; reason: string; author: string; createdAt: string; expiresAt?: string | null; }
+export interface FindingSuppressionPreview { matchCount: number; matches: Array<{ fingerprint: string; ruleId: string; path: string; reviewKind: ReviewKind; sourceKind: string; findingId: string; title: string }>; }
 export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
 export interface SecurityScanProvenance { scanner: string; version: string; mode: string; range: string | null; configPath: string | null; baselinePath: string | null; scannedAt: string; }
 export interface SecurityScanCounts { filesScanned: number; newFindings: number; acceptedFindings: number; blockFindings: number; warnFindings: number; cleanFiles: number; }
@@ -250,9 +270,26 @@ export interface QualityRunTrendPoint {
   cost: number | null; currency: string | null;
 }
 export interface QualityRunTrendPage { points: QualityRunTrendPoint[]; nextCursor: string | null; }
+export interface ReviewHistoryEnvelope {
+  schemaVersion: number;
+  contentHash: string;
+  run: {
+    runId: string; repositoryId: string; scope: { id: string; name: string; path: string }; level: string; kind: ReviewKind;
+    requestedRoute: { cli: string | null; model: string | null; thinkingLevel: string | null };
+    executedRoute: { cli: string | null; model: string | null; thinkingLevel: string | null };
+    createdAt: string; startedAt: string | null; finishedAt: string; state: 'done' | 'failed' | 'cancelled';
+    estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; estimateDeviation: ReviewEstimateDeviation | null;
+    targets: Array<{ id: string; name: string; path: string; subjectHash: string }>;
+    aggregateControls: string[] | null; aggregateExclusions: ScopeExclusion[] | null; force: boolean;
+    outcomes: ReviewFileProgress[]; aggregateState: string | null; usageOperations: number; usage: TokenUsage;
+    costSpent: number | null; currency: string | null; priceStatus: string;
+    evidence: Array<{ path: string; state: string; metaReference: string | null; metaHash: string | null; findingFingerprints: string[]; findingFingerprintsByAspect: Record<string, string[]>; evidenceClasses: Record<string, number>; reproductionStatuses: Record<string, number> }>;
+    errors: string[]; stopReason: string | null;
+  };
+}
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
-export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
+export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; requestedModel?: string | null; thinkingLevel?: string | null; requestedThinkingLevel?: string | null; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; }
 export interface QuotaWindow { label: string; usedPct: number | null; remainingPct: number | null; used: number | null; limit: number | null; unit: string | null; resetAt: string | null; resetLabel: string | null; }
 export interface QuotaProvider { provider: string; plan: string | null; fetchedAt: string; source: string | null; error: string | null; windows: QuotaWindow[]; }
@@ -429,6 +466,7 @@ export class QualityApi {
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
   readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
+  readonly reviewHistory = signal<ReviewHistoryEnvelope[]>([]);
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
@@ -582,9 +620,13 @@ export class QualityApi {
     if (!this.connected() || repositoryId !== this.selectedRepositoryId()) return;
     try {
       const before = new Map(this.reviewRuns().map(run => [run.id, run.state]));
-      const result = await firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`));
+      const [result, history] = await Promise.all([
+        firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`)),
+        firstValueFrom(this.http.get<{ runs: ReviewHistoryEnvelope[] }>(`${this.repositoryApiBase(repositoryId)}/review/history`)),
+      ]);
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.reviewRuns.set(result.runs);
+      this.reviewHistory.set(history.runs);
       const completed = result.runs.some(run => ['done', 'failed', 'cancelled', 'capped'].includes(run.state) && ['queued', 'running'].includes(before.get(run.id) ?? ''));
       if (completed) {
         const openPath = this.file()?.path;
@@ -623,6 +665,10 @@ export class QualityApi {
 
   repositoryReportUrl(format: RunReportFormat = 'html'): string {
     return `${this.repositoryApiBase()}/report?format=${format}`;
+  }
+
+  reviewHistoryEvidenceUrl(id: string): string {
+    return `${this.repositoryApiBase()}/review/history/${encodeURIComponent(id)}`;
   }
 
   async loadUsage(since?: string, kind?: ReviewKind, repositoryId = this.selectedRepositoryId()): Promise<void> {
@@ -847,6 +893,10 @@ export class QualityApi {
       return error.error?.detail || error.error?.title || error.message;
     }
     return error instanceof Error ? error.message : 'The repository request failed.';
+  }
+
+  repositoryEndpoint(path: `/${string}`): string {
+    return this.repositoryApiBase() + path;
   }
 
   private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {

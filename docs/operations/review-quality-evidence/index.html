@@ -177,7 +177,7 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-61</span>
@@ -208,6 +208,7 @@
       <li><a href="#models">Per-model review-quality evidence</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#acceptance">Decision guardrails</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -629,6 +630,24 @@
         <tr><td><b>Both themes and keyboard paths work</b></td><td>Exact-span, overlap chooser, finding detail, assessment, and suppression preview have automated UI coverage and retained light/dark evidence.</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <p>This append-only ledger records the implementation work performed after the operator decision. It does not revise the dossier's recommendations or evidence cut.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card key</th><th>What landed</th></tr></thead>
+      <tbody>
+        <tr><td>2026-08-11</td><td><code>QS-70 / S1</code></td><td>Exact syntax-token segmentation at one-based finding boundaries, selected and overlapping span interactions, virtual-scroll focus, accessible <code>path:line:column</code> labels, Unicode/multiline/end-of-line/overlap unit coverage, and light/dark Playwright evidence.</td></tr>
+        <tr><td>2026-08-11</td><td><code>QS-70 / S2</code></td><td>Review-meta v3 schema and typed contracts; runner-owned excerpts and SHA-256 hashes; typed evidence and reproduction; raw requested and actual executed model, thinking level, CLI, operation, prompt, input, subject, and source-revision provenance; legacy readers retained; spoofed trusted claims rejected.</td></tr>
+        <tr><td>2026-08-11</td><td><code>QS-70 / S3</code></td><td>Append-only assessment events with independent assessment and resolution projections, exact and scoped repository suppression rules with optimistic concurrency, preview/confirm UI, expiry behavior, legacy lifecycle compatibility with original timestamps, and visible/assessment/suppression filters and counts.</td></tr>
+        <tr><td>2026-08-11</td><td><code>QS-70 / S4</code></td><td>Create-only <code>.quality/review-history/runs/&lt;runId&gt;.json</code> terminal records containing plan, raw/actual route, subject and sidecar hashes, operation outcomes, fingerprints by aspect, evidence/reproduction counts, usage, and sanitized errors; recovery, idempotence, corruption detection, fresh-clone and active-directory-deletion coverage; Active and History UI split.</td></tr>
+      </tbody>
+    </table>
+    <div class="box">
+      <strong>Approved but not delivered in this checkout: <code>QS-70 / S5</code></strong>
+      <p>The required first half is a Token Economy TE-38 v2 receiver/schema change. This checkout contains only Quality Studio and does not include that receiver or its v2 schema. The Quality Studio exporter was intentionally not guessed against the existing v1 contract; S5 remains a paired-repository follow-up in the dossier's prescribed Token Economy-then-Quality Studio order.</p>
+    </div>
   </section>
 
   <footer>
