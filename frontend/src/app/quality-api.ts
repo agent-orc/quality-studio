@@ -216,9 +216,59 @@ export interface ReviewRun {
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
 }
+export interface ReviewHistoryQuality {
+  lowestGrade: number | null; lowestBand: string | null; worstSecurityVerdict: SecurityVerdict | null;
+  activeFindings: number; highestActiveSeverity: FindingSeverity | null;
+}
+export interface ReviewHistorySummary {
+  runId: string; repositoryId: string | null; createdAt: string | null; path: string | null; level: string | null;
+  kind: ReviewKind | null; outcome: ReviewRunState | null; complete: boolean | null; attempt: number | null;
+  startedAt: string | null; finishedAt: string | null; operations: number; findings: number;
+  quality: ReviewHistoryQuality | null; errorCode?: 'history-corrupt' | null; error?: string | null;
+}
+export interface ReviewHistoryPage { runs: ReviewHistorySummary[]; nextCursor: string | null; }
+export interface ArchivedRunRecord {
+  runId: string; repositoryId: string; createdAt: string; subject: { id: string; name: string; path: string };
+  level: string; kind: ReviewKind; targets: { id: string; name: string; path: string; subjectHash: string }[];
+  configuration: { model: string | null; thinkingLevel: string | null; cliType: string; force: boolean; tokenCap: number | null; costCap: number | null; estimate: ReviewEstimate | null; recommendation: ReviewModelRecommendation | null; routeOverride: boolean };
+  sourceRevision: { commit: string | null; dirty: boolean | null }; provenance?: string;
+}
+export interface ArchivedRunAttempt {
+  runId: string; attempt: number; outcome: ReviewRunState; complete: boolean; startedAt: string; finishedAt: string; archivedAt: string;
+  counters: { totalFiles: number; completedFiles: number; failedFiles: number; skippedFiles: number; usageOperations: number };
+  cumulativeCounters: { totalFiles: number; completedFiles: number; failedFiles: number; skippedFiles: number; usageOperations: number };
+  spend: { tokens: TokenUsage; cost: number | null; currency: string | null; priceStatus: string };
+  cumulativeSpend: { tokens: TokenUsage; cost: number | null; currency: string | null; priceStatus: string };
+  errorCodes: string[]; ledgerMonths: string[]; operationIds: string[]; quality: ReviewHistoryQuality;
+}
+export interface ArchivedRunOperation {
+  operationId: string; ordinal: number; attempt: number; unitId: string; path: string; level: string; state: ReviewUnitState;
+  startedAt: string; finishedAt: string; providerRunId?: string; reviewedAt?: string; reviewedHash?: string;
+  reviewInputsHash?: string; resultSidecar?: string; verdict?: { type: string; value: string };
+  grade?: { score: number; band: string }; errorCode?: string; error?: string;
+}
+export interface ArchivedRunFinding {
+  operationId: string; fingerprint: string; findingId: string; ruleId: string; severity: FindingSeverity;
+  title: string; locations: FindingLocation[]; state: FindingState;
+}
+export interface ReviewHistoryDetail {
+  run: ArchivedRunRecord; attempt: ArchivedRunAttempt; operations: ArchivedRunOperation[]; findings: ArchivedRunFinding[];
+}
+export interface ReviewRunDiffResponse {
+  beforeRunId: string; beforeAttempt: number; afterRunId: string; afterAttempt: number;
+  comparability: { labels: string[]; renameCorrelation: string };
+  scope: { added: { path: string }[]; removed: { path: string }[]; persisting: { path: string }[]; changedHashes: { path: string }[] };
+  inputs: { unitId: string; path: string; beforeHash: string | null; afterHash: string | null }[];
+  execution: { before: { outcome: string; complete: boolean; failedFiles: number; skippedFiles: number; durationMs: number }; after: { outcome: string; complete: boolean; failedFiles: number; skippedFiles: number; durationMs: number }; failedFilesChange: number; skippedFilesChange: number; durationMsChange: number };
+  grades: { unitId: string; unitPath: string; kind: string; before: { score: number; band: string } | null; after: { score: number; band: string } | null; scoreChange: number | null; regression: boolean }[];
+  verdicts: { unitId: string; path: string; type: string; before: string | null; after: string | null }[];
+  findings: { new: { identity: string; unitPath: string; severity: string; title: string }[]; resolved: { identity: string; unitPath: string; severity: string; title: string }[]; persisting: { identity: string; unitPath: string; severity: string; title: string }[] };
+  findingChanges: { identity: string; beforeSeverity: string | null; afterSeverity: string | null; beforeState: string | null; afterState: string | null; renamed: boolean }[];
+  economy: { before: TokenUsage & { cost: number | null; currency: string | null; priceStatus: string }; after: TokenUsage & { cost: number | null; currency: string | null; priceStatus: string }; inputTokensChange: number | null; outputTokensChange: number | null; cachedInputTokensChange: number | null; reasoningOutputTokensChange: number | null; durationMsChange: number; costChange: number | null };
+}
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
-export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
+export interface UsageEntry { runId: string; reviewRunId?: string | null; operationId?: string | null; attempt?: number | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; }
 export interface QuotaWindow { label: string; usedPct: number | null; remainingPct: number | null; used: number | null; limit: number | null; unit: string | null; resetAt: string | null; resetLabel: string | null; }
 export interface QuotaProvider { provider: string; plan: string | null; fetchedAt: string; source: string | null; error: string | null; windows: QuotaWindow[]; }
