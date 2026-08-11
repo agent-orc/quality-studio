@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 using AgentOrchestrator.CodeQuality;
+using Microsoft.Extensions.Options;
 
 namespace QualityStudio.Api;
 
@@ -17,7 +18,9 @@ public sealed record ProjectDashboardResponse(
     ProjectReviewCoverageResponse ReviewCoverage,
     ProjectTestCoverageResponse TestCoverage,
     ProjectStructuralMetricsResponse Metrics,
-    IReadOnlyList<ProjectHotspotResponse> Hotspots);
+    IReadOnlyList<ProjectHotspotResponse> Hotspots,
+    IReadOnlyList<QualityModelRecord> ModelRecords,
+    IReadOnlyList<QualityUnknownAspect> UnknownAspects);
 
 public sealed record ProjectGradeResponse(
     string Kind, string State, int? Score, string? Band, string Path);
@@ -104,6 +107,10 @@ public sealed class ProjectDashboardService
 
     private readonly ConcurrentDictionary<string, ProjectDashboardResponse> cache =
         new(StringComparer.Ordinal);
+    private readonly bool observationReadEnabled;
+
+    public ProjectDashboardService(IOptions<QualityTaxonomyOptions>? options = null) =>
+        observationReadEnabled = options?.Value.ObservationReadEnabled ?? false;
 
     public ProjectDashboardResponse Get(
         string repositoryPath,
@@ -116,7 +123,7 @@ public sealed class ProjectDashboardService
     {
         var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var key = root + "\0" + snapshot.GitState;
+        var key = root + "\0" + snapshot.GitState + "\0" + ObservationCacheToken(root);
         if (cache.TryGetValue(key, out var cached))
         {
             return new ProjectDashboardMeasurement(
@@ -153,7 +160,7 @@ public sealed class ProjectDashboardService
         return builder.ToString().TrimEnd();
     }
 
-    private static ProjectDashboardResponse Build(string root, IReadOnlyList<HierarchyNode> roots)
+    private ProjectDashboardResponse Build(string root, IReadOnlyList<HierarchyNode> roots)
     {
         var hierarchy = Flatten(roots).ToArray();
         var hierarchyFiles = hierarchy
@@ -161,8 +168,14 @@ public sealed class ProjectDashboardService
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
+        var hierarchyMetrics = hierarchyFiles
+            .Where(node => node.SizeBytes is not null)
+            .ToDictionary(node => node.Path, StringComparer.Ordinal);
         var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
+            .Select(path => hierarchyMetrics.TryGetValue(path, out var node)
+                ? ReadFileMetric(root, path, node.SizeBytes, node.LineCount)
+                : ReadFileMetric(root, path))
+            .OfType<FileMetric>()
             .ToArray();
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
@@ -180,6 +193,9 @@ public sealed class ProjectDashboardService
         var metrics = BuildStructuralMetrics(repositoryFiles, dependencies, navigationPaths, projectPath);
         var churn = ReadGitChurn(root);
         var hotspots = BuildHotspots(hierarchyFiles, churn);
+        var reduction = observationReadEnabled
+            ? QualityObservationReducer.Reduce(QualityObservationLedger.Read(root))
+            : new QualityObservationReduction(QualityObservationReducer.SelectionPolicy, [], [], []);
 
         return new ProjectDashboardResponse(
             DateTimeOffset.UtcNow.ToString("O"),
@@ -190,7 +206,20 @@ public sealed class ProjectDashboardService
             ReadTestCoverage(root, repositoryFiles.Select(file => file.Path),
                 hierarchyFiles.FirstOrDefault()?.Path ?? projectPath),
             metrics,
-            hotspots);
+            hotspots,
+            reduction.Models,
+            reduction.UnknownAspects);
+    }
+
+    private string ObservationCacheToken(string root)
+    {
+        if (!observationReadEnabled) return "sidecar";
+        var directory = Path.Combine(root,
+            QualityObservationLedger.RelativeDirectory.Replace('/', Path.DirectorySeparatorChar));
+        if (!Directory.Exists(directory)) return "empty";
+        return string.Join('|', Directory.EnumerateFiles(directory, "????-??.jsonl")
+            .Order(StringComparer.Ordinal)
+            .Select(path => $"{Path.GetFileName(path)}:{new FileInfo(path).Length}:{File.GetLastWriteTimeUtc(path).Ticks}"));
     }
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(
@@ -485,21 +514,31 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(string root, string path)
+    private static FileMetric? ReadFileMetric(
+        string root,
+        string path,
+        long? knownBytes = null,
+        int? knownLines = null)
     {
         var absolute = Path.Combine(root, Native(path));
-        var info = new FileInfo(absolute);
+        var bytes = knownBytes;
+        if (bytes is null)
+        {
+            var info = new FileInfo(absolute);
+            if (!info.Exists) return null;
+            bytes = info.Length;
+        }
         var language = Languages.GetValueOrDefault(Path.GetExtension(path));
-        var lines = 0;
+        var lines = knownLines ?? 0;
         string? duplicateFingerprint = null;
-        if (TextExtensions.Contains(Path.GetExtension(path)) && info.Length <= 4 * 1024 * 1024)
+        if (TextExtensions.Contains(Path.GetExtension(path)) && bytes <= 4 * 1024 * 1024)
         {
             try
             {
                 var text = File.ReadAllText(absolute);
                 lines = text.Length == 0 ? 0
                     : text.Count(character => character == '\n') + (text.EndsWith('\n') ? 0 : 1);
-                if ((lines >= 3 || info.Length >= 64) && info.Length <= 1024 * 1024)
+                if ((lines >= 3 || bytes >= 64) && bytes <= 1024 * 1024)
                 {
                     var normalized = string.Join('\n', text.Replace("\r\n", "\n", StringComparison.Ordinal)
                         .Split('\n').Select(line => line.TrimEnd()));
@@ -508,7 +547,7 @@ public sealed class ProjectDashboardService
             }
             catch (IOException) { }
         }
-        return new FileMetric(path, info.Length, lines, language, duplicateFingerprint);
+        return new FileMetric(path, bytes.Value, lines, language, duplicateFingerprint);
     }
 
     private static IReadOnlyList<string> EnumerateRepositoryFiles(string root)
@@ -517,7 +556,7 @@ public sealed class ProjectDashboardService
         if (git is not null)
             return git.Split('\0', StringSplitOptions.RemoveEmptyEntries)
                 .Select(path => path.Replace('\\', '/'))
-                .Where(path => !Excluded(path) && File.Exists(Path.Combine(root, Native(path))))
+                .Where(path => !Excluded(path))
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Select(path => Relative(root, path))
