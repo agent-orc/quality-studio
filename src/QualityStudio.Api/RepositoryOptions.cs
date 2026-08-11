@@ -17,6 +17,8 @@ public sealed class RepositoryOptions
     public long? DefaultReviewTokenCap { get; set; } = 100_000;
 
     public ApiSecurityOptions Security { get; set; } = new();
+
+    public List<AnalyzerProfileOptions> AnalyzerProfiles { get; set; } = [];
 }
 
 public sealed class ApiSecurityOptions
@@ -29,7 +31,19 @@ public sealed class ApiSecurityOptions
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
+    public bool CommandBackedAnalyzersEnabled { get; set; }
     public List<ApiClientOptions> Clients { get; set; } = [];
+}
+
+public sealed class AnalyzerProfileOptions
+{
+    public string Id { get; set; } = string.Empty;
+    public string SensorId { get; set; } = string.Empty;
+    public string Executable { get; set; } = string.Empty;
+    public string[] Arguments { get; set; } = [];
+    public string ReportPath { get; set; } = string.Empty;
+    public string? WorkingDirectory { get; set; }
+    public string? ProducerVersion { get; set; }
 }
 
 public sealed class ApiClientOptions

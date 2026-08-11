@@ -15,11 +15,15 @@ public sealed class ApiSecurity
     public const string ClientIdHeader = "X-Client-Id";
     private const string IdentityItem = "QualityStudio.Api.Identity";
     private readonly ApiSecurityOptions options;
+    private readonly IReadOnlySet<string> allowedOrigins;
     private readonly IReadOnlyList<(ApiClientIdentity Identity, byte[] CredentialHash)> clients;
 
     public ApiSecurity(IOptions<RepositoryOptions> configured)
     {
         options = configured.Value.Security;
+        allowedOrigins = configured.Value.AllowedOrigins
+            .Select(NormalizeOrigin)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (options.Mode is not (ApiSecurityOptions.LocalMode or ApiSecurityOptions.HostedMode))
             throw new InvalidOperationException("QualityStudio:Security:Mode must be Local or Hosted.");
         if (options.MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)
@@ -70,6 +74,25 @@ public sealed class ApiSecurity
     public int MaxConcurrentRequests => options.MaxConcurrentRequests;
     public int SpendRequestsPerMinute => options.SpendRequestsPerMinute;
 
+    public bool IsAllowedLocalOrigin(HttpContext context)
+    {
+        if (!IsLocal) return false;
+        var supplied = context.Request.Headers.Origin.ToString();
+        if (string.IsNullOrWhiteSpace(supplied)) return false;
+        string normalized;
+        try
+        {
+            normalized = NormalizeOrigin(supplied);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        var requestOrigin = NormalizeOrigin($"{context.Request.Scheme}://{context.Request.Host}");
+        return allowedOrigins.Contains(normalized) ||
+               string.Equals(normalized, requestOrigin, StringComparison.OrdinalIgnoreCase);
+    }
+
     public ApiClientIdentity? Authenticate(HttpContext context)
     {
         if (IsLocal)
@@ -99,4 +122,44 @@ public sealed class ApiSecurity
 
     public bool IsMutationClientHeaderValid(HttpContext context, ApiClientIdentity identity) =>
         IsLocal || string.Equals(context.Request.Headers[ClientIdHeader].ToString(), identity.Id, StringComparison.Ordinal);
+
+    public static void ValidateLocalBindings(RepositoryOptions configured, IConfiguration configuration)
+    {
+        if (!string.Equals(configured.Security.Mode, ApiSecurityOptions.LocalMode, StringComparison.Ordinal)) return;
+        var bindings = new List<string>();
+        var urls = configuration["urls"];
+        if (!string.IsNullOrWhiteSpace(urls))
+            bindings.AddRange(urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        else if (!string.IsNullOrWhiteSpace(configuration["http_ports"]) ||
+                 !string.IsNullOrWhiteSpace(configuration["https_ports"]))
+            throw new InvalidOperationException(
+                "Local security mode cannot use wildcard HTTP_PORTS or HTTPS_PORTS bindings; configure an explicit loopback URL.");
+        bindings.AddRange(configuration.GetSection("Kestrel:Endpoints").GetChildren()
+            .Select(endpoint => endpoint["Url"])
+            .Where(url => !string.IsNullOrWhiteSpace(url))!);
+        foreach (var binding in bindings)
+        {
+            if (!Uri.TryCreate(binding, UriKind.Absolute, out var uri) || !IsLoopbackHost(uri.Host))
+                throw new InvalidOperationException(
+                    "Local security mode may bind only to localhost or a loopback IP address.");
+        }
+    }
+
+    private static bool IsLoopbackHost(string host)
+    {
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)) return true;
+        return System.Net.IPAddress.TryParse(host, out var address) && System.Net.IPAddress.IsLoopback(address);
+    }
+
+    private static string NormalizeOrigin(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var origin) ||
+            origin.Scheme is not ("http" or "https") ||
+            !string.IsNullOrEmpty(origin.UserInfo) ||
+            (origin.AbsolutePath != "/" && origin.AbsolutePath.Length > 0) ||
+            !string.IsNullOrEmpty(origin.Query) ||
+            !string.IsNullOrEmpty(origin.Fragment))
+            throw new InvalidOperationException("Allowed origins must be HTTP(S) origins without a path, query, or fragment.");
+        return origin.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
 }

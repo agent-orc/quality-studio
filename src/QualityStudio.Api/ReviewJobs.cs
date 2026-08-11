@@ -132,6 +132,7 @@ public sealed class ReviewJobService : BackgroundService
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly IReviewExecutorFactory executors;
     private readonly SensorRegistry sensorRegistry;
+    private readonly AnalyzerProfileRegistry analyzerProfiles;
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
@@ -139,7 +140,7 @@ public sealed class ReviewJobService : BackgroundService
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
-        ReviewModelCatalog modelCatalog)
+        AnalyzerProfileRegistry analyzerProfiles, ReviewModelCatalog modelCatalog)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -149,6 +150,7 @@ public sealed class ReviewJobService : BackgroundService
         this.executors = executors;
         this.dashboards = dashboards;
         this.sensorRegistry = sensorRegistry;
+        this.analyzerProfiles = analyzerProfiles;
         this.modelCatalog = modelCatalog;
     }
 
@@ -457,7 +459,7 @@ public sealed class ReviewJobService : BackgroundService
                     item.Repository.RootPath,
                     (item.Repository.Sensors ?? [])
                         .Where(sensor => sensor.Enabled)
-                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, analyzerProfiles.Resolve(sensor)))
                         .ToArray(),
                     linked.Token)
                 .ConfigureAwait(false);
@@ -591,7 +593,7 @@ public sealed class ReviewJobService : BackgroundService
                 ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
                     .Where(sensor => sensor.Enabled &&
                                      sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
-                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, analyzerProfiles.Resolve(sensor)))
                     .ToArray()
                 : null,
             DeterministicEvidence: item.DeterministicEvidence);

@@ -68,7 +68,8 @@ public sealed class SarifSensorTests
             var result = await new SarifSensor(new MissingCommandRunner()).RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
-                    ["command"] = "missing-analyzer --sarif {reportPath}",
+                    ["profileExecutable"] = "missing-analyzer",
+                    ["profileArguments"] = JsonSerializer.Serialize(new[] { "--sarif", "{reportPath}" }),
                     ["reportPath"] = ".quality/analyzers/missing.sarif",
                 }),
                 TestContext.Current.CancellationToken);
@@ -76,6 +77,30 @@ public sealed class SarifSensorTests
             Assert.False(result.Available);
             Assert.Contains("unavailable", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
             Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task FreeFormShellCommand_IsRejectedWithoutExecution()
+    {
+        var root = CreateRepository("src/a.ts");
+        try
+        {
+            var result = await new SarifSensor(new UnexpectedCommandRunner()).RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = OperatingSystem.IsWindows()
+                        ? "powershell.exe -NoProfile -Command Get-ChildItem Env:"
+                        : "/bin/sh -c env",
+                    ["reportPath"] = ".quality/analyzers/result.sarif",
+                }), TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("host-owned analyzer profile", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -149,7 +174,9 @@ public sealed class SarifSensorTests
             var result = await sensor.RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
-                    ["command"] = "npx --no-install tsc --noEmit --pretty false",
+                    ["profileExecutable"] = "npx",
+                    ["profileArguments"] = JsonSerializer.Serialize(
+                        new[] { "--no-install", "tsc", "--noEmit", "--pretty", "false" }),
                     ["reportPath"] = ".quality/analyzers/tsc.txt",
                     ["workingDirectory"] = "frontend",
                     ["producerVersion"] = "5.9.2",
@@ -190,6 +217,16 @@ public sealed class SarifSensorTests
             string workingDirectory,
             CancellationToken cancellationToken = default) =>
             throw new SecurityScannerUnavailableException("executable was not found");
+    }
+
+    private sealed class UnexpectedCommandRunner : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default) =>
+            throw new Xunit.Sdk.XunitException("A rejected free-form command reached the process runner.");
     }
 
     private sealed class RecordedRunner(int exitCode, string output) : ISensorCommandRunner

@@ -71,6 +71,74 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_client_cannot_change_or_archive_repository_administration()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+        var update = new
+        {
+            displayName = "Default changed by scoped client",
+            rootPath = RepositoryRoot,
+            globalInputsDirectory = (string?)null,
+            inputBudgetCharacters = 12_000,
+            enabledReviewKinds = new[] { "code", "security" },
+        };
+
+        using var changed = await alice.PutAsJsonAsync("/api/repos/default", update,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, changed.StatusCode);
+        using var archived = await alice.DeleteAsync("/api/repos/default", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archived.StatusCode);
+        using var created = await alice.PostAsJsonAsync("/api/repos", update,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, created.StatusCode);
+        using var imported = await alice.PostAsync("/api/repos/import-from-agent-studio", null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, imported.StatusCode);
+    }
+
+    [Fact]
+    public async Task Repository_registration_rejects_free_form_analyzer_commands_and_defaults_them_off()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var changed = await admin.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            globalInputsDirectory = (string?)null,
+            inputBudgetCharacters = 12_000,
+            enabledReviewKinds = new[] { "code", "security", "performance" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = OperatingSystem.IsWindows()
+                            ? "powershell.exe -NoProfile -Command Get-ChildItem Env:"
+                            : "/bin/sh -c env",
+                        ["reportPath"] = ".quality/analyzers/result.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, changed.StatusCode);
+
+        using var sensorsResponse = await admin.GetAsync("/api/sensors", TestContext.Current.CancellationToken);
+        sensorsResponse.EnsureSuccessStatusCode();
+        var sensors = await sensorsResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        foreach (var id in new[] { "sarif", "roslyn", "eslint", "tsc" })
+        {
+            var sensor = Assert.Single(sensors.GetProperty("sensors").EnumerateArray(),
+                candidate => candidate.GetProperty("id").GetString() == id);
+            Assert.False(sensor.GetProperty("enabled").GetBoolean());
+            Assert.False(sensor.GetProperty("available").GetBoolean());
+            Assert.False(sensor.TryGetProperty("profileExecutable", out _));
+        }
+    }
+
+    [Fact]
     public async Task Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure()
     {
         using var alice = CreateClient("alice", AliceToken);
@@ -160,6 +228,24 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Sensor_scans_share_the_per_client_spend_rate_limit()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+        using var alice = CreateClient(rateApplication, "alice", AliceToken);
+
+        using var first = await alice.PostAsync("/api/sensors/boundaries/scan", null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        using var second = await alice.PostAsync("/api/sensors/boundaries/scan", null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
@@ -174,6 +260,57 @@ public sealed class ApiSecurityTests : IAsyncLifetime
             path = "Sample.cs", kind = "code", model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
+    }
+
+    [Fact]
+    public async Task Local_browser_mutations_require_allowed_origin_and_issued_nonce()
+    {
+        var localHost = Path.Combine(testRoot, "local-csrf-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+
+        using var missingOrigin = ((WebApplicationFactory<Program>)local).CreateClient();
+        using var noOrigin = await missingOrigin.PostAsJsonAsync("/api/review",
+            new { path = "Sample.cs", kind = "code" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, noOrigin.StatusCode);
+
+        using var crossOrigin = ((WebApplicationFactory<Program>)local).CreateClient();
+        crossOrigin.DefaultRequestHeaders.Add("Origin", "https://attacker.example");
+        crossOrigin.DefaultRequestHeaders.Add(LocalMutationProtection.HeaderName, "attacker-controlled-token");
+        using var denied = await crossOrigin.PostAsJsonAsync("/api/review",
+            new { path = "Sample.cs", kind = "code" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        using var allowed = ((WebApplicationFactory<Program>)local).CreateClient();
+        allowed.DefaultRequestHeaders.Add("Origin", LocalApiTestClient.AllowedOrigin);
+        using var tokenResponse = await allowed.GetAsync("/api/security/csrf", TestContext.Current.CancellationToken);
+        tokenResponse.EnsureSuccessStatusCode();
+        var token = await tokenResponse.Content.ReadFromJsonAsync<LocalMutationTokenResponse>(
+            TestContext.Current.CancellationToken);
+        allowed.DefaultRequestHeaders.Add(LocalMutationProtection.HeaderName, token!.Token);
+        using var accepted = await allowed.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs",
+            kind = "code",
+            model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, accepted.StatusCode);
+    }
+
+    [Fact]
+    public void Local_mode_rejects_non_loopback_listener_configuration()
+    {
+        var configured = new RepositoryOptions { Security = new ApiSecurityOptions { Mode = ApiSecurityOptions.LocalMode } };
+        var publicListener = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { ["urls"] = "http://0.0.0.0:5080" }).Build();
+        var loopbackListener = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { ["urls"] = "http://127.0.0.1:5080;http://[::1]:5081" }).Build();
+        var wildcardPorts = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { ["http_ports"] = "5080" }).Build();
+
+        Assert.Throws<InvalidOperationException>(() => ApiSecurity.ValidateLocalBindings(configured, publicListener));
+        Assert.Throws<InvalidOperationException>(() => ApiSecurity.ValidateLocalBindings(configured, wildcardPorts));
+        ApiSecurity.ValidateLocalBindings(configured, loopbackListener);
     }
 
     public async ValueTask InitializeAsync()
@@ -278,6 +415,8 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     private sealed class LocalApplication(string root, string contentRoot) : WebApplicationFactory<Program>
     {
+        public new HttpClient CreateClient() => LocalApiTestClient.Create(this);
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(contentRoot);
