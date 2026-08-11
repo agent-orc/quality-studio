@@ -24,7 +24,9 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? OperationId = null,
+    int? Attempt = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -365,7 +367,10 @@ public sealed class ReviewRunner
         new(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
             _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+            request.ReviewRunId,
+            request.ReviewRunId is null ? 1 : request.OperationId is null || request.Attempt is null ? 2 : UsageLedger.CurrentSchemaVersion,
+            request.OperationId,
+            request.Attempt);
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {

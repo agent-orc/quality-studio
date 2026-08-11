@@ -30,7 +30,9 @@ public sealed record ReviewUsageEntry(
     string Level,
     string Path,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReviewRunId = null,
-    int SchemaVersion = 1);
+    int SchemaVersion = 1,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OperationId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Attempt = null);
 
 public sealed record UsageAggregate(string Key, int Runs, long InputTokens, long OutputTokens,
     long CachedInputTokens, long ReasoningOutputTokens, long DurationMs);
@@ -52,7 +54,7 @@ public sealed record UsageReport(
 /// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -63,7 +65,7 @@ public static class UsageLedger
     {
         ArgumentNullException.ThrowIfNull(entry);
         if (!IsSupported(entry))
-            throw new ArgumentException("Usage ledger entries must conform to schema version 1 or 2.", nameof(entry));
+            throw new ArgumentException("Usage ledger entries must conform to schema version 1, 2, or 3.", nameof(entry));
         var path = GetLedgerPath(repositoryRoot, entry.Timestamp);
         var gate = Locks.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -83,6 +85,24 @@ public static class UsageLedger
 
     public static async Task<UsageReport> QueryAsync(string repositoryRoot, DateTimeOffset? since = null,
         string? kind = null, int recentLimit = 50, CancellationToken cancellationToken = default)
+    {
+        var entries = await ReadAllAsync(repositoryRoot, since, kind, cancellationToken).ConfigureAwait(false);
+        var ordered = entries.OrderByDescending(entry => entry.Timestamp).ToArray();
+        return new UsageReport(DateTimeOffset.UtcNow, ordered.Length,
+            Sum(ordered, entry => entry.Tokens.InputTokens), Sum(ordered, entry => entry.Tokens.OutputTokens),
+            Sum(ordered, entry => entry.Tokens.CachedInputTokens), Sum(ordered, entry => entry.Tokens.ReasoningOutputTokens),
+            ordered.Sum(entry => entry.Tokens.DurationMs),
+            Aggregate(ordered, entry => entry.Model), Aggregate(ordered, entry => entry.Kind),
+            Aggregate(ordered, entry => entry.Timestamp.UtcDateTime.ToString("yyyy-MM-dd")),
+            Aggregate(ordered, entry => entry.ReviewRunId ?? entry.RunId),
+            ordered.Take(Math.Clamp(recentLimit, 1, 200)).ToArray());
+    }
+
+    public static async Task<IReadOnlyList<ReviewUsageEntry>> ReadAllAsync(
+        string repositoryRoot,
+        DateTimeOffset? since = null,
+        string? kind = null,
+        CancellationToken cancellationToken = default)
     {
         var entries = new List<ReviewUsageEntry>();
         var directory = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage");
@@ -108,16 +128,7 @@ public static class UsageLedger
                 }
             }
         }
-
-        var ordered = entries.OrderByDescending(entry => entry.Timestamp).ToArray();
-        return new UsageReport(DateTimeOffset.UtcNow, ordered.Length,
-            Sum(ordered, entry => entry.Tokens.InputTokens), Sum(ordered, entry => entry.Tokens.OutputTokens),
-            Sum(ordered, entry => entry.Tokens.CachedInputTokens), Sum(ordered, entry => entry.Tokens.ReasoningOutputTokens),
-            ordered.Sum(entry => entry.Tokens.DurationMs),
-            Aggregate(ordered, entry => entry.Model), Aggregate(ordered, entry => entry.Kind),
-            Aggregate(ordered, entry => entry.Timestamp.UtcDateTime.ToString("yyyy-MM-dd")),
-            Aggregate(ordered, entry => entry.ReviewRunId ?? entry.RunId),
-            ordered.Take(Math.Clamp(recentLimit, 1, 200)).ToArray());
+        return entries;
     }
 
     private static long Sum(IEnumerable<ReviewUsageEntry> entries, Func<ReviewUsageEntry, long?> selector) =>
@@ -136,8 +147,10 @@ public static class UsageLedger
 
         return entry.SchemaVersion switch
         {
-            1 => entry.ReviewRunId is null,
-            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ReviewRunId),
+            1 => entry.ReviewRunId is null && entry.OperationId is null && entry.Attempt is null,
+            2 => !string.IsNullOrWhiteSpace(entry.ReviewRunId) && entry.OperationId is null && entry.Attempt is null,
+            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ReviewRunId) &&
+                                    !string.IsNullOrWhiteSpace(entry.OperationId) && entry.Attempt is > 0,
             _ => false,
         };
     }

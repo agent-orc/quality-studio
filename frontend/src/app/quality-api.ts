@@ -214,7 +214,36 @@ export interface ReviewRun {
   startedAt: string | null; finishedAt: string | null; files: ReviewFileProgress[]; errors: string[]; usageOperations: number; usage: TokenUsage;
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
-  deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
+  deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean; attempt?: number;
+}
+export interface RunHistoryQuality { lowestGrade: number | null; lowestBand: string | null; worstSecurityVerdict: string | null; findings: number; findingsBySeverity: Record<string, number>; }
+export interface RunHistoryError { code: 'history-corrupt'; runId: string; detail: string; }
+export type RunHistoryOutcome = ReviewRunState | 'legacy-usage-only';
+export interface RunHistoryItem {
+  runId: string; repositoryId: string; createdAt: string | null; path: string | null; level: string | null;
+  kind: ReviewKind | null; model: string | null; attempt: number | null; outcome: RunHistoryOutcome | null;
+  complete: boolean | null; finishedAt: string | null; operations: number | null; findings: number | null;
+  usage: TokenUsage | null; costSpent: number | null; currency: string | null; quality: RunHistoryQuality | null;
+  error: RunHistoryError | null; totalFiles?: number | null; completedFiles?: number | null; failedFiles?: number | null;
+  skippedFiles?: number | null; usageOperations?: number | null; aggregateState?: string | null;
+}
+export interface RunHistoryPage { runs: RunHistoryItem[]; nextCursor: string | null; }
+export interface RunHistoryOperation { operationId: string; attempt: number; path: string; level: string; state: string; grade: ReviewGrade | null; verdictType: string; verdict: string | null; }
+export interface RunHistoryFinding { operationId: string; attempt: number; fingerprint: string; findingId: string; ruleId: string; severity: FindingSeverity; title: string; stateAtObservation: FindingState; locations: FindingLocation[]; }
+export interface RunHistoryDetail {
+  run: { runId: string; repositoryId: string; createdAt: string; subject: { id: string; name: string; path: string }; level: string; kind: ReviewKind; configuration: { model: string | null; thinkingLevel: string | null; cliType: string } } | null;
+  attempt: { attempt: number; outcome: ReviewRunState; complete: boolean; startedAt: string; finishedAt: string; usage: TokenUsage; costSpent: number | null; currency: string | null; quality: RunHistoryQuality } | null;
+  operations: RunHistoryOperation[]; findings: RunHistoryFinding[]; error: RunHistoryError | null;
+}
+export interface RunHistoryDiff {
+  beforeRunId: string; beforeAttempt: number; afterRunId: string; afterAttempt: number; comparability: string[];
+  scope: { added: string[]; removed: string[]; persisting: string[]; changedSubjectHashes: string[] };
+  execution: { beforeOutcome: string; afterOutcome: string; beforeComplete: boolean; afterComplete: boolean; failedFilesChange: number; skippedFilesChange: number; durationMsChange: number; costChange: number | null };
+  grades: { path: string; level: string; beforeScore: number | null; afterScore: number | null; scoreChange: number | null; beforeBand: string | null; afterBand: string | null }[];
+  verdicts: { path: string; verdictType: string; before: string | null; after: string | null }[];
+  findings: { new: string[]; resolved: string[]; persisting: { fingerprint: string; beforeSeverity: string; afterSeverity: string; beforeState: string; afterState: string }[] };
+  economy: { before: TokenUsage; after: TokenUsage; inputTokensChange: number | null; outputTokensChange: number | null; durationMsChange: number; costChange: number | null; currency: string | null };
+  renameCorrelationAvailable: boolean;
 }
 export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
 export interface QualityRunFinding {
@@ -623,6 +652,28 @@ export class QualityApi {
 
   repositoryReportUrl(format: RunReportFormat = 'html'): string {
     return `${this.repositoryApiBase()}/report?format=${format}`;
+  }
+
+  async loadRunHistory(filters: { cursor?: string; limit?: number; kind?: ReviewKind; path?: string; outcome?: string } = {}): Promise<RunHistoryPage> {
+    const params: Record<string, string> = { limit: String(filters.limit ?? 20) };
+    if (filters.cursor) params['cursor'] = filters.cursor;
+    if (filters.kind) params['kind'] = filters.kind;
+    if (filters.path) params['path'] = filters.path;
+    if (filters.outcome) params['outcome'] = filters.outcome;
+    return await firstValueFrom(this.http.get<RunHistoryPage>(`${this.repositoryApiBase()}/review/history`, { params }));
+  }
+
+  async loadRunHistoryDetail(runId: string, attempt?: number): Promise<RunHistoryDetail> {
+    const params: Record<string, string> = {};
+    if (attempt !== undefined) params['attempt'] = String(attempt);
+    return await firstValueFrom(this.http.get<RunHistoryDetail>(
+      `${this.repositoryApiBase()}/review/history/${encodeURIComponent(runId)}`, { params }));
+  }
+
+  async compareRunHistory(afterRunId: string, beforeRunId: string): Promise<RunHistoryDiff> {
+    return await firstValueFrom(this.http.get<RunHistoryDiff>(
+      `${this.repositoryApiBase()}/review/history/${encodeURIComponent(afterRunId)}/diff`,
+      { params: { against: beforeRunId } }));
   }
 
   async loadUsage(since?: string, kind?: ReviewKind, repositoryId = this.selectedRepositoryId()): Promise<void> {

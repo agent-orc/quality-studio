@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
+using System.Text.Json;
 using System.Threading.Channels;
 using AgentOrchestrator.CodeQuality;
 using CodingAgentRunner.Events;
@@ -76,7 +78,8 @@ public sealed record ReviewRunResponse(
     string? StopReason,
     ReviewEstimateDeviation? Deviation,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    int Attempt = 1);
 
 public interface IReviewExecutor
 {
@@ -204,7 +207,10 @@ public sealed class ReviewJobService : BackgroundService
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
              !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
         var store = new ReviewRunStore(registration.RootPath);
-        var item = ReviewWorkItem.Create(manifest, registration, store);
+        var archive = new ReviewRunArchiveStore(registration.RootPath);
+        var archiveManifest = ReviewRunArchiveManifest.From(manifest, registration.RootPath);
+        archive.CreateRun(archiveManifest);
+        var item = ReviewWorkItem.Create(manifest, registration, store, archive, archiveManifest);
         store.Create(manifest, item.DurableStatus());
         runs[item.Id] = item;
         if (!queue.Writer.TryWrite(item))
@@ -346,9 +352,58 @@ public sealed class ReviewJobService : BackgroundService
         HierarchyNode Node,
         HierarchyNode[] Files);
 
-    public IReadOnlyList<ReviewRunResponse> List(string repositoryId) => runs.Values
-        .Where(run => string.Equals(run.Repository.Id, repositoryId, StringComparison.OrdinalIgnoreCase))
-        .OrderByDescending(run => run.CreatedAt).Take(Math.Max(1, options.RecentRunLimit)).Select(run => run.Snapshot()).ToArray();
+    public IReadOnlyList<ReviewRunResponse> List(string repositoryId)
+    {
+        var limit = Math.Max(1, options.RecentRunLimit);
+        var active = runs.Values
+            .Where(run => string.Equals(run.Repository.Id, repositoryId, StringComparison.OrdinalIgnoreCase))
+            .Select(run => run.Snapshot())
+            .ToArray();
+        var activeIds = active.Select(run => run.Id).ToHashSet(StringComparer.Ordinal);
+        var registration = repositories.Get(repositoryId);
+        var archived = new ReviewRunArchiveStore(registration.RootPath).Query(repositoryId, limit: limit).Runs
+            .Where(item => item.Error is null && !activeIds.Contains(item.RunId))
+            .Select(ArchivedResponse);
+        return active.Concat(archived).OrderByDescending(run => run.CreatedAt).Take(limit).ToArray();
+    }
+
+    private static ReviewRunResponse ArchivedResponse(ReviewRunHistoryItem item)
+    {
+        var operations = item.Operations ?? 0;
+        return new ReviewRunResponse(
+            item.RunId,
+            item.RepositoryId,
+            item.Path ?? ".",
+            item.Level ?? "project",
+            item.Kind ?? "code",
+            item.Model,
+            null,
+            "archived",
+            item.Outcome ?? "failed",
+            item.TotalFiles ?? operations,
+            item.CompletedFiles ?? operations,
+            item.FailedFiles ?? 0,
+            item.CreatedAt ?? DateTimeOffset.MinValue,
+            null,
+            item.FinishedAt,
+            [],
+            [],
+            item.UsageOperations ?? operations,
+            item.Usage ?? new TokenUsage(null, null, null, null, 0),
+            null,
+            null,
+            null,
+            item.CostSpent,
+            item.Currency,
+            item.CostSpent.HasValue ? "priced" : "unavailable",
+            item.SkippedFiles ?? 0,
+            item.AggregateState,
+            null,
+            null,
+            null,
+            false,
+            item.Attempt ?? 1);
+    }
 
     public ReviewRunResponse Get(string repositoryId, string id) => Find(repositoryId, id).Snapshot();
 
@@ -406,6 +461,7 @@ public sealed class ReviewJobService : BackgroundService
         foreach (var registration in repositories.List())
         {
             var store = new ReviewRunStore(registration.RootPath);
+            var archive = new ReviewRunArchiveStore(registration.RootPath);
             foreach (var stored in store.LoadAll((directory, exception) =>
                          logger.LogError(new EventId(1511, "ReviewRunRecoveryFailed"), exception,
                              "Could not load durable review run from {ReviewRunDirectory}", directory)))
@@ -419,7 +475,10 @@ public sealed class ReviewJobService : BackgroundService
                 }
                 try
                 {
-                    var item = ReviewWorkItem.Restore(stored, registration, store);
+                    archive.MigrateFromRunStore(stored);
+                    var archiveManifest = ReviewRunArchiveManifest.From(stored.Manifest, registration.RootPath,
+                        "migrated-from-run-store-v0");
+                    var item = ReviewWorkItem.Restore(stored, registration, store, archive, archiveManifest);
                     if (!runs.TryAdd(item.Id, item)) continue;
                     item.EnsureTerminalReport();
                     if (!ReviewRunStore.IsTerminal(item.State))
@@ -486,13 +545,34 @@ public sealed class ReviewJobService : BackgroundService
             {
                 if (!item.TryStopAtCap())
                 {
-                    if (item.StartAggregate())
+                    if (item.StartAggregate() is { } operation)
                     {
-                        var execution = await CreateRunner(item).ReviewIfNeededAsync(
-                            CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
-                            item.Force,
-                            linked.Token).ConfigureAwait(false);
-                        item.FinishAggregate(execution);
+                        try
+                        {
+                            var execution = await CreateRunner(item).ReviewIfNeededAsync(
+                                CreateRequest(item, item.Node, item.Node.Level,
+                                    item.Files.Select(file => file.Path).ToArray(), operation),
+                                item.Force,
+                                linked.Token).ConfigureAwait(false);
+                            await item.ArchiveOperationAsync(operation, execution,
+                                execution.SkippedFresh ? "skipped-fresh" : "done", null).ConfigureAwait(false);
+                            item.FinishAggregate(execution);
+                        }
+                        catch (OperationCanceledException) when (linked.IsCancellationRequested)
+                        {
+                            if (item.State == "cancelled")
+                                await item.ArchiveOperationAsync(operation, null, "cancelled", "Review cancelled.")
+                                    .ConfigureAwait(false);
+                            item.StopAggregate();
+                            throw;
+                        }
+                        catch (Exception exception)
+                        {
+                            await item.ArchiveOperationAsync(operation, null, "failed", exception.Message)
+                                .ConfigureAwait(false);
+                            item.FailAggregate(exception.Message);
+                            throw;
+                        }
                     }
                 }
             }
@@ -524,7 +604,7 @@ public sealed class ReviewJobService : BackgroundService
     private async ValueTask RunFileAsync(
         ReviewWorkItem item, HierarchyNode file, CancellationToken cancellationToken)
     {
-        if (!item.StartFile(file.Path))
+        if (item.StartFile(file.Path) is not { } operation)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return;
@@ -532,18 +612,24 @@ public sealed class ReviewJobService : BackgroundService
         try
         {
             var execution = await CreateRunner(item).ReviewIfNeededAsync(
-                CreateRequest(item, file, ReviewLevel.File, [file.Path]),
+                CreateRequest(item, file, ReviewLevel.File, [file.Path], operation),
                 item.Force,
                 cancellationToken).ConfigureAwait(false);
+            await item.ArchiveOperationAsync(operation, execution,
+                execution.SkippedFresh ? "skipped-fresh" : "done", null).ConfigureAwait(false);
             item.FinishFile(file.Path, execution);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            if (item.State == "cancelled")
+                await item.ArchiveOperationAsync(operation, null, "cancelled", "Review cancelled.")
+                    .ConfigureAwait(false);
             if (item.State == "cancelled") item.CancelFile(file.Path); else item.RequeueFile(file.Path);
             throw;
         }
         catch (Exception exception)
         {
+            await item.ArchiveOperationAsync(operation, null, "failed", exception.Message).ConfigureAwait(false);
             item.FailFile(file.Path, exception.Message);
             logger.LogError(new EventId(1504, "ReviewFileFailed"), exception,
                 "File {ReviewFilePath} failed in review {ReviewRunId}", file.Path, item.Id);
@@ -566,7 +652,8 @@ public sealed class ReviewJobService : BackgroundService
         ReviewWorkItem item,
         HierarchyNode node,
         ReviewLevel level,
-        IReadOnlyList<string> files)
+        IReadOnlyList<string> files,
+        OperationContext operation)
     {
         var architectureContext = level == ReviewLevel.Project &&
                                   string.Equals(item.Kind, "code", StringComparison.Ordinal)
@@ -595,7 +682,9 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            OperationId: operation.OperationId,
+            Attempt: operation.Attempt);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -616,11 +705,22 @@ public sealed class ReviewJobService : BackgroundService
         }
     }
 
+    private sealed record OperationContext(
+        string OperationId,
+        int Ordinal,
+        int Attempt,
+        string UnitId,
+        string Path,
+        string Level,
+        DateTimeOffset StartedAt);
+
     private sealed class ReviewWorkItem
     {
         private readonly object gate = new();
         private readonly ReviewRunManifest manifest;
         private readonly ReviewRunStore store;
+        private readonly ReviewRunArchiveStore archive;
+        private readonly ReviewRunArchiveManifest archiveManifest;
         private readonly Dictionary<string, MutableFileProgress> progress;
         private readonly Dictionary<string, ReviewObservationSnapshot> observations;
         private readonly QualityRunReportStore reportStore;
@@ -639,17 +739,26 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int attempt;
+        private DateTimeOffset? attemptStartedAt;
+        private string? aggregateOperationId;
+        private DateTimeOffset? aggregateStartedAt;
+        private DateTimeOffset? aggregateFinishedAt;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
             RepositoryRegistration repository,
             ReviewRunStore store,
+            ReviewRunArchiveStore archive,
+            ReviewRunArchiveManifest archiveManifest,
             ReviewRunStatus? status,
             IReadOnlyList<ReviewRunFileTransition>? transitions,
             IReadOnlyDictionary<string, ReviewObservationSnapshot>? storedObservations)
         {
             this.manifest = manifest;
             this.store = store;
+            this.archive = archive;
+            this.archiveManifest = archiveManifest;
             Repository = repository;
             reportStore = new QualityRunReportStore(repository.RootPath);
             observations = storedObservations?.ToDictionary(pair => pair.Key, pair => pair.Value,
@@ -662,9 +771,9 @@ public sealed class ReviewJobService : BackgroundService
             Node = new HierarchyNode(manifest.Node.Id, manifest.Node.Name, level, manifest.Node.Path);
             Files = manifest.Targets.Select(target =>
                 new HierarchyNode(target.Id, target.Name, ReviewLevel.File, target.Path)).ToArray();
-            progress = manifest.Targets.ToDictionary(
-                target => target.Path,
-                target => new MutableFileProgress(target.Path),
+            progress = manifest.Targets.Select((target, index) => (target, index)).ToDictionary(
+                item => item.target.Path,
+                item => new MutableFileProgress(item.target.Id, item.target.Path, item.index + 1),
                 StringComparer.Ordinal);
             state = status?.State ?? "queued";
             StartedAt = status?.StartedAt;
@@ -679,6 +788,11 @@ public sealed class ReviewJobService : BackgroundService
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
             stopReason = status?.StopReason;
+            attempt = Math.Max(1, status?.Attempt ?? 1);
+            attemptStartedAt = status?.AttemptStartedAt;
+            aggregateOperationId = status?.AggregateOperationId;
+            aggregateStartedAt = status?.AggregateStartedAt;
+            aggregateFinishedAt = status?.AggregateFinishedAt;
             if (transitions is not null)
             {
                 foreach (var transition in transitions)
@@ -689,6 +803,8 @@ public sealed class ReviewJobService : BackgroundService
                     file.StartedAt = transition.StartedAt;
                     file.FinishedAt = transition.FinishedAt;
                     file.Error = transition.Error;
+                    file.OperationId = transition.OperationId;
+                    file.Attempt = transition.Attempt;
                 }
                 foreach (var file in progress.Values.Where(file => file.State == "failed" && file.Error is not null))
                 {
@@ -696,17 +812,24 @@ public sealed class ReviewJobService : BackgroundService
                     if (!errors.Contains(error, StringComparer.Ordinal)) errors.Add(error);
                 }
             }
+            ReconcileArchivedOperations();
         }
 
         public static ReviewWorkItem Create(
             ReviewRunManifest manifest,
             RepositoryRegistration repository,
-            ReviewRunStore store) => new(manifest, repository, store, null, null, null);
+            ReviewRunStore store,
+            ReviewRunArchiveStore archive,
+            ReviewRunArchiveManifest archiveManifest) =>
+            new(manifest, repository, store, archive, archiveManifest, null, null, null);
 
         public static ReviewWorkItem Restore(
             StoredReviewRun stored,
             RepositoryRegistration repository,
-            ReviewRunStore store) => new(stored.Manifest, repository, store, stored.Status, stored.Progress,
+            ReviewRunStore store,
+            ReviewRunArchiveStore archive,
+            ReviewRunArchiveManifest archiveManifest) =>
+            new(stored.Manifest, repository, store, archive, archiveManifest, stored.Status, stored.Progress,
                 stored.Observations);
 
         public string Id => manifest.RunId;
@@ -733,7 +856,7 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate)
             {
                 if (ReviewRunStore.IsTerminal(state)) return;
-                foreach (var file in progress.Values.Where(file => file.State == "running")) RequeueFileCore(file);
+                foreach (var file in progress.Values.Where(file => file.State == "running")) RequeueFileCore(file, preserveOperation: true);
                 if (aggregateState == "running") aggregateState = "queued";
                 state = state == "paused" ? "paused" : "queued";
                 FinishedAt = null;
@@ -748,6 +871,7 @@ public sealed class ReviewJobService : BackgroundService
                 if (state != "queued") throw new InvalidOperationException($"Review '{Id}' is not queued.");
                 state = "running";
                 StartedAt ??= DateTimeOffset.UtcNow;
+                attemptStartedAt ??= DateTimeOffset.UtcNow;
                 FinishedAt = null;
                 attemptActive = true;
                 resumePending = false;
@@ -764,18 +888,21 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public bool StartFile(string path)
+        public OperationContext? StartFile(string path)
         {
             lock (gate)
             {
                 var file = progress[path];
-                if (state != "running" || file.State != "queued") return false;
+                if (state != "running" || file.State != "queued") return null;
                 file.State = "running";
                 file.StartedAt = DateTimeOffset.UtcNow;
                 file.FinishedAt = null;
                 file.Error = null;
+                file.OperationId ??= NewOperationId();
+                file.Attempt ??= attempt;
                 Append(file);
-                return true;
+                return new OperationContext(file.OperationId, file.Ordinal, file.Attempt.Value,
+                    file.UnitId, file.Path, "file", file.StartedAt.Value);
             }
         }
 
@@ -812,7 +939,7 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate)
             {
                 var file = progress[path];
-                if (file.State == "running") RequeueFileCore(file);
+                if (file.State == "running") RequeueFileCore(file, preserveOperation: state != "paused");
             }
         }
 
@@ -828,14 +955,18 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public bool StartAggregate()
+        public OperationContext? StartAggregate()
         {
             lock (gate)
             {
-                if (state != "running" || aggregateState != "queued") return false;
+                if (state != "running" || aggregateState != "queued") return null;
                 aggregateState = "running";
+                aggregateOperationId ??= NewOperationId();
+                aggregateStartedAt ??= DateTimeOffset.UtcNow;
+                aggregateFinishedAt = null;
                 PersistStatus();
-                return true;
+                return new OperationContext(aggregateOperationId, Files.Count + 1, attempt,
+                    Node.Id, Node.Path, manifest.Level, aggregateStartedAt.Value);
             }
         }
 
@@ -846,6 +977,54 @@ public sealed class ReviewJobService : BackgroundService
                 if (aggregateState != "running") return;
                 CaptureObservation(QualityRunReportFactory.AggregateOperationId, execution.Observation);
                 aggregateState = execution.SkippedFresh ? "skipped-fresh" : "done";
+                aggregateFinishedAt = DateTimeOffset.UtcNow;
+                PersistStatus();
+            }
+        }
+
+        public void SkipAggregateFresh()
+        {
+            lock (gate)
+            {
+                if (aggregateState != "running") return;
+                aggregateState = "skipped-fresh";
+                aggregateFinishedAt = DateTimeOffset.UtcNow;
+                PersistStatus();
+            }
+        }
+
+        public void StopAggregate()
+        {
+            lock (gate)
+            {
+                if (aggregateState != "running") return;
+                if (state == "cancelled")
+                {
+                    aggregateState = "cancelled";
+                    aggregateFinishedAt = DateTimeOffset.UtcNow;
+                }
+                else
+                {
+                    aggregateState = "queued";
+                    if (state == "paused")
+                    {
+                        aggregateOperationId = null;
+                        aggregateStartedAt = null;
+                    }
+                    aggregateFinishedAt = null;
+                }
+                PersistStatus();
+            }
+        }
+
+        public void FailAggregate(string error)
+        {
+            lock (gate)
+            {
+                if (aggregateState != "running") return;
+                aggregateState = "failed";
+                aggregateFinishedAt = DateTimeOffset.UtcNow;
+                errors.Add($"{Node.Path}: {error}");
                 PersistStatus();
             }
         }
@@ -876,6 +1055,106 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
+        public async Task ArchiveOperationAsync(
+            OperationContext operation,
+            ReviewExecutionResult? execution,
+            string operationState,
+            string? error)
+        {
+            if (execution is not null)
+            {
+                lock (gate)
+                {
+                    CaptureObservation(
+                        operation.Level == "file" ? operation.Path : QualityRunReportFactory.AggregateOperationId,
+                        execution.Observation);
+                }
+            }
+            ReviewRunArchiveGrade? grade = null;
+            string? verdict = null;
+            var verdictType = "unknown";
+            DateTimeOffset? reviewedAt = null;
+            string? sidecar = null;
+            var findings = new List<ReviewFinding>();
+            var review = execution?.Review;
+            if (review is not null)
+            {
+                sidecar = RelativeArchivePath(review.MetaPath);
+                using var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(review.MetaPath, CancellationToken.None)
+                    .ConfigureAwait(false));
+                var root = metadata.RootElement;
+                if (root.TryGetProperty("reviewedAt", out var reviewedAtJson) &&
+                    DateTimeOffset.TryParse(reviewedAtJson.GetString(), CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal, out var parsedReviewedAt))
+                    reviewedAt = parsedReviewedAt.ToUniversalTime();
+                if (root.TryGetProperty("grade", out var gradeJson))
+                {
+                    grade = new ReviewRunArchiveGrade(
+                        gradeJson.GetProperty("score").GetInt32(),
+                        gradeJson.GetProperty("band").GetString() ?? "F",
+                        gradeJson.GetProperty("rationale").GetString() ?? string.Empty);
+                    verdictType = "grade";
+                }
+                if (root.TryGetProperty("security", out var securityJson) &&
+                    securityJson.TryGetProperty("verdict", out var verdictJson))
+                {
+                    verdictType = "security";
+                    verdict = verdictJson.GetString();
+                }
+                if (root.TryGetProperty("findings", out var findingsJson))
+                {
+                    foreach (var findingJson in findingsJson.EnumerateArray())
+                    {
+                        if (JsonSerializer.Deserialize<ReviewFinding>(findingJson.GetRawText(), ReviewMetaJson.Options) is { } finding)
+                            findings.Add(finding);
+                    }
+                }
+            }
+
+            var stateLookup = findings.Count == 0
+                ? new Dictionary<string, FindingStateRecord>(StringComparer.Ordinal)
+                : (await new FindingStateStore(Repository.RootPath).ReadAsync(CancellationToken.None).ConfigureAwait(false))
+                    .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+            var findingRecords = findings.Select(finding => new ReviewRunFindingRecord(
+                ReviewRunArchiveSchemas.Finding,
+                1,
+                operation.OperationId,
+                operation.Attempt,
+                finding.Fingerprint,
+                finding.Id,
+                finding.RuleId,
+                finding.Severity.ToString().ToLowerInvariant(),
+                finding.Title,
+                finding.Locations,
+                stateLookup.TryGetValue(finding.Fingerprint, out var lifecycle)
+                    ? FindingStateStore.StateName(lifecycle.State)
+                    : "open")).ToArray();
+            archive.AppendFindings(CreatedAt, Id, findingRecords);
+            archive.AppendOperation(CreatedAt, new ReviewRunOperationRecord(
+                ReviewRunArchiveSchemas.Operation,
+                1,
+                Id,
+                operation.OperationId,
+                operation.Ordinal,
+                operation.Attempt,
+                operation.UnitId,
+                operation.Path,
+                operation.Level,
+                operationState,
+                operation.StartedAt.ToUniversalTime(),
+                DateTimeOffset.UtcNow,
+                review?.RunId,
+                review?.ReviewedHash,
+                review is null ? null : review.Inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(Kind)),
+                sidecar,
+                verdictType,
+                verdict,
+                grade,
+                reviewedAt,
+                review?.Usage.Timestamp.ToUniversalTime(),
+                error));
+        }
+
         public bool TryStopAtCap()
         {
             lock (gate)
@@ -901,6 +1180,7 @@ public sealed class ReviewJobService : BackgroundService
                 if (aggregateState == "queued") aggregateState = "skipped";
                 PersistStatus();
                 PublishReport();
+                ArchiveStoppedAttemptCore();
                 return true;
             }
         }
@@ -915,6 +1195,7 @@ public sealed class ReviewJobService : BackgroundService
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
                 PublishReport();
+                ArchiveStoppedAttemptCore();
                 return true;
             }
         }
@@ -930,6 +1211,7 @@ public sealed class ReviewJobService : BackgroundService
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
                 PublishReport();
+                ArchiveStoppedAttemptCore();
             }
         }
 
@@ -951,8 +1233,10 @@ public sealed class ReviewJobService : BackgroundService
                     AppendProgress(file);
                 }
                 if (aggregateState is "queued" or "running") aggregateState = "cancelled";
+                aggregateFinishedAt ??= FinishedAt;
                 PersistStatus();
                 PublishReport();
+                if (!attemptActive) ArchiveStoppedAttemptCore();
                 cancellation = attemptCancellation;
             }
             cancellation.Cancel();
@@ -991,7 +1275,9 @@ public sealed class ReviewJobService : BackgroundService
                     tokenCap = newTokenCap;
                     costCap = newCostCap;
                     if (CapReached()) throw new ArgumentException("The replacement cap must be higher than the run's current spend.");
-                    foreach (var file in progress.Values.Where(file => file.State == "skipped")) RequeueFileCore(file);
+                    attempt++;
+                    attemptStartedAt = null;
+                    foreach (var file in progress.Values.Where(file => file.State == "skipped")) RequeueFileCore(file, preserveOperation: false);
                     if (aggregateState == "skipped") aggregateState = "queued";
                     stopReason = null;
                 }
@@ -1009,8 +1295,13 @@ public sealed class ReviewJobService : BackgroundService
         {
             lock (gate)
             {
-                if (state == "cancelled") return;
-                foreach (var file in progress.Values.Where(file => file.State == "running")) RequeueFileCore(file);
+                if (state == "cancelled")
+                {
+                    ArchiveStoppedAttemptCore();
+                    return;
+                }
+                foreach (var file in progress.Values.Where(file => file.State == "running"))
+                    RequeueFileCore(file, preserveOperation: state != "paused");
                 if (aggregateState == "running") aggregateState = "queued";
                 if (state == "running") state = "queued";
                 FinishedAt = null;
@@ -1044,7 +1335,7 @@ public sealed class ReviewJobService : BackgroundService
                     CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage,
                     manifest.Estimate, tokenCap, costCap, costSpent, currency, priceStatus,
                     files.Count(file => file.State is "skipped" or "skipped-fresh"),
-                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride);
+                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride, attempt);
             }
         }
 
@@ -1062,12 +1353,17 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        private void RequeueFileCore(MutableFileProgress file)
+        private void RequeueFileCore(MutableFileProgress file, bool preserveOperation)
         {
             file.State = "queued";
             file.StartedAt = null;
             file.FinishedAt = null;
             file.Error = null;
+            if (!preserveOperation)
+            {
+                file.OperationId = null;
+                file.Attempt = null;
+            }
             Append(file);
         }
 
@@ -1078,7 +1374,8 @@ public sealed class ReviewJobService : BackgroundService
         }
 
         private void AppendProgress(MutableFileProgress file) => store.AppendProgress(
-            new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error));
+            new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error,
+                file.OperationId, file.Ordinal, file.Attempt));
 
         private void CaptureObservation(string operationId, ReviewObservationSnapshot? snapshot)
         {
@@ -1114,6 +1411,62 @@ public sealed class ReviewJobService : BackgroundService
             reportRevision = report.Run.Revision;
         }
 
+        private void ArchiveStoppedAttemptCore()
+        {
+            var status = DurableStatusCore();
+            archive.EnsureRun(archiveManifest);
+            archive.EnsureAttempt(CreatedAt, archive.CreateAttemptRecord(
+                archiveManifest,
+                status,
+                attempt,
+                attemptStartedAt ?? StartedAt ?? CreatedAt));
+        }
+
+        private void ReconcileArchivedOperations()
+        {
+            IReadOnlyList<ReviewRunOperationRecord> operations;
+            try
+            {
+                operations = archive.ReadOperations(CreatedAt, Id);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+            {
+                return;
+            }
+            foreach (var operation in operations.Where(operation =>
+                         operation.State is "done" or "failed" or "skipped-fresh"))
+            {
+                if (operation.Level == "file" && progress.TryGetValue(operation.Path, out var file))
+                {
+                    file.State = operation.State;
+                    file.OperationId = operation.OperationId;
+                    file.Attempt = operation.Attempt;
+                    file.StartedAt = operation.StartedAt;
+                    file.FinishedAt = operation.FinishedAt;
+                    file.Error = operation.Error;
+                }
+                else if (operation.Level == manifest.Level && operation.Path == Node.Path)
+                {
+                    aggregateState = operation.State;
+                    aggregateOperationId = operation.OperationId;
+                    aggregateStartedAt = operation.StartedAt;
+                    aggregateFinishedAt = operation.FinishedAt;
+                }
+            }
+        }
+
+        private string RelativeArchivePath(string path)
+        {
+            var root = Path.GetFullPath(Repository.RootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var full = Path.GetFullPath(path);
+            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            if (!full.StartsWith(root + Path.DirectorySeparatorChar, comparison))
+                throw new InvalidDataException("A review result sidecar must remain inside the repository root.");
+            return Path.GetRelativePath(root, full).Replace('\\', '/');
+        }
+
+        private string NewOperationId() => $"{Id}:{Guid.NewGuid():N}";
+
         private ReviewRunStatus DurableStatusCore()
         {
             var ordered = manifest.Targets.Select(target => progress[target.Path]).ToArray();
@@ -1125,7 +1478,8 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason, attempt, attemptStartedAt, aggregateOperationId,
+                aggregateStartedAt, aggregateFinishedAt);
         }
 
         private static bool IsCompletedFileState(string fileState) =>
@@ -1157,13 +1511,17 @@ public sealed class ReviewJobService : BackgroundService
         private static long? Add(long? left, long? right) =>
             left.HasValue || right.HasValue ? (left ?? 0) + (right ?? 0) : null;
 
-        private sealed class MutableFileProgress(string path)
+        private sealed class MutableFileProgress(string unitId, string path, int ordinal)
         {
+            public string UnitId { get; } = unitId;
             public string Path { get; } = path;
+            public int Ordinal { get; } = ordinal;
             public string State { get; set; } = "queued";
             public DateTimeOffset? StartedAt { get; set; }
             public DateTimeOffset? FinishedAt { get; set; }
             public string? Error { get; set; }
+            public string? OperationId { get; set; }
+            public int? Attempt { get; set; }
         }
     }
 }

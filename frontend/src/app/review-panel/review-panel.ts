@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunHistoryDetail, RunHistoryDiff, RunHistoryItem, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -57,6 +57,16 @@ export class ReviewPanel {
   readonly runDetailLoading = signal(false);
   readonly runDetailError = signal('');
   readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
+  readonly historyRows = signal<RunHistoryItem[]>([]);
+  readonly historyCursor = signal<string | null>(null);
+  readonly historyKind = signal<ReviewKind | 'all'>('all');
+  readonly historyOutcome = signal<string>('all');
+  readonly historyPath = signal('');
+  readonly historyLoading = signal(false);
+  readonly historyError = signal('');
+  readonly historyDetail = signal<RunHistoryDetail | null>(null);
+  readonly historyDiff = signal<RunHistoryDiff | null>(null);
+  readonly selectedHistoryRuns = signal<string[]>(this.urlRunIds());
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
@@ -69,7 +79,7 @@ export class ReviewPanel {
   readonly deterministicFindingCount = computed(() => (this.activeMeta()?.deterministicEvidence ?? [])
     .reduce((count, result) => count + result.findings.length, 0));
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
-    run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
+    run.path === this.selectedNode()?.path && run.kind === this.activeKind() && run.cliType !== 'archived'));
   readonly selectedRun = computed(() => this.scopeRuns().find(run => run.id === this.selectedRunId()) ?? null);
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
@@ -326,6 +336,91 @@ export class ReviewPanel {
 
   runProgress(completed: number, total: number): number { return total ? completed / total * 100 : 0; }
 
+  async toggleRunHistory(): Promise<void> {
+    const open = !this.runDrawerOpen();
+    this.runDrawerOpen.set(open);
+    if (!open || this.historyRows().length > 0 || this.historyLoading()) return;
+    this.historyKind.set(this.activeKind());
+    this.historyPath.set(this.selectedNode()?.path ?? '');
+    await this.loadHistory(true);
+    const detailId = this.urlDetailId();
+    if (detailId) await this.showHistoryDetail(detailId);
+    if (this.selectedHistoryRuns().length === 2) await this.compareSelectedRuns();
+  }
+
+  async loadHistory(reset: boolean): Promise<void> {
+    if (this.historyLoading()) return;
+    this.historyLoading.set(true);
+    this.historyError.set('');
+    try {
+      const historyKind = this.historyKind();
+      const page = await this.api.loadRunHistory({
+        cursor: reset ? undefined : this.historyCursor() ?? undefined,
+        limit: 20,
+        kind: historyKind === 'all' ? undefined : historyKind,
+        path: this.historyPath().trim() || undefined,
+        outcome: this.historyOutcome() === 'all' ? undefined : this.historyOutcome(),
+      });
+      this.historyRows.update(rows => reset ? page.runs : [...rows, ...page.runs]);
+      this.historyCursor.set(page.nextCursor);
+      if (reset) {
+        this.historyDiff.set(null);
+        this.updateHistoryUrl();
+      }
+    } catch (error) {
+      this.historyError.set(this.api.errorMessage(error));
+    } finally {
+      this.historyLoading.set(false);
+    }
+  }
+
+  canSelectHistory(run: RunHistoryItem): boolean {
+    if (run.error || run.outcome === 'legacy-usage-only') return false;
+    const selected = this.selectedHistoryRuns();
+    if (selected.includes(run.runId) || selected.length === 0) return true;
+    const first = this.historyRows().find(candidate => candidate.runId === selected[0]);
+    return !!first && first.kind === run.kind && first.path === run.path;
+  }
+
+  async toggleHistorySelection(run: RunHistoryItem, checked: boolean): Promise<void> {
+    if (checked && !this.canSelectHistory(run)) return;
+    this.selectedHistoryRuns.update(ids => checked
+      ? [...ids.filter(id => id !== run.runId), run.runId].slice(-2)
+      : ids.filter(id => id !== run.runId));
+    this.historyDiff.set(null);
+    this.updateHistoryUrl();
+    if (this.selectedHistoryRuns().length === 2) await this.compareSelectedRuns();
+  }
+
+  async showHistoryDetail(runId: string): Promise<void> {
+    if (this.historyRows().some(run => run.runId === runId && run.outcome === 'legacy-usage-only')) return;
+    this.historyError.set('');
+    try {
+      this.historyDetail.set(await this.api.loadRunHistoryDetail(runId));
+      this.updateHistoryUrl(runId);
+    } catch (error) {
+      this.historyError.set(this.api.errorMessage(error));
+    }
+  }
+
+  closeHistoryDetail(): void {
+    this.historyDetail.set(null);
+    this.updateHistoryUrl('');
+  }
+
+  async compareSelectedRuns(): Promise<void> {
+    const [before, after] = this.selectedHistoryRuns();
+    if (!before || !after) return;
+    this.historyError.set('');
+    try {
+      this.historyDiff.set(await this.api.compareRunHistory(after, before));
+    } catch (error) {
+      this.historyError.set(this.api.errorMessage(error));
+    }
+  }
+
+  historyDate(value: string | null): string { return value ? formatDateTime(value) : 'timestamp unavailable'; }
+
   formatTokens(value: number | null | undefined): string {
     if (value === null || value === undefined) return 'unavailable';
     return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}m tok` : value >= 1_000 ? `${(value / 1_000).toFixed(1)}k tok` : `${value} tok`;
@@ -405,5 +500,26 @@ export class ReviewPanel {
 
   private formatCost(value: number | null, currency: string | null): string {
     return value === null ? 'unavailable' : `${value.toFixed(4)} ${currency ?? 'USD'}`;
+  }
+
+  private urlRunIds(): string[] {
+    if (typeof window === 'undefined') return [];
+    return new URL(window.location.href).searchParams.get('runCompare')?.split(',').filter(Boolean).slice(0, 2) ?? [];
+  }
+
+  private urlDetailId(): string | null {
+    if (typeof window === 'undefined') return null;
+    return new URL(window.location.href).searchParams.get('runDetail');
+  }
+
+  private updateHistoryUrl(detailId?: string): void {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const selected = this.selectedHistoryRuns();
+    if (selected.length) url.searchParams.set('runCompare', selected.join(','));
+    else url.searchParams.delete('runCompare');
+    if (detailId === '') url.searchParams.delete('runDetail');
+    else if (detailId) url.searchParams.set('runDetail', detailId);
+    window.history.replaceState(window.history.state, '', url);
   }
 }

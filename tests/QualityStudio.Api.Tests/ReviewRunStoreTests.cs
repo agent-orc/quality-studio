@@ -53,17 +53,23 @@ public sealed class ReviewRunStoreTests
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
             Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
             Assert.Equal(1, fake.OperationCount);
+            var runId = accepted.GetProperty("id").GetString()!;
             var reportStore = new QualityRunReportStore(fixture.RepositoryRoot);
-            var cappedReport = reportStore.Load(accepted.GetProperty("id").GetString()!);
+            var cappedReport = reportStore.Load(runId);
             Assert.Equal(1, cappedReport.Run.Revision);
             Assert.Equal("capped", cappedReport.Run.State);
             Assert.Equal("partial", cappedReport.Run.Completeness);
+            var archive = new ReviewRunArchiveStore(fixture.RepositoryRoot);
+            var cappedArchive = archive.Get(RepositoryRegistry.DefaultRepositoryId, runId);
+            Assert.Equal("capped", cappedArchive.Attempt!.Outcome);
+            Assert.Equal(1, cappedArchive.Attempt.Attempt);
+            Assert.Single(cappedArchive.Operations);
 
             using var resume = await client.PostAsJsonAsync(
-                $"/api/review/runs/{accepted.GetProperty("id").GetString()}/resume",
+                $"/api/review/runs/{runId}/resume",
                 new { tokenCap = 100 }, cancellationToken);
             resume.EnsureSuccessStatusCode();
-            var completed = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+            var completed = await WaitForStateAsync(client, runId, "done", cancellationToken);
             Assert.Equal(2, completed.GetProperty("completedFiles").GetInt32());
             Assert.Equal(0, completed.GetProperty("skippedFiles").GetInt32());
             Assert.Equal("done", completed.GetProperty("aggregateState").GetString());
@@ -122,6 +128,62 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+
+            var completedArchive = archive.Get(RepositoryRegistry.DefaultRepositoryId, runId);
+            Assert.Equal(2, completedArchive.Attempt!.Attempt);
+            Assert.Equal(2, archive.ReadAttempts(completedArchive.Run!.CreatedAt, runId).Count);
+            Assert.Equal(3, completedArchive.Operations.Count);
+            Assert.Equal(3, completedArchive.Operations.Select(operation => operation.OperationId).Distinct().Count());
+            var usage = await UsageLedger.QueryAsync(fixture.RepositoryRoot, cancellationToken: cancellationToken);
+            Assert.Equal(3, usage.Runs);
+            Assert.All(usage.Recent, entry =>
+            {
+                Assert.Equal(3, entry.SchemaVersion);
+                Assert.Equal(runId, entry.ReviewRunId);
+                Assert.NotNull(entry.OperationId);
+                Assert.True(entry.Attempt is 1 or 2);
+            });
+
+            var history = await client.GetFromJsonAsync<JsonElement>("/api/review/history?limit=10", cancellationToken);
+            Assert.Contains(history.GetProperty("runs").EnumerateArray(), item => item.GetProperty("runId").GetString() == runId);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Cancelling_an_active_run_archives_the_cancelled_operation_and_attempt()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new BlockingExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-5",
+                force = true,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var runId = accepted.GetProperty("id").GetString()!;
+            await fake.Started.Task.WaitAsync(cancellationToken);
+
+            using var cancelledResponse = await client.DeleteAsync($"/api/review/runs/{runId}", cancellationToken);
+            cancelledResponse.EnsureSuccessStatusCode();
+            var cancelled = await WaitForStateAsync(client, runId, "cancelled", cancellationToken);
+            Assert.Equal("cancelled", cancelled.GetProperty("state").GetString());
+
+            var archived = await WaitForArchivedAttemptAsync(fixture.RepositoryRoot, runId, cancellationToken);
+            Assert.Equal("cancelled", archived.Attempt!.Outcome);
+            Assert.Equal("cancelled", Assert.Single(archived.Operations).State);
         }
         finally
         {
@@ -184,6 +246,55 @@ public sealed class ReviewRunStoreTests
                 file => Assert.Equal("done", file.GetProperty("state").GetString()));
             Assert.Equal("done", forced.GetProperty("aggregateState").GetString());
             Assert.Equal(3, fake.AgentCalls);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Tracked_history_remains_queryable_after_the_mutable_run_store_is_removed()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new FreshnessExecutorFactory();
+        try
+        {
+            string runId;
+            await using (var application = fixture.CreateApplication(fake))
+            {
+                using var client = application.CreateClient();
+                using var response = await client.PostAsJsonAsync("/api/review", new
+                {
+                    path = ".",
+                    kind = "code",
+                    cliType = "test-agent",
+                    force = true,
+                }, cancellationToken);
+                response.EnsureSuccessStatusCode();
+                var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+                runId = accepted.GetProperty("id").GetString()!;
+                await WaitForStateAsync(client, runId, "done", cancellationToken);
+            }
+
+            Directory.Delete(fixture.Store.RunsPath, recursive: true);
+
+            await using var cleanApplication = fixture.CreateApplication(fake);
+            using var cleanClient = cleanApplication.CreateClient();
+            var detail = await cleanClient.GetFromJsonAsync<JsonElement>(
+                $"/api/review/history/{runId}", cancellationToken);
+            Assert.Equal(runId, detail.GetProperty("run").GetProperty("runId").GetString());
+            Assert.Equal(3, detail.GetProperty("operations").GetArrayLength());
+
+            var diff = await cleanClient.GetFromJsonAsync<JsonElement>(
+                $"/api/review/history/{runId}/diff?against={runId}", cancellationToken);
+            Assert.Equal("exact", Assert.Single(diff.GetProperty("comparability").EnumerateArray()).GetString());
+
+            var recent = await cleanClient.GetFromJsonAsync<JsonElement>("/api/review/runs", cancellationToken);
+            Assert.Contains(recent.GetProperty("runs").EnumerateArray(), run =>
+                run.GetProperty("id").GetString() == runId && run.GetProperty("cliType").GetString() == "archived" &&
+                run.GetProperty("totalFiles").GetInt32() == 2 && run.GetProperty("usageOperations").GetInt32() == 0);
         }
         finally
         {
@@ -492,6 +603,29 @@ public sealed class ReviewRunStoreTests
         return run;
     }
 
+    private static async Task<ReviewRunHistoryDetail> WaitForArchivedAttemptAsync(
+        string repositoryRoot,
+        string runId,
+        CancellationToken cancellationToken)
+    {
+        var archive = new ReviewRunArchiveStore(repositoryRoot);
+        ReviewRunHistoryDetail detail = default!;
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            try
+            {
+                detail = archive.Get(RepositoryRegistry.DefaultRepositoryId, runId);
+                if (detail.Attempt is not null) return detail;
+            }
+            catch (KeyNotFoundException)
+            {
+                // The manifest is durable before the stopped-attempt record is appended.
+            }
+            await Task.Delay(20, cancellationToken);
+        }
+        return detail;
+    }
+
     private static ReviewExecutionResult CapturedExecution(
         ReviewRequest request,
         bool skippedFresh,
@@ -689,10 +823,33 @@ public sealed class ReviewRunStoreTests
                 var operation = Interlocked.Increment(ref owner.operationCount);
                 var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
                     model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
-                    request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
+                    request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath,
+                    request.ReviewRunId, UsageLedger.CurrentSchemaVersion, request.OperationId, request.Attempt);
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
                 return CapturedExecution(request, skippedFresh: false, operation);
+            }
+        }
+    }
+
+    private sealed class BlockingExecutorFactory : IReviewExecutorFactory
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver, Action<ReviewUsageEntry> usageRecorded) =>
+            new BlockingExecutor(this);
+
+        private sealed class BlockingExecutor(BlockingExecutorFactory owner) : IReviewExecutor
+        {
+            public async Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                owner.Started.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                throw new InvalidOperationException("The blocking test executor unexpectedly resumed.");
             }
         }
     }

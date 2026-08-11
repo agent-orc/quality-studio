@@ -10,15 +10,18 @@ identifiers to two places:
 
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
-contracts in `schemas/usage-ledger.v1.schema.json` and
-`schemas/usage-ledger.v2.schema.json`. In both versions, `runId` is the ID returned
-by the CLI for one operation. Version 2 adds `reviewRunId`, the durable sweep/job
-ID shared by all file and aggregate operations in the review. Existing v1 lines
-remain valid and are never migrated or rewritten.
+contracts in `schemas/usage-ledger.v1.schema.json`,
+`schemas/usage-ledger.v2.schema.json`, and `schemas/usage-ledger.v3.schema.json`.
+In every version, `runId` is the ID returned by the CLI for one operation.
+Version 2 adds `reviewRunId`, the durable sweep/job ID shared by all file and
+aggregate operations in the review. Version 3 adds the archive `operationId`
+and one-based `attempt`, allowing each usage event to join to an immutable run
+operation and stopped attempt. Existing v1/v2 lines remain valid and are never
+migrated or rewritten.
 
 `GET /api/usage?since=&kind=` (and its repository-scoped equivalent) reads the
 ledger and returns totals, model/kind/day/review-run aggregates, and at most 50
-recent entries. `byReviewRun` groups v2 entries by `reviewRunId`, making a
+recent entries. `byReviewRun` groups v2/v3 entries by `reviewRunId`, making a
 completed sweep's token total recoverable without the in-memory job object and
 after an API restart. A v1 entry has no sweep ID, so it is retained as a
 singleton group keyed by its CLI `runId`. A malformed historical JSONL line is

@@ -309,6 +309,12 @@ app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/review/history", ReviewHistory);
+app.MapGet("/api/repos/{repoId}/review/history", ReviewHistory);
+app.MapGet("/api/review/history/{id}", ReviewHistoryDetail);
+app.MapGet("/api/repos/{repoId}/review/history/{id}", ReviewHistoryDetail);
+app.MapGet("/api/review/history/{id}/diff", ReviewHistoryDiff);
+app.MapGet("/api/repos/{repoId}/review/history/{id}/diff", ReviewHistoryDiff);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1133,6 +1139,75 @@ static IResult ReviewRunTrend(
     var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
     return Results.Ok(QualityRunTrendBuilder.Build(
         reports, kind, scopeUnitId, level, cursor, limit ?? 30));
+}
+
+static async Task<IResult> ReviewHistory(
+    HttpContext context,
+    string? cursor,
+    int? limit,
+    string? kind,
+    string? path,
+    string? outcome,
+    RepositoryRegistry registry,
+    CancellationToken cancellationToken)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var usage = await UsageLedger.ReadAllAsync(
+        repository.RootPath, kind: kind, cancellationToken: cancellationToken).ConfigureAwait(false);
+    var legacy = ReviewRunArchiveStore.LegacyUsageOnlyRows(repository.Id, usage);
+    return Results.Ok(new ReviewRunArchiveStore(repository.RootPath).Query(
+        repository.Id, cursor, limit ?? 30, kind, path, outcome, legacy));
+}
+
+static IResult ReviewHistoryDetail(
+    HttpContext context,
+    string id,
+    int? attempt,
+    RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var detail = new ReviewRunArchiveStore(repository.RootPath).Get(repository.Id, id, attempt);
+    return detail.Error is null
+        ? Results.Ok(detail)
+        : Results.UnprocessableEntity(detail.Error);
+}
+
+static async Task<IResult> ReviewHistoryDiff(
+    HttpContext context,
+    string id,
+    string against,
+    int? attempt,
+    int? againstAttempt,
+    bool? allowScopeChange,
+    RepositoryRegistry registry,
+    CancellationToken cancellationToken)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new ReviewRunArchiveStore(repository.RootPath);
+    var after = store.Get(repository.Id, id, attempt);
+    var before = store.Get(repository.Id, against, againstAttempt);
+    if (after.Error is not null) return Results.UnprocessableEntity(after.Error);
+    if (before.Error is not null) return Results.UnprocessableEntity(before.Error);
+    IReadOnlyDictionary<string, string>? renameMap = null;
+    var beforeCommit = before.Run?.SourceRevision.Commit;
+    var afterCommit = after.Run?.SourceRevision.Commit;
+    if (!string.IsNullOrWhiteSpace(beforeCommit) && !string.IsNullOrWhiteSpace(afterCommit))
+    {
+        try
+        {
+            var changeSet = (await new GitMergeRangeChangeSetProvider().GetAsync(
+                    new ChangeSetQuery(repository.RootPath, beforeCommit, afterCommit), cancellationToken)
+                .ConfigureAwait(false)).Single();
+            renameMap = changeSet.TouchedFiles
+                .Where(item => item.Kind == ChangeKind.Renamed && item.PreviousPath is not null)
+                .ToDictionary(item => item.PreviousPath!, item => item.Path, StringComparer.Ordinal);
+        }
+        catch (ChangeReviewException)
+        {
+            // The tracked archive stays diffable when its source commits are absent in a shallow clone.
+        }
+    }
+    return Results.Ok(ReviewRunDiffService.Compare(before, after, allowScopeChange == true, renameMap));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

@@ -141,7 +141,7 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
+    <span><b>Status</b> decided</span>
     <span><b>Phase</b> decision ready</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
@@ -483,6 +483,27 @@
 </table>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<p class="dim">Append-only delivery log. All entries below landed under the operator's 11 August 2026 approval.</p>
+
+<h3>11 August 2026 · QS-71 · RP-1</h3>
+<p>Added the four versioned archive schemas, typed manifest/operation/finding/attempt records, and a path-confined <code>ReviewRunArchiveStore</code>. Run manifests and attempt snapshots are create-only; observation streams are append-only and idempotent; capped and resumed attempts remain independently readable.</p>
+
+<h3>11 August 2026 · QS-71 · RP-2</h3>
+<p>Added stable operation IDs and attempt ordinals to review execution, dual-wrote operation and finding observations after result persistence, and finalized immutable attempt records for done, failed, cancelled, and capped boundaries. Advanced new usage rows to <code>usage-ledger.v3</code> with <code>operationId</code> and <code>attempt</code>, retaining v1/v2 compatibility.</p>
+
+<h3>11 August 2026 · QS-71 · RP-3</h3>
+<p>Added idempotent v0 recovery-journal migration, cursor-paged and filtered history/detail APIs, active-plus-archive recent-run composition, and typed corruption results. Clean-clone coverage proves history, detail, and diff remain available after the mutable <code>.quality/runs</code> cache is removed; no Git mutation was introduced.</p>
+
+<h3>11 August 2026 · QS-71 · RP-4</h3>
+<p>Added deterministic two-run comparison for comparability, target and input scope, execution completeness, grades, typed verdicts, finding lifecycle observations, and economy values. Exact, policy/model/scope/incomplete, finding-set, and unavailable-value cases are covered by contract tests.</p>
+
+<h3>11 August 2026 · QS-71 · RP-5</h3>
+<p>Added an on-demand tracked-history surface with pagination, kind/path/outcome filters, detail inspection, compatible two-run selection, deterministic comparison, and URL-backed detail/compare state. The operational endpoint remains responsible for live controls, and the UI uses the shared design-token scale.</p>
+
+<h3>11 August 2026 · QS-71 · Implementation addendum</h3>
+<p>Exposed unmatched v1/v2 ledger groups as non-comparable <code>legacy-usage-only</code> rows without inferred run facts, and wired two-run diff to the existing read-only Git change-set provider so rename correlation is reported only when it was actually available.</p>
 </main>
 </body>
 </html>

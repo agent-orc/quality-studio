@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived review operation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt", "unitId", "path", "level", "state", "startedAt", "finishedAt", "verdictType"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1 },
+    "operationId": { "type": "string", "minLength": 1 },
+    "ordinal": { "type": "integer", "minimum": 1 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1 },
+    "path": { "type": "string", "minLength": 1 },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped-fresh"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"] },
+    "reviewedHash": { "type": ["string", "null"] },
+    "reviewInputsHash": { "type": ["string", "null"] },
+    "resultSidecar": { "type": ["string", "null"] },
+    "verdictType": { "enum": ["grade", "security", "unknown"] },
+    "verdict": { "type": ["string", "null"] },
+    "grade": { "$ref": "#/$defs/grade" },
+    "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+    "usageRecordedAt": { "type": ["string", "null"], "format": "date-time" },
+    "error": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "grade": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["score", "band", "rationale"],
+      "properties": { "score": { "type": "integer", "minimum": 0, "maximum": 100 }, "band": { "enum": ["A", "B", "C", "D", "F"] }, "rationale": { "type": "string" } }
+    }
+  }
+}

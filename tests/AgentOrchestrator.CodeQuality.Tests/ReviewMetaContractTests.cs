@@ -305,6 +305,38 @@ public sealed class ReviewMetaContractTests
         }
     }
 
+    [Fact]
+    public async Task UsageLedgerV3CarriesOperationAndAttemptWithoutRewritingOlderRows()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-v3-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "provider-operation", timestamp, "gpt-5", "codex",
+                new TokenUsage(120, 30, 20, 4, 900), "security", "file", "src/secure.cs",
+                "review-run-1", 3, "operation-1", 2), TestContext.Current.CancellationToken);
+
+            var line = Assert.Single(await File.ReadAllLinesAsync(
+                UsageLedger.GetLedgerPath(root.FullName, timestamp), TestContext.Current.CancellationToken));
+            ValidateUsageLedgerLine(line, "usage-ledger.v3.schema.json");
+            using var json = JsonDocument.Parse(line);
+            Assert.Equal(3, json.RootElement.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal("operation-1", json.RootElement.GetProperty("operationId").GetString());
+            Assert.Equal(2, json.RootElement.GetProperty("attempt").GetInt32());
+
+            var report = await UsageLedger.QueryAsync(root.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+            var entry = Assert.Single(report.Recent);
+            Assert.Equal("operation-1", entry.OperationId);
+            Assert.Equal(2, entry.Attempt);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
     private static void ValidateUsageLedgerLine(string line, string schemaFile)
     {
         var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(

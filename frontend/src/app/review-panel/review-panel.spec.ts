@@ -50,6 +50,8 @@ describe('ReviewPanel session flow', () => {
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
+    loadRunHistory: jasmine.createSpy('loadRunHistory'), loadRunHistoryDetail: jasmine.createSpy('loadRunHistoryDetail'),
+    compareRunHistory: jasmine.createSpy('compareRunHistory'),
     errorMessage: (error: unknown) => error instanceof Error ? error.message : 'request failed',
   };
   const node = { id: 'a', name: 'A.cs', path: 'src/A.cs', level: 'file', kinds: { code: { direct: 'fresh', metaPath: 'a.review-meta.json' } }, children: [] };
@@ -59,7 +61,9 @@ describe('ReviewPanel session flow', () => {
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
+      api.resumeReview, api.loadRunReport, api.loadRunTrend, api.loadRunHistory,
+      api.loadRunHistoryDetail, api.compareRunHistory]) spy.calls.reset();
+    window.history.replaceState(window.history.state, '', window.location.pathname);
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -67,6 +71,7 @@ describe('ReviewPanel session flow', () => {
     api.previewScopeRule.and.resolveTo({ index: -1, action: 'exclude', pattern: 'src/A.cs', reason: 'Ignore path', matchedFiles: ['src/A.cs'], widerPattern: false });
     api.addScopeRule.and.resolveTo(api.scopeRules()); api.updateScopeRule.and.resolveTo(api.scopeRules());
     api.deleteScopeRule.and.resolveTo(api.scopeRules());
+    api.loadRunHistory.and.resolveTo({ runs: [], nextCursor: null });
 
     await TestBed.configureTestingModule({
       imports: [ReviewPanel],
@@ -210,5 +215,36 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+  });
+
+  it('loads tracked history on demand and compares only matching scope and kind', async () => {
+    const row = (runId: string, path = 'src/A.cs') => ({
+      runId, repositoryId: 'default', createdAt: '2026-08-11T08:00:00Z', path, level: 'file', kind: 'code',
+      model: 'model', attempt: 1, outcome: 'done', complete: true, finishedAt: '2026-08-11T08:01:00Z',
+      operations: 1, findings: 0, usage: { inputTokens: 10, outputTokens: 2, cachedInputTokens: 0, reasoningOutputTokens: null, durationMs: 10 },
+      costSpent: null, currency: null, quality: null, error: null,
+    });
+    const legacy = { ...row('legacy'), attempt: null, outcome: 'legacy-usage-only', complete: null, finishedAt: null };
+    api.loadRunHistory.and.resolveTo({ runs: [row('before'), row('after'), row('other', 'src/B.cs'), legacy], nextCursor: null });
+    api.compareRunHistory.and.resolveTo({
+      beforeRunId: 'before', beforeAttempt: 1, afterRunId: 'after', afterAttempt: 1, comparability: ['exact'],
+      scope: { added: [], removed: [], persisting: ['src/A.cs'], changedSubjectHashes: [] },
+      execution: { beforeOutcome: 'done', afterOutcome: 'done', beforeComplete: true, afterComplete: true, failedFilesChange: 0, skippedFilesChange: 0, durationMsChange: 0, costChange: null },
+      grades: [], verdicts: [], findings: { new: [], resolved: [], persisting: [] },
+      economy: { before: {}, after: {}, inputTokensChange: 0, outputTokensChange: 0, durationMsChange: 0, costChange: null, currency: null },
+      renameCorrelationAvailable: false,
+    });
+
+    await component.toggleRunHistory();
+    expect(api.loadRunHistory).toHaveBeenCalledWith(jasmine.objectContaining({ kind: 'code', path: 'src/A.cs' }));
+    await component.toggleHistorySelection(component.historyRows()[0], true);
+    expect(component.canSelectHistory(component.historyRows()[1])).toBeTrue();
+    expect(component.canSelectHistory(component.historyRows()[2])).toBeFalse();
+    expect(component.canSelectHistory(component.historyRows()[3])).toBeFalse();
+    await component.toggleHistorySelection(component.historyRows()[1], true);
+
+    expect(api.compareRunHistory).toHaveBeenCalledWith('after', 'before');
+    expect(component.historyDiff()?.comparability).toEqual(['exact']);
+    expect(new URL(window.location.href).searchParams.get('runCompare')).toBe('before,after');
   });
 });

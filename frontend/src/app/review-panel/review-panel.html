@@ -1,11 +1,11 @@
 <aside class="pane review-pane">
   <div class="pane-header"><div><span class="eyebrow">Review</span><strong>{{ activeKind() }} findings</strong></div><span class="score" [class.stale-score]="activeState() === 'stale'">{{ activeMeta()?.grade?.band ?? '—' }}</span></div>
   <div class="review-content">
-    <button type="button" class="run-history-trigger" (click)="runDrawerOpen.set(!runDrawerOpen())" [attr.aria-expanded]="runDrawerOpen()"><span><b>Run details</b><small>{{ scopeRuns().length }} for this scope and kind</small></span><span>{{ runDrawerOpen() ? 'Close' : 'Open' }} →</span></button>
+    <button type="button" class="run-history-trigger" (click)="toggleRunHistory()" [attr.aria-expanded]="runDrawerOpen()"><span><b>Runs and history</b><small>{{ scopeRuns().length }} active or recent · {{ historyRows().length }} archived loaded</small></span><span>{{ runDrawerOpen() ? 'Close' : 'Open' }} →</span></button>
     @if (api.reviewError()) { <div class="run-error" role="alert">{{ api.reviewError() }}</div> }
     @if (runDrawerOpen()) {
       <section class="run-history-drawer" aria-label="Run history">
-        <div class="section-title"><span>Run history</span><small>Scope filtered</small></div>
+        <div class="section-title"><span>Active and recent</span><small>Live controls</small></div>
         <div class="runs-panel">
           @for (run of scopeRuns(); track run.id) {
             <article class="run-row" [class.selected]="selectedRunId() === run.id">
@@ -58,6 +58,33 @@
         }
         <div class="section-title"><span>Token usage</span><small>{{ api.usage().runs }} operations</small></div>
         <section class="usage-summary" aria-label="Token usage aggregate"><div><b>{{ formatTokens(api.usage().inputTokens) }}</b><span>Input</span></div><div><b>{{ formatTokens(api.usage().outputTokens) }}</b><span>Output</span></div><div><b>{{ formatTokens(api.usage().cachedInputTokens) }}</b><span>Cached</span></div>@for (model of api.usage().byModel.slice(0, 3); track model.key) { <p><span>{{ model.key }}</span><b>{{ model.runs }} · {{ formatTokens(model.inputTokens + model.outputTokens) }}</b></p> }</section>
+        <div class="section-title"><span>Tracked history</span><small>Fetched on demand</small></div>
+        <div class="history-filters" aria-label="Run history filters">
+          <select aria-label="History review kind" [value]="historyKind()" (change)="historyKind.set($any($event.target).value)"><option value="all">All kinds</option><option value="code">Code</option><option value="security">Security</option><option value="performance">Performance</option></select>
+          <select aria-label="History outcome" [value]="historyOutcome()" (change)="historyOutcome.set($any($event.target).value)"><option value="all">All outcomes</option>@for (outcome of ['done', 'failed', 'cancelled', 'capped', 'legacy-usage-only']; track outcome) { <option [value]="outcome">{{ outcome }}</option> }</select>
+          <input aria-label="History path" [value]="historyPath()" (input)="historyPath.set($any($event.target).value)" placeholder="Repository path">
+          <button type="button" (click)="loadHistory(true)" [disabled]="historyLoading()">Apply</button>
+        </div>
+        @if (historyError()) { <div class="history-error" role="alert">{{ historyError() }}</div> }
+        <div class="history-list" aria-label="Archived review runs">
+          @for (run of historyRows(); track run.runId) {
+            <article class="history-row" [class.corrupt]="run.error">
+              @if (run.error) { <div><b>{{ run.runId }}</b><span>{{ run.error.code }} · {{ run.error.detail }}</span></div> }
+              @else {
+                <label><input type="checkbox" [checked]="selectedHistoryRuns().includes(run.runId)" [disabled]="!canSelectHistory(run)" (change)="toggleHistorySelection(run, $any($event.target).checked)"><span class="sr-only">Select {{ run.runId }} for comparison</span></label>
+                <button type="button" class="history-summary" [disabled]="run.outcome === 'legacy-usage-only'" (click)="showHistoryDetail(run.runId)"><b>{{ run.kind }} · {{ run.path ?? 'multiple paths' }}</b><span>{{ historyDate(run.finishedAt) }} · {{ run.outcome }} @if (run.attempt !== null) { · attempt {{ run.attempt }} } · {{ run.model ?? 'multiple models' }}</span><small>{{ run.operations ?? 0 }} operations · {{ run.findings ?? 0 }} findings · {{ formatTokens(run.usage?.inputTokens) }} in</small></button>
+              }
+            </article>
+          } @empty { @if (!historyLoading()) { <div class="empty-findings">No archived runs match these filters.</div> } }
+        </div>
+        @if (historyLoading()) { <div class="history-loading" role="status">Loading tracked history…</div> }
+        @if (historyCursor()) { <button type="button" class="history-more" (click)="loadHistory(false)" [disabled]="historyLoading()">Load more</button> }
+        @if (historyDetail(); as detail) {
+          <section class="history-detail" aria-label="Archived run detail"><header><div><span class="eyebrow">Archived run</span><b>{{ detail.run?.runId }}</b></div><button type="button" aria-label="Close archived run detail" (click)="closeHistoryDetail()">×</button></header><p>{{ detail.run?.kind }} · {{ detail.run?.subject?.path }} · {{ detail.attempt?.outcome }} attempt {{ detail.attempt?.attempt }}</p><div class="history-metrics"><span><b>{{ detail.operations.length }}</b> operations</span><span><b>{{ detail.findings.length }}</b> findings</span><span><b>{{ detail.attempt?.quality?.lowestGrade ?? '—' }}</b> lowest grade</span></div>@for (operation of detail.operations; track operation.operationId) { <div class="history-operation"><b>{{ operation.path }}</b><span>{{ operation.state }} · {{ operation.grade?.band ?? operation.verdict ?? 'no verdict' }}</span></div> }</section>
+        }
+        @if (historyDiff(); as diff) {
+          <section class="history-compare" aria-label="Run comparison"><div class="section-title"><span>Comparison</span><small>{{ diff.beforeRunId }} → {{ diff.afterRunId }}</small></div><div class="compare-warnings">@for (label of diff.comparability; track label) { <span>{{ label }}</span> }</div><div class="history-metrics"><span><b>{{ diff.scope.added.length }}</b> targets added</span><span><b>{{ diff.findings.new.length }}</b> findings new</span><span><b>{{ diff.findings.resolved.length }}</b> findings resolved</span></div>@for (grade of diff.grades; track grade.level + ':' + grade.path) { <div class="history-operation"><b>{{ grade.path }}</b><span>{{ grade.beforeBand ?? '—' }} {{ grade.beforeScore ?? '—' }} → {{ grade.afterBand ?? '—' }} {{ grade.afterScore ?? '—' }} @if (grade.scoreChange !== null) { · {{ grade.scoreChange > 0 ? '+' : '' }}{{ grade.scoreChange }} }</span></div> }</section>
+        }
       </section>
     }
     @if (activeMeta(); as meta) {

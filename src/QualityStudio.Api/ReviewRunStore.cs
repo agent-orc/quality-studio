@@ -47,7 +47,10 @@ public sealed record ReviewRunFileTransition(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     string RunId,
-    string? Error);
+    string? Error,
+    string? OperationId = null,
+    int? Ordinal = null,
+    int? Attempt = null);
 
 public sealed record ReviewRunStatus(
     string RunId,
@@ -69,7 +72,12 @@ public sealed record ReviewRunStatus(
     string PriceStatus = "unknownModel",
     int SkippedFiles = 0,
     string? AggregateState = null,
-    string? StopReason = null);
+    string? StopReason = null,
+    int Attempt = 1,
+    DateTimeOffset? AttemptStartedAt = null,
+    string? AggregateOperationId = null,
+    DateTimeOffset? AggregateStartedAt = null,
+    DateTimeOffset? AggregateFinishedAt = null);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so

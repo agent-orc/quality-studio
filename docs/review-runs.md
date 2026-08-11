@@ -24,7 +24,7 @@ A capped run is resumable without repeating completed files. `POST /api/review/r
 
 ## Durable state
 
-Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
+Run orchestration is recoverable under `<repository>/.quality/runs/<runId>/`:
 
 - `manifest.json` is the immutable enqueue-time plan. It records the selected node and level, kind, model, CLI type, force flag, preflight estimate, initial cap, aggregate controls, and every target file with its subject hash.
 - `progress.jsonl` is an append-only file-transition log. Each flushed line records the run and file path, state, timestamps, and any error. Recovery ignores an incomplete line left by a crash and continues from the other records.
@@ -52,8 +52,33 @@ same CodingAgentRunner request used for every file and aggregate operation.
 
 At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed.
 
+Terminal history is stored separately as tracked, immutable records under
+`<repository>/.quality/run-history/YYYY-MM/<runId>/`. The run manifest is
+create-only, operation and finding observations are append-only, and every
+stopped boundary creates an immutable attempt record. A capped run that later
+resumes therefore retains both the capped attempt and its later result. The API
+migrates readable legacy recovery journals idempotently and labels unavailable
+legacy facts as unknown instead of inventing them.
+Legacy v1/v2 usage groups without a matching run manifest remain visible as
+`legacy-usage-only` rows with only their recorded path, kind, model, and token
+facts; they cannot be opened or compared as if a run plan or outcome existed.
+
+`GET /api/review/history` provides cursor pagination and kind, path, and outcome
+filters. `GET /api/review/history/{runId}` returns a selected attempt with its
+operations and findings, and `GET /api/review/history/{runId}/diff?against=...`
+returns deterministic scope, execution, grade, typed-verdict, finding, and
+economy deltas. Repository-scoped forms are also available. Corrupt tracked
+records remain visible through typed errors rather than disappearing from the
+listing. When both source commits are locally available, diff reads Git rename
+metadata to correlate moved targets; missing commits leave correlation explicitly
+unavailable. The History drawer loads these records on demand; live pause,
+resume, and cancellation controls continue to use the operational run endpoint.
+
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
 `.quality/runs/` is ignored by Git because it is disposable orchestration working
-data. Review sidecars remain the committed current-state truth, while canonical
-run reports preserve the historical truth of each terminal execution.
+data. Review sidecars remain the committed current-state truth; canonical run
+reports preserve strict export snapshots; `.quality/run-history/` preserves
+operation, finding, and attempt history; and usage ledgers preserve spend events.
+Quality Studio writes these artifacts but does not stage, commit, push, merge, or
+otherwise own Git operations.
