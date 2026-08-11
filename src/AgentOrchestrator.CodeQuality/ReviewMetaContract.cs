@@ -6,8 +6,10 @@ namespace AgentOrchestrator.CodeQuality;
 
 public sealed record ReviewMetaDocument
 {
-    public const int CurrentSchemaVersion = 2;
-    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v2.schema.json";
+    public const int CurrentSchemaVersion = 3;
+    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json";
+    public const int PreviousSchemaVersion = 2;
+    public const string PreviousSchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v2.schema.json";
     public const int LegacySchemaVersion = 1;
     public const string LegacySchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json";
 
@@ -61,6 +63,9 @@ public sealed record ReviewMetaDocument
 
     [JsonPropertyOrder(16)]
     public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; init; } = [];
+
+    [JsonPropertyOrder(17), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ReviewOrigin? Origin { get; init; }
 }
 
 public sealed record ReviewUnit(
@@ -79,7 +84,25 @@ public sealed record ReviewerIdentity(
     [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AgentVersion = null,
     [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RunId = null,
     [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewerUsage? Usage = null,
-    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ReviewerSensorReference>? Sensors = null);
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ReviewerSensorReference>? Sensors = null,
+    [property: JsonPropertyOrder(6), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ThinkingLevel = null);
+
+public sealed record ReviewOrigin(
+    [property: JsonPropertyOrder(0)] string Kind,
+    [property: JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReviewRunId,
+    [property: JsonPropertyOrder(2)] string OperationRunId,
+    [property: JsonPropertyOrder(3)] ReviewRoute Requested,
+    [property: JsonPropertyOrder(4)] ReviewRoute Executed,
+    [property: JsonPropertyOrder(5)] PromptReference Prompt,
+    [property: JsonPropertyOrder(6)] string ReviewInputHash,
+    [property: JsonPropertyOrder(7)] string SubjectManifestHash,
+    [property: JsonPropertyOrder(8)] string SourceRevision,
+    [property: JsonPropertyOrder(9)] DateTimeOffset ObservedAt);
+
+public sealed record ReviewRoute(
+    [property: JsonPropertyOrder(0), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Cli,
+    [property: JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Model,
+    [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ThinkingLevel);
 
 public sealed record ReviewerSensorReference(
     [property: JsonPropertyOrder(0)] string Id,
@@ -155,7 +178,34 @@ public sealed record ReviewFinding(
     [property: JsonPropertyOrder(7)] string Fingerprint,
     [property: JsonPropertyOrder(8)] string RuleId,
     [property: JsonPropertyOrder(9), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Evidence = null,
-    [property: JsonPropertyOrder(10), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingSource? Source = null);
+    [property: JsonPropertyOrder(10), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingSource? Source = null,
+    [property: JsonPropertyOrder(11), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Impact = null,
+    [property: JsonPropertyOrder(12), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<FindingEvidenceItem>? EvidenceItems = null,
+    [property: JsonPropertyOrder(13), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingReproduction? Reproduction = null);
+
+public sealed record FindingEvidenceItem(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] string Class,
+    [property: JsonPropertyOrder(2)] string Status,
+    [property: JsonPropertyOrder(3)] string Summary,
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? AnchorIndex = null,
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Producer = null,
+    [property: JsonPropertyOrder(6), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Reference = null,
+    [property: JsonPropertyOrder(7), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ResultHash = null);
+
+public sealed record FindingReproduction(
+    [property: JsonPropertyOrder(0)] string Status,
+    [property: JsonPropertyOrder(1)] IReadOnlyList<string> Steps,
+    [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Expected = null,
+    [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Observed = null,
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Reason = null,
+    [property: JsonPropertyOrder(5)] IReadOnlyList<FindingReproductionAttempt>? Attempts = null);
+
+public sealed record FindingReproductionAttempt(
+    [property: JsonPropertyOrder(0)] DateTimeOffset ExecutedAt,
+    [property: JsonPropertyOrder(1)] string Executor,
+    [property: JsonPropertyOrder(2)] string Result,
+    [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ArtifactReference = null);
 
 public enum FindingSeverity { Critical, High, Medium, Low, Info }
 
@@ -171,7 +221,15 @@ public sealed record FindingSource(
 public sealed record FindingLocation(
     [property: JsonPropertyOrder(0)] string Path,
     [property: JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingRange? Range = null,
-    [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SymbolId = null);
+    [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SymbolId = null,
+    [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Role = null,
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapturedExcerpt? CapturedExcerpt = null);
+
+public sealed record CapturedExcerpt(
+    [property: JsonPropertyOrder(0)] string Text,
+    [property: JsonPropertyOrder(1)] string Language,
+    [property: JsonPropertyOrder(2)] string ContentHash,
+    [property: JsonPropertyOrder(3)] string ExcerptHash);
 
 public sealed record FindingRange(
     [property: JsonPropertyOrder(0)] FindingPosition Start,
@@ -281,9 +339,11 @@ public static class ReviewMetaJson
     {
         var current = document.SchemaVersion == ReviewMetaDocument.CurrentSchemaVersion &&
                       string.Equals(document.Schema, ReviewMetaDocument.SchemaId, StringComparison.Ordinal);
+        var previous = document.SchemaVersion == ReviewMetaDocument.PreviousSchemaVersion &&
+                       string.Equals(document.Schema, ReviewMetaDocument.PreviousSchemaId, StringComparison.Ordinal);
         var legacy = document.SchemaVersion == ReviewMetaDocument.LegacySchemaVersion &&
                      string.Equals(document.Schema, ReviewMetaDocument.LegacySchemaId, StringComparison.Ordinal);
-        if (!current && !legacy)
+        if (!current && !previous && !legacy)
         {
             throw new JsonException($"Unsupported review metadata schemaVersion '{document.SchemaVersion}'.");
         }
@@ -295,6 +355,23 @@ public static class ReviewMetaJson
         if (document.ReviewedAt.Offset != TimeSpan.Zero)
         {
             throw new JsonException("reviewedAt must be a UTC instant.");
+        }
+        if (current)
+        {
+            if (document.Origin is null)
+                throw new JsonException("review-meta v3 requires execution origin provenance.");
+            if (document.Origin.ObservedAt.Offset != TimeSpan.Zero)
+                throw new JsonException("origin.observedAt must be a UTC instant.");
+            foreach (var finding in document.Findings)
+            {
+                if (string.IsNullOrWhiteSpace(finding.Impact) || finding.EvidenceItems is null || finding.Reproduction is null)
+                    throw new JsonException("review-meta v3 findings require impact, typed evidence, and reproduction status.");
+                for (var index = 0; index < finding.Locations.Count; index++)
+                {
+                    if (finding.Locations[index].Range is not null && finding.Locations[index].CapturedExcerpt is null)
+                        throw new JsonException("review-meta v3 ranged locations require a runner-captured excerpt.");
+                }
+            }
         }
     }
 

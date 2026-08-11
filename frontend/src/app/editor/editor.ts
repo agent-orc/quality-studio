@@ -4,6 +4,7 @@ import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { SyntaxHighlighting } from './syntax-highlighting';
+import { FindingTokenSegment, segmentFindingTokens } from './finding-segments';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
 
@@ -48,6 +49,7 @@ export class Editor {
   readonly composingLine = signal<number | null>(null);
   readonly drafts = signal<Record<string, string>>({});
   readonly syntaxState = signal<'plain' | 'loading' | 'ready' | 'error' | 'large'>('plain');
+  readonly overlapChooser = signal<{ key: string; findings: ReviewFinding[] } | null>(null);
   private readonly syntaxCache = signal<{ path: string; lines: Array<TokenLine | undefined> }>({ path: '', lines: [] });
   private readonly codeViewport = viewChild<ElementRef<HTMLElement>>('codeViewport');
   private cancelSyntaxRequest: (() => void) | null = null;
@@ -65,6 +67,7 @@ export class Editor {
   });
   readonly findingsByLine = computed(() => {
     const map = new Map<number, ReviewFinding[]>();
+    if (this.activeState() === 'stale') return map;
     const path = this.api.file()?.path;
     for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
       if (location.path !== path || !location.range) continue;
@@ -240,6 +243,48 @@ export class Editor {
       : [{ text, kind: 'plain' } satisfies TokenSpan];
   }
 
+  findingSegmentsForLine(line: number, text: string, findings: ReviewFinding[]): FindingTokenSegment[] {
+    return segmentFindingTokens(
+      line,
+      text,
+      this.tokensForLine(line, text),
+      findings,
+      this.api.file()?.path ?? '',
+      this.selectedFinding() ? this.findingIdentity(this.selectedFinding()!) : null,
+    );
+  }
+
+  segmentKey(line: number, segment: FindingTokenSegment): string {
+    return `${line}:${segment.startColumn}:${segment.endColumn}:${segment.findings.map(finding => this.findingIdentity(finding)).join(',')}`;
+  }
+
+  segmentLabel(line: number, segment: FindingTokenSegment): string {
+    const range = segment.startColumn === segment.endColumn
+      ? `line ${line}, column ${segment.startColumn}`
+      : `line ${line}, columns ${segment.startColumn} through ${segment.endColumn}`;
+    const findings = segment.findings.map(finding => `${finding.severity}: ${finding.title}`).join('; ');
+    return `${findings}. Exact finding span at ${range}${segment.overlap ? '. Multiple findings overlap; activate to choose one' : ''}.`;
+  }
+
+  activateFindingSegment(line: number, segment: FindingTokenSegment): void {
+    if (segment.findings.length === 1) {
+      this.overlapChooser.set(null);
+      this.findingSelect.emit(segment.findings[0]);
+      return;
+    }
+    const key = this.segmentKey(line, segment);
+    this.overlapChooser.set(this.overlapChooser()?.key === key ? null : { key, findings: segment.findings });
+  }
+
+  chooseOverlappingFinding(finding: ReviewFinding): void {
+    this.overlapChooser.set(null);
+    this.findingSelect.emit(finding);
+  }
+
+  isChooserOpen(line: number, segment: FindingTokenSegment): boolean {
+    return this.overlapChooser()?.key === this.segmentKey(line, segment);
+  }
+
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
 
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
@@ -255,6 +300,8 @@ export class Editor {
       ? selected
       : findings[0]?.fingerprint ?? null;
   }
+
+  private findingIdentity(finding: ReviewFinding): string { return finding.fingerprint ?? finding.id; }
 
   toggleThread(thread: ReviewThread): void {
     this.expandedThreads.update(value => ({ ...value, [thread.id]: !value[thread.id] }));

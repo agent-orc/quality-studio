@@ -305,6 +305,85 @@ public sealed record FindingStateMutationRequest(
     DateTimeOffset? ExpiresAt,
     DateTimeOffset? ExpectedTimestamp);
 
+public sealed record FindingAssessmentMutationRequest(
+    string Path,
+    string Kind,
+    string Fingerprint,
+    string Status,
+    string Actor,
+    string Reason,
+    DateTimeOffset? ExpectedAssessedAt);
+
+public sealed record FindingResolutionMutationRequest(
+    string Path,
+    string Kind,
+    string Fingerprint,
+    string Status,
+    string Actor,
+    string Reason,
+    string? TaskKey,
+    DateTimeOffset? ExpectedResolvedAt);
+
+public sealed record FindingSuppressionMatchRequest(
+    string? Fingerprint,
+    string? RuleId,
+    string? PathPattern,
+    IReadOnlyList<string>? ReviewKinds,
+    IReadOnlyList<string>? SourceKinds);
+
+public sealed record FindingSuppressionMutationRequest(
+    string? Id,
+    bool Enabled,
+    FindingSuppressionMatchRequest Match,
+    string Reason,
+    string Author,
+    DateTimeOffset? ExpiresAt,
+    long ExpectedRevision,
+    bool ConfirmBroad = false);
+
+public sealed record ReviewRunHistoryResponse(
+    string Id,
+    string RepositoryId,
+    string Path,
+    string Level,
+    string Kind,
+    string Model,
+    string ThinkingLevel,
+    string CliType,
+    string State,
+    string Completeness,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? FinishedAt,
+    int FindingCount,
+    int AssessedFindings,
+    IReadOnlyDictionary<string, int> AssessmentCounts)
+{
+    public static ReviewRunHistoryResponse From(
+        QualityRunReportDocument report,
+        FindingDecisionSnapshot decisions)
+    {
+        var fingerprints = report.Observations.SelectMany(observation => observation.Findings)
+            .Select(finding => finding.Fingerprint).Distinct(StringComparer.Ordinal).ToArray();
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["unassessed"] = 0,
+            ["confirmed"] = 0,
+            ["dismissed"] = 0,
+            ["disputed"] = 0,
+        };
+        foreach (var fingerprint in fingerprints)
+        {
+            var status = decisions.Assessments.GetValueOrDefault(fingerprint)?.Status ?? "unassessed";
+            counts[status]++;
+        }
+        return new ReviewRunHistoryResponse(
+            report.Run.Id, report.Run.RepositoryId, report.Run.Path, report.Run.Level, report.Run.Kind,
+            report.Run.Model, report.Run.ThinkingLevel, report.Run.CliType, report.Run.State,
+            report.Run.Completeness, report.Run.CreatedAt, report.Run.FinishedAt, fingerprints.Length,
+            fingerprints.Length - counts["unassessed"], counts);
+    }
+}
+
 /// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
 public sealed record AgentStudioImportResultResponse(
     string ProjectId,

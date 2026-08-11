@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingAssessmentStatus, FindingResolutionStatus, FindingSeverity, FindingState, FindingSuppressionDocument, FindingSuppressionMutation, FindingSuppressionPreview, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewMetaDocument, ReviewRun, ReviewRunHistory, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -36,6 +36,20 @@ export class ReviewPanel {
   readonly stateStatus = signal('');
   readonly dispositionMode = signal<'accept' | 'dismiss' | 'reopen' | null>(null);
   readonly dismissState = signal<'waived' | 'false-positive'>('waived');
+  readonly assessmentMode = signal<FindingAssessmentStatus | null>(null);
+  readonly resolutionStatus = signal<FindingResolutionStatus>('open');
+  readonly resolutionReason = signal('');
+  readonly resolutionTaskKey = signal('');
+  readonly decisionStatus = signal('');
+  readonly suppressionOpen = signal(false);
+  readonly suppressionBroad = signal(false);
+  readonly suppressionReason = signal('');
+  readonly suppressionRuleId = signal('');
+  readonly suppressionPathPattern = signal('');
+  readonly suppressionExpiry = signal('');
+  readonly suppressionDocument = signal<FindingSuppressionDocument>({ schemaVersion: 1, revision: 0, rules: [] });
+  readonly suppressionPreview = signal<FindingSuppressionPreview | null>(null);
+  readonly suppressionStatus = signal('');
   readonly lastMutation = signal<LastFindingMutation | null>(null);
   readonly scopeManagerOpen = signal(false);
   readonly scopeAction = signal<'include' | 'exclude'>('exclude');
@@ -46,7 +60,7 @@ export class ReviewPanel {
   readonly scopeExpansionConfirmed = signal(false);
   readonly editingScopeRuleIndex = signal<number | null>(null);
   readonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');
-  readonly findingFilter = signal<'active' | FindingState | 'all'>('active');
+  readonly findingFilter = signal<string>('active');
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
   readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
   readonly runDrawerOpen = signal(false);
@@ -70,7 +84,13 @@ export class ReviewPanel {
     .reduce((count, result) => count + result.findings.length, 0));
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
     run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
-  readonly selectedRun = computed(() => this.scopeRuns().find(run => run.id === this.selectedRunId()) ?? null);
+  readonly activeScopeRuns = computed(() => this.scopeRuns().filter(run =>
+    !['done', 'failed', 'cancelled', 'capped'].includes(run.state)));
+  readonly historyScopeRuns = computed(() => this.api.reviewHistory().filter(run =>
+    run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
+  readonly selectedRun = computed(() =>
+    this.activeScopeRuns().find(run => run.id === this.selectedRunId()) ??
+    this.historyScopeRuns().find(run => run.id === this.selectedRunId()) ?? null);
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
@@ -88,6 +108,11 @@ export class ReviewPanel {
       .filter(finding => {
         if (stateFilter === 'all') return true;
         if (stateFilter === 'active') return state(finding) === 'open' || state(finding) === 'accepted';
+        if (['unassessed', 'confirmed', 'dismissed', 'disputed'].includes(stateFilter))
+          return (finding.assessment?.status ?? 'unassessed') === stateFilter;
+        if (stateFilter === 'suppressed') return !!finding.suppressed;
+        if (stateFilter.startsWith('resolution-'))
+          return (finding.resolution?.status ?? 'open') === stateFilter.slice('resolution-'.length);
         return state(finding) === stateFilter;
       })
       .sort((left, right) => {
@@ -116,8 +141,134 @@ export class ReviewPanel {
     const location = finding.locations[locationIndex];
     if (!location) return 'Location unavailable';
     if (this.activeState() === 'stale' || !location.range) return `${location.path} · source changed`;
-    const end = location.range.end.line === location.range.start.line ? '' : `-${location.range.end.line}`;
-    return `${location.path}:${location.range.start.line}${end}`;
+    const start = `${location.range.start.line}:${location.range.start.column}`;
+    const end = location.range.end.line === location.range.start.line && location.range.end.column === location.range.start.column
+      ? ''
+      : `-${location.range.end.line}:${location.range.end.column}`;
+    return `${location.path}:${start}${end}`;
+  }
+
+  strongestEvidence(finding: ReviewFinding): string {
+    const rank = ['test-result', 'runtime-observation', 'deterministic-result', 'source-span', 'external-reference', 'legacy-claim'];
+    return [...(finding.evidenceItems ?? [])]
+      .sort((left, right) => rank.indexOf(left.class) - rank.indexOf(right.class))[0]?.class ??
+      (finding.evidence ? 'legacy claim' : 'evidence unknown');
+  }
+
+  reproductionLabel(finding: ReviewFinding): string { return finding.reproduction?.status ?? 'unknown'; }
+
+  assessmentLabel(finding: ReviewFinding): string { return finding.assessment?.status ?? 'unassessed'; }
+
+  resolutionLabel(finding: ReviewFinding): string { return finding.resolution?.status ?? 'open'; }
+
+  routeLabel(meta: ReviewMetaDocument): string {
+    const route = meta.origin?.executed;
+    return route
+      ? `${route.cli ?? 'unknown CLI'} · ${route.model ?? 'unknown model'} · ${route.thinkingLevel ?? 'unknown level'}`
+      : `${meta.reviewer.agent} · ${meta.reviewer.model} · ${meta.reviewer.thinkingLevel ?? 'unknown level'}`;
+  }
+
+  openAssessment(status: FindingAssessmentStatus): void {
+    this.assessmentMode.set(status);
+    this.stateReason.set('');
+    this.decisionStatus.set('');
+  }
+
+  async saveAssessment(finding: ReviewFinding): Promise<void> {
+    const path = this.api.file()?.path;
+    const status = this.assessmentMode();
+    const actor = this.stateAuthor().trim();
+    const reason = this.stateReason().trim();
+    if (!path || !finding.fingerprint || !status) return;
+    if (!actor || !reason) { this.decisionStatus.set('Actor and reason are required.'); return; }
+    this.decisionStatus.set('Saving assessment…');
+    try {
+      const updated = await this.api.mutateFindingAssessment({
+        path, kind: this.activeKind(), fingerprint: finding.fingerprint, status, actor, reason,
+        expectedAssessedAt: finding.assessment?.assessedAt ?? null,
+      });
+      if (updated) this.findingSelect.emit(updated);
+      this.assessmentMode.set(null); this.stateReason.set(''); this.decisionStatus.set('Assessment saved.');
+    } catch (error) {
+      this.decisionStatus.set((error as { status?: number }).status === 409
+        ? 'Assessment changed elsewhere. Reloaded evidence is required before retrying.'
+        : this.api.errorMessage(error));
+    }
+  }
+
+  async saveResolution(finding: ReviewFinding): Promise<void> {
+    const path = this.api.file()?.path;
+    const actor = this.stateAuthor().trim();
+    const reason = this.resolutionReason().trim();
+    if (!path || !finding.fingerprint) return;
+    if (!actor || !reason) { this.decisionStatus.set('Actor and resolution reason are required.'); return; }
+    this.decisionStatus.set('Saving resolution…');
+    try {
+      const updated = await this.api.mutateFindingResolution({
+        path, kind: this.activeKind(), fingerprint: finding.fingerprint, status: this.resolutionStatus(),
+        actor, reason, taskKey: this.resolutionTaskKey().trim() || null,
+        expectedResolvedAt: finding.resolution?.resolvedAt ?? null,
+      });
+      if (updated) this.findingSelect.emit(updated);
+      this.resolutionReason.set(''); this.resolutionTaskKey.set(''); this.decisionStatus.set('Resolution saved.');
+    } catch (error) {
+      this.decisionStatus.set((error as { status?: number }).status === 409
+        ? 'Resolution changed elsewhere. Reload before retrying.'
+        : this.api.errorMessage(error));
+    }
+  }
+
+  async openSuppression(finding: ReviewFinding, broad: boolean): Promise<void> {
+    this.suppressionOpen.set(true);
+    this.suppressionBroad.set(broad);
+    this.suppressionReason.set('');
+    this.suppressionRuleId.set(broad ? finding.ruleId : '');
+    this.suppressionPathPattern.set(broad ? finding.locations[0]?.path ?? '' : '');
+    this.suppressionPreview.set(null);
+    this.suppressionStatus.set('Loading ignore policy…');
+    try {
+      this.suppressionDocument.set(await this.api.loadFindingSuppressions());
+      this.suppressionStatus.set('');
+      if (!broad) await this.previewSuppression(finding);
+    } catch (error) { this.suppressionStatus.set(this.api.errorMessage(error)); }
+  }
+
+  async previewSuppression(finding: ReviewFinding): Promise<void> {
+    if (!finding.fingerprint) return;
+    this.suppressionStatus.set('Previewing matches…');
+    try {
+      this.suppressionPreview.set(await this.api.previewFindingSuppression(this.suppressionRequest(finding, false)));
+      this.suppressionStatus.set('');
+    } catch (error) { this.suppressionStatus.set(this.api.errorMessage(error)); }
+  }
+
+  async saveSuppression(finding: ReviewFinding): Promise<void> {
+    if (!this.suppressionReason().trim()) { this.suppressionStatus.set('A suppression reason is required.'); return; }
+    if (!this.suppressionPreview()) await this.previewSuppression(finding);
+    if (!this.suppressionPreview()) return;
+    this.suppressionStatus.set('Saving ignore policy…');
+    try {
+      const result = await this.api.addFindingSuppression(this.suppressionRequest(finding, this.suppressionBroad()));
+      this.suppressionDocument.set(result);
+      this.suppressionOpen.set(false);
+      this.suppressionStatus.set('Suppression saved; the observation remains available.');
+    } catch (error) { this.suppressionStatus.set(this.api.errorMessage(error)); }
+  }
+
+  private suppressionRequest(finding: ReviewFinding, confirmBroad: boolean): FindingSuppressionMutation {
+    return {
+      id: this.suppressionBroad() ? null : `exact-${finding.fingerprint?.slice(7, 19)}`,
+      enabled: true,
+      match: this.suppressionBroad()
+        ? { ruleId: this.suppressionRuleId().trim() || null, pathPattern: this.suppressionPathPattern().trim() || null,
+            reviewKinds: [this.activeKind()], sourceKinds: [finding.source ? 'deterministic' : 'agent'] }
+        : { fingerprint: finding.fingerprint },
+      reason: this.suppressionReason().trim() || `Ignore exact finding: ${finding.title}`,
+      author: this.stateAuthor().trim() || 'Reviewer',
+      expiresAt: this.suppressionExpiry() ? new Date(this.suppressionExpiry()).toISOString() : null,
+      expectedRevision: this.suppressionDocument().revision,
+      confirmBroad,
+    };
   }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }
@@ -342,7 +493,7 @@ export class ReviewPanel {
     return run.costSpent === null ? `cost ${run.priceStatus}` : this.formatCost(run.costSpent, run.currency);
   }
 
-  async openRun(run: ReviewRun): Promise<void> {
+  async openRun(run: ReviewRun | ReviewRunHistory): Promise<void> {
     this.selectedRunId.set(run.id);
     this.runReport.set(null);
     this.runTrend.set([]);
