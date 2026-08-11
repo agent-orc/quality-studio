@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -118,9 +119,11 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         var root = Path.GetFullPath(request.RepositoryRoot);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var configuration = request.Configuration ?? new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!configuration.TryGetValue("command", out var configuredCommand) ||
-            string.IsNullOrWhiteSpace(configuredCommand))
-            return Unavailable(request, "tsc analyzer configuration requires command.");
+        if (configuration.ContainsKey("command"))
+            return Unavailable(request, "Free-form analyzer commands are not accepted; select a host-owned analyzer profile.");
+        if (!configuration.TryGetValue("profileExecutable", out var executable) ||
+            string.IsNullOrWhiteSpace(executable))
+            return Unavailable(request, "tsc analyzer configuration requires a host-owned profile.");
         if (!configuration.TryGetValue("reportPath", out var configuredReport) ||
             string.IsNullOrWhiteSpace(configuredReport))
             return Unavailable(request, "tsc analyzer configuration requires reportPath.");
@@ -141,9 +144,12 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
                 : Directory.Exists(target) ? target : Path.GetDirectoryName(target)!;
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "tsc workingDirectory must be an existing repository directory.");
-            command = AnalyzerCommand.Expand(configuredCommand, root, target, reportPath);
+            var arguments = configuration.TryGetValue("profileArguments", out var serializedArguments)
+                ? JsonSerializer.Deserialize<string[]>(serializedArguments) ?? []
+                : [];
+            command = AnalyzerCommand.ExpandProfile(executable, arguments, root, target, reportPath);
         }
-        catch (ArgumentException exception)
+        catch (Exception exception) when (exception is ArgumentException or JsonException)
         {
             return Unavailable(request, exception.Message);
         }

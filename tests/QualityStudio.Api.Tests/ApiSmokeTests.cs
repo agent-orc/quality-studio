@@ -685,6 +685,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
     private sealed class TestApplication(string root, string contentRoot) : WebApplicationFactory<Program>
     {
+        public new HttpClient CreateClient() => LocalApiTestClient.Create(this);
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(contentRoot);

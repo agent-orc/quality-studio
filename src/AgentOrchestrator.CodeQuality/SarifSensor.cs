@@ -40,6 +40,8 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
         var root = Path.GetFullPath(request.RepositoryRoot);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var configuration = request.Configuration ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        if (configuration.ContainsKey("command"))
+            return Unavailable(request, "Free-form analyzer commands are not accepted; select a host-owned analyzer profile.");
         if (!configuration.TryGetValue("reportPath", out var configuredReport) ||
             string.IsNullOrWhiteSpace(configuredReport))
         {
@@ -67,16 +69,18 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             return Unavailable(request, exception.Message);
         }
 
-        if (configuration.TryGetValue("command", out var configuredCommand) &&
-            !string.IsNullOrWhiteSpace(configuredCommand))
+        if (configuration.TryGetValue("profileExecutable", out var executable) &&
+            !string.IsNullOrWhiteSpace(executable))
         {
             IReadOnlyList<string> command;
             try
             {
-                command = AnalyzerCommand.Expand(
-                    configuredCommand, root, target, reportPath);
+                var arguments = configuration.TryGetValue("profileArguments", out var serializedArguments)
+                    ? JsonSerializer.Deserialize<string[]>(serializedArguments) ?? []
+                    : [];
+                command = AnalyzerCommand.ExpandProfile(executable, arguments, root, target, reportPath);
             }
-            catch (ArgumentException exception)
+            catch (Exception exception) when (exception is ArgumentException or JsonException)
             {
                 return Unavailable(request, exception.Message);
             }
@@ -637,57 +641,20 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
 
 internal static class AnalyzerCommand
 {
-    public static IReadOnlyList<string> Expand(
-        string command,
+    public static IReadOnlyList<string> ExpandProfile(
+        string executable,
+        IReadOnlyList<string> arguments,
         string repositoryRoot,
         string target,
         string reportPath)
     {
-        var arguments = Split(command);
-        return arguments.Select(argument => argument
+        if (string.IsNullOrWhiteSpace(executable) || executable.Any(char.IsWhiteSpace) || executable.Contains('{'))
+            throw new ArgumentException("Analyzer profile executable is invalid.");
+        return new[] { executable }.Concat(arguments.Select(argument => argument
             .Replace("{repositoryRoot}", repositoryRoot, StringComparison.Ordinal)
             .Replace("{target}", target, StringComparison.Ordinal)
-            .Replace("{reportPath}", reportPath, StringComparison.Ordinal))
+            .Replace("{reportPath}", reportPath, StringComparison.Ordinal)))
             .ToArray();
-    }
-
-    public static IReadOnlyList<string> Split(string command)
-    {
-        if (string.IsNullOrWhiteSpace(command)) throw new ArgumentException("Analyzer command cannot be empty.");
-        var result = new List<string>();
-        var current = new StringBuilder();
-        char? quote = null;
-        for (var index = 0; index < command.Length; index++)
-        {
-            var character = command[index];
-            if (character == '\\' && quote == '"' && index + 1 < command.Length &&
-                command[index + 1] is '"' or '\\')
-            {
-                current.Append(command[++index]);
-                continue;
-            }
-            if (character is '"' or '\'')
-            {
-                if (quote == character) quote = null;
-                else if (quote is null) quote = character;
-                else current.Append(character);
-                continue;
-            }
-            if (char.IsWhiteSpace(character) && quote is null)
-            {
-                if (current.Length > 0)
-                {
-                    result.Add(current.ToString());
-                    current.Clear();
-                }
-                continue;
-            }
-            current.Append(character);
-        }
-        if (quote is not null) throw new ArgumentException("Analyzer command contains an incomplete quote.");
-        if (current.Length > 0) result.Add(current.ToString());
-        if (result.Count == 0) throw new ArgumentException("Analyzer command cannot be empty.");
-        return result;
     }
 
     public static string ContainedPath(string root, string value)
