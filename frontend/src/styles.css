@@ -27,6 +27,11 @@
   --studio-model-picker-width: 174px; --studio-model-menu-width: 390px; --studio-model-menu-height: 360px;
   --studio-cap-input-width: 74px; --studio-compact-control-width: 88px; --studio-compact-model-width: 112px;
   --studio-textarea-min-height: 72px;
+  --studio-overlap-menu-width: 240px; --studio-evidence-panel-height: 220px;
+  --studio-finding-span: color-mix(in srgb, var(--studio-severity-medium) 58%, var(--studio-fg));
+  --studio-finding-span-bg: color-mix(in srgb, var(--studio-severity-medium) 14%, transparent);
+  --studio-finding-span-selected: color-mix(in srgb, var(--studio-accent) 30%, transparent);
+  --studio-finding-span-overlap: color-mix(in srgb, var(--studio-severity-high) 72%, var(--studio-accent));
 }
 :root[data-theme="dark"] {
   color-scheme: dark;

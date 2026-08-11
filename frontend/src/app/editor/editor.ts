@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
@@ -51,7 +51,6 @@ export class Editor {
   readonly syntaxState = signal<'plain' | 'loading' | 'ready' | 'error' | 'large'>('plain');
   readonly overlapChooser = signal<string | null>(null);
   private readonly syntaxCache = signal<{ path: string; lines: Array<TokenLine | undefined> }>({ path: '', lines: [] });
-  private readonly codeViewport = viewChild<ElementRef<HTMLElement>>('codeViewport');
   private cancelSyntaxRequest: (() => void) | null = null;
   private syntaxFrame: number | null = null;
   readonly isContainer = computed(() => !!this.selectedNode() && this.selectedNode()?.level !== 'file');
@@ -174,15 +173,6 @@ export class Editor {
       if (!range) return;
       const row = this.layoutRows().find(candidate => candidate.kind === 'code' && candidate.number === range.start.line);
       if (row) this.codeScrollTop.set(Math.max(0, row.top - Math.floor(this.viewportHeight() / 3)));
-    });
-    afterRenderEffect(() => {
-      const fingerprint = this.selectedFinding()?.fingerprint;
-      const location = this.selectedLocation();
-      this.visibleRows();
-      if (!fingerprint || !location) return;
-      const viewport = this.codeViewport()?.nativeElement;
-      const marker = viewport?.querySelector(`[data-finding-fingerprint="${CSS.escape(fingerprint)}"]`) as HTMLButtonElement | null;
-      marker?.focus({ preventScroll: true });
     });
     effect(onCleanup => {
       const file = this.api.file();

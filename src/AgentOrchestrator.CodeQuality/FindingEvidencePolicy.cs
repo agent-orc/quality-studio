@@ -44,13 +44,27 @@ public sealed class FindingAssessmentStore
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 
-    public async Task<FindingAssessmentProjection> ReadAsync(CancellationToken cancellationToken = default)
+    public Task<FindingAssessmentProjection> ReadAsync(CancellationToken cancellationToken = default) =>
+        ReadAtAsync(null, cancellationToken);
+
+    /// <summary>
+    /// Reconstructs the latest assessment state no later than a durable evidence cutoff.
+    /// A null cutoff returns the current projection.
+    /// </summary>
+    public async Task<FindingAssessmentProjection> ReadAtAsync(
+        DateTimeOffset? cutoff,
+        CancellationToken cancellationToken = default)
     {
-        var events = await ReadEventsAsync(cancellationToken).ConfigureAwait(false);
+        var evidenceCutoff = cutoff?.ToUniversalTime();
+        var events = (await ReadEventsAsync(cancellationToken).ConfigureAwait(false))
+            .Where(item => evidenceCutoff is null || item.OccurredAt <= evidenceCutoff)
+            .ToArray();
         var latest = events.GroupBy(item => item.Fingerprint, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.OrderBy(item => item.Revision).Last(), StringComparer.Ordinal);
         var states = await new FindingStateStore(repositoryRoot, clock).ReadAsync(cancellationToken).ConfigureAwait(false);
-        foreach (var state in states.Values.Where(state => !latest.ContainsKey(state.Fingerprint)))
+        foreach (var state in states.Values.Where(state =>
+                     !latest.ContainsKey(state.Fingerprint) &&
+                     (evidenceCutoff is null || state.Timestamp <= evidenceCutoff)))
             latest[state.Fingerprint] = Compatibility(state);
         return new(events.Select(item => item.Revision).DefaultIfEmpty().Max(), latest);
     }

@@ -156,6 +156,19 @@ describe('ReviewPanel session flow', () => {
     expect(component.locationLabel(openFinding)).toContain('source changed');
   });
 
+  it('moves programmatic focus to the evidence detail when selection changes', async () => {
+    fixture.componentRef.setInput('selectedFinding', acceptedFinding);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const detail: HTMLElement = fixture.nativeElement.querySelector('.finding-detail');
+    expect(detail).toBeTruthy();
+    expect(document.activeElement).toBe(detail);
+    expect(detail.getAttribute('aria-label')).toContain('Accepted medium finding');
+    expect(detail.getAttribute('aria-label')).toContain('src/B.cs:4:1-5');
+  });
+
   it('maps operator disposition to lifecycle state and undoes through optimistic concurrency', async () => {
     component.openDisposition('accept');
     component.stateReason.set('Valid issue.');
