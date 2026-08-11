@@ -24,7 +24,9 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? OperationId = null,
+    int? ReviewAttempt = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -361,11 +363,18 @@ public sealed class ReviewRunner
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
-        new(runId, startedAt,
+        DateTimeOffset startedAt, ReviewRequest request, string relativePath)
+    {
+        var schemaVersion = request.ReviewRunId is null
+            ? 1
+            : request.OperationId is not null && request.ReviewAttempt > 0
+                ? UsageLedger.CurrentSchemaVersion
+                : 2;
+        return new ReviewUsageEntry(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
             _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+            request.ReviewRunId, schemaVersion, request.OperationId, request.ReviewAttempt);
+    }
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {
