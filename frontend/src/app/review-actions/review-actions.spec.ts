@@ -21,17 +21,22 @@ describe('ReviewActions', () => {
   };
   const api = {
     modelCatalog: signal(catalog),
-    reviewRuns: signal([]),
+    reviewRuns: signal<any[]>([]),
     connected: computed(() => true),
     reviewError: signal(''),
+    selectedRepository: signal({ displayName: 'Sample repository' }),
     estimateReview: jasmine.createSpy('estimateReview'),
     startReview: jasmine.createSpy('startReview'),
+    pauseReview: jasmine.createSpy('pauseReview'), cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
   };
   const node: TreeNode = {
     id: 'sample', name: 'Sample.cs', level: 'file', path: 'Sample.cs', kinds: {}, children: [],
   };
 
   beforeEach(async () => {
+    api.estimateReview.calls.reset();
+    api.startReview.calls.reset();
+    api.reviewRuns.set([]);
     await TestBed.configureTestingModule({
       imports: [ReviewActions],
       providers: [{ provide: QualityApi, useValue: api }],
@@ -69,5 +74,93 @@ describe('ReviewActions', () => {
     expect(component.model()).toBe('');
     expect(component.thinkingLevel()).toBe('');
     expect(component.modelsForCli().map(model => model.modelId)).toEqual(['claude-sonnet-5']);
+  });
+
+  it('renders inline server-owned preflight and explicitly confirms a below-floor start', async () => {
+    api.estimateReview.and.resolveTo({
+      repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: 'gpt-5.6-sol',
+      thinkingLevel: 'low', cliType: 'codex', tokenCap: 100000, costCap: null, overrideBelowFloor: true,
+      estimate: { files: 1, operations: 1, promptCharacters: 4000, inputTokens: 1000, outputTokens: 200,
+        cost: null, currency: null, priceStatus: 'unknownModel', historySamples: 0,
+        method: 'Rendered prompt characters / 4.', expectedFreshSkips: 1 },
+      recommendation: { policyVersion: '2026-07-24', recommendedModel: 'gpt-5.6-sol',
+        recommendedThinkingLevel: 'xhigh', capabilityTier: 'frontier', score: 70,
+        correctnessFloor: 'sol-xhigh', reason: 'Security floor; quota does not lower it.',
+        selectionSource: 'model-routing-policy' },
+    });
+    api.startReview.and.resolveTo({});
+    component.model.set('gpt-5.6-sol');
+    component.thinkingLevel.set('low');
+
+    await component.prepare();
+    fixture.detectChanges();
+
+    const sheet = fixture.nativeElement.querySelector('[aria-label="Review preflight"]') as HTMLElement;
+    expect(sheet.textContent).toContain('Sample repository');
+    expect(sheet.textContent).toContain('1 expected fresh skips');
+    expect(sheet.textContent).toContain('floor sol-xhigh');
+    expect(sheet.textContent).toContain('Below the correctness floor');
+
+    await component.start();
+    expect(api.startReview).toHaveBeenCalledWith(jasmine.objectContaining({ confirmBelowFloor: true }));
+  });
+
+  it('moves to the recommended model provider before re-estimating', async () => {
+    api.estimateReview.and.resolveTo({
+      repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: 'gpt-5.6-sol',
+      thinkingLevel: 'xhigh', cliType: 'codex', tokenCap: null, costCap: null, overrideBelowFloor: false,
+      estimate: { files: 1, operations: 1, promptCharacters: 4000, inputTokens: 1000, outputTokens: 200,
+        cost: null, currency: null, priceStatus: 'unknownModel', historySamples: 0,
+        method: 'Rendered prompt characters / 4.', expectedFreshSkips: 0 },
+      recommendation: { policyVersion: '2026-07-24', recommendedModel: 'gpt-5.6-sol',
+        recommendedThinkingLevel: 'xhigh', capabilityTier: 'frontier', score: 70,
+        correctnessFloor: 'sol-xhigh', reason: 'Correctness floor.', selectionSource: 'model-routing-policy' },
+    });
+    component.cliType.set('claude');
+    component.preflight.set(await api.estimateReview({}));
+    api.estimateReview.calls.reset();
+
+    component.useRecommendation();
+    await fixture.whenStable();
+
+    expect(component.cliType()).toBe('codex');
+    expect(api.estimateReview).toHaveBeenCalledWith(jasmine.objectContaining({
+      cliType: 'codex', model: 'gpt-5.6-sol', thinkingLevel: 'xhigh',
+    }));
+  });
+
+  it('presents every run terminal and control state without duplicating the launcher', () => {
+    const expected = new Map([
+      ['queued', 'Pause'], ['running', 'Pause'], ['paused', 'Resume'], ['capped', 'Raise cap and resume'],
+      ['failed', 'Review again'], ['cancelled', 'Review again'], ['done', 'Review again'],
+    ]);
+    for (const [state, action] of expected) {
+      api.reviewRuns.set([{
+        id: `run-${state}`, repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code',
+        model: null, thinkingLevel: null, cliType: 'codex', state, totalFiles: 2, completedFiles: state === 'done' ? 2 : 1,
+        failedFiles: state === 'failed' ? 1 : 0, skippedFiles: state === 'capped' ? 1 : 0, aggregateState: null,
+        files: [{ path: 'Sample.cs', state: state === 'done' ? 'done' : 'running', error: null }], stopReason: null,
+      }]);
+      component.showLauncher.set(false);
+      fixture.detectChanges();
+      const strip = fixture.nativeElement.querySelector('.active-run-strip') as HTMLElement;
+      expect(strip.textContent).toContain(`review · ${state}`);
+      expect(strip.textContent).toContain(action);
+      expect(fixture.nativeElement.querySelectorAll('.review-intent').length).toBe(0);
+    }
+  });
+
+  it('focuses the applicable center action when Explorer requests the launcher', async () => {
+    api.reviewRuns.set([{
+      id: 'run-done', repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code',
+      model: null, thinkingLevel: null, cliType: 'codex', state: 'done', totalFiles: 1, completedFiles: 1,
+      failedFiles: 0, skippedFiles: 0, aggregateState: null, files: [], stopReason: null,
+    }]);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('focusRequest', 1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect((document.activeElement as HTMLElement).textContent).toContain('Review again');
   });
 });

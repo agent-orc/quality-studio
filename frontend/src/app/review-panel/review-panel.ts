@@ -1,12 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
-import { ReviewActions } from '../review-actions/review-actions';
+
+interface LastFindingMutation {
+  fingerprint: string;
+  previousState: Exclude<FindingState, 'resolved'>;
+  previousReason: string;
+  previousExpiresAt: string | null;
+  expectedTimestamp: string | null;
+  appliedState: Exclude<FindingState, 'resolved'>;
+}
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [ReviewActions],
+  imports: [],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,6 +26,7 @@ export class ReviewPanel {
   readonly selectedNode = input<FlatNode | undefined>();
   readonly selectedFinding = input<ReviewFinding | null>(null);
   readonly findingSelect = output<ReviewFinding>();
+  readonly locationSelect = output<{ finding: ReviewFinding; locationIndex: number }>();
   readonly kindSelect = output<ReviewKind>();
 
   readonly handoverStatus = signal<Record<string, string>>({});
@@ -25,7 +34,22 @@ export class ReviewPanel {
   readonly stateReason = signal('');
   readonly stateExpiry = signal('');
   readonly stateStatus = signal('');
+  readonly dispositionMode = signal<'accept' | 'dismiss' | 'reopen' | null>(null);
+  readonly dismissState = signal<'waived' | 'false-positive'>('waived');
+  readonly lastMutation = signal<LastFindingMutation | null>(null);
+  readonly scopeManagerOpen = signal(false);
+  readonly scopeAction = signal<'include' | 'exclude'>('exclude');
+  readonly scopePattern = signal('');
+  readonly scopeReason = signal('');
+  readonly scopePreview = signal<ScopeRuleView | null>(null);
+  readonly scopeStatus = signal('');
+  readonly scopeExpansionConfirmed = signal(false);
+  readonly editingScopeRuleIndex = signal<number | null>(null);
   readonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');
+  readonly findingFilter = signal<'active' | FindingState | 'all'>('active');
+  readonly severityFilter = signal<FindingSeverity | 'all'>('all');
+  readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
+  readonly runDrawerOpen = signal(false);
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
@@ -37,6 +61,53 @@ export class ReviewPanel {
     this.threadFilter() === 'detached' ? thread.anchorState === 'detached' : thread.status === this.threadFilter() && thread.anchorState !== 'detached'));
   readonly deterministicFindingCount = computed(() => (this.activeMeta()?.deterministicEvidence ?? [])
     .reduce((count, result) => count + result.findings.length, 0));
+  readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
+    run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
+  readonly visibleFindings = computed(() => {
+    const stateFilter = this.findingFilter();
+    const severity = this.severityFilter();
+    const rank: Record<FindingSeverity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    const state = (finding: ReviewFinding) => finding.state ?? 'open';
+    const path = (finding: ReviewFinding) => {
+      const location = finding.locations[0];
+      return `${location?.path ?? ''}:${String(location?.range?.start.line ?? 0).padStart(9, '0')}`;
+    };
+    return [...(this.activeMeta()?.findings ?? [])]
+      .filter(finding => severity === 'all' || finding.severity === severity)
+      .filter(finding => {
+        if (stateFilter === 'all') return true;
+        if (stateFilter === 'active') return state(finding) === 'open' || state(finding) === 'accepted';
+        return state(finding) === stateFilter;
+      })
+      .sort((left, right) => {
+        if (this.findingSort() === 'title') return left.title.localeCompare(right.title);
+        if (this.findingSort() === 'location') return path(left).localeCompare(path(right));
+        return rank[left.severity] - rank[right.severity] || path(left).localeCompare(path(right));
+      });
+  });
+
+  selectFindingLocation(finding: ReviewFinding, locationIndex = 0): void {
+    this.findingSelect.emit(finding);
+    if (this.activeState() === 'stale' || !finding.locations[locationIndex]?.range) return;
+    this.locationSelect.emit({ finding, locationIndex });
+  }
+
+  moveFinding(direction: -1 | 1): void {
+    const rows = this.visibleFindings();
+    if (!rows.length) return;
+    const current = rows.findIndex(finding =>
+      (finding.fingerprint ?? finding.id) === (this.selectedFinding()?.fingerprint ?? this.selectedFinding()?.id));
+    const next = current < 0 ? 0 : (current + direction + rows.length) % rows.length;
+    this.selectFindingLocation(rows[next]);
+  }
+
+  locationLabel(finding: ReviewFinding, locationIndex = 0): string {
+    const location = finding.locations[locationIndex];
+    if (!location) return 'Location unavailable';
+    if (this.activeState() === 'stale' || !location.range) return `${location.path} · source changed`;
+    const end = location.range.end.line === location.range.start.line ? '' : `-${location.range.end.line}`;
+    return `${location.path}:${location.range.start.line}${end}`;
+  }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }
 
@@ -71,25 +142,168 @@ export class ReviewPanel {
     const path = this.api.file()?.path;
     if (!reason || !author) { this.stateStatus.set('Author and reason are required.'); return; }
     if (!path || !finding.fingerprint) { this.stateStatus.set('Finding identity is unavailable.'); return; }
+    const previousState = finding.state && finding.state !== 'resolved' ? finding.state : 'open';
     this.stateStatus.set('Saving…');
     try {
-      await this.api.mutateFindingState({
+      const updated = await this.api.mutateFindingState({
         path,
         kind: this.activeKind(),
         fingerprint: finding.fingerprint,
         state,
         author,
         reason,
-        expiresAt: this.stateExpiry() ? new Date(this.stateExpiry()).toISOString() : null,
+        expiresAt: state === 'waived' && this.stateExpiry()
+          ? new Date(this.stateExpiry()).toISOString()
+          : null,
         expectedTimestamp: finding.stateTimestamp ?? null,
       });
-      const updated = this.api.file()?.metaDocuments
-        .find(meta => meta.kind === this.activeKind())?.findings
-        .find(candidate => candidate.fingerprint === finding.fingerprint);
       if (updated) this.findingSelect.emit(updated);
-      this.stateReason.set(''); this.stateExpiry.set(''); this.stateStatus.set('Saved');
+      this.lastMutation.set({
+        fingerprint: finding.fingerprint,
+        previousState,
+        previousReason: finding.stateReason ?? 'Restored by undo.',
+        previousExpiresAt: finding.stateExpiresAt ?? null,
+        expectedTimestamp: updated?.stateTimestamp ?? null,
+        appliedState: state,
+      });
+      setTimeout(() => {
+        if (this.lastMutation()?.fingerprint === finding.fingerprint) this.lastMutation.set(null);
+      }, 8000);
+      this.stateReason.set(''); this.stateExpiry.set(''); this.dispositionMode.set(null); this.stateStatus.set('Saved');
     } catch (error) {
-      this.stateStatus.set(this.api.errorMessage(error));
+      if ((error as { status?: number }).status === 409) {
+        await this.api.loadFile(path);
+        const current = this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind())?.findings
+          .find(candidate => candidate.fingerprint === finding.fingerprint);
+        if (current) this.findingSelect.emit(current);
+        this.stateStatus.set('This finding changed elsewhere. Current state was reloaded; review it and try again.');
+      } else {
+        this.stateStatus.set(this.api.errorMessage(error));
+      }
+    }
+  }
+
+  openDisposition(mode: 'accept' | 'dismiss' | 'reopen'): void {
+    this.dispositionMode.set(mode);
+    this.stateReason.set('');
+    this.stateExpiry.set('');
+    this.stateStatus.set('');
+  }
+
+  saveDisposition(finding: ReviewFinding): Promise<void> {
+    const mode = this.dispositionMode();
+    const state = mode === 'accept' ? 'accepted' : mode === 'dismiss' ? this.dismissState() : 'open';
+    return this.setFindingState(finding, state);
+  }
+
+  async undoFindingState(finding: ReviewFinding): Promise<void> {
+    const undo = this.lastMutation();
+    const path = this.api.file()?.path;
+    if (!undo || !path || !finding.fingerprint || undo.fingerprint !== finding.fingerprint) return;
+    this.stateStatus.set('Undoing…');
+    try {
+      const updated = await this.api.mutateFindingState({
+        path,
+        kind: this.activeKind(),
+        fingerprint: finding.fingerprint,
+        state: undo.previousState,
+        author: this.stateAuthor().trim() || 'Reviewer',
+        reason: `Undo: ${undo.previousReason}`,
+        expiresAt: undo.previousExpiresAt,
+        expectedTimestamp: undo.expectedTimestamp,
+      });
+      if (updated) this.findingSelect.emit(updated);
+      this.lastMutation.set(null);
+      this.stateStatus.set('Undone');
+    } catch (error) {
+      this.stateStatus.set((error as { status?: number }).status === 409
+        ? 'Undo could not be applied because the finding changed again. Reload and review the current state.'
+        : this.api.errorMessage(error));
+    }
+  }
+
+  async openScopeManager(finding?: ReviewFinding): Promise<void> {
+    this.scopeManagerOpen.set(true);
+    this.scopeAction.set('exclude');
+    this.scopePattern.set(finding?.locations[0]?.path ?? '');
+    this.scopeReason.set(finding ? `Ignore path after finding: ${finding.title}` : '');
+    this.scopePreview.set(null);
+    this.scopeExpansionConfirmed.set(false);
+    this.editingScopeRuleIndex.set(null);
+    this.scopeStatus.set('Loading scope rules…');
+    try {
+      await this.api.loadScopeRules();
+      this.scopeStatus.set('');
+      if (finding) await this.previewScopeRule();
+    } catch (error) {
+      this.scopeStatus.set(this.api.errorMessage(error));
+    }
+  }
+
+  async previewScopeRule(): Promise<void> {
+    this.scopeStatus.set('Previewing…');
+    try {
+      this.scopePreview.set(await this.api.previewScopeRule({
+        action: this.scopeAction(), pattern: this.scopePattern(), reason: this.scopeReason() || null,
+      }));
+      this.scopeExpansionConfirmed.set(false);
+      this.scopeStatus.set('');
+    } catch (error) {
+      this.scopePreview.set(null);
+      this.scopeStatus.set(this.api.errorMessage(error));
+    }
+  }
+
+  async saveScopeRule(): Promise<void> {
+    const preview = this.scopePreview();
+    if (!preview) { await this.previewScopeRule(); return; }
+    if (preview.widerPattern && !this.scopeExpansionConfirmed()) {
+      this.scopeStatus.set('Confirm the wider pattern after reviewing every matched path.');
+      return;
+    }
+    this.scopeStatus.set('Saving rule…');
+    try {
+      const request = {
+        action: this.scopeAction(), pattern: this.scopePattern(), reason: this.scopeReason() || null,
+        confirmExpansion: this.scopeExpansionConfirmed(),
+      };
+      const editingIndex = this.editingScopeRuleIndex();
+      if (editingIndex === null) await this.api.addScopeRule(request);
+      else await this.api.updateScopeRule(editingIndex, request);
+      this.scopeStatus.set(`Scope rule ${editingIndex === null ? 'saved' : 'updated'}. It applies to future reviews.`);
+      this.scopePreview.set(null);
+      this.editingScopeRuleIndex.set(null);
+    } catch (error) {
+      this.scopeStatus.set(this.api.errorMessage(error));
+    }
+  }
+
+  async editScopeRule(rule: ScopeRuleView): Promise<void> {
+    this.editingScopeRuleIndex.set(rule.index);
+    this.scopeAction.set(rule.action);
+    this.scopePattern.set(rule.pattern);
+    this.scopeReason.set(rule.reason ?? '');
+    this.scopePreview.set(null);
+    this.scopeExpansionConfirmed.set(false);
+    await this.previewScopeRule();
+  }
+
+  cancelScopeRuleEdit(): void {
+    this.editingScopeRuleIndex.set(null);
+    this.scopePreview.set(null);
+    this.scopeAction.set('exclude');
+    this.scopePattern.set('');
+    this.scopeReason.set('');
+    this.scopeStatus.set('');
+  }
+
+  async deleteScopeRule(index: number): Promise<void> {
+    this.scopeStatus.set('Removing rule…');
+    try {
+      await this.api.deleteScopeRule(index);
+      this.scopeStatus.set('Rule removed. Matching paths are eligible on the next review.');
+    } catch (error) {
+      this.scopeStatus.set(this.api.errorMessage(error));
     }
   }
 

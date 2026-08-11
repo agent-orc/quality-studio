@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { QualityApi, ReviewKind, TreeNode } from '../quality-api';
-import { ReviewActions } from '../review-actions/review-actions';
 import { FlatNode, ancestorIds, flattenTree } from '../tree-utils';
 
 const ROW_HEIGHT = 30;
@@ -9,7 +8,7 @@ const TYPEAHEAD_RESET_MS = 600;
 
 @Component({
   selector: 'qs-explorer',
-  imports: [FormsModule, ReviewActions],
+  imports: [FormsModule],
   templateUrl: './explorer.html',
   styleUrl: './explorer.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -21,6 +20,7 @@ export class Explorer {
   readonly viewportHeight = input.required<number>();
   readonly nodeOpen = output<string>();
   readonly kindSelect = output<ReviewKind>();
+  readonly reviewRequest = output<void>();
 
   readonly expanded = signal(new Set<string>(['quality-studio', 'src', 'api']));
   readonly query = signal('');

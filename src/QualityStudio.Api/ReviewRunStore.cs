@@ -18,7 +18,8 @@ public sealed record ReviewRunEstimate(
     string? Currency,
     string PriceStatus,
     int HistorySamples,
-    string Method);
+    string Method,
+    int ExpectedFreshSkips = 0);
 
 public sealed record ReviewRunManifest(
     string RunId,
@@ -36,7 +37,9 @@ public sealed record ReviewRunManifest(
     long? TokenCap = null,
     decimal? CostCap = null,
     bool Force = false,
-    string? ThinkingLevel = null);
+    string? ThinkingLevel = null,
+    ReviewModelRecommendation? Recommendation = null,
+    bool RouteOverride = false);
 
 public sealed record ReviewRunFileTransition(
     string Path,
@@ -95,7 +98,9 @@ public sealed record ReviewRunResult(
     decimal? CostSpent,
     string? Currency,
     string PriceStatus,
-    string? StopReason);
+    string? StopReason,
+    ReviewModelRecommendation? Recommendation,
+    bool RouteOverride);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
@@ -212,7 +217,9 @@ public sealed class ReviewRunStore
             status.CostSpent,
             status.Currency,
             status.PriceStatus,
-            status.StopReason);
+            status.StopReason,
+            manifest.Recommendation,
+            manifest.RouteOverride);
         WriteAtomic(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }

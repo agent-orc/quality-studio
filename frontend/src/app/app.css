@@ -18,6 +18,7 @@
 .embedded-badge{padding:3px 6px;border:1px solid var(--studio-border);border-radius:999px;background:var(--studio-bg-surface);font-size:9px;text-transform:uppercase}
 .workspace{height:calc(100% - 48px);display:grid;grid-template-columns:280px 6px minmax(400px,1fr) 6px 320px;grid-template-rows:minmax(0,1fr);border:1px solid var(--studio-border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow)}
 .workspace.dragging{cursor:col-resize;user-select:none}
+.center-workspace{display:flex;min-width:0;min-height:0;flex-direction:column;background:var(--studio-bg-editor)}.scope-review-launcher{position:relative;z-index:8;padding:var(--studio-space-3);border-bottom:1px solid var(--studio-border);background:var(--studio-bg-surface)}.review-controls-loading{min-height:var(--studio-control-sm);padding:var(--studio-space-1) var(--studio-space-3);border:1px solid var(--studio-border);border-radius:var(--studio-radius-sm);background:var(--studio-bg-elevated);color:var(--studio-fg-dim);font-size:var(--studio-font-size-label)}.center-content{display:grid;min-width:0;min-height:0;flex:1;overflow:hidden}.center-content>.project-view-loading{height:100%}
 .project-view-loading{display:grid;place-items:center;background:var(--studio-bg-editor);color:var(--studio-fg-muted);font-size:11px}
 .resize-handle{width:6px;height:100%;background:var(--studio-border-soft);cursor:col-resize;touch-action:none}
 .resize-handle:hover,.resize-handle.dragging{background:var(--studio-accent)}

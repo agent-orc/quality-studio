@@ -1,3 +1,14 @@
+@if (displayRun(); as run) {
+  <section class="active-run-strip" [attr.data-state]="run.state" aria-live="polite">
+    <header><span class="status" [class.fresh]="run.state === 'done'" [class.stale]="['queued', 'running', 'paused', 'capped'].includes(run.state)" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></span><div><strong>{{ run.kind }} review · {{ run.state }}</strong><span>{{ currentRunPath() }}</span></div><b>{{ run.completedFiles }} / {{ run.totalFiles }}</b></header>
+    <div class="active-run-progress" role="progressbar" [attr.aria-valuenow]="run.completedFiles" [attr.aria-valuemax]="run.totalFiles"><span [style.width.%]="runProgress(run)"></span></div>
+    <div class="active-run-meta"><span>{{ run.failedFiles }} failed · {{ run.skippedFiles }} skipped</span><span>{{ run.cliType }} · {{ run.model ?? 'Runner default' }} · {{ run.thinkingLevel ?? 'model default' }}</span>@if (run.stopReason) { <span>{{ run.stopReason }}</span> }</div>
+    <div class="active-run-actions">@if (run.state === 'queued' || run.state === 'running') { <button type="button" (click)="api.pauseReview(run.id)">Pause</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'paused') { <button type="button" (click)="api.resumeReview(run.id)">Resume</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'capped') { <button type="button" (click)="resumeCapped(run)">Raise cap and resume</button> } @else { <button type="button" (click)="beginNewReview()">Review again</button> }</div>
+    @if (runFiles(run, ['done']).length) { <details><summary>{{ runFiles(run, ['done']).length }} completed units</summary>@for (file of runFiles(run, ['done']); track file.path) { <span>{{ file.path }}</span> }</details> }
+    @if (runFiles(run, ['failed']).length) { <details><summary>{{ runFiles(run, ['failed']).length }} failed units</summary>@for (file of runFiles(run, ['failed']); track file.path) { <span>{{ file.path }} · {{ file.error }}</span> }</details> }
+    @if (runFiles(run, ['skipped', 'skipped-fresh']).length) { <details><summary>{{ runFiles(run, ['skipped', 'skipped-fresh']).length }} skipped units</summary>@for (file of runFiles(run, ['skipped', 'skipped-fresh']); track file.path) { <span>{{ file.path }} · {{ file.state }}</span> }</details> }
+  </section>
+} @else {
 <div class="review-actions" [class.compact]="compact()" aria-label="Start review">
   <select aria-label="Review kind" [ngModel]="activeKind()" (ngModelChange)="kindSelect.emit($event)">
     @for (kind of reviewKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
@@ -43,19 +54,41 @@
       </div>
     }
   </div>
-  <select aria-label="Review thinking level" [disabled]="!model().trim()" [ngModel]="thinkingLevel()" (ngModelChange)="thinkingLevel.set($event)">
+  <select aria-label="Review thinking level" [disabled]="!model().trim()" [ngModel]="thinkingLevel()" (ngModelChange)="setThinkingLevel($event)">
     <option value="">model default thinking</option>
     @for (level of thinkingOptions(); track level) { <option [value]="level">{{ level }}</option> }
   </select>
-  <select aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="capKind.set($event)">
+  <select aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="setCapKind($event)">
     <option value="repository">repo cap</option><option value="tokens">tokens</option><option value="cost">cost</option>
   </select>
   @if (capKind() !== 'repository') {
-    <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="capValue.set($event)" />
+    <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="setCapValue($event)" />
   }
-  <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="force.set($event)" /> Force re-review</label>
-  <button class="start-review" type="button" (click)="start()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
-    {{ activeOnNode() ? 'Review running' : starting() ? 'Queuing…' : 'Start review' }}
-    @if (node()?.level !== 'file') { <small>{{ fileCount() }} files</small> }
+  <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="setForce($event)" /> Force re-review</label>
+  <button class="start-review review-intent" type="button" (click)="prepare()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
+    {{ activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + fileCount() + ' file' + (fileCount() === 1 ? '' : 's') + ' for ' + activeKind() + ' quality' }}
   </button>
 </div>
+@if (preflight(); as sheet) {
+  <section class="preflight-sheet" aria-label="Review preflight">
+    <header><div><span class="eyebrow">Ready to review</span><strong>{{ api.selectedRepository()?.displayName ?? sheet.repositoryId }}</strong></div><button type="button" class="preflight-close" aria-label="Close review preflight" (click)="clearPreflight()">×</button></header>
+    <dl class="preflight-facts">
+      <div><dt>Scope</dt><dd><b>{{ sheet.path }}</b><span>{{ sheet.level }} · {{ sheet.kind }}</span></dd></div>
+      <div><dt>Work</dt><dd><b>{{ sheet.estimate.files }} files · {{ sheet.estimate.operations }} operations</b><span>{{ sheet.estimate.expectedFreshSkips }} expected fresh skips</span></dd></div>
+      <div><dt>Route</dt><dd><b>{{ sheet.cliType }} · {{ sheet.model ?? 'Runner default' }} · {{ sheet.thinkingLevel ?? 'model default' }}</b><span>Recommended: {{ sheet.recommendation.recommendedModel }} / {{ sheet.recommendation.recommendedThinkingLevel }} · {{ sheet.recommendation.capabilityTier }}</span></dd></div>
+      <div><dt>Estimate</dt><dd><b>{{ formatNumber(sheet.estimate.inputTokens) }} input + {{ formatNumber(sheet.estimate.outputTokens) }} output</b><span>{{ costLabel(sheet) }}</span></dd></div>
+      <div><dt>Cap</dt><dd><b>{{ capLabel(sheet) }}</b><span>Applied by the server before work continues</span></dd></div>
+      <div><dt>Method</dt><dd><b>{{ sheet.estimate.historySamples }} history samples</b><span>{{ sheet.estimate.method }}</span></dd></div>
+    </dl>
+    <p class="route-reason"><b>Policy {{ sheet.recommendation.policyVersion }} · score {{ sheet.recommendation.score }} · floor {{ sheet.recommendation.correctnessFloor }}</b><span>{{ sheet.recommendation.reason }}</span></p>
+    <p class="estimate-uncertainty">Estimate only: tokenizer behavior, context, and response length can change actual usage.</p>
+    @if (sheet.overrideBelowFloor) {
+      <div class="floor-warning" role="alert"><b>Below the correctness floor</b><span>This explicit route is weaker than {{ sheet.recommendation.correctnessFloor }}. Starting records an explicit override; quota and cost did not lower the floor.</span></div>
+    }
+    <footer>
+      <button type="button" class="use-recommendation" (click)="useRecommendation()">Use recommendation</button>
+      <button type="button" class="start-review" (click)="start()" [disabled]="starting()">{{ starting() ? 'Queuing…' : sheet.overrideBelowFloor ? 'Confirm override and start' : 'Start review' }}</button>
+    </footer>
+  </section>
+}
+}

@@ -1,9 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
-import { ReviewActions } from '../review-actions/review-actions';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
@@ -20,7 +19,7 @@ type CodeLayoutRow =
 
 @Component({
   selector: 'qs-editor',
-  imports: [ReviewActions],
+  imports: [],
   templateUrl: './editor.html',
   styleUrl: './editor.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +30,8 @@ export class Editor {
   readonly selectedPath = input.required<string>();
   readonly activeKind = input.required<ReviewKind>();
   readonly selectedNode = input<FlatNode | undefined>();
+  readonly selectedFinding = input<ReviewFinding | null>(null);
+  readonly selectedLocationIndex = input(0);
   readonly viewportHeight = input.required<number>();
   readonly kindSelect = output<ReviewKind>();
   readonly findingSelect = output<ReviewFinding>();
@@ -48,6 +49,7 @@ export class Editor {
   readonly drafts = signal<Record<string, string>>({});
   readonly syntaxState = signal<'plain' | 'loading' | 'ready' | 'error' | 'large'>('plain');
   private readonly syntaxCache = signal<{ path: string; lines: Array<TokenLine | undefined> }>({ path: '', lines: [] });
+  private readonly codeViewport = viewChild<ElementRef<HTMLElement>>('codeViewport');
   private cancelSyntaxRequest: (() => void) | null = null;
   private syntaxFrame: number | null = null;
   readonly isContainer = computed(() => !!this.selectedNode() && this.selectedNode()?.level !== 'file');
@@ -55,6 +57,12 @@ export class Editor {
   readonly activeMeta = computed(() => this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null);
   readonly availableMeta = computed(() => this.api.file()?.metaDocuments ?? []);
   readonly activeState = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.direct ?? 'missing');
+  readonly selectedLocation = computed(() => {
+    if (this.activeState() === 'stale') return null;
+    const location = this.selectedFinding()?.locations[this.selectedLocationIndex()];
+    if (!location?.range || location.path !== this.api.file()?.path) return null;
+    return location;
+  });
   readonly findingsByLine = computed(() => {
     const map = new Map<number, ReviewFinding[]>();
     const path = this.api.file()?.path;
@@ -159,6 +167,21 @@ export class Editor {
 
   constructor() {
     effect(() => { this.selectedPath(); this.codeScrollTop.set(0); this.folderScrollTop.set(0); });
+    effect(() => {
+      const range = this.selectedLocation()?.range;
+      if (!range) return;
+      const row = this.layoutRows().find(candidate => candidate.kind === 'code' && candidate.number === range.start.line);
+      if (row) this.codeScrollTop.set(Math.max(0, row.top - Math.floor(this.viewportHeight() / 3)));
+    });
+    afterRenderEffect(() => {
+      const fingerprint = this.selectedFinding()?.fingerprint;
+      const location = this.selectedLocation();
+      this.visibleRows();
+      if (!fingerprint || !location) return;
+      const viewport = this.codeViewport()?.nativeElement;
+      const marker = viewport?.querySelector(`[data-finding-fingerprint="${CSS.escape(fingerprint)}"]`) as HTMLButtonElement | null;
+      marker?.focus({ preventScroll: true });
+    });
     effect(onCleanup => {
       const file = this.api.file();
       const selectedPath = this.selectedPath();
@@ -220,6 +243,18 @@ export class Editor {
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
 
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
+
+  isSelectedLine(line: number): boolean {
+    const range = this.selectedLocation()?.range;
+    return !!range && line >= range.start.line && line <= range.end.line;
+  }
+
+  selectedMarkerFingerprint(findings: ReviewFinding[]): string | null {
+    const selected = this.selectedFinding()?.fingerprint;
+    return selected && findings.some(finding => finding.fingerprint === selected)
+      ? selected
+      : findings[0]?.fingerprint ?? null;
+  }
 
   toggleThread(thread: ReviewThread): void {
     this.expandedThreads.update(value => ({ ...value, [thread.id]: !value[thread.id] }));

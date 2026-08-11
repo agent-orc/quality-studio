@@ -31,6 +31,17 @@ public sealed record ReviewModelCatalogSnapshot(
 /// <summary>A normalized review route ready to persist and pass to CodingAgentRunner.</summary>
 public sealed record ReviewModelSelection(string CliType, string? Model, string? ThinkingLevel, bool Catalogued);
 
+/// <summary>A server-owned route recommendation derived from the synchronized routing policy.</summary>
+public sealed record ReviewModelRecommendation(
+    string PolicyVersion,
+    string RecommendedModel,
+    string RecommendedThinkingLevel,
+    string CapabilityTier,
+    int Score,
+    string CorrectnessFloor,
+    string Reason,
+    string SelectionSource);
+
 /// <summary>
 /// Reads the governed Token Economy snapshot embedded in Quality Studio. Catalogued retired,
 /// restricted, and unsupported models are rejected; a CLI-family-compatible custom id remains
@@ -104,6 +115,80 @@ public sealed class ReviewModelCatalog
             : catalogued.SupportedThinkingLevels.First(level =>
                 string.Equals(level, requestedThinking, StringComparison.OrdinalIgnoreCase));
         return new ReviewModelSelection(cli, catalogued.ModelId, canonicalThinking, true);
+    }
+
+    /// <summary>
+    /// Applies the policy's core-task score bands and hard floors. Quota and price deliberately
+    /// contribute no downward adjustment: they may influence an operator override, never the floor.
+    /// </summary>
+    public ReviewModelRecommendation Recommend(string kind, ReviewLevel level, int files)
+    {
+        if (files <= 0) throw new ArgumentOutOfRangeException(nameof(files));
+        var normalizedKind = kind.Trim().ToLowerInvariant();
+        var aggregate = level is ReviewLevel.Project or ReviewLevel.Module or ReviewLevel.Namespace;
+        var score = (normalizedKind == "security" ? 35 : normalizedKind == "performance" ? 16 : 10)
+                    + (files == 1 ? 4 : files <= 10 ? 10 : files <= 50 ? 15 : 20)
+                    + (aggregate ? 16 : 4)
+                    + (normalizedKind == "security" ? 10 : aggregate ? 8 : 5)
+                    + 5;
+        score = Math.Clamp(score, 0, 100);
+
+        var scoredRoute = score switch
+        {
+            <= 20 => (Id: "luna-medium", Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light", Rank: 0),
+            <= 50 => (Id: "terra-medium", Model: "gpt-5.6-terra", Thinking: "medium", Tier: "balanced", Rank: 1),
+            <= 69 => (Id: "sol-medium", Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier", Rank: 2),
+            _ => (Id: "sol-xhigh", Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier", Rank: 3),
+        };
+        var floor = normalizedKind == "security"
+            ? (Id: "sol-xhigh", Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier", Rank: 3)
+            : aggregate || files > 50
+                ? (Id: "sol-medium", Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier", Rank: 2)
+                : (Id: "luna-medium", Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light", Rank: 0);
+        var route = scoredRoute.Rank >= floor.Rank ? scoredRoute : floor;
+        var scopeReason = aggregate
+            ? $"{level.ToString().ToLowerInvariant()} scope across {files} files"
+            : $"{files} file{(files == 1 ? string.Empty : "s")}";
+        var floorReason = floor.Rank > scoredRoute.Rank ? $" The {floor.Id} correctness floor raises the scored route." : string.Empty;
+        return new ReviewModelRecommendation(
+            Snapshot.PolicyVersion,
+            route.Model,
+            route.Thinking,
+            route.Tier,
+            score,
+            floor.Id,
+            $"Policy score {score} for {normalizedKind} review at {scopeReason}.{floorReason} Price and quota do not lower this floor.",
+            "model-routing-policy");
+    }
+
+    /// <summary>Returns true when an explicit route can be shown not to qualify at the hard floor.</summary>
+    public bool IsBelowCorrectnessFloor(ReviewModelSelection selection, ReviewModelRecommendation recommendation)
+    {
+        if (selection.Model is null || selection.ThinkingLevel is null) return false;
+        var floorRank = recommendation.CorrectnessFloor switch
+        {
+            "sol-xhigh" => 3,
+            "sol-medium" => 2,
+            "terra-medium" => 1,
+            _ => 0,
+        };
+        var option = Find(selection.Model);
+        if (option is null) return true;
+        var thinkingRanks = Snapshot.ThinkingLevels.Select((level, rank) => (level, rank))
+            .ToDictionary(item => item.level, item => item.rank, StringComparer.OrdinalIgnoreCase);
+        var thinkingRank = selection.ThinkingLevel is null
+            ? -1
+            : thinkingRanks.GetValueOrDefault(selection.ThinkingLevel, -1);
+        var selectedRank = option.ModelId switch
+        {
+            "gpt-5.6-sol" when thinkingRank >= thinkingRanks["xhigh"] => 3,
+            "gpt-5.6-sol" when thinkingRank >= thinkingRanks["medium"] => 2,
+            "gpt-5.6-terra" when thinkingRank >= thinkingRanks["medium"] => 1,
+            "gpt-5.6-luna" when thinkingRank >= thinkingRanks["medium"] => 0,
+            "claude-sonnet-5" when thinkingRank >= thinkingRanks["high"] => 2,
+            _ => -1,
+        };
+        return selectedRank < floorRank;
     }
 
     public static string NormalizeCli(string? cliType)

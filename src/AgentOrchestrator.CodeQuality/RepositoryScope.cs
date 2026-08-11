@@ -234,6 +234,10 @@ internal sealed class RepositoryScope
         ? value
         : ".";
 
+    internal static bool PatternMatches(string pattern, string repositoryRelativePath) =>
+        new ScopeRule(ScopeRuleAction.Exclude, pattern, ".", string.Empty, RuleSourceKind.Curated)
+            .IsMatch(Canonical(repositoryRelativePath));
+
     private enum RuleSourceKind
     {
         Default,

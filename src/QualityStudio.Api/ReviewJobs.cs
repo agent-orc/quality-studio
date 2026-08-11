@@ -18,7 +18,8 @@ public sealed record StartReviewRequest(
     string? ThinkingLevel = null,
     long? TokenCap = null,
     decimal? CostCap = null,
-    bool Force = false);
+    bool Force = false,
+    bool ConfirmBelowFloor = false);
 
 public sealed record ResumeReviewRequest(long? TokenCap = null, decimal? CostCap = null);
 
@@ -32,7 +33,9 @@ public sealed record ReviewPreflightResponse(
     string CliType,
     ReviewRunEstimate Estimate,
     long? TokenCap,
-    decimal? CostCap);
+    decimal? CostCap,
+    ReviewModelRecommendation Recommendation,
+    bool OverrideBelowFloor);
 
 public sealed record ReviewEstimateDeviation(
     decimal InputTokensPercent,
@@ -71,7 +74,9 @@ public sealed record ReviewRunResponse(
     int SkippedFiles,
     string? AggregateState,
     string? StopReason,
-    ReviewEstimateDeviation? Deviation);
+    ReviewEstimateDeviation? Deviation,
+    ReviewModelRecommendation? Recommendation,
+    bool RouteOverride);
 
 public interface IReviewExecutor
 {
@@ -158,8 +163,13 @@ public sealed class ReviewJobService : BackgroundService
         var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
         var cliType = selection.CliType;
         var model = selection.Model;
+        var recommendation = modelCatalog.Recommend(request.Kind, node.Level, files.Length);
+        var belowFloor = modelCatalog.IsBelowCorrectnessFloor(selection, recommendation);
+        if (belowFloor && !request.ConfirmBelowFloor)
+            throw new ArgumentException(
+                $"The explicit route is below the {recommendation.CorrectnessFloor} correctness floor. Confirm the below-floor override before starting.");
         var (tokenCap, costCap) = ResolveCap(registration, request.TokenCap, request.CostCap);
-        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, cancellationToken).ConfigureAwait(false);
+        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
 
@@ -188,7 +198,11 @@ public sealed class ReviewJobService : BackgroundService
             tokenCap,
             costCap,
             request.Force,
-            selection.ThinkingLevel);
+            selection.ThinkingLevel,
+            recommendation,
+            selection.Model is not null &&
+            (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -212,13 +226,15 @@ public sealed class ReviewJobService : BackgroundService
         var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
         var cliType = selection.CliType;
         var model = selection.Model;
+        var recommendation = modelCatalog.Recommend(request.Kind, plan.Node.Level, plan.Files.Length);
+        var belowFloor = modelCatalog.IsBelowCorrectnessFloor(selection, recommendation);
         var (tokenCap, costCap) = ResolveCap(plan.Registration, request.TokenCap, request.CostCap);
-        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, cancellationToken).ConfigureAwait(false);
+        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
         return new ReviewPreflightResponse(plan.Registration.Id, plan.Node.Path,
             plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, selection.ThinkingLevel,
-            cliType, estimate, tokenCap, costCap);
+            cliType, estimate, tokenCap, costCap, recommendation, belowFloor);
     }
 
     private PreparedPlan PreparePlan(string repositoryId, StartReviewRequest request)
@@ -244,7 +260,7 @@ public sealed class ReviewJobService : BackgroundService
     }
 
     private async Task<ReviewRunEstimate> EstimateAsync(
-        PreparedPlan plan, string kind, string cliType, string? model, CancellationToken cancellationToken)
+        PreparedPlan plan, string kind, string cliType, string? model, bool force, CancellationToken cancellationToken)
     {
         var promptRunner = new ReviewRunner();
         var measurements = new List<ReviewPromptMeasurement>(plan.Files.Length + 1);
@@ -283,11 +299,15 @@ public sealed class ReviewJobService : BackgroundService
             Math.Max(1L, (long)Math.Ceiling(Math.Ceiling(measurement.Characters / 4m) * outputRatio)));
         var cost = prices.ComputeCost(model ?? "runner-default",
             new PricingTokenUsage(inputTokens, outputTokens, 0, 0), DateTime.UtcNow);
+        var reviewKind = Enum.Parse<ReviewKind>(kind, ignoreCase: true);
+        var expectedFreshSkips = force ? 0 : plan.Files.Count(file =>
+            file.AggregatedStates[reviewKind].Direct == ReviewState.Current);
         return new ReviewRunEstimate(plan.Files.Length, measurements.Count, promptCharacters, inputTokens,
             outputTokens, cost.Total, cost.Currency, Camel(cost.Status.ToString()), samples.Length,
             samples.Length == 0
                 ? "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
-                : $"Input is actual rendered prompt characters / 4; output uses {samples.Length} recorded .quality/usage operation(s)."
+                : $"Input is actual rendered prompt characters / 4; output uses {samples.Length} recorded .quality/usage operation(s).",
+            expectedFreshSkips
         );
     }
 
@@ -1016,7 +1036,7 @@ public sealed class ReviewJobService : BackgroundService
                     CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage,
                     manifest.Estimate, tokenCap, costCap, costSpent, currency, priceStatus,
                     files.Count(file => file.State is "skipped" or "skipped-fresh"),
-                    aggregateState, stopReason, Deviation());
+                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride);
             }
         }
 

@@ -18,10 +18,10 @@ for (const theme of ['dark', 'light']) {
   url.searchParams.set('path', 'src/QualityStudio.Api/Program.cs');
   await page.goto(url.toString());
   await page.locator('[data-connection-state="live"]').waitFor();
-  const picker = page.locator('.file-review-actions [aria-label="Review model"]');
+  const picker = page.locator('.scope-review-launcher [aria-label="Review model"]');
   await picker.waitFor();
   await picker.focus();
-  const menu = page.locator('.file-review-actions .model-options');
+  const menu = page.locator('.scope-review-launcher .model-options');
   await menu.waitFor();
 
   const options = await menu.locator('[role="option"]').allTextContents();

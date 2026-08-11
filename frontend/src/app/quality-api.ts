@@ -5,6 +5,9 @@ import { firstValueFrom } from 'rxjs';
 export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing';
 export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
 export interface ScopeExclusion { path: string; reason: string; }
+export interface ScopeRuleView { index: number; action: 'include' | 'exclude'; pattern: string; reason: string | null; matchedFiles: string[]; widerPattern: boolean; }
+export interface ScopeRulesResponse { schema: string; rules: ScopeRuleView[]; }
+export interface ScopeRuleMutation { action: 'include' | 'exclude'; pattern: string; reason?: string | null; confirmExpansion?: boolean; }
 export type CoverageState = 'current' | 'stale' | 'unknown';
 export interface CoverageFact {
   state: CoverageState;
@@ -194,18 +197,26 @@ export interface ReviewModelCatalog {
   thinkingLevels: string[]; models: ReviewModelOption[];
 }
 export interface ReviewFileProgress { path: string; state: ReviewUnitState; startedAt: string | null; finishedAt: string | null; error: string | null; }
-export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; }
+export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; expectedFreshSkips: number; }
 export interface ReviewEstimateDeviation { inputTokensPercent: number; outputTokensPercent: number; costPercent: number | null; note: string; }
-export interface ReviewPreflight { repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null; }
+export interface ReviewModelRecommendation {
+  policyVersion: string; recommendedModel: string; recommendedThinkingLevel: string; capabilityTier: ModelCapabilityTier;
+  score: number; correctnessFloor: string; reason: string; selectionSource: string;
+}
+export interface ReviewPreflight {
+  repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null;
+  cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null;
+  recommendation: ReviewModelRecommendation; overrideBelowFloor: boolean;
+}
 export interface ReviewRun {
   id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string;
   state: ReviewRunState; totalFiles: number; completedFiles: number; failedFiles: number; createdAt: string;
   startedAt: string | null; finishedAt: string | null; files: ReviewFileProgress[]; errors: string[]; usageOperations: number; usage: TokenUsage;
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
-  deviation: ReviewEstimateDeviation | null;
+  deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
 }
-export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; }
+export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; }
@@ -383,6 +394,7 @@ export class QualityApi {
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
+  readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
@@ -672,10 +684,44 @@ export class QualityApi {
     return thread;
   }
 
-  async mutateFindingState(request: FindingStateMutationRequest): Promise<void> {
+  async mutateFindingState(request: FindingStateMutationRequest): Promise<ReviewFinding | null> {
     await firstValueFrom(this.http.post(`${this.repositoryApiBase()}/findings/state`, request));
     await Promise.all([this.loadFile(request.path), this.loadTree()]);
     console.info(JSON.stringify({ event: 'qs.finding.state-mutated', fingerprint: request.fingerprint, path: request.path, state: request.state }));
+    return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
+      .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  async loadScopeRules(): Promise<ScopeRulesResponse> {
+    const response = await firstValueFrom(this.http.get<ScopeRulesResponse>(`${this.repositoryApiBase()}/scope/rules`));
+    this.scopeRules.set(response);
+    return response;
+  }
+
+  previewScopeRule(request: ScopeRuleMutation): Promise<ScopeRuleView> {
+    return firstValueFrom(this.http.post<ScopeRuleView>(`${this.repositoryApiBase()}/scope/rules/preview`, request));
+  }
+
+  async addScopeRule(request: ScopeRuleMutation): Promise<ScopeRulesResponse> {
+    const response = await firstValueFrom(this.http.post<ScopeRulesResponse>(`${this.repositoryApiBase()}/scope/rules`, request));
+    this.scopeRules.set(response);
+    await this.loadTree();
+    return response;
+  }
+
+  async updateScopeRule(index: number, request: ScopeRuleMutation): Promise<ScopeRulesResponse> {
+    const response = await firstValueFrom(this.http.put<ScopeRulesResponse>(
+      `${this.repositoryApiBase()}/scope/rules/${index}`, request));
+    this.scopeRules.set(response);
+    await this.loadTree();
+    return response;
+  }
+
+  async deleteScopeRule(index: number): Promise<ScopeRulesResponse> {
+    const response = await firstValueFrom(this.http.delete<ScopeRulesResponse>(`${this.repositoryApiBase()}/scope/rules/${index}`));
+    this.scopeRules.set(response);
+    await this.loadTree();
+    return response;
   }
 
   async createGuideline(draft: GuidelineDraft): Promise<Guideline> {

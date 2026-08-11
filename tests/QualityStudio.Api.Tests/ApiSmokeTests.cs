@@ -108,6 +108,43 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Review_preflight_recommends_policy_route_and_start_requires_below_floor_confirmation()
+    {
+        using var client = application!.CreateClient();
+        using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.cs", kind = "security", cliType = "codex",
+            model = "gpt-5.6-luna", thinkingLevel = "medium",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
+        var preflight = await estimate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(preflight.GetProperty("overrideBelowFloor").GetBoolean());
+        Assert.Equal("gpt-5.6-sol", preflight.GetProperty("recommendation").GetProperty("recommendedModel").GetString());
+        Assert.Equal("xhigh", preflight.GetProperty("recommendation").GetProperty("recommendedThinkingLevel").GetString());
+        Assert.Equal("sol-xhigh", preflight.GetProperty("recommendation").GetProperty("correctnessFloor").GetString());
+        Assert.Equal("model-routing-policy", preflight.GetProperty("recommendation").GetProperty("selectionSource").GetString());
+        Assert.Equal(0, preflight.GetProperty("estimate").GetProperty("expectedFreshSkips").GetInt32());
+
+        using var rejected = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "security", cliType = "codex",
+            model = "gpt-5.6-luna", thinkingLevel = "medium",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+
+        using var accepted = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "security", cliType = "codex",
+            model = "gpt-5.6-luna", thinkingLevel = "medium", confirmBelowFloor = true,
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
+        var run = await accepted.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(run.GetProperty("routeOverride").GetBoolean());
+        Assert.Equal("sol-xhigh", run.GetProperty("recommendation").GetProperty("correctnessFloor").GetString());
+    }
+
+    [Fact]
     public async Task Scan_returns_staleness_report()
     {
         using var client = application!.CreateClient();
@@ -119,6 +156,48 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var file = Assert.Single(json.GetProperty("files").EnumerateArray());
         Assert.Equal("Sample.cs", file.GetProperty("relativePath").GetString());
         Assert.Equal("missing", file.GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Scope_rule_api_previews_and_atomically_manages_existing_scope_contract()
+    {
+        using var client = application!.CreateClient();
+        using var previewResponse = await client.PostAsJsonAsync("/api/scope/rules/preview", new
+        {
+            action = "exclude", pattern = "*.cs", reason = "Reviewed by the generated-code pipeline.",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
+        var preview = await previewResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(preview.GetProperty("widerPattern").GetBoolean());
+        Assert.Contains(preview.GetProperty("matchedFiles").EnumerateArray(), value => value.GetString() == "Sample.cs");
+
+        using var createdResponse = await client.PostAsJsonAsync("/api/scope/rules", new
+        {
+            action = "exclude", pattern = "Sample.cs", reason = "Ignore this exact path in future reviews.",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
+        var created = await createdResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var rule = Assert.Single(created.GetProperty("rules").EnumerateArray());
+        Assert.Equal("Sample.cs", rule.GetProperty("pattern").GetString());
+        var scopePath = Path.Combine(repositoryRoot, ".quality", "scope.json");
+        Assert.True(File.Exists(scopePath));
+        using (var persisted = JsonDocument.Parse(await File.ReadAllTextAsync(scopePath, TestContext.Current.CancellationToken)))
+        {
+            Assert.Equal(RepositoryScopeConfigurationStore.Schema, persisted.RootElement.GetProperty("$schema").GetString());
+        }
+
+        using var updatedResponse = await client.PutAsJsonAsync("/api/scope/rules/0", new
+        {
+            action = "include", pattern = "Sample.cs",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, updatedResponse.StatusCode);
+        var updated = await updatedResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("include", Assert.Single(updated.GetProperty("rules").EnumerateArray()).GetProperty("action").GetString());
+
+        using var deletedResponse = await client.DeleteAsync("/api/scope/rules/0", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, deletedResponse.StatusCode);
+        var deleted = await deletedResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Empty(deleted.GetProperty("rules").EnumerateArray());
     }
 
     [Fact]

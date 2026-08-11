@@ -5,9 +5,11 @@ import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
 import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
+import { ReviewActions } from './review-actions/review-actions';
 import { ProjectDashboardView } from './project-dashboard/project-dashboard';
 import { flattenTree } from './tree-utils';
 import { UsageHistory } from './usage-history/usage-history';
+import { readFindingRoute, writeFindingRoute } from './review-navigation';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
 const RESIZE_HANDLE_WIDTH = 6;
@@ -30,7 +32,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel, AttackCoverage, UsageHistory, ProjectDashboardView],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -51,6 +53,10 @@ export class App implements OnDestroy {
   readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
+  private readonly initialFindingRoute = readFindingRoute(location.search);
+  readonly selectedFindingFingerprint = signal<string | null>(this.initialFindingRoute.fingerprint);
+  readonly selectedLocationIndex = signal(this.initialFindingRoute.locationIndex);
+  readonly reviewFocusRequest = signal(0);
   readonly repositoryMenuOpen = signal(false);
   readonly repositoryDialogOpen = signal(false);
   readonly editingRepositoryId = signal<string | null>(null);
@@ -112,10 +118,20 @@ export class App implements OnDestroy {
       params.set('path', this.selected());
       params.set('kind', this.activeKind());
       params.set('repo', this.api.selectedRepositoryId());
+      writeFindingRoute(params, this.selectedFindingFingerprint(), this.selectedLocationIndex());
       history.replaceState(null, '', `?${params}`);
       if (this.embedded()) {
         window.parent.postMessage({ source: 'url-preview-embed', type: 'navigation', url: location.href }, '*');
       }
+    });
+    effect(() => {
+      const file = this.api.file();
+      const fingerprint = this.selectedFindingFingerprint();
+      const kind = this.activeKind();
+      if (!file || !fingerprint) return;
+      const restored = file.metaDocuments.find(meta => meta.kind === kind)?.findings.find(candidate =>
+        candidate.fingerprint === fingerprint);
+      if (restored && this.selectedFinding()?.fingerprint !== fingerprint) this.selectedFinding.set(restored);
     });
     // Persist collapse/resize layout under its own key, independent of qs-theme.
     effect(() => {
@@ -142,7 +158,7 @@ export class App implements OnDestroy {
     await Promise.all([this.api.loadUsage(), this.api.loadQuotas()]);
     if (!this.api.quotas().providers.length) setTimeout(() => void this.api.loadQuotas(), 2_000);
     const path = this.selectionPathOrFirst(this.selected());
-    if (path) this.open(path, false);
+    if (path) this.open(path, false, false, !!this.selectedFindingFingerprint());
   }
 
   ngOnDestroy(): void { clearInterval(this.quotaRefreshTimer); }
@@ -166,13 +182,13 @@ export class App implements OnDestroy {
     }).join('\n')}`;
   }
 
-  open(path: string, track = true, expandContainer = false): void {
+  open(path: string, track = true, expandContainer = false, preserveFinding = false): void {
     const start = performance.now();
     this.selected.set(path);
     const node = flattenTree(this.api.tree(), new Set(), true).find(candidate => candidate.path === path);
     if (node?.level !== 'file') {
       this.api.clearFile();
-      this.selectedFinding.set(null);
+      if (!preserveFinding) this.clearFindingSelection();
       if (expandContainer) this.explorer()?.expandPath(path);
       console.info(JSON.stringify({ event: 'qs.container.opened', path, level: node?.level ?? 'unknown', childCount: node?.children.length ?? 0 }));
       return;
@@ -180,7 +196,7 @@ export class App implements OnDestroy {
     this.api.loadFile(path).then(() => {
       const kinds = this.api.file()?.metaDocuments.map(meta => meta.kind) ?? [];
       if (!kinds.includes(this.activeKind())) this.activeKind.set(kinds[0] ?? 'code');
-      this.selectedFinding.set(null);
+      if (!preserveFinding) this.clearFindingSelection();
       if (track) requestAnimationFrame(() => this.measure('qs.file.first-content', start, 150));
     });
   }
@@ -188,11 +204,39 @@ export class App implements OnDestroy {
   selectKind(kind: ReviewKind): void {
     const start = performance.now();
     this.activeKind.set(kind);
-    this.selectedFinding.set(null);
+    this.clearFindingSelection();
     requestAnimationFrame(() => this.measure('qs.review.aspect-switch', start, 50));
   }
 
-  selectFinding(finding: ReviewFinding): void { this.selectedFinding.set(finding); }
+  selectFinding(finding: ReviewFinding): void {
+    this.selectedFinding.set(finding);
+    this.selectedFindingFingerprint.set(finding.fingerprint ?? null);
+    const location = finding.locations.findIndex(candidate => candidate.path === this.selected());
+    this.selectedLocationIndex.set(Math.max(0, location));
+  }
+
+  async openFindingLocation(event: { finding: ReviewFinding; locationIndex: number }): Promise<void> {
+    const location = event.finding.locations[event.locationIndex];
+    if (!location?.range) return;
+    this.selectedFinding.set(event.finding);
+    this.selectedFindingFingerprint.set(event.finding.fingerprint ?? null);
+    this.selectedLocationIndex.set(event.locationIndex);
+    if (location.path !== this.selected()) {
+      this.selected.set(location.path);
+      await this.api.loadFile(location.path);
+      const restored = this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind())?.findings
+        .find(candidate => candidate.fingerprint === this.selectedFindingFingerprint());
+      this.selectedFinding.set(restored ?? event.finding);
+    }
+  }
+
+  focusReviewLauncher(): void { this.reviewFocusRequest.update(value => value + 1); }
+
+  private clearFindingSelection(): void {
+    this.selectedFinding.set(null);
+    this.selectedFindingFingerprint.set(null);
+    this.selectedLocationIndex.set(0);
+  }
 
   openGuidelines(): void {
     this.guidelineDialogOpen.set(true);

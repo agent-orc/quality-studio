@@ -285,6 +285,16 @@ app.MapGet("/api/report", Report);
 app.MapGet("/api/repos/{repoId}/report", Report);
 app.MapGet("/api/quotas", Quotas);
 app.MapGet("/api/models", (ReviewModelCatalog catalog) => Results.Ok(catalog.Snapshot));
+app.MapGet("/api/scope/rules", ScopeRules);
+app.MapGet("/api/repos/{repoId}/scope/rules", ScopeRules);
+app.MapPost("/api/scope/rules/preview", PreviewScopeRule);
+app.MapPost("/api/repos/{repoId}/scope/rules/preview", PreviewScopeRule);
+app.MapPost("/api/scope/rules", AddScopeRule);
+app.MapPost("/api/repos/{repoId}/scope/rules", AddScopeRule);
+app.MapPut("/api/scope/rules/{index:int}", UpdateScopeRule);
+app.MapPut("/api/repos/{repoId}/scope/rules/{index:int}", UpdateScopeRule);
+app.MapDelete("/api/scope/rules/{index:int}", DeleteScopeRule);
+app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
@@ -311,6 +321,75 @@ app.MapPost("/api/findings/state", MutateFindingState);
 app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
 
 app.Run();
+
+static IResult ScopeRules(HttpContext context, RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    return Results.Ok(ScopeRuleResponse(store.Read(), ScopeCandidateFiles(repository.Root, hierarchyCache), store));
+}
+
+static IResult PreviewScopeRule(HttpContext context, ScopeRuleMutationRequest request,
+    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var preview = store.Preview(new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
+        ScopeCandidateFiles(repository.Root, hierarchyCache));
+    return Results.Ok(new ScopeRuleView(-1, preview.Rule.Action, preview.Rule.Pattern, preview.Rule.Reason,
+        preview.MatchedFiles, preview.WiderPattern));
+}
+
+static IResult AddScopeRule(HttpContext context, ScopeRuleMutationRequest request,
+    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
+    var configuration = store.Add(new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
+        candidates, request.ConfirmExpansion);
+    return Results.Created($"{context.Request.Path}/{configuration.Rules.Count - 1}",
+        ScopeRuleResponse(configuration, candidates, store));
+}
+
+static IResult UpdateScopeRule(HttpContext context, int index, ScopeRuleMutationRequest request,
+    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
+    var configuration = store.Update(index, new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
+        candidates, request.ConfirmExpansion);
+    return Results.Ok(ScopeRuleResponse(configuration, candidates, store));
+}
+
+static IResult DeleteScopeRule(HttpContext context, int index,
+    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
+    return Results.Ok(ScopeRuleResponse(store.Delete(index), candidates, store));
+}
+
+static ScopeRulesResponse ScopeRuleResponse(
+    RepositoryScopeConfiguration configuration,
+    IReadOnlyList<string> candidates,
+    RepositoryScopeConfigurationStore store) =>
+    new(configuration.Schema, configuration.Rules.Select((rule, index) =>
+    {
+        var preview = store.Preview(rule, candidates);
+        return new ScopeRuleView(index, rule.Action, rule.Pattern, rule.Reason,
+            preview.MatchedFiles, preview.WiderPattern);
+    }).ToArray());
+
+static IReadOnlyList<string> ScopeCandidateFiles(string repositoryRoot, RepositoryHierarchyCache hierarchyCache) =>
+    Flatten(hierarchyCache.Get(repositoryRoot).Roots)
+        .Where(node => node.Level == ReviewLevel.File)
+        .Select(node => node.Path)
+        .Distinct(StringComparer.Ordinal)
+        .Order(StringComparer.Ordinal)
+        .ToArray();
 
 static async Task<IResult> Tree(HttpContext context, string? path, RepositoryRegistry registry,
     RepositoryHierarchyCache hierarchyCache, InputResolver inputResolver, ILogger<Program> logger,
