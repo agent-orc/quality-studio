@@ -471,7 +471,10 @@ public sealed class ReviewJobService : BackgroundService
                             CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
                             item.Force,
                             linked.Token).ConfigureAwait(false);
-                        if (execution.SkippedFresh) item.SkipAggregateFresh(); else item.FinishAggregate();
+                        if (execution.SkippedFresh)
+                            item.SkipAggregateFresh(execution.Observation);
+                        else
+                            item.FinishAggregate(execution.Observation);
                     }
                 }
             }
@@ -514,7 +517,10 @@ public sealed class ReviewJobService : BackgroundService
                 CreateRequest(item, file, ReviewLevel.File, [file.Path]),
                 item.Force,
                 cancellationToken).ConfigureAwait(false);
-            if (execution.SkippedFresh) item.SkipFileFresh(file.Path); else item.FinishFile(file.Path, null);
+            if (execution.SkippedFresh)
+                item.SkipFileFresh(file.Path, execution.Observation);
+            else
+                item.FinishFile(file.Path, null, execution.Observation);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -600,6 +606,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly object gate = new();
         private readonly ReviewRunManifest manifest;
         private readonly ReviewRunStore store;
+        private readonly QualityRunReportStore reportStore;
         private readonly Dictionary<string, MutableFileProgress> progress;
         private readonly List<string> errors;
         private TokenUsage usage;
@@ -611,6 +618,7 @@ public sealed class ReviewJobService : BackgroundService
         private string? currency;
         private string priceStatus;
         private string? aggregateState;
+        private ReviewObservationSnapshot? aggregateObservation;
         private string? stopReason;
         private bool attemptActive;
         private bool resumePending;
@@ -626,6 +634,7 @@ public sealed class ReviewJobService : BackgroundService
             this.manifest = manifest;
             this.store = store;
             Repository = repository;
+            reportStore = new QualityRunReportStore(repository.RootPath);
             if (!Enum.TryParse<ReviewLevel>(manifest.Level, ignoreCase: true, out var level) || level == ReviewLevel.Function)
                 throw new ArgumentException($"Review manifest has unsupported level '{manifest.Level}'.");
             Node = new HierarchyNode(manifest.Node.Id, manifest.Node.Name, level, manifest.Node.Path);
@@ -647,6 +656,7 @@ public sealed class ReviewJobService : BackgroundService
             currency = status?.Currency ?? manifest.Estimate?.Currency;
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
+            aggregateObservation = status?.AggregateObservation;
             stopReason = status?.StopReason;
             if (transitions is not null)
             {
@@ -658,6 +668,7 @@ public sealed class ReviewJobService : BackgroundService
                     file.StartedAt = transition.StartedAt;
                     file.FinishedAt = transition.FinishedAt;
                     file.Error = transition.Error;
+                    file.Observation = transition.Observation;
                 }
                 foreach (var file in progress.Values.Where(file => file.State == "failed" && file.Error is not null))
                 {
@@ -747,7 +758,7 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public void FinishFile(string path, string? error)
+        public void FinishFile(string path, string? error, ReviewObservationSnapshot? observation = null)
         {
             lock (gate)
             {
@@ -755,13 +766,14 @@ public sealed class ReviewJobService : BackgroundService
                 if (file.State != "running") return;
                 file.State = error is null ? "done" : "failed";
                 file.Error = error;
+                file.Observation = observation;
                 file.FinishedAt = DateTimeOffset.UtcNow;
                 if (error is not null) errors.Add($"{path}: {error}");
                 Append(file);
             }
         }
 
-        public void SkipFileFresh(string path)
+        public void SkipFileFresh(string path, ReviewObservationSnapshot? observation = null)
         {
             lock (gate)
             {
@@ -769,6 +781,7 @@ public sealed class ReviewJobService : BackgroundService
                 if (file.State != "running") return;
                 file.State = "skipped-fresh";
                 file.Error = null;
+                file.Observation = observation;
                 file.FinishedAt = DateTimeOffset.UtcNow;
                 Append(file);
             }
@@ -806,22 +819,24 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public void FinishAggregate()
+        public void FinishAggregate(ReviewObservationSnapshot? observation = null)
         {
             lock (gate)
             {
                 if (aggregateState != "running") return;
                 aggregateState = "done";
+                aggregateObservation = observation;
                 PersistStatus();
             }
         }
 
-        public void SkipAggregateFresh()
+        public void SkipAggregateFresh(ReviewObservationSnapshot? observation = null)
         {
             lock (gate)
             {
                 if (aggregateState != "running") return;
                 aggregateState = "skipped-fresh";
+                aggregateObservation = observation;
                 PersistStatus();
             }
         }
@@ -876,6 +891,7 @@ public sealed class ReviewJobService : BackgroundService
                 }
                 if (aggregateState == "queued") aggregateState = "skipped";
                 PersistStatus();
+                PersistReport();
                 return true;
             }
         }
@@ -889,6 +905,7 @@ public sealed class ReviewJobService : BackgroundService
                 if (aggregateState == "running") aggregateState = "done";
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
+                PersistReport();
                 return true;
             }
         }
@@ -903,6 +920,7 @@ public sealed class ReviewJobService : BackgroundService
                 errors.Add(error);
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
+                PersistReport();
             }
         }
 
@@ -925,6 +943,7 @@ public sealed class ReviewJobService : BackgroundService
                 }
                 if (aggregateState is "queued" or "running") aggregateState = "cancelled";
                 PersistStatus();
+                PersistReport();
                 cancellation = attemptCancellation;
             }
             cancellation.Cancel();
@@ -1031,6 +1050,7 @@ public sealed class ReviewJobService : BackgroundService
             file.StartedAt = null;
             file.FinishedAt = null;
             file.Error = null;
+            file.Observation = null;
             Append(file);
         }
 
@@ -1041,7 +1061,8 @@ public sealed class ReviewJobService : BackgroundService
         }
 
         private void AppendProgress(MutableFileProgress file) => store.AppendProgress(
-            new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error));
+            new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error,
+                file.Observation));
 
         private void PersistStatus()
         {
@@ -1061,8 +1082,44 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason, aggregateObservation);
         }
+
+        private void PersistReport()
+        {
+            var existing = reportStore.LoadAll();
+            var revision = existing.Where(report => string.Equals(report.Run.Id, Id, StringComparison.Ordinal))
+                .Select(report => report.Run.Revision).DefaultIfEmpty(0).Max() + 1;
+            var operations = manifest.Targets.Select(target =>
+            {
+                var file = progress[target.Path];
+                return new QualityRunOperationInput(target.Path, "file", ReportOutcome(file.State), false,
+                    file.Observation);
+            }).ToArray();
+            var aggregate = Node.Level == ReviewLevel.File
+                ? null
+                : new QualityRunOperationInput(Node.Path, manifest.Level, ReportOutcome(aggregateState), true,
+                    aggregateObservation);
+            var input = new QualityRunReportBuildInput(
+                Id, revision, Repository.Id, Repository.DisplayName, Kind,
+                new QualityRunScope(Node.Id, manifest.Level, Node.Path, Node.Name), state,
+                CreatedAt, StartedAt, FinishedAt, Model, CliType, Force,
+                manifest.Targets.Select(target => new QualityRunTarget(target.Id, target.Path, target.SubjectHash)).ToArray(),
+                operations, aggregate, errors.ToArray(), usageOperations, usage, tokenCap, costCap, costSpent,
+                currency, priceStatus, stopReason, ThinkingLevel);
+            reportStore.Write(QualityRunReportBuilder.Build(Repository.RootPath, input, existing));
+        }
+
+        private string ReportOutcome(string? operationState) => operationState switch
+        {
+            "done" => "done",
+            "skipped-fresh" => "skipped-fresh",
+            "failed" => "failed",
+            "cancelled" => "cancelled",
+            "skipped" => "skipped",
+            _ when state == "cancelled" => "cancelled",
+            _ => "skipped",
+        };
 
         private static bool IsCompletedFileState(string fileState) =>
             fileState is "done" or "failed" or "skipped-fresh";
@@ -1100,6 +1157,7 @@ public sealed class ReviewJobService : BackgroundService
             public DateTimeOffset? StartedAt { get; set; }
             public DateTimeOffset? FinishedAt { get; set; }
             public string? Error { get; set; }
+            public ReviewObservationSnapshot? Observation { get; set; }
         }
     }
 }

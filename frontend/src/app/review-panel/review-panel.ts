@@ -3,10 +3,11 @@ import { formatDateTime } from '../format';
 import { FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
+import { RunDetail } from '../run-detail/run-detail';
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [ReviewActions],
+  imports: [ReviewActions, RunDetail],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -100,6 +101,16 @@ export class ReviewPanel {
   scannedAt(value: string): string { return formatDateTime(value); }
 
   runProgress(completed: number, total: number): number { return total ? completed / total * 100 : 0; }
+
+  isTerminal(run: ReviewRun): boolean {
+    return run.state === 'done' || run.state === 'failed' || run.state === 'cancelled' || run.state === 'capped';
+  }
+
+  async toggleRunDetail(run: ReviewRun): Promise<void> {
+    if (!this.isTerminal(run)) return;
+    if (this.api.selectedRunReport()?.run.id === run.id) { this.api.closeRunReport(); return; }
+    try { await this.api.loadRunReport(run.id); } catch { /* Error is rendered by the API service. */ }
+  }
 
   formatTokens(value: number | null | undefined): string {
     if (value === null || value === undefined) return 'unavailable';

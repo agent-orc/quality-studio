@@ -49,6 +49,14 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         using var file = await alice.GetAsync("/api/repos/foreign/file?path=Foreign.cs",
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NotFound, file.StatusCode);
+        using var runReport = await alice.GetAsync(
+            "/api/repos/foreign/review/runs/not-visible/report?format=json",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, runReport.StatusCode);
+        using var runTrend = await alice.GetAsync(
+            "/api/repos/foreign/review/runs/trend?kind=code&scope=unit%3Afile&level=file",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, runTrend.StatusCode);
 
         var list = await alice.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
         var repository = Assert.Single(list.GetProperty("repositories").EnumerateArray());

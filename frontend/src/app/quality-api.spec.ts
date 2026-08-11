@@ -144,4 +144,28 @@ describe('QualityApi', () => {
     expect(api.modelCatalog().policyVersion).toBe('2026-07-24');
     expect(api.modelCatalog().models[0].capabilityTier).toBe('frontier');
   });
+
+  it('loads one canonical run report and its same-scope trend', async () => {
+    const loading = api.loadRunReport('review-1');
+    http.expectOne('/api/repos/default/review/runs/review-1/report?format=json').flush({
+      schemaVersion: 1,
+      run: { id: 'review-1', revision: 2, repositoryId: 'default', repositoryName: 'Default', kind: 'code', scope: { unitId: 'unit:file', level: 'file', path: 'Sample.cs', displayName: 'Sample' }, state: 'done', completeness: 'complete', createdAt: '2026-08-11T07:00:00Z', startedAt: '2026-08-11T07:00:01Z', finishedAt: '2026-08-11T07:00:02Z', model: 'gpt-5.6', thinkingLevel: 'high', cliType: 'codex', force: false },
+      subject: { manifestHash: 'sha256:test', targets: [] },
+      execution: { reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, cancelled: 0, aggregateOutcome: null, errors: [], usageOperations: 1, usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 1 }, tokenCap: null, costCap: null, costSpent: null, currency: null, priceStatus: 'known', stopReason: null },
+      observations: [], delta: { status: 'unavailable', reason: 'No baseline', previousRunId: null, new: [], persisting: [], resolved: [], stateChanged: [] },
+      summary: { score: 90, grade: 'A', findings: { total: 0, bySeverity: {}, byState: {} }, highestSeverity: null, partialReason: null },
+    });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/trend' &&
+      request.params.get('kind') === 'code' && request.params.get('scope') === 'unit:file' &&
+      request.params.get('level') === 'file').flush({
+      repositoryId: 'default', kind: 'code', scope: { unitId: 'unit:file', level: 'file', path: 'Sample.cs', displayName: 'Sample' }, page: 1, pageSize: 30, total: 1, points: [],
+    });
+
+    await loading;
+
+    expect(api.selectedRunReport()?.run.revision).toBe(2);
+    expect(api.runTrend()?.total).toBe(1);
+    expect(api.runReportFilename('review-1', 'markdown')).toBe('quality-run-review-1.md');
+  });
 });

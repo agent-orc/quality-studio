@@ -205,6 +205,19 @@ export interface ReviewRun {
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null;
 }
+export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
+export interface QualityRunScope { unitId: string; level: string; path: string; displayName: string; }
+export interface QualityRunReport {
+  schemaVersion: number;
+  run: { id: string; revision: number; repositoryId: string; repositoryName: string; kind: ReviewKind; scope: QualityRunScope; state: ReviewRunState; completeness: 'complete' | 'partial'; createdAt: string; startedAt: string | null; finishedAt: string | null; model: string | null; thinkingLevel: string | null; cliType: string; force: boolean; };
+  subject: { manifestHash: string; targets: { unitId: string; path: string; subjectHash: string }[] };
+  execution: { reviewed: number; reusedFresh: number; failed: number; skipped: number; cancelled: number; aggregateOutcome: ReviewUnitState | null; errors: string[]; usageOperations: number; usage: TokenUsage; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null; priceStatus: string; stopReason: string | null; };
+  observations: { path: string; level: string; outcome: ReviewUnitState; producedByRun: boolean; aggregate: boolean; sidecarPath: string | null; sidecarSha256: string | null; reviewedHash: string | null; providerRunId: string | null; reviewedAt: string | null; grade: ReviewGrade | null; summary: string | null; findings: ReviewFinding[]; deterministicEvidence: DeterministicSensorResult[]; }[];
+  delta: { status: 'available' | 'unavailable'; reason: string | null; previousRunId: string | null; new: string[]; persisting: string[]; resolved: string[]; stateChanged: string[] };
+  summary: { score: number | null; grade: string | null; findings: { total: number; bySeverity: Record<string, number>; byState: Record<string, number> }; highestSeverity: FindingSeverity | null; partialReason: string | null };
+}
+export interface QualityRunTrendPoint { runId: string; revision: number; finishedAt: string | null; state: ReviewRunState; completeness: 'complete' | 'partial'; comparable: boolean; score: number | null; grade: string | null; activeFindings: number; newFindings: number; persistingFindings: number; resolvedFindings: number; stateChangedFindings: number; reviewed: number; reusedFresh: number; failed: number; skipped: number; inputTokens: number | null; outputTokens: number | null; durationMs: number; cost: number | null; currency: string | null; partialReason: string | null; }
+export interface QualityRunTrendPage { repositoryId: string; kind: ReviewKind; scope: QualityRunScope; page: number; pageSize: number; total: number; points: QualityRunTrendPoint[]; }
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
@@ -383,6 +396,10 @@ export class QualityApi {
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
+  readonly selectedRunReport = signal<QualityRunReport | null>(null);
+  readonly runTrend = signal<QualityRunTrendPage | null>(null);
+  readonly runReportLoading = signal(false);
+  readonly runReportError = signal('');
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
@@ -419,6 +436,7 @@ export class QualityApi {
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
+    this.closeRunReport();
     const treeSnapshot = this.treeSnapshots.get(id);
     const projectSnapshot = this.projectSnapshots.get(id);
     this.tree.set(treeSnapshot ?? []);
@@ -551,6 +569,35 @@ export class QualityApi {
     } catch (error) {
       this.reviewError.set(this.errorMessage(error));
     }
+  }
+
+  async loadRunReport(id: string): Promise<QualityRunReport> {
+    this.runReportLoading.set(true);
+    this.runReportError.set('');
+    try {
+      const report = await firstValueFrom(this.http.get<QualityRunReport>(this.runReportUrl(id, 'json')));
+      this.selectedRunReport.set(report);
+      const params = { kind: report.run.kind, scope: report.run.scope.unitId, level: report.run.scope.level, page: '1', pageSize: '30' };
+      this.runTrend.set(await firstValueFrom(this.http.get<QualityRunTrendPage>(`${this.repositoryApiBase()}/review/runs/trend`, { params })));
+      return report;
+    } catch (error) {
+      this.runReportError.set(this.errorMessage(error));
+      this.selectedRunReport.set(null);
+      this.runTrend.set(null);
+      throw error;
+    } finally {
+      this.runReportLoading.set(false);
+    }
+  }
+
+  closeRunReport(): void { this.selectedRunReport.set(null); this.runTrend.set(null); this.runReportError.set(''); }
+
+  runReportUrl(id: string, format: RunReportFormat): string {
+    return `${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/report?format=${format}`;
+  }
+
+  runReportFilename(id: string, format: RunReportFormat): string {
+    return `quality-run-${id}.${format === 'markdown' ? 'md' : format}`;
   }
 
   async loadUsage(since?: string, kind?: ReviewKind, repositoryId = this.selectedRepositoryId()): Promise<void> {

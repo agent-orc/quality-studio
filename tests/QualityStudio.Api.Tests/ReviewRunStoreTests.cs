@@ -50,6 +50,35 @@ public sealed class ReviewRunStoreTests
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
             Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
             Assert.Equal(1, fake.OperationCount);
+            using (var cappedReportResponse = await client.GetAsync(
+                       $"/api/review/runs/{accepted.GetProperty("id").GetString()}/report?format=json",
+                       cancellationToken))
+            {
+                cappedReportResponse.EnsureSuccessStatusCode();
+                Assert.Equal("application/json", cappedReportResponse.Content.Headers.ContentType?.MediaType);
+                var cappedReport = await cappedReportResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+                Assert.Equal(1, cappedReport.GetProperty("run").GetProperty("revision").GetInt32());
+                Assert.Equal("partial", cappedReport.GetProperty("run").GetProperty("completeness").GetString());
+                Assert.Equal(1, cappedReport.GetProperty("execution").GetProperty("reviewed").GetInt32());
+                Assert.Equal(1, cappedReport.GetProperty("execution").GetProperty("skipped").GetInt32());
+            }
+
+            var runId = accepted.GetProperty("id").GetString()!;
+            foreach (var export in new[]
+                     {
+                         (Format: "html", Extension: "html", MediaType: "text/html"),
+                         (Format: "markdown", Extension: "md", MediaType: "text/markdown"),
+                         (Format: "sarif", Extension: "sarif", MediaType: "application/sarif+json"),
+                         (Format: "json", Extension: "json", MediaType: "application/json"),
+                     })
+            {
+                using var exported = await client.GetAsync(
+                    $"/api/review/runs/{runId}/report?format={export.Format}", cancellationToken);
+                exported.EnsureSuccessStatusCode();
+                Assert.Equal(export.MediaType, exported.Content.Headers.ContentType?.MediaType);
+                Assert.Equal($"attachment; filename=\"quality-run-{runId}.{export.Extension}\"",
+                    exported.Content.Headers.ContentDisposition?.ToString());
+            }
 
             using var resume = await client.PostAsJsonAsync(
                 $"/api/review/runs/{accepted.GetProperty("id").GetString()}/resume",
@@ -65,6 +94,22 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("test-agent", fake.CliType);
             Assert.Equal("claude-sonnet-5", fake.Model);
             Assert.Equal("high", fake.ThinkingLevel);
+
+            using var finalReportResponse = await client.GetAsync(
+                $"/api/review/runs/{accepted.GetProperty("id").GetString()}/report?format=json",
+                cancellationToken);
+            finalReportResponse.EnsureSuccessStatusCode();
+            var finalReport = await finalReportResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal(2, finalReport.GetProperty("run").GetProperty("revision").GetInt32());
+            Assert.Equal("complete", finalReport.GetProperty("run").GetProperty("completeness").GetString());
+            var scope = finalReport.GetProperty("run").GetProperty("scope");
+            using var trendResponse = await client.GetAsync(
+                $"/api/review/runs/trend?kind=code&scope={Uri.EscapeDataString(scope.GetProperty("unitId").GetString()!)}&level={scope.GetProperty("level").GetString()}",
+                cancellationToken);
+            trendResponse.EnsureSuccessStatusCode();
+            var trend = await trendResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal(2, Assert.Single(trend.GetProperty("points").EnumerateArray())
+                .GetProperty("revision").GetInt32());
 
             using var result = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
                 fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "result.json"), cancellationToken));
@@ -109,6 +154,17 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("skipped-fresh", fresh.GetProperty("aggregateState").GetString());
             Assert.Equal(0, fresh.GetProperty("usageOperations").GetInt32());
             Assert.Equal(0, fake.AgentCalls);
+            using (var reportResponse = await client.GetAsync(
+                       $"/api/review/runs/{freshAccepted.GetProperty("id").GetString()}/report?format=json",
+                       cancellationToken))
+            {
+                reportResponse.EnsureSuccessStatusCode();
+                var report = await reportResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+                Assert.Equal(0, report.GetProperty("execution").GetProperty("reviewed").GetInt32());
+                Assert.Equal(2, report.GetProperty("execution").GetProperty("reusedFresh").GetInt32());
+                Assert.All(report.GetProperty("observations").EnumerateArray(),
+                    observation => Assert.False(observation.GetProperty("producedByRun").GetBoolean()));
+            }
 
             using var forcedResponse = await client.PostAsJsonAsync("/api/review", new
             {

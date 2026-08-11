@@ -161,25 +161,52 @@ public sealed class ProjectDashboardService
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
-        var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
-            .ToArray();
+        // A generic hierarchy has already enumerated every repository file and captured its
+        // size. Reuse that immutable snapshot when no recognized text metric needs another
+        // content read; this keeps large asset/data repositories inside the first-view budget.
+        var canReuseHierarchyMetrics = roots.Count == 1 &&
+            roots[0].Id.StartsWith("qs-v1/generic/project/", StringComparison.Ordinal) &&
+            hierarchyFiles.All(node => !TextExtensions.Contains(Path.GetExtension(node.Path)));
+        var repositoryFiles = canReuseHierarchyMetrics
+            ? hierarchyFiles.Select(node => new FileMetric(
+                node.Path, node.SizeBytes ?? 0, 0, null, null)).ToArray()
+            : EnumerateRepositoryFiles(root)
+                .Select(path => ReadFileMetric(root, path))
+                .ToArray();
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
-        var grades = BuildGrades(roots, projectPath);
-        var findings = BuildFindings(hierarchy, projectPath);
-        var staleness = BuildStaleness(hierarchyFiles);
+        var hasReviewDocuments = hierarchy.Any(node => node.Documents.Count > 0);
+        var grades = hasReviewDocuments
+            ? BuildGrades(roots, projectPath)
+            : Enum.GetValues<ReviewKind>().Select(kind => new ProjectGradeResponse(
+                kind.ToString().ToLowerInvariant(), "missing", null, null, projectPath)).ToArray();
+        var findings = hasReviewDocuments
+            ? BuildFindings(hierarchy, projectPath)
+            : new ProjectFindingsResponse(
+                0, NewCountMap(["critical", "high", "medium", "low", "info"]),
+                NewCountMap(["fresh", "stale"]), projectPath);
+        var staleness = hasReviewDocuments
+            ? BuildStaleness(hierarchyFiles)
+            : new ProjectStalenessResponse(
+                0, 0, hierarchyFiles.Length, hierarchyFiles.Length,
+                hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
+        var reviewedFiles = hasReviewDocuments
+            ? hierarchyFiles.Count(node => node.Documents.Count > 0)
+            : 0;
         var reviewCoverage = new ProjectReviewCoverageResponse(
-            hierarchyFiles.Count(node => node.Documents.Count > 0),
+            reviewedFiles,
             hierarchyFiles.Length,
-            hierarchyFiles.Length == 0 ? 0 : Math.Round(
-                hierarchyFiles.Count(node => node.Documents.Count > 0) * 100d / hierarchyFiles.Length, 1),
-            hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
-            hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
+            hierarchyFiles.Length == 0 ? 0 : Math.Round(reviewedFiles * 100d / hierarchyFiles.Length, 1),
+            hasReviewDocuments
+                ? hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
+                  hierarchyFiles.FirstOrDefault()?.Path ?? projectPath
+                : hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
         var dependencies = BuildDependencyEdges(root, hierarchy);
         var metrics = BuildStructuralMetrics(repositoryFiles, dependencies, navigationPaths, projectPath);
         var churn = ReadGitChurn(root);
-        var hotspots = BuildHotspots(hierarchyFiles, churn);
+        var hotspots = hasReviewDocuments
+            ? BuildHotspots(hierarchyFiles, churn)
+            : BuildUnreviewedHotspots(hierarchyFiles, churn);
 
         return new ProjectDashboardResponse(
             DateTimeOffset.UtcNow.ToString("O"),
@@ -420,6 +447,19 @@ public sealed class ProjectDashboardService
             .ThenBy(hotspot => hotspot.Path, StringComparer.Ordinal)
             .Take(30).ToArray();
     }
+
+    private static IReadOnlyList<ProjectHotspotResponse> BuildUnreviewedHotspots(
+        IReadOnlyList<HierarchyNode> files, IReadOnlyDictionary<string, int> churn) =>
+        files.Select(file =>
+            {
+                var changes = churn.GetValueOrDefault(file.Path);
+                var risk = Math.Round(Math.Log10(changes + 1) * 0.51d, 2);
+                return new ProjectHotspotResponse(file.Path, changes, null, 0, 0, risk);
+            })
+            .OrderByDescending(hotspot => hotspot.Risk)
+            .ThenByDescending(hotspot => hotspot.Churn)
+            .ThenBy(hotspot => hotspot.Path, StringComparer.Ordinal)
+            .Take(30).ToArray();
 
     private static IReadOnlyDictionary<string, int> ReadGitChurn(string root)
     {

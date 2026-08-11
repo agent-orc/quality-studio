@@ -31,6 +31,7 @@ quality report . --format html --output quality-report.html
 quality report . --format json --output quality-report.json
 quality report . --format sarif --output quality-report.sarif
 quality report . --fail-under 80 --fail-on high
+quality report . --run review-0123456789abcdef --format html --output quality-run.html
 ```
 
 Supported formats are `markdown`, `html`, `json`, and `sarif`. Without
@@ -61,6 +62,26 @@ or `sarif` to select an export representation. The response media types are
 
 The JSON contract is described by
 [`schemas/quality-report.v1.schema.json`](../schemas/quality-report.v1.schema.json).
+
+## Review-run reports
+
+Every terminal review sweep writes one canonical, schema-versioned snapshot to
+`.quality/reports/runs/<runId>.json`. The snapshot joins the immutable run subject,
+execution outcomes, produced and fresh-reused observations, lifecycle state, usage,
+and a finding delta without storing an absolute repository root. Capped runs are
+replaced under the same id at a higher revision when resumed.
+
+`quality report <repository> --run <runId>` renders Markdown, self-contained HTML,
+canonical JSON, or SARIF from that snapshot. Markdown is bounded to 20 active
+findings. HTML has no script or network dependency. SARIF uses a stable series
+category, carries both Quality Studio and `primaryLocationLineHash` fingerprints,
+and emits `baselineState` only when a complete comparable baseline exists. Gates
+are evaluated after an output file is written, including when the result is exit
+code `1`.
+
+The contract is published as
+[`schemas/quality-run-report.v1.schema.json`](../schemas/quality-run-report.v1.schema.json).
+Run snapshots are repository-owned; Quality Studio never commits them.
 SARIF declares version 2.1.0 and the official OASIS schema URI, produces one run
 per repository, preserves stable finding fingerprints, and includes scorecard
 and trend data in run properties.

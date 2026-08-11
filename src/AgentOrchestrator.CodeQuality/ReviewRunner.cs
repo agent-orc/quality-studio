@@ -30,7 +30,17 @@ public sealed record ReviewSubjectFile(string UnitId, string Path);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
-public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
+/// <summary>
+/// Immutable bytes captured at the review operation boundary. <see cref="SidecarJson"/>
+/// is the exact repository-owned observation and <see cref="ProjectedJson"/> includes
+/// lifecycle state as it was observed when the operation completed.
+/// </summary>
+public sealed record ReviewObservationSnapshot(string MetaPath, string SidecarJson, string ProjectedJson);
+
+public sealed record ReviewExecutionResult(
+    bool SkippedFresh,
+    ReviewResult? Review,
+    ReviewObservationSnapshot? Observation = null);
 
 public sealed record ReviewPromptMeasurement(int Characters, string Path, string Level);
 
@@ -87,7 +97,9 @@ public sealed class ReviewRunner
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
                 metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
-            if (freshness.IsFresh) return new ReviewExecutionResult(true, null);
+            if (freshness.IsFresh)
+                return new ReviewExecutionResult(true, null,
+                    await CaptureObservationAsync(root, metaPath, cancellationToken).ConfigureAwait(false));
         }
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
@@ -144,6 +156,8 @@ public sealed class ReviewRunner
             }
 
             var adapter = AdapterFromUnitId(unitId);
+            string sidecarJson;
+            string projectedJson;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -174,12 +188,15 @@ public sealed class ReviewRunner
                     deterministicEvidence);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+                sidecarJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
                 await File.WriteAllTextAsync(
                     temporaryPath,
-                    meta.ToJsonString(JsonOptions) + Environment.NewLine,
+                    sidecarJson,
                     new UTF8Encoding(false),
                     cancellationToken).ConfigureAwait(false);
                 File.Move(temporaryPath, metaPath, true);
+                var findingStates = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
+                projectedJson = FindingStateProjection.Apply(meta, findingStates).ToJsonString(JsonOptions);
             }
             finally
             {
@@ -188,13 +205,27 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage));
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage),
+                new ReviewObservationSnapshot(metaPath, sidecarJson, projectedJson));
         }
         catch (Exception exception)
         {
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
         }
+    }
+
+    private static async Task<ReviewObservationSnapshot> CaptureObservationAsync(
+        string root,
+        string metaPath,
+        CancellationToken cancellationToken)
+    {
+        var sidecarJson = await File.ReadAllTextAsync(metaPath, cancellationToken).ConfigureAwait(false);
+        var metadata = JsonNode.Parse(sidecarJson)?.AsObject()
+            ?? throw new JsonException($"Review metadata '{Path.GetRelativePath(root, metaPath)}' must be an object.");
+        var findingStates = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
+        var projectedJson = FindingStateProjection.Apply(metadata, findingStates).ToJsonString(JsonOptions);
+        return new ReviewObservationSnapshot(metaPath, sidecarJson, projectedJson);
     }
 
     public async Task<ReviewPromptMeasurement> MeasurePromptAsync(

@@ -292,8 +292,12 @@ app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
+app.MapGet("/api/review/runs/trend", ReviewRunTrend);
+app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
+app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1009,6 +1013,49 @@ static IResult ReviewRun(HttpContext context, string id, RepositoryRegistry regi
 {
     var repository = registry.Get(RouteRepositoryId(context));
     return Results.Ok(jobs.Get(repository.Id, id));
+}
+
+static IResult ReviewRunReport(
+    HttpContext context, string id, string? format, RepositoryRegistry registry, ILogger<Program> logger)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var report = new QualityRunReportStore(repository.RootPath).Load(id);
+    if (!string.Equals(report.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
+        throw new KeyNotFoundException($"Review run '{id}' was not found.");
+    var selectedFormat = string.IsNullOrWhiteSpace(format)
+        ? QualityReportFormat.Json
+        : QualityReportRenderer.ParseFormat(format);
+    var rendered = QualityRunReportRenderer.Render(report, selectedFormat);
+    var extension = selectedFormat switch
+    {
+        QualityReportFormat.Markdown => "md",
+        QualityReportFormat.Html => "html",
+        QualityReportFormat.Json => "json",
+        QualityReportFormat.Sarif => "sarif",
+        _ => "txt",
+    };
+    context.Response.Headers.ContentDisposition = $"attachment; filename=\"quality-run-{id}.{extension}\"";
+    logger.LogInformation(new EventId(1601, "QualityRunReportGenerated"),
+        "Generated {ReportFormat} report for review run {ReviewRunId} in repository {RepositoryId}",
+        selectedFormat, id, repository.Id);
+    return Results.Text(rendered, QualityReportRenderer.ContentType(selectedFormat), Encoding.UTF8);
+}
+
+static IResult ReviewRunTrend(
+    HttpContext context,
+    string? kind,
+    string? scope,
+    string? level,
+    int? page,
+    int? pageSize,
+    RepositoryRegistry registry)
+{
+    if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(scope) || string.IsNullOrWhiteSpace(level))
+        throw new ArgumentException("Run trend requires kind, scope, and level query parameters.");
+    var repository = registry.Get(RouteRepositoryId(context));
+    var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
+    return Results.Ok(QualityRunTrendBuilder.Build(
+        reports, repository.Id, kind, scope, level, page ?? 1, pageSize ?? 30));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

@@ -1,0 +1,130 @@
+<section class="run-report-detail" aria-label="Review run detail">
+  <div class="run-report-header">
+    <div>
+      <span class="eyebrow">Run detail · revision {{ report().run.revision }}</span
+      ><b>{{ report().run.state }} · {{ report().run.completeness }}</b>
+    </div>
+    <button type="button" class="quiet" aria-label="Close run detail" (click)="close.emit()">
+      ×
+    </button>
+  </div>
+  @if (report().run.completeness === 'partial') {
+    <p class="run-partial"><b>Partial report.</b> {{ report().summary.partialReason }}</p>
+  }
+  <div class="run-summary-grid">
+    <div>
+      <b
+        >{{ report().summary.score ?? '—'
+        }}{{ report().summary.grade ? ' / ' + report().summary.grade : '' }}</b
+      ><span>Score</span>
+    </div>
+    <div>
+      <b>{{ findings().length }}</b
+      ><span>Active findings</span>
+    </div>
+    <div>
+      <b>{{ report().execution.reviewed }}</b
+      ><span>Reviewed</span>
+    </div>
+    <div>
+      <b>{{ report().execution.reusedFresh }}</b
+      ><span>Reused fresh</span>
+    </div>
+  </div>
+  <nav class="run-export-actions" aria-label="Export review run">
+    @for (format of ['html', 'markdown', 'sarif', 'json']; track format) {
+      <a
+        [href]="api.runReportUrl(report().run.id, $any(format))"
+        [download]="api.runReportFilename(report().run.id, $any(format))"
+        >{{ format }}</a
+      >
+    }
+  </nav>
+  <div class="run-detail-section">
+    <b>Finding delta</b>
+    @if (report().delta.status === 'available') {
+      <p>
+        {{ report().delta.new.length }} new · {{ report().delta.persisting.length }} persisting ·
+        {{ report().delta.resolved.length }} resolved ·
+        {{ report().delta.stateChanged.length }} state changed
+      </p>
+    } @else {
+      <p>Unavailable · {{ report().delta.reason }}</p>
+    }
+  </div>
+  <div class="run-detail-section">
+    <b>Findings</b>
+    @for (finding of findings().slice(0, 20); track finding.fingerprint ?? finding.id) {
+      <div class="run-finding">
+        <span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span
+        ><b>{{ finding.title }}</b
+        ><small
+          >{{ finding.locations[0]?.path ?? 'No physical location' }} · {{ finding.ruleId }}</small
+        >
+      </div>
+    } @empty {
+      <p>No active findings in this run.</p>
+    }
+  </div>
+  <div class="run-detail-section">
+    <b>Unit outcomes</b>
+    @for (
+      observation of report().observations;
+      track observation.path + ':' + observation.aggregate
+    ) {
+      <div class="run-unit">
+        <span
+          ><i
+            class="status"
+            [class.fresh]="
+              observation.outcome === 'done' || observation.outcome === 'skipped-fresh'
+            "
+            [class.stale]="observation.outcome === 'skipped'"
+            [class.missing]="
+              observation.outcome === 'failed' || observation.outcome === 'cancelled'
+            "
+          ></i
+          >{{ observation.path }}</span
+        ><small
+          >{{ observation.outcome }} ·
+          {{ observation.producedByRun ? 'produced' : 'reused / not produced' }}</small
+        >
+      </div>
+    }
+  </div>
+  @if (trend(); as series) {
+    <div class="run-detail-section">
+      <b>Run trend</b
+      ><small class="run-trend-label">Same kind and scope · {{ series.total }} snapshots</small>
+      <div class="run-trend" role="list" aria-label="Comparable run trend">
+        @for (point of series.points; track point.runId) {
+          <div role="listitem" [class.partial]="!point.comparable">
+            <span>{{ point.finishedAt ? scannedAt(point.finishedAt) : point.state }}</span
+            ><b>{{ point.score ?? 'event' }}{{ point.grade ? ' / ' + point.grade : '' }}</b
+            ><small
+              >{{ point.activeFindings }} active · {{ point.newFindings }} new ·
+              {{ point.persistingFindings }} persisting · {{ point.resolvedFindings }} resolved ·
+              {{ point.stateChangedFindings }} state changed</small
+            ><small
+              >{{ point.reviewed }} reviewed · {{ point.reusedFresh }} reused ·
+              {{ point.failed }} failed · {{ point.skipped }} skipped</small
+            ><small
+              >{{ formatTokens((point.inputTokens ?? 0) + (point.outputTokens ?? 0)) }} ·
+              {{ formatDuration(point.durationMs) }} · {{ formatCost(point.cost, point.currency) }}</small
+            >
+          </div>
+        }
+      </div>
+    </div>
+  }
+  <div class="run-detail-section run-provenance">
+    <b>Provenance</b>
+    <p>
+      <code>{{ report().run.id }}</code> · {{ report().run.model ?? 'runner-default' }} ·
+      {{ report().run.thinkingLevel ?? 'model-default thinking' }} · {{ report().run.cliType }}
+    </p>
+    <p>
+      <code>{{ report().subject.manifestHash }}</code>
+    </p>
+  </div>
+</section>

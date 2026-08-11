@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "title": "Quality Studio canonical review-run report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "run", "subject", "execution", "observations", "delta", "summary"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "run": { "$ref": "#/$defs/run" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "execution": { "$ref": "#/$defs/execution" },
+    "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
+    "delta": { "$ref": "#/$defs/delta" },
+    "summary": { "$ref": "#/$defs/summary" }
+  },
+  "$defs": {
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "repositoryId", "repositoryName", "kind", "scope", "state", "completeness", "createdAt", "startedAt", "finishedAt", "model", "cliType", "force", "thinkingLevel"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "repositoryId": { "type": "string", "minLength": 1 },
+        "repositoryName": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["code", "security", "performance"] },
+        "scope": { "$ref": "#/$defs/scope" },
+        "state": { "enum": ["done", "failed", "cancelled", "capped"] },
+        "completeness": { "enum": ["complete", "partial"] },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "startedAt": { "$ref": "#/$defs/nullableTimestamp" },
+        "finishedAt": { "$ref": "#/$defs/nullableTimestamp" },
+        "model": { "type": ["string", "null"] },
+        "cliType": { "type": "string", "minLength": 1 },
+        "force": { "type": "boolean" },
+        "thinkingLevel": { "type": ["string", "null"] }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "level", "path", "displayName"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "level": { "enum": ["project", "module", "namespace", "file"] },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "displayName": { "type": "string", "minLength": 1 }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifestHash", "targets"],
+      "properties": {
+        "manifestHash": { "$ref": "#/$defs/hash" },
+        "targets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/target" } }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "path", "subjectHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "subjectHash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed", "reusedFresh", "failed", "skipped", "cancelled", "aggregateOutcome", "errors", "usageOperations", "usage", "tokenCap", "costCap", "costSpent", "currency", "priceStatus", "stopReason"],
+      "properties": {
+        "reviewed": { "$ref": "#/$defs/count" },
+        "reusedFresh": { "$ref": "#/$defs/count" },
+        "failed": { "$ref": "#/$defs/count" },
+        "skipped": { "$ref": "#/$defs/count" },
+        "cancelled": { "$ref": "#/$defs/count" },
+        "aggregateOutcome": { "type": ["string", "null"] },
+        "errors": { "type": "array", "items": { "type": "string", "maxLength": 2000 } },
+        "usageOperations": { "$ref": "#/$defs/count" },
+        "usage": { "$ref": "#/$defs/usage" },
+        "tokenCap": { "type": ["integer", "null"], "minimum": 1 },
+        "costCap": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "costSpent": { "type": ["number", "null"], "minimum": 0 },
+        "currency": { "type": ["string", "null"] },
+        "priceStatus": { "type": "string" },
+        "stopReason": { "type": ["string", "null"] }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "level", "outcome", "producedByRun", "aggregate", "sidecarPath", "sidecarSha256", "reviewedHash", "providerRunId", "reviewedAt", "grade", "summary", "findings", "deterministicEvidence"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "level": { "enum": ["project", "module", "namespace", "file"] },
+        "outcome": { "enum": ["done", "skipped-fresh", "failed", "skipped", "cancelled"] },
+        "producedByRun": { "type": "boolean" },
+        "aggregate": { "type": "boolean" },
+        "sidecarPath": { "anyOf": [{ "$ref": "#/$defs/relativePath" }, { "type": "null" }] },
+        "sidecarSha256": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "reviewedHash": { "type": ["string", "null"] },
+        "providerRunId": { "type": ["string", "null"] },
+        "reviewedAt": { "$ref": "#/$defs/nullableTimestamp" },
+        "grade": { "anyOf": [{ "$ref": "#/$defs/grade" }, { "type": "null" }] },
+        "summary": { "type": ["string", "null"] },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "deterministicEvidence": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band", "rationale"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "rationale": { "type": "string" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ruleId", "aspect", "severity", "state", "title", "description", "recommendation", "fingerprint", "locations", "source", "sensorId", "producer", "evidence", "stateAuthor", "stateReason"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "ruleId": { "type": "string", "minLength": 1 },
+        "aspect": { "type": "string" },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "fingerprint": { "type": "string", "minLength": 1 },
+        "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+        "source": { "enum": ["agent", "deterministic"] },
+        "sensorId": { "type": ["string", "null"] },
+        "producer": { "type": ["string", "null"] },
+        "evidence": { "type": ["string", "null"] },
+        "stateAuthor": { "type": ["string", "null"] },
+        "stateReason": { "type": ["string", "null"] }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "startLine": { "type": ["integer", "null"], "minimum": 1 },
+        "startColumn": { "type": ["integer", "null"], "minimum": 1 },
+        "endLine": { "type": ["integer", "null"], "minimum": 1 },
+        "endColumn": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "previousRunId", "new", "persisting", "resolved", "stateChanged"],
+      "properties": {
+        "status": { "enum": ["available", "unavailable"] },
+        "reason": { "type": ["string", "null"] },
+        "previousRunId": { "type": ["string", "null"] },
+        "new": { "$ref": "#/$defs/fingerprints" },
+        "persisting": { "$ref": "#/$defs/fingerprints" },
+        "resolved": { "$ref": "#/$defs/fingerprints" },
+        "stateChanged": { "$ref": "#/$defs/fingerprints" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "grade", "findings", "highestSeverity", "partialReason"],
+      "properties": {
+        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "grade": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "findings": { "$ref": "#/$defs/findingCounts" },
+        "highestSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] },
+        "partialReason": { "type": ["string", "null"] }
+      }
+    },
+    "findingCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "bySeverity", "byState"],
+      "properties": {
+        "total": { "$ref": "#/$defs/count" },
+        "bySeverity": { "type": "object", "additionalProperties": { "$ref": "#/$defs/count" } },
+        "byState": { "type": "object", "additionalProperties": { "$ref": "#/$defs/count" } }
+      }
+    },
+    "fingerprints": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "relativePath": { "type": "string", "minLength": 1, "not": { "pattern": "^(?:[A-Za-z]:|/|\\\\)" } },
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "count": { "type": "integer", "minimum": 0 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "nullableTimestamp": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

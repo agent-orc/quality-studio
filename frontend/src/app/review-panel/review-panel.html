@@ -4,10 +4,11 @@
   <div class="review-content">
     <div class="section-title"><span>Review runs</span><small>Live · polling</small></div>
     @if (api.reviewError()) { <div class="run-error" role="alert">{{ api.reviewError() }}</div> }
+    @if (api.runReportError()) { <div class="run-error" role="alert">{{ api.runReportError() }}</div> }
     <section class="runs-panel" aria-label="Active and recent review runs">
       @for (run of api.reviewRuns().slice(0, 8); track run.id) {
         <article class="run-row">
-          <div class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></div>
+          <button type="button" class="run-heading" [disabled]="!isTerminal(run)" [attr.aria-expanded]="api.selectedRunReport()?.run?.id === run.id" (click)="toggleRunDetail(run)"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></button>
           <div class="run-route">{{ run.cliType }} · {{ run.model ?? 'runner default' }} · {{ run.thinkingLevel ?? 'model default thinking' }}</div>
           <div class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></div>
           <div class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span>@if (run.state === 'queued' || run.state === 'running') { <button type="button" (click)="api.pauseReview(run.id)">Pause</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'paused') { <button type="button" (click)="api.resumeReview(run.id)">Resume</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'capped') { <button type="button" (click)="resumeCapped(run)">Raise &amp; resume</button> }</div>
@@ -15,6 +16,7 @@
           @if (run.stopReason) { <small class="run-stop">{{ run.stopReason }}</small> }
           @if (run.deviation; as deviation) { <small class="run-deviation">Estimate deviation: input {{ deviation.inputTokensPercent }}% · output {{ deviation.outputTokensPercent }}%@if (deviation.costPercent !== null) { · cost {{ deviation.costPercent }}% }</small> }
           @if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }
+          @if (api.selectedRunReport(); as report) { @if (report.run.id === run.id) { @defer { <qs-run-detail [report]="report" [trend]="api.runTrend()" (close)="api.closeRunReport()" /> } } }
         </article>
       } @empty { <div class="empty-findings">No review runs yet.</div> }
     </section>

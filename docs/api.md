@@ -13,6 +13,13 @@ are documented in [quality-reports.md](quality-reports.md). Use
 `GET /api/repos/{repoId}/report` for one repository. JSON is the default;
 `?format=markdown|html|json|sarif` selects another representation.
 
+Canonical review-run exports use
+`GET /api/review/runs/{id}/report?format=markdown|html|json|sarif` or the scoped
+`GET /api/repos/{repoId}/review/runs/{id}/report` equivalent. Responses use the
+format media type and an attachment filename. Comparable run history is paged at
+`GET /api/review/runs/trend?kind=<kind>&scope=<unitId>&level=<level>&page=1&pageSize=30`;
+the repository-scoped equivalent enforces the same access boundary as run detail.
+
 Run the development host from the repository root:
 
 ```powershell

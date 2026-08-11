@@ -143,7 +143,7 @@
   <p class="lede">Decision dossier for a run-scoped report contract, self-contained HTML,
   SARIF for CI, a bounded Markdown summary for 0-PR pipelines, and comparable trends across runs.</p>
   <div class="meta">
-    <span><b>Status:</b> decision pending</span>
+    <span><b>Status:</b> decided · operator-approved 11 August 2026</span>
     <span><b>Evidence date:</b> 11 August 2026</span>
     <span><b>Repository:</b> Quality Studio at <code>3e0b6559faa7</code></span>
     <span><b>Source task:</b> QS-64</span>
@@ -163,6 +163,7 @@
     <li><a href="#zero-pr">§8 0-PR pipeline pattern</a></li>
     <li><a href="#slices">§9 Implementation slices</a></li>
     <li><a href="#approval">§10 Approval packet</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 </nav>
 
@@ -700,6 +701,47 @@ in the app, and R4 adds run comparison. Each slice has a bounded proof and no ta
   <p>This wave does not redesign the current repository scorecard, change finding lifecycle semantics, auto-commit
   generated reports, add cloud hosting, send data to a forge, infer model effectiveness, or introduce a report
   database. Those choices are not required to stop reviews from dying in the app.</p>
+</div>
+
+<h2 id="implementation">Implementation</h2>
+<p class="dim">Append-only delivery record. The dossier decisions above remain the source and reference.</p>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R1 canonical run outcome capture</h4>
+  <p>Added the strict <code>quality-run-report.v1</code> contract, atomic repository-owned store at
+  <code>.quality/reports/runs/&lt;runId&gt;.json</code>, and immutable observation capture for both produced
+  and fresh-reused reviews. File transitions durably carry captured bytes before completion; terminal done,
+  capped, failed, and cancelled transitions publish canonical snapshots. Cap/resume replaces the same run at
+  a higher revision, incomplete temporary writes are ignored, paths are relative, and later sidecar writes do
+  not alter an earlier report.</p>
+</div>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R2 shared renderers, API, CLI, and 0-PR gates</h4>
+  <p>Added canonical JSON, bounded Markdown, offline script-free HTML with restrictive CSP, and run-scoped
+  SARIF with stable categories, provenance, relative locations, suppressions, and both fingerprint keys.
+  Added scoped and unscoped report endpoints plus <code>quality report --run &lt;id&gt;</code>. CLI artifacts are
+  written before score or severity gates return exit code 1, while invalid input and generation failures retain
+  exit code 2.</p>
+</div>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R3 run detail and export actions</h4>
+  <p>Terminal history rows now open a keyboard-native detail surface for complete and partial runs with outcome
+  summary, finding delta, bounded findings, unit outcomes, usage, and provenance. Text-only HTML, Markdown,
+  SARIF, and JSON download actions use correct filenames. The detail is a deferred standalone component using
+  the central spacing, typography, radius, status, severity, and theme tokens, with narrow-width and reduced-motion
+  rules; the existing selected-file review surface remains unchanged. Browser tests cover the detail and exports,
+  with dark, light, and 390-wide evidence preserved for the delivery.</p>
+</div>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R4 comparable run trends</h4>
+  <p>Added a paged trend projection over canonical snapshots keyed by repository, kind, scope unit id, and level.
+  Highest revisions win; complete runs expose comparable scores while partial runs remain explicit events.
+  Stable fingerprints drive new, persisting, resolved, and state-changed counts. The run detail shows the last
+  30 same-series points with score/event state, findings, outcomes, tokens, duration, and cost; the existing
+  Git-backed report trend remains unchanged.</p>
 </div>
 
 <p class="dim">Method note: documentation-only dossier. The reference CSS declarations were copied from
