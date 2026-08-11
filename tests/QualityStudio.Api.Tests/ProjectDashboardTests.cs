@@ -1,8 +1,10 @@
 using AgentOrchestrator.CodeQuality;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class ProjectDashboardTests
 {
     [Fact]
@@ -62,7 +64,7 @@ public sealed class ProjectDashboardTests
             for (var index = 0; index < 5_000; index++)
                 await File.WriteAllTextAsync(Path.Combine(root, "src", $"file-{index:D4}.txt"), "fixture\n",
                     TestContext.Current.CancellationToken);
-            RunGit(root, "add", ".");
+            GitTestRepository.Run(root, "add", ".");
 
             var snapshot = new RepositoryHierarchyCache().Get(root);
             var service = new ProjectDashboardService();
@@ -117,31 +119,7 @@ public sealed class ProjectDashboardTests
     private static string TemporaryRepository()
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-studio-dashboard-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-            ArgumentList = { "init", "--quiet" },
-        })!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        GitTestRepository.Initialize(root);
         return root;
-    }
-
-    private static void RunGit(string root, params string[] arguments)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        process.Start();
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
     }
 }
