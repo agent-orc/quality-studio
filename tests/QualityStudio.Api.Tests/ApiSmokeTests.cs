@@ -511,6 +511,94 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Finding_decisions_and_exact_suppression_remain_independent_and_observable()
+    {
+        var fingerprint = "sha256:" + new string('e', 64);
+        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        Directory.CreateDirectory(metadataDirectory);
+        var metadataPath = Path.Combine(metadataDirectory, "file.decisions.review-meta.code.json");
+        var metadata = new JsonObject
+        {
+            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
+            ["reviewedAt"] = "2026-08-11T09:00:00.000Z",
+            ["kind"] = "code",
+            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
+            ["origin"] = new JsonObject
+            {
+                ["reviewRunId"] = "review-api",
+                ["operationRunId"] = "operation-api",
+            },
+            ["grade"] = new JsonObject { ["score"] = 60, ["band"] = "D", ["rationale"] = "One finding." },
+            ["summary"] = "One finding.",
+            ["findings"] = new JsonArray(new JsonObject
+            {
+                ["id"] = "finding-" + new string('e', 64),
+                ["fingerprint"] = fingerprint,
+                ["ruleId"] = "correctness.test",
+                ["aspect"] = "correctness",
+                ["severity"] = "high",
+                ["title"] = "Decision test finding",
+                ["description"] = "A finding used by the decision API test.",
+                ["recommendation"] = "Review it.",
+                ["locations"] = new JsonArray(new JsonObject { ["path"] = "Sample.cs" }),
+            }),
+        };
+        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        var legacy = await new FindingStateStore(repositoryRoot).MergeReviewAsync(
+            [new FindingIdentityRecord(fingerprint, "finding-" + new string('e', 64), "Sample.cs", "correctness.test")],
+            [], "test", TestContext.Current.CancellationToken);
+        var expectedCompatibilityTimestamp = legacy[fingerprint].Timestamp;
+
+        try
+        {
+            using var client = application!.CreateClient();
+            using var assessed = await client.PostAsJsonAsync("/api/findings/assessment", new
+            {
+                path = "Sample.cs", kind = "code", fingerprint, status = "confirmed", actor = "Ada",
+                reason = "Source evidence confirms the defect.", expectedAssessedAt = expectedCompatibilityTimestamp,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, assessed.StatusCode);
+            using var planned = await client.PostAsJsonAsync("/api/findings/resolution", new
+            {
+                path = "Sample.cs", kind = "code", fingerprint, status = "planned", actor = "Ada",
+                reason = "Implementation is queued.", taskKey = "QS-70",
+                expectedResolvedAt = expectedCompatibilityTimestamp,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, planned.StatusCode);
+
+            var suppression = new
+            {
+                id = "exact-api-test", enabled = true,
+                match = new { fingerprint, ruleId = (string?)null, pathPattern = (string?)null,
+                    reviewKinds = Array.Empty<string>(), sourceKinds = Array.Empty<string>() },
+                reason = "Exact known noise.", author = "Ada", expiresAt = (DateTimeOffset?)null,
+                expectedRevision = 0, confirmBroad = false,
+            };
+            using var preview = await client.PostAsJsonAsync(
+                "/api/findings/suppressions/preview", suppression, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+            var previewJson = await preview.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Single(previewJson.GetProperty("matches").EnumerateArray());
+            using var suppressed = await client.PostAsJsonAsync(
+                "/api/findings/suppressions", suppression, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, suppressed.StatusCode);
+
+            var file = await client.GetFromJsonAsync<JsonElement>(
+                "/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var finding = Assert.Single(Assert.Single(file.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.Equal("confirmed", finding.GetProperty("assessment").GetProperty("status").GetString());
+            Assert.Equal("planned", finding.GetProperty("resolution").GetProperty("status").GetString());
+            Assert.True(finding.GetProperty("suppressed").GetBoolean());
+            Assert.Equal("exact-api-test", finding.GetProperty("suppression").GetProperty("id").GetString());
+        }
+        finally
+        {
+            File.Delete(metadataPath);
+        }
+    }
+
+    [Fact]
     public async Task Usage_returns_filtered_ledger_aggregates_and_recent_entries()
     {
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);

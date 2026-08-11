@@ -202,7 +202,10 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            request.Model,
+            request.CliType,
+            request.ThinkingLevel);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -595,7 +598,10 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            RequestedModel: item.RequestedModel,
+            RequestedCliType: item.RequestedCliType,
+            RequestedThinkingLevel: item.RequestedThinkingLevel);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -719,6 +725,9 @@ public sealed class ReviewJobService : BackgroundService
         public string? Model => manifest.Model;
         public string? ThinkingLevel => manifest.ThinkingLevel;
         public string CliType => manifest.CliType;
+        public string? RequestedModel => manifest.RequestedModel;
+        public string? RequestedCliType => manifest.RequestedCliType;
+        public string? RequestedThinkingLevel => manifest.RequestedThinkingLevel;
         public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
         public DateTimeOffset? StartedAt { get; private set; }

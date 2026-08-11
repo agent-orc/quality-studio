@@ -6,10 +6,9 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class ReviewMetaContractTests
 {
-    private static readonly Lazy<JsonSchema> ReviewMetaSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v1.schema.json"))));
-    private static readonly Lazy<JsonSchema> ReviewMetaV2Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json"))));
+    private static JsonSchema ReviewMetaSchema => RepositoryTestContext.Schema("review-meta.v1.schema.json");
+    private static JsonSchema ReviewMetaV2Schema => RepositoryTestContext.Schema("review-meta.v2.schema.json");
+    private static JsonSchema ReviewMetaV3Schema => RepositoryTestContext.Schema("review-meta.v3.schema.json");
 
     [Fact]
     public void SerializerRoundTripsAndIgnoresUnknownFields()
@@ -18,8 +17,8 @@ public sealed class ReviewMetaContractTests
 
         var json = ReviewMetaJson.Serialize(original);
         var withFutureField = json.Replace(
-            "\"schemaVersion\": 2,",
-            "\"schemaVersion\": 2,\n  \"x-future-field\": { \"enabled\": true },",
+            "\"schemaVersion\": 3,",
+            "\"schemaVersion\": 3,\n  \"x-future-field\": { \"enabled\": true },",
             StringComparison.Ordinal);
         var loaded = ReviewMetaJson.Deserialize(withFutureField);
 
@@ -45,7 +44,7 @@ public sealed class ReviewMetaContractTests
     public void LoaderRejectsUnsupportedSchemaVersion()
     {
         var json = ReviewMetaJson.Serialize(CreateDocument())
-            .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 3", StringComparison.Ordinal);
+            .Replace("\"schemaVersion\": 3", "\"schemaVersion\": 4", StringComparison.Ordinal);
 
         var exception = Assert.Throws<JsonException>(() => ReviewMetaJson.Deserialize(json));
 
@@ -101,7 +100,7 @@ public sealed class ReviewMetaContractTests
         using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
             repositoryRoot, "samples", "review-meta.v1.sample.json")));
 
-        var result = ReviewMetaSchema.Value.Evaluate(sample.RootElement, new EvaluationOptions
+        var result = ReviewMetaSchema.Evaluate(sample.RootElement, new EvaluationOptions
         {
             OutputFormat = OutputFormat.List,
         });
@@ -113,7 +112,7 @@ public sealed class ReviewMetaContractTests
     }
 
     [Fact]
-    public void V2SchemaAcceptsGenericAdapterWhileV1SidecarsRemainReadable()
+    public void V3SchemaAcceptsGenericAdapterWhileV1AndV2SidecarsRemainReadable()
     {
         var document = CreateDocument() with
         {
@@ -125,16 +124,26 @@ public sealed class ReviewMetaContractTests
                 "a.py"),
         };
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var result = ReviewMetaV2Schema.Value.Evaluate(
+        var result = ReviewMetaV3Schema.Evaluate(
             json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
-        Assert.Equal(2, json.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(3, json.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("generic", json.RootElement.GetProperty("unit").GetProperty("adapter").GetString());
+
+        var previous = CreateV2Document();
+        var previousJson = ReviewMetaJson.Serialize(previous);
+        using var previousDocument = JsonDocument.Parse(previousJson);
+        var previousValidation = ReviewMetaV2Schema.Evaluate(
+            previousDocument.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        Assert.True(previousValidation.IsValid, previousValidation.ToString());
+        var loaded = ReviewMetaJson.Deserialize(previousJson);
+        Assert.Equal(2, loaded.SchemaVersion);
+        Assert.Null(loaded.Origin);
     }
 
     [Fact]
-    public void V2SchemaAcceptsMergedSecurityProvenance()
+    public void V3SchemaAcceptsMergedSecurityProvenance()
     {
         var resultHash = "sha256:" + new string('b', 64);
         var document = CreateDocument() with
@@ -157,7 +166,7 @@ public sealed class ReviewMetaContractTests
                     new Dictionary<string, string> { ["gitleaks"] = "8.24.2" })]),
         };
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var result = ReviewMetaV2Schema.Value.Evaluate(
+        var result = ReviewMetaV3Schema.Evaluate(
             json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
@@ -167,7 +176,7 @@ public sealed class ReviewMetaContractTests
     }
 
     [Fact]
-    public void V2SchemaAcceptsSeparateDeterministicAnalyzerEvidence()
+    public void V3SchemaAcceptsSeparateDeterministicAnalyzerEvidence()
     {
         var finding = new ReviewFinding(
             "roslyn-ca1822-aaaaaaaaaaaa",
@@ -207,7 +216,7 @@ public sealed class ReviewMetaContractTests
         };
 
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var result = ReviewMetaV2Schema.Value.Evaluate(
+        var result = ReviewMetaV3Schema.Evaluate(
             json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
@@ -225,7 +234,7 @@ public sealed class ReviewMetaContractTests
                 "qs-v1/generic/file/7b1bd2568ea481d83c2b97850fafd54c0e1981d94960926ab3b4cc5180daec3e",
                 ReviewAdapter.Generic, ReviewLevel.File, "src/a.py", "a.py"),
         }).Replace(ReviewMetaDocument.SchemaId, ReviewMetaDocument.LegacySchemaId, StringComparison.Ordinal)
-          .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 1", StringComparison.Ordinal);
+          .Replace("\"schemaVersion\": 3", "\"schemaVersion\": 1", StringComparison.Ordinal);
 
         var exception = Assert.Throws<JsonException>(() => ReviewMetaJson.Deserialize(json));
 
@@ -239,7 +248,7 @@ public sealed class ReviewMetaContractTests
         using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
             repositoryRoot, "samples", "dependency-vulnerability.real-run.review-meta.security.json")));
 
-        var result = ReviewMetaSchema.Value.Evaluate(sample.RootElement, new EvaluationOptions
+        var result = ReviewMetaSchema.Evaluate(sample.RootElement, new EvaluationOptions
         {
             OutputFormat = OutputFormat.List,
         });
@@ -305,6 +314,35 @@ public sealed class ReviewMetaContractTests
         }
     }
 
+    [Fact]
+    public async Task UsageLedgerV3RetainsRequestedAndExecutedReviewRoute()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-v3-");
+        try
+        {
+            var entry = new ReviewUsageEntry(
+                "operation-1", new DateTimeOffset(2026, 8, 11, 9, 0, 0, TimeSpan.Zero),
+                "gpt-5.6-sol", "codex", new TokenUsage(10, 2, 0, 1, 100),
+                "code", "file", "src/a.cs", "review-1", 3,
+                "sol", "high", "high", "git:" + new string('a', 40), "codex");
+
+            await UsageLedger.AppendAsync(root.FullName, entry, TestContext.Current.CancellationToken);
+
+            var line = Assert.Single(await File.ReadAllLinesAsync(
+                UsageLedger.GetLedgerPath(root.FullName, entry.Timestamp), TestContext.Current.CancellationToken));
+            ValidateUsageLedgerLine(line, "usage-ledger.v3.schema.json");
+            var loaded = Assert.Single((await UsageLedger.QueryAsync(
+                root.FullName, cancellationToken: TestContext.Current.CancellationToken)).Recent);
+            Assert.Equal("sol", loaded.RequestedModel);
+            Assert.Equal("codex", loaded.RequestedCliType);
+            Assert.Equal("high", loaded.ExecutedThinkingLevel);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
     private static void ValidateUsageLedgerLine(string line, string schemaFile)
     {
         var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
@@ -348,9 +386,16 @@ public sealed class ReviewMetaContractTests
             "The name is intentionally short for this sample.",
             "Use a domain name in production code.",
             [new FindingLocation("src/a.ts", new FindingRange(
-                new FindingPosition(1, 7), new FindingPosition(1, 8)))],
+                new FindingPosition(1, 7), new FindingPosition(1, 8)), Role: "primary",
+                CapturedExcerpt: new CapturedExcerpt(
+                    "x ", "typescript", "sha256:" + new string('1', 64), "sha256:" + new string('2', 64)))],
             "sha256:" + new string('e', 64),
-            "built-in:code")],
+            "built-in:code",
+            Impact: "The short name obscures domain intent.",
+            EvidenceItems: [new FindingEvidenceItem(
+                "ev-source-1", "source-span", "observed", "Runner-captured source span.", 0,
+                "quality-studio-runner", ResultHash: "sha256:" + new string('2', 64))],
+            Reproduction: new FindingReproduction("not-applicable", [], Reason: "Naming evidence is source-local.", Attempts: []))],
         Threads = [new ReviewThread(
             "thread-1",
             new ReviewThreadAnchor("src/a.ts", "sha256:" + new string('c', 64), "sha256:" + new string('d', 64),
@@ -359,6 +404,37 @@ public sealed class ReviewMetaContractTests
             [new ReviewThreadEntry("entry-1", new ReviewThreadAuthor(ReviewAuthorKind.Human, Name: "Ada"),
                 new DateTimeOffset(2026, 7, 11, 15, 0, 0, TimeSpan.Zero), "Could this be clearer?")],
             ReviewAnchorState.Anchored)],
+        Origin = new ReviewOrigin(
+            "agent",
+            "review-test",
+            "quality-test",
+            new ReviewRoute("codex", "gpt-5", "high"),
+            new ReviewRoute("codex", "gpt-5", "high"),
+            new PromptReference("file-code-review", "1.0.0", "sha256:" + new string('b', 64)),
+            "sha256:" + new string('a', 64),
+            "sha256:8ea241557b3e9f1bd4f3c9bf88f5e36684fd86a59829e98e11fabadd5462531f",
+            "git:" + new string('c', 40),
+            new DateTimeOffset(2026, 7, 11, 14, 32, 9, 417, TimeSpan.Zero)),
     };
+
+    private static ReviewMetaDocument CreateV2Document()
+    {
+        var current = CreateDocument();
+        var finding = current.Findings[0];
+        return current with
+        {
+            Schema = ReviewMetaDocument.PreviousSchemaId,
+            SchemaVersion = ReviewMetaDocument.PreviousSchemaVersion,
+            Origin = null,
+            Findings = [finding with
+            {
+                Impact = null,
+                EvidenceItems = null,
+                Reproduction = null,
+                Locations = [new FindingLocation("src/a.ts", new FindingRange(
+                    new FindingPosition(1, 7), new FindingPosition(1, 8)))],
+            }],
+        };
+    }
 
 }

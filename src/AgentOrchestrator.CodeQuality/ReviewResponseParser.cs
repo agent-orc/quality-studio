@@ -61,6 +61,11 @@ public sealed partial class ReviewResponseParser
                 throw new ReviewResponseException(
                     "Agent-authored findings cannot claim deterministic source provenance.");
             }
+            if (finding.ContainsKey("evidenceItems"))
+            {
+                throw new ReviewResponseException(
+                    "Agent-authored findings cannot claim runner or executor evidence provenance.");
+            }
             foreach (var property in new[] { "id", "ruleId", "aspect", "severity", "title", "description", "recommendation" })
             {
                 RequireString(finding, property);
@@ -95,6 +100,31 @@ public sealed partial class ReviewResponseParser
                 var range = RequireObject(location, "range");
                 ValidatePosition(RequireObject(range, "start"));
                 ValidatePosition(RequireObject(range, "end"));
+            }
+
+            if (finding.ContainsKey("impact")) RequireString(finding, "impact");
+            if (finding["reproduction"] is JsonObject reproduction)
+            {
+                var status = RequireString(reproduction, "status");
+                if (status is not ("specified" or "not-applicable" or "blocked" or "unknown"))
+                    throw new ReviewResponseException(
+                        "Review agents may specify reproduction, but cannot claim verified execution.");
+                if (reproduction.ContainsKey("attempts"))
+                    throw new ReviewResponseException(
+                        "Review agents cannot provide executor reproduction attempts.");
+                if (status == "specified")
+                {
+                    var steps = RequireArray(reproduction, "steps");
+                    if (steps.Count == 0 || steps.Any(step => step is not JsonValue value ||
+                        !value.TryGetValue<string>(out var text) || string.IsNullOrWhiteSpace(text)))
+                        throw Invalid("reproduction.steps");
+                    RequireString(reproduction, "expected");
+                    RequireString(reproduction, "observed");
+                }
+                else if (status is "not-applicable" or "blocked")
+                {
+                    RequireString(reproduction, "reason");
+                }
             }
 
             if (finding["fingerprint"] is JsonValue fingerprintNode &&
