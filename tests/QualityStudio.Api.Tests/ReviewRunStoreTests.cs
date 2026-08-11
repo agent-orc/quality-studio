@@ -72,6 +72,10 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+            Assert.Equal("unknown", result.RootElement.GetProperty("provider").GetString());
+            Assert.Equal("claude-sonnet-5", result.RootElement.GetProperty("requestedModel").GetString());
+            Assert.Equal("2026-07-24", result.RootElement.GetProperty("routePolicyVersion").GetString());
+            Assert.True(result.RootElement.GetProperty("observationWriteEnabled").GetBoolean());
         }
         finally
         {
@@ -505,6 +509,7 @@ public sealed class ReviewRunStoreTests
                 {
                     ["QualityStudio:RepositoryRoot"] = repositoryRoot,
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
+                    ["QualityTaxonomy:ObservationWriteEnabled"] = "true",
                 }));
             builder.ConfigureServices(services =>
             {

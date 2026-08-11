@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 using AgentOrchestrator.CodeQuality;
+using Microsoft.Extensions.Options;
 
 namespace QualityStudio.Api;
 
@@ -17,7 +18,9 @@ public sealed record ProjectDashboardResponse(
     ProjectReviewCoverageResponse ReviewCoverage,
     ProjectTestCoverageResponse TestCoverage,
     ProjectStructuralMetricsResponse Metrics,
-    IReadOnlyList<ProjectHotspotResponse> Hotspots);
+    IReadOnlyList<ProjectHotspotResponse> Hotspots,
+    IReadOnlyList<QualityModelRecord> ModelRecords,
+    IReadOnlyList<QualityUnknownAspect> UnknownAspects);
 
 public sealed record ProjectGradeResponse(
     string Kind, string State, int? Score, string? Band, string Path);
@@ -104,6 +107,10 @@ public sealed class ProjectDashboardService
 
     private readonly ConcurrentDictionary<string, ProjectDashboardResponse> cache =
         new(StringComparer.Ordinal);
+    private readonly bool observationReadEnabled;
+
+    public ProjectDashboardService(IOptions<QualityTaxonomyOptions>? options = null) =>
+        observationReadEnabled = options?.Value.ObservationReadEnabled ?? false;
 
     public ProjectDashboardResponse Get(
         string repositoryPath,
@@ -116,7 +123,7 @@ public sealed class ProjectDashboardService
     {
         var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var key = root + "\0" + snapshot.GitState;
+        var key = root + "\0" + snapshot.GitState + "\0" + ObservationCacheToken(root);
         if (cache.TryGetValue(key, out var cached))
         {
             return new ProjectDashboardMeasurement(
@@ -153,7 +160,7 @@ public sealed class ProjectDashboardService
         return builder.ToString().TrimEnd();
     }
 
-    private static ProjectDashboardResponse Build(string root, IReadOnlyList<HierarchyNode> roots)
+    private ProjectDashboardResponse Build(string root, IReadOnlyList<HierarchyNode> roots)
     {
         var hierarchy = Flatten(roots).ToArray();
         var hierarchyFiles = hierarchy
@@ -180,6 +187,9 @@ public sealed class ProjectDashboardService
         var metrics = BuildStructuralMetrics(repositoryFiles, dependencies, navigationPaths, projectPath);
         var churn = ReadGitChurn(root);
         var hotspots = BuildHotspots(hierarchyFiles, churn);
+        var reduction = observationReadEnabled
+            ? QualityObservationReducer.Reduce(QualityObservationLedger.Read(root))
+            : new QualityObservationReduction(QualityObservationReducer.SelectionPolicy, [], [], []);
 
         return new ProjectDashboardResponse(
             DateTimeOffset.UtcNow.ToString("O"),
@@ -190,7 +200,20 @@ public sealed class ProjectDashboardService
             ReadTestCoverage(root, repositoryFiles.Select(file => file.Path),
                 hierarchyFiles.FirstOrDefault()?.Path ?? projectPath),
             metrics,
-            hotspots);
+            hotspots,
+            reduction.Models,
+            reduction.UnknownAspects);
+    }
+
+    private string ObservationCacheToken(string root)
+    {
+        if (!observationReadEnabled) return "sidecar";
+        var directory = Path.Combine(root,
+            QualityObservationLedger.RelativeDirectory.Replace('/', Path.DirectorySeparatorChar));
+        if (!Directory.Exists(directory)) return "empty";
+        return string.Join('|', Directory.EnumerateFiles(directory, "????-??.jsonl")
+            .Order(StringComparer.Ordinal)
+            .Select(path => $"{Path.GetFileName(path)}:{new FileInfo(path).Length}:{File.GetLastWriteTimeUtc(path).Ticks}"));
     }
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(

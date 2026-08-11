@@ -25,7 +25,8 @@ public sealed record QualityReportRepository(
     IReadOnlyList<string>? EnabledKinds = null,
     IReadOnlyList<QualityReportSensor>? Sensors = null,
     string? GlobalInputsDirectory = null,
-    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters);
+    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+    bool ObservationReadEnabled = false);
 
 public sealed record QualityReportDocument(
     [property: JsonPropertyName("$schema")] string Schema,
@@ -39,7 +40,9 @@ public sealed record RepositoryQualityReport(
     string Name,
     QualityScorecard Scorecard,
     IReadOnlyList<QualityTrendSeries> Trend,
-    IReadOnlyList<QualityFinding> Findings);
+    IReadOnlyList<QualityFinding> Findings,
+    IReadOnlyList<QualityModelRecord>? ModelRecords = null,
+    IReadOnlyList<QualityUnknownAspect>? UnknownAspects = null);
 
 public sealed record QualityScorecard(
     int Score,
@@ -167,7 +170,20 @@ public sealed class QualityReportBuilder
         try
         {
             var states = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
-            var observations = LoadCurrentObservations(root, repository.Id, states);
+            QualityObservationReduction? reduction = null;
+            IReadOnlyList<Observation> observations;
+            if (repository.ObservationReadEnabled)
+            {
+                var immutable = await QualityObservationLedger.ReadAsync(root, cancellationToken).ConfigureAwait(false);
+                reduction = QualityObservationReducer.Reduce(immutable);
+                observations = LoadObservationBackedCurrent(root, immutable, repository.Id, states);
+                if (observations.Count == 0)
+                    observations = LoadCurrentObservations(root, repository.Id, states);
+            }
+            else
+            {
+                observations = LoadCurrentObservations(root, repository.Id, states);
+            }
             var kindScores = BuildKindScores(kinds, observations);
             var scoredKinds = kindScores.Where(kind => kind.Score.HasValue).Select(kind => kind.Score!.Value).ToArray();
             var score = scoredKinds.Length == 0
@@ -210,12 +226,63 @@ public sealed class QualityReportBuilder
                 coverage,
                 repository.Sensors ?? []);
             return new RepositoryQualityReport(repository.Id, repository.Name, scorecard, trend,
-                observations.SelectMany(observation => observation.Findings).ToArray());
+                observations.SelectMany(observation => observation.Findings).ToArray(),
+                reduction?.Models ?? [],
+                reduction?.UnknownAspects ?? []);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
             throw new QualityReportException($"Could not build quality report for repository '{repository.Id}'.", exception);
         }
+    }
+
+    private static IReadOnlyList<Observation> LoadObservationBackedCurrent(
+        string root,
+        IReadOnlyList<QualityObservationDocument> immutable,
+        string repositoryId,
+        IReadOnlyDictionary<string, FindingStateRecord> states)
+    {
+        var result = new List<Observation>();
+        foreach (var sidecarPath in EnumerateSidecars(root))
+        {
+            var sidecar = JsonNode.Parse(File.ReadAllText(sidecarPath))?.AsObject()
+                ?? throw new JsonException("Review metadata must be an object.");
+            var unitId = sidecar["unit"]?["id"]?.GetValue<string>();
+            var subjectHash = sidecar["reviewedHash"]?["value"]?.GetValue<string>();
+            var promptId = sidecar["reviewInputs"]?["prompt"]?["id"]?.GetValue<string>();
+            var promptVersion = sidecar["reviewInputs"]?["prompt"]?["version"]?.GetValue<string>();
+            var promptHash = sidecar["reviewInputs"]?["prompt"]?["contentHash"]?.GetValue<string>();
+            var inputHash = sidecar["reviewInputs"]?["effectiveHash"]?["value"]?.GetValue<string>();
+            QualityObservationDocument? observation = null;
+            if (unitId is not null && subjectHash is not null && promptId is not null &&
+                promptVersion is not null && promptHash is not null && inputHash is not null)
+            {
+                observation = QualityObservationReducer.SelectCurrent(
+                    immutable,
+                    new QualityObservationSelectionTarget(
+                        unitId,
+                        subjectHash,
+                        promptId,
+                        promptVersion,
+                        promptHash,
+                        inputHash,
+                        QualityTaxonomyCatalogue.CoreDocument.Id,
+                        QualityTaxonomyCatalogue.CoreDocument.Version,
+                        QualityTaxonomyCatalogue.CoreDigest));
+            }
+            observation ??= immutable.Where(item =>
+                    string.Equals(item.Subject.UnitId, unitId, StringComparison.Ordinal) &&
+                    QualityObservationReducer.ProjectCurrentSidecar(item) is not null)
+                .OrderByDescending(item => item.ObservedAt)
+                .ThenByDescending(item => item.ObservationId, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (observation is null) continue;
+            var metadata = QualityObservationReducer.ProjectCurrentSidecar(observation);
+            if (metadata is null) continue;
+            var projected = FindingStateProjection.Apply(metadata, states);
+            if (ParseObservation(projected, repositoryId) is { } parsed) result.Add(parsed);
+        }
+        return result;
     }
 
     private static IReadOnlyList<Observation> LoadCurrentObservations(
@@ -271,7 +338,12 @@ public sealed class QualityReportBuilder
         var findings = new List<QualityFinding>();
         foreach (var finding in metadata["findings"]?.AsArray().OfType<JsonObject>() ?? [])
         {
-            if (ParseFinding(finding, repositoryId, kind, "agent", null, null) is { } parsed)
+            var source = finding["source"]?["kind"]?.GetValue<string>() == "deterministic"
+                ? "deterministic"
+                : "agent";
+            var sensorId = finding["source"]?["sensorId"]?.GetValue<string>();
+            var producer = finding["source"]?["producer"]?.GetValue<string>();
+            if (ParseFinding(finding, repositoryId, kind, source, sensorId, producer) is { } parsed)
                 findings.Add(parsed);
         }
         foreach (var sensor in metadata["deterministicEvidence"]?.AsArray().OfType<JsonObject>() ?? [])

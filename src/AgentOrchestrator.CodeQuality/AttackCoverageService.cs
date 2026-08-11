@@ -142,13 +142,15 @@ public sealed class AttackCoverageLedger
 {
     public const string RelativePath = ".quality/attacks/coverage-ledger.jsonl";
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly string repositoryRoot;
     private readonly string path;
 
     public AttackCoverageLedger(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        this.repositoryRoot = System.IO.Path.GetFullPath(repositoryRoot);
         path = System.IO.Path.Combine(
-            System.IO.Path.GetFullPath(repositoryRoot),
+            this.repositoryRoot,
             RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
     }
 
@@ -202,6 +204,10 @@ public sealed class AttackCoverageLedger
         {
             gate.Release();
         }
+        await QualityObservationLedger.AppendAsync(
+            repositoryRoot,
+            QualityDomainObservationAdapters.FromAttack(observation, RelativePath),
+            CancellationToken.None).ConfigureAwait(false);
     }
 
     private static void Validate(AttackCoverageObservation observation)
@@ -339,14 +345,17 @@ public sealed class AttackCoverageService
             ?? throw new KeyNotFoundException($"Attack '{submission.AttackId}' was not found.");
         if (!AttackCatalogueResolver.Applies(attack.Entry, boundary))
             throw new ArgumentException("The attack does not apply to the selected boundary.", nameof(submission));
+        var assessmentId = string.IsNullOrWhiteSpace(submission.AssessmentId)
+            ? Guid.NewGuid().ToString("N")
+            : submission.AssessmentId.Trim();
         await EnsureFindingLifecycleLinkAsync(
-            repositoryRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);
+            repositoryRoot, boundary, attack.Entry, submission, assessmentId, cancellationToken).ConfigureAwait(false);
         var snapshot = await BoundaryCoverageHasher.SnapshotAsync(repositoryRoot, boundary, cancellationToken)
             .ConfigureAwait(false);
         var prompt = AttackCoveragePrompt.Reference();
         var observation = new AttackCoverageObservation(
             1,
-            string.IsNullOrWhiteSpace(submission.AssessmentId) ? Guid.NewGuid().ToString("N") : submission.AssessmentId.Trim(),
+            assessmentId,
             boundary.Id,
             attack.Entry.Id,
             submission.Verdict,
@@ -486,6 +495,7 @@ public sealed class AttackCoverageService
         BoundaryEntry boundary,
         AttackCatalogueEntry attack,
         AttackJudgementSubmission submission,
+        string assessmentId,
         CancellationToken cancellationToken)
     {
         var store = new FindingStateStore(repositoryRoot);
@@ -551,6 +561,27 @@ public sealed class AttackCoverageService
         if (current.Count > 0 || previous.Length > 0)
             await store.MergeReviewAsync(
                 current, previous, submission.Reviewer.Agent, cancellationToken).ConfigureAwait(false);
+        if (submission.Verdict == AttackCoverageVerdict.Pass && previous.Length > 0)
+        {
+            var basisId = "observation-sha256:" +
+                          QualityObservationJson.HashContent(
+                              $"attack-coverage\0{boundary.Id}\0{attack.Id}\0{assessmentId}")[7..];
+            var latestStates = await store.ReadAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var finding in previous)
+            {
+                if (latestStates.TryGetValue(finding.Fingerprint, out var state) && state.State != FindingState.Resolved)
+                {
+                    await store.ResolveAsync(
+                        finding.Fingerprint,
+                        submission.Reviewer.Agent,
+                        "An explicit attack-coverage pass reconciled the prior finding.",
+                        [basisId],
+                        "attack-coverage-pass-reconciliation@1",
+                        state.Timestamp,
+                        cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
     }
 
     private static bool IsSha256(string value) =>

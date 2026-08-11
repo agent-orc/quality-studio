@@ -277,6 +277,17 @@ public sealed class AttackCoverageTests
                 TestContext.Current.CancellationToken);
             Assert.Equal(FindingState.Resolved,
                 findingStates["sha256:" + new string('b', 64)].State);
+            var common = await QualityObservationLedger.ReadAsync(
+                root, TestContext.Current.CancellationToken);
+            Assert.Equal(3, common.Count);
+            Assert.Equal(["pass", "fail", "pass"], common.Select(item => item.Assessment));
+            Assert.All(common, item => Assert.Equal("security.attack-coverage", Assert.Single(item.Aspects).AspectId));
+            Assert.All(common, item =>
+            {
+                Assert.True(item.Legacy!.Values.ContainsKey("assessmentId"));
+                Assert.True(item.Legacy.Values.ContainsKey("catalogueEntryHash"));
+                Assert.True(item.Extensions.ContainsKey("quality-studio:attack-coverage.v1"));
+            });
         }
         finally
         {

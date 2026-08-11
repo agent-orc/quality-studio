@@ -58,6 +58,14 @@ public sealed class FlowReviewRunnerTests
             cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(3, usage.Runs);
         Assert.All(usage.Recent, entry => Assert.Equal("flow", entry.Level));
+        var observations = await QualityObservationLedger.ReadAsync(
+            repository.Root, TestContext.Current.CancellationToken);
+        Assert.Equal(3, observations.Count);
+        Assert.All(observations, observation =>
+        {
+            Assert.Equal("security.business-logic", Assert.Single(observation.Aspects).AspectId);
+            Assert.Equal("flow-review.v1", observation.Legacy?.Schema);
+        });
 
         using var generated = JsonDocument.Parse(await File.ReadAllTextAsync(
             fixation.ReportPath!, TestContext.Current.CancellationToken));

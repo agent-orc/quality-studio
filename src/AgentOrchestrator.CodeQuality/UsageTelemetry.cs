@@ -30,7 +30,13 @@ public sealed record ReviewUsageEntry(
     string Level,
     string Path,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReviewRunId = null,
-    int SchemaVersion = 1);
+    int SchemaVersion = 1,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ObservationId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Provider = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RequestedModel = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? EffectiveModel = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ThinkingLevel = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RoutePolicyVersion = null);
 
 public sealed record UsageAggregate(string Key, int Runs, long InputTokens, long OutputTokens,
     long CachedInputTokens, long ReasoningOutputTokens, long DurationMs);
@@ -52,7 +58,7 @@ public sealed record UsageReport(
 /// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -136,8 +142,16 @@ public static class UsageLedger
 
         return entry.SchemaVersion switch
         {
-            1 => entry.ReviewRunId is null,
-            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ReviewRunId),
+            1 => entry.ReviewRunId is null && entry.ObservationId is null,
+            2 => !string.IsNullOrWhiteSpace(entry.ReviewRunId) && entry.ObservationId is null,
+            CurrentSchemaVersion =>
+                !string.IsNullOrWhiteSpace(entry.ReviewRunId) &&
+                !string.IsNullOrWhiteSpace(entry.ObservationId) &&
+                !string.IsNullOrWhiteSpace(entry.Provider) &&
+                !string.IsNullOrWhiteSpace(entry.RequestedModel) &&
+                !string.IsNullOrWhiteSpace(entry.EffectiveModel) &&
+                !string.IsNullOrWhiteSpace(entry.ThinkingLevel) &&
+                !string.IsNullOrWhiteSpace(entry.RoutePolicyVersion),
             _ => false,
         };
     }
