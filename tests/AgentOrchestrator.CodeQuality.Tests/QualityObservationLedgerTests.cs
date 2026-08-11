@@ -119,6 +119,26 @@ public sealed class QualityObservationLedgerTests
         });
     }
 
+    [Fact]
+    public async Task InvalidResponseRetainsSpendWithoutCreatingDanglingObservationLink()
+    {
+        await WithReviewFileAsync(async root =>
+        {
+            var runner = new ReviewRunner(new InvalidRouteAgent());
+
+            await Assert.ThrowsAsync<ReviewResponseException>(() => runner.ReviewAsync(
+                Request(root, "model-a"), TestContext.Current.CancellationToken));
+
+            Assert.Empty(await QualityObservationLedger.ReadAsync(
+                root, TestContext.Current.CancellationToken));
+            var usage = Assert.Single((await UsageLedger.QueryAsync(
+                root, cancellationToken: TestContext.Current.CancellationToken)).Recent);
+            Assert.Equal(2, usage.SchemaVersion);
+            Assert.Null(usage.ObservationId);
+            Assert.Equal("review-test", usage.ReviewRunId);
+        });
+    }
+
     private static ReviewRequest Request(string root, string model) => new(
         "src/Small.cs",
         RepositoryRoot: root,
@@ -168,6 +188,27 @@ public sealed class QualityObservationLedgerTests
                     StringComparison.Ordinal),
                 new TokenUsage(120, 34, 56, 7, 890),
                 model,
+                "openai",
+                "high"));
+    }
+
+    private sealed class InvalidRouteAgent : IReviewAgent
+    {
+        public string AgentName => "codex";
+        public string? Model => "model-a";
+        public string? Provider => "openai";
+        public string? ThinkingLevel => "high";
+        public string? RoutePolicyVersion => "2026-07-24";
+
+        public Task<ReviewAgentResult> RunAsync(
+            string prompt,
+            string workingDirectory,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ReviewAgentResult(
+                "invalid-run",
+                "{}",
+                new TokenUsage(10, 5, 0, 0, 100),
+                "model-a",
                 "openai",
                 "high"));
     }
