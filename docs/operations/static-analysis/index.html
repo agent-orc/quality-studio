@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -463,7 +463,7 @@
     <h2><span class="no">08</span>Implementation slices</h2>
 
     <article class="slice">
-      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill queued">approve first</span></header>
+      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Introduce <code>PreflightResult v1</code> by extending the sensor result/provenance contract. Move all deterministic and security collection to <code>ReviewJobService</code> before file scheduling; execute each configured check once; cache by subject/config/tool hashes; persist under the existing run directory; project findings by subject.</p>
       <ul>
         <li>Default-enable only sensors with complete repository configuration; required versus optional is explicit.</li>
@@ -475,7 +475,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill queued">approve</span></header>
+      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Configure repository-owned commands for .NET build/SARIF, tsc, ngc, Angular production build, batched NuGet audit, npm audit, and existing Gitleaks. Add the selective disposition matrix and compact prompt projection.</p>
       <ul>
         <li>Compiler errors block only affected file/project operations; warnings continue.</li>
@@ -487,7 +487,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S3 · Lint and style baselines</h3><span class="pill queued">approve</span></header>
+      <header><h3>S3 · Lint and style baselines</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Pin ESLint, Angular/TypeScript plugins, and the SARIF formatter; add flat config and scripts. Pin Prettier and add a check script. Add a root .NET EditorConfig/format command. Capture fingerprinted current baselines and apply changed-file/changed-line gating.</p>
       <ul>
         <li>Separate correctness/security lint rules from formatting/style rules in disposition.</li>
@@ -498,7 +498,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill queued">approve</span></header>
+      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Enable CA1502/CA1505 through <code>CodeMetricsConfig.txt</code> and <code>AdditionalFiles</code>; add ESLint's built-in complexity rule. Feed distributions and breached top-N symbols into the existing Project Dashboard/hotspot response.</p>
       <ul>
         <li>Choose initial thresholds after recording the current distribution; store threshold/config hash with findings.</li>
@@ -509,7 +509,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill queued">approve</span></header>
+      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Shadow the preflight on matched snapshots, then enable gates in order: compilers, package/budget, lint new-debt, complexity warning. Publish one comparison report from the existing estimate and usage contracts.</p>
       <ul>
         <li>Record per run: check wall time, cache hits, finding counts, model calls planned/blocked/executed, prompt characters before/after compaction, actual input/output/cached/reasoning tokens, and estimate deviation.</li>
@@ -596,9 +596,47 @@
       <h4>Delivery boundary after S1</h4>
       <p>S2–S4 were not declared delivered in QS-72: they require the repository-owned compiler/budget command matrix, the currently failing Angular 480 kB production-budget baseline, pinned lint/style tooling and baselines, then measured complexity distributions and thresholds in that priority order. S5 remains evidence-gated by its required 30 matched real review operations; this checkout has no committed usage sample from which to publish that result. None of these slices was skipped as an operator-decision gate, and no routing/model floor was changed.</p>
     </div>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · S2 — Compiler, package, and budget gates</h3><span class="pill done">landed</span></header>
+      <p>Repository preflight now runs a lock-hash-cached <code>npm ci</code> prerequisite, one Release <code>dotnet build</code>, local <code>tsc</code> and <code>ngc</code> compilers, the checked-in Angular production budget, and batched NuGet/npm dependency audits. The sensor configuration defaults are repository-owned, direct-process commands; tool, lock, source, and build-configuration fingerprints participate in the immutable snapshot.</p>
+      <ul>
+        <li>Required unavailable/failed checks block the run without a false pass. Compiler errors block only the affected file and its invalid aggregate; warnings continue. Angular budget errors block only the project performance aggregate. Dependency and secret findings remain evidence and do not suppress semantic security review.</li>
+        <li>The dependency sensor selects a root solution when present instead of auditing every project. Prompt projection remains identity/location-only and bounded; full machine descriptions remain in <code>preflight.json</code>.</li>
+        <li>CI now installs Node 22 dependencies from the lock, runs both Angular compilers, the production budget, frontend tests, static new-debt checks, NuGet/npm audits, and the existing .NET and security gates.</li>
+        <li>Fixtures cover compiler warning/error normalization, current NG8102 and 476.18 kB budget forms, pass/findings/unavailable distinctions, lock-cache reuse, batched audit selection, and the two selective blocking dispositions.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · S3 — Lint and style baselines</h3><span class="pill done">landed</span></header>
+      <p>Exact ESLint 9, Angular/TypeScript lint plugins, SARIF formatter, and Prettier versions are pinned in the frontend lock. The flat configuration covers Angular TypeScript, inline/external templates, accessibility rules, and repository-owned JavaScript modules; generated output and dependency trees are excluded. Root EditorConfig and local-only scripts provide the .NET whitespace and frontend formatting checks.</p>
+      <ul>
+        <li>The fingerprint baseline on this integration head records 135 .NET whitespace observations in nine files, 31 ESLint observations in 11 files, and 58 Prettier file observations. The gate reports existing and resolved debt but fails only new fingerprints; focused tests prove introduced and resolved classification.</li>
+        <li>ESLint SARIF is available to the standalone preflight sensor. Formatting observations are CI/baseline facts only and never enter a model prompt.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · S4 — Complexity as a thresholded metric</h3><span class="pill done">landed</span></header>
+      <p><code>CodeMetricsConfig.txt</code> and the shared build props enable advisory CA1502 at 25 and CA1505 at 20 for production projects; ESLint complexity is advisory at 18. The current build distribution is 17 CA1502 breaches and two CA1505 breaches. Threshold/configuration files are included in the preflight subject and the build sensor configuration hash, so an unchanged rerun is deterministic and a threshold change invalidates reuse.</p>
+      <ul>
+        <li>The Project Dashboard response and Angular view expose threshold values, a breach distribution, and the highest 25 symbols from the latest preflight, ordered by excess with stable finding fingerprints and source locations.</li>
+        <li>Metrics remain warnings with no grade cap and no raw file-prompt payload. Tests cover stable normalized fingerprints, locations, thresholds, distribution, and top-breach projection.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · S5 — Economy evidence instrumentation</h3><span class="pill done">instrumentation landed</span></header>
+      <p>Review responses and durable result artifacts now expose static duration, within-run preflight cache hits, finding count, planned/blocked/executed model calls, prompt characters before/after compaction, actual input/output/cached/reasoning usage, and estimate deviation. Every blocked call is derived from a persisted blocked file or aggregate disposition; model and thinking-level selection are unchanged.</p>
+      <ul>
+        <li>The comparison report contract accepts only snapshot- and route-matched observations with actual usage, rejects false-clean or stale-reuse rows, and emits <code>savingsPercent: null</code> until at least 30 matched operations exist. Tests cover the 29-operation refusal and a 30-operation measured cohort.</li>
+        <li>This checkout contains zero qualifying real matched operations. The emitted rollout report is therefore <code>insufficient-evidence</code>; no percentage saving, gate-retention conclusion, or model downgrade is claimed.</li>
+      </ul>
+    </article>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 11 August 2026</footer>
 </main>
 </body>
 </html>

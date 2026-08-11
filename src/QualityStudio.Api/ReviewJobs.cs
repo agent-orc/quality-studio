@@ -85,7 +85,8 @@ public sealed record ReviewRunResponse(
     int PreflightUnavailableChecks = 0,
     string? PreflightResultHash = null,
     long? PreflightDurationMs = null,
-    int BlockedFiles = 0);
+    int BlockedFiles = 0,
+    ReviewRunEconomyEvidence? Economy = null);
 
 public interface IReviewExecutor
 {
@@ -324,13 +325,44 @@ public sealed class ReviewJobService : BackgroundService
         var reviewKind = Enum.Parse<ReviewKind>(kind, ignoreCase: true);
         var expectedFreshSkips = force ? 0 : plan.Files.Count(file =>
             file.AggregatedStates[reviewKind].Direct == ReviewState.Current);
+        var beforeCompaction = promptCharacters + PromptCompactionSavings(plan, kind, preflight);
         return new ReviewRunEstimate(plan.Files.Length, measurements.Count, promptCharacters, inputTokens,
             outputTokens, cost.Total, cost.Currency, Camel(cost.Status.ToString()), samples.Length,
             samples.Length == 0
                 ? "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
                 : $"Input is actual rendered prompt characters / 4; output uses {samples.Length} recorded .quality/usage operation(s).",
-            expectedFreshSkips
+            expectedFreshSkips,
+            beforeCompaction
         );
+    }
+
+    private long PromptCompactionSavings(PreparedPlan plan, string kind, PreflightSnapshot? preflight)
+    {
+        if (preflight is null) return 0;
+        long savings = 0;
+        foreach (var subjects in PromptSubjects(plan))
+        {
+            var projected = PreflightProjection.ForSubjects(preflight.Results, subjects);
+            var deterministic = projected.Where(result =>
+            {
+                try { return sensorRegistry.Get(result.Check.Id) is IDeterministicEvidenceSensor; }
+                catch (SensorNotFoundException) { return false; }
+            }).ToArray();
+            savings += PreflightProjection.ToPromptJson(deterministic, int.MaxValue).Length -
+                       PreflightProjection.ToPromptJson(deterministic).Length;
+            if (kind != "security") continue;
+            var security = SecurityEvidenceCollector.FromPreflight(
+                projected, subjects, SecurityConfigurations(plan.Registration));
+            savings += security.ToPromptJson(int.MaxValue).Length - security.ToPromptJson().Length;
+        }
+        return Math.Max(0, savings);
+    }
+
+    private static IEnumerable<IReadOnlyList<string>> PromptSubjects(PreparedPlan plan)
+    {
+        foreach (var file in plan.Files) yield return new[] { file.Path };
+        if (plan.Node.Level != ReviewLevel.File)
+            yield return plan.Files.Select(file => file.Path).ToArray();
     }
 
     private ReviewRequest CreateEstimateRequest(
@@ -375,14 +407,70 @@ public sealed class ReviewJobService : BackgroundService
         IReadOnlyList<ReviewRunPlanTarget> targets,
         CancellationToken cancellationToken)
     {
-        var subject = PreflightSubject.Create(targets.Select(target =>
-            KeyValuePair.Create(target.Path, target.SubjectHash)));
+        var subject = await CreatePreflightSubjectAsync(
+            registration.RootPath, targets, cancellationToken).ConfigureAwait(false);
         return await new PreflightCollector(sensorRegistry).CollectAsync(
             runId,
             registration.RootPath,
             subject,
             EnabledConfigurations(registration),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<PreflightSubject> CreatePreflightSubjectAsync(
+        string root,
+        IReadOnlyList<ReviewRunPlanTarget> targets,
+        CancellationToken cancellationToken)
+    {
+        var hashes = targets.ToDictionary(target => target.Path, target => target.SubjectHash, StringComparer.Ordinal);
+        foreach (var path in EnumeratePreflightInputs(root))
+        {
+            var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+            if (hashes.ContainsKey(relative)) continue;
+            hashes[relative] = await ReviewSubjectHasher.ComputeFileContentHashAsync(path, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        return PreflightSubject.Create(hashes);
+    }
+
+    private static IReadOnlyList<string> EnumeratePreflightInputs(string root)
+    {
+        var files = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.TryPop(out var directory))
+        {
+            files.AddRange(Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                .Where(IsPreflightInput));
+            foreach (var child in Directory.EnumerateDirectories(directory, "*", SearchOption.TopDirectoryOnly)
+                         .OrderByDescending(path => path, StringComparer.Ordinal))
+            {
+                if (Path.GetFileName(child) is not (".git" or ".quality" or "bin" or "obj" or "node_modules" or "dist" or "out-tsc"))
+                    pending.Push(child);
+            }
+        }
+        return files.Order(StringComparer.Ordinal).ToArray();
+    }
+
+    private static bool IsPreflightInput(string path)
+    {
+        var name = Path.GetFileName(path);
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        return name.Equals(".editorconfig", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("Directory.Build.props", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("Directory.Build.targets", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("CodeMetricsConfig.txt", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("global.json", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("NuGet.Config", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("package.json", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("package-lock.json", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("packages.lock.json", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("angular.json", StringComparison.OrdinalIgnoreCase) ||
+               name.StartsWith("tsconfig", StringComparison.OrdinalIgnoreCase) && extension == ".json" ||
+               name.StartsWith("eslint.config.", StringComparison.OrdinalIgnoreCase) ||
+               name.StartsWith(".eslintrc", StringComparison.OrdinalIgnoreCase) ||
+               name.StartsWith(".prettier", StringComparison.OrdinalIgnoreCase) ||
+               extension is ".csproj" or ".fsproj" or ".vbproj" or ".sln" or ".slnx";
     }
 
     private static IReadOnlyList<ReviewSensorConfiguration> EnabledConfigurations(
@@ -533,9 +621,10 @@ public sealed class ReviewJobService : BackgroundService
             if (options.UseSnapshotPreflight)
             {
                 var preflight = await EnsurePreflightCurrentAsync(item, linked.Token).ConfigureAwait(false);
-                if (BlocksModel(preflight, item.Kind))
+                var unavailableReason = RequiredAvailabilityBlockingReason(preflight, item.Kind);
+                if (unavailableReason is not null)
                 {
-                    item.BlockPreflight(BlockingReason(preflight, item.Kind));
+                    item.BlockPreflight(unavailableReason);
                     return;
                 }
             }
@@ -572,17 +661,21 @@ public sealed class ReviewJobService : BackgroundService
             {
                 if (!item.TryStopAtCap())
                 {
+                    if (options.UseSnapshotPreflight)
+                    {
+                        var preflight = await EnsurePreflightCurrentAsync(item, linked.Token).ConfigureAwait(false);
+                        var reason = OperationBlockingReason(
+                            preflight,
+                            item.Kind,
+                            item.Node.Level,
+                            item.Files.Select(file => file.Path).ToArray());
+                        if (reason is not null)
+                        {
+                            item.BlockAggregatePreflight(reason);
+                        }
+                    }
                     if (item.StartAggregate())
                     {
-                        if (options.UseSnapshotPreflight)
-                        {
-                            var preflight = await EnsurePreflightCurrentAsync(item, linked.Token).ConfigureAwait(false);
-                            if (BlocksModel(preflight, item.Kind))
-                            {
-                                item.BlockPreflight(BlockingReason(preflight, item.Kind));
-                                return;
-                            }
-                        }
                         var execution = await CreateRunner(item).ReviewIfNeededAsync(
                             CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
                             item.Force,
@@ -622,9 +715,16 @@ public sealed class ReviewJobService : BackgroundService
         if (options.UseSnapshotPreflight)
         {
             var preflight = await EnsurePreflightCurrentAsync(item, cancellationToken).ConfigureAwait(false);
-            if (BlocksModel(preflight, item.Kind))
+            var unavailableReason = RequiredAvailabilityBlockingReason(preflight, item.Kind);
+            if (unavailableReason is not null)
             {
-                item.BlockPreflight(BlockingReason(preflight, item.Kind));
+                item.BlockPreflight(unavailableReason);
+                return;
+            }
+            var reason = OperationBlockingReason(preflight, item.Kind, ReviewLevel.File, [file.Path]);
+            if (reason is not null)
+            {
+                item.BlockFilePreflight(file.Path, reason);
                 return;
             }
         }
@@ -669,7 +769,10 @@ public sealed class ReviewJobService : BackgroundService
                     access.ResolveFile(file.Path), cancellationToken).ConfigureAwait(false);
                 hashes.Add(KeyValuePair.Create(file.Path, hash));
             }
-            var subject = PreflightSubject.Create(hashes);
+            var targets = hashes.Select(hash => new ReviewRunPlanTarget(
+                hash.Key, Path.GetFileName(hash.Key), hash.Key, hash.Value)).ToArray();
+            var subject = await CreatePreflightSubjectAsync(
+                item.Repository.RootPath, targets, cancellationToken).ConfigureAwait(false);
             var configurations = EnabledConfigurations(item.Repository);
             var configurationHash = new PreflightCollector(sensorRegistry).ConfigurationSetHash(configurations);
             var existing = item.Preflight;
@@ -677,6 +780,7 @@ public sealed class ReviewJobService : BackgroundService
                 string.Equals(existing.Subject.ManifestHash, subject.ManifestHash, StringComparison.Ordinal) &&
                 string.Equals(existing.ConfigurationHash, configurationHash, StringComparison.Ordinal))
             {
+                item.RecordPreflightCacheHit();
                 return existing;
             }
 
@@ -704,25 +808,59 @@ public sealed class ReviewJobService : BackgroundService
         }
     }
 
-    private bool BlocksModel(PreflightSnapshot preflight, string kind) => preflight.Results.Any(result =>
-        result.Check.Required && IsRelevantToKind(result.Check.Id, kind) &&
-        result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed or PreflightStatus.Blocked);
-
-    private string BlockingReason(PreflightSnapshot preflight, string kind)
+    private string? RequiredAvailabilityBlockingReason(PreflightSnapshot preflight, string kind)
     {
         var checks = preflight.Results
             .Where(result => result.Check.Required &&
                 IsRelevantToKind(result.Check.Id, kind) &&
-                result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed or PreflightStatus.Blocked)
+                result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed)
             .Select(result => result.Check.Id)
-            .Order(StringComparer.Ordinal);
-        return $"Required preflight check(s) blocked model execution: {string.Join(", ", checks)}.";
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        return checks.Length == 0
+            ? null
+            : $"Required preflight check(s) unavailable: {string.Join(", ", checks)}.";
+    }
+
+    private string? OperationBlockingReason(
+        PreflightSnapshot preflight,
+        string kind,
+        ReviewLevel level,
+        IReadOnlyList<string> subjectPaths)
+    {
+        var subjects = subjectPaths.Select(NormalizeSensorPath)
+            .ToHashSet(StringComparer.Ordinal);
+        var checks = preflight.Results.Where(result =>
+                result.Status == PreflightStatus.Blocked &&
+                IsRelevantToKind(result.Check.Id, kind) &&
+                result.Check.GateDisposition switch
+                {
+                    PreflightGateDisposition.BlockAffectedSubjects => result.Findings.Any(finding =>
+                        finding.Locations.Count == 0 || finding.Locations.Any(location =>
+                            subjects.Contains(NormalizeSensorPath(location.Path)))),
+                    PreflightGateDisposition.BlockProjectPerformance =>
+                        level != ReviewLevel.File && string.Equals(kind, "performance", StringComparison.Ordinal),
+                    _ => false,
+                })
+            .Select(result => result.Check.Id)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        return checks.Length == 0
+            ? null
+            : $"Deterministic preflight finding(s) blocked this operation: {string.Join(", ", checks)}.";
     }
 
     private bool IsRelevantToKind(string sensorId, string kind)
     {
         var sensor = sensorRegistry.Get(sensorId);
         return sensor is not ISecurityEvidenceSensor || string.Equals(kind, "security", StringComparison.Ordinal);
+    }
+
+    private static string NormalizeSensorPath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        while (normalized.StartsWith("./", StringComparison.Ordinal)) normalized = normalized[2..];
+        return normalized;
     }
 
     private ReviewWorkItem Find(string repositoryId, string id)
@@ -811,6 +949,7 @@ public sealed class ReviewJobService : BackgroundService
         private string state;
         private string preflightState;
         private long? preflightDurationMs;
+        private int preflightCacheHits;
         private PreflightSnapshot? preflight;
 
         private ReviewWorkItem(
@@ -852,7 +991,8 @@ public sealed class ReviewJobService : BackgroundService
                 : preflight.Results.Any(result => result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed)
                     ? "unavailable"
                     : "done");
-            preflightDurationMs = status?.PreflightDurationMs ?? preflight?.Results.Sum(result => result.DurationMs);
+            preflightDurationMs = status?.PreflightDurationMs ?? preflight?.DurationMs;
+            preflightCacheHits = status?.PreflightCacheHits ?? 0;
             if (transitions is not null)
             {
                 foreach (var transition in transitions)
@@ -937,8 +1077,17 @@ public sealed class ReviewJobService : BackgroundService
                     result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed)
                     ? "unavailable"
                     : "done";
-                preflightDurationMs = snapshot.Results.Sum(result => result.DurationMs);
+                preflightDurationMs = snapshot.DurationMs;
                 store.WritePreflight(snapshot);
+                PersistStatus();
+            }
+        }
+
+        public void RecordPreflightCacheHit()
+        {
+            lock (gate)
+            {
+                preflightCacheHits++;
                 PersistStatus();
             }
         }
@@ -969,6 +1118,31 @@ public sealed class ReviewJobService : BackgroundService
                     AppendProgress(file);
                 }
                 if (aggregateState is "queued" or "running") aggregateState = "blocked-preflight";
+                PersistStatus();
+            }
+        }
+
+        public void BlockFilePreflight(string path, string reason)
+        {
+            lock (gate)
+            {
+                if (state != "running") return;
+                var file = progress[path];
+                if (file.State != "queued") return;
+                file.State = "blocked-preflight";
+                file.FinishedAt = DateTimeOffset.UtcNow;
+                file.Error = reason;
+                Append(file);
+            }
+        }
+
+        public void BlockAggregatePreflight(string reason)
+        {
+            lock (gate)
+            {
+                if (state != "running" || aggregateState != "queued") return;
+                aggregateState = "blocked-preflight";
+                stopReason = reason;
                 PersistStatus();
             }
         }
@@ -1286,7 +1460,8 @@ public sealed class ReviewJobService : BackgroundService
                     preflight?.Results.Count(result => result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed) ?? 0,
                     preflight?.ResultHash,
                     preflightDurationMs,
-                    files.Count(file => file.State == "blocked-preflight"));
+                    files.Count(file => file.State == "blocked-preflight"),
+                    Economy());
             }
         }
 
@@ -1337,11 +1512,30 @@ public sealed class ReviewJobService : BackgroundService
                 preflight?.Results.Count(result => result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed) ?? 0,
                 preflight?.ResultHash,
                 preflightDurationMs,
-                ordered.Count(file => file.State == "blocked-preflight"));
+                ordered.Count(file => file.State == "blocked-preflight"),
+                preflightCacheHits,
+                preflight?.Results.Sum(result => result.Findings.Count) ?? 0);
+        }
+
+        private ReviewRunEconomyEvidence Economy()
+        {
+            var blockedFiles = progress.Values.Count(file => file.State == "blocked-preflight");
+            var aggregateBlocked = aggregateState == "blocked-preflight" ? 1 : 0;
+            return new ReviewRunEconomyEvidence(
+                preflightDurationMs ?? 0,
+                preflightCacheHits,
+                preflight?.Results.Sum(result => result.Findings.Count) ?? 0,
+                manifest.Estimate?.Operations ?? progress.Count + (Node.Level == ReviewLevel.File ? 0 : 1),
+                blockedFiles + aggregateBlocked,
+                usageOperations,
+                manifest.Estimate?.PromptCharactersBeforeCompaction,
+                manifest.Estimate?.PromptCharacters,
+                usage,
+                Deviation());
         }
 
         private static bool IsCompletedFileState(string fileState) =>
-            fileState is "done" or "failed" or "skipped-fresh";
+            fileState is "done" or "failed" or "skipped-fresh" or "blocked-preflight";
 
         private bool CapReached() =>
             tokenCap.HasValue && ConsumedTokens() >= tokenCap.Value ||

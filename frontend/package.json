@@ -7,6 +7,10 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "node ./tests/run-tests.mjs",
+    "lint": "node ../scripts/static-analysis-baseline.mjs check --only eslint",
+    "lint:raw": "eslint .. --config eslint.config.mjs",
+    "lint:sarif": "eslint .. --config eslint.config.mjs --format node_modules/@microsoft/eslint-formatter-sarif/sarif.js",
+    "style:check": "node ../scripts/static-analysis-baseline.mjs check --only prettier",
     "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
@@ -41,8 +45,13 @@
     "@angular/build": "^20.3.32",
     "@angular/cli": "^20.3.32",
     "@angular/compiler-cli": "^20.3.0",
+    "@eslint/js": "9.39.5",
+    "@microsoft/eslint-formatter-sarif": "3.1.0",
     "@types/jasmine": "~5.1.0",
     "@types/prismjs": "^1.26.5",
+    "angular-eslint": "20.7.0",
+    "eslint": "9.39.5",
+    "globals": "17.9.0",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
@@ -50,6 +59,8 @@
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
     "playwright-core": "^1.61.1",
-    "typescript": "~5.9.2"
+    "prettier": "3.9.6",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "8.67.0"
   }
 }
