@@ -79,12 +79,12 @@ public static class QualityObservationReducer
             .GroupBy(item => $"{item.Profile.Id}\0{item.Profile.Version}", StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => Comparability(group.ToArray()), StringComparer.Ordinal);
         var models = observations.GroupBy(item => new
-            {
-                item.Producer.EffectiveModel,
-                item.Producer.ThinkingLevel,
-                item.Profile.Id,
-                item.Profile.Version,
-            })
+        {
+            item.Producer.EffectiveModel,
+            item.Producer.ThinkingLevel,
+            item.Profile.Id,
+            item.Profile.Version,
+        })
             .Select(group => new QualityModelRecord(
                 group.Key.EffectiveModel,
                 RequestedModel(group),
@@ -104,11 +104,15 @@ public static class QualityObservationReducer
         var unknown = observations.SelectMany(observation => observation.Aspects
                 .Where(aspect => !QualityTaxonomyCatalogue.IsInstalledAspect(
                     aspect.AspectId, [QualityTaxonomyCatalogue.CoreDocument]))
-                .Select(aspect => new
+                .Select(aspect =>
                 {
-                    aspect.AspectId,
-                    observation.Taxonomy.Id,
-                    observation.Taxonomy.Version,
+                    var source = QualityTaxonomyCatalogue.SourceCatalogue(observation, aspect.AspectId);
+                    return new
+                    {
+                        aspect.AspectId,
+                        Id = source?.Id ?? "unknown",
+                        Version = source?.Version ?? "unknown",
+                    };
                 }))
             .GroupBy(item => new { item.AspectId, item.Id, item.Version })
             .Select(group => new QualityUnknownAspect(
@@ -162,14 +166,14 @@ public static class QualityObservationReducer
 
     private static string EvidenceApplicability(QualityObservationDocument observation) => string.Join('|',
         observation.Evidence.Select(evidence => JsonSerializer.Serialize(new
-            {
-                evidence.Kind,
-                evidence.Locator.Path,
-                evidence.Locator.SymbolId,
-                evidence.Locator.ArtifactRef,
-                evidence.Locator.Uri,
-                evidence.ContentHash,
-            })).Order(StringComparer.Ordinal));
+        {
+            evidence.Kind,
+            evidence.Locator.Path,
+            evidence.Locator.SymbolId,
+            evidence.Locator.ArtifactRef,
+            evidence.Locator.Uri,
+            evidence.ContentHash,
+        })).Order(StringComparer.Ordinal));
 
     private static string RequestedModel(IEnumerable<QualityObservationDocument> observations)
     {

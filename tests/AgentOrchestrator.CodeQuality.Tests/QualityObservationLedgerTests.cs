@@ -78,7 +78,11 @@ public sealed class QualityObservationLedgerTests
                 Path.Combine(root, ".quality", "observations"), "*.jsonl").Single();
             Assert.Single(await File.ReadAllLinesAsync(path, TestContext.Current.CancellationToken));
 
-            await File.AppendAllTextAsync(path, "{malformed\n", TestContext.Current.CancellationToken);
+            await File.AppendAllTextAsync(
+                path,
+                "{malformed\n" +
+                "{\"schemaVersion\":1,\"taxonomy\":{\"version\":\"1.0.0\"},\"evidence\":null}\n",
+                TestContext.Current.CancellationToken);
             await new ReviewRunner(new RouteAgent("later-run", "model-b")).ReviewAsync(
                 Request(root, "model-b"), TestContext.Current.CancellationToken);
 

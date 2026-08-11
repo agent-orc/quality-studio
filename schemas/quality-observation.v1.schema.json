@@ -13,7 +13,12 @@
     "schemaVersion": { "const": 1 },
     "observationId": { "type": "string", "pattern": "^observation-sha256:[0-9a-f]{64}$" },
     "observedAt": { "type": "string", "format": "date-time" },
-    "taxonomy": { "$ref": "#/$defs/catalogueRef" },
+    "taxonomy": {
+      "allOf": [
+        { "$ref": "#/$defs/catalogueRef" },
+        { "properties": { "id": { "const": "quality-studio/core" } } }
+      ]
+    },
     "extensionCatalogues": { "type": "array", "items": { "$ref": "#/$defs/catalogueRef" } },
     "subject": { "$ref": "#/$defs/subject" },
     "profile": { "$ref": "#/$defs/profile" },
@@ -146,7 +151,7 @@
         "ruleRef": { "type": "string", "minLength": 1 },
         "aspectId": { "type": "string", "minLength": 1 },
         "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
-        "evidenceRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "evidenceRefs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "source": { "$ref": "#/$defs/source" },
         "extensions": { "$ref": "#/$defs/extensions" }
       }
