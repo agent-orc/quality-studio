@@ -6,6 +6,7 @@
 - Collected dossier mirror: `/home/agent/runner-work/tasks/QS-59/results/performance-dossier.html`
 - Collected workbench metadata: `/home/agent/runner-work/tasks/QS-59/results/workbench.json`
 - Raw backend/startup/memory data: `/home/agent/runner-work/tasks/QS-59/results/performance-benchmark.json`
+- QS-54 delivery-state hash ledger: `/home/agent/runner-work/tasks/QS-59/results/qs54-delivery-state.json`
 - Browser switch data: `/home/agent/runner-work/tasks/QS-59/results/project-switch-perf.json`
 - Browser interaction data: `/home/agent/runner-work/tasks/QS-59/results/qs-56-perf.json`
 - Browser transition screenshots: `/home/agent/runner-work/tasks/QS-59/results/project-switch-transition-light.png` and `/home/agent/runner-work/tasks/QS-59/results/project-switch-transition-dark.png`
