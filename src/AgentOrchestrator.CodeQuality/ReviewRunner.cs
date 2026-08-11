@@ -24,7 +24,8 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    IReadOnlyList<PreflightResult>? PreflightEvidence = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -245,12 +246,18 @@ public sealed class ReviewRunner
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
             .Where(thread => thread["status"]?.GetValue<string>() == "open")
             .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
+        var projectedPreflight = PreflightProjection.ForSubjects(request.PreflightEvidence, subjectPaths);
         var sensorEvidence = await CollectSensorEvidenceAsync(
-            request, root, subjectPaths, cancellationToken).ConfigureAwait(false);
-        var deterministicEvidence = DeterministicEvidenceProjection.ForSubjects(
-            request.DeterministicEvidence ??
-            await CollectDeterministicEvidenceAsync(request, root, cancellationToken).ConfigureAwait(false),
-            subjectPaths);
+            request, root, subjectPaths, projectedPreflight, cancellationToken).ConfigureAwait(false);
+        var deterministicPreflight = projectedPreflight
+            .Where(result => IsDeterministicSensor(result.Check.Id))
+            .ToArray();
+        var deterministicEvidence = request.PreflightEvidence is not null
+            ? deterministicPreflight.Select(result => result.ToSensorResult()).ToArray()
+            : DeterministicEvidenceProjection.ForSubjects(
+                request.DeterministicEvidence ??
+                await CollectDeterministicEvidenceAsync(request, root, cancellationToken).ConfigureAwait(false),
+                subjectPaths);
         var coverageEvidence = CoverageProjection.Evidence(
             CoverageSnapshot.Load(root),
             CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD"),
@@ -260,7 +267,9 @@ public sealed class ReviewRunner
             request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
             request.Level,
             coverageEvidence,
-            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
+            request.PreflightEvidence is not null
+                ? PreflightProjection.ToPromptJson(deterministicPreflight)
+                : DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
             prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
@@ -269,14 +278,30 @@ public sealed class ReviewRunner
         ReviewRequest request,
         string root,
         IReadOnlyList<string> subjectPaths,
+        IReadOnlyList<PreflightResult> preflightEvidence,
         CancellationToken cancellationToken)
     {
         if (request.Kind != "security" || request.Sensors is not { Count: > 0 })
             return SecurityEvidenceBundle.Empty;
+        if (request.PreflightEvidence is not null)
+            return SecurityEvidenceCollector.FromPreflight(preflightEvidence, subjectPaths, request.Sensors);
         if (_sensorRegistry is null)
             throw new InvalidOperationException("Security sensors were configured for the review, but no sensor registry is available.");
         return await new SecurityEvidenceCollector(_sensorRegistry)
             .CollectAsync(root, subjectPaths, request.Sensors, cancellationToken).ConfigureAwait(false);
+    }
+
+    private bool IsDeterministicSensor(string id)
+    {
+        if (_sensorRegistry is null) return false;
+        try
+        {
+            return _sensorRegistry.Get(id) is IDeterministicEvidenceSensor;
+        }
+        catch (SensorNotFoundException)
+        {
+            return false;
+        }
     }
 
     private async Task<IReadOnlyList<SensorScanResult>> CollectDeterministicEvidenceAsync(

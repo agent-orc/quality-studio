@@ -34,7 +34,9 @@ public sealed record SensorScanResult(
 
 public sealed record ReviewSensorConfiguration(
     string Id,
-    IReadOnlyDictionary<string, string>? Configuration = null);
+    IReadOnlyDictionary<string, string>? Configuration = null,
+    bool Required = true,
+    string? CommandId = null);
 
 public interface IReviewSensor
 {
@@ -54,6 +56,9 @@ public interface IReviewSensor
 /// The evidence remains separate from findings authored by the review agent.
 /// </summary>
 public interface IDeterministicEvidenceSensor : IReviewSensor;
+
+/// <summary>Marks repository-wide machine facts that contribute to security posture.</summary>
+public interface ISecurityEvidenceSensor : IReviewSensor;
 
 public sealed class SensorRegistry
 {
