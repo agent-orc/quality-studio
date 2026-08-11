@@ -25,7 +25,8 @@
   --studio-radius-sm: 4px; --studio-radius-md: 6px; --studio-radius-lg: 8px; --studio-radius-pill: 999px;
   --studio-control-sm: 28px; --studio-font-2xs: 7px; --studio-font-xs: 9px; --studio-font-sm: 10px;
   --studio-model-picker-width: 174px; --studio-model-menu-width: 390px; --studio-model-menu-height: 360px;
-  --studio-cap-input-width: 74px; --studio-compact-control-width: 88px; --studio-compact-model-width: 112px;
+  --studio-model-picker-max-width: 290px; --studio-options-menu-width: 340px;
+  --studio-cap-input-width: 92px;
   --studio-textarea-min-height: 72px;
 }
 :root[data-theme="dark"] {
