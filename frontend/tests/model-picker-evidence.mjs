@@ -25,7 +25,7 @@ for (const theme of ['dark', 'light']) {
   await menu.waitFor();
 
   const options = await menu.locator('[role="option"]').allTextContents();
-  if (!options[0]?.includes('Runner default model')) throw new Error(`${theme}: Runner default is not the first option`);
+  if (!options[0]?.includes('Runner default (gpt-5.6-sol)')) throw new Error(`${theme}: resolved Runner default is not the first option`);
   if (!options.some(option => option.includes('gpt-5.6-sol') && option.includes('frontier'))) {
     throw new Error(`${theme}: frontier capability annotation is missing`);
   }
