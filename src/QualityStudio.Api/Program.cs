@@ -45,6 +45,10 @@ builder.Services.AddSingleton<SarifSensor>();
 builder.Services.AddSingleton<RoslynAnalyzerSensor>();
 builder.Services.AddSingleton<EslintAnalyzerSensor>();
 builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
+builder.Services.AddSingleton<NpmCiSensor>();
+builder.Services.AddSingleton<DotNetBuildSensor>();
+builder.Services.AddSingleton<AngularCompilerSensor>();
+builder.Services.AddSingleton<AngularBudgetSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -53,6 +57,10 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<RoslynAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<NpmCiSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DotNetBuildSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<AngularCompilerSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<AngularBudgetSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));

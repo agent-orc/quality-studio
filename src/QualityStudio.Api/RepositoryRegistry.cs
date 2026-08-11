@@ -391,6 +391,20 @@ public sealed class RepositoryRegistry
     private static RepositorySensorConfiguration DefaultSensor(string id) => id switch
     {
         "gitleaks" => new RepositorySensorConfiguration(id, Required: true),
+        "npm-ci" => new RepositorySensorConfiguration(id, Required: true, CommandId: "frontend:npm-ci"),
+        "dotnet-build" => new RepositorySensorConfiguration(id, Required: true, CommandId: "dotnet:release-build"),
+        "angular-compiler" => new RepositorySensorConfiguration(id, Required: true, CommandId: "frontend:angular-compiler"),
+        "angular-budget" => new RepositorySensorConfiguration(id, Required: true, CommandId: "frontend:production-build"),
+        "eslint" => new RepositorySensorConfiguration(
+            id,
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["workingDirectory"] = ".",
+                ["reportPath"] = ".quality/preflight/eslint.sarif",
+                ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . --config frontend/eslint.config.mjs --format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js --output-file {reportPath}",
+            },
+            Required: false,
+            CommandId: "frontend:eslint-sarif"),
         "dependencies" or "boundaries" => new RepositorySensorConfiguration(id, Required: false),
         _ => new RepositorySensorConfiguration(id, Enabled: false, Required: false),
     };
