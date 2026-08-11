@@ -196,25 +196,15 @@ public static class QualityTaxonomyMigrator
         foreach (var candidate in candidates.OrderBy(item => item.Source, StringComparer.Ordinal)
                      .ThenBy(item => item.Observation.ObservationId, StringComparer.Ordinal))
         {
-            if ((candidate.Observation.Producer.Kind is "unknown" or "imported" &&
-                 candidate.Observation.Producer.Agent == "unknown") ||
-                candidate.Observation.Findings.Any(item => item.Source.Kind == "unknown"))
-                ambiguous++;
-            if (candidate.Observation.Producer.EffectiveModel == "unknown") unknownModel++;
-            if (!existing.Add(candidate.Observation.ObservationId))
+            try
             {
-                skipped++;
-                items.Add(new QualityTaxonomyMigrationItem(
-                    candidate.Source, candidate.Domain, "skipped", candidate.Observation.ObservationId,
-                    "The deterministic import already exists."));
-                continue;
-            }
-
-            if (apply)
-            {
-                var appended = await QualityObservationLedger.AppendAsync(
-                    root, candidate.Observation, CancellationToken.None).ConfigureAwait(false);
-                if (!appended)
+                _ = QualityObservationJson.Serialize(candidate.Observation);
+                if ((candidate.Observation.Producer.Kind is "unknown" or "imported" &&
+                     candidate.Observation.Producer.Agent == "unknown") ||
+                    candidate.Observation.Findings.Any(item => item.Source.Kind == "unknown"))
+                    ambiguous++;
+                if (candidate.Observation.Producer.EffectiveModel == "unknown") unknownModel++;
+                if (!existing.Add(candidate.Observation.ObservationId))
                 {
                     skipped++;
                     items.Add(new QualityTaxonomyMigrationItem(
@@ -222,11 +212,32 @@ public static class QualityTaxonomyMigrator
                         "The deterministic import already exists."));
                     continue;
                 }
+
+                if (apply)
+                {
+                    var appended = await QualityObservationLedger.AppendAsync(
+                        root, candidate.Observation, CancellationToken.None).ConfigureAwait(false);
+                    if (!appended)
+                    {
+                        skipped++;
+                        items.Add(new QualityTaxonomyMigrationItem(
+                            candidate.Source, candidate.Domain, "skipped", candidate.Observation.ObservationId,
+                            "The deterministic import already exists."));
+                        continue;
+                    }
+                }
+                imported++;
+                items.Add(new QualityTaxonomyMigrationItem(
+                    candidate.Source, candidate.Domain, apply ? "imported" : "would-import",
+                    candidate.Observation.ObservationId));
             }
-            imported++;
-            items.Add(new QualityTaxonomyMigrationItem(
-                candidate.Source, candidate.Domain, apply ? "imported" : "would-import",
-                candidate.Observation.ObservationId));
+            catch (Exception exception) when (exception is IOException or JsonException or ArgumentException)
+            {
+                errors++;
+                items.Add(new QualityTaxonomyMigrationItem(
+                    candidate.Source, candidate.Domain, "error", candidate.Observation.ObservationId,
+                    exception.Message));
+            }
         }
 
         return new QualityTaxonomyMigrationReport(
