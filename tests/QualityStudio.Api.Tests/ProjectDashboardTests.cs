@@ -145,11 +145,17 @@ public sealed class ProjectDashboardTests
 
     private static QualityObservationDocument Observation(string id, string model) => new()
     {
-        ObservationId = id,
+        ObservationId = QualityObservationLedger.CreateObservationId(
+            id,
+            "unit:project",
+            "code",
+            Hash('a'),
+            Hash('c'),
+            QualityTaxonomyCatalogue.CoreDigest),
         ObservedAt = new DateTimeOffset(2026, 8, 11, 8, id == "a" ? 0 : 1, 0, TimeSpan.Zero),
         Taxonomy = QualityTaxonomyCatalogue.CoreReference,
-        Subject = new QualityObservationSubject("unit:project", "sha256:subject", "project"),
-        Profile = new QualityObservationProfile("project-code-review", "1.0.0", "sha256:prompt", "sha256:inputs"),
+        Subject = new QualityObservationSubject("unit:project", Hash('a'), "project"),
+        Profile = new QualityObservationProfile("project-code-review", "1.0.0", Hash('b'), Hash('c')),
         Producer = new QualityObservationProducer(
             "agent", "codex", "openai", model, model, "high", "route-v1", id, id),
         EvidenceStatus = "available",
@@ -158,6 +164,8 @@ public sealed class ProjectDashboardTests
             Grade: new QualityObservationGrade(90, "A"))],
         Assessment = "pass",
     };
+
+    private static string Hash(char value) => "sha256:" + new string(value, 64);
 
     private static string TemporaryRepository()
     {

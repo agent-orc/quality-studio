@@ -116,9 +116,16 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             using var placeholderDocument = JsonDocument.Parse(await File.ReadAllTextAsync(resolvedPlaceholderMetaPath, cancellationToken));
             var acceptedFinding = Assert.Single(placeholderDocument.RootElement.GetProperty("findings").EnumerateArray());
             Assert.Equal("accepted-placeholder", acceptedFinding.GetProperty("ruleId").GetString());
+            Assert.Equal("deterministic",
+                acceptedFinding.GetProperty("source").GetProperty("kind").GetString());
+            Assert.Equal("gitleaks",
+                acceptedFinding.GetProperty("source").GetProperty("sensorId").GetString());
             Assert.Equal(100, placeholderDocument.RootElement.GetProperty("grade").GetProperty("score").GetInt32());
             var lifecycle = await new FindingStateStore(root).ReadAsync(cancellationToken);
             Assert.Equal(FindingState.Accepted, lifecycle[acceptedFinding.GetProperty("fingerprint").GetString()!].State);
+            var lifecycleEvents = await IssueLifecycleStore.ReadAsync(root, cancellationToken);
+            Assert.All(lifecycleEvents.Where(item => item.State == "open"),
+                item => Assert.Equal("deterministic-sensor", item.ProducerKind));
         }
         finally
         {
