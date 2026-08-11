@@ -132,6 +132,7 @@ describe('QualityApi', () => {
       sourceRepository: 'agent-orc/token-economy',
       sourceCommit: 'abc',
       thinkingLevels: ['medium', 'high'],
+      runnerDefaults: { codex: { model: 'gpt-5.6-sol', thinkingLevel: null } },
       models: [{
         modelId: 'gpt-5.6-sol', aliases: ['sol'], cliType: 'codex', capabilityTier: 'frontier',
         suitability: 'Demanding reviews.', routingStatus: 'selectable', supportedThinkingLevels: ['medium', 'high'],

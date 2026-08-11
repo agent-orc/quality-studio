@@ -18,7 +18,6 @@ export class ReviewActions {
   readonly modelOptionsId = `review-model-options-${++reviewActionsInstance}`;
   readonly node = input<TreeNode | undefined>();
   readonly activeKind = input.required<ReviewKind>();
-  readonly compact = input(false);
   readonly focusRequest = input(0);
   readonly kindSelect = output<ReviewKind>();
   readonly starting = signal(false);
@@ -30,6 +29,7 @@ export class ReviewActions {
   readonly thinkingLevel = signal('');
   readonly modelQuery = signal('');
   readonly modelPickerOpen = signal(false);
+  readonly optionsOpen = signal(false);
   readonly activeModelIndex = signal(-1);
   readonly force = signal(false);
   readonly capKind = signal<'repository' | 'tokens' | 'cost'>('repository');
@@ -70,6 +70,41 @@ export class ReviewActions {
     if (!this.model().trim()) return [];
     return this.selectedModel()?.supportedThinkingLevels ?? this.api.modelCatalog().thinkingLevels;
   });
+  readonly runnerDefault = computed(() => this.api.modelCatalog().runnerDefaults[this.cliType()] ?? null);
+  readonly runnerDefaultLabel = computed(() => {
+    const model = this.runnerDefault()?.model.trim();
+    return model ? `Runner default (${model})` : 'Runner default';
+  });
+  readonly defaultThinkingLabel = computed(() => {
+    const thinking = !this.model().trim() ? this.runnerDefault()?.thinkingLevel?.trim() : null;
+    return thinking ? `Model default thinking (${thinking})` : 'Model default thinking';
+  });
+  readonly repositoryCapLabel = computed(() => {
+    const repository = this.api.selectedRepository();
+    if (repository?.defaultReviewTokenCap != null) {
+      return `Repo default (${this.formatNumber(repository.defaultReviewTokenCap)} tokens)`;
+    }
+    if (repository?.defaultReviewCostCap != null) {
+      return `Repo default (${repository.defaultReviewCostCap.toFixed(4)} cost)`;
+    }
+    return 'Repo default (no cap)';
+  });
+  readonly capSummary = computed(() => {
+    if (this.capKind() === 'tokens') {
+      return this.capValue() ? `${this.compactNumber(this.capValue()!)} token cap` : 'token cap unset';
+    }
+    if (this.capKind() === 'cost') {
+      return this.capValue() ? `${this.capValue()!.toFixed(2)} cost cap` : 'cost cap unset';
+    }
+    const repository = this.api.selectedRepository();
+    if (repository?.defaultReviewTokenCap != null) {
+      return `${this.compactNumber(repository.defaultReviewTokenCap)} token cap`;
+    }
+    if (repository?.defaultReviewCostCap != null) return `${repository.defaultReviewCostCap.toFixed(2)} cost cap`;
+    return 'no cap';
+  });
+  readonly reviewActionLabel = computed(() =>
+    `Review ${this.fileCount()} file${this.fileCount() === 1 ? '' : 's'} for ${this.activeKind()} quality`);
 
   constructor() {
     effect(() => {
@@ -87,12 +122,19 @@ export class ReviewActions {
     this.thinkingLevel.set('');
     this.modelQuery.set('');
     this.modelPickerOpen.set(false);
+    this.optionsOpen.set(false);
   }
 
   openModelPicker(): void {
+    this.optionsOpen.set(false);
     this.modelQuery.set('');
     this.activeModelIndex.set(this.model() ? -1 : 0);
     this.modelPickerOpen.set(true);
+  }
+
+  toggleOptions(): void {
+    this.modelPickerOpen.set(false);
+    this.optionsOpen.update(open => !open);
   }
 
   onModelInput(value: string): void {
@@ -145,7 +187,10 @@ export class ReviewActions {
   }
 
   closeOnOutsidePointer(event: PointerEvent): void {
-    if (!this.element.nativeElement.contains(event.target as Node)) this.modelPickerOpen.set(false);
+    if (!this.element.nativeElement.contains(event.target as Node)) {
+      this.modelPickerOpen.set(false);
+      this.optionsOpen.set(false);
+    }
   }
 
   optionId(index: number): string { return `${this.modelOptionsId}-option-${index}`; }
@@ -215,6 +260,10 @@ export class ReviewActions {
   beginNewReview(): void { this.showLauncher.set(true); this.clearPreflight(); }
 
   formatNumber(value: number): string { return Math.round(value).toLocaleString(); }
+
+  compactNumber(value: number): string {
+    return Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  }
 
   costLabel(preflight: ReviewPreflight): string {
     const estimate = preflight.estimate;
