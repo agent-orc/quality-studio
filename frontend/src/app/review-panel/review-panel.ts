@@ -27,7 +27,7 @@ type FindingPolicyFilter = 'visible' | 'all' | FindingAssessmentStatus | Finding
 })
 export class ReviewPanel {
   readonly api = inject(QualityApi);
-  private readonly evidenceApi = inject(ReviewEvidenceApi);
+  readonly evidenceApi = inject(ReviewEvidenceApi);
   readonly activeKind = input.required<ReviewKind>();
   readonly selectedPath = input.required<string>();
   readonly selectedNode = input<FlatNode | undefined>();
@@ -88,10 +88,8 @@ export class ReviewPanel {
     .filter(finding => finding.state !== 'resolved'));
   readonly activeScopeRuns = computed(() => this.scopeRuns()
     .filter(run => !['done', 'failed', 'cancelled'].includes(run.state)).slice(0, 8));
-  readonly reviewHistoryEntries = computed(() => typeof this.api.reviewHistory === 'function'
-    ? this.api.reviewHistory().filter(entry =>
-      entry.run.scope.path === this.selectedNode()?.path && entry.run.kind === this.activeKind())
-    : []);
+  readonly reviewHistoryEntries = computed(() => this.evidenceApi.reviewHistory().filter(entry =>
+    entry.run.scope.path === this.selectedNode()?.path && entry.run.kind === this.activeKind()));
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const policyFilter = this.policyFilter();
@@ -147,6 +145,12 @@ export class ReviewPanel {
       const id = this.selectedFinding()?.id;
       if (id) queueMicrotask(() => this.findingDetail()?.nativeElement.focus());
     });
+  }
+
+  toggleRunDrawer(): void {
+    const open = !this.runDrawerOpen();
+    this.runDrawerOpen.set(open);
+    if (open) void this.evidenceApi.loadHistory();
   }
 
   findingLocation(finding: ReviewFinding): string {

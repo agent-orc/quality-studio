@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
-import { QualityApi, ReviewFinding, ReviewMetaDocument, ReviewRun } from '../quality-api';
+import { QualityApi, ReviewFinding, ReviewHistoryEnvelope, ReviewMetaDocument, ReviewRun } from '../quality-api';
 import { ReviewPanel } from './review-panel';
 import { ReviewEvidenceApi } from './review-evidence-api';
 
@@ -34,12 +34,6 @@ describe('ReviewPanel session flow', () => {
       reviewRun('wrong-kind', 'src/A.cs', 'security', 'running'),
       reviewRun('wrong-path', 'src/B.cs', 'code', 'running'),
     ]),
-    reviewHistory: signal([
-      historyEntry('committed', 'src/A.cs', 'code'),
-      historyEntry('wrong-history-kind', 'src/A.cs', 'security'),
-      historyEntry('wrong-history-path', 'src/B.cs', 'code'),
-    ]),
-    reviewHistoryEvidenceUrl: (id: string) => `/api/review/history/${id}`,
     reviewError: signal(''),
     usage: signal({ runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, byModel: [] }),
     inputs: signal({}), guidelineTraces: signal([]),
@@ -57,6 +51,8 @@ describe('ReviewPanel session flow', () => {
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
+    selectedRepositoryId: signal('default'),
+    repositoryEndpoint: (path: string) => `/api/repos/default${path}`,
     errorMessage: (error: unknown) => error instanceof Error ? error.message : 'request failed',
   };
   const node = { id: 'a', name: 'A.cs', path: 'src/A.cs', level: 'file', kinds: { code: { direct: 'fresh', metaPath: 'a.review-meta.json' } }, children: [] };
@@ -67,11 +63,6 @@ describe('ReviewPanel session flow', () => {
       reviewRun('matching', 'src/A.cs', 'code', 'running'),
       reviewRun('wrong-kind', 'src/A.cs', 'security', 'running'),
       reviewRun('wrong-path', 'src/B.cs', 'code', 'running'),
-    ]);
-    api.reviewHistory.set([
-      historyEntry('committed', 'src/A.cs', 'code'),
-      historyEntry('wrong-history-kind', 'src/A.cs', 'security'),
-      historyEntry('wrong-history-path', 'src/B.cs', 'code'),
     ]);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
@@ -90,6 +81,11 @@ describe('ReviewPanel session flow', () => {
     }).compileComponents();
     fixture = TestBed.createComponent(ReviewPanel);
     component = fixture.componentInstance;
+    component.evidenceApi.reviewHistory.set([
+      historyEntry('committed', 'src/A.cs', 'code'),
+      historyEntry('wrong-history-kind', 'src/A.cs', 'security'),
+      historyEntry('wrong-history-path', 'src/B.cs', 'code'),
+    ]);
     fixture.componentRef.setInput('activeKind', 'code');
     fixture.componentRef.setInput('selectedPath', 'src/A.cs');
     fixture.componentRef.setInput('selectedNode', node);
@@ -107,6 +103,10 @@ describe('ReviewPanel session flow', () => {
     component.runDrawerOpen.set(true);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.history-row').length).toBe(1);
+    const historyLinks: NodeListOf<HTMLAnchorElement> = fixture.nativeElement.querySelectorAll('.history-links a');
+    expect(historyLinks.length).toBe(2);
+    expect(historyLinks[0].href).toContain('/review/runs/committed/report?format=html');
+    expect(historyLinks[1].href).toContain('/review/history/committed');
 
     component.findingFilter.set('all');
     component.severityFilter.set('critical');
@@ -131,6 +131,15 @@ describe('ReviewPanel session flow', () => {
     expect(activeRows.length).toBe(1);
     expect(activeRows[0].textContent).toContain('running');
     expect(activeRows[0].textContent).not.toContain('done');
+  });
+
+  it('loads committed history when the run drawer opens', () => {
+    const loadHistory = spyOn(component.evidenceApi, 'loadHistory').and.resolveTo();
+
+    component.toggleRunDrawer();
+
+    expect(component.runDrawerOpen()).toBeTrue();
+    expect(loadHistory).toHaveBeenCalled();
   });
 
   it('emits code navigation for current evidence but not for a stale range', () => {
@@ -305,7 +314,7 @@ function reviewRun(id: string, path: string, kind: ReviewRun['kind'], state: Rev
   };
 }
 
-function historyEntry(id: string, path: string, kind: string) {
+function historyEntry(id: string, path: string, kind: ReviewRun['kind']): ReviewHistoryEnvelope {
   return {
     schemaVersion: 1, contentHash: `sha256:${'d'.repeat(64)}`,
     run: {

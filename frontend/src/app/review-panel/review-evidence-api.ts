@@ -1,11 +1,12 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
   FindingAssessmentMutationRequest,
   FindingSuppressionPreview,
   FindingSuppressionRule,
   QualityApi,
+  ReviewHistoryEnvelope,
   ReviewKind,
 } from '../quality-api';
 
@@ -13,6 +14,22 @@ import {
 export class ReviewEvidenceApi {
   private readonly http = inject(HttpClient);
   private readonly api = inject(QualityApi);
+  readonly reviewHistory = signal<ReviewHistoryEnvelope[]>([]);
+
+  async loadHistory(): Promise<void> {
+    const repositoryId = this.api.selectedRepositoryId();
+    try {
+      const result = await firstValueFrom(this.http.get<{ runs: ReviewHistoryEnvelope[] }>(
+        this.api.repositoryEndpoint('/review/history')));
+      if (repositoryId === this.api.selectedRepositoryId()) this.reviewHistory.set(result.runs);
+    } catch {
+      if (repositoryId === this.api.selectedRepositoryId()) this.reviewHistory.set([]);
+    }
+  }
+
+  reviewHistoryEvidenceUrl(id: string): string {
+    return this.api.repositoryEndpoint(`/review/history/${encodeURIComponent(id)}`);
+  }
 
   async mutateAssessment(request: FindingAssessmentMutationRequest): Promise<void> {
     await firstValueFrom(this.http.post(this.api.repositoryEndpoint('/findings/assessment'), request));
