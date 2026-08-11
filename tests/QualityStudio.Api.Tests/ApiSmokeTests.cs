@@ -13,6 +13,7 @@ using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class ApiSmokeTests : IAsyncLifetime
 {
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-tests", Guid.NewGuid().ToString("N"));
@@ -216,6 +217,131 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var inputs = await inputsResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Contains(inputs.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
             input => input.GetProperty("id").GetString() == "ui-created-rule");
+    }
+
+    [Fact]
+    public async Task Guideline_lifecycle_catalogue_and_impact_routes_cover_success_and_failure()
+    {
+        using var client = application!.CreateClient();
+        using var created = await client.PostAsJsonAsync("/api/guidelines", new
+        {
+            id = "lifecycle-rule", enabled = true, priority = 50,
+            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Initial guidance.",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        using var duplicate = await client.PostAsJsonAsync("/api/guidelines", new
+        {
+            id = "lifecycle-rule", enabled = true, priority = 50,
+            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Duplicate guidance.",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, duplicate.StatusCode);
+
+        using var updated = await client.PutAsJsonAsync("/api/guidelines/lifecycle-rule", new
+        {
+            id = "lifecycle-rule", enabled = true, priority = 60,
+            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Updated guidance.",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.Equal(60, (await updated.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken))
+            .GetProperty("priority").GetInt32());
+
+        using var impact = await client.PostAsJsonAsync("/api/guidelines/impact", new
+        {
+            guideline = new { id = "lifecycle-rule", enabled = true, priority = 60,
+                kinds = new[] { "code" }, levels = new[] { "file" }, content = "Updated guidance." },
+            samplePaths = new[] { "Sample.cs" },
+            kind = "code",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, impact.StatusCode);
+        Assert.Equal("lifecycle-rule", (await impact.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken))
+            .GetProperty("guidelineId").GetString());
+
+        using var installed = await client.PostAsync("/api/guidelines/catalog/testing-confidence/install", null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, installed.StatusCode);
+
+        using var deleted = await client.DeleteAsync("/api/guidelines/lifecycle-rule", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        using var missing = await client.DeleteAsync("/api/guidelines/lifecycle-rule", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
+    public async Task Risk_estimate_and_handover_configuration_routes_report_valid_and_invalid_requests()
+    {
+        using var client = application!.CreateClient();
+        using var risk = await client.GetAsync("/api/risk?days=90", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, risk.StatusCode);
+        using var invalidRisk = await client.GetAsync("/api/risk?days=0", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidRisk.StatusCode);
+
+        using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.cs", kind = "code", cliType = "adapter-that-does-not-exist",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
+        var preflight = await estimate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(1, preflight.GetProperty("estimate").GetProperty("files").GetInt32());
+
+        using var invalidEstimate = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.cs", kind = "architecture", cliType = "adapter-that-does-not-exist",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidEstimate.StatusCode);
+
+        using var handover = await client.GetAsync("/api/handover", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, handover.StatusCode);
+        var configuration = await handover.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(configuration.GetProperty("targetConfigured").GetBoolean());
+        Assert.True(configuration.GetProperty("dryRun").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Thread_mutation_creates_updates_and_rejects_invalid_status()
+    {
+        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        Directory.CreateDirectory(metadataDirectory);
+        var metadataPath = Path.Combine(metadataDirectory, "file.thread.review-meta.code.json");
+        var metadata = new JsonObject
+        {
+            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
+            ["reviewedAt"] = "2026-08-11T06:00:00.000Z",
+            ["kind"] = "code",
+            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
+            ["grade"] = new JsonObject { ["score"] = 90, ["band"] = "A", ["rationale"] = "Thread fixture." },
+            ["summary"] = "Thread fixture.",
+            ["findings"] = new JsonArray(),
+        };
+        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+
+        try
+        {
+            using var client = application!.CreateClient();
+            using var created = await client.PostAsJsonAsync("/api/threads", new
+            {
+                path = "Sample.cs", kind = "code", body = "Please explain this line.", humanName = "Ada", line = 1,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+            var thread = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal("open", thread.GetProperty("status").GetString());
+
+            using var resolved = await client.PostAsJsonAsync("/api/threads", new
+            {
+                path = "Sample.cs", kind = "code", threadId = thread.GetProperty("id").GetString(), status = "resolved",
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, resolved.StatusCode);
+
+            using var invalid = await client.PostAsJsonAsync("/api/threads", new
+            {
+                path = "Sample.cs", kind = "code", threadId = thread.GetProperty("id").GetString(), status = "hidden",
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        }
+        finally
+        {
+            File.Delete(metadataPath);
+        }
     }
 
     [Fact]
@@ -564,6 +690,54 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Registry_update_and_archive_routes_persist_lifecycle_and_reject_missing_ids()
+    {
+        var secondRoot = repositoryRoot + "-lifecycle";
+        Directory.CreateDirectory(secondRoot);
+        await File.WriteAllTextAsync(Path.Combine(secondRoot, "Lifecycle.cs"),
+            "namespace Lifecycle; public sealed class Marker;", TestContext.Current.CancellationToken);
+        _ = GitTestRepository.InitializeAt(secondRoot);
+
+        try
+        {
+            using var client = application!.CreateClient();
+            using var created = await client.PostAsJsonAsync("/api/repos", new
+            {
+                id = "lifecycle", displayName = "Lifecycle repository", rootPath = secondRoot,
+                inputBudgetCharacters = 8000, enabledReviewKinds = new[] { "code" },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+            using var updated = await client.PutAsJsonAsync("/api/repos/lifecycle", new
+            {
+                displayName = "Renamed lifecycle repository", rootPath = secondRoot,
+                inputBudgetCharacters = 9000, enabledReviewKinds = new[] { "code", "security" },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+            Assert.Equal("Renamed lifecycle repository",
+                (await updated.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken))
+                .GetProperty("displayName").GetString());
+
+            using var archived = await client.DeleteAsync("/api/repos/lifecycle", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, archived.StatusCode);
+            using var hidden = await client.GetAsync("/api/repos/lifecycle/file?path=Lifecycle.cs",
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+
+            using var missing = await client.PutAsJsonAsync("/api/repos/missing", new
+            {
+                displayName = "Missing", rootPath = secondRoot,
+                inputBudgetCharacters = 9000, enabledReviewKinds = new[] { "code" },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(secondRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task Registry_rejects_a_directory_that_is_not_a_git_repository()
     {
         var invalidRoot = repositoryRoot + "-not-git";
@@ -639,22 +813,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
     private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
     {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = workingDirectory,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        process.Start();
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
+        await GitTestRepository.At(workingDirectory).RunAsync(TestContext.Current.CancellationToken, arguments);
     }
 
     private sealed class TestApplication(string root, string contentRoot) : WebApplicationFactory<Program>
@@ -680,8 +839,25 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
                 services.AddSingleton<IReviewSensor, FakeDependencySensor>();
                 services.AddSingleton<IReviewSensor, BoundaryInventorySensor>();
+                services.RemoveAll<GuidelineImpactAnalyzer>();
+                services.AddSingleton<GuidelineImpactAnalyzer, FakeGuidelineImpactAnalyzer>();
             });
         }
+    }
+
+    private sealed class FakeGuidelineImpactAnalyzer : GuidelineImpactAnalyzer
+    {
+        public override Task<GuidelineImpactResult> AnalyzeAsync(
+            string repositoryRoot,
+            GuidelineImpactRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new GuidelineImpactResult(
+                request.Guideline.Id,
+                request.Kind,
+                request.SamplePaths.Select(path => new FileGuidelineImpact(path, [], [], [], [])).ToArray(),
+                AddedCount: 0,
+                RemovedCount: 0,
+                Changed: false));
     }
 
     private sealed class FakeSecurityScanner : GitleaksSecurityScanner

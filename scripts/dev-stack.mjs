@@ -14,6 +14,7 @@ const defaultWebPort = Number(process.env.QUALITY_STUDIO_PRODUCT_PORT ?? 4200);
 const defaultHost = process.env.QUALITY_STUDIO_HOST ?? '127.0.0.1';
 const defaultTimeoutMs = Number(process.env.QUALITY_STUDIO_START_TIMEOUT_MS ?? 120000);
 const npmCommand = process.env.QUALITY_STUDIO_NPM_COMMAND ?? (process.platform === 'win32' ? 'npm.cmd' : 'npm');
+const npmPrefixArguments = parseNpmPrefixArguments(process.env.QUALITY_STUDIO_NPM_COMMAND_ARGS);
 
 const args = parseArgs(process.argv.slice(2));
 const state = {
@@ -114,7 +115,7 @@ async function ensureInstall(parsedArgs, repoRoot, frontendRoot, apiPort, webPor
   if (installState.ready) return;
 
   console.log(formatLog('install', installState.reason));
-  await runCommand('install', npmCommand, ['ci'], { cwd: frontendRoot });
+  await runCommand('install', npmCommand, [...npmPrefixArguments, 'ci'], { cwd: frontendRoot });
 }
 
 function frontendInstallState(frontendRoot) {
@@ -154,6 +155,7 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
 
   return [
     npmCommand,
+    ...npmPrefixArguments,
     'start',
     '--',
     '--host',
@@ -185,16 +187,17 @@ async function startChild(name, command, options) {
     windowsHide: true,
   });
 
-  state.children.push({ name, process: child });
-  pipeLogs(name, child.stdout, 'stdout');
-  pipeLogs(name, child.stderr, 'stderr');
+  const entry = { name, process: child, output: [] };
+  state.children.push(entry);
+  pipeLogs(name, child.stdout, 'stdout', entry.output);
+  pipeLogs(name, child.stderr, 'stderr', entry.output);
   child.once('exit', (code, signal) => {
     console.log(formatLog(name, `exited code=${code ?? 'null'} signal=${signal ?? 'null'}`));
   });
   return child;
 }
 
-function pipeLogs(name, stream, channel) {
+function pipeLogs(name, stream, channel, captured = []) {
   let buffer = '';
   stream.setEncoding('utf8');
   stream.on('data', chunk => {
@@ -203,17 +206,24 @@ function pipeLogs(name, stream, channel) {
     while ((index = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, index).replace(/\r$/, '');
       buffer = buffer.slice(index + 1);
-      if (line.length > 0) console.log(formatLog(name, `${channel}: ${line}`));
+      if (line.length > 0) {
+        captureLine(captured, channel, line);
+        console.log(formatLog(name, `${channel}: ${line}`));
+      }
     }
   });
   stream.on('end', () => {
-    if (buffer.trim().length > 0) console.log(formatLog(name, `${channel}: ${buffer.trimEnd()}`));
+    if (buffer.trim().length > 0) {
+      captureLine(captured, channel, buffer.trimEnd());
+      console.log(formatLog(name, `${channel}: ${buffer.trimEnd()}`));
+    }
   });
 }
 
 async function runCommand(name, executable, args, options) {
   console.log(formatLog(name, `running ${executable} ${args.join(' ')}`));
   await new Promise((resolvePromise, rejectPromise) => {
+    const captured = [];
     const child = spawn(executable, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
@@ -222,10 +232,12 @@ async function runCommand(name, executable, args, options) {
       windowsHide: true,
     });
 
-    pipeLogs(name, child.stdout, 'stdout');
-    pipeLogs(name, child.stderr, 'stderr');
+    pipeLogs(name, child.stdout, 'stdout', captured);
+    pipeLogs(name, child.stderr, 'stderr', captured);
     child.once('error', rejectPromise);
-    child.once('exit', code => code === 0 ? resolvePromise() : rejectPromise(new Error(`${name} command failed with exit code ${code}`)));
+    child.once('exit', code => code === 0
+      ? resolvePromise()
+      : rejectPromise(new Error(`${name} command failed with exit code ${code}${formatCaptured(captured)}`)));
   });
 }
 
@@ -242,8 +254,14 @@ async function waitForHttp(url, timeoutMs, name) {
 
 async function waitForChildExitBeforeReady(child) {
   return new Promise((resolvePromise, rejectPromise) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      rejectPromise(new Error(
+        `process exited during startup with code ${child.exitCode ?? 'null'}${formatCaptured(childOutput(child))}`));
+      return;
+    }
     child.once('exit', code => {
-      if (!state.ready) rejectPromise(new Error(`process exited during startup with code ${code ?? 'null'}`));
+      if (!state.ready) rejectPromise(new Error(
+        `process exited during startup with code ${code ?? 'null'}${formatCaptured(childOutput(child))}`));
       else resolvePromise();
     });
   });
@@ -313,6 +331,7 @@ async function httpGet(url) {
       response.resume();
       response.once('end', () => resolvePromise({ statusCode: response.statusCode ?? 0 }));
     });
+    request.setTimeout(1000, () => request.destroy(new Error(`request timed out for ${url}`)));
     request.once('error', rejectPromise);
     request.end();
   });
@@ -320,4 +339,26 @@ async function httpGet(url) {
 
 function formatLog(scope, message) {
   return `[${scope}] ${message}`;
+}
+
+function parseNpmPrefixArguments(value) {
+  if (!value) return [];
+  const parsed = JSON.parse(value);
+  if (!Array.isArray(parsed) || parsed.some(argument => typeof argument !== 'string')) {
+    throw new TypeError('QUALITY_STUDIO_NPM_COMMAND_ARGS must be a JSON array of strings.');
+  }
+  return parsed;
+}
+
+function captureLine(captured, channel, line) {
+  captured.push(`${channel}: ${line}`);
+  if (captured.length > 50) captured.shift();
+}
+
+function childOutput(child) {
+  return state.children.find(entry => entry.process === child)?.output ?? [];
+}
+
+function formatCaptured(captured) {
+  return captured.length ? `\nCaptured output:\n${captured.join('\n')}` : '\nCaptured output: <none>';
 }

@@ -6,8 +6,9 @@ Part of the [Agent Orchestrator](https://agent-orchestrator.dev) universe — al
 Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 (converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
-> Working state, 2026-08-04: the core library, the `quality` CLI, the review API
-> and the Angular browser all ship from this repository and are covered by CI;
+> Working state, 2026-08-11: the core library, the `quality` CLI, the review API,
+> the production Angular browser, and the cross-platform dev launcher ship from
+> this repository and are covered by the required CI baseline;
 > cards through QS-52 are delivered. No package is published to NuGet yet.
 > Product URL will be `agent-orchestrator.dev/quality`; the proposed final
 > core package ID and root namespace are `AgentOrchestrator.CodeQuality` (subject
@@ -158,6 +159,7 @@ Run the deterministic Gitleaks sensor to produce structured security findings an
 repository-owned security review sidecars:
 
 ```shell
+dotnet run --project src/quality-cli -- security provision
 dotnet run --project src/quality-cli -- security scan .
 ```
 
@@ -202,7 +204,40 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` runs the portable product gate and the Linux/Windows launcher matrix for pushes and pull requests to `main`.
+
+## Required test baseline
+
+The required gate uses the exact SDKs in `global.json` and `.nvmrc`, locked
+dependency restores, and separate portable and host-integration jobs. These are
+the equivalent local commands:
+
+```shell
+dotnet restore QualityStudio.slnx --locked-mode
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound&Category!=ExternalLive"
+npm ci --prefix frontend
+node frontend/node_modules/playwright-core/cli.js install chromium
+npm run build --prefix frontend
+CHROME_NO_SANDBOX=1 npm run test:coverage --prefix frontend
+npm run test:dev-stack
+```
+
+`ToolBound` xUnit suites intentionally exercise a provisioned local tool such
+as Git or .NET and remain in the portable job. `MachineBound` timing assertions
+and `ExternalLive` agent checks run only in the labeled release canary. The
+launcher job uses dynamic ports and OS-neutral Node fixtures on both Linux and
+Windows.
+
+The coverage command writes Cobertura for both .NET test assemblies and lcov
+for Angular. `node scripts/coverage-ratchet.mjs` verifies that all three reports
+exist, parse, and do not fall below `.quality/coverage-baseline.json`. Only use
+`--write-baseline` after adding tests and reviewing the measured increase.
+
+The real-API browser journey is available as
+`npm run test:real-api --prefix frontend`. It starts the repository launcher on isolated ports, opens a real
+file through the shipped Angular application, and fails with captured stack
+output if either service exits early.
 
 ## Minimal API
 

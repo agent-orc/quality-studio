@@ -3,6 +3,7 @@ using AgentOrchestrator.CodeQuality;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class CoverageSensorTests
 {
     [Fact]
@@ -148,25 +149,14 @@ public sealed class CoverageSensorTests
 
         private void RunCore(string? date, params string[] arguments)
         {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo("git")
+            var environment = date is null
+                ? null
+                : new Dictionary<string, string>
                 {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            if (date is not null)
-            {
-                process.StartInfo.Environment["GIT_AUTHOR_DATE"] = date;
-                process.StartInfo.Environment["GIT_COMMITTER_DATE"] = date;
-            }
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            process.WaitForExit();
-            Assert.Equal(0, process.ExitCode);
+                    ["GIT_AUTHOR_DATE"] = date,
+                    ["GIT_COMMITTER_DATE"] = date,
+                };
+            GitTestRepository.At(Root).Run(arguments, environment);
         }
 
         public void Dispose() => TestDirectory.Delete(Root);

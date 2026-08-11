@@ -143,7 +143,7 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> decided: Option B (11 August 2026)</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
@@ -457,7 +457,7 @@
         <td><b>B. Tiered required gate plus canary</b></td>
         <td>Repair the product regression, define portable and host jobs, pin tools, add coverage artifacts and a ratchet, then close the highest-risk feature gaps.</td>
         <td>More initial work, but each failure has one owner and a stable meaning. Timing noise cannot hide a deterministic regression.</td>
-        <td><span class="pill done">Recommend</span></td>
+        <td><span class="pill done">Decided</span></td>
       </tr>
       <tr>
         <td><b>C. Everything on every PR</b></td>
@@ -475,31 +475,31 @@
     </thead>
     <tbody>
       <tr>
-        <td><b>1. Truthful required gate</b><br><span class="pill open">Blocking</span></td>
+        <td><b>1. Truthful required gate</b><br><span class="pill done">Decided</span></td>
         <td>Reduce the production initial bundle below 480 kB without raising the budget. Pin .NET 10.0.301 and Node 22. Add frontend install, production build, explicit Chromium provisioning, Angular tests, filtered .NET tests, and explicit Gitleaks provisioning to CI. Align README claims.</td>
         <td>A cold-cache, clean-checkout run passes. Development build output is not accepted as shipping evidence. Every CI step has a distinct name and exit status.</td>
         <td>None</td>
       </tr>
       <tr>
-        <td><b>2. Host and fixture repair</b><br><span class="pill queued">Next</span></td>
+        <td><b>2. Host and fixture repair</b><br><span class="pill done">Decided</span></td>
         <td>Replace the hard-coded <code>npm.cmd</code> fixture with a platform-neutral Node stub, allocate free ports, include captured child output in failures, and run the five dev-stack cases in Linux and Windows jobs. Centralize temporary Git repository creation.</td>
         <td>5 of 5 launcher cases pass on both operating systems from clean environments. Port collisions and missing executables produce diagnostic failures, not timeouts.</td>
         <td>Slice 1 job structure</td>
       </tr>
       <tr>
-        <td><b>3. Honest portability taxonomy</b><br><span class="pill queued">Next</span></td>
+        <td><b>3. Honest portability taxonomy</b><br><span class="pill done">Decided</span></td>
         <td>Audit the ten process-spawning xUnit classes. Fake tool boundaries where the child process is incidental. Apply <code>MachineBound</code> where real process, timing, socket, or host behavior is intentional. Keep the two existing timing checks in the canary.</td>
         <td>The portable lane has no undeclared host dependency. The machine lane lists every selected test and retains timing/host evidence.</td>
         <td>Slice 2 fixture helpers</td>
       </tr>
       <tr>
-        <td><b>4. Coverage generation and priority gaps</b><br><span class="pill queued">Next</span></td>
+        <td><b>4. Coverage generation and priority gaps</b><br><span class="pill done">Decided</span></td>
         <td>Add .NET Cobertura and Angular lcov generation, publish artifacts, and record the first measured ratchet. Add direct API tests for the uncovered mutation and lifecycle routes. Add Angular component tests for editor, review panel/actions, and attack-coverage judgements, plus one real-API browser journey.</td>
         <td>Both coverage reports are present and schema-readable. CI blocks regression from the recorded baseline. Each listed high-risk surface has positive and failure-path proof.</td>
         <td>Slices 1 and 3</td>
       </tr>
       <tr>
-        <td><b>5. Release canary and upkeep</b><br><span class="pill queued">Then</span></td>
+        <td><b>5. Release canary and upkeep</b><br><span class="pill done">Decided</span></td>
         <td>Schedule the machine-bound xUnit tests and both frontend performance stages on a labeled host. Retain JSON, screenshots, host metadata, and multiple samples. Add the live review canary only for changes that affect review execution.</td>
         <td>Release candidates require a recent green canary. Failures identify product regression, machine variance, or unavailable dependency. Quarantine requires owner and expiry.</td>
         <td>Slices 2 through 4</td>
@@ -547,6 +547,52 @@
     <h4>Evidence limits</h4>
     <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
   </div>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <p class="dim">Append-only delivery ledger for the approved improvement wave.</p>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>11 August 2026</td>
+        <td><b>QS-75</b></td>
+        <td><b>1. Truthful required gate</b></td>
+        <td>Removed the unused router provider and reduced the production initial bundle from 498.62 kB to 420.84 kB without changing the 480 kB error budget. Pinned .NET 10.0.301, Node 22.23.1, npm lockfiles, and .NET package locks. The required workflow now performs locked restore, Release build, filtered portable xUnit, production Angular build, pinned Playwright Chromium provisioning, Angular tests, explicit Gitleaks provisioning, the security scan, and retained evidence. README commands match the gate.</td>
+      </tr>
+      <tr>
+        <td>11 August 2026</td>
+        <td><b>QS-75</b></td>
+        <td><b>2. Host and fixture repair</b></td>
+        <td>Replaced the Windows batch fixture with a Node stub invoked through an argument-safe command contract, allocated isolated ports, retained bounded stdout and stderr, and added fast diagnostic coverage for port collisions and missing executables. The launcher suite runs as a separate Linux and Windows matrix. A shared Git fixture owns identity, line-ending configuration, execution diagnostics, and cleanup.</td>
+      </tr>
+      <tr>
+        <td>11 August 2026</td>
+        <td><b>QS-75</b></td>
+        <td><b>3. Honest portability taxonomy</b></td>
+        <td>Audited the ten process-spawning xUnit suites and declared controlled Git/.NET boundaries as <code>ToolBound</code>. The two timing assertions remain <code>MachineBound</code>, and the opt-in agent probe is <code>ExternalLive</code>. The portable command excludes the latter two categories; the canary lists and executes the machine category separately.</td>
+      </tr>
+      <tr>
+        <td>11 August 2026</td>
+        <td><b>QS-75</b></td>
+        <td><b>4. Coverage and priority gaps</b></td>
+        <td>Added Coverlet Cobertura and Angular lcov generation, schema/readability validation, artifact publication, and the first measured no-decrease ratchet: core tests 78.44%, API tests 38.62%, Angular 50.29%. Added direct positive and failure-path API proof for repository lifecycle, risk, guideline lifecycle/catalogue/impact, review estimate, pause/cancel, handover configuration, and thread mutation. Added component tests for editor threads, review preflight/actions, review-panel state/handover behavior, and attack-coverage selection, plus a real-API Chromium journey.</td>
+      </tr>
+      <tr>
+        <td>11 August 2026</td>
+        <td><b>QS-75</b></td>
+        <td><b>5. Release canary and upkeep</b></td>
+        <td>Added a scheduled and manually dispatched canary for the labeled <code>quality-studio-canary</code> host. It retains three machine-bound TRX samples, three samples from both browser performance stages, JSON, screenshots, logs, and host metadata. The external live review remains an explicit dispatch option for review-execution changes. Canary evidence is retained for 30 days and keeps dependency availability distinct from product assertions.</td>
+      </tr>
+      <tr>
+        <td>11 August 2026</td>
+        <td><b>QS-75</b></td>
+        <td><b>5. Canary verification addendum</b></td>
+        <td>The first isolated dashboard samples exposed redundant filesystem metadata reads and missed the 150 ms interaction budget. The projection now reuses immutable file facts from the hierarchy snapshot; three subsequent canary samples passed both machine-bound checks. The sample loop runs test projects sequentially, completes all three samples before returning a failure, and preserves host metadata and every TRX result for variance analysis.</td>
+      </tr>
+    </tbody>
+  </table>
 </main>
 </body>
 </html>

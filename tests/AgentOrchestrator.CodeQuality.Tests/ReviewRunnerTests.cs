@@ -862,6 +862,7 @@ public sealed class ReviewRunnerTests
     }
 }
 
+[Trait("Category", TestCategories.ExternalLive)]
 public sealed class LiveReviewIntegrationTests
 {
     [Fact]

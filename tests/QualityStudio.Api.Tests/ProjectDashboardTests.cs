@@ -3,6 +3,7 @@ using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class ProjectDashboardTests
 {
     [Fact]
@@ -52,7 +53,7 @@ public sealed class ProjectDashboardTests
     }
 
     [Fact]
-    [Trait("Category", "MachineBound")]
+    [Trait("Category", TestCategories.MachineBound)]
     public async Task Cached_dashboard_for_5000_file_repository_is_within_interaction_budget()
     {
         var root = TemporaryRepository();
@@ -117,31 +118,12 @@ public sealed class ProjectDashboardTests
     private static string TemporaryRepository()
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-studio-dashboard-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-            ArgumentList = { "init", "--quiet" },
-        })!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        _ = GitTestRepository.InitializeAt(root);
         return root;
     }
 
     private static void RunGit(string root, params string[] arguments)
     {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        process.Start();
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        GitTestRepository.At(root).Run(arguments);
     }
 }

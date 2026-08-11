@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "projects": {
+    "dotnet/core-tests": {
+      "format": "cobertura",
+      "covered": 10750,
+      "valid": 13704,
+      "rate": 0.7844425
+    },
+    "dotnet/api-tests": {
+      "format": "cobertura",
+      "covered": 6299,
+      "valid": 16311,
+      "rate": 0.3861811
+    },
+    "angular/frontend": {
+      "format": "lcov",
+      "covered": 263,
+      "valid": 523,
+      "rate": 0.50286807
+    }
+  }
+}

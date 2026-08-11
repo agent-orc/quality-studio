@@ -102,6 +102,7 @@
           "builder": "@angular/build:karma",
           "options": {
             "karmaConfig": "karma.conf.cjs",
+            "codeCoverage": true,
             "polyfills": [
               "zone.js",
               "zone.js/testing"

@@ -6,6 +6,7 @@ using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class StalenessEvaluatorTests
 {
     [Fact]
@@ -220,13 +221,7 @@ public sealed class StalenessEvaluatorTests
 
         private static async Task RunGitAsync(string root, params string[] arguments)
         {
-            using var process = Process.Start(new ProcessStartInfo("git", arguments)
-            {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            })!;
-            await process.WaitForExitAsync();
-            Assert.Equal(0, process.ExitCode);
+            await GitTestRepository.At(root).RunAsync(TestContext.Current.CancellationToken, arguments);
         }
     }
 }

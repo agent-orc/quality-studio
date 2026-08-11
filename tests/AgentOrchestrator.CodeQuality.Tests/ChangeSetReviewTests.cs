@@ -7,6 +7,7 @@ using Json.Schema;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class ChangeSetReviewTests
 {
     [Fact]
@@ -299,23 +300,7 @@ public sealed class ChangeSetReviewTests
 
         private async Task<string> GitAsync(params string[] arguments)
         {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo("git")
-                {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-            var error = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
-            return output;
+            return await GitTestRepository.At(Root).RunAsync(TestContext.Current.CancellationToken, arguments);
         }
 
         public void Dispose()

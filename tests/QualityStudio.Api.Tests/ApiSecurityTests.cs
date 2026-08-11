@@ -11,6 +11,7 @@ using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class ApiSecurityTests : IAsyncLifetime
 {
     private const string AliceToken = "alice-test-credential";
@@ -231,13 +232,8 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     private static async Task RunGitAsync(string directory)
     {
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-        {
-            WorkingDirectory = directory,
-            UseShellExecute = false,
-        })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
+        _ = GitTestRepository.InitializeAt(directory);
+        await Task.CompletedTask;
     }
 
     private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute)

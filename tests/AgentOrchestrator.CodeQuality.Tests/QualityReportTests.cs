@@ -4,6 +4,7 @@ using Json.Schema;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class QualityReportTests
 {
     [Fact]

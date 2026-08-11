@@ -1,0 +1,90 @@
+name: Release canary
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      run_live_review:
+        description: Run the external live review probe after review-execution changes
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: Machine and browser canary
+    runs-on: [self-hosted, linux, quality-studio-canary]
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET 10.0.301
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.301
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Set up Node 22.23.1
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Restore and build Release
+        run: |
+          dotnet restore QualityStudio.slnx --locked-mode
+          dotnet build QualityStudio.slnx --configuration Release --no-restore
+
+      - name: Install frontend and pinned Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          node node_modules/playwright-core/cli.js install chromium
+
+      - name: Run three machine-bound samples
+        shell: bash
+        run: |
+          mkdir -p artifacts/canary/machine
+          {
+            uname -a
+            dotnet --info
+            node --version
+            npm --version
+          } > artifacts/canary/machine/host-metadata.txt
+          status=0
+          for sample in 1 2 3; do
+            dotnet test QualityStudio.slnx --configuration Release --no-build --maxcpucount:1 \
+              --filter "Category=MachineBound" --logger "trx;LogFileName=machine-$sample.trx" \
+              --results-directory artifacts/canary/machine || status=$?
+          done
+          exit "$status"
+
+      - name: Run three samples of both browser performance stages
+        env:
+          JOB_RESULTS_DIR: ${{ github.workspace }}/artifacts/canary/browser
+        run: node scripts/run-performance-canary.mjs
+
+      - name: Run opt-in live review probe
+        if: github.event_name == 'workflow_dispatch' && inputs.run_live_review
+        env:
+          QUALITY_RUN_LIVE_REVIEW: '1'
+        run: >-
+          dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj
+          --configuration Release --no-build --filter "Category=ExternalLive"
+          --logger "trx;LogFileName=live-review.trx" --results-directory artifacts/canary/live
+
+      - name: Publish canary evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-canary-evidence
+          path: artifacts/canary
+          if-no-files-found: error
+          retention-days: 30

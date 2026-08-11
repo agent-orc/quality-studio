@@ -353,6 +353,38 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Pause_and_cancel_routes_project_lifecycle_and_reject_unknown_runs()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateRun("route-lifecycle", "paused");
+            await using var application = fixture.CreateApplication();
+            using var client = application.CreateClient();
+
+            using var paused = await client.PostAsync(
+                $"/api/review/runs/{stored.Manifest.RunId}/pause", null, cancellationToken);
+            paused.EnsureSuccessStatusCode();
+            Assert.Equal("paused", (await paused.Content.ReadFromJsonAsync<JsonElement>(cancellationToken))
+                .GetProperty("state").GetString());
+
+            using var cancelled = await client.DeleteAsync(
+                $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
+            cancelled.EnsureSuccessStatusCode();
+            Assert.Equal("cancelled", (await cancelled.Content.ReadFromJsonAsync<JsonElement>(cancellationToken))
+                .GetProperty("state").GetString());
+
+            using var missing = await client.DeleteAsync("/api/review/runs/review-missing", cancellationToken);
+            Assert.Equal(System.Net.HttpStatusCode.NotFound, missing.StatusCode);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Status_replacement_always_leaves_a_complete_latest_document()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

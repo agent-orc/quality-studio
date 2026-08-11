@@ -10,6 +10,7 @@ using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class AgentStudioImportTests : IAsyncLifetime
 {
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-import-tests", Guid.NewGuid().ToString("N"));
@@ -107,22 +108,7 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
 
     private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
     {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = workingDirectory,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        process.Start();
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
+        await GitTestRepository.At(workingDirectory).RunAsync(TestContext.Current.CancellationToken, arguments);
     }
 
     private sealed class StubHandler(IReadOnlyList<object> projects) : HttpMessageHandler

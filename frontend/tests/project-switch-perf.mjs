@@ -16,6 +16,7 @@ const resultsRoot = process.env.JOB_RESULTS_DIR || resolve(frontendRoot, 'eviden
 const executablePath = process.env.CHROME_BIN || chromium.executablePath();
 const transitionBudgetMs = 100;
 const usableBudgetMs = 500;
+const sampleSuffix = process.env.QS_SAMPLE_INDEX ? `-${process.env.QS_SAMPLE_INDEX}` : '';
 const state = { children: [], tempRoot: null };
 
 try {
@@ -69,7 +70,7 @@ try {
 
     await switchRepository(page, 'Realistic fixture');
     await page.locator('[data-transition-state]').first().waitFor({ state: 'visible' });
-    await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-light.png'), fullPage: true });
+    await page.screenshot({ path: resolve(resultsRoot, `project-switch-transition-light${sampleSuffix}.png`), fullPage: true });
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 1);
     await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
 
@@ -78,7 +79,7 @@ try {
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await switchRepository(page, 'Realistic fixture');
     await page.locator('[data-transition-state="stale"]').waitFor({ state: 'visible' });
-    await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-dark.png'), fullPage: true });
+    await page.screenshot({ path: resolve(resultsRoot, `project-switch-transition-dark${sampleSuffix}.png`), fullPage: true });
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 3);
 
     const transitionEvents = events.filter(event => event.event === 'qs.repository.transition-visible');
@@ -95,7 +96,7 @@ try {
       projectEvents,
       prewarmEvent: apiLines.find(line => line.includes('"event":"qs.repository.prewarm"') && line.includes('"repositoryId":"realistic"'))?.trim() ?? null,
     };
-    await writeFile(resolve(resultsRoot, 'project-switch-perf.json'), JSON.stringify(result, null, 2));
+    await writeFile(resolve(resultsRoot, `project-switch-perf${sampleSuffix}.json`), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
 
     const realisticProjectEvents = projectEvents.filter(event => event.repositoryId === 'realistic');

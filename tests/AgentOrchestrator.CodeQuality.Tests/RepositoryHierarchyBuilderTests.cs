@@ -3,6 +3,7 @@ using System.Diagnostics;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", TestCategories.ToolBound)]
 public sealed class RepositoryHierarchyBuilderTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), $"quality-studio-{Guid.NewGuid():N}");
@@ -158,7 +159,7 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     }
 
     [Fact]
-    [Trait("Category", "MachineBound")]
+    [Trait("Category", TestCategories.MachineBound)]
     public void GenericFiveThousandFileScanStaysWithinBudget()
     {
         var source = Path.Combine(root, "src");

@@ -2,9 +2,14 @@
   "name": "quality-studio",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.23.1",
+    "npm": "10.9.8"
+  },
   "scripts": {
     "start": "node scripts/dev-stack.mjs",
     "dev": "node scripts/dev-stack.mjs",
+    "test": "node --test tests/*.test.mjs frontend/tests/*.test.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs"
   }
 }

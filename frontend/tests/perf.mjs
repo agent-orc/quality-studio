@@ -1,4 +1,6 @@
 import { chromium } from 'playwright-core';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 const executablePath = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
@@ -6,6 +8,8 @@ const executablePath = process.env.CHROME_BIN || (process.platform === 'win32'
 const browser = await chromium.launch({ executablePath, headless: true, args: process.platform === 'linux' ? ['--no-sandbox'] : [] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 const events = [];
+const resultsRoot = process.env.JOB_RESULTS_DIR;
+const sampleSuffix = process.env.QS_SAMPLE_INDEX ? `-${process.env.QS_SAMPLE_INDEX}` : '';
 let fileRequestCount = 0;
 let resolveInitialFile;
 const initialFileRequested = new Promise(resolve => resolveInitialFile = resolve);
@@ -72,6 +76,11 @@ const measures = await page.evaluate(() => performance.getEntriesByType('measure
 })));
 const result = { measuredAt: new Date().toISOString(), browser: await browser.version(), payloadBytes: Buffer.byteLength(payload), repositoryFileCount: project.metrics.fileCount, dashboardDurationMs, fileRequestCount, largeFileMode, highlightedTokenCount, measures, events };
 console.log(JSON.stringify(result, null, 2));
+if (resultsRoot) {
+  await mkdir(resultsRoot, { recursive: true });
+  await page.screenshot({ path: resolve(resultsRoot, `browser-performance${sampleSuffix}.png`), fullPage: true });
+  await writeFile(resolve(resultsRoot, `browser-performance${sampleSuffix}.json`), `${JSON.stringify(result, null, 2)}\n`);
+}
 await browser.close();
 
 if (measures.some(item => item.name === 'qs.tree.toggle' && item.durationMs >= 50) ||
