@@ -325,7 +325,11 @@ public class GitleaksSecurityScanner : IReviewSensor
             var metaPath = Path.Combine(Path.GetDirectoryName(absolutePath)!, ".quality", "reviews", "files", $"file.{Sha256(relativePath)}.review-meta.security.json");
             var previous = LoadPersistedFindingIdentities(metaPath);
             var current = allFindings.Select(finding => new FindingIdentityRecord(
-                finding.Fingerprint, finding.Id, finding.Path, finding.RuleId)).ToArray();
+                finding.Fingerprint,
+                finding.Id,
+                finding.Path,
+                finding.RuleId,
+                "deterministic-sensor")).ToArray();
             var stateStore = new FindingStateStore(root);
             var before = await stateStore.ReadAsync(cancellationToken).ConfigureAwait(false);
             var merged = await stateStore.MergeReviewAsync(current, previous, "gitleaks", cancellationToken).ConfigureAwait(false);
@@ -369,7 +373,12 @@ public class GitleaksSecurityScanner : IReviewSensor
             finding.Locations,
             finding.Fingerprint,
             finding.RuleId,
-            finding.Evidence);
+            finding.Evidence,
+            new FindingSource(
+                FindingSourceKind.Deterministic,
+                "gitleaks",
+                "Gitleaks",
+                GitleaksBinaryResolver.PinnedVersion));
 
     private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath)
     {
@@ -379,7 +388,8 @@ public class GitleaksSecurityScanner : IReviewSensor
             finding.GetProperty("fingerprint").GetString()!,
             finding.GetProperty("id").GetString()!,
             finding.GetProperty("locations")[0].GetProperty("path").GetString()!,
-            finding.GetProperty("ruleId").GetString()!)).ToArray();
+            finding.GetProperty("ruleId").GetString()!,
+            "deterministic-sensor")).ToArray();
     }
 
     private static ReviewGrade BuildGrade(IReadOnlyCollection<SecurityFindingRecord> findings)

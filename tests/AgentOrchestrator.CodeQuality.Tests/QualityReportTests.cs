@@ -139,9 +139,13 @@ public sealed class QualityReportTests
 
     private sealed class ReportRepositoryFixture : IDisposable
     {
+        private const string UnitId =
+            "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        private static readonly string PromptHash = ReviewPromptBuilder.TemplateHash("code");
         private readonly string sidecarPath;
         private readonly string contentHash;
         private readonly string reviewedHash;
+        private readonly string reviewInputsHash;
         private int score;
 
         private ReportRepositoryFixture(
@@ -149,6 +153,7 @@ public sealed class QualityReportTests
             string sidecarPath,
             string contentHash,
             string reviewedHash,
+            string reviewInputsHash,
             string fingerprint,
             int score)
         {
@@ -156,6 +161,7 @@ public sealed class QualityReportTests
             this.sidecarPath = sidecarPath;
             this.contentHash = contentHash;
             this.reviewedHash = reviewedHash;
+            this.reviewInputsHash = reviewInputsHash;
             Fingerprint = fingerprint;
             this.score = score;
             Request = new QualityReportRepository(
@@ -182,15 +188,17 @@ public sealed class QualityReportTests
             await RunGitAsync(root, "config", "user.name", "Quality Fixture");
             var contentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
                 Path.Combine(root, "src", "App.cs"), TestContext.Current.CancellationToken);
-            const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-            var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId,
+            var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(UnitId,
                 [new SubjectInputHash("src/App.cs", "file", contentHash)]);
+            var reviewInputsHash = new InputResolver().Resolve(root, "code", ReviewLevel.File)
+                .EffectiveHash(PromptHash);
             var fingerprint = "sha256:" + new string('b', 64);
             var fixture = new ReportRepositoryFixture(
                 root,
                 Path.Combine(root, ".quality", "reviews", "files", "app.review-meta.code.json"),
                 contentHash,
                 reviewedHash,
+                reviewInputsHash,
                 fingerprint,
                 score);
             await fixture.WriteSidecarAsync();
@@ -271,15 +279,21 @@ public sealed class QualityReportTests
                 sidecarPath, TestContext.Current.CancellationToken))!.AsObject();
             var observation = new QualityObservationDocument
             {
-                ObservationId = $"observation-{model}",
+                ObservationId = QualityObservationLedger.CreateObservationId(
+                    model,
+                    UnitId,
+                    "code",
+                    reviewedHash,
+                    reviewInputsHash,
+                    QualityTaxonomyCatalogue.CoreDigest),
                 ObservedAt = observedAt,
                 Taxonomy = QualityTaxonomyCatalogue.CoreReference,
                 Subject = new QualityObservationSubject(
-                    "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    reviewedHash,
+                    UnitId,
+                    "sha256:" + reviewedHash,
                     "unit"),
                 Profile = new QualityObservationProfile(
-                    "file-code-review", "1.0.0", "sha256:prompt", "sha256:inputs"),
+                    "file-code-review", "1.0.0", PromptHash, "sha256:" + reviewInputsHash),
                 Producer = new QualityObservationProducer(
                     "agent", "codex", "openai", model, model, "high", "route-v1", model, model),
                 EvidenceStatus = "available",
@@ -299,18 +313,35 @@ public sealed class QualityReportTests
 
         private async Task WriteSidecarAsync()
         {
-            const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
             var metadata = new JsonObject
             {
                 ["unit"] = new JsonObject
                 {
-                    ["id"] = unitId,
+                    ["id"] = UnitId,
                     ["level"] = "file",
                     ["path"] = "src/App.cs",
                 },
                 ["reviewedAt"] = "2026-07-25T09:00:00.000Z",
                 ["kind"] = "code",
                 ["reviewedHash"] = new JsonObject { ["value"] = reviewedHash },
+                ["reviewInputs"] = new JsonObject
+                {
+                    ["effectiveHash"] = new JsonObject
+                    {
+                        ["algorithm"] = "sha256",
+                        ["canonicalization"] = "quality-studio-review-inputs-v1",
+                        ["value"] = reviewInputsHash,
+                    },
+                    ["complete"] = true,
+                    ["standards"] = new JsonArray(),
+                    ["omitted"] = new JsonArray(),
+                    ["prompt"] = new JsonObject
+                    {
+                        ["id"] = "file-code-review",
+                        ["version"] = "1.0.0",
+                        ["contentHash"] = PromptHash,
+                    },
+                },
                 ["subjectInputs"] = new JsonArray(new JsonObject
                 {
                     ["path"] = "src/App.cs",

@@ -133,6 +133,8 @@ public sealed class ReviewRunner
         }
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
+        ReviewUsageEntry? recoveryUsage = null;
+        var usageRecorded = false;
         QualityStudioEventSource.Log.ReviewStarted(relativePath, request.Kind, _agent.AgentName);
         try
         {
@@ -169,7 +171,18 @@ public sealed class ReviewRunner
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
                 agentResult.EffectiveModel, agentResult.Provider, agentResult.ThinkingLevel,
                 observationId, startedAt, request, relativePath);
-            await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
+            recoveryUsage = writeObservation
+                ? CreateUsage(
+                    agentResult.RunId,
+                    usage.Tokens,
+                    agentResult.EffectiveModel,
+                    agentResult.Provider,
+                    agentResult.ThinkingLevel,
+                    null,
+                    startedAt,
+                    request,
+                    relativePath)
+                : usage;
             var response = _responseParser.Parse(agentResult.Response);
             if (request.Level == ReviewLevel.Project &&
                 string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
@@ -204,8 +217,6 @@ public sealed class ReviewRunner
             try
             {
                 var previousFindings = LoadFindingIdentities(metaPath);
-                var findingStates = await new FindingStateStore(root).MergeReviewAsync(
-                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
                 threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
                 ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
                 var observedAt = DateTimeOffset.UtcNow;
@@ -253,8 +264,18 @@ public sealed class ReviewRunner
                             meta));
                     await QualityObservationLedger.AppendAsync(root, observationDocument, CancellationToken.None)
                         .ConfigureAwait(false);
+                    recoveryUsage = usage;
+                    await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
+                    usageRecorded = true;
                     _observationWritten?.Invoke(observationDocument);
                 }
+                else
+                {
+                    await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
+                    usageRecorded = true;
+                }
+                var findingStates = await new FindingStateStore(root).MergeReviewAsync(
+                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
                 if (readObservation)
                 {
                     var selected = QualityObservationReducer.SelectCurrent(
@@ -294,6 +315,11 @@ public sealed class ReviewRunner
         }
         catch (Exception exception)
         {
+            if (!usageRecorded && recoveryUsage is not null)
+            {
+                await RecordUsageAsync(root, recoveryUsage, relativePath, request.Kind).ConfigureAwait(false);
+                usageRecorded = true;
+            }
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
         }
