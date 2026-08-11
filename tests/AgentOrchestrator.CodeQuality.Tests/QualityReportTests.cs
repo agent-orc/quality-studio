@@ -79,6 +79,26 @@ public sealed class QualityReportTests
     }
 
     [Fact]
+    public async Task Report_omits_an_oversized_repository_sidecar_instead_of_materializing_it()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(88);
+        await File.AppendAllTextAsync(fixture.SidecarPath, new string(' ', 2_048),
+            TestContext.Current.CancellationToken);
+        var limits = ReviewContentLimits.Default with
+        {
+            MaxSidecarBytes = 1_024,
+            MaxSidecarAggregateBytes = 1_024,
+        };
+
+        var report = await new QualityReportBuilder(contentLimits: limits).BuildAsync(
+            [fixture.Request], TestContext.Current.CancellationToken);
+
+        var repository = Assert.Single(report.Repositories);
+        Assert.Empty(repository.Findings);
+        Assert.Equal(0, repository.Scorecard.Score);
+    }
+
+    [Fact]
     public async Task Cli_exit_codes_cover_passing_failing_and_invalid_gates()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(68);
@@ -126,6 +146,7 @@ public sealed class QualityReportTests
         }
 
         public string Root { get; }
+        public string SidecarPath => sidecarPath;
         public string Fingerprint { get; }
         public QualityReportRepository Request { get; }
 
@@ -212,34 +233,67 @@ public sealed class QualityReportTests
         private async Task WriteSidecarAsync()
         {
             const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            var effectiveInputs = new InputResolver().Resolve(Root, "code", ReviewLevel.File)
+                .EffectiveHash(ReviewPromptBuilder.TemplateHash("code"));
             var metadata = new JsonObject
             {
+                ["$schema"] = ReviewMetaDocument.SchemaId,
+                ["schemaVersion"] = ReviewMetaDocument.CurrentSchemaVersion,
                 ["unit"] = new JsonObject
                 {
                     ["id"] = unitId,
+                    ["adapter"] = "generic",
                     ["level"] = "file",
                     ["path"] = "src/App.cs",
+                    ["displayName"] = "App.cs",
                 },
                 ["reviewedAt"] = "2026-07-25T09:00:00.000Z",
                 ["kind"] = "code",
-                ["reviewedHash"] = new JsonObject { ["value"] = reviewedHash },
+                ["reviewer"] = new JsonObject { ["agent"] = "fixture", ["model"] = "fixture-model" },
+                ["reviewedHash"] = new JsonObject
+                {
+                    ["algorithm"] = "sha256",
+                    ["canonicalization"] = "quality-studio-subject-manifest-v1",
+                    ["value"] = reviewedHash,
+                },
                 ["subjectInputs"] = new JsonArray(new JsonObject
                 {
                     ["path"] = "src/App.cs",
                     ["selector"] = "file",
                     ["contentHash"] = contentHash,
                 }),
+                ["reviewInputs"] = new JsonObject
+                {
+                    ["effectiveHash"] = new JsonObject
+                    {
+                        ["algorithm"] = "sha256",
+                        ["canonicalization"] = "quality-studio-review-inputs-v1",
+                        ["value"] = effectiveInputs,
+                    },
+                    ["complete"] = true,
+                    ["standards"] = new JsonArray(),
+                    ["omitted"] = new JsonArray(),
+                    ["prompt"] = new JsonObject
+                    {
+                        ["id"] = "file-code-review",
+                        ["version"] = "1.0.0",
+                        ["contentHash"] = "sha256:prompt",
+                    },
+                },
                 ["grade"] = new JsonObject
                 {
                     ["score"] = score,
                     ["band"] = QualityReportBuilder.Grade(score),
                     ["rationale"] = "Fixture score.",
                 },
+                ["summary"] = "Fixture summary.",
+                ["aspects"] = new JsonArray(),
                 ["findings"] = new JsonArray(new JsonObject
                 {
                     ["id"] = "finding-" + new string('b', 64),
                     ["ruleId"] = "quality.test",
                     ["fingerprint"] = Fingerprint,
+                    ["aspect"] = "quality",
                     ["severity"] = "high",
                     ["title"] = "Fixture finding",
                     ["description"] = "A deterministic fixture finding.",
@@ -254,6 +308,8 @@ public sealed class QualityReportTests
                         },
                     }),
                 }),
+                ["threads"] = new JsonArray(),
+                ["deterministicEvidence"] = new JsonArray(),
             };
             await File.WriteAllTextAsync(sidecarPath, metadata.ToJsonString(),
                 TestContext.Current.CancellationToken);
