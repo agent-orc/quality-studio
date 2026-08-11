@@ -226,6 +226,7 @@ dotnet restore QualityStudio.slnx --locked-mode
 dotnet build QualityStudio.slnx --configuration Release --no-restore
 dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound" --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/core"
 dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound" --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/api"
+npm run test:repository-contracts
 npm run test:dev-stack
 cd frontend
 npm ci

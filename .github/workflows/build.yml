@@ -36,6 +36,9 @@ jobs:
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
+      - name: Test coverage and release-canary contracts
+        run: npm run test:repository-contracts
+
       - name: Restore locked .NET dependencies
         run: dotnet restore QualityStudio.slnx --locked-mode
 
