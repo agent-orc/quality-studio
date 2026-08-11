@@ -517,9 +517,11 @@
       <li>Every API endpoint carries explicit authorization metadata for one of six roles: read, repository administration, review spending, sensor execution, state mutation, or handover. Missing endpoint policy fails closed, the complete route inventory is tested, and repository scope plus mutation client-ID binding remain additional independent checks.</li>
       <li>Structured authorization audit events record key ID, action role, repository, decision/reason, and result status. Tests capture the events and prove bearer material is absent.</li>
     </ul>
+
+    <h3>2026-08-11 · QS-68 · S1 not delivered</h3>
     <div class="box warn">
-      <h4>Approved slice not yet delivered by QS-68</h4>
-      <p><b>S1</b> remains pending at this implementation point because a real worker boundary requires a worker runtime, snapshot broker, short-lived model credential path, egress policy, cross-platform resource enforcement, and adversarial canary evidence. A command wrapper without those enforced controls would not satisfy the approved decision. Command-backed analyzers remain disabled by default, untrusted-repository Gate B remains locked, and no worker-isolation claim is made.</p>
+      <h4>Approved and decided; blocked on an enforceable worker runtime</h4>
+      <p>The delivery host has the Docker client but denies its daemon socket, has no Podman or bubblewrap runtime, and denies unprivileged user-namespace creation. S1 requires a snapshot broker, isolated mounts and identity, egress policy, cross-platform resource enforcement, short-lived model credentials, and adversarial canary evidence. A wrapper around the existing host process would not satisfy the approved decision, so no worker-isolation claim is made. Command-backed analyzers remain disabled by default and untrusted-repository Gate B remains locked. This is a missing enforcement dependency, not an operator-decision gate.</p>
     </div>
   </section>
 </main>
