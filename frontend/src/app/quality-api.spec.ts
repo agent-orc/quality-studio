@@ -144,4 +144,34 @@ describe('QualityApi', () => {
     expect(api.modelCatalog().policyVersion).toBe('2026-07-24');
     expect(api.modelCatalog().models[0].capabilityTier).toBe('frontier');
   });
+
+  it('loads run detail and paged comparable trend from repository-scoped routes', async () => {
+    const reportLoading = api.loadReviewRunReport('review/a');
+    http.expectOne('/api/repos/default/review/runs/review%2Fa/report').flush({ revision: 1 });
+    const report = await reportLoading;
+    expect(report.revision).toBe(1);
+
+    const trendLoading = api.loadReviewRunTrend('review/a', 2, 20);
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/review%2Fa/trend' &&
+      request.params.get('page') === '2' && request.params.get('pageSize') === '20')
+      .flush({ page: 2, pageSize: 20, total: 41, points: [] });
+    const trend = await trendLoading;
+    expect(trend.total).toBe(41);
+  });
+
+  it('downloads run exports with stable format-specific filenames', async () => {
+    const createUrl = spyOn(URL, 'createObjectURL').and.returnValue('blob:quality-run');
+    const revokeUrl = spyOn(URL, 'revokeObjectURL');
+    const click = spyOn(HTMLAnchorElement.prototype, 'click');
+
+    const downloading = api.downloadReviewRunReport('review-123', 'markdown');
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/review-123/report' &&
+      request.params.get('format') === 'markdown').flush(new Blob(['# report'], { type: 'text/markdown' }));
+    const filename = await downloading;
+
+    expect(filename).toBe('quality-run-review-123.md');
+    expect(createUrl).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    expect(revokeUrl).toHaveBeenCalledWith('blob:quality-run');
+  });
 });

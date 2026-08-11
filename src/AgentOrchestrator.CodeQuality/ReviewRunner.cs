@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -30,7 +31,10 @@ public sealed record ReviewSubjectFile(string UnitId, string Path);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
-public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
+public sealed record ReviewExecutionResult(
+    bool SkippedFresh,
+    ReviewResult? Review,
+    ReviewObservationSnapshot? Observation = null);
 
 public sealed record ReviewPromptMeasurement(int Characters, string Path, string Level);
 
@@ -87,7 +91,14 @@ public sealed class ReviewRunner
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
                 metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
-            if (freshness.IsFresh) return new ReviewExecutionResult(true, null);
+            if (freshness.IsFresh)
+            {
+                var states = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
+                return new ReviewExecutionResult(
+                    true,
+                    null,
+                    await LoadObservationSnapshotAsync(root, metaPath, states, cancellationToken).ConfigureAwait(false));
+            }
         }
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
@@ -144,12 +155,13 @@ public sealed class ReviewRunner
             }
 
             var adapter = AdapterFromUnitId(unitId);
+            ReviewObservationSnapshot? observation = null;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 var previousFindings = LoadFindingIdentities(metaPath);
-                await new FindingStateStore(root).MergeReviewAsync(
+                var states = await new FindingStateStore(root).MergeReviewAsync(
                     findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
                 threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
                 ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
@@ -174,12 +186,14 @@ public sealed class ReviewRunner
                     deterministicEvidence);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+                var metadata = meta.ToJsonString(JsonOptions) + Environment.NewLine;
                 await File.WriteAllTextAsync(
                     temporaryPath,
-                    meta.ToJsonString(JsonOptions) + Environment.NewLine,
+                    metadata,
                     new UTF8Encoding(false),
                     cancellationToken).ConfigureAwait(false);
                 File.Move(temporaryPath, metaPath, true);
+                observation = CreateObservationSnapshot(root, metaPath, metadata, states);
             }
             finally
             {
@@ -188,12 +202,99 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage));
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage),
+                observation);
         }
         catch (Exception exception)
         {
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
+        }
+    }
+
+    private static async Task<ReviewObservationSnapshot> LoadObservationSnapshotAsync(
+        string root,
+        string metaPath,
+        IReadOnlyDictionary<string, FindingStateRecord> states,
+        CancellationToken cancellationToken)
+    {
+        var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
+        await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var metadata = await File.ReadAllTextAsync(metaPath, cancellationToken).ConfigureAwait(false);
+            return CreateObservationSnapshot(root, metaPath, metadata, states);
+        }
+        finally
+        {
+            writeLock.Release();
+        }
+    }
+
+    private static ReviewObservationSnapshot CreateObservationSnapshot(
+        string root,
+        string metaPath,
+        string metadata,
+        IReadOnlyDictionary<string, FindingStateRecord> states)
+    {
+        var document = DeserializeSnapshot(metadata);
+        var findingStates = document.Findings
+            .Concat(document.DeterministicEvidence.SelectMany(evidence => evidence.Findings))
+            .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+            .ToDictionary(
+                finding => finding.Fingerprint,
+                finding => states.TryGetValue(finding.Fingerprint, out var state)
+                    ? FindingStateStore.StateName(state.State)
+                    : "open",
+                StringComparer.Ordinal);
+        return new ReviewObservationSnapshot(
+            Path.GetRelativePath(root, metaPath).Replace('\\', '/'),
+            "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(metadata))),
+            document,
+            findingStates);
+    }
+
+    private static ReviewMetaDocument DeserializeSnapshot(string metadata)
+    {
+        try
+        {
+            return ReviewMetaJson.Deserialize(metadata);
+        }
+        catch (JsonException)
+        {
+            // Sidecars written before run snapshots used the round-trip timestamp format even
+            // though the review-meta contract requires milliseconds. Preserve their exact bytes
+            // and digest while normalising only the in-memory snapshot projection.
+            var json = JsonNode.Parse(metadata)?.AsObject()
+                       ?? throw new JsonException("Review metadata must be a JSON object.");
+            NormalizeLegacyTimestamps(json);
+            return ReviewMetaJson.Deserialize(json.ToJsonString());
+        }
+    }
+
+    private static void NormalizeLegacyTimestamps(JsonNode node)
+    {
+        if (node is JsonArray array)
+        {
+            foreach (var child in array.Where(child => child is not null))
+                NormalizeLegacyTimestamps(child!);
+            return;
+        }
+        if (node is not JsonObject value) return;
+
+        foreach (var property in value.ToArray())
+        {
+            if (property.Value is null) continue;
+            if (property.Key is "reviewedAt" or "createdAt" or "healedAt" &&
+                property.Value.GetValueKind() == JsonValueKind.String &&
+                DateTimeOffset.TryParse(property.Value.GetValue<string>(), CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal, out var timestamp))
+            {
+                value[property.Key] = timestamp.ToUniversalTime()
+                    .ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+                continue;
+            }
+            NormalizeLegacyTimestamps(property.Value);
         }
     }
 
@@ -359,7 +460,8 @@ public sealed class ReviewRunner
                 ["path"] = relativePath,
                 ["displayName"] = displayName ?? Path.GetFileName(relativePath),
             },
-            ["reviewedAt"] = DateTime.UtcNow.ToString("O"),
+            ["reviewedAt"] = DateTime.UtcNow.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
             ["kind"] = kind,
             ["reviewer"] = reviewer,
             ["reviewedHash"] = new JsonObject

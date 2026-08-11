@@ -94,9 +94,20 @@ public static class QualityCli
                 new("gitleaks", GitleaksBinaryResolver.PinnedVersion, true),
                 new("dependencies", DependencyVulnerabilitySensor.SensorVersion, true),
             };
-            var report = await new QualityReportBuilder().BuildAsync(
-                [new QualityReportRepository("default", name, root, Sensors: sensors)]);
-            var rendered = QualityReportRenderer.Render(report, options.Format);
+            QualityReportDocument? repositoryReport = null;
+            QualityRunReportDocument? runReport = null;
+            string rendered;
+            if (options.RunId is null)
+            {
+                repositoryReport = await new QualityReportBuilder().BuildAsync(
+                    [new QualityReportRepository("default", name, root, Sensors: sensors)]);
+                rendered = QualityReportRenderer.Render(repositoryReport, options.Format);
+            }
+            else
+            {
+                runReport = QualityRunReportStore.Load(root, options.RunId);
+                rendered = QualityRunReportRenderer.Render(runReport, options.Format);
+            }
             if (options.OutputPath is null)
             {
                 Console.Write(rendered);
@@ -108,12 +119,15 @@ public static class QualityCli
                 await File.WriteAllTextAsync(outputPath, rendered, new UTF8Encoding(false));
             }
 
-            var failures = QualityReportGate.Evaluate(report, options.FailUnder, options.FailOnSeverity);
+            var failures = repositoryReport is not null
+                ? QualityReportGate.Evaluate(repositoryReport, options.FailUnder, options.FailOnSeverity)
+                : QualityRunReportGate.Evaluate(runReport!, options.FailUnder, options.FailOnSeverity);
             foreach (var failure in failures) Console.Error.WriteLine($"quality report gate failed: {failure}");
             return failures.Count == 0 ? 0 : 1;
         }
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
-                                              QualityReportException or StalenessScanException)
+                                              QualityReportException or QualityRunReportException or StalenessScanException or
+                                              FileNotFoundException)
         {
             Console.Error.WriteLine($"quality report failed: {exception.Message}");
             return 2;
@@ -457,6 +471,7 @@ public static class QualityCli
         var pathSet = false;
         var format = QualityReportFormat.Markdown;
         string? outputPath = null;
+        string? runId = null;
         int? failUnder = null;
         string? failOnSeverity = null;
         for (var index = 0; index < args.Length; index++)
@@ -469,6 +484,9 @@ public static class QualityCli
                 case "--output" when index + 1 < args.Length:
                     outputPath = args[++index];
                     break;
+                case "--run" when index + 1 < args.Length:
+                    runId = args[++index];
+                    break;
                 case "--fail-under" when index + 1 < args.Length &&
                                          int.TryParse(args[++index], out var threshold):
                     failUnder = threshold;
@@ -476,7 +494,7 @@ public static class QualityCli
                 case "--fail-on" when index + 1 < args.Length:
                     failOnSeverity = args[++index].ToLowerInvariant();
                     break;
-                case "--format" or "--output" or "--fail-under" or "--fail-on":
+                case "--format" or "--output" or "--run" or "--fail-under" or "--fail-on":
                     throw new ArgumentException($"Missing or invalid value for {args[index]}.");
                 default:
                     if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
@@ -489,11 +507,11 @@ public static class QualityCli
         _ = QualityReportGate.Evaluate(
             new QualityReportDocument("", 1, DateTimeOffset.UnixEpoch, [], new QualityComparison([])),
             failUnder, failOnSeverity);
-        return new ReportCliOptions(path, format, outputPath, failUnder, failOnSeverity);
+        return new ReportCliOptions(path, format, outputPath, failUnder, failOnSeverity, runId);
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
@@ -509,7 +527,7 @@ public static class QualityCli
             ? $"{cost.Amount.Value:0.########} {cost.Currency}"
             : cost.Status;
     private static void PrintReportUsage() => Console.WriteLine(
-        "Usage:\n  quality report [path] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
 
     private sealed record ReviewCliOptions(string File, string Kind, string? GlobalInputsDirectory,
         int BudgetCharacters, bool ExplainInputs);
@@ -522,5 +540,6 @@ public static class QualityCli
         QualityReportFormat Format,
         string? OutputPath,
         int? FailUnder,
-        string? FailOnSeverity);
+        string? FailOnSeverity,
+        string? RunId);
 }

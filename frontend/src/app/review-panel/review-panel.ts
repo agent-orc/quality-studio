@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewRunReport, ReviewRunReportFormat, ReviewRunTrendPage, ReviewThread, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -50,6 +50,18 @@ export class ReviewPanel {
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
   readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
   readonly runDrawerOpen = signal(false);
+  readonly selectedRunId = signal<string | null>(null);
+  readonly selectedRunReport = signal<ReviewRunReport | null>(null);
+  readonly runTrend = signal<ReviewRunTrendPage | null>(null);
+  readonly runDetailStatus = signal('');
+  readonly runExportStatus = signal('');
+  readonly activeRunFindings = computed(() => {
+    const byFingerprint = new Map<string, ReviewRunReport['observations'][number]['findings'][number]>();
+    for (const finding of this.selectedRunReport()?.observations.flatMap(observation => observation.findings) ?? []) {
+      if (finding.state !== 'resolved') byFingerprint.set(finding.fingerprint, finding);
+    }
+    return [...byFingerprint.values()];
+  });
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
@@ -312,6 +324,59 @@ export class ReviewPanel {
   }
 
   scannedAt(value: string): string { return formatDateTime(value); }
+
+  async openRunDetail(run: ReviewRun): Promise<void> {
+    this.selectedRunId.set(run.id);
+    this.selectedRunReport.set(null);
+    this.runTrend.set(null);
+    this.runDetailStatus.set('Loading run report…');
+    this.runExportStatus.set('');
+    try {
+      const [report, trend] = await Promise.all([
+        this.api.loadReviewRunReport(run.id),
+        this.api.loadReviewRunTrend(run.id),
+      ]);
+      if (this.selectedRunId() !== run.id) return;
+      this.selectedRunReport.set(report);
+      this.runTrend.set(trend);
+      this.runDetailStatus.set('');
+    } catch (error) {
+      if (this.selectedRunId() === run.id) this.runDetailStatus.set(this.api.errorMessage(error));
+    }
+  }
+
+  closeRunDetail(): void {
+    this.selectedRunId.set(null);
+    this.selectedRunReport.set(null);
+    this.runTrend.set(null);
+    this.runDetailStatus.set('');
+    this.runExportStatus.set('');
+  }
+
+  async loadTrendPage(page: number): Promise<void> {
+    const runId = this.selectedRunId();
+    if (!runId || page < 1) return;
+    this.runDetailStatus.set('Loading run trend…');
+    try {
+      const trend = await this.api.loadReviewRunTrend(runId, page);
+      if (this.selectedRunId() === runId) this.runTrend.set(trend);
+      this.runDetailStatus.set('');
+    } catch (error) {
+      this.runDetailStatus.set(this.api.errorMessage(error));
+    }
+  }
+
+  async exportRun(format: ReviewRunReportFormat): Promise<void> {
+    const runId = this.selectedRunId();
+    if (!runId) return;
+    this.runExportStatus.set(`Preparing ${format}…`);
+    try {
+      const filename = await this.api.downloadReviewRunReport(runId, format);
+      this.runExportStatus.set(`Saved ${filename}`);
+    } catch (error) {
+      this.runExportStatus.set(this.api.errorMessage(error));
+    }
+  }
 
   runProgress(completed: number, total: number): number { return total ? completed / total * 100 : 0; }
 

@@ -112,6 +112,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
         StalenessScanException => (StatusCodes.Status422UnprocessableEntity, "Repository scan failed"),
         QualityReportException => (StatusCodes.Status422UnprocessableEntity, "Quality report failed"),
+        QualityRunReportException => (StatusCodes.Status422UnprocessableEntity, "Review run report failed"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
         JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
@@ -304,6 +305,10 @@ app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
+app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/review/runs/{id}/trend", ReviewRunTrend);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/trend", ReviewRunTrend);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1088,6 +1093,28 @@ static IResult ReviewRun(HttpContext context, string id, RepositoryRegistry regi
 {
     var repository = registry.Get(RouteRepositoryId(context));
     return Results.Ok(jobs.Get(repository.Id, id));
+}
+
+static IResult ReviewRunReport(
+    HttpContext context, string id, string? format, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    jobs.Get(repository.Id, id);
+    var report = QualityRunReportStore.Load(repository.RootPath, id);
+    var selectedFormat = string.IsNullOrWhiteSpace(format)
+        ? QualityReportFormat.Json
+        : QualityReportRenderer.ParseFormat(format);
+    return Results.Text(QualityRunReportRenderer.Render(report, selectedFormat),
+        QualityReportRenderer.ContentType(selectedFormat), Encoding.UTF8);
+}
+
+static IResult ReviewRunTrend(
+    HttpContext context, string id, int? page, int? pageSize, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    jobs.Get(repository.Id, id);
+    var report = QualityRunReportStore.Load(repository.RootPath, id);
+    return Results.Ok(QualityRunTrendBuilder.Build(repository.RootPath, report, page ?? 1, pageSize ?? 30));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

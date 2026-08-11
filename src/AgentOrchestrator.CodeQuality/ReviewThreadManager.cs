@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Collections.Concurrent;
+using System.Globalization;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -44,7 +45,7 @@ public static class ReviewThreadManager
             {
                 ["id"] = $"entry-{Guid.NewGuid():N}",
                 ["author"] = new JsonObject { ["kind"] = "agent", ["agent"] = agent, ["model"] = model },
-                ["createdAt"] = now.UtcDateTime.ToString("O"),
+                ["createdAt"] = Timestamp(now),
                 ["body"] = update["body"]!.GetValue<string>().Trim(),
             };
             if (update["replyTo"] is JsonNode replyTo) entry["replyTo"] = replyTo.DeepClone();
@@ -99,7 +100,7 @@ public static class ReviewThreadManager
             anchor["lastKnownRange"] = location["range"]!.DeepClone();
             anchor["contextHash"] = ComputeContextHash(content, range);
             thread["anchorState"] = "healed";
-            thread["healedAt"] = DateTime.UtcNow.ToString("O");
+            thread["healedAt"] = Timestamp(DateTimeOffset.UtcNow);
         }
     }
 
@@ -146,7 +147,7 @@ public static class ReviewThreadManager
             ["end"] = new JsonObject { ["line"] = nearest + span - 1, ["column"] = range.End.Column },
         };
         thread["anchorState"] = "healed";
-        thread["healedAt"] = DateTime.UtcNow.ToString("O");
+        thread["healedAt"] = Timestamp(DateTimeOffset.UtcNow);
     }
 
     private static bool TryRange(JsonNode? node, out FindingRange range)
@@ -169,5 +170,7 @@ public static class ReviewThreadManager
     }
 
     private static string[] NormalizeLines(string content) => content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+    private static string Timestamp(DateTimeOffset value) => value.ToUniversalTime()
+        .ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
     private static string Hash(string value) => "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 }

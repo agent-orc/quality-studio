@@ -45,6 +45,8 @@ describe('ReviewPanel session flow', () => {
     deleteScopeRule: jasmine.createSpy('deleteScopeRule'),
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
+    loadReviewRunReport: jasmine.createSpy('loadReviewRunReport'), loadReviewRunTrend: jasmine.createSpy('loadReviewRunTrend'),
+    downloadReviewRunReport: jasmine.createSpy('downloadReviewRunReport'),
     errorMessage: (error: unknown) => error instanceof Error ? error.message : 'request failed',
   };
   const node = { id: 'a', name: 'A.cs', path: 'src/A.cs', level: 'file', kinds: { code: { direct: 'fresh', metaPath: 'a.review-meta.json' } }, children: [] };
@@ -53,7 +55,7 @@ describe('ReviewPanel session flow', () => {
     file.update(value => ({ ...value, metaDocuments: [meta] }));
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview]) spy.calls.reset();
+      api.resumeReview, api.loadReviewRunReport, api.loadReviewRunTrend, api.downloadReviewRunReport]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -61,6 +63,16 @@ describe('ReviewPanel session flow', () => {
     api.previewScopeRule.and.resolveTo({ index: -1, action: 'exclude', pattern: 'src/A.cs', reason: 'Ignore path', matchedFiles: ['src/A.cs'], widerPattern: false });
     api.addScopeRule.and.resolveTo(api.scopeRules()); api.updateScopeRule.and.resolveTo(api.scopeRules());
     api.deleteScopeRule.and.resolveTo(api.scopeRules());
+    api.loadReviewRunReport.and.resolveTo({
+      schemaVersion: 1, revision: 2,
+      run: { id: 'matching', repositoryId: 'default', repositoryName: 'Fixture', kind: 'code', scope: { unitId: 'a', level: 'file', path: 'src/A.cs' }, state: 'capped', completeness: 'partial', createdAt: '2026-08-11T08:00:00Z', startedAt: '2026-08-11T08:00:01Z', finishedAt: '2026-08-11T08:01:00Z', model: 'model', thinkingLevel: 'high', cliType: 'codex', force: false, partialReason: 'Token cap reached.' },
+      execution: { outcome: 'capped', reviewed: 1, reusedFresh: 0, failed: 0, skipped: 1, cancelled: 0, usageOperations: 1, usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 100 }, costSpent: null, currency: null, priceStatus: 'unknownModel', tokenCap: 10, costCap: null, errors: [] },
+      observations: [{ unitId: 'a', path: 'src/A.cs', level: 'file', outcome: 'reviewed', producedByRun: true, sidecarPath: '.quality/reviews/a.json', sidecarSha256: `sha256:${'d'.repeat(64)}`, reviewedHash: `sha256:${'e'.repeat(64)}`, providerRunId: 'provider', reviewedAt: '2026-08-11T08:00:30Z', grade: { score: 80, band: 'B', rationale: 'Good.' }, summary: 'Summary.', findings: [], error: null }],
+      delta: { status: 'unavailable', priorRunId: null, new: [], persisting: [], resolved: [], stateChanged: [] },
+      summary: { score: null, grade: null, activeFindings: 0, bySeverity: {}, byState: {}, highestSeverity: null, partialReason: 'Token cap reached.' },
+    });
+    api.loadReviewRunTrend.and.resolveTo({ repositoryId: 'default', kind: 'code', scope: { unitId: 'a', level: 'file', path: 'src/A.cs' }, page: 1, pageSize: 30, total: 1, points: [{ runId: 'matching', revision: 2, finishedAt: '2026-08-11T08:01:00Z', state: 'capped', completeness: 'partial', model: 'model', cliType: 'codex', score: null, grade: null, scoreUnavailableReason: 'Token cap reached.', activeFindings: 0, delta: { status: 'unavailable', priorRunId: null, new: [], persisting: [], resolved: [], stateChanged: [] }, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 1, inputTokens: 10, outputTokens: 5, durationMs: 100, costSpent: null, currency: null, connectScore: false }] });
+    api.downloadReviewRunReport.and.resolveTo('quality-run-matching.html');
 
     await TestBed.configureTestingModule({
       imports: [ReviewPanel],
@@ -85,6 +97,32 @@ describe('ReviewPanel session flow', () => {
     fixture.detectChanges();
     expect(component.visibleFindings().map(finding => finding.id)).toEqual(['critical-waived']);
     expect(fixture.nativeElement.querySelectorAll('.finding-card').length).toBe(1);
+  });
+
+  it('opens a partial run detail with unit outcomes, trend events, and keyboard-native export actions', async () => {
+    const run = {
+      id: 'matching', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code', model: 'model', thinkingLevel: 'high', cliType: 'codex', state: 'capped', totalFiles: 2, completedFiles: 1, failedFiles: 0,
+      createdAt: '2026-08-11T08:00:00Z', startedAt: '2026-08-11T08:00:01Z', finishedAt: '2026-08-11T08:01:00Z', files: [], errors: [], usageOperations: 1,
+      usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 100 }, estimate: null, tokenCap: 10, costCap: null, costSpent: null, currency: null, priceStatus: 'unknownModel', skippedFiles: 1, aggregateState: null, stopReason: 'Token cap reached.', deviation: null,
+    };
+    api.reviewRuns.set([run]);
+    await component.openRunDetail(run as never);
+    component.runDrawerOpen.set(true);
+    fixture.detectChanges();
+
+    expect(api.loadReviewRunReport).toHaveBeenCalledWith('matching');
+    expect(api.loadReviewRunTrend).toHaveBeenCalledWith('matching');
+    expect(fixture.nativeElement.querySelector('.run-partial-label').textContent).toContain('Partial');
+    expect(fixture.nativeElement.querySelector('.run-unit-list').textContent).toContain('src/A.cs');
+    expect(fixture.nativeElement.querySelector('.run-trend .partial').textContent).toContain('Event');
+    const actions = [...fixture.nativeElement.querySelectorAll('.run-export-actions button')] as HTMLButtonElement[];
+    expect(actions.map(action => action.textContent?.trim())).toEqual(['Export HTML', 'Export Markdown', 'Export SARIF', 'Export JSON']);
+    expect(actions.every(action => action.tagName === 'BUTTON' && action.type === 'button')).toBeTrue();
+
+    actions[0].click();
+    await fixture.whenStable();
+    expect(api.downloadReviewRunReport).toHaveBeenCalledWith('matching', 'html');
+    expect(component.runExportStatus()).toBe('Saved quality-run-matching.html');
   });
 
   it('emits code navigation for current evidence but not for a stale range', () => {

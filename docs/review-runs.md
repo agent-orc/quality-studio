@@ -34,6 +34,16 @@ Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
   `runner-default` / `model-default` markers when no override was chosen), together with
   scope, outcome, counts, usage, and cost status for downstream Token Economy analysis.
 
+Portable run truth is stored separately under
+`<repository>/.quality/reports/runs/<runId>.json`. The runner returns an immutable
+copy and digest for both newly written and fresh-reused sidecars. The job service
+persists that observation before marking the unit complete, then atomically
+rebuilds the canonical document as state changes. It includes every planned unit,
+produced-versus-reused provenance, finding lifecycle state, deterministic evidence
+provenance, usage/caps, completeness, and a stable subject-manifest hash without
+an absolute repository root. A capped run resumes under the same ID; its next
+terminal snapshot increments `revision` instead of creating duplicate history.
+
 Model options come from the governed Token Economy snapshot described in
 [`model-catalog-integration.md`](model-catalog-integration.md). The model and optional
 thinking-level override are persisted in the manifest before enqueue and passed to the
@@ -44,3 +54,5 @@ At startup the API scans the registered repositories for durable runs. `queued` 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
 `.quality/runs/` is ignored by Git because it is disposable orchestration working data. The review sidecars remain the committed review truth.
+Canonical `.quality/reports/runs/*.json` documents are repository-owned and may
+be committed. Quality Studio writes them atomically but never commits them.

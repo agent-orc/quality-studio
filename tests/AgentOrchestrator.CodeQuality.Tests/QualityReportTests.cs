@@ -4,6 +4,7 @@ using Json.Schema;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Collection("Quality report schema validation")]
 public sealed class QualityReportTests
 {
     [Fact]
@@ -28,6 +29,8 @@ public sealed class QualityReportTests
         var trend = Assert.Single(repository.Trend, series => series.Kind == "code");
         Assert.Equal([60, 75, 92], trend.Points.Select(point => point.Score));
         Assert.All(trend.Points, point => Assert.Equal(12, point.Commit.Length));
+        Assert.Contains("### Commit trend",
+            QualityReportRenderer.Render(report, QualityReportFormat.Markdown), StringComparison.Ordinal);
     }
 
     [Fact]

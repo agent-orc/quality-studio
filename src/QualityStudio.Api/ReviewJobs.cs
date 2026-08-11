@@ -491,6 +491,7 @@ public sealed class ReviewJobService : BackgroundService
                             CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
                             item.Force,
                             linked.Token).ConfigureAwait(false);
+                        item.CaptureObservation(item.Node, execution);
                         if (execution.SkippedFresh) item.SkipAggregateFresh(); else item.FinishAggregate();
                     }
                 }
@@ -534,6 +535,7 @@ public sealed class ReviewJobService : BackgroundService
                 CreateRequest(item, file, ReviewLevel.File, [file.Path]),
                 item.Force,
                 cancellationToken).ConfigureAwait(false);
+            item.CaptureObservation(file, execution);
             if (execution.SkippedFresh) item.SkipFileFresh(file.Path); else item.FinishFile(file.Path, null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -621,6 +623,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly ReviewRunManifest manifest;
         private readonly ReviewRunStore store;
         private readonly Dictionary<string, MutableFileProgress> progress;
+        private readonly Dictionary<string, QualityRunObservation> observations;
         private readonly List<string> errors;
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
@@ -635,6 +638,8 @@ public sealed class ReviewJobService : BackgroundService
         private bool attemptActive;
         private bool resumePending;
         private string state;
+        private int reportRevision;
+        private string? lastTerminalReportState;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -668,6 +673,14 @@ public sealed class ReviewJobService : BackgroundService
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
             stopReason = status?.StopReason;
+            var existingReport = QualityRunReportStore.TryLoad(repository.RootPath, manifest.RunId);
+            observations = (existingReport?.Observations ?? [])
+                .Where(observation => observation.SidecarPath is not null)
+                .ToDictionary(observation => observation.UnitId, StringComparer.Ordinal);
+            reportRevision = existingReport?.Revision ?? 1;
+            lastTerminalReportState = existingReport is not null && ReviewRunStore.IsTerminal(existingReport.Run.State)
+                ? existingReport.Run.State
+                : null;
             if (transitions is not null)
             {
                 foreach (var transition in transitions)
@@ -791,6 +804,18 @@ public sealed class ReviewJobService : BackgroundService
                 file.Error = null;
                 file.FinishedAt = DateTimeOffset.UtcNow;
                 Append(file);
+            }
+        }
+
+        public void CaptureObservation(HierarchyNode node, ReviewExecutionResult execution)
+        {
+            if (execution.Observation is null) return;
+            lock (gate)
+            {
+                observations[node.Id] = ToObservation(node, execution);
+                // The immutable observation copy reaches repository-owned storage before the
+                // corresponding progress record is allowed to become complete.
+                PersistReport();
             }
         }
 
@@ -1068,7 +1093,190 @@ public sealed class ReviewJobService : BackgroundService
             var status = DurableStatusCore();
             store.WriteStatus(status);
             store.WriteResult(manifest, status);
+            PersistReport();
         }
+
+        private void PersistReport()
+        {
+            if (ReviewRunStore.IsTerminal(state) && lastTerminalReportState is not null &&
+                !string.Equals(lastTerminalReportState, state, StringComparison.Ordinal))
+            {
+                reportRevision++;
+            }
+            if (ReviewRunStore.IsTerminal(state)) lastTerminalReportState = state;
+            QualityRunReportStore.Save(Repository.RootPath, BuildReport());
+        }
+
+        private QualityRunReportDocument BuildReport()
+        {
+            var ordered = new List<QualityRunObservation>(manifest.Targets.Count + 1);
+            foreach (var target in manifest.Targets)
+            {
+                ordered.Add(observations.TryGetValue(target.Id, out var captured)
+                    ? captured
+                    : Placeholder(target.Id, target.Path, "file", progress[target.Path]));
+            }
+            if (Node.Level != ReviewLevel.File)
+            {
+                ordered.Add(observations.TryGetValue(Node.Id, out var aggregate)
+                    ? aggregate
+                    : new QualityRunObservation(Node.Id, Node.Path, manifest.Level,
+                        MissingSnapshotOutcome(aggregateState ?? "queued"), false,
+                        null, null, null, null, null, null, null, [], [],
+                        aggregateState == "failed" ? SanitizeError(errors.LastOrDefault()) : null));
+            }
+
+            var expectedSnapshots = manifest.Targets.Count + (Node.Level == ReviewLevel.File ? 0 : 1);
+            var capturedSnapshots = ordered.Count(observation => observation.SidecarPath is not null);
+            var complete = state == "done" &&
+                           ordered.All(observation => observation.Outcome is "reviewed" or "reused-fresh") &&
+                           capturedSnapshots == expectedSnapshots;
+            var completeness = complete ? "complete" : "partial";
+            var partialReason = complete ? null : PartialReason(ordered, capturedSnapshots, expectedSnapshots);
+            var activeFindings = ordered.SelectMany(observation => observation.Findings)
+                .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+                .Where(finding => finding.State != "resolved").ToArray();
+            var severityNames = new[] { "critical", "high", "medium", "low", "info" };
+            var stateNames = new[] { "open", "accepted", "waived", "false-positive", "resolved" };
+            var allFindings = ordered.SelectMany(observation => observation.Findings)
+                .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal).ToArray();
+            var score = complete
+                ? (int?)Math.Round(ordered.Select(observation => observation.Grade!.Score).Average(),
+                    MidpointRounding.AwayFromZero)
+                : null;
+            var summary = new QualityRunSummary(
+                score,
+                score.HasValue ? Grade(score.Value) : null,
+                activeFindings.Length,
+                severityNames.ToDictionary(name => name,
+                    name => activeFindings.Count(finding => finding.Severity == name), StringComparer.Ordinal),
+                stateNames.ToDictionary(name => name,
+                    name => allFindings.Count(finding => finding.State == name), StringComparer.Ordinal),
+                severityNames.FirstOrDefault(name => activeFindings.Any(finding => finding.Severity == name)),
+                partialReason);
+            var targets = manifest.Targets.Select(target =>
+                new QualityRunTarget(target.Id, target.Path, target.SubjectHash)).ToArray();
+            var identity = new QualityRunIdentity(
+                Id, Repository.Id, Repository.DisplayName, Kind,
+                new QualityRunScope(Node.Id, manifest.Level, Node.Path), state, completeness,
+                CreatedAt, StartedAt, FinishedAt, Model ?? "runner-default",
+                ThinkingLevel ?? "model-default", CliType, Force, partialReason);
+            var execution = new QualityRunExecution(
+                state,
+                ordered.Count(observation => observation.Outcome == "reviewed"),
+                ordered.Count(observation => observation.Outcome == "reused-fresh"),
+                ordered.Count(observation => observation.Outcome == "failed"),
+                ordered.Count(observation => observation.Outcome == "skipped"),
+                ordered.Count(observation => observation.Outcome == "cancelled"),
+                usageOperations, usage, costSpent, currency, priceStatus, tokenCap, costCap,
+                errors.Select(error => SanitizeError(error)!).ToArray());
+            var report = new QualityRunReportDocument(
+                QualityRunReportStore.SchemaId, 1, reportRevision, identity,
+                new QualityRunSubject(targets, QualityRunReportFingerprint.Manifest(targets)),
+                execution, ordered, new QualityRunDelta("unavailable", null, [], [], [], []), summary);
+            return report with { Delta = BuildDelta(report) };
+        }
+
+        private QualityRunDelta BuildDelta(QualityRunReportDocument current)
+        {
+            if (current.Run.State != "done" || current.Run.Completeness != "complete")
+                return new QualityRunDelta("unavailable", null, [], [], [], []);
+            var prior = QualityRunReportStore.LoadAll(Repository.RootPath)
+                .Where(report => !string.Equals(report.Run.Id, current.Run.Id, StringComparison.Ordinal) &&
+                                 report.Run.State == "done" && report.Run.Completeness == "complete" &&
+                                 QualityRunTrendBuilder.SameSeries(report, current))
+                .GroupBy(report => report.Run.Id, StringComparer.Ordinal)
+                .Select(group => group.OrderByDescending(report => report.Revision).First())
+                .OrderByDescending(report => report.Run.FinishedAt ?? report.Run.CreatedAt)
+                .FirstOrDefault();
+            if (prior is null) return new QualityRunDelta("unavailable", null, [], [], [], []);
+
+            var currentFindings = ActiveFindingStates(current);
+            var priorFindings = ActiveFindingStates(prior);
+            var added = currentFindings.Keys.Except(priorFindings.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+            var persisting = currentFindings.Keys.Intersect(priorFindings.Keys, StringComparer.Ordinal)
+                .Where(fingerprint => string.Equals(currentFindings[fingerprint], priorFindings[fingerprint], StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal).ToArray();
+            var changed = currentFindings.Keys.Intersect(priorFindings.Keys, StringComparer.Ordinal)
+                .Where(fingerprint => !string.Equals(currentFindings[fingerprint], priorFindings[fingerprint], StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal).ToArray();
+            var resolved = priorFindings.Keys.Except(currentFindings.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+            return new QualityRunDelta("available", prior.Run.Id, added, persisting, resolved, changed);
+        }
+
+        private static Dictionary<string, string> ActiveFindingStates(QualityRunReportDocument report) =>
+            report.Observations.SelectMany(observation => observation.Findings)
+                .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+                .Where(finding => finding.State != "resolved")
+                .ToDictionary(finding => finding.Fingerprint, finding => finding.State, StringComparer.Ordinal);
+
+        private string PartialReason(
+            IReadOnlyList<QualityRunObservation> ordered, int capturedSnapshots, int expectedSnapshots)
+        {
+            if (!string.IsNullOrWhiteSpace(stopReason)) return stopReason;
+            var failed = ordered.Count(observation => observation.Outcome == "failed");
+            if (failed > 0) return $"{failed} review unit(s) failed.";
+            var cancelled = ordered.Count(observation => observation.Outcome == "cancelled");
+            if (cancelled > 0) return $"{cancelled} review unit(s) were cancelled.";
+            if (state == "done" && capturedSnapshots != expectedSnapshots)
+                return $"Canonical observations are missing for {expectedSnapshots - capturedSnapshots} completed unit(s).";
+            return $"Run state is {state}.";
+        }
+
+        private QualityRunObservation ToObservation(HierarchyNode node, ReviewExecutionResult execution)
+        {
+            var snapshot = execution.Observation!;
+            var metadata = snapshot.Document;
+            var findings = metadata.Findings
+                .Concat(metadata.DeterministicEvidence.SelectMany(evidence => evidence.Findings))
+                .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+                .Select(finding => new QualityFinding(
+                    Repository.Id, finding.Id, finding.RuleId, Kind,
+                    finding.Severity.ToString().ToLowerInvariant(),
+                    snapshot.FindingStates.GetValueOrDefault(finding.Fingerprint, "open"),
+                    finding.Title, finding.Description, finding.Recommendation, finding.Fingerprint,
+                    finding.Locations.Select(location => new QualityFindingLocation(
+                        location.Path.Replace('\\', '/'), location.Range?.Start.Line, location.Range?.Start.Column,
+                        location.Range?.End.Line, location.Range?.End.Column)).ToArray(),
+                    finding.Source?.Kind == FindingSourceKind.Deterministic ? "deterministic" : "agent",
+                    finding.Source?.SensorId, finding.Source?.Producer)).ToArray();
+            var evidence = metadata.DeterministicEvidence.Select(sensor =>
+            {
+                var reference = metadata.Reviewer.Sensors?.FirstOrDefault(item =>
+                    string.Equals(item.Id, sensor.Provenance.SensorId, StringComparison.Ordinal));
+                return new QualityRunEvidence(
+                    sensor.Provenance.SensorId, sensor.Provenance.SensorVersion, sensor.Available,
+                    sensor.UnavailableReason, reference?.ResultHash, sensor.Findings.Count,
+                    sensor.Provenance.ToolVersions);
+            }).ToArray();
+            return new QualityRunObservation(
+                node.Id, node.Path, metadata.Unit.Level.ToString().ToLowerInvariant(),
+                execution.SkippedFresh ? "reused-fresh" : "reviewed", !execution.SkippedFresh,
+                snapshot.SidecarPath, snapshot.SidecarSha256, metadata.ReviewedHash.Value,
+                metadata.Reviewer.RunId, metadata.ReviewedAt, metadata.Grade, metadata.Summary,
+                findings, evidence);
+        }
+
+        private QualityRunObservation Placeholder(
+            string unitId, string path, string level, MutableFileProgress progress) =>
+            new(unitId, path, level,
+                MissingSnapshotOutcome(progress.State),
+                false, null, null, null, null, null, null, null, [], [], SanitizeError(progress.Error));
+
+        private static string MissingSnapshotOutcome(string outcome) =>
+            outcome is "done" or "skipped-fresh" ? "missing-snapshot" : outcome;
+
+        private string? SanitizeError(string? value)
+        {
+            if (value is null) return null;
+            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            return value.Replace(Repository.RootPath, "<repository>", comparison).Replace('\\', '/');
+        }
+
+        private static string Grade(int score) => score switch
+        {
+            >= 90 => "A", >= 80 => "B", >= 70 => "C", >= 60 => "D", _ => "F",
+        };
 
         private ReviewRunStatus DurableStatusCore()
         {

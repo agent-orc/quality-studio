@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "title": "Quality Studio review run report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "revision", "run", "subject", "execution", "observations", "delta", "summary"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "run": { "$ref": "#/$defs/run" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "execution": { "$ref": "#/$defs/execution" },
+    "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
+    "delta": { "$ref": "#/$defs/delta" },
+    "summary": { "$ref": "#/$defs/summary" }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "dateTime": { "type": "string", "format": "date-time" },
+    "nullableDateTime": { "anyOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] },
+    "hash": { "type": "string", "pattern": "^(?:sha256:)?[a-f0-9]{64}$" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "level", "path"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "level": { "enum": ["project", "module", "namespace", "file"] },
+        "path": { "type": "string", "minLength": 1, "not": { "pattern": "^(?:[A-Za-z]:[\\\\/]|/)" } }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repositoryId", "repositoryName", "kind", "scope", "state", "completeness", "createdAt", "startedAt", "finishedAt", "model", "thinkingLevel", "cliType", "force", "partialReason"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "repositoryId": { "type": "string", "minLength": 1 },
+        "repositoryName": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["code", "security", "performance"] },
+        "scope": { "$ref": "#/$defs/scope" },
+        "state": { "enum": ["queued", "running", "paused", "done", "failed", "cancelled", "capped"] },
+        "completeness": { "enum": ["complete", "partial"] },
+        "createdAt": { "$ref": "#/$defs/dateTime" },
+        "startedAt": { "$ref": "#/$defs/nullableDateTime" },
+        "finishedAt": { "$ref": "#/$defs/nullableDateTime" },
+        "model": { "type": "string", "minLength": 1 },
+        "thinkingLevel": { "type": "string", "minLength": 1 },
+        "cliType": { "type": "string", "minLength": 1 },
+        "force": { "type": "boolean" },
+        "partialReason": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "path", "subjectHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1, "not": { "pattern": "^(?:[A-Za-z]:[\\\\/]|/)" } },
+        "subjectHash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targets", "manifestHash"],
+      "properties": {
+        "targets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/target" } },
+        "manifestHash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "outputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "reviewed", "reusedFresh", "failed", "skipped", "cancelled", "usageOperations", "usage", "costSpent", "currency", "priceStatus", "tokenCap", "costCap", "errors"],
+      "properties": {
+        "outcome": { "enum": ["queued", "running", "paused", "done", "failed", "cancelled", "capped"] },
+        "reviewed": { "type": "integer", "minimum": 0 },
+        "reusedFresh": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 },
+        "usageOperations": { "type": "integer", "minimum": 0 },
+        "usage": { "$ref": "#/$defs/usage" },
+        "costSpent": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "priceStatus": { "type": "string", "minLength": 1 },
+        "tokenCap": { "$ref": "#/$defs/nullableInteger" },
+        "costCap": { "$ref": "#/$defs/nullableNumber" },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "grade": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["score", "band", "rationale"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "type": "string", "pattern": "^[aAfFbBcCdD]$" },
+        "rationale": { "type": "string" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "not": { "pattern": "^(?:[A-Za-z]:[\\\\/]|/)" } },
+        "startLine": { "$ref": "#/$defs/nullableInteger" },
+        "startColumn": { "$ref": "#/$defs/nullableInteger" },
+        "endLine": { "$ref": "#/$defs/nullableInteger" },
+        "endColumn": { "$ref": "#/$defs/nullableInteger" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repositoryId", "id", "ruleId", "kind", "severity", "state", "title", "description", "recommendation", "fingerprint", "locations", "source", "sensorId", "producer"],
+      "properties": {
+        "repositoryId": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "ruleId": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["code", "security", "performance"] },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "fingerprint": { "$ref": "#/$defs/hash" },
+        "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+        "source": { "enum": ["agent", "deterministic"] },
+        "sensorId": { "$ref": "#/$defs/nullableString" },
+        "producer": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sensorId", "sensorVersion", "available", "unavailableReason", "resultHash", "findingCount", "toolVersions"],
+      "properties": {
+        "sensorId": { "type": "string", "minLength": 1 },
+        "sensorVersion": { "type": "string", "minLength": 1 },
+        "available": { "type": "boolean" },
+        "unavailableReason": { "$ref": "#/$defs/nullableString" },
+        "resultHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "findingCount": { "type": "integer", "minimum": 0 },
+        "toolVersions": { "$ref": "#/$defs/stringMap" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "path", "level", "outcome", "producedByRun", "sidecarPath", "sidecarSha256", "reviewedHash", "providerRunId", "reviewedAt", "grade", "summary", "findings", "deterministicEvidence", "error"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1, "not": { "pattern": "^(?:[A-Za-z]:[\\\\/]|/)" } },
+        "level": { "enum": ["project", "module", "namespace", "file"] },
+        "outcome": { "enum": ["queued", "running", "reviewed", "reused-fresh", "failed", "skipped", "cancelled", "missing-snapshot"] },
+        "producedByRun": { "type": "boolean" },
+        "sidecarPath": { "$ref": "#/$defs/nullableString" },
+        "sidecarSha256": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "reviewedHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "providerRunId": { "$ref": "#/$defs/nullableString" },
+        "reviewedAt": { "$ref": "#/$defs/nullableDateTime" },
+        "grade": { "$ref": "#/$defs/grade" },
+        "summary": { "$ref": "#/$defs/nullableString" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "deterministicEvidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "error": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "priorRunId", "new", "persisting", "resolved", "stateChanged"],
+      "properties": {
+        "status": { "enum": ["available", "unavailable"] },
+        "priorRunId": { "$ref": "#/$defs/nullableString" },
+        "new": { "type": "array", "items": { "$ref": "#/$defs/hash" }, "uniqueItems": true },
+        "persisting": { "type": "array", "items": { "$ref": "#/$defs/hash" }, "uniqueItems": true },
+        "resolved": { "type": "array", "items": { "$ref": "#/$defs/hash" }, "uniqueItems": true },
+        "stateChanged": { "type": "array", "items": { "$ref": "#/$defs/hash" }, "uniqueItems": true }
+      }
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "grade", "activeFindings", "bySeverity", "byState", "highestSeverity", "partialReason"],
+      "properties": {
+        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "grade": { "$ref": "#/$defs/nullableString" },
+        "activeFindings": { "type": "integer", "minimum": 0 },
+        "bySeverity": { "$ref": "#/$defs/countMap" },
+        "byState": { "$ref": "#/$defs/countMap" },
+        "highestSeverity": { "$ref": "#/$defs/nullableString" },
+        "partialReason": { "$ref": "#/$defs/nullableString" }
+      }
+    }
+  }
+}

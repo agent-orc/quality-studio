@@ -601,7 +601,7 @@ public static class QualityReportRenderer
             foreach (var sensor in scorecard.Sensors)
                 text.AppendLine($"- {EscapeMarkdown(sensor.Id)} {EscapeMarkdown(sensor.Version)}: {(sensor.Enabled ? SensorStatus(sensor) : "disabled")}");
             text.AppendLine();
-            text.AppendLine("### Trend");
+            text.AppendLine("### Commit trend");
             text.AppendLine();
             foreach (var series in repository.Trend)
             {

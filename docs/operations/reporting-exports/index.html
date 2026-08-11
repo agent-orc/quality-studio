@@ -143,7 +143,7 @@
   <p class="lede">Decision dossier for a run-scoped report contract, self-contained HTML,
   SARIF for CI, a bounded Markdown summary for 0-PR pipelines, and comparable trends across runs.</p>
   <div class="meta">
-    <span><b>Status:</b> decision pending</span>
+    <span><b>Status:</b> decided</span>
     <span><b>Evidence date:</b> 11 August 2026</span>
     <span><b>Repository:</b> Quality Studio at <code>3e0b6559faa7</code></span>
     <span><b>Source task:</b> QS-64</span>
@@ -163,6 +163,7 @@
     <li><a href="#zero-pr">§8 0-PR pipeline pattern</a></li>
     <li><a href="#slices">§9 Implementation slices</a></li>
     <li><a href="#approval">§10 Approval packet</a></li>
+    <li><a href="#implementation">§11 Implementation</a></li>
   </ul>
 </nav>
 
@@ -700,6 +701,41 @@ in the app, and R4 adds run comparison. Each slice has a bounded proof and no ta
   <p>This wave does not redesign the current repository scorecard, change finding lifecycle semantics, auto-commit
   generated reports, add cloud hosting, send data to a forge, infer model effectiveness, or introduce a report
   database. Those choices are not required to stop reviews from dying in the app.</p>
+</div>
+
+<h2 id="implementation"><span class="no">§11</span>Implementation</h2>
+<p class="dim">Append-only delivery record. The recommendation and approval packet above remain the source decision.</p>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R1 — Canonical run outcome capture</h4>
+  <p>Added the strict <code>quality-run-report.v1</code> schema and shared model, atomic repository-owned store
+  under <code>.quality/reports/runs/</code>, immutable produced and fresh-reused observation capture, explicit
+  partial unit outcomes, subject and sidecar digests, lifecycle state, deterministic evidence provenance,
+  terminal snapshot replacement, crash-safe temporary-file handling, and cap/resume revision increments.</p>
+</div>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R2 — Shared renderers, API, CLI, and 0-PR gates</h4>
+  <p>Added canonical JSON, bounded Markdown, escaped offline HTML with restrictive CSP, and run-scoped SARIF
+  projections; repository-scoped and unscoped report routes; <code>quality report --run</code>; stable 0/1/2
+  exit behavior with artifact-before-gate evaluation; stable SARIF categories, sweep provenance, both fingerprint
+  keys, suppressions, and comprehensive-baseline-only state.</p>
+</div>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R3 — Run detail and export actions</h4>
+  <p>Extended the existing quiet run-history drawer with an accessible detail surface for complete and partial
+  runs, summary, active findings, unit outcomes, usage and provenance, plus text actions for HTML, Markdown,
+  SARIF, and JSON using stable filenames and media types. The selected-file review surface remains intact and
+  all new layout uses the shared token scale and workbench primitives.</p>
+</div>
+
+<div class="box ok">
+  <h4>11 August 2026 · QS-73 · R4 — Comparable run trends</h4>
+  <p>Added a paged same-repository, kind, scope-unit, and level projection over canonical snapshots; highest
+  revision selection; fingerprint-based new, persisting, resolved, and state-changed deltas; connectable complete
+  scores and quiet partial event markers; backend and frontend paging; and explicit “Commit trend” versus
+  “Run trend” labels.</p>
 </div>
 
 <p class="dim">Method note: documentation-only dossier. The reference CSS declarations were copied from

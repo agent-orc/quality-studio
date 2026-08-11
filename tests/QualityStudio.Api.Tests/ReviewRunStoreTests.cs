@@ -50,9 +50,21 @@ public sealed class ReviewRunStoreTests
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
             Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
             Assert.Equal(1, fake.OperationCount);
+            var runId = accepted.GetProperty("id").GetString()!;
+            using (var cappedReportResponse = await client.GetAsync(
+                       $"/api/review/runs/{runId}/report", cancellationToken))
+            {
+                cappedReportResponse.EnsureSuccessStatusCode();
+                Assert.Equal("application/json", cappedReportResponse.Content.Headers.ContentType?.MediaType);
+                var cappedReport = await cappedReportResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+                Assert.Equal(1, cappedReport.GetProperty("revision").GetInt32());
+                Assert.Equal("capped", cappedReport.GetProperty("run").GetProperty("state").GetString());
+                Assert.Equal("partial", cappedReport.GetProperty("run").GetProperty("completeness").GetString());
+                Assert.DoesNotContain(fixture.RepositoryRoot, cappedReport.GetRawText(), StringComparison.Ordinal);
+            }
 
             using var resume = await client.PostAsJsonAsync(
-                $"/api/review/runs/{accepted.GetProperty("id").GetString()}/resume",
+                $"/api/review/runs/{runId}/resume",
                 new { tokenCap = 100 }, cancellationToken);
             resume.EnsureSuccessStatusCode();
             var completed = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
@@ -72,6 +84,14 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+            var finalReport = QualityRunReportStore.Load(fixture.RepositoryRoot, runId);
+            Assert.Equal(2, finalReport.Revision);
+            Assert.Equal("done", finalReport.Run.State);
+            using var trendResponse = await client.GetAsync(
+                $"/api/review/runs/{runId}/trend?page=1&pageSize=30", cancellationToken);
+            trendResponse.EnsureSuccessStatusCode();
+            var trend = await trendResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal(1, trend.GetProperty("total").GetInt32());
         }
         finally
         {
@@ -109,6 +129,16 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("skipped-fresh", fresh.GetProperty("aggregateState").GetString());
             Assert.Equal(0, fresh.GetProperty("usageOperations").GetInt32());
             Assert.Equal(0, fake.AgentCalls);
+            var freshReport = QualityRunReportStore.Load(
+                fixture.RepositoryRoot, freshAccepted.GetProperty("id").GetString()!);
+            Assert.Equal("complete", freshReport.Run.Completeness);
+            Assert.Equal(0, freshReport.Execution.Reviewed);
+            Assert.Equal(3, freshReport.Execution.ReusedFresh);
+            Assert.All(freshReport.Observations, observation =>
+            {
+                Assert.Equal("reused-fresh", observation.Outcome);
+                Assert.False(observation.ProducedByRun);
+            });
 
             using var forcedResponse = await client.PostAsJsonAsync("/api/review", new
             {
@@ -571,7 +601,31 @@ public sealed class ReviewRunStoreTests
                 CancellationToken cancellationToken)
             {
                 if (force) Interlocked.Increment(ref owner.agentCalls);
-                return Task.FromResult(new ReviewExecutionResult(!force, null));
+                return Task.FromResult(new ReviewExecutionResult(!force, null, Observation(request)));
+            }
+
+            private static ReviewObservationSnapshot Observation(ReviewRequest request)
+            {
+                var hash = "sha256:" + new string('a', 64);
+                var document = new ReviewMetaDocument
+                {
+                    Unit = new ReviewUnit(request.UnitId ?? "unit", ReviewAdapter.Generic, request.Level,
+                        request.FilePath, request.DisplayName ?? request.FilePath),
+                    ReviewedAt = DateTimeOffset.UtcNow,
+                    Kind = Enum.Parse<ReviewKind>(request.Kind, ignoreCase: true),
+                    Reviewer = new ReviewerIdentity("freshness-fixture", "fixture-model", RunId: "provider-run"),
+                    ReviewedHash = ManifestHash.Subject(hash),
+                    SubjectInputs = [],
+                    ReviewInputs = new ReviewInputs(ManifestHash.ReviewInput(hash), true, [], [],
+                        new PromptReference("fixture", "1", hash)),
+                    Grade = new ReviewGrade(91, GradeBand.A, "Fresh fixture."),
+                    Summary = "Fresh fixture.",
+                    Aspects = [],
+                    Findings = [],
+                };
+                return new ReviewObservationSnapshot(
+                    ".quality/reviews/fixture.review-meta.code.json", hash, document,
+                    new Dictionary<string, string>(StringComparer.Ordinal));
             }
         }
     }

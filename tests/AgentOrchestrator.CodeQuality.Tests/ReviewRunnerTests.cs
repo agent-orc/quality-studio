@@ -561,6 +561,11 @@ public sealed class ReviewRunnerTests
 
             Assert.False(changed.SkippedFresh);
             Assert.True(unchanged.SkippedFresh);
+            Assert.NotNull(changed.Observation);
+            Assert.NotNull(unchanged.Observation);
+            Assert.False(changed.Observation!.SidecarPath.StartsWith(root, StringComparison.Ordinal));
+            Assert.Equal(changed.Observation.SidecarSha256, unchanged.Observation!.SidecarSha256);
+            Assert.Equal("src/Small.cs", unchanged.Observation.Document.Unit.Path);
             Assert.Equal(1, secondAgent.RunCount);
         });
     }
