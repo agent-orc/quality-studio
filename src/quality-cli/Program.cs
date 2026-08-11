@@ -487,10 +487,10 @@ public static class QualityCli
         var options = globs.Count == 0
             ? new StalenessEvaluatorOptions { ReviewKind = kind }
             : new StalenessEvaluatorOptions
-        {
-            ReviewKind = kind,
-            IncludeGlobs = globs,
-        };
+            {
+                ReviewKind = kind,
+                IncludeGlobs = globs,
+            };
         return (path, options);
     }
 

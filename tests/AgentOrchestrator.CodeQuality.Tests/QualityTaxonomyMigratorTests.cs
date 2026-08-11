@@ -62,6 +62,83 @@ public sealed class QualityTaxonomyMigratorTests
     }
 
     [Fact]
+    public async Task ResolvedFindingStateImportsAsHonestLegacySnapshotWithoutInventedObservationBasis()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-resolved-lifecycle-migration-").FullName;
+        try
+        {
+            var path = Path.Combine(root, ".quality", "findings", "state.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var fingerprint = "sha256:" + new string('a', 64);
+            await File.WriteAllTextAsync(path, $$"""
+                {
+                  "schemaVersion": 1,
+                  "revision": 1,
+                  "findings": [{
+                    "fingerprint": "{{fingerprint}}",
+                    "findingId": "finding-resolved",
+                    "path": "src/App.cs",
+                    "ruleId": "legacy-rule",
+                    "state": "resolved",
+                    "author": "legacy-review",
+                    "reason": "Absent in the historical current projection.",
+                    "timestamp": "2026-08-10T08:00:00Z"
+                  }]
+                }
+                """, TestContext.Current.CancellationToken);
+
+            var report = await QualityTaxonomyMigrator.MigrateAsync(
+                root, apply: true, TestContext.Current.CancellationToken);
+
+            Assert.Equal(1, report.Imported);
+            var lifecycleEvent = Assert.Single(await IssueLifecycleStore.ReadAsync(
+                root, TestContext.Current.CancellationToken));
+            Assert.Equal("resolved", lifecycleEvent.State);
+            Assert.Equal("imported", lifecycleEvent.ProducerKind);
+            Assert.Equal(FindingStateStore.RelativePath, lifecycleEvent.LegacySource);
+            Assert.Null(lifecycleEvent.BasisObservationIds);
+            Assert.Null(lifecycleEvent.PolicyRef);
+
+            var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
+                RepositoryTestContext.FindRepositoryRoot(), "schemas", "issue-lifecycle-event.v1.schema.json")),
+                new BuildOptions { SchemaRegistry = new SchemaRegistry() });
+            using var json = JsonDocument.Parse(Assert.Single(await File.ReadAllLinesAsync(
+                IssueLifecycleStore.GetPath(root), TestContext.Current.CancellationToken)));
+            var validation = schema.Evaluate(
+                json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+            Assert.True(validation.IsValid, validation.ToString());
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task TaxonomyCliDryRunWritesOnlyTheRequestedMachineReadableReport()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-taxonomy-cli-").FullName;
+        var reportPath = Path.Combine(Path.GetTempPath(), $"quality-taxonomy-report-{Guid.NewGuid():N}.json");
+        try
+        {
+            var exitCode = await global::QualityCli.RunAsync(
+                ["taxonomy", "migrate", root, "--dry-run", "--report", reportPath]);
+
+            Assert.Equal(0, exitCode);
+            Assert.False(Directory.Exists(Path.Combine(root, ".quality")));
+            using var report = JsonDocument.Parse(await File.ReadAllTextAsync(
+                reportPath, TestContext.Current.CancellationToken));
+            Assert.Equal("dry-run", report.RootElement.GetProperty("mode").GetString());
+            Assert.Equal(0, report.RootElement.GetProperty("errors").GetInt32());
+        }
+        finally
+        {
+            if (File.Exists(reportPath)) File.Delete(reportPath);
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void ReviewMetaAdapterUsesProvenSourceAndNeverDefaultsMissingSourceToAgent()
     {
         var metadata = JsonNode.Parse("""

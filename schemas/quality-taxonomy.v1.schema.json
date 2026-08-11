@@ -8,7 +8,7 @@
   "properties": {
     "$schema": { "const": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json" },
     "schemaVersion": { "const": 1 },
-    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*(?:/[a-z0-9][a-z0-9.-]*)*$" },
+    "id": { "type": "string", "pattern": "^(?:quality-studio/core|[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+(?:/[a-z][a-z0-9.-]*)*)$" },
     "version": { "$ref": "#/$defs/semver" },
     "prefix": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" },
     "axes": {
@@ -60,7 +60,7 @@
       "additionalProperties": false,
       "required": ["id", "title", "description", "order", "allowedAxes"],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$" },
+        "id": { "type": "string", "pattern": "^(?:[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+|[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+:[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+)$" },
         "title": { "type": "string", "minLength": 1 },
         "description": { "type": "string", "minLength": 1 },
         "order": { "type": "integer", "minimum": 0 },
