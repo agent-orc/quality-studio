@@ -35,7 +35,10 @@ public sealed record ReviewPreflightResponse(
     long? TokenCap,
     decimal? CostCap,
     ReviewModelRecommendation Recommendation,
-    bool OverrideBelowFloor);
+    bool OverrideBelowFloor,
+    string? PreflightResultHash = null,
+    int PreflightChecks = 0,
+    int PreflightUnavailableChecks = 0);
 
 public sealed record ReviewEstimateDeviation(
     decimal InputTokensPercent,
@@ -76,7 +79,13 @@ public sealed record ReviewRunResponse(
     string? StopReason,
     ReviewEstimateDeviation? Deviation,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    string PreflightState = "queued",
+    int PreflightChecks = 0,
+    int PreflightUnavailableChecks = 0,
+    string? PreflightResultHash = null,
+    long? PreflightDurationMs = null,
+    int BlockedFiles = 0);
 
 public interface IReviewExecutor
 {
@@ -117,6 +126,7 @@ public sealed class ReviewJobsOptions
     public const string SectionName = "ReviewJobs";
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
+    public bool UseSnapshotPreflight { get; set; } = true;
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -159,7 +169,7 @@ public sealed class ReviewJobService : BackgroundService
     {
         var stopwatch = Stopwatch.StartNew();
         var plan = PreparePlan(repositoryId, request);
-        var (registration, access, node, files) = plan;
+        var (registration, _, node, files) = plan;
         var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
         var cliType = selection.CliType;
         var model = selection.Model;
@@ -169,18 +179,15 @@ public sealed class ReviewJobService : BackgroundService
             throw new ArgumentException(
                 $"The explicit route is below the {recommendation.CorrectnessFloor} correctness floor. Confirm the below-floor override before starting.");
         var (tokenCap, costCap) = ResolveCap(registration, request.TokenCap, request.CostCap);
-        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
+        var runId = "review-" + Guid.NewGuid().ToString("N");
+        var targets = await PrepareTargetsAsync(plan, cancellationToken).ConfigureAwait(false);
+        var preflight = options.UseSnapshotPreflight
+            ? await CollectPreflightAsync(runId, registration, targets, cancellationToken).ConfigureAwait(false)
+            : null;
+        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, preflight, cancellationToken)
+            .ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
-
-        var runId = "review-" + Guid.NewGuid().ToString("N");
-        var targets = new List<ReviewRunPlanTarget>(files.Length);
-        foreach (var file in files)
-        {
-            var subjectHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
-                access.ResolveFile(file.Path), cancellationToken).ConfigureAwait(false);
-            targets.Add(new ReviewRunPlanTarget(file.Id, file.Name, file.Path, subjectHash));
-        }
 
         var manifest = new ReviewRunManifest(
             runId,
@@ -204,8 +211,9 @@ public sealed class ReviewJobService : BackgroundService
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
              !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
         var store = new ReviewRunStore(registration.RootPath);
-        var item = ReviewWorkItem.Create(manifest, registration, store);
+        var item = ReviewWorkItem.Create(manifest, registration, store, preflight);
         store.Create(manifest, item.DurableStatus());
+        if (preflight is not null) store.WritePreflight(preflight);
         runs[item.Id] = item;
         if (!queue.Writer.TryWrite(item))
         {
@@ -214,7 +222,7 @@ public sealed class ReviewJobService : BackgroundService
         }
         logger.LogInformation(new EventId(1500, "ReviewQueued"),
             "Queued review {ReviewRunId} for {RepositoryId}:{ReviewPath} ({ReviewLevel}, {ReviewKind}, {FileCount} files) via {ReviewCli}/{ReviewModel}/{ReviewThinkingLevel} in {ElapsedMilliseconds} ms",
-            item.Id, registration.Id, node.Path, node.Level, item.Kind, files.Length, item.CliType,
+            item.Id, registration.Id, node.Path, node.Level, item.Kind, targets.Length, item.CliType,
             item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default", stopwatch.ElapsedMilliseconds);
         return item.Snapshot();
     }
@@ -229,12 +237,20 @@ public sealed class ReviewJobService : BackgroundService
         var recommendation = modelCatalog.Recommend(request.Kind, plan.Node.Level, plan.Files.Length);
         var belowFloor = modelCatalog.IsBelowCorrectnessFloor(selection, recommendation);
         var (tokenCap, costCap) = ResolveCap(plan.Registration, request.TokenCap, request.CostCap);
-        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
+        var targets = await PrepareTargetsAsync(plan, cancellationToken).ConfigureAwait(false);
+        var preflight = options.UseSnapshotPreflight
+            ? await CollectPreflightAsync("estimate-" + Guid.NewGuid().ToString("N"), plan.Registration, targets, cancellationToken)
+                .ConfigureAwait(false)
+            : null;
+        var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, preflight, cancellationToken)
+            .ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
         return new ReviewPreflightResponse(plan.Registration.Id, plan.Node.Path,
             plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, selection.ThinkingLevel,
-            cliType, estimate, tokenCap, costCap, recommendation, belowFloor);
+            cliType, estimate, tokenCap, costCap, recommendation, belowFloor,
+            preflight?.ResultHash, preflight?.Results.Count ?? 0,
+            preflight?.Results.Count(result => result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed) ?? 0);
     }
 
     private PreparedPlan PreparePlan(string repositoryId, StartReviewRequest request)
@@ -260,21 +276,27 @@ public sealed class ReviewJobService : BackgroundService
     }
 
     private async Task<ReviewRunEstimate> EstimateAsync(
-        PreparedPlan plan, string kind, string cliType, string? model, bool force, CancellationToken cancellationToken)
+        PreparedPlan plan,
+        string kind,
+        string cliType,
+        string? model,
+        bool force,
+        PreflightSnapshot? preflight,
+        CancellationToken cancellationToken)
     {
-        var promptRunner = new ReviewRunner();
+        var promptRunner = new ReviewRunner(sensorRegistry: sensorRegistry);
         var measurements = new List<ReviewPromptMeasurement>(plan.Files.Length + 1);
         foreach (var file in plan.Files)
         {
             measurements.Add(await promptRunner.MeasurePromptAsync(
-                CreateEstimateRequest(plan, file, ReviewLevel.File, [file.Path], kind), cancellationToken)
+                CreateEstimateRequest(plan, file, ReviewLevel.File, [file.Path], kind, preflight), cancellationToken)
                 .ConfigureAwait(false));
         }
         if (plan.Node.Level != ReviewLevel.File)
         {
             measurements.Add(await promptRunner.MeasurePromptAsync(
                 CreateEstimateRequest(plan, plan.Node, plan.Node.Level,
-                    plan.Files.Select(file => file.Path).ToArray(), kind), cancellationToken).ConfigureAwait(false));
+                    plan.Files.Select(file => file.Path).ToArray(), kind, preflight), cancellationToken).ConfigureAwait(false));
         }
 
         var history = await UsageLedger.QueryAsync(plan.Registration.RootPath, kind: kind, recentLimit: 200,
@@ -311,8 +333,13 @@ public sealed class ReviewJobService : BackgroundService
         );
     }
 
-    private static ReviewRequest CreateEstimateRequest(
-        PreparedPlan plan, HierarchyNode node, ReviewLevel level, IReadOnlyList<string> files, string kind) =>
+    private ReviewRequest CreateEstimateRequest(
+        PreparedPlan plan,
+        HierarchyNode node,
+        ReviewLevel level,
+        IReadOnlyList<string> files,
+        string kind,
+        PreflightSnapshot? preflight) =>
         new(node.Path, kind, level,
             RepositoryRoot: plan.Registration.RootPath,
             GlobalInputsDirectory: plan.Registration.GlobalInputsDirectory,
@@ -324,7 +351,54 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : plan.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: AggregateControls(plan.Node),
-            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions);
+            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions,
+            Sensors: kind == "security" ? SecurityConfigurations(plan.Registration) : null,
+            PreflightEvidence: preflight?.Results);
+
+    private static async Task<ReviewRunPlanTarget[]> PrepareTargetsAsync(
+        PreparedPlan plan,
+        CancellationToken cancellationToken)
+    {
+        var targets = new List<ReviewRunPlanTarget>(plan.Files.Length);
+        foreach (var file in plan.Files)
+        {
+            var subjectHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
+                plan.Access.ResolveFile(file.Path), cancellationToken).ConfigureAwait(false);
+            targets.Add(new ReviewRunPlanTarget(file.Id, file.Name, file.Path, subjectHash));
+        }
+        return targets.ToArray();
+    }
+
+    private async Task<PreflightSnapshot> CollectPreflightAsync(
+        string runId,
+        RepositoryRegistration registration,
+        IReadOnlyList<ReviewRunPlanTarget> targets,
+        CancellationToken cancellationToken)
+    {
+        var subject = PreflightSubject.Create(targets.Select(target =>
+            KeyValuePair.Create(target.Path, target.SubjectHash)));
+        return await new PreflightCollector(sensorRegistry).CollectAsync(
+            runId,
+            registration.RootPath,
+            subject,
+            EnabledConfigurations(registration),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<ReviewSensorConfiguration> EnabledConfigurations(
+        RepositoryRegistration registration) => (registration.Sensors ?? [])
+        .Where(sensor => sensor.Enabled)
+        .Select(sensor => new ReviewSensorConfiguration(
+            sensor.Id,
+            sensor.Configuration,
+            sensor.Required,
+            sensor.CommandId))
+        .ToArray();
+
+    private IReadOnlyList<ReviewSensorConfiguration> SecurityConfigurations(
+        RepositoryRegistration registration) => EnabledConfigurations(registration)
+        .Where(configuration => sensorRegistry.Get(configuration.Id) is ISecurityEvidenceSensor)
+        .ToArray();
 
     private static (long? TokenCap, decimal? CostCap) ResolveCap(
         RepositoryRegistration registration, long? requestedTokens, decimal? requestedCost)
@@ -351,6 +425,10 @@ public sealed class ReviewJobService : BackgroundService
         .OrderByDescending(run => run.CreatedAt).Take(Math.Max(1, options.RecentRunLimit)).Select(run => run.Snapshot()).ToArray();
 
     public ReviewRunResponse Get(string repositoryId, string id) => Find(repositoryId, id).Snapshot();
+
+    public PreflightSnapshot GetPreflight(string repositoryId, string id) =>
+        Find(repositoryId, id).Preflight
+        ?? throw new KeyNotFoundException($"Review run '{id}' has no preflight snapshot.");
 
     public ReviewRunResponse Cancel(string repositoryId, string id)
     {
@@ -453,15 +531,24 @@ public sealed class ReviewJobService : BackgroundService
             item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
         try
         {
-            item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
-                .CollectAsync(
-                    item.Repository.RootPath,
-                    (item.Repository.Sensors ?? [])
-                        .Where(sensor => sensor.Enabled)
-                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
-                        .ToArray(),
-                    linked.Token)
-                .ConfigureAwait(false);
+            if (options.UseSnapshotPreflight)
+            {
+                var preflight = await EnsurePreflightCurrentAsync(item, linked.Token).ConfigureAwait(false);
+                if (BlocksModel(preflight, item.Kind))
+                {
+                    item.BlockPreflight(BlockingReason(preflight, item.Kind));
+                    return;
+                }
+            }
+            else
+            {
+                item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
+                    .CollectAsync(
+                        item.Repository.RootPath,
+                        EnabledConfigurations(item.Repository),
+                        linked.Token)
+                    .ConfigureAwait(false);
+            }
             if (item.HasCap)
             {
                 foreach (var file in item.PendingFiles())
@@ -488,6 +575,15 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     if (item.StartAggregate())
                     {
+                        if (options.UseSnapshotPreflight)
+                        {
+                            var preflight = await EnsurePreflightCurrentAsync(item, linked.Token).ConfigureAwait(false);
+                            if (BlocksModel(preflight, item.Kind))
+                            {
+                                item.BlockPreflight(BlockingReason(preflight, item.Kind));
+                                return;
+                            }
+                        }
                         var execution = await CreateRunner(item).ReviewIfNeededAsync(
                             CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
                             item.Force,
@@ -524,6 +620,15 @@ public sealed class ReviewJobService : BackgroundService
     private async ValueTask RunFileAsync(
         ReviewWorkItem item, HierarchyNode file, CancellationToken cancellationToken)
     {
+        if (options.UseSnapshotPreflight)
+        {
+            var preflight = await EnsurePreflightCurrentAsync(item, cancellationToken).ConfigureAwait(false);
+            if (BlocksModel(preflight, item.Kind))
+            {
+                item.BlockPreflight(BlockingReason(preflight, item.Kind));
+                return;
+            }
+        }
         if (!item.StartFile(file.Path))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -548,6 +653,77 @@ public sealed class ReviewJobService : BackgroundService
             logger.LogError(new EventId(1504, "ReviewFileFailed"), exception,
                 "File {ReviewFilePath} failed in review {ReviewRunId}", file.Path, item.Id);
         }
+    }
+
+    private async Task<PreflightSnapshot> EnsurePreflightCurrentAsync(
+        ReviewWorkItem item,
+        CancellationToken cancellationToken)
+    {
+        await item.PreflightLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var access = new RepositoryAccess(item.Repository.RootPath);
+            var hashes = new List<KeyValuePair<string, string>>(item.Files.Count);
+            foreach (var file in item.Files)
+            {
+                var hash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
+                    access.ResolveFile(file.Path), cancellationToken).ConfigureAwait(false);
+                hashes.Add(KeyValuePair.Create(file.Path, hash));
+            }
+            var subject = PreflightSubject.Create(hashes);
+            var configurations = EnabledConfigurations(item.Repository);
+            var configurationHash = new PreflightCollector(sensorRegistry).ConfigurationSetHash(configurations);
+            var existing = item.Preflight;
+            if (existing is not null &&
+                string.Equals(existing.Subject.ManifestHash, subject.ManifestHash, StringComparison.Ordinal) &&
+                string.Equals(existing.ConfigurationHash, configurationHash, StringComparison.Ordinal))
+            {
+                return existing;
+            }
+
+            item.StartPreflight();
+            try
+            {
+                var snapshot = await new PreflightCollector(sensorRegistry).CollectAsync(
+                    item.Id,
+                    item.Repository.RootPath,
+                    subject,
+                    configurations,
+                    cancellationToken).ConfigureAwait(false);
+                item.FinishPreflight(snapshot);
+                return snapshot;
+            }
+            catch
+            {
+                item.FailPreflight();
+                throw;
+            }
+        }
+        finally
+        {
+            item.PreflightLock.Release();
+        }
+    }
+
+    private bool BlocksModel(PreflightSnapshot preflight, string kind) => preflight.Results.Any(result =>
+        result.Check.Required && IsRelevantToKind(result.Check.Id, kind) &&
+        result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed or PreflightStatus.Blocked);
+
+    private string BlockingReason(PreflightSnapshot preflight, string kind)
+    {
+        var checks = preflight.Results
+            .Where(result => result.Check.Required &&
+                IsRelevantToKind(result.Check.Id, kind) &&
+                result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed or PreflightStatus.Blocked)
+            .Select(result => result.Check.Id)
+            .Order(StringComparer.Ordinal);
+        return $"Required preflight check(s) blocked model execution: {string.Join(", ", checks)}.";
+    }
+
+    private bool IsRelevantToKind(string sensorId, string kind)
+    {
+        var sensor = sensorRegistry.Get(sensorId);
+        return sensor is not ISecurityEvidenceSensor || string.Equals(kind, "security", StringComparison.Ordinal);
     }
 
     private ReviewWorkItem Find(string repositoryId, string id)
@@ -589,13 +765,10 @@ public sealed class ReviewJobService : BackgroundService
             AggregateExclusions: item.AggregateExclusions,
             ReviewRunId: item.Id,
             Sensors: item.Kind == "security"
-                ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
-                    .Where(sensor => sensor.Enabled &&
-                                     sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
-                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
-                    .ToArray()
+                ? SecurityConfigurations(item.Repository)
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: options.UseSnapshotPreflight ? null : item.DeterministicEvidence,
+            PreflightEvidence: options.UseSnapshotPreflight ? item.Preflight?.Results : null);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -625,6 +798,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly Dictionary<string, ReviewObservationSnapshot> observations;
         private readonly QualityRunReportStore reportStore;
         private readonly List<string> errors;
+        private readonly SemaphoreSlim preflightLock = new(1, 1);
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
         private int usageOperations;
@@ -639,6 +813,9 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private string preflightState;
+        private long? preflightDurationMs;
+        private PreflightSnapshot? preflight;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -646,7 +823,8 @@ public sealed class ReviewJobService : BackgroundService
             ReviewRunStore store,
             ReviewRunStatus? status,
             IReadOnlyList<ReviewRunFileTransition>? transitions,
-            IReadOnlyDictionary<string, ReviewObservationSnapshot>? storedObservations)
+            IReadOnlyDictionary<string, ReviewObservationSnapshot>? storedObservations,
+            PreflightSnapshot? preflight)
         {
             this.manifest = manifest;
             this.store = store;
@@ -679,12 +857,19 @@ public sealed class ReviewJobService : BackgroundService
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
             stopReason = status?.StopReason;
+            Preflight = preflight;
+            preflightState = status?.PreflightState ?? (preflight is null
+                ? "queued"
+                : preflight.Results.Any(result => result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed)
+                    ? "unavailable"
+                    : "done");
+            preflightDurationMs = status?.PreflightDurationMs ?? preflight?.Results.Sum(result => result.DurationMs);
             if (transitions is not null)
             {
                 foreach (var transition in transitions)
                 {
                     if (!progress.TryGetValue(transition.Path, out var file) ||
-                        transition.State is not ("queued" or "running" or "done" or "failed" or "cancelled" or "skipped" or "skipped-fresh")) continue;
+                        transition.State is not ("queued" or "running" or "done" or "failed" or "cancelled" or "skipped" or "skipped-fresh" or "blocked-preflight")) continue;
                     file.State = transition.State;
                     file.StartedAt = transition.StartedAt;
                     file.FinishedAt = transition.FinishedAt;
@@ -701,13 +886,15 @@ public sealed class ReviewJobService : BackgroundService
         public static ReviewWorkItem Create(
             ReviewRunManifest manifest,
             RepositoryRegistration repository,
-            ReviewRunStore store) => new(manifest, repository, store, null, null, null);
+            ReviewRunStore store,
+            PreflightSnapshot? preflight = null) => new(manifest, repository, store, null, null, null, preflight);
 
         public static ReviewWorkItem Restore(
             StoredReviewRun stored,
             RepositoryRegistration repository,
             ReviewRunStore store) => new(stored.Manifest, repository, store, stored.Status, stored.Progress,
-                stored.Observations);
+                stored.Observations,
+                ReviewRunStore.IsTerminal(stored.Status.State) ? stored.Preflight : null);
 
         public string Id => manifest.RunId;
         public RepositoryRegistration Repository { get; }
@@ -727,6 +914,8 @@ public sealed class ReviewJobService : BackgroundService
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+        public SemaphoreSlim PreflightLock => preflightLock;
+        public PreflightSnapshot? Preflight { get { lock (gate) return preflight; } private set => preflight = value; }
 
         public void PrepareForRecovery()
         {
@@ -736,7 +925,62 @@ public sealed class ReviewJobService : BackgroundService
                 foreach (var file in progress.Values.Where(file => file.State == "running")) RequeueFileCore(file);
                 if (aggregateState == "running") aggregateState = "queued";
                 state = state == "paused" ? "paused" : "queued";
+                if (Preflight is null) preflightState = "queued";
                 FinishedAt = null;
+                PersistStatus();
+            }
+        }
+
+        public void StartPreflight()
+        {
+            lock (gate)
+            {
+                preflightState = "running";
+                PersistStatus();
+            }
+        }
+
+        public void FinishPreflight(PreflightSnapshot snapshot)
+        {
+            lock (gate)
+            {
+                Preflight = snapshot;
+                preflightState = snapshot.Results.Any(result =>
+                    result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed)
+                    ? "unavailable"
+                    : "done";
+                preflightDurationMs = snapshot.Results.Sum(result => result.DurationMs);
+                store.WritePreflight(snapshot);
+                PersistStatus();
+            }
+        }
+
+        public void FailPreflight()
+        {
+            lock (gate)
+            {
+                preflightState = "failed";
+                PersistStatus();
+            }
+        }
+
+        public void BlockPreflight(string reason)
+        {
+            lock (gate)
+            {
+                if (ReviewRunStore.IsTerminal(state)) return;
+                state = "blocked-preflight";
+                preflightState = "blocked";
+                stopReason = reason;
+                FinishedAt = DateTimeOffset.UtcNow;
+                foreach (var file in progress.Values.Where(file => file.State is "queued" or "running"))
+                {
+                    file.State = "blocked-preflight";
+                    file.FinishedAt = FinishedAt;
+                    file.Error = reason;
+                    AppendProgress(file);
+                }
+                if (aggregateState is "queued" or "running") aggregateState = "blocked-preflight";
                 PersistStatus();
             }
         }
@@ -1044,7 +1288,13 @@ public sealed class ReviewJobService : BackgroundService
                     CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage,
                     manifest.Estimate, tokenCap, costCap, costSpent, currency, priceStatus,
                     files.Count(file => file.State is "skipped" or "skipped-fresh"),
-                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride);
+                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride,
+                    preflightState,
+                    preflight?.Results.Count ?? 0,
+                    preflight?.Results.Count(result => result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed) ?? 0,
+                    preflight?.ResultHash,
+                    preflightDurationMs,
+                    files.Count(file => file.State == "blocked-preflight"));
             }
         }
 
@@ -1125,7 +1375,13 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason,
+                preflightState,
+                preflight?.Results.Count ?? 0,
+                preflight?.Results.Count(result => result.Status is PreflightStatus.Unavailable or PreflightStatus.Failed) ?? 0,
+                preflight?.ResultHash,
+                preflightDurationMs,
+                ordered.Count(file => file.State == "blocked-preflight"));
         }
 
         private static bool IsCompletedFileState(string fileState) =>
