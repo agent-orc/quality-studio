@@ -122,4 +122,9 @@ public static partial class FindingIdentity
     private static partial Regex Whitespace();
 }
 
-public sealed record FindingIdentityRecord(string Fingerprint, string Id, string Path, string RuleId);
+public sealed record FindingIdentityRecord(
+    string Fingerprint,
+    string Id,
+    string Path,
+    string RuleId,
+    string ProducerKind = "agent");
