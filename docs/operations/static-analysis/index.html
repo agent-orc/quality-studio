@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deterministic Analysis Before Model Review | Decision Dossier</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+<style>
+  a { color: var(--develop); text-underline-offset: 3px; }
+  pre { margin: 14px 0; padding: 16px 18px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--ink-1); font: 13px/1.55 ui-monospace, Consolas, monospace; }
+  pre code { padding: 0; background: transparent; font: inherit; }
+  .decision-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+  .decision-grid .box { margin: 0; }
+  .decision-grid strong { display: block; margin-bottom: 4px; }
+  .decision-grid p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .pipeline { display: grid; grid-template-columns: 1fr auto 1.25fr auto 1fr auto 1fr; gap: 10px; align-items: stretch; margin: 22px 0; }
+  .pipeline .stage { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 14px; }
+  .pipeline .stage b { display: block; margin-bottom: 5px; font-size: 14px; }
+  .pipeline .stage small { color: var(--ink-2); }
+  .pipeline .arrow { align-self: center; color: var(--ink-3); font-size: 22px; }
+  .contract td:first-child { width: 18%; }
+  .contract td:nth-child(2) { width: 25%; }
+  .slice { margin: 14px 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  .slice header { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .slice h3 { margin: 0; font-size: 17px; }
+  .slice p { margin: 8px 0; }
+  .slice ul { margin-bottom: 0; }
+  .source-list { font-size: 14px; }
+  .nowrap { white-space: nowrap; }
+  footer { margin-top: 54px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 13px; }
+  @media (max-width: 900px) {
+    .pipeline { grid-template-columns: 1fr; }
+    .pipeline .arrow { transform: rotate(90deg); justify-self: center; }
+  }
+  @media (max-width: 760px) {
+    main { padding: 0 18px; }
+    .decision-grid { grid-template-columns: 1fr; }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <p class="kicker">Decision dossier · QS-63 · Source snapshot 3e0b6559faa7</p>
+    <h1>Put deterministic facts before model judgement</h1>
+    <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
+    <div class="meta">
+      <span><b>Status</b> Decision pending</span>
+      <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
+      <span><b>Evidence cut</b> 11 August 2026</span>
+      <span><b>Source card</b> QS-63</span>
+    </div>
+  </header>
+
+  <section class="box accent" aria-labelledby="approval-title">
+    <h4 id="approval-title">Approval requested</h4>
+    <p><b>Approve a selective, snapshot-bound preflight in the API/backend before every review sweep.</b> Run configured checks once, persist their facts separately, skip only the model operation whose subject is invalid, and send compact context only when judgement is still useful. Keep the selected model and thinking-level correctness floor unchanged. Add Node CI coverage, changed-line style baselines, explicit complexity thresholds, and matched token measurements.</p>
+  </section>
+
+  <div class="decision-grid" aria-label="Decision summary">
+    <div class="box"><strong>Stand alone</strong><p>Compiler, linter, vulnerability, secret, budget, complexity-threshold, and style findings retain machine provenance and gate state.</p></div>
+    <div class="box"><strong>Enter prompts selectively</strong><p>Only compact rule, severity, location, and disposition facts needed for deduplication, prioritization, or posture judgement.</p></div>
+    <div class="box"><strong>Never change silently</strong><p>Required-tool failure is not a pass; baselines do not hide new debt; static checks do not lower model-routing risk floors.</p></div>
+  </div>
+
+  <nav aria-label="Contents">
+    <h2><span class="no">00</span>Contents</h2>
+    <ol class="toc">
+      <li><a href="#decision">Decision and options</a></li>
+      <li><a href="#actual">Current repository facts</a></li>
+      <li><a href="#stacks">Checks by stack</a></li>
+      <li><a href="#pipeline">Target pipeline</a></li>
+      <li><a href="#disposition">Finding versus prompt context</a></li>
+      <li><a href="#contract">Output contract</a></li>
+      <li><a href="#economy">Cost, benefit, and token economy</a></li>
+      <li><a href="#slices">Implementation slices</a></li>
+      <li><a href="#guardrails">Acceptance guardrails</a></li>
+      <li><a href="#sources">Evidence sources</a></li>
+    </ol>
+  </nav>
+
+  <section id="decision">
+    <h2><span class="no">01</span>Decision and options</h2>
+    <p>The decision is not whether to add static analysis from zero. Quality Studio already registers Roslyn, SARIF, ESLint, TypeScript, dependency, Gitleaks, boundary, and coverage sensors. The decision is where those checks execute, which outcomes stop a model call, and how much of each result enters a prompt.</p>
+    <table>
+      <thead><tr><th>Option</th><th>Behavior</th><th>Assessment</th></tr></thead>
+      <tbody>
+        <tr><td><b>A. Context only</b></td><td>Keep running sensors and attach complete result objects to model prompts.</td><td>Close to the current analyzer path. It preserves judgement but spends tokens on machine prose, undercounts preflight cost, and cannot stop a known-invalid operation.</td></tr>
+        <tr><td><b>B. Hard gate all findings</b></td><td>Any deterministic finding prevents model review.</td><td>Maximizes immediate savings but suppresses useful logic, security, and performance judgement for warnings and known advisories. It conflicts with the risk-floor policy.</td></tr>
+        <tr><td><b>C. Selective preflight</b> <span class="pill done">recommended</span></td><td>Run once per snapshot; persist facts; block only invalid subjects; compact remaining context; measure avoided calls and token deltas.</td><td>Reuses current sensor and run contracts, keeps findings inspectable, and saves spend without claiming deterministic checks replace semantic review.</td></tr>
+        <tr><td><b>D. External analysis service</b></td><td>Move checks and findings to a new platform service.</td><td>No repository evidence justifies a new deployment boundary. The API already owns review orchestration and process execution.</td></tr>
+      </tbody>
+    </table>
+    <div class="box ok"><h4>Recommendation</h4><p>Choose C. Make the API/backend the preflight owner; keep worker CLIs free of Git operations. Preserve existing review sidecars, sensor provenance, grade caps, run store, usage ledger, and report projection while correcting execution frequency and prompt composition.</p></div>
+  </section>
+
+  <section id="actual">
+    <h2><span class="no">02</span>Current repository facts</h2>
+
+    <h3>02.1 Product and stack shape</h3>
+    <table>
+      <thead><tr><th>Observed fact</th><th>Repository evidence</th><th>Consequence</th></tr></thead>
+      <tbody>
+        <tr><td><b>.NET is strict at build time</b></td><td>Six SDK-style projects target <code>net10.0</code>. <code>Nullable</code> and <code>TreatWarningsAsErrors</code> are enabled centrally.</td><td>A successful build is a strong, cheap validity gate. A compiler error should not be rephrased by a model.</td></tr>
+        <tr><td><b>Angular is a separate project root</b></td><td>The Angular 20 project has 38 hierarchy files. TypeScript is 5.9.x; production bundle and component-style budgets are checked in <code>angular.json</code>.</td><td>Plain <code>tsc</code> is insufficient: Angular template diagnostics and production budgets are separate facts.</td></tr>
+        <tr><td><b>Current CI is .NET-only</b></td><td>The workflow restores, builds, and tests the solution, then runs Gitleaks. It does not run <code>npm ci</code>, Angular build/tests, dependency audit, formatting, lint, or complexity checks.</td><td>The README's broad CI statement is not matched by the workflow for the frontend.</td></tr>
+        <tr><td><b>Static metrics already exist, complexity does not</b></td><td><code>ProjectDashboard</code> derives file/folder counts, bytes, lines, exact duplicate candidates, project references, churn, and hotspots.</td><td>Add thresholded complexity to this evidence plane; do not build a second metrics dashboard.</td></tr>
+        <tr><td><b>Review surface is large</b></td><td>The staleness scanner reports 149 reviewable files. The API hierarchy estimates model sweeps over 92 .NET files and 38 Angular files, plus one aggregate operation per project.</td><td>Per-file duplicate scans and even small prompt overheads compound quickly.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>02.2 What the review pipeline already does</h3>
+    <table>
+      <thead><tr><th>Area</th><th>Implemented behavior</th><th>Gap</th></tr></thead>
+      <tbody>
+        <tr><td><b>Analyzer collection</b></td><td><code>ReviewJobService</code> runs every enabled <code>IDeterministicEvidenceSensor</code> once before file review and projects matching findings per subject.</td><td>Good execution shape, but every registered sensor defaults to enabled. Unconfigured SARIF/Roslyn/ESLint/tsc results can become repeated unavailable payload.</td></tr>
+        <tr><td><b>Security collection</b></td><td>Gitleaks and dependency sensors are not marked deterministic. <code>ReviewRunner</code> invokes them inside each security file operation, then filters their repository-wide results to that file.</td><td>A 92-file security sweep can repeat repository scans. Collection belongs beside the once-per-sweep analyzer pass.</td></tr>
+        <tr><td><b>Finding separation</b></td><td>Analyzer output is stored under <code>deterministicEvidence</code>, separate from model-authored findings. The quality report labels its producer and rule.</td><td>This is the right data boundary. It should also support a visible result when the model operation is skipped.</td></tr>
+        <tr><td><b>Prompt behavior</b></td><td>The prompt asks the model to judge applicability, deduplicate, prioritize, retain producer/rule identity, and not repeat analyzer facts.</td><td>Complete result objects, including pass/unavailable provenance, are serialized. Clean checks need no prose in every prompt.</td></tr>
+        <tr><td><b>Grade behavior</b></td><td>General analyzer facts do not set or cap model grades. Security sensor results do cap the final grade: warn at 79; block or unavailable at 59.</td><td>Preserve this distinction. A style warning must not become a security-style grade cap.</td></tr>
+        <tr><td><b>Cost estimate</b></td><td>The API renders exact file and aggregate prompts, estimates input at four characters per token, and records actual deviation.</td><td>Estimate requests contain no deterministic or security evidence, while execution does. The confirmation can therefore omit static-context cost.</td></tr>
+        <tr><td><b>Usage evidence</b></td><td>The ledger contract can store actual input/output usage.</td><td>This snapshot has no committed usage JSONL. Output uses the documented 20% fallback; savings must be validated prospectively.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>02.3 Measured checkout evidence</h3>
+    <p class="dim">Commands ran on the QS-63 checkout at <code>3e0b6559faa7</code> on 11 August 2026. Times are one host observation, not cross-repository performance promises.</p>
+    <table>
+      <thead><tr><th>Check</th><th>Result</th><th>Elapsed</th><th>Interpretation</th></tr></thead>
+      <tbody>
+        <tr><td><code>dotnet restore</code></td><td><span class="pill done">pass</span> six projects</td><td>1.90 s</td><td>Required prerequisite; unavailable restore is not a clean compiler result.</td></tr>
+        <tr><td><code>dotnet build -c Release --no-restore</code></td><td><span class="pill done">pass</span> 0 warnings, 0 errors</td><td>12.57 s</td><td>Current .NET subject is compiler-clean under warnings-as-errors.</td></tr>
+        <tr><td><code>dotnet format analyzers --verify-no-changes</code></td><td><span class="pill done">pass</span></td><td>18.18 s</td><td>Default analyzer set produces no findings; it does not prove complexity rules are enabled.</td></tr>
+        <tr><td><code>dotnet format style --verify-no-changes</code></td><td><span class="pill done">pass</span></td><td>16.93 s</td><td>Current code-style analyzers are clean.</td></tr>
+        <tr><td><code>dotnet format whitespace --verify-no-changes</code></td><td><span class="pill open">findings</span> 10 of 116 formattable files</td><td>6.81 s</td><td>A repository-wide formatting gate would fail immediately; baseline/current-versus-new handling is required.</td></tr>
+        <tr><td><code>tsc --noEmit -p tsconfig.app.json</code></td><td><span class="pill done">pass</span></td><td>1.73 s</td><td>Fast TypeScript validity check, but it does not cover Angular templates.</td></tr>
+        <tr><td><code>ngc -p tsconfig.app.json</code></td><td><span class="pill part">2 warnings</span> NG8102 in <code>editor.html</code></td><td>6.64 s</td><td>Template compiler adds findings that plain tsc misses.</td></tr>
+        <tr><td><code>ng build --configuration production</code></td><td><span class="pill open">error</span> initial bundle 494.94 kB, 14.94 kB over the 480 kB error budget; template/style/CommonJS warnings</td><td>9.56 s</td><td>The current frontend is not production-build clean. The budget failure is a deterministic project-performance finding.</td></tr>
+        <tr><td>Dependency sensor, <code>frontend</code></td><td><span class="pill open">24 findings</span> 12 high, 11 medium, 1 low; 17,450-character API result</td><td>1.62 s HTTP / 1.41 s sensor</td><td>Machine advisories should stand alone. Sending their full descriptions to a model is unnecessary.</td></tr>
+        <tr><td><code>dotnet list ... --vulnerable</code></td><td><span class="pill done">pass</span> no vulnerable NuGet packages reported</td><td>4.44 s</td><td>One solution command is preferable to the current sensor's one command per discovered project.</td></tr>
+        <tr><td>Gitleaks 8.24.2 repository scan</td><td><span class="pill done">pass</span> 268 files, 0 new findings</td><td>1.55 s</td><td>Already in CI and already has a repository baseline; keep secret values out of prompts.</td></tr>
+        <tr><td>ESLint / Prettier project setup</td><td><span class="pill open">absent</span> no project binaries, config, or scripts after <code>npm ci</code></td><td>—</td><td>The package file contains Prettier preferences, but no executable enforcement. Do not configure sensors until tools are pinned.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="stacks">
+    <h2><span class="no">03</span>Checks by stack</h2>
+
+    <h3>03.1 .NET 10 lane</h3>
+    <table>
+      <thead><tr><th>Order</th><th>Check</th><th>Initial policy</th><th>Repository fit</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b>Restore resolution</b></td><td>Required infrastructure status. Failure = unavailable, not a code finding and not a pass.</td><td>Six projects share one solution and central build properties.</td></tr>
+        <tr><td>2</td><td><b>Release build + Roslyn SARIF</b></td><td>Compiler error blocks the affected file/project model operation. Warnings stand alone and enter prompts only as compact locations/rules.</td><td>Warnings already fail the build. Reuse the existing Roslyn/SARIF sensors and one solution command.</td></tr>
+        <tr><td>3</td><td><b>NuGet vulnerability scan</b></td><td>Advisories stand alone. High/critical affect security posture; project-level prompts receive only counts and advisory IDs.</td><td>Current scan is clean. Batch the solution rather than six project processes.</td></tr>
+        <tr><td>4</td><td><b>Complexity thresholds</b></td><td>Enable CA1502 for cyclomatic complexity and CA1505 for maintainability index as warnings first. Breaches are findings and project-review priority signals, not model blockers.</td><td>The SDK provides the rules but CA1505 is not enabled by default in .NET 10. Add <code>CodeMetricsConfig.txt</code> as <code>AdditionalFiles</code>.</td></tr>
+        <tr><td>5</td><td><b>Style and whitespace</b></td><td>Baseline the current fingerprint set; fail only new/changed-line drift. Never spend prompt tokens on formatting.</td><td>Style passes, whitespace currently flags 10 files. A zero-baseline gate would create immediate noise.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>03.2 Node / Angular 20 lane</h3>
+    <table>
+      <thead><tr><th>Order</th><th>Check</th><th>Initial policy</th><th>Repository fit</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b><code>npm ci</code> lock/install</b></td><td>Required infrastructure status. Cache by lock hash; do not treat install failure as clean analysis.</td><td>The dev launcher already performs <code>npm ci</code>; CI does not.</td></tr>
+        <tr><td>2</td><td><b>TypeScript + Angular compiler</b></td><td>Use tsc for the fast pass and ngc for templates. Errors block the affected operation; warnings remain findings with compact context.</td><td>tsc passes while ngc finds two template warnings, proving the layers are not interchangeable.</td></tr>
+        <tr><td>3</td><td><b>Production build budgets</b></td><td>Bundle error blocks the project-level performance model operation until fixed. Budget/style/CommonJS warnings remain performance findings.</td><td>The current initial bundle fails its checked-in error budget by 14.94 kB.</td></tr>
+        <tr><td>4</td><td><b>npm vulnerability audit</b></td><td>Findings stand alone. Security prompts receive counts, IDs, manifest path, and a result hash—not full advisory prose.</td><td>The current sensor returns 24 advisory findings and already normalizes severity/provenance.</td></tr>
+        <tr><td>5</td><td><b>ESLint with Angular/TypeScript rules</b></td><td>Add pinned dependencies, flat config, test/template rules, and SARIF. Cover Angular sources plus the root launcher, Karma config, and frontend <code>.mjs</code> test/evidence scripts. Start informational against a captured baseline; gate new correctness/security issues after burn-in.</td><td>The existing sensor cannot run as configured because neither ESLint nor its SARIF formatter is declared.</td></tr>
+        <tr><td>6</td><td><b>Complexity in ESLint</b></td><td>Enable the built-in <code>complexity</code> rule with an explicit threshold after a distribution snapshot. Warning only in the first release.</td><td>Shares the ESLint process, so incremental runtime is small once lint exists.</td></tr>
+        <tr><td>7</td><td><b>Prettier/style baseline</b></td><td>Pin Prettier, add a check script, capture current drift, then fail only new changed-file drift. Never enter style output into model prompts.</td><td>Preferences exist in <code>package.json</code>, but the tool and script do not.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="pipeline">
+    <h2><span class="no">04</span>Target pipeline</h2>
+    <div class="pipeline" role="img" aria-label="One source snapshot flows through deterministic checks, normalization and a selective gate before model review">
+      <div class="stage"><b>1 · Freeze subject</b><small>Repository, commit/content manifest, review inputs, sensor config, lock hashes</small></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="stage"><b>2 · Run checks once</b><small>.NET and Angular compilers · analyzers · dependency and secret scanners · metrics · style baselines</small></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="stage"><b>3 · Normalize</b><small>Existing sensor finding shape plus hashes, availability, gate disposition, baseline state, duration</small></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="stage"><b>4 · Select</b><small>Block invalid operation · publish standalone finding · add compact context · invoke unchanged model route</small></div>
+    </div>
+
+    <div class="box warn">
+      <h4>Snapshot equality is mandatory</h4>
+      <p>Preflight facts apply only to the subject/config/tool-version tuple they measured. If source or lock content changes before a model operation, invalidate the cached projection and rerun the affected checks. A stale pass cannot authorize a model call.</p>
+    </div>
+
+    <h3>Execution ownership</h3>
+    <ul>
+      <li><b>API/backend:</b> plan, run, cache, normalize, gate, estimate, expose progress, and write review/run artifacts atomically.</li>
+      <li><b>Sensor processes:</b> execute pinned repository commands without a shell and return bounded stdout/report files.</li>
+      <li><b>Model runner:</b> receives the source and compact relevant facts only after the gate; it never launches linters or mutates the workspace.</li>
+      <li><b>Platform-owned pipeline:</b> stages/commits approved repository artifacts. Quality Studio and worker CLIs do not commit, push, merge, or manage task worktrees.</li>
+    </ul>
+  </section>
+
+  <section id="disposition">
+    <h2><span class="no">05</span>Standalone finding versus prompt context</h2>
+    <table>
+      <thead><tr><th>Fact class</th><th>Standalone result</th><th>Prompt projection</th><th>Gate</th></tr></thead>
+      <tbody>
+        <tr><td><b>Compiler / template error</b></td><td>Full diagnostic, exact location, tool/config/snapshot hashes</td><td>None for the blocked operation</td><td><span class="pill open">block model</span> for affected subject</td></tr>
+        <tr><td><b>Compiler / template warning</b></td><td>Full diagnostic and location</td><td><code>ruleId</code>, severity, path/range, result hash</td><td>Continue</td></tr>
+        <tr><td><b>Correctness or security lint</b></td><td>Full SARIF finding</td><td>Compact identity/location for deduplication</td><td>Continue initially; promote only with measured precision</td></tr>
+        <tr><td><b>Formatting/style drift</b></td><td>Changed-line/baseline status and fix command</td><td>None</td><td>New drift can fail CI; never block semantic review during baseline adoption</td></tr>
+        <tr><td><b>Dependency advisory</b></td><td>Package, resolved version, advisory, severity, fix availability, manifest</td><td>Project/manifest counts and IDs only when security posture is reviewed</td><td>Existing security grade cap; do not suppress agent security judgement</td></tr>
+        <tr><td><b>Secret match</b></td><td>Redacted Gitleaks finding and baseline state</td><td>Result hash and count only; never secret text</td><td>Existing block/warn verdict</td></tr>
+        <tr><td><b>Complexity threshold</b></td><td>Metric, threshold, symbol/location, baseline state</td><td>Top-N breached symbols for aggregate maintainability/performance priority</td><td>Warning, not blocker</td></tr>
+        <tr><td><b>Raw complexity distribution</b></td><td>Dashboard metric and trend</td><td>None</td><td>None</td></tr>
+        <tr><td><b>Bundle budget error</b></td><td>Budget, actual size, delta, configuration</td><td>None until fixed</td><td><span class="pill open">block model</span> for project performance aggregate</td></tr>
+        <tr><td><b>Required check unavailable</b></td><td>Visible availability failure with bounded reason</td><td>None</td><td>Block affected operation; never report clean</td></tr>
+        <tr><td><b>Optional check unavailable</b></td><td>Coverage-gap record</td><td>None</td><td>Continue with visible incomplete coverage</td></tr>
+        <tr><td><b>Clean check</b></td><td>Pass, tool/config/snapshot/result hashes</td><td>At most one compact check-set hash</td><td>Continue</td></tr>
+      </tbody>
+    </table>
+    <p>The model remains responsible for semantic correctness, authorization/design reasoning, business logic, reachability interpretation, and trade-offs. Static facts reduce rediscovery; they do not prove the absence of defects.</p>
+  </section>
+
+  <section id="contract">
+    <h2><span class="no">06</span>Preflight output contract</h2>
+    <p>Extend the existing <code>SensorScanResult</code> rather than introducing an unrelated analyzer model. Store one immutable preflight snapshot under the existing run directory and project its findings into the report/UI even when an agent operation is skipped.</p>
+    <pre><code>{
+  "schemaVersion": 1,
+  "runId": "review-...",
+  "subject": {
+    "manifestHash": "sha256:...",
+    "commit": "...",
+    "paths": ["frontend/src/app/editor/editor.html"]
+  },
+  "check": {
+    "id": "angular-compiler",
+    "version": "1.0.0",
+    "required": true,
+    "toolVersions": { "angularCompiler": "20.3.26", "typescript": "5.9.3" },
+    "configurationHash": "sha256:...",
+    "commandId": "frontend:ngc"
+  },
+  "status": "findings",
+  "durationMs": 6640,
+  "resultHash": "sha256:...",
+  "findings": [{
+    "fingerprint": "sha256:...",
+    "ruleId": "NG8102",
+    "severity": "medium",
+    "category": "compiler",
+    "message": "The nullish coalescing fallback is unreachable.",
+    "locations": [{
+      "path": "frontend/src/app/editor/editor.html",
+      "range": { "start": { "line": 171, "column": 61 },
+                 "end": { "line": 171, "column": 89 } }
+    }],
+    "baselineState": "existing",
+    "disposition": {
+      "standalone": true,
+      "model": "compact-context",
+      "gate": "continue"
+    }
+  }]
+}</code></pre>
+
+    <table class="contract">
+      <thead><tr><th>Field</th><th>Purpose</th><th>Acceptance rule</th></tr></thead>
+      <tbody>
+        <tr><td><code>manifestHash</code></td><td>Binds facts to exact reviewed content.</td><td>A mismatch invalidates the result before the next model call.</td></tr>
+        <tr><td><code>configurationHash</code></td><td>Separates code drift from rule/tool configuration drift.</td><td>Includes command arguments, config files, thresholds, baseline, and lock/tool-manifest hashes.</td></tr>
+        <tr><td><code>status</code></td><td>Distinguishes pass, findings, blocked, unavailable, and failed.</td><td>Unavailable/failed cannot be represented as pass with an empty array.</td></tr>
+        <tr><td><code>resultHash</code></td><td>Supports compact prompts, caching, and reproducibility.</td><td>Canonical content excludes timestamps; identical facts produce the same hash.</td></tr>
+        <tr><td><code>baselineState</code></td><td>Prevents legacy style/complexity debt from hiding new regressions.</td><td>One of new, existing, resolved, or not-applicable; baseline changes are explicit.</td></tr>
+        <tr><td><code>disposition</code></td><td>Makes standalone/prompt/gate behavior reviewable.</td><td>Derived from versioned policy, not tool exit code alone.</td></tr>
+        <tr><td><code>commandId</code></td><td>Records a repository-owned command without copying shell text into prompts.</td><td>Commands execute directly with bounded output and repository-confined report paths.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="economy">
+    <h2><span class="no">07</span>Cost, benefit, and token economy</h2>
+
+    <h3>07.1 Cost-benefit by check</h3>
+    <table>
+      <thead><tr><th>Check</th><th>Implementation / runtime</th><th>Primary benefit</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        <tr><td><b>.NET build + Roslyn</b></td><td>Low / 12.57 s measured; analyzer pass 18.18 s</td><td>Highest-confidence syntax/type/API diagnostics; warnings-as-errors already configured.</td><td><span class="pill done">S1</span> Required. Combine build and SARIF where possible; cache by solution/source/config hashes.</td></tr>
+        <tr><td><b>tsc + ngc</b></td><td>Low / 1.73 s + 6.64 s</td><td>Catches TypeScript and Angular template defects before model review.</td><td><span class="pill done">S2</span> Required. Keep both because the current results differ.</td></tr>
+        <tr><td><b>Angular production budget</b></td><td>Low / 9.56 s</td><td>Exact checked-in performance budget; currently finds a blocking regression.</td><td><span class="pill done">S2</span> Required for project performance review and CI.</td></tr>
+        <tr><td><b>NuGet/npm advisories</b></td><td>Low / 4.44 s solution NuGet; 1.41 s npm sensor</td><td>Authoritative package/advisory facts; current npm result is material.</td><td><span class="pill done">S2</span> Run once per ecosystem/snapshot. Preserve existing security caps.</td></tr>
+        <tr><td><b>Gitleaks</b></td><td>Already delivered / 1.55 s</td><td>Secret detection with redaction and repository baseline.</td><td><span class="pill done">preserve</span> Move collection to once-per-sweep shared preflight.</td></tr>
+        <tr><td><b>ESLint + Angular rules</b></td><td>Medium / unmeasured; project setup absent</td><td>Deterministic correctness, async, template, and accessibility rules.</td><td><span class="pill queued">S3</span> Pin first, shadow against a baseline, then gate new high-confidence rules.</td></tr>
+        <tr><td><b>.NET whitespace + Prettier</b></td><td>Low / 6.81 s .NET; Node unmeasured</td><td>Removes style work from model judgement.</td><td><span class="pill queued">S3</span> Changed-line gate only. Current .NET zero-baseline would fail 10 files.</td></tr>
+        <tr><td><b>Complexity thresholds</b></td><td>Low–medium / shares Roslyn and ESLint processes</td><td>Stable hotspot signal and enforceable maintainability limit.</td><td><span class="pill queued">S4</span> CA1502/CA1505 plus ESLint complexity; warning until repository distributions are reviewed.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>07.2 Current model-cost baseline</h3>
+    <p>The repository's own estimator rendered the current prompts at the two project roots. With no usage samples, it used its documented four-characters-per-input-token rule and 20% output fallback.</p>
+    <table>
+      <thead><tr><th>Project / kind</th><th>Files / operations</th><th>Prompt characters</th><th>Estimated input</th></tr></thead>
+      <tbody>
+        <tr><td>.NET / code</td><td>92 / 93</td><td>2,707,579</td><td>676,929</td></tr>
+        <tr><td>.NET / security</td><td>92 / 93</td><td>2,776,538</td><td>694,172</td></tr>
+        <tr><td>.NET / performance</td><td>92 / 93</td><td>2,721,715</td><td>680,463</td></tr>
+        <tr><td>Angular / code</td><td>38 / 39</td><td>626,237</td><td>156,574</td></tr>
+        <tr><td>Angular / security</td><td>38 / 39</td><td>655,795</td><td>163,962</td></tr>
+        <tr><td>Angular / performance</td><td>38 / 39</td><td>632,165</td><td>158,056</td></tr>
+        <tr><td><b>All six sweeps</b></td><td><b>390 files / 396 operations</b></td><td><b>10,120,029</b></td><td><b>2,530,156</b></td></tr>
+      </tbody>
+    </table>
+    <p class="dim">The default repository token cap is 100,000, so these are planning baselines rather than a claim that one uncapped six-sweep run is normal. Aggregate prompts repeat descendant content and account for much of the total.</p>
+
+    <h3>07.3 Savings that can be stated now</h3>
+    <ul>
+      <li><b>Avoided invalid operation:</b> a compiler-blocked call saves that operation's exact preflight estimate. The current <code>editor.html</code> file estimates 4,283 input + 857 output tokens for code review; a compile error at that subject should stop that spend until fixed.</li>
+      <li><b>Current project-performance gate:</b> the Angular performance aggregate alone is 66,100 estimated input tokens. The checked-in production budget currently fails, so deferring that aggregate until the deterministic error is fixed avoids that spend without lowering the later model route.</li>
+      <li><b>Prompt compaction:</b> the current frontend dependency sensor response is 17,450 characters for 24 findings. It is evidence of payload scale, not a direct token count. A result hash plus IDs/counts should replace full advisory prose in the prompt.</li>
+      <li><b>Execution savings:</b> moving Gitleaks/dependency collection out of each file operation removes repeated repository processes. This reduces review wall time and load, not model tokens.</li>
+      <li><b>Clean-check payload:</b> a clean operation needs no full sensor provenance in its prompt. Full provenance remains in preflight/review evidence.</li>
+    </ul>
+
+    <div class="box warn">
+      <h4>No unsupported percentage claim</h4>
+      <p>The repository has no committed usage entries for a retrospective before/after comparison, and current estimates omit executed sensor context. S5 must run matched snapshots and publish actual input/output usage, avoided calls, static runtime, and estimate deviation. Do not present the arithmetic above as measured savings.</p>
+    </div>
+
+    <h3>07.4 Model-routing boundary</h3>
+    <p>The canonical routing policy selects the cheapest route that clears the correctness floor and prohibits quota/cost from lowering hard floors. Deterministic preprocessing changes evidence volume and can prevent an invalid operation; it does <b>not</b> justify a weaker model for the remaining semantic review. Any later routing change requires controlled outcome evidence, not prompt-size arithmetic.</p>
+  </section>
+
+  <section id="slices">
+    <h2><span class="no">08</span>Implementation slices</h2>
+
+    <article class="slice">
+      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill queued">approve first</span></header>
+      <p><b>Scope:</b> Introduce <code>PreflightResult v1</code> by extending the sensor result/provenance contract. Move all deterministic and security collection to <code>ReviewJobService</code> before file scheduling; execute each configured check once; cache by subject/config/tool hashes; persist under the existing run directory; project findings by subject.</p>
+      <ul>
+        <li>Default-enable only sensors with complete repository configuration; required versus optional is explicit.</li>
+        <li>Add run states/progress for preflight, blocked-preflight operations, and unavailable checks.</li>
+        <li>Include the exact static prompt projection in <code>/api/review/estimate</code>.</li>
+        <li><b>Acceptance:</b> a 92-file security sweep invokes Gitleaks and dependencies once each; source mutation invalidates the result; unavailable required checks never become pass; existing sensor/sidecar/report tests remain green.</li>
+        <li><b>Rollback:</b> feature flag restores current collection path without changing stored review-meta schema.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill queued">approve</span></header>
+      <p><b>Scope:</b> Configure repository-owned commands for .NET build/SARIF, tsc, ngc, Angular production build, batched NuGet audit, npm audit, and existing Gitleaks. Add the selective disposition matrix and compact prompt projection.</p>
+      <ul>
+        <li>Compiler errors block only affected file/project operations; warnings continue.</li>
+        <li>Angular bundle errors block the project performance aggregate; dependency/secret findings do not suppress semantic security review.</li>
+        <li>Add <code>npm ci</code>, Angular compiler/build/test, and dependency audit to CI beside existing .NET/Gitleaks steps.</li>
+        <li><b>Acceptance:</b> fixtures prove pass/findings/unavailable are distinct; current NG8102 and 480 kB budget outcomes are normalized; full advisory descriptions are absent from prompts; the current aggregate saving is shown as avoided estimate, not actual usage.</li>
+        <li><b>Rollback:</b> dispositions can change from block to continue per check without disabling evidence collection.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><h3>S3 · Lint and style baselines</h3><span class="pill queued">approve</span></header>
+      <p><b>Scope:</b> Pin ESLint, Angular/TypeScript plugins, and the SARIF formatter; add flat config and scripts. Pin Prettier and add a check script. Add a root .NET EditorConfig/format command. Capture fingerprinted current baselines and apply changed-file/changed-line gating.</p>
+      <ul>
+        <li>Separate correctness/security lint rules from formatting/style rules in disposition.</li>
+        <li>No formatting output enters model prompts.</li>
+        <li><b>Acceptance:</b> the current 10-file .NET whitespace set is existing baseline; an introduced drift is new and fails; deleting a baseline issue resolves it; ESLint covers Angular TS/templates and repository-owned Node <code>.mjs</code>/<code>.cjs</code> files; ESLint/Prettier run through declared local binaries with no download side effect.</li>
+        <li><b>Rollback:</b> keep findings visible while changing new-debt gates to warning during burn-in.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill queued">approve</span></header>
+      <p><b>Scope:</b> Enable CA1502/CA1505 through <code>CodeMetricsConfig.txt</code> and <code>AdditionalFiles</code>; add ESLint's built-in complexity rule. Feed distributions and breached top-N symbols into the existing Project Dashboard/hotspot response.</p>
+      <ul>
+        <li>Choose initial thresholds after recording the current distribution; store threshold/config hash with findings.</li>
+        <li>Warnings stand alone and compact top-N breaches may prioritize aggregate model judgement; raw metrics do not enter file prompts.</li>
+        <li><b>Acceptance:</b> stable symbol/location fingerprint, deterministic result across two unchanged runs, no generated/test noise unless explicitly included, and no grade cap.</li>
+        <li><b>Rollback:</b> thresholds remain visible metrics when gate severity is set to none.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill queued">approve</span></header>
+      <p><b>Scope:</b> Shadow the preflight on matched snapshots, then enable gates in order: compilers, package/budget, lint new-debt, complexity warning. Publish one comparison report from the existing estimate and usage contracts.</p>
+      <ul>
+        <li>Record per run: check wall time, cache hits, finding counts, model calls planned/blocked/executed, prompt characters before/after compaction, actual input/output/cached/reasoning tokens, and estimate deviation.</li>
+        <li>Use at least 30 matched review operations spanning both stacks and all three review kinds before claiming a percentage saving.</li>
+        <li><b>Acceptance:</b> zero false clean results, zero stale-result reuse, zero secret values in prompts, model routes unchanged, and every avoided call traceable to a blocking deterministic finding.</li>
+        <li><b>Decision after evidence:</b> retain, adjust, or remove each gate independently. No automatic model downgrade is in this slice.</li>
+      </ul>
+    </article>
+
+    <h3>Likely code touchpoints</h3>
+    <table>
+      <thead><tr><th>Area</th><th>Primary files</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>Contracts/collection</td><td><code>Sensors.cs</code>, <code>AnalyzerEvidence.cs</code>, <code>SecurityReviewEvidence.cs</code></td><td>Unified result, once-per-sweep collection, hashes, dispositions.</td></tr>
+        <tr><td>Orchestration/estimate</td><td><code>ReviewJobs.cs</code>, <code>ReviewRunStore.cs</code>, <code>ReviewRunner.cs</code></td><td>Preflight stage, selective blocking, persistence, exact prompt estimate.</td></tr>
+        <tr><td>Prompt/report</td><td><code>ReviewPromptBuilder.cs</code>, prompt templates, <code>QualityReport.cs</code></td><td>Compact context and standalone skipped-operation findings.</td></tr>
+        <tr><td>Repository config</td><td><code>Directory.Build.props</code>, new root <code>.editorconfig</code>, <code>CodeMetricsConfig.txt</code>, <code>frontend/package.json</code>, ESLint config</td><td>Pinned, explicit stack checks and thresholds.</td></tr>
+        <tr><td>CI</td><td><code>.github/workflows/build.yml</code></td><td>Cover the Angular project and dependency/style gates.</td></tr>
+        <tr><td>Presentation</td><td>Review run and project dashboard API/frontend types</td><td>Show preflight state, coverage gaps, machine provenance, avoided estimate, and metrics.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="guardrails">
+    <h2><span class="no">09</span>Approval guardrails</h2>
+    <ol>
+      <li><b>Model correctness floor is invariant.</b> Static checks can block an invalid operation or shrink context; they cannot select a cheaper model/thinking level.</li>
+      <li><b>Exact subject first.</b> Every fact is bound to source, config, tool, and lock hashes. Change invalidates before model use.</li>
+      <li><b>Unavailable is visible.</b> A missing executable, formatter, report, network audit, or parse failure cannot return pass.</li>
+      <li><b>Machine facts remain machine facts.</b> The model cannot contradict, weaken, or duplicate advisories, secret matches, compiler errors, or budget values.</li>
+      <li><b>Selective means narrow.</b> A file compiler error blocks that file operation; a project budget error blocks the project performance aggregate. Warnings do not erase semantic review.</li>
+      <li><b>Baselines are regression filters.</b> They label current style/complexity debt; they never suppress a new fingerprint or rewrite historical observations.</li>
+      <li><b>Prompt output is bounded.</b> Clean checks contribute no verbose payload; compact finding context has a 2,000-character per-operation ceiling with overflow referenced by result hash.</li>
+      <li><b>Secrets never enter prompts.</b> Gitleaks content stays redacted and standalone.</li>
+      <li><b>Backend owns workspace handling.</b> Commands run without a shell, paths remain confined, and no CLI/agent performs Git lifecycle operations.</li>
+      <li><b>Savings are measured, not inferred.</b> Publish actual matched usage before a percentage claim or routing proposal.</li>
+    </ol>
+  </section>
+
+  <section id="sources">
+    <h2><span class="no">10</span>Evidence sources and provenance</h2>
+    <div class="box">
+      <h4>Primary repository evidence</h4>
+      <ul class="source-list">
+        <li><a href="../../../Directory.Build.props">Directory.Build.props</a>, <a href="../../../QualityStudio.slnx">QualityStudio.slnx</a>, and <a href="../../../frontend/package.json">frontend/package.json</a>: stack, strict build, and declared frontend tools.</li>
+        <li><a href="../../../.github/workflows/build.yml">.github/workflows/build.yml</a> and <a href="../../../frontend/angular.json">frontend/angular.json</a>: current CI and production budgets.</li>
+        <li><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>: once-per-sweep deterministic collection, per-file security collection handoff, exact prompt estimate, token caps, and request construction.</li>
+        <li><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs">ReviewPromptBuilder.cs</a>, and <a href="../../../src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs">AnalyzerEvidence.cs</a>: collection, subject projection, and full prompt serialization.</li>
+        <li><a href="../../../src/AgentOrchestrator.CodeQuality/SecurityReviewEvidence.cs">SecurityReviewEvidence.cs</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/DependencyVulnerabilitySensor.cs">DependencyVulnerabilitySensor.cs</a>: repeated repository execution path, filtering, advisories, and grade combination.</li>
+        <li><a href="../../../src/QualityStudio.Api/ProjectDashboard.cs">ProjectDashboard.cs</a>: existing structural metrics, duplicate candidates, dependencies, churn, and hotspots.</li>
+        <li><a href="../../deterministic-analyzer-evidence.md">Deterministic analyzer evidence</a>, <a href="../../dependency-vulnerability-sensor.md">dependency vulnerability sensor</a>, <a href="../../security-review-combination.md">security combination</a>, <a href="../../review-runs.md">review runs</a>, and <a href="../../usage-telemetry.md">usage telemetry</a>: current intended contracts.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h4>Tool-semantics references</h4>
+      <ul class="source-list">
+        <li><a href="https://learn.microsoft.com/en-us/visualstudio/code-quality/how-to-generate-code-metrics-data?view=vs-2022">Microsoft code metrics configuration</a> and <a href="https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca1505">CA1505</a>: CA1502/CA1505 thresholds and <code>AdditionalFiles</code>.</li>
+        <li><a href="https://eslint.org/docs/latest/rules/complexity">ESLint complexity rule</a>: thresholded cyclomatic complexity.</li>
+        <li><a href="https://angular.dev/tools/cli/aot-compiler">Angular AOT compiler</a> and <a href="https://angular.dev/tools/cli/build#configuring-size-budgets">Angular build budgets</a>: template checking and checked-in size thresholds.</li>
+      </ul>
+    </div>
+    <div class="box warn">
+      <h4>Prompt-enrichment provenance gap</h4>
+      <p>This Quality Studio checkout does not contain <code>AGENTS.md</code>, <code>docs/start/README.md</code>, <code>docs/start/contribution-and-style-guide.html</code>, <code>docs/system/domains/model-routing-policy.md</code>, or the named style-reference page. The shared contribution guide, routing policy, and exact reference style block were consulted from the neighboring canonical Agent Taskboard checkout. Product claims and measurements above are grounded in this Quality Studio checkout.</p>
+    </div>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+</main>
+</body>
+</html>
