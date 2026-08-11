@@ -1,6 +1,6 @@
 # File performance review v1
 
-Review `{{FILE_PATH}}` for measurable performance risks: algorithmic complexity, allocations, blocking or serialized work, unnecessary I/O, contention, and unbounded resource use. The complete reviewed content is supplied below. Do not use tools, edit files, or run commands. Avoid micro-optimization advice without concrete impact.
+Review `{{FILE_PATH}}` for measurable performance risks: algorithmic complexity, allocations, blocking or serialized work, unnecessary I/O, contention, and unbounded resource use. The complete reviewed content is supplied below. Do not use tools, edit files, or run commands. Never reproduce credentials or secret values; cite only their location and credential type. Avoid micro-optimization advice without concrete impact.
 
 ## Reviewed file content
 
