@@ -31,4 +31,36 @@ describe('localCsrfInterceptor', () => {
     mutation.flush({});
     http.verify();
   }));
+
+  it('secures legacy GET scan operations but leaves ordinary reads alone', fakeAsync(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withInterceptors([localCsrfInterceptor])),
+        provideHttpClientTesting(),
+      ],
+    });
+    const http = TestBed.inject(HttpTestingController);
+    const httpClient = TestBed.inject(HttpClient);
+
+    httpClient.get('/api/repos').subscribe();
+    const ordinaryRead = http.expectOne('/api/repos');
+    expect(ordinaryRead.request.headers.has('X-Quality-Studio-CSRF')).toBeFalse();
+    ordinaryRead.flush({ repositories: [] });
+
+    httpClient.get('/api/repos/default/security/attack-coverage?path=').subscribe();
+    const session = http.expectOne('/api/security/session');
+    session.flush({
+      required: true,
+      headerName: 'X-Quality-Studio-CSRF',
+      token: 'nonce',
+      expiresAt: '2099-01-01T00:00:00Z',
+    });
+    flushMicrotasks();
+
+    const scan = http.expectOne('/api/repos/default/security/attack-coverage?path=');
+    expect(scan.request.headers.get('X-Quality-Studio-CSRF')).toBe('nonce');
+    expect(scan.request.withCredentials).toBeTrue();
+    scan.flush({});
+    http.verify();
+  }));
 });

@@ -37,10 +37,12 @@ class LocalCsrfSession {
 }
 
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
+const protectedSensorGet = /\/(?:scan|security\/(?:scan|attack-coverage))(?:[?#]|$)/;
 
 export const localCsrfInterceptor: HttpInterceptorFn = (request, next) => {
   if (
-    safeMethods.has(request.method.toUpperCase()) ||
+    (safeMethods.has(request.method) &&
+      !(request.method === 'GET' && protectedSensorGet.test(request.url))) ||
     !request.url.startsWith('/api') ||
     request.url === '/api/security/session'
   ) {
