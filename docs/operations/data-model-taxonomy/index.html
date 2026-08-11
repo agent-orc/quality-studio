@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Studio data-model taxonomy - decision dossier</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <p class="kicker">Quality Studio · QS-67 · operator decision</p>
+    <h1>A stable taxonomy for quality observations</h1>
+    <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
+    <div class="meta">
+      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Phase</b> decision-ready</span>
+      <span><b>Analyzed</b> 11 August 2026</span>
+      <span><b>Quality Studio</b> <code>3e0b655</code></span>
+      <span><b>Source task</b> <code>QS-67</code></span>
+    </div>
+  </header>
+
+  <section class="box accent">
+    <h4>Recommendation</h4>
+    <p>Approve Option B and its five slices. Introduce <code>quality-studio/core@1.0.0</code> as an independently versioned term catalogue, represent verdicts as typed assessments on separate axes, store evidence as typed references, and append one immutable observation for every model or sensor run. Keep <code>review-meta.v1/v2</code> readable and keep the current sidecar as a projection during migration.</p>
+  </section>
+
+  <nav aria-label="Contents">
+    <ul class="toc">
+      <li><a href="#decision">1. Decision in one page</a></li>
+      <li><a href="#method">2. Scope and method</a></li>
+      <li><a href="#inventory">3. Current contract inventory</a></li>
+      <li><a href="#findings">4. Findings</a></li>
+      <li><a href="#platform">5. Platform vocabulary</a></li>
+      <li><a href="#target">6. Target taxonomy</a></li>
+      <li><a href="#contract">7. Observation contract</a></li>
+      <li><a href="#mapping">8. Compatibility mappings</a></li>
+      <li><a href="#options">9. Options</a></li>
+      <li><a href="#slices">10. Approval-ready slices</a></li>
+      <li><a href="#migration">11. Migration and rollback</a></li>
+      <li><a href="#acceptance">12. Acceptance invariants</a></li>
+      <li><a href="#evidence">13. Evidence ledger</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="decision"><span class="no">01</span>Decision in one page</h2>
+  <table>
+    <thead><tr><th>Question</th><th>Current answer</th><th>Evidence-based judgement</th></tr></thead>
+    <tbody>
+      <tr><td>Is it coherent?</td><td>Only within individual contracts.</td><td><span class="pill open">No, system-wide</span> <code>pass</code>, <code>warn</code>, <code>block</code>, <code>finding</code>, <code>fail</code>, <code>regression</code>, and <code>good</code> describe different axes under the same verdict label.</td></tr>
+      <tr><td>Is it versioned?</td><td>Envelope schemas are versioned.</td><td><span class="pill part">Partial</span> Review metadata has v1/v2 and several adjacent documents have v1. Aspect IDs, outcome meanings, evidence kinds, and lifecycle aliases have no shared taxonomy version.</td></tr>
+      <tr><td>Is it extensible?</td><td>Aspect IDs are open strings; root <code>x-*</code> keys are allowed.</td><td><span class="pill open">Unsafe</span> There is no registry, namespace, alias, deprecation, or unknown-term policy. Typed deserialization intentionally drops unknown root fields.</td></tr>
+      <tr><td>Does it survive model changes?</td><td>The latest sidecar records one effective model.</td><td><span class="pill open">No</span> A new model rerun overwrites the same unit/kind path. Usage history retains model and cost, not grade, aspects, verdict, evidence, or findings.</td></tr>
+      <tr><td>What should become authoritative?</td><td>None of the current verdict enums alone.</td><td><span class="pill queued">Option B</span> Immutable observations pinned to schema, taxonomy, subject, prompt, and producer identity; current sidecars and reports become projections.</td></tr>
+    </tbody>
+  </table>
+
+  <section class="box warn">
+    <h4>What approval means</h4>
+    <p>Approve the vocabulary and slice boundaries, not a score-policy change. Grade thresholds, security combination rules, model choice, and thinking-level correctness floors remain owned by their existing versioned policies. This proposal records those decisions with enough provenance to compare them later.</p>
+  </section>
+
+  <h2 id="method"><span class="no">02</span>Scope and method</h2>
+  <p>The analysis covers committed Quality Studio source, schemas, tests, samples, and generated repository evidence at <code>3e0b655</code>. It traces the normal review sidecar, finding lifecycle, deterministic sensors, security combination, change review, deep-flow review, attack coverage, quality report, usage ledger, and API review-run records.</p>
+  <p>The prompt-named repository instructions and documentation entry points do not exist in this Quality Studio checkout. They were read from the linked current Agent Taskboard checkout. The requested quality-system <code>taxonomy.md</code> exists in the linked platform history and older checkout, where its own header says <q>design exploration</q> and <q>No naming committed</q>. It was deleted from the current platform tree by <code>e2802d02b</code> on 19 July 2026. Production cross-references in the older platform checkout were inspected to distinguish adopted behavior from proposed vocabulary.</p>
+  <ul>
+    <li>No model or thinking-level route is selected or changed here. The platform model-routing policy remains authoritative.</li>
+    <li>No historical observation is inferred from prose or from absent fields.</li>
+    <li>Committed <code>.quality/changes/*.json</code> contains 20 change-review v1 records: 11 <code>regression</code> and 9 <code>no-quality-delta</code>. All 20 use the same four change-aspect IDs.</li>
+    <li>The committed review samples exercise <code>correctness</code> and <code>dependencies</code>; the boundary inventory has 12 high-severity <code>boundaries</code> findings. These are examples of current values, not a complete production census.</li>
+  </ul>
+
+  <h2 id="inventory"><span class="no">03</span>Current contract inventory</h2>
+  <table>
+    <thead><tr><th>Contract</th><th>Versioning</th><th>Taxonomy carried</th><th>Persistence behavior</th></tr></thead>
+    <tbody>
+      <tr><td><b>Review metadata</b><br><code>review-meta.v1/v2</code></td><td><code>$schema</code> plus integer <code>schemaVersion</code>; reader accepts exactly v1 or v2.</td><td>Kind: code/security/performance. Free aspect IDs. A-F grade. Five severities. Optional evidence string. Optional deterministic source.</td><td>One path per unit, level, and kind. The writer replaces that file.</td></tr>
+      <tr><td><b>Finding state</b><br><code>.quality/findings/state.json</code></td><td>Integer v1, no public JSON Schema file.</td><td><code>open</code>, <code>accepted</code>, <code>waived</code>, <code>false-positive</code>, <code>resolved</code>.</td><td>Mutable repository-wide snapshot keyed by occurrence fingerprint.</td></tr>
+      <tr><td><b>Security sensor combination</b></td><td>Embedded rule id <code>security-sensor-agent-v1</code>.</td><td><code>pass</code>, <code>warn</code>, <code>block</code>, <code>unavailable</code>.</td><td>Combined into the current review sidecar; sensor findings are appended to top-level findings.</td></tr>
+      <tr><td><b>Change review</b><br><code>change-review.v1</code></td><td>Schema v1.</td><td>Summary: <code>no-quality-delta</code>, <code>improved</code>, <code>neutral</code>, <code>regression</code>. Aspect verdict: <code>good</code>, <code>mixed</code>, <code>concerning</code>, <code>unknown</code>.</td><td>One immutable-looking document per result commit under <code>.quality/changes/</code>.</td></tr>
+      <tr><td><b>Deep-flow review</b><br><code>flow-review.v1</code></td><td>Schema v1 plus prompt id/version/hash.</td><td><code>pass</code>, <code>fail</code>, <code>undetermined</code>; separate business-logic classes; lifecycle uses <code>falsePositive</code>.</td><td>One current report per flow hash; replacement write.</td></tr>
+      <tr><td><b>Attack coverage</b></td><td>Observation integer v1; catalogue has schema and catalogue versions.</td><td><code>pass</code>, <code>finding</code>, <code>not-applicable</code>, <code>not-yet-checked</code>; typed source and evidence; model plus thinking level.</td><td>Append-only JSONL observations. This is the strongest current precedent.</td></tr>
+      <tr><td><b>Usage ledger</b><br><code>usage-ledger.v1/v2</code></td><td>Versioned JSONL lines.</td><td>Model, CLI, tokens, kind, level, path, run IDs. No quality outcome.</td><td>Monthly append-only JSONL with v1 retained unchanged.</td></tr>
+      <tr><td><b>Quality report</b><br><code>quality-report.v1</code></td><td>Schema v1.</td><td>Current grade, kind, severity, state, source label, and trend.</td><td>Reads current sidecars; Git reconstructs grade trends only when the aggregate score changes.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="findings"><span class="no">04</span>Findings</h2>
+
+  <h3>F1. Schema versions are carrying unversioned meanings <span class="pill open">high</span></h3>
+  <p><code>ReviewMetaDocument</code> correctly pins v1/v2 envelope URIs, but an aspect is only <code>{id,title,grade}</code>. The schema accepts any ID matching a lexical pattern. Nothing states which <code>correctness</code>, <code>architecture</code>, or <code>dependencies</code> definition was applied, whether its meaning changed, or which aliases are equivalent. <code>ReviewTaxonomyTests</code> protects only the three review kinds and five hierarchy levels.</p>
+  <p class="dim">Impact: a schema-compatible document can be semantically incomparable with another schema-compatible document.</p>
+
+  <h3>F2. “Verdict” names at least three different axes <span class="pill open">high</span></h3>
+  <p>Flow and attack coverage express assessment outcome. Security expresses enforcement posture and availability in one enum. Change review expresses direction of change. Change aspect verdicts express qualitative concern. Treating these as one flat vocabulary would erase meaning; leaving them unrelated prevents system-wide queries.</p>
+  <table>
+    <thead><tr><th>Actual axis</th><th>Current values</th><th>Required canonical axis</th></tr></thead>
+    <tbody>
+      <tr><td>Conformance assessment</td><td>flow <code>pass/fail/undetermined</code>; attack <code>pass/finding/not-applicable/not-yet-checked</code></td><td><code>assessment</code></td></tr>
+      <tr><td>Policy disposition and evidence state</td><td>security <code>pass/warn/block/unavailable</code></td><td><code>decision</code> plus <code>evidenceStatus</code></td></tr>
+      <tr><td>Direction of delta</td><td><code>no-quality-delta/improved/neutral/regression</code></td><td><code>change</code></td></tr>
+      <tr><td>Broad aspect judgement</td><td><code>good/mixed/concerning/unknown</code></td><td><code>assessment</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>F3. A model rerun replaces quality history <span class="pill open">high</span></h3>
+  <p>Freshness compares the requested model with <code>reviewer.model</code>. A different model therefore triggers a new review, but <code>ReviewRunner</code> writes to the same unit/kind sidecar with overwrite enabled. <code>QualityReportBuilder</code> reads only those current sidecars. The append-only usage ledger can prove that models ran and what they cost, but cannot recover their grades, verdicts, aspects, evidence, or findings.</p>
+  <p>The attack-coverage ledger already demonstrates the correct pattern: immutable judgements include agent, model, thinking level, prompt and catalogue hashes, evidence, tokens, and disagreement. The general review path should adopt that observation pattern without adopting attack-specific values.</p>
+
+  <h3>F4. Evidence has four incompatible shapes <span class="pill open">high</span></h3>
+  <p>A general <code>ReviewFinding</code> stores optional evidence as a string. Security wraps machine JSON in that string. Deterministic analyzer results carry separate nested findings and provenance. Attack coverage uses typed <code>{kind,reference,summary}</code> evidence. Flow findings have a path but no evidence collection. The quality report drops finding evidence entirely.</p>
+  <p class="dim">Impact: consumers must parse strings opportunistically, cannot validate locators or hashes uniformly, and cannot ask which evidence supports a verdict or finding.</p>
+
+  <h3>F5. Producer provenance can be wrong, not merely absent <span class="pill open">high</span></h3>
+  <p><code>FindingSourceKind</code> has only <code>deterministic</code>; agent provenance is encoded by the absence of <code>source</code>. Security sensor findings are appended to top-level findings without the structured <code>source</code> property. The quality report labels every top-level finding <code>agent</code> without inspecting its embedded machine-sensor evidence. This can misattribute a deterministic result to a model.</p>
+
+  <h3>F6. Lifecycle identity is coupled to one model’s wording and range <span class="pill part">medium</span></h3>
+  <p>The v1 fingerprint hashes path, normalized primary code snippet, and agent-selected <code>ruleId</code>. State is keyed by that fingerprint. A changed range, a broad built-in rule ID, or a model choosing another rule can split one issue. More seriously, the latest replacement review automatically resolves a previous finding that is absent. A model comparison can therefore mutate shared lifecycle state by disagreement.</p>
+
+  <h3>F7. Extension behavior is syntactic and lossy <span class="pill part">medium</span></h3>
+  <p><code>review-meta.v2</code> allows root <code>x-*</code> properties and rejects unknown nested properties. The typed reader skips unmapped members; its conformance test proves the future field disappears when the document is serialized again. Open aspect strings allow additions, but there is no namespace, catalogue digest, deprecation, replacement, or unknown-term aggregation rule.</p>
+
+  <h3>F8. Canonical spelling already drifts <span class="pill part">medium</span></h3>
+  <p>The shared finding-state projection emits <code>false-positive</code>, while flow-review v1 emits <code>falsePositive</code>. Review schemas use camel case for some enums and kebab case for others. Exact string consumers must already carry aliases, but no alias registry exists.</p>
+
+  <h2 id="platform"><span class="no">05</span>Platform vocabulary: keep the axes, not the draft tokens</h2>
+  <p>The platform quality-system taxonomy is useful as a product inventory. It separates Project Audits, Drift Analyses, Task Checks, Performance Probes, Design Loops, Council Reviews, QA Runs, Source-code Perspective, Token Usage, Steering Docs, Output Pattern Analysis, and Skills. It also proposes drift dimensions and says findings can become normal tasks.</p>
+  <section class="box warn">
+    <h4>Authority boundary</h4>
+    <p>That file is not a machine taxonomy. Its header says no naming is committed. Its sample report uses a free <code>status: warn</code>, while the older production platform’s <code>SecurityReviewSummary.Verdict</code> is explicitly free-form and gives <code>ok</code>, <code>stale</code>, and <code>failing</code> as examples. The current platform tree deleted the mockup taxonomy. Production comments still prove that parts of its report and storage behavior were implemented historically, not that its tokens became a durable contract.</p>
+  </section>
+  <table>
+    <thead><tr><th>Platform concept</th><th>Place in the stable model</th><th>Not used as</th></tr></thead>
+    <tbody>
+      <tr><td>Project Audit, Task Check, Probe, QA Run, Drift Analysis</td><td><code>review.profile.kind</code>, describing the producer workflow</td><td>A finding aspect or verdict</td></tr>
+      <tr><td>Project, task, runtime</td><td><code>subject.scope</code></td><td>A storage-path inference</td></tr>
+      <tr><td>Security, Architecture, Test, Drift, Runtime, Schema, Token</td><td>Namespaced aspect families in a catalogue</td><td>One closed global enum</td></tr>
+      <tr><td>Security, Drift, UX/UI, Test Quality, Token Usage, Steering Docs</td><td>Product surfaces and report projections</td><td>Producer authority</td></tr>
+      <tr><td>Finding becomes task</td><td>External handover reference on the lifecycle record</td><td>A lifecycle state transition by filesystem mutation</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="target"><span class="no">06</span>Target taxonomy</h2>
+  <p>The target separates structure, vocabulary, policy, and history. A model change creates another observation. It does not change term meanings, overwrite an earlier observation, or silently settle lifecycle state.</p>
+
+  <h3>Version layers</h3>
+  <table>
+    <thead><tr><th>Layer</th><th>Identifier</th><th>Change rule</th></tr></thead>
+    <tbody>
+      <tr><td>JSON structure</td><td><code>quality-observation.v1</code>, integer <code>schemaVersion: 1</code></td><td>Increment for incompatible field or structure changes. Readers keep explicit adapters for old majors.</td></tr>
+      <tr><td>Term meanings</td><td><code>quality-studio/core@1.0.0</code></td><td>Semantic Versioning. Major removes or changes meaning; minor adds a term or non-lossy alias; patch clarifies text without changing evaluation.</td></tr>
+      <tr><td>Review profile</td><td>For example <code>file-code-review@1.0.0</code> plus prompt hash</td><td>Changes required aspects, evidence expectations, or scoring inputs. Prompt text changes retain a hash even when the profile version was not raised.</td></tr>
+      <tr><td>Policy</td><td>For example <code>security-sensor-agent@1</code> or model-routing policy version</td><td>Changes combination, enforcement, or route selection. Policy does not redefine recorded facts.</td></tr>
+      <tr><td>Identity canonicalization</td><td><code>quality-studio-occurrence-v2</code></td><td>Versioned independently. Old fingerprints remain aliases; never recompute them in place.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Canonical axes and terms</h3>
+  <table>
+    <thead><tr><th>Object or axis</th><th>Core v1 terms</th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td><b>Producer kind</b></td><td><code>agent</code>, <code>deterministic-sensor</code>, <code>human</code>, <code>imported</code>, <code>unknown</code></td><td>Always explicit. Absence never means agent.</td></tr>
+      <tr><td><b>Evidence status</b></td><td><code>available</code>, <code>partial</code>, <code>unavailable</code></td><td>Describes coverage only. It is not a pass or block.</td></tr>
+      <tr><td><b>Assessment</b></td><td><code>pass</code>, <code>concern</code>, <code>fail</code>, <code>inconclusive</code>, <code>not-applicable</code>, <code>not-assessed</code></td><td>Describes what the evidence establishes for a review or aspect.</td></tr>
+      <tr><td><b>Change</b></td><td><code>improved</code>, <code>regressed</code>, <code>mixed</code>, <code>unchanged</code>, <code>no-observed-delta</code>, <code>inconclusive</code></td><td>Used only for before/after comparisons.</td></tr>
+      <tr><td><b>Decision</b></td><td><code>allow</code>, <code>warn</code>, <code>block</code>, <code>defer</code></td><td>Optional policy output with a required <code>policyRef</code>. Never supplied by a raw finding.</td></tr>
+      <tr><td><b>Severity</b></td><td><code>critical</code>, <code>high</code>, <code>medium</code>, <code>low</code>, <code>info</code></td><td>Retains current ordering and meaning; scoring weights stay in policy.</td></tr>
+      <tr><td><b>Lifecycle</b></td><td><code>open</code>, <code>accepted-risk</code>, <code>waived</code>, <code>false-positive</code>, <code>resolved</code></td><td>Lives in lifecycle events, not observations. <code>accepted</code> becomes the explicit alias <code>accepted-risk</code>.</td></tr>
+      <tr><td><b>Evidence kind</b></td><td><code>source-code</code>, <code>test-result</code>, <code>runtime-measurement</code>, <code>tool-result</code>, <code>artifact</code>, <code>document</code>, <code>human-attestation</code></td><td>Each item has a locator or artifact reference, summary, and digest when content is available.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Initial core aspect catalogue</h3>
+  <p>Core IDs are namespaced by domain so current collisions become visible. Titles remain presentation strings and do not carry identity.</p>
+  <table>
+    <thead><tr><th>Core ID</th><th>Current source</th><th>Migration alias</th></tr></thead>
+    <tbody>
+      <tr><td><code>code.correctness</code></td><td>Code prompt and sample</td><td><code>correctness</code></td></tr>
+      <tr><td><code>code.architecture</code></td><td>Required project code aspect</td><td><code>architecture</code></td></tr>
+      <tr><td><code>security.general</code></td><td>File security prompt</td><td><code>security</code></td></tr>
+      <tr><td><code>security.secrets</code></td><td>Project security profile</td><td><code>secrets</code></td></tr>
+      <tr><td><code>security.dependencies</code></td><td>Project profile and dependency sensor</td><td><code>dependencies</code></td></tr>
+      <tr><td><code>security.authentication-authorization</code></td><td>Project security profile</td><td><code>authentication-authorization</code></td></tr>
+      <tr><td><code>security.input-validation</code></td><td>Project security profile</td><td><code>input-validation</code></td></tr>
+      <tr><td><code>security.configuration-iac</code></td><td>Project security profile</td><td><code>configuration-iac</code></td></tr>
+      <tr><td><code>security.boundary-exposure</code></td><td>Boundary inventory</td><td><code>boundaries</code></td></tr>
+      <tr><td><code>security.business-logic</code></td><td>Deep-flow review</td><td>New adapter value</td></tr>
+      <tr><td><code>security.attack-coverage</code></td><td>Attack matrix</td><td>New adapter value</td></tr>
+      <tr><td><code>performance.general</code></td><td>Performance prompt</td><td><code>performance</code></td></tr>
+      <tr><td><code>change.risk</code></td><td>Change judgement</td><td><code>risk</code></td></tr>
+      <tr><td><code>change.test-evidence</code></td><td>Change judgement</td><td><code>test-evidence</code></td></tr>
+      <tr><td><code>change.scope-discipline</code></td><td>Change judgement</td><td><code>scope-discipline</code></td></tr>
+      <tr><td><code>change.architecture-drift</code></td><td>Change judgement</td><td><code>architecture-drift</code></td></tr>
+    </tbody>
+  </table>
+  <p><code>sensor-availability</code> does not become an aspect. It migrates to <code>evidenceStatus</code>. The generic <code>analyzer</code> value migrates to the mapped aspect of each rule when known and to a namespaced producer aspect when unknown.</p>
+
+  <h3>Extension contract</h3>
+  <ul>
+    <li>Every observation pins one core catalogue and zero or more extension catalogues by reverse-DNS ID, SemVer, and SHA-256 digest.</li>
+    <li>Extension terms use their declared prefix, for example <code>com.acme:resilience.backpressure</code>. They cannot redefine a core term.</li>
+    <li>Unknown same-major terms remain visible and round-trip unchanged, but are excluded from aggregates that do not understand them. The UI labels them <q>unrecognized term</q>.</li>
+    <li>An unknown taxonomy major is quarantined as structured-but-unsupported. Raw JSON remains inspectable; no verdict or grade is inferred.</li>
+    <li>All schema objects use an explicit <code>extensions</code> dictionary backed by preserved JSON data. Root <code>x-*</code> keys remain readable as legacy extensions only.</li>
+  </ul>
+
+  <h2 id="contract"><span class="no">07</span>Immutable observation contract</h2>
+  <p>One observation is one producer’s result for one exact subject and input set. The current sidecar remains a lossy compatibility projection selected from the observation store; it is not the history store.</p>
+  <pre><code>{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:...",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:..."
+  },
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/...",
+    "manifestHash": "sha256:..."
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:...",
+    "reviewInputsHash": "sha256:..."
+  },
+  "producer": {
+    "kind": "agent",
+    "agent": "codex",
+    "provider": "openai",
+    "requestedModel": "gpt-5.4-mini",
+    "effectiveModel": "gpt-5.4-mini",
+    "thinkingLevel": "high",
+    "routePolicyVersion": "2026-07-24",
+    "runId": "quality-...",
+    "reviewRunId": "review-..."
+  },
+  "evidenceStatus": "available",
+  "evidence": [{
+    "id": "ev-1",
+    "kind": "source-code",
+    "locator": { "path": "src/A.cs", "symbolId": "M:A.Run" },
+    "summary": "Unchecked value reaches the dereference.",
+    "contentHash": "sha256:..."
+  }],
+  "aspects": [{
+    "aspectId": "code.correctness",
+    "assessment": "fail",
+    "rationale": "One high-severity defect is evidenced.",
+    "grade": { "score": 68, "band": "D" }
+  }],
+  "assessment": "fail",
+  "findings": [{
+    "observationFindingId": "of-1",
+    "issueId": "issue-...",
+    "occurrenceFingerprint": "sha256:...",
+    "fingerprintAlgorithm": "quality-studio-occurrence-v2",
+    "ruleRef": "built-in/code.correctness.null-deref@1",
+    "aspectId": "code.correctness",
+    "severity": "high",
+    "evidenceRefs": ["ev-1"],
+    "source": { "kind": "agent", "producerRef": "self" }
+  }]
+}</code></pre>
+
+  <h3>Model identity and fair comparison</h3>
+  <p><code>requestedModel</code> and <code>effectiveModel</code> are separate. Provider, CLI/agent, thinking level, model revision when available, route policy version, prompt/profile version, taxonomy digest, review-input hash, and subject hash are retained. Missing values are <code>unknown</code>; they are never defaulted from the current platform policy after the fact.</p>
+  <p>A per-model quality record may be grouped by model, but a model comparison is marked controlled only when subject hash, profile version, prompt hash, taxonomy digest, and applicable evidence set match. Otherwise the UI labels it observational or confounded. This follows the platform routing policy’s warning that historical route outcomes are observational and that thinking level is part of the route.</p>
+
+  <h3>Finding identity and lifecycle</h3>
+  <ul>
+    <li><code>observationFindingId</code> identifies the finding inside one immutable observation.</li>
+    <li><code>occurrenceFingerprint</code> is a versioned exact correlation key. Existing v1 fingerprints are retained as aliases.</li>
+    <li><code>issueId</code> identifies a cross-observation issue after exact or reviewed correlation. A model name is never part of it.</li>
+    <li>Lifecycle is an append-only event stream keyed by <code>issueId</code>. An observation cannot directly set <code>accepted-risk</code>, <code>waived</code>, <code>false-positive</code>, or <code>resolved</code>.</li>
+    <li>Automated resolution requires a versioned reconciliation policy and basis observation IDs. Omission by a different model does not resolve an issue.</li>
+  </ul>
+
+  <h2 id="mapping"><span class="no">08</span>Compatibility mappings</h2>
+  <table>
+    <thead><tr><th>Legacy contract</th><th>Legacy value</th><th>Core v1 projection</th></tr></thead>
+    <tbody>
+      <tr><td>Security verdict</td><td><code>pass</code></td><td><code>assessment=pass</code>, <code>evidenceStatus=available</code>; policy may emit <code>decision=allow</code></td></tr>
+      <tr><td>Security verdict</td><td><code>warn</code></td><td><code>assessment=concern</code>; retain <code>security-sensor-agent-v1</code> as <code>policyRef</code></td></tr>
+      <tr><td>Security verdict</td><td><code>block</code></td><td><code>assessment=fail</code>, <code>decision=block</code> under the retained policy</td></tr>
+      <tr><td>Security verdict</td><td><code>unavailable</code></td><td><code>assessment=inconclusive</code>, <code>evidenceStatus=unavailable</code>; preserve the legacy policy result separately</td></tr>
+      <tr><td>Flow verdict</td><td><code>pass/fail/undetermined</code></td><td><code>pass/fail/inconclusive</code></td></tr>
+      <tr><td>Attack verdict</td><td><code>pass/finding/not-applicable/not-yet-checked</code></td><td><code>pass/fail/not-applicable/not-assessed</code></td></tr>
+      <tr><td>Change summary</td><td><code>no-quality-delta/improved/neutral/regression</code></td><td><code>no-observed-delta/improved/unchanged/regressed</code> on the <code>change</code> axis</td></tr>
+      <tr><td>Change aspect</td><td><code>good/mixed/concerning/unknown</code></td><td><code>pass/concern/fail/inconclusive</code></td></tr>
+      <tr><td>Finding state</td><td><code>accepted</code></td><td><code>accepted-risk</code>; retain <code>accepted</code> as a read alias</td></tr>
+      <tr><td>Finding state</td><td><code>falsePositive</code> or <code>false-positive</code></td><td><code>false-positive</code></td></tr>
+      <tr><td>Evidence string</td><td>Valid JSON</td><td><code>tool-result</code> with <code>application/json</code>, digest, and preserved raw payload or artifact reference</td></tr>
+      <tr><td>Evidence string</td><td>Plain text</td><td>Typed evidence item with summary and preserved original text</td></tr>
+    </tbody>
+  </table>
+  <p>Mappings are adapters, not rewrites of historical files. Every migrated observation retains <code>legacy.schema</code>, <code>legacy.value</code>, source path, and an import completeness flag.</p>
+
+  <h2 id="options"><span class="no">09</span>Options and recommendation</h2>
+  <table>
+    <thead><tr><th>Option</th><th>Shape</th><th>Advantages</th><th>Costs and failure mode</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr><td><b>A. Mapping layer only</b></td><td>Keep every current schema; add UI aliases.</td><td>Smallest change. Existing writers untouched.</td><td>No durable taxonomy version, evidence stays fragmented, model results still overwrite, and mappings become hidden application logic.</td><td><span class="pill open">Reject</span></td></tr>
+      <tr><td><b>B. Core catalogue plus immutable observations</b></td><td>Independent taxonomy v1, typed axes and evidence, append-only observation store, derived current sidecar.</td><td>Preserves facts, supports per-model records, keeps domain-specific protocols, and permits staged migration.</td><td>Requires dual-write, adapters, a new reducer, and explicit unknown-term behavior.</td><td><span class="pill queued">Recommend</span></td></tr>
+      <tr><td><b>C. One universal quality-event platform now</b></td><td>Replace review, flow, attack, change, usage, and lifecycle contracts together.</td><td>Maximum theoretical uniformity.</td><td>Broad rewrite across independent mature paths; likely couples producer workflow, evidence, lifecycle, and policy again under a larger schema.</td><td><span class="pill part">Defer</span></td></tr>
+    </tbody>
+  </table>
+  <section class="box ok">
+    <h4>Decision text the operator can approve</h4>
+    <p>Approve Option B, the core v1 terms in section 6, the legacy mappings in section 8, and slices T1 through T5 below. Existing schemas remain readable; migration is additive and non-destructive; the current sidecar remains the default projection until T4 acceptance.</p>
+  </section>
+
+  <h2 id="slices"><span class="no">10</span>Approval-ready implementation slices</h2>
+
+  <h3>T1. Contract and catalogue foundation <span class="pill queued">first</span></h3>
+  <p><b>Scope:</b> add <code>schemas/quality-taxonomy.v1.schema.json</code>, <code>schemas/quality-observation.v1.schema.json</code>, the core catalogue JSON, C# contract types, preserved extension data, and a pure legacy mapping library. Do not change writers.</p>
+  <ul>
+    <li>Pin exact terms, descriptions, aliases, deprecations, ordering, and allowed assessment axes.</li>
+    <li>Add conformance vectors for every row in section 8 and reject unknown majors without discarding raw data.</li>
+    <li>Prove extensions survive deserialize/serialize and do not participate in core aggregation without an installed catalogue.</li>
+  </ul>
+  <p><b>Acceptance:</b> schemas validate positive/negative fixtures; every current verdict/state spelling maps deterministically; no production output changes. <b>Size:</b> M. <b>Dependency:</b> none.</p>
+
+  <h3>T2. Immutable observation dual-write and full route provenance</h3>
+  <p><b>Scope:</b> append <code>.quality/observations/YYYY-MM.jsonl</code> after every successful general review. Extend review request, run manifest, agent result, and usage link with provider, requested/effective model, thinking level, and routing-policy version. Continue writing <code>review-meta.v2</code> unchanged.</p>
+  <ul>
+    <li>Derive idempotent <code>observationId</code> from run ID, unit ID, kind, subject hash, input hash, and taxonomy digest.</li>
+    <li>Use the append/write-through and malformed-line tolerance already proven by <code>UsageLedger</code>.</li>
+    <li>Record <code>unknown</code> when the runner cannot report thinking or provider; never infer a level from model name.</li>
+  </ul>
+  <p><b>Acceptance:</b> two forced runs on the same unit with different models leave two observations and one current sidecar; both join to their usage entries; replay does not duplicate a line; a crash before sidecar projection leaves a recoverable observation. <b>Size:</b> L. <b>Dependency:</b> T1.</p>
+
+  <h3>T3. Typed evidence, producer provenance, and issue lifecycle v2</h3>
+  <p><b>Scope:</b> convert locations and sensor facts into typed evidence, make producer kind explicit, introduce <code>issueId</code> plus versioned occurrence fingerprints, and add append-only lifecycle events. Keep the current state snapshot as a derived compatibility file.</p>
+  <ul>
+    <li>Fix security-sensor provenance in the projection and ensure report/SARIF exports do not label it agent-authored.</li>
+    <li>Keep every legacy fingerprint as an alias; correlation never deletes or rewrites it.</li>
+    <li>Require an explicit or policy-backed resolution event. A different model’s omission is not enough.</li>
+  </ul>
+  <p><b>Acceptance:</b> agent, deterministic sensor, and human sources round-trip; evidence refs resolve; lifecycle tests cover model disagreement, reopen, expiry, and idempotent replay; v1 state remains readable. <b>Size:</b> L. <b>Dependency:</b> T2.</p>
+
+  <h3>T4. Observation-backed projections and per-model records</h3>
+  <p><b>Scope:</b> make <code>QualityReportBuilder</code>, repository dashboard, and current-sidecar generation read the observation store through one reducer. Add per-model/profile aggregates without changing default score policy.</p>
+  <ul>
+    <li>Current selection is a versioned policy based on subject/input freshness and review profile, not latest timestamp alone.</li>
+    <li>Expose model, thinking level, sample count, subject/profile comparability, grade, assessment, and finding counts.</li>
+    <li>Label comparisons controlled, observational, or incomplete from hashes and missing provenance.</li>
+  </ul>
+  <p><b>Acceptance:</b> existing report fixtures retain current totals; model A and model B are both queryable; selecting the current observation is deterministic; unknown taxonomy terms remain visible and excluded from unsupported aggregates. <b>Size:</b> L. <b>Dependency:</b> T3.</p>
+
+  <h3>T5. Domain adapters and migration tool</h3>
+  <p><b>Scope:</b> emit common observations from security combination, change review, deep-flow review, and attack coverage while retaining their v1 domain files. Add <code>quality taxonomy migrate --dry-run|--apply</code>.</p>
+  <ul>
+    <li>Backfill one partial observation per current v1/v2 sidecar and current flow report. Join usage only by exact run ID.</li>
+    <li>Import attack observations without losing assessment IDs, disagreement, evidence, thinking level, or catalogue hashes.</li>
+    <li>Import change documents on the <code>change</code> axis and preserve their four aspect judgements.</li>
+    <li>Produce a machine-readable migration report with imported, skipped, ambiguous-source, unknown-model, and error counts.</li>
+  </ul>
+  <p><b>Acceptance:</b> dry-run performs no writes; apply is idempotent; old files are byte-identical; every migrated value matches section 8; ambiguous facts remain explicitly unknown. <b>Size:</b> L. <b>Dependency:</b> T4.</p>
+
+  <h2 id="migration"><span class="no">11</span>Migration and rollback</h2>
+  <table>
+    <thead><tr><th>Existing data</th><th>Migration behavior</th><th>Do not do</th></tr></thead>
+    <tbody>
+      <tr><td><code>review-meta.v1/v2</code></td><td>Read indefinitely. Import the current file once with deterministic import ID and <code>completeness=partial</code> when fields are missing.</td><td>Do not rewrite committed sidecars to v3 in bulk.</td></tr>
+      <tr><td>Usage v1/v2 JSONL</td><td>Exact <code>runId</code> joins enrich imported observations. Unjoined usage remains valid spend history.</td><td>Do not manufacture a grade or verdict from token data.</td></tr>
+      <tr><td>Finding state v1</td><td>Create one lifecycle snapshot event per record, map aliases, retain author/reason/timestamp/expiry and legacy fingerprint.</td><td>Do not claim event history that v1 never stored.</td></tr>
+      <tr><td>Evidence strings</td><td>Parse valid JSON without interpreting producer semantics; otherwise preserve text. Hash the preserved content.</td><td>Do not discard malformed or unknown evidence.</td></tr>
+      <tr><td>Missing source</td><td>Use known document context and exact sensor correlation. If ambiguous, store <code>producer.kind=unknown</code>.</td><td>Do not treat absence as agent.</td></tr>
+      <tr><td>Missing thinking/provider</td><td>Store <code>unknown</code> and <code>completeness=partial</code>.</td><td>Do not backfill from today’s routing policy.</td></tr>
+      <tr><td>Git grade trend</td><td>Keep the existing report until observation history is sufficient. Optional reconstruction is labeled <code>git-reconstructed</code>.</td><td>Do not present a score-changing commit as a complete model attempt.</td></tr>
+    </tbody>
+  </table>
+  <p><b>Rollout:</b> T2 dual-write is behind <code>QualityTaxonomy:ObservationWriteEnabled</code>. T4 observation reads are separately gated by <code>QualityTaxonomy:ObservationReadEnabled</code>. Enable write first, compare projection hashes for at least one full repository sweep, then enable reads. Rollback disables reads and returns to existing sidecars; append-only observations remain valid and require no deletion.</p>
+  <p><b>Failure handling:</b> a valid review must not be lost because observation append fails. Until read cutover, report the append failure, leave the prior sidecar current, and do not write a new sidecar without its authoritative observation. After cutover, the observation is written first and the sidecar can always be regenerated.</p>
+
+  <h2 id="acceptance"><span class="no">12</span>Acceptance invariants</h2>
+  <section class="box bad">
+    <h4>Non-negotiable data invariants</h4>
+    <ul>
+      <li>No model run overwrites or deletes another model run’s observation.</li>
+      <li>No observation changes human lifecycle state directly.</li>
+      <li>No absent, unknown, unavailable, or unsupported value is converted to pass.</li>
+      <li>No policy disposition is stored as if it were an evidence assessment.</li>
+      <li>No extension term is silently coerced into a core term.</li>
+      <li>No per-model comparison is called controlled unless subject, profile, prompt, taxonomy, and evidence applicability match.</li>
+      <li>No migration rewrites v1/v2 sidecars, usage ledgers, attack ledgers, flow reports, or change reports.</li>
+    </ul>
+  </section>
+  <table>
+    <thead><tr><th>Test scenario</th><th>Expected result</th></tr></thead>
+    <tbody>
+      <tr><td>Same subject, same prompt, model A then model B</td><td>Two immutable observations; one deterministic current projection; neither finding set resolves the other by omission.</td></tr>
+      <tr><td>Requested model differs from effective model</td><td>Both retained; aggregation keys use effective model and display the requested/effective mismatch.</td></tr>
+      <tr><td>Security scanner unavailable</td><td><code>evidenceStatus=unavailable</code>, assessment inconclusive, and separate versioned policy decision. Never a synthetic pass.</td></tr>
+      <tr><td>Unknown extension aspect</td><td>Round-trips and renders with source catalogue; excluded from core grade unless an adapter is installed.</td></tr>
+      <tr><td>Legacy sensor finding in top-level array</td><td>Imported as deterministic when exact evidence proves it; otherwise unknown, never agent by default.</td></tr>
+      <tr><td>Repeated migration</td><td>Second run imports zero new observations and reports every existing deterministic import ID as skipped.</td></tr>
+      <tr><td>Old consumer reads repository after T2</td><td>Existing v2 sidecar and report remain valid; new ledger is additive.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="evidence"><span class="no">13</span>Evidence ledger</h2>
+  <table>
+    <thead><tr><th>Claim</th><th>Repository evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Review envelope is v2 and accepts v1</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewMetaContract.cs"><code>ReviewMetaContract.cs:7-18, 280-293</code></a></td></tr>
+      <tr><td>Aspects are open IDs without a catalogue reference</td><td><a href="../../../schemas/review-meta.v2.schema.json"><code>review-meta.v2.schema.json:68-79</code></a> and <code>$defs.aspect</code></td></tr>
+      <tr><td>Root extensions are allowed but typed round-trip drops them</td><td><a href="../../../schemas/review-meta.v2.schema.json"><code>review-meta.v2.schema.json:6-9</code></a>; <a href="../../../tests/AgentOrchestrator.CodeQuality.Tests/ReviewMetaContractTests.cs"><code>ReviewMetaContractTests.cs:14-42</code></a>; <a href="../../../src/AgentOrchestrator.CodeQuality/ReviewMetaContract.cs"><code>ReviewMetaContract.cs:265-277</code></a></td></tr>
+      <tr><td>Taxonomy tests cover only kinds and hierarchy levels</td><td><a href="../../../tests/AgentOrchestrator.CodeQuality.Tests/ReviewTaxonomyTests.cs"><code>ReviewTaxonomyTests.cs:3-26</code></a></td></tr>
+      <tr><td>Normal reruns overwrite one unit/kind sidecar</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewRunner.cs"><code>ReviewRunner.cs:175-183, 442-459</code></a></td></tr>
+      <tr><td>Model changes trigger freshness changes</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs"><code>StalenessEvaluator.cs:20-44</code></a></td></tr>
+      <tr><td>Usage history stores model and cost, not quality result</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs"><code>UsageTelemetry.cs:23-50, 52-120</code></a>; <a href="../../../schemas/usage-ledger.v2.schema.json"><code>usage-ledger.v2.schema.json</code></a></td></tr>
+      <tr><td>Attack coverage already stores immutable model/thinking observations</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/AttackCoverageModels.cs"><code>AttackCoverageModels.cs:76-150</code></a>; <a href="../../../src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs"><code>AttackCoverageService.cs:140-180</code></a></td></tr>
+      <tr><td>General evidence is a string; security serializes JSON into it</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewMetaContract.cs"><code>ReviewMetaContract.cs:147-169</code></a>; <a href="../../../src/AgentOrchestrator.CodeQuality/SecurityReviewEvidence.cs"><code>SecurityReviewEvidence.cs:66-88, 114-125</code></a></td></tr>
+      <tr><td>Security sensor findings enter top-level findings without structured source</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/SecurityReviewEvidence.cs"><code>SecurityReviewEvidence.cs:340-355</code></a></td></tr>
+      <tr><td>Quality report labels all top-level findings agent-authored</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/QualityReport.cs"><code>QualityReport.cs:265-288</code></a></td></tr>
+      <tr><td>Fingerprint and automatic resolution use model-selected rule/range evidence</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/FindingIdentity.cs"><code>FindingIdentity.cs:8-68</code></a>; <a href="../../../src/AgentOrchestrator.CodeQuality/FindingStateStore.cs"><code>FindingStateStore.cs:49-88</code></a></td></tr>
+      <tr><td>Verdict vocabularies differ by protocol</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/SecurityScanModels.cs"><code>SecurityScanModels.cs:12-18</code></a>; <a href="../../../src/AgentOrchestrator.CodeQuality/FlowReviewModels.cs"><code>FlowReviewModels.cs:5-10</code></a>; <a href="../../../src/AgentOrchestrator.CodeQuality/AttackCoverageModels.cs"><code>AttackCoverageModels.cs:9-15</code></a>; <a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetModels.cs"><code>ChangeSetModels.cs:171-202</code></a></td></tr>
+      <tr><td>Committed change data uses two summary verdicts and four fixed aspects</td><td><a href="../../../.quality/changes/e4cc1d14752690df02cc8e16dcdefdcdc90d882b.json"><code>.quality/changes/*.json</code></a>; 20 files inspected with <code>jq</code></td></tr>
+      <tr><td>Platform vocabulary was explicitly exploratory and historically cross-referenced</td><td><code>agent-taskboard/docs/mockups/quality-system/taxonomy.md:1-5, 51-65, 174-236</code>; <code>backend/Features/Security/SecurityReviewModels.cs:3-20</code>; deletion commit <code>e2802d02b</code></td></tr>
+      <tr><td>Current platform route policy treats model plus thinking level as the route and warns that history is observational</td><td><code>agent-taskboard/docs/system/domains/model-routing-policy.md</code>, version 2026-07-24</td></tr>
+    </tbody>
+  </table>
+
+  <section class="box accent">
+    <h4>Final recommendation</h4>
+    <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
+  </section>
+</main>
+</body>
+</html>
