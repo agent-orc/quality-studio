@@ -251,7 +251,7 @@ public sealed class ReviewMetaContractTests
     }
 
     [Fact]
-    public async Task UsageLedgerParsesV1AndAggregatesV2OperationsByDurableReviewRun()
+    public async Task UsageLedgerParsesV1V2AndV3AndAggregatesOperationsByDurableReviewRun()
     {
         var root = Directory.CreateTempSubdirectory("quality-studio-usage-");
         try
@@ -273,6 +273,10 @@ public sealed class ReviewMetaContractTests
                 "cli-run-2", timestamp.AddMinutes(2), "gpt-5", "codex",
                 new TokenUsage(25, 5, 10, 1, 300), "code", "module", "src",
                 "review-sweep-1", 2), TestContext.Current.CancellationToken);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "cli-run-3", timestamp.AddMinutes(3), "gpt-5", "codex",
+                new TokenUsage(10, 2, 5, 1, 150), "code", "file", "src/c.ts",
+                "review-sweep-1", 3, "operation-3", 2), TestContext.Current.CancellationToken);
 
             var ledgerLines = await File.ReadAllLinesAsync(ledgerPath, TestContext.Current.CancellationToken);
             Assert.Equal(legacyLine, ledgerLines[0]);
@@ -282,19 +286,25 @@ public sealed class ReviewMetaContractTests
                 Assert.Equal(2, secondV2.RootElement.GetProperty("schemaVersion").GetInt32());
                 Assert.Equal("review-sweep-1", secondV2.RootElement.GetProperty("reviewRunId").GetString());
             }
+            ValidateUsageLedgerLine(ledgerLines[3], "usage-ledger.v3.schema.json");
+            using (var v3 = JsonDocument.Parse(ledgerLines[3]))
+            {
+                Assert.Equal("operation-3", v3.RootElement.GetProperty("operationId").GetString());
+                Assert.Equal(2, v3.RootElement.GetProperty("attempt").GetInt32());
+            }
 
             await File.AppendAllTextAsync(ledgerPath,
                 """{"runId":"incomplete","timestamp":"2026-07-21T10:03:00Z","schemaVersion":1}""" + "\n",
                 TestContext.Current.CancellationToken);
             var report = await UsageLedger.QueryAsync(root.FullName, timestamp.AddMinutes(-1), "code", cancellationToken: TestContext.Current.CancellationToken);
-            Assert.Equal(3, report.Runs);
-            Assert.Equal(175, report.InputTokens);
+            Assert.Equal(4, report.Runs);
+            Assert.Equal(185, report.InputTokens);
             Assert.Equal("gpt-5", Assert.Single(report.ByModel).Key);
             Assert.Equal("code", Assert.Single(report.ByKind).Key);
             Assert.Equal("2026-07-21", Assert.Single(report.ByDay).Key);
             var sweep = Assert.Single(report.ByReviewRun, aggregate => aggregate.Key == "review-sweep-1");
-            Assert.Equal(2, sweep.Runs);
-            Assert.Equal(75, sweep.InputTokens);
+            Assert.Equal(3, sweep.Runs);
+            Assert.Equal(85, sweep.InputTokens);
             var legacy = Assert.Single(report.ByReviewRun, aggregate => aggregate.Key == "legacy-cli-run");
             Assert.Equal(1, legacy.Runs);
             Assert.Equal(100, legacy.InputTokens);
