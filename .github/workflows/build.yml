@@ -60,6 +60,9 @@ jobs:
         env:
           CHROME_NO_SANDBOX: "1"
 
+      - name: Static-analysis contract tests
+        run: npm run test:static-analysis
+
       - name: Static-analysis new-debt gate
         run: npm run static:check
 
