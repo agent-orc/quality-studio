@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
-import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
+import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryOnboardingAssessment, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
 import { ReviewActions } from './review-actions/review-actions';
 import { ProjectDashboardView } from './project-dashboard/project-dashboard';
@@ -11,6 +11,8 @@ import { flattenTree } from './tree-utils';
 import { UsageHistory } from './usage-history/usage-history';
 import { readFindingRoute, writeFindingRoute } from './review-navigation';
 import { reportUrlPreviewNavigation } from './url-preview-embed';
+import { RepositoryOnboardingAssessmentView } from './repository-onboarding-assessment/repository-onboarding-assessment';
+import { RepositoryTrustSelector } from './repository-trust-selector/repository-trust-selector';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
 const RESIZE_HANDLE_WIDTH = 6;
@@ -33,7 +35,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryOnboardingAssessmentView, RepositoryTrustSelector],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -63,6 +65,8 @@ export class App implements OnDestroy {
   readonly editingRepositoryId = signal<string | null>(null);
   readonly repositoryError = signal('');
   readonly repositorySaving = signal(false);
+  readonly repositoryAssessment = signal<RepositoryOnboardingAssessment | null>(null);
+  private readonly repositoryAssessmentFingerprint = signal('');
   readonly agentStudioImportDialogOpen = signal(false);
   readonly agentStudioImporting = signal(false);
   readonly agentStudioImportResult = signal<AgentStudioImportResponse | null>(null);
@@ -327,6 +331,8 @@ export class App implements OnDestroy {
     this.repositoryMenuOpen.set(false);
     this.editingRepositoryId.set(null);
     this.repositoryForm = this.emptyRepositoryForm();
+    this.repositoryAssessment.set(null);
+    this.repositoryAssessmentFingerprint.set('');
     this.repositoryError.set('');
     this.repositoryDialogOpen.set(true);
   }
@@ -373,7 +379,10 @@ export class App implements OnDestroy {
       enabledReviewKinds: [...repository.enabledReviewKinds],
       defaultReviewTokenCap: repository.defaultReviewTokenCap,
       defaultReviewCostCap: repository.defaultReviewCostCap,
+      trustLevel: repository.trustLevel,
     };
+    this.repositoryAssessment.set(repository.onboardingAssessment);
+    this.repositoryAssessmentFingerprint.set('');
     this.repositoryError.set('');
   }
 
@@ -397,6 +406,13 @@ export class App implements OnDestroy {
     this.repositorySaving.set(true);
     this.repositoryError.set('');
     try {
+      const fingerprint = this.repositoryFormFingerprint();
+      if (this.repositoryAssessmentFingerprint() !== fingerprint) {
+        const assessment = await this.api.preflightRepository(this.repositoryForm);
+        this.repositoryAssessment.set(assessment);
+        this.repositoryAssessmentFingerprint.set(fingerprint);
+        return;
+      }
       const editingId = this.editingRepositoryId();
       const saved = editingId
         ? await this.api.updateRepository(editingId, this.repositoryForm)
@@ -408,6 +424,11 @@ export class App implements OnDestroy {
     } finally {
       this.repositorySaving.set(false);
     }
+  }
+
+  repositoryAssessmentCurrent(): boolean {
+    return this.repositoryAssessment() !== null &&
+      this.repositoryAssessmentFingerprint() === this.repositoryFormFingerprint();
   }
 
   async archiveRepository(repository: RepositoryRegistration): Promise<void> {
@@ -551,7 +572,14 @@ export class App implements OnDestroy {
   }
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {
-    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], defaultReviewTokenCap: 100000, defaultReviewCostCap: null };
+    return { displayName: '', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], defaultReviewTokenCap: 100000, defaultReviewCostCap: null, trustLevel: 'untrusted' };
+  }
+
+  private repositoryFormFingerprint(): string {
+    return JSON.stringify({
+      ...this.repositoryForm,
+      enabledReviewKinds: [...this.repositoryForm.enabledReviewKinds].sort(),
+    });
   }
 
   private emptyGuidelineForm(): GuidelineForm {

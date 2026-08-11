@@ -39,6 +39,12 @@ export class ReviewActions {
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
     run.path === this.node()?.path && run.kind === this.activeKind()));
   readonly currentRun = computed(() => this.scopeRuns()[0] ?? null);
+  readonly reviewBlockedReason = computed(() => {
+    const repository = this.api.selectedRepository();
+    return repository?.reviewAllowed === false
+      ? repository.reviewBlockReason ?? 'Repository review is blocked by onboarding policy.'
+      : null;
+  });
   readonly displayRun = computed(() => this.showLauncher() ? null : this.currentRun());
   readonly activeOnNode = computed(() => ['queued', 'running', 'paused'].includes(this.currentRun()?.state ?? ''));
   readonly currentRunPath = computed(() => {
@@ -153,6 +159,10 @@ export class ReviewActions {
   async prepare(): Promise<void> {
     const node = this.node();
     if (!node || this.starting() || this.activeOnNode()) return;
+    if (this.reviewBlockedReason()) {
+      this.api.reviewError.set(this.reviewBlockedReason()!);
+      return;
+    }
     if (this.capKind() !== 'repository' && (!this.capValue() || this.capValue()! <= 0)) {
       this.api.reviewError.set('Enter a positive per-run cap before estimating the review.');
       return;

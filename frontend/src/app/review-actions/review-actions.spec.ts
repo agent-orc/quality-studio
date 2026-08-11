@@ -24,7 +24,7 @@ describe('ReviewActions', () => {
     reviewRuns: signal<any[]>([]),
     connected: computed(() => true),
     reviewError: signal(''),
-    selectedRepository: signal({ displayName: 'Sample repository' }),
+    selectedRepository: signal<any>({ displayName: 'Sample repository' }),
     estimateReview: jasmine.createSpy('estimateReview'),
     startReview: jasmine.createSpy('startReview'),
     pauseReview: jasmine.createSpy('pauseReview'), cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
@@ -37,6 +37,7 @@ describe('ReviewActions', () => {
     api.estimateReview.calls.reset();
     api.startReview.calls.reset();
     api.reviewRuns.set([]);
+    api.selectedRepository.set({ displayName: 'Sample repository', reviewAllowed: true, reviewBlockReason: null });
     await TestBed.configureTestingModule({
       imports: [ReviewActions],
       providers: [{ provide: QualityApi, useValue: api }],
@@ -74,6 +75,22 @@ describe('ReviewActions', () => {
     expect(component.model()).toBe('');
     expect(component.thinkingLevel()).toBe('');
     expect(component.modelsForCli().map(model => model.modelId)).toEqual(['claude-sonnet-5']);
+  });
+
+  it('renders the server-owned quarantine and never estimates a blocked review', async () => {
+    api.selectedRepository.set({
+      displayName: 'Untrusted repository', reviewAllowed: false,
+      reviewBlockReason: 'Model review is blocked for untrusted repository content until isolation is available.',
+    });
+    fixture.detectChanges();
+
+    const warning = fixture.nativeElement.querySelector('.review-boundary-block') as HTMLElement;
+    const start = fixture.nativeElement.querySelector('.review-intent') as HTMLButtonElement;
+    expect(warning.textContent).toContain('Review quarantined');
+    expect(warning.textContent).toContain('untrusted repository content');
+    expect(start.disabled).toBeTrue();
+    await component.prepare();
+    expect(api.estimateReview).not.toHaveBeenCalled();
   });
 
   it('renders inline server-owned preflight and explicitly confirms a below-floor start', async () => {

@@ -10,6 +10,9 @@
   </section>
 } @else {
 <div class="review-actions" [class.compact]="compact()" aria-label="Start review">
+  @if (reviewBlockedReason(); as reason) {
+    <div class="review-boundary-block" role="alert"><span class="status stale"></span><div><b>Review quarantined</b><small>{{ reason }}</small></div></div>
+  }
   <select aria-label="Review kind" [ngModel]="activeKind()" (ngModelChange)="kindSelect.emit($event)">
     @for (kind of reviewKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
   </select>
@@ -65,8 +68,8 @@
     <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="setCapValue($event)" />
   }
   <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="setForce($event)" /> Force re-review</label>
-  <button class="start-review review-intent" type="button" (click)="prepare()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
-    {{ activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + fileCount() + ' file' + (fileCount() === 1 ? '' : 's') + ' for ' + activeKind() + ' quality' }}
+  <button class="start-review review-intent" type="button" (click)="prepare()" [disabled]="!node() || !api.connected() || starting() || activeOnNode() || !!reviewBlockedReason()">
+    {{ reviewBlockedReason() ? 'Review blocked by onboarding' : activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + fileCount() + ' file' + (fileCount() === 1 ? '' : 's') + ' for ' + activeKind() + ' quality' }}
   </button>
 </div>
 @if (preflight(); as sheet) {
