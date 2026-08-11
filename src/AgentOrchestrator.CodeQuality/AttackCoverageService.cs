@@ -419,11 +419,16 @@ public sealed class AttackCoverageService
                         observation.FindingFingerprint!,
                         observation.FindingId ?? "finding-" + observation.FindingFingerprint![7..],
                         boundary.Location.Path,
-                        attack.Entry.Id))
+                        attack.Entry.Id,
+                        "deterministic-sensor"))
                     .DistinctBy(item => item.Fingerprint, StringComparer.Ordinal)
                     .ToArray();
                 var currentFindings = matchingFindings.Select(finding => new FindingIdentityRecord(
-                        finding.Fingerprint, finding.Id, finding.Locations[0].Path, finding.RuleId))
+                        finding.Fingerprint,
+                        finding.Id,
+                        finding.Locations[0].Path,
+                        finding.RuleId,
+                        "deterministic-sensor"))
                     .ToArray();
                 if (currentFindings.Length > 0 || previousFindings.Length > 0)
                 {
@@ -538,7 +543,11 @@ public sealed class AttackCoverageService
                     "A finding verdict must supply a fingerprint or link an existing finding id.",
                     nameof(submission));
             current.Add(new FindingIdentityRecord(
-                linked.Fingerprint, linked.FindingId, linked.Path, linked.RuleId));
+                linked.Fingerprint,
+                linked.FindingId,
+                linked.Path,
+                linked.RuleId,
+                LifecycleProducerKind(submission.Source)));
         }
         else if (submission.Verdict == AttackCoverageVerdict.Finding)
         {
@@ -550,7 +559,11 @@ public sealed class AttackCoverageService
                     existing.FindingId != submission.FindingId)
                     throw new ArgumentException("Finding id does not match the linked fingerprint.", nameof(submission));
                 current.Add(new FindingIdentityRecord(
-                    existing.Fingerprint, existing.FindingId, existing.Path, existing.RuleId));
+                    existing.Fingerprint,
+                    existing.FindingId,
+                    existing.Path,
+                    existing.RuleId,
+                    LifecycleProducerKind(submission.Source)));
             }
             else
             {
@@ -558,7 +571,11 @@ public sealed class AttackCoverageService
                     ? "finding-" + submission.FindingFingerprint![7..]
                     : submission.FindingId;
                 current.Add(new FindingIdentityRecord(
-                    submission.FindingFingerprint!, findingId, boundary.Location.Path, attack.Id));
+                    submission.FindingFingerprint!,
+                    findingId,
+                    boundary.Location.Path,
+                    attack.Id,
+                    LifecycleProducerKind(submission.Source)));
             }
         }
         if (current.Count > 0 || previous.Length > 0)
@@ -583,6 +600,14 @@ public sealed class AttackCoverageService
             }
         }
     }
+
+    private static string LifecycleProducerKind(AttackCoverageSource source) => source switch
+    {
+        AttackCoverageSource.Agent => "agent",
+        AttackCoverageSource.DeterministicSensor => "deterministic-sensor",
+        AttackCoverageSource.Human => "human",
+        _ => "unknown",
+    };
 
     private static bool IsSha256(string value) =>
         value is { Length: 71 } && value.StartsWith("sha256:", StringComparison.Ordinal) &&
