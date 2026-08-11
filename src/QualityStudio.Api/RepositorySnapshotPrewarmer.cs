@@ -39,7 +39,7 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
 
     public void Queue(RepositoryRegistration registration)
     {
-        if (registration.Archived) return;
+        if (registration.Archived || registration.Blocked) return;
         var key = string.Join('\0', registration.RootPath, registration.GlobalInputsDirectory,
             registration.InputBudgetCharacters.ToString(System.Globalization.CultureInfo.InvariantCulture));
         if (!pending.TryAdd(key, 0)) return;
