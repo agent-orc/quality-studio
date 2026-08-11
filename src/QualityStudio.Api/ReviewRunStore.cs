@@ -20,7 +20,20 @@ public sealed record ReviewRunEstimate(
     string PriceStatus,
     int HistorySamples,
     string Method,
-    int ExpectedFreshSkips = 0);
+    int ExpectedFreshSkips = 0,
+    long? PromptCharactersBeforeCompaction = null);
+
+public sealed record ReviewRunEconomyEvidence(
+    long StaticDurationMs,
+    int PreflightCacheHits,
+    int FindingCount,
+    int ModelCallsPlanned,
+    int ModelCallsBlocked,
+    int ModelCallsExecuted,
+    long? PromptCharactersBeforeCompaction,
+    long? PromptCharactersAfterCompaction,
+    TokenUsage ActualUsage,
+    ReviewEstimateDeviation? EstimateDeviation);
 
 public sealed record ReviewRunManifest(
     string RunId,
@@ -76,7 +89,9 @@ public sealed record ReviewRunStatus(
     int PreflightUnavailableChecks = 0,
     string? PreflightResultHash = null,
     long? PreflightDurationMs = null,
-    int BlockedFiles = 0);
+    int BlockedFiles = 0,
+    int PreflightCacheHits = 0,
+    int PreflightFindings = 0);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so
@@ -107,7 +122,8 @@ public sealed record ReviewRunResult(
     string PriceStatus,
     string? StopReason,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    ReviewRunEconomyEvidence? Economy = null);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
@@ -230,7 +246,8 @@ public sealed class ReviewRunStore
             status.PriceStatus,
             status.StopReason,
             manifest.Recommendation,
-            manifest.RouteOverride);
+            manifest.RouteOverride,
+            Economy(manifest, status));
         WriteAtomically(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }
@@ -252,6 +269,22 @@ public sealed class ReviewRunStore
         var document = observations.OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => new StoredReviewObservation(pair.Key, pair.Value)).ToArray();
         WriteAtomically(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
+    }
+
+    private static ReviewRunEconomyEvidence Economy(ReviewRunManifest manifest, ReviewRunStatus status)
+    {
+        var aggregateBlocked = string.Equals(status.AggregateState, "blocked-preflight", StringComparison.Ordinal) ? 1 : 0;
+        return new ReviewRunEconomyEvidence(
+            status.PreflightDurationMs ?? 0,
+            status.PreflightCacheHits,
+            status.PreflightFindings,
+            manifest.Estimate?.Operations ?? status.TotalFiles + (manifest.Level == "file" ? 0 : 1),
+            status.BlockedFiles + aggregateBlocked,
+            status.UsageOperations,
+            manifest.Estimate?.PromptCharactersBeforeCompaction,
+            manifest.Estimate?.PromptCharacters,
+            status.Usage,
+            null);
     }
 
     public void WritePreflight(PreflightSnapshot snapshot)
