@@ -148,6 +148,8 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
 
     private sealed class TestApplication(string root, string contentRoot, HttpMessageHandler handler) : WebApplicationFactory<Program>
     {
+        public new HttpClient CreateClient() => LocalApiClient.Create(this);
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(contentRoot);
