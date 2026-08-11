@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node scripts/dev-stack.mjs",
     "dev": "node scripts/dev-stack.mjs",
-    "test:dev-stack": "node --test tests/dev-stack.test.mjs tests/static-analysis-baseline.test.mjs tests/preflight-economy.test.mjs",
+    "test:dev-stack": "node --test tests/dev-stack.test.mjs",
+    "test:static-analysis": "node --test tests/static-analysis-baseline.test.mjs tests/preflight-economy.test.mjs frontend/tests/browser-binary.test.mjs",
     "static:check": "node scripts/static-analysis-baseline.mjs check",
     "static:baseline": "node scripts/static-analysis-baseline.mjs capture",
     "economy:report": "node scripts/preflight-economy-report.mjs",
