@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/issue-lifecycle-event.v1.schema.json",
+  "title": "Quality Studio issue lifecycle event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "eventId", "issueId", "occurrenceFingerprint", "fingerprintAlgorithm",
+    "fingerprintAliases", "state", "producerKind", "author", "reason", "occurredAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "eventId": { "type": "string", "pattern": "^lifecycle-sha256:[0-9a-f]{64}$" },
+    "issueId": { "type": "string", "pattern": "^issue-sha256:[0-9a-f]{64}$" },
+    "occurrenceFingerprint": { "$ref": "#/$defs/hash" },
+    "fingerprintAlgorithm": { "const": "quality-studio-occurrence-v2" },
+    "fingerprintAliases": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/hash" } },
+    "state": { "enum": ["open", "accepted-risk", "waived", "false-positive", "resolved"] },
+    "producerKind": { "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"] },
+    "author": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "basisObservationIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^observation-sha256:[0-9a-f]{64}$" }
+    },
+    "policyRef": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "resolved" } }, "required": ["state"] },
+      "then": { "required": ["basisObservationIds", "policyRef"] }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}
