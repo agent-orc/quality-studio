@@ -112,7 +112,12 @@ public sealed record FindingDeltaItem(
     string Kind,
     string RuleId,
     string Severity,
-    string Title);
+    string Title,
+    string? Aspect = null,
+    string? Description = null,
+    string? Recommendation = null,
+    IReadOnlyList<FindingLocation>? Locations = null,
+    string? Evidence = null);
 
 public sealed record UnitStalenessDelta(
     string UnitId,
@@ -172,7 +177,12 @@ public sealed record ChangeJudgement(
     string Status,
     string Reviewer,
     IReadOnlyList<ChangeJudgementAspect> Aspects,
-    string Summary)
+    string Summary,
+    string? Provider = null,
+    string? RunId = null,
+    ChangeReviewPromptProvenance? Prompt = null,
+    TokenUsage? Usage = null,
+    string? UnavailableReason = null)
 {
     public static ChangeJudgement NotRun { get; } = new(
         "not-run",
@@ -185,6 +195,12 @@ public sealed record ChangeJudgement(
         ],
         "Deterministic evidence only.");
 }
+
+public sealed record ChangeReviewPromptProvenance(
+    string Id,
+    string Version,
+    string TemplateHash,
+    string? EffectivePromptHash = null);
 
 public sealed record ChangeJudgementAspect(
     string Id,

@@ -82,6 +82,34 @@ quality diff . --last 20 --branch <integration-ref>
 Add `--agent` for the four-aspect judgement, `--no-write` for an ephemeral
 check, and `--fail-on-regression` for gating.
 
+Export a transport-neutral artifact for a fenced task-change subject:
+
+```text
+quality diff . --base <base> --head <head> --no-write \
+  --format json --output <artifact.json> \
+  --repository <stable-repository-id> \
+  --review-policy-hash <sha256:caller-policy-hash>
+```
+
+`--format json` and `--output` are paired. The export uses
+`change-review-evidence.v1.schema.json` and retains the complete v1 change
+review while adding the discriminated task-change subject, provider-policy and
+agent-prompt hashes, usage and duration when an agent ran, and common immutable
+finding envelopes grouped as new, resolved, and persisting observations. The
+subject keeps base, topic head, and reviewed result SHA distinct, including for
+two-parent merges.
+
+Without `--agent`, agent evidence is explicitly `unavailable` with the reason
+that judgement was not requested; it is never represented as a pass. If
+`--review-policy-hash` is omitted, the subject binds to the built-in QS provider
+policy. If `--repository` is omitted, the Git worktree directory name is used,
+so orchestrated callers should pass their stable registry identity.
+
+`--no-write` suppresses `.quality/changes/` persistence. The explicitly named
+portable output file is still written atomically, and the command never stages
+or modifies repository content. Write the output outside the worktree when a
+completely clean `git status` is required.
+
 | Exit | Meaning |
 |---:|---|
 | 0 | Review completed; no regression when gating is enabled. |

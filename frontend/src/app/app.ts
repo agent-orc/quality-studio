@@ -8,6 +8,7 @@ import { ReviewPanel } from './review-panel/review-panel';
 import { ProjectDashboardView } from './project-dashboard/project-dashboard';
 import { flattenTree } from './tree-utils';
 import { UsageHistory } from './usage-history/usage-history';
+import { reportUrlPreviewNavigation } from './url-preview-embed';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
 const RESIZE_HANDLE_WIDTH = 6;
@@ -108,14 +109,15 @@ export class App implements OnDestroy {
     // URL, and report every navigation to an embedding Studio preview so its
     // address bar stays current (url-preview-embed contract).
     effect(() => {
-      const params = new URLSearchParams(location.search);
-      params.set('path', this.selected());
-      params.set('kind', this.activeKind());
-      params.set('repo', this.api.selectedRepositoryId());
-      history.replaceState(null, '', `?${params}`);
-      if (this.embedded()) {
-        window.parent.postMessage({ source: 'url-preview-embed', type: 'navigation', url: location.href }, '*');
-      }
+      reportUrlPreviewNavigation({
+        href: location.href,
+        replaceUrl: url => history.replaceState(null, '', url),
+        postToParent: (message, targetOrigin) => window.parent.postMessage(message, targetOrigin),
+      }, {
+        path: this.selected(),
+        kind: this.activeKind(),
+        repository: this.api.selectedRepositoryId(),
+      }, this.embedded());
     });
     // Persist collapse/resize layout under its own key, independent of qs-theme.
     effect(() => {

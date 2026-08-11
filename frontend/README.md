@@ -26,3 +26,23 @@ Keyboard shortcuts:
 
 - `Ctrl+B` — toggle the Explorer
 - `Ctrl+Alt+B` — toggle the Review panel
+
+## Embedded URL preview contract
+
+When the shell runs inside an iframe, every selected repository, path, or
+review-kind change updates the shell URL and sends exactly this v1 message to
+its parent:
+
+```json
+{
+  "source": "url-preview-embed",
+  "type": "navigation",
+  "url": "https://quality.example/?repo=default&path=src%2FExample.cs&kind=code"
+}
+```
+
+The sender uses `window.parent.postMessage(message, '*')`. The contract is
+navigation-only: it carries no commands, finding bodies, source snippets,
+credentials, or mutation requests. A future message that adds sensitive data
+or commands must use a new version and a configured parent origin. Receivers
+must validate the iframe source, message tags, URL syntax, and URL origin.

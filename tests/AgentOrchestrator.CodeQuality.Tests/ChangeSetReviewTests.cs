@@ -143,11 +143,84 @@ public sealed class ChangeSetReviewTests
         Assert.Equal("test-provider", result.Document.ChangeSet.Provider);
         Assert.Equal("complete", result.Document.Judgement.Status);
         Assert.Equal("test-model", result.Document.Judgement.Reviewer);
+        Assert.Equal("test-agent", result.Document.Judgement.Provider);
+        Assert.Equal("test-run", result.Document.Judgement.RunId);
+        Assert.NotNull(result.Document.Judgement.Prompt);
+        Assert.Equal(42, result.Document.Judgement.Usage?.DurationMs);
         Assert.Contains("diff --git", reviewAgent.Prompt, StringComparison.Ordinal);
         Assert.Contains("Deterministic evidence:", reviewAgent.Prompt, StringComparison.Ordinal);
         Assert.Equal(
             ["risk", "test-evidence", "scope-discipline", "architecture-drift"],
             result.Document.Judgement.Aspects.Select(aspect => aspect.Id));
+
+        var portable = ChangeReviewEvidenceJson.Create(
+            "quality-studio",
+            "sha256:" + new string('f', 64),
+            [result],
+            new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero));
+        var evidence = Assert.Single(portable.Reviews).AgentEvidence;
+        Assert.Equal(ChangeReviewAgentEvidenceStatus.Complete, evidence.Status);
+        Assert.Equal("test-agent", evidence.Provider);
+        Assert.Equal(42, evidence.Usage?.DurationMs);
+    }
+
+    [Fact]
+    public async Task Portable_json_binds_exact_commits_validates_and_leaves_git_unchanged()
+    {
+        using var repository = await TestRepository.CreateAsync();
+        await repository.WriteAsync("src/Api.cs", "var app = WebApplication.Create();\n");
+        await repository.WriteMetaAsync(95, []);
+        var @base = await repository.CommitAsync("base");
+        await repository.WriteAsync("src/Api.cs",
+            "var app = WebApplication.Create();\napp.MapPost(\"/admin\", () => \"ok\");\n");
+        await repository.WriteMetaAsync(70,
+        [
+            new TestFinding("sha256:" + new string('a', 64), "api-auth", "high", "Endpoint lacks authorization"),
+        ]);
+        var head = await repository.CommitAsync("regression");
+        var statusBefore = await repository.GitCommandAsync("status", "--porcelain=v1", "--untracked-files=all");
+        var indexBefore = await repository.GitCommandAsync("diff", "--cached", "--binary");
+        using var outputDirectory = new TemporaryOutputDirectory("quality-change-export");
+        var artifactPath = Path.Combine(outputDirectory.Path, "change-review.json");
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var policyHash = "sha256:" + new string('f', 64);
+
+        var exitCode = await ChangeDiffCommand.RunAsync(
+            [
+                repository.Root, "--base", @base, "--head", head, "--no-write",
+                "--format", "json", "--output", artifactPath,
+                "--repository", "quality-studio", "--review-policy-hash", policyHash,
+            ],
+            output,
+            error,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(ChangeDiffCommand.SuccessExitCode, exitCode);
+        Assert.Empty(error.ToString());
+        Assert.True(File.Exists(artifactPath));
+        Assert.False(Directory.Exists(Path.Combine(repository.Root, ".quality", "changes")));
+        Assert.Equal(statusBefore,
+            await repository.GitCommandAsync("status", "--porcelain=v1", "--untracked-files=all"));
+        Assert.Equal(indexBefore, await repository.GitCommandAsync("diff", "--cached", "--binary"));
+
+        var artifactJson = await File.ReadAllTextAsync(artifactPath, TestContext.Current.CancellationToken);
+        var artifact = ChangeReviewEvidenceJson.Deserialize(artifactJson);
+        var review = Assert.Single(artifact.Reviews);
+        var subject = Assert.IsType<TaskChangeFindingSubject>(review.Subject);
+        Assert.Equal(@base, subject.BaseSha);
+        Assert.Equal(head, subject.HeadSha);
+        Assert.Equal(head, subject.ResultSha);
+        Assert.Equal(policyHash, subject.ReviewPolicyHash);
+        Assert.Equal(@base, review.Review.ChangeSet.BaseCommit);
+        Assert.Equal(head, review.Review.ChangeSet.HeadCommit);
+        Assert.True(review.Review.Delta.HasQualityDelta);
+        Assert.Equal(ChangeReviewAgentEvidenceStatus.Unavailable, review.AgentEvidence.Status);
+        Assert.Equal("Agent judgement was not requested.", review.AgentEvidence.UnavailableReason);
+        Assert.Null(review.AgentEvidence.Usage);
+        Assert.Equal("api-auth", Assert.Single(review.Findings.New).RuleId);
+
+        AssertPortableSchemaValid(artifactJson);
     }
 
     [Fact]
@@ -218,6 +291,7 @@ public sealed class ChangeSetReviewTests
                   ]
                 }
                 """,
+                new TokenUsage(100, 20, 5, 4, 42),
                 EffectiveModel: "test-model"));
         }
     }
@@ -322,5 +396,38 @@ public sealed class ChangeSetReviewTests
         {
             TestDirectory.Delete(Root);
         }
+    }
+
+    private static void AssertPortableSchemaValid(string json)
+    {
+        var root = RepositoryTestContext.FindRepositoryRoot();
+        var buildOptions = new BuildOptions { SchemaRegistry = new SchemaRegistry() };
+        _ = JsonSchema.FromText(File.ReadAllText(
+            Path.Combine(root, "schemas", "change-review.v1.schema.json")), buildOptions);
+        _ = JsonSchema.FromText(File.ReadAllText(
+            Path.Combine(root, "schemas", "quality-finding.v1.schema.json")), buildOptions);
+        var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
+            root, "schemas", "change-review-evidence.v1.schema.json")), buildOptions);
+        using var document = JsonDocument.Parse(json);
+        var evaluation = schema.Evaluate(document.RootElement, new EvaluationOptions
+        {
+            OutputFormat = OutputFormat.List,
+        });
+        Assert.True(evaluation.IsValid, JsonSerializer.Serialize(evaluation,
+            new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private sealed class TemporaryOutputDirectory : IDisposable
+    {
+        public TemporaryOutputDirectory(string prefix)
+        {
+            Path = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), prefix, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path);
+        }
+
+        public string Path { get; }
+
+        public void Dispose() => TestDirectory.Delete(Path);
     }
 }

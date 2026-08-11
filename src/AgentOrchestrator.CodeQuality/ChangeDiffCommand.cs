@@ -35,13 +35,21 @@ public static class ChangeDiffCommand
                 query,
                 new ChangeReviewOptions(!options.NoWrite, reviewer),
                 cancellationToken).ConfigureAwait(false);
+            if (options.Format == ChangeDiffFormat.Json)
+            {
+                var repository = options.Repository ?? new DirectoryInfo(GitPlumbing.RequireRepository(options.Path)).Name;
+                var policyHash = options.ReviewPolicyHash ?? ChangeReviewEvidenceDocument.ProviderPolicy.ContentHash;
+                var artifact = ChangeReviewEvidenceJson.Create(repository, policyHash, results);
+                await ChangeReviewEvidenceJson.SaveAsync(options.Output!, artifact, cancellationToken).ConfigureAwait(false);
+                output.WriteLine($"quality diff: wrote {Path.GetFullPath(options.Output!)}");
+            }
             if (results.Count == 0)
             {
                 output.WriteLine("quality diff: no integration transitions found.");
                 return SuccessExitCode;
             }
 
-            foreach (var result in results)
+            foreach (var result in results.Where(_ => options.Format == ChangeDiffFormat.Text))
             {
                 WriteResult(output, options.Path, result);
             }
@@ -51,7 +59,8 @@ public static class ChangeDiffCommand
                 $"trajectory {string.Join(" -> ", results.Select(result => FormatVerdict(result.Document.Verdict)))}");
             return options.FailOnRegression && regressions > 0 ? RegressionExitCode : SuccessExitCode;
         }
-        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or ChangeReviewException)
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
+                                              ChangeReviewException or IOException or UnauthorizedAccessException)
         {
             error.WriteLine($"quality diff failed: {exception.Message}");
             return ErrorExitCode;
@@ -62,8 +71,12 @@ public static class ChangeDiffCommand
         output.WriteLine(
             """
             Usage:
-              quality diff [path] --base <commit> [--head <commit>] [--fail-on-regression] [--no-write] [--agent] [--cli <adapter>]
-              quality diff [path] --last <N> [--branch <integration-ref>] [--fail-on-regression] [--no-write] [--agent] [--cli <adapter>]
+              quality diff [path] --base <commit> [--head <commit>] [--fail-on-regression] [--no-write] [--agent] [--cli <adapter>] [--format json --output <path>]
+              quality diff [path] --last <N> [--branch <integration-ref>] [--fail-on-regression] [--no-write] [--agent] [--cli <adapter>] [--format json --output <path>]
+
+            Portable JSON options:
+              --repository <identity>          stable repository identity (defaults to directory name)
+              --review-policy-hash <sha256>    caller policy binding (defaults to the QS provider policy)
 
             Exit codes:
               0  review completed (and no regression when --fail-on-regression is set)
@@ -115,6 +128,10 @@ public static class ChangeDiffCommand
         var noWrite = false;
         var agent = false;
         var cliType = "codex";
+        var format = ChangeDiffFormat.Text;
+        string? output = null;
+        string? repository = null;
+        string? reviewPolicyHash = null;
         var help = false;
         for (var index = 0; index < args.Length; index++)
         {
@@ -148,6 +165,23 @@ public static class ChangeDiffCommand
                 case "--cli":
                     cliType = Value(args, ref index);
                     break;
+                case "--format":
+                    format = Value(args, ref index).ToLowerInvariant() switch
+                    {
+                        "text" => ChangeDiffFormat.Text,
+                        "json" => ChangeDiffFormat.Json,
+                        var value => throw new ArgumentException($"Unsupported diff format '{value}'. Use text or json."),
+                    };
+                    break;
+                case "--output":
+                    output = Value(args, ref index);
+                    break;
+                case "--repository":
+                    repository = Value(args, ref index);
+                    break;
+                case "--review-policy-hash":
+                    reviewPolicyHash = Value(args, ref index);
+                    break;
                 default:
                     if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
                         throw new ArgumentException($"Unexpected argument: {args[index]}");
@@ -160,7 +194,16 @@ public static class ChangeDiffCommand
             throw new ArgumentException("--base and --branch describe different provider modes and cannot be combined.");
         if (@base is not null && last != 1)
             throw new ArgumentException("--last cannot be combined with an explicit --base.");
-        return new CliOptions(path, @base, head, branch, last, fail, noWrite, agent, cliType, help);
+        if ((format == ChangeDiffFormat.Json) != (output is not null))
+            throw new ArgumentException("--format json and --output must be specified together.");
+        if (reviewPolicyHash is not null &&
+            (reviewPolicyHash.Length != 71 || !reviewPolicyHash.StartsWith("sha256:", StringComparison.Ordinal) ||
+             !reviewPolicyHash[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f')))
+            throw new ArgumentException("--review-policy-hash must be a lowercase sha256 value.");
+        if (string.IsNullOrWhiteSpace(repository) && repository is not null)
+            throw new ArgumentException("--repository must not be empty.");
+        return new CliOptions(path, @base, head, branch, last, fail, noWrite, agent, cliType,
+            format, output, repository, reviewPolicyHash, help);
     }
 
     private static string Value(string[] args, ref int index)
@@ -180,5 +223,15 @@ public static class ChangeDiffCommand
         bool NoWrite,
         bool Agent,
         string CliType,
+        ChangeDiffFormat Format,
+        string? Output,
+        string? Repository,
+        string? ReviewPolicyHash,
         bool Help);
+
+    private enum ChangeDiffFormat
+    {
+        Text,
+        Json,
+    }
 }

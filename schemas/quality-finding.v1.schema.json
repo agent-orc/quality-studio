@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-finding.v1.schema.json",
+  "title": "Quality Studio immutable finding envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "subject", "id", "aspect", "severity", "title",
+    "description", "recommendation", "locations", "fingerprint",
+    "fingerprintCanonicalization", "ruleId", "producer"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "subject": { "oneOf": [{ "$ref": "#/$defs/standingUnitSubject" }, { "$ref": "#/$defs/taskChangeSubject" }] },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{2,127}$" },
+    "aspect": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{1,63}$" },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "recommendation": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+    "fingerprint": { "$ref": "#/$defs/sha256String" },
+    "fingerprintCanonicalization": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "producer": { "$ref": "#/$defs/producer" },
+    "evidence": { "type": "string", "minLength": 1, "maxLength": 10000 }
+  },
+  "$defs": {
+    "sha256String": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$" },
+    "standingUnitSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "repository", "unitId", "path", "kind", "reviewedHash"],
+      "properties": {
+        "type": { "const": "standing-unit" },
+        "repository": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "kind": { "enum": ["code", "security", "performance"] },
+        "reviewedHash": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "canonicalization", "value"],
+          "properties": {
+            "algorithm": { "const": "sha256" },
+            "canonicalization": { "const": "quality-studio-subject-manifest-v1" },
+            "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        }
+      }
+    },
+    "taskChangeSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "repository", "baseSha", "headSha", "resultSha", "reviewPolicyHash"],
+      "properties": {
+        "type": { "const": "task-change" },
+        "repository": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "baseSha": { "$ref": "#/$defs/commit" },
+        "headSha": { "$ref": "#/$defs/commit" },
+        "resultSha": { "$ref": "#/$defs/commit" },
+        "reviewPolicyHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["agent", "deterministic", "imported"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "runId": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "range": { "$ref": "#/$defs/range" },
+        "symbolId": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

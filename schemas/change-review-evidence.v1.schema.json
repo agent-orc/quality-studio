@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/change-review-evidence.v1.schema.json",
+  "title": "Portable Quality Studio change-review evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "generatedAt", "repository", "policy", "reviews"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/change-review-evidence.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "repository": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "policy": { "$ref": "#/$defs/contractReference" },
+    "reviews": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reviewEntry" }
+    }
+  },
+  "$defs": {
+    "sha256String": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "contractReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "contentHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "contentHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "templateHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "templateHash": { "$ref": "#/$defs/sha256String" },
+        "effectivePromptHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "verdict", "rationale"],
+      "properties": {
+        "id": { "enum": ["risk", "test-evidence", "scope-discipline", "architecture-drift"] },
+        "title": { "type": "string", "minLength": 1 },
+        "verdict": { "enum": ["good", "mixed", "concerning", "unknown", "not-reviewed"] },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "agentEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "prompt", "aspects", "summary"],
+      "properties": {
+        "status": { "enum": ["complete", "unavailable"] },
+        "prompt": { "$ref": "#/$defs/prompt" },
+        "aspects": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/aspect" } },
+        "summary": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "usage": { "$ref": "#/$defs/usage" },
+        "unavailableReason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [{
+        "if": { "properties": { "status": { "const": "unavailable" } }, "required": ["status"] },
+        "then": { "required": ["unavailableReason"] }
+      }]
+    },
+    "findingChanges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["new", "resolved", "persisting"],
+      "properties": {
+        "new": { "$ref": "#/$defs/findingArray" },
+        "resolved": { "$ref": "#/$defs/findingArray" },
+        "persisting": { "$ref": "#/$defs/findingArray" }
+      }
+    },
+    "findingArray": {
+      "type": "array",
+      "items": { "$ref": "https://quality.studio/schemas/quality-finding.v1.schema.json" }
+    },
+    "reviewEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "review", "agentEvidence", "findings"],
+      "properties": {
+        "subject": { "$ref": "https://quality.studio/schemas/quality-finding.v1.schema.json#/$defs/taskChangeSubject" },
+        "review": { "$ref": "https://quality.studio/schemas/change-review.v1.schema.json" },
+        "agentEvidence": { "$ref": "#/$defs/agentEvidence" },
+        "findings": { "$ref": "#/$defs/findingChanges" }
+      }
+    }
+  }
+}
