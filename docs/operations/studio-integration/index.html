@@ -141,8 +141,8 @@
   <h1>Quality Studio and Agent Studio: one review substrate, two product decisions</h1>
   <p class="lede">Let Quality Studio own code-quality semantics, structured findings, and reusable review evidence. Let Agent Studio keep exact task-subject authority, delivery grading, council policy, gates, and lane transitions. Converge through an evidence contract and the existing Review Plane, not through a second central review queue.</p>
   <div class="meta">
-    <span><b>Status</b> Decision pending</span>
-    <span><b>Phase</b> Decision ready</span>
+    <span><b>Status</b> Decided</span>
+    <span><b>Phase</b> Implementation</span>
     <span><b>Source</b> QS-65</span>
     <span><b>QS snapshot</b> <code>3e0b655</code></span>
     <span><b>Studio snapshot</b> <code>8daaccf</code></span>
@@ -160,6 +160,7 @@
     <li><a href="#slices">Approval-ready slices</a></li>
     <li><a href="#open-decisions">Open decisions</a></li>
     <li><a href="#evidence">Evidence register</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ol>
 </nav>
 
@@ -436,10 +437,39 @@
   </div>
 </section>
 
+<section id="implementation">
+  <h2><span class="no">10</span>Implementation</h2>
+  <div class="box ok">
+    <h4>11 August 2026 · QS-74 · Operator decision recorded</h4>
+    <p>Status is <b>decided</b>. The operator approved all five recommendations, including the formerly conditional Slices 4 and 5. The implementation order and product-ownership boundaries in this dossier remain unchanged.</p>
+  </div>
+
+  <h3>11 August 2026 · QS-74 · Slice 1 delivered</h3>
+  <ul>
+    <li>Added <code>quality-finding.v1.schema.json</code> and immutable CLR contracts with discriminated <code>standing-unit</code> and <code>task-change</code> subjects, explicit producer and fingerprint canonicalization, and no grade or mutable disposition.</li>
+    <li>Added converters from <code>ReviewFinding</code> and <code>FindingDeltaItem</code>, including the declared <code>quality-studio-task-finding-text-v1</code> canonicalization for location-free task findings.</li>
+    <li>Added schema-valid source-located and location-free fixtures, round-trip and converter coverage, and retained the existing review-meta v1/v2 compatibility suite.</li>
+    <li>Extracted and documented the exact navigation-only <code>url-preview-embed</code> sender contract. Its unit test pins the path/kind/repo URL and the only allowed v1 payload keys: <code>source</code>, <code>type</code>, and <code>url</code>.</li>
+  </ul>
+
+  <h3>11 August 2026 · QS-74 · Slice 2 delivered</h3>
+  <ul>
+    <li>Added <code>quality diff --format json --output &lt;path&gt;</code> and the transport-neutral <code>change-review-evidence.v1.schema.json</code> artifact. It binds repository, base, topic head, reviewed result SHA, and caller review-policy hash.</li>
+    <li>The artifact composes the existing deterministic delta with QS provider-policy provenance, agent prompt template/effective hashes, optional token and duration usage, explicit complete/unavailable agent status, and shared finding envelopes for new, resolved, and persisting observations.</li>
+    <li>Preserved text output, <code>--no-write</code>, and exit codes 0/1/2. A real temporary Git fixture validates the schema, exact revisions, unavailable-agent evidence, absence of <code>.quality/changes/</code>, and unchanged worktree and index.</li>
+    <li>No API route or HTTP scheduler was added.</li>
+  </ul>
+
+  <div class="box warn">
+    <h4>Approved cross-repository remainder</h4>
+    <p>Slices 3 through 5 are approved but did not land under QS-74 because this checkout contains Quality Studio only. Their implementation targets Agent Studio's Review Plane, delivery-grade producer, council policy, rollback switch, and task UI, none of which exist in this repository. They are no longer decision-gated; Slice 3 still has to run the specified paired cohort in Agent Studio before the cutover work can produce its required evidence.</p>
+  </div>
+</section>
+
 <footer class="meta">
   <span><b>Dossier</b> <code>docs/operations/studio-integration/</code></span>
-  <span><b>Workbench status</b> <code>decision-pending</code></span>
-  <span><b>Next action</b> Operator selects slices after the ten-dossier review.</span>
+  <span><b>Workbench status</b> <code>decided</code></span>
+  <span><b>Next action</b> Agent Studio implements the approved Slices 3 through 5 and records the paired cohort.</span>
 </footer>
 </main>
 </body>

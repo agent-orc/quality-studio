@@ -2,11 +2,26 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Security.Cryptography;
 
 namespace AgentOrchestrator.CodeQuality;
 
 public sealed class AgentChangeDeltaReviewer(IReviewAgent agent) : IChangeDeltaReviewer
 {
+    private const string PromptId = "quality-studio-change-delta-review";
+    private const string PromptVersion = "1.0.0";
+    private const string PromptInstructions =
+        "Review this repository change as a delta. Do not review whole files and do not invent absolute grades.\n" +
+        "Use the deterministic evidence as fact and the unified diff as the only source-code evidence.\n" +
+        "Return exactly one JSON object with: summary, and aspects containing exactly four objects.\n" +
+        "Aspect ids must be risk, test-evidence, scope-discipline, architecture-drift.\n" +
+        "Each aspect requires id, title, verdict (good|mixed|concerning|unknown), and rationale.\n";
+
+    public static ChangeReviewPromptProvenance DefaultPromptProvenance { get; } = new(
+        PromptId,
+        PromptVersion,
+        Hash(PromptInstructions));
+
     public async Task<ChangeJudgement> ReviewAsync(
         string repositoryRoot,
         ChangeSet changeSet,
@@ -16,7 +31,7 @@ public sealed class AgentChangeDeltaReviewer(IReviewAgent agent) : IChangeDeltaR
     {
         var prompt = BuildPrompt(changeSet, delta, diff);
         var result = await agent.RunAsync(prompt, repositoryRoot, cancellationToken).ConfigureAwait(false);
-        return Parse(result);
+        return Parse(result, prompt);
     }
 
     private static string BuildPrompt(ChangeSet changeSet, DeterministicChangeDelta delta, string diff)
@@ -29,11 +44,7 @@ public sealed class AgentChangeDeltaReviewer(IReviewAgent agent) : IChangeDeltaR
         jsonOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower));
         var evidence = JsonSerializer.Serialize(delta, jsonOptions);
         var builder = new StringBuilder();
-        builder.AppendLine("Review this repository change as a delta. Do not review whole files and do not invent absolute grades.");
-        builder.AppendLine("Use the deterministic evidence as fact and the unified diff as the only source-code evidence.");
-        builder.AppendLine("Return exactly one JSON object with: summary, and aspects containing exactly four objects.");
-        builder.AppendLine("Aspect ids must be risk, test-evidence, scope-discipline, architecture-drift.");
-        builder.AppendLine("Each aspect requires id, title, verdict (good|mixed|concerning|unknown), and rationale.");
+        builder.Append(PromptInstructions);
         builder.AppendLine();
         builder.AppendLine($"Change: {changeSet.BaseCommit}..{changeSet.ResultCommit} — {changeSet.Title}");
         builder.AppendLine("Deterministic evidence:");
@@ -43,7 +54,7 @@ public sealed class AgentChangeDeltaReviewer(IReviewAgent agent) : IChangeDeltaR
         return builder.ToString();
     }
 
-    private ChangeJudgement Parse(ReviewAgentResult result)
+    private ChangeJudgement Parse(ReviewAgentResult result, string prompt)
     {
         JsonObject root;
         try
@@ -81,11 +92,22 @@ public sealed class AgentChangeDeltaReviewer(IReviewAgent agent) : IChangeDeltaR
             throw new ChangeReviewException("A change judgement verdict is unsupported.");
 
         var model = result.EffectiveModel ?? agent.Model ?? agent.AgentName;
-        return new ChangeJudgement("complete", model, aspects, summary);
+        return new ChangeJudgement(
+            "complete",
+            model,
+            aspects,
+            summary,
+            agent.AgentName,
+            result.RunId,
+            DefaultPromptProvenance with { EffectivePromptHash = Hash(prompt) },
+            result.Usage);
     }
 
     private static string Required(JsonObject value, string property) =>
         value[property]?.GetValue<string>() is { } text && !string.IsNullOrWhiteSpace(text)
             ? text
             : throw new ChangeReviewException($"Change judgement property '{property}' is missing.");
+
+    private static string Hash(string value) =>
+        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 }

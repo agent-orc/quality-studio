@@ -1,0 +1,33 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-finding.v1.schema.json",
+  "schemaVersion": 1,
+  "subject": {
+    "type": "standing-unit",
+    "repository": "quality-studio",
+    "unitId": "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "path": "src/Example.cs",
+    "kind": "code",
+    "reviewedHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-subject-manifest-v1",
+      "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "id": "missing-cancellation-token",
+  "aspect": "correctness",
+  "severity": "medium",
+  "title": "Cancellation is not propagated",
+  "description": "The asynchronous operation ignores the caller cancellation token.",
+  "recommendation": "Pass the token to the downstream operation.",
+  "locations": [{
+    "path": "src/Example.cs",
+    "range": {
+      "start": { "line": 12, "column": 9 },
+      "end": { "line": 12, "column": 31 }
+    }
+  }],
+  "fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "fingerprintCanonicalization": "quality-studio-finding-v1",
+  "ruleId": "async:cancellation",
+  "producer": { "kind": "agent", "id": "codex", "version": "1.0.0", "runId": "run-1" }
+}

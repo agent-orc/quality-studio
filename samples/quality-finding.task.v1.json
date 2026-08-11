@@ -1,0 +1,23 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-finding.v1.schema.json",
+  "schemaVersion": 1,
+  "subject": {
+    "type": "task-change",
+    "repository": "quality-studio",
+    "baseSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "resultSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "reviewPolicyHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "id": "missing-delivery-evidence",
+  "aspect": "test-evidence",
+  "severity": "high",
+  "title": "Required delivery evidence is missing",
+  "description": "The task claims a behavior change but provides no executable evidence.",
+  "recommendation": "Add a focused test that proves the requested behavior.",
+  "locations": [],
+  "fingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "fingerprintCanonicalization": "quality-studio-task-finding-text-v1",
+  "ruleId": "delivery:evidence-required",
+  "producer": { "kind": "agent", "id": "agent-studio-delivery-grade" }
+}

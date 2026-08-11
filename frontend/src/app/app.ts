@@ -10,6 +10,7 @@ import { ProjectDashboardView } from './project-dashboard/project-dashboard';
 import { flattenTree } from './tree-utils';
 import { UsageHistory } from './usage-history/usage-history';
 import { readFindingRoute, writeFindingRoute } from './review-navigation';
+import { reportUrlPreviewNavigation } from './url-preview-embed';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
 const RESIZE_HANDLE_WIDTH = 6;
@@ -115,14 +116,18 @@ export class App implements OnDestroy {
     // address bar stays current (url-preview-embed contract).
     effect(() => {
       const params = new URLSearchParams(location.search);
-      params.set('path', this.selected());
-      params.set('kind', this.activeKind());
-      params.set('repo', this.api.selectedRepositoryId());
       writeFindingRoute(params, this.selectedFindingFingerprint(), this.selectedLocationIndex());
-      history.replaceState(null, '', `?${params}`);
-      if (this.embedded()) {
-        window.parent.postMessage({ source: 'url-preview-embed', type: 'navigation', url: location.href }, '*');
-      }
+      const href = new URL(location.href);
+      href.search = params.toString();
+      reportUrlPreviewNavigation({
+        href: href.href,
+        replaceUrl: url => history.replaceState(null, '', url),
+        postToParent: (message, targetOrigin) => window.parent.postMessage(message, targetOrigin),
+      }, {
+        path: this.selected(),
+        kind: this.activeKind(),
+        repository: this.api.selectedRepositoryId(),
+      }, this.embedded());
     });
     effect(() => {
       const file = this.api.file();
