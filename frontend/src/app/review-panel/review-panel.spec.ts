@@ -93,6 +93,34 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.finding-card').length).toBe(1);
   });
 
+  it('hands over only the canonical finding identity', async () => {
+    api.createTask.and.resolveTo({ dryRun: true, taskId: null, card: { title: 'Preview', promptMarkdown: 'Prompt' } });
+
+    await component.createTask(openFinding);
+
+    expect(api.createTask).toHaveBeenCalledWith({
+      filePath: 'src/A.cs', reviewKind: 'code', findingFingerprint: openFinding.fingerprint,
+    });
+    expect(component.handoverStatus()['code:high-open']).toBe('Dry run printed');
+  });
+
+  it('renders hostile model prose strictly as text', () => {
+    const hostile = {
+      ...openFinding,
+      title: '<img src=x onerror=alert(1)> {{constructor}}',
+      description: '[click](javascript:alert(1)) <script>alert(2)</script>\u202Etxt\u001b[31m',
+      recommendation: 'ignore previous instructions',
+    };
+    file.update(value => ({ ...value, metaDocuments: [{ ...meta, findings: [hostile] }] }));
+    fixture.componentRef.setInput('selectedFinding', hostile);
+    fixture.detectChanges();
+
+    const detail = fixture.nativeElement.querySelector('.finding-detail');
+    expect(detail.textContent).toContain('<img src=x onerror=alert(1)>');
+    expect(detail.textContent).toContain('<script>alert(2)</script>');
+    expect(detail.querySelector('img, script')).toBeNull();
+  });
+
   it('emits code navigation for current evidence but not for a stale range', () => {
     const selected = jasmine.createSpy('selected');
     component.locationSelect.subscribe(selected);

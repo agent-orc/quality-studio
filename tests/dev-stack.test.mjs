@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -17,11 +17,11 @@ test('launcher bootstraps a clean checkout, starts both services, and can restar
   const marker = join(sandbox, 'install-count.txt');
   const apiScript = join(sandbox, 'api.mjs');
   const webScript = join(sandbox, 'web.mjs');
-  const npmStub = join(sandbox, 'npm.cmd');
+  const npmStub = join(sandbox, process.platform === 'win32' ? 'npm.cmd' : 'npm-stub');
   await mkdir(frontendRoot, { recursive: true });
   await writeFile(apiScript, serviceScript('api-ready'));
   await writeFile(webScript, serviceScript('web-ready'));
-  await writeFile(npmStub, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+  await writeNpmStub(npmStub);
 
   const first = await runLauncher({
     args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51271', '--web-port', '42071'],
@@ -48,12 +48,12 @@ test('launcher reinstalls when node_modules is present but incomplete', async ()
   const marker = join(sandbox, 'install-count.txt');
   const apiScript = join(sandbox, 'api.mjs');
   const webScript = join(sandbox, 'web.mjs');
-  const npmStub = join(sandbox, 'npm.cmd');
+  const npmStub = join(sandbox, process.platform === 'win32' ? 'npm.cmd' : 'npm-stub');
   await mkdir(frontendRoot, { recursive: true });
   await mkdir(join(frontendRoot, 'node_modules'), { recursive: true });
   await writeFile(apiScript, serviceScript('api-ready'));
   await writeFile(webScript, serviceScript('web-ready'));
-  await writeFile(npmStub, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+  await writeNpmStub(npmStub);
 
   const result = await runLauncher({
     args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51276', '--web-port', '42076'],
@@ -132,6 +132,15 @@ const server = http.createServer((request, response) => {
 server.listen(port, '127.0.0.1', () => console.log('${label} listening on ' + port));
 setTimeout(() => {}, 30000);
 `;
+}
+
+async function writeNpmStub(path) {
+  if (process.platform === 'win32') {
+    await writeFile(path, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+    return;
+  }
+  await writeFile(path, '#!/bin/sh\nprintf "ci\\n" >> "$QUALITY_STUDIO_MARKER_FILE"\n');
+  await chmod(path, 0o755);
 }
 
 function liveApiScript() {

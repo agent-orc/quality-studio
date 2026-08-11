@@ -18,6 +18,26 @@ describe('QualityApi', () => {
 
   afterEach(() => http.verify());
 
+  it('previews the exact canonical handover card before sending confirmation', async () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    const request = { filePath: 'src/A.cs', reviewKind: 'code', findingFingerprint: `sha256:${'a'.repeat(64)}` };
+
+    const creating = api.createTask(request);
+    const preview = http.expectOne('/api/repos/default/handover/preview');
+    expect(preview.request.body).toEqual(request);
+    preview.flush({
+      confirmationHash: `sha256:${'b'.repeat(64)}`, generatedAt: '2026-08-11T08:00:00Z',
+      card: { title: 'Fix canonical finding', promptMarkdown: 'Exact host-owned prompt' },
+    });
+    await new Promise(resolve => setTimeout(resolve));
+    expect(window.confirm).toHaveBeenCalledWith('Fix canonical finding\n\nExact host-owned prompt');
+    const delivery = http.expectOne('/api/repos/default/handover');
+    expect(delivery.request.body).toEqual({ ...request, confirmationHash: `sha256:${'b'.repeat(64)}` });
+    delivery.flush({ dryRun: true, taskId: null, card: { title: 'Fix canonical finding', promptMarkdown: 'Exact host-owned prompt' } });
+
+    expect((await creating).dryRun).toBeTrue();
+  });
+
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
       kind: 'code',
