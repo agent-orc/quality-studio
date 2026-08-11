@@ -1276,18 +1276,18 @@
     {
       "tool": "eslint",
       "path": "frontend/src/app/app.ts",
-      "line": 276,
+      "line": 281,
       "column": 47,
       "rule": "@typescript-eslint/no-unused-expressions",
-      "fingerprint": "sha256:783e1ea2547f5d0119743b0aa4cb7383dbc2376c00912fa53652fea161f26779"
+      "fingerprint": "sha256:b8f5c523a04dc0a0c2fc703d7665078f3cd8adf92dd157654f8a8b053b0db14a"
     },
     {
       "tool": "eslint",
       "path": "frontend/src/app/app.ts",
-      "line": 486,
+      "line": 491,
       "column": 63,
       "rule": "@typescript-eslint/no-unused-expressions",
-      "fingerprint": "sha256:4aea20698fb4772e0833c271d42f0dc0879925a4d16af017b280a7b978328d75"
+      "fingerprint": "sha256:a8507b533d244f901509cef0d36a9b144b9caedaa6f7a8a4a04dddb3339773f8"
     },
     {
       "tool": "eslint",
@@ -1784,6 +1784,22 @@
       "column": 1,
       "rule": "prettier",
       "fingerprint": "sha256:3275aa5f4494b28d99b838731462504d0a21193f15a41b818eea169e8ea21799"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/url-preview-embed.spec.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:b8752b571323fca4c24df0da0203e92dd2c7f64806932c9bf84a9921d47bcfbd"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/url-preview-embed.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:6d84797cf13211ebf9646abd33ce514ae4c6808f39ca6f783950bda7156be6b6"
     },
     {
       "tool": "prettier",

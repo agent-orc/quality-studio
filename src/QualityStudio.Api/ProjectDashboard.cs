@@ -199,9 +199,10 @@ public sealed class ProjectDashboardService
             .ToArray();
         var hierarchyFilesByPath = hierarchyFiles.ToDictionary(node => node.Path, StringComparer.Ordinal);
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
-        var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path, hierarchyFilesByPath))
-            .ToArray();
+        var repositoryFiles = ReadRepositoryFileMetrics(
+            root,
+            EnumerateRepositoryFiles(root),
+            hierarchyFilesByPath);
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
         var grades = BuildGrades(roots, projectPath);
@@ -216,7 +217,9 @@ public sealed class ProjectDashboardService
             hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
         var dependencies = BuildDependencyEdges(root, hierarchy);
         var metrics = BuildStructuralMetrics(root, repositoryFiles, dependencies, navigationPaths, projectPath);
-        var churn = ReadGitChurn(root);
+        var churn = hierarchyFiles.Length == 0
+            ? new Dictionary<string, int>(StringComparer.Ordinal)
+            : ReadGitChurn(root);
         var hotspots = BuildHotspots(hierarchyFiles, churn);
 
         return new ProjectDashboardResponse(
@@ -235,25 +238,37 @@ public sealed class ProjectDashboardService
         IReadOnlyList<HierarchyNode> roots, string fallbackPath)
     {
         var result = new List<ProjectGradeResponse>();
+        var rootPath = roots.FirstOrDefault()?.Path ?? fallbackPath;
         foreach (var kind in Enum.GetValues<ReviewKind>())
         {
-            var states = roots.Select(root =>
-                root.AggregatedStates.TryGetValue(kind, out var state) ? state.Overall : ReviewState.NotReviewed).ToArray();
-            var state = states.Any(candidate => candidate == ReviewState.Stale) ? "stale"
-                : states.Any(candidate => candidate == ReviewState.Current) ? "fresh" : "missing";
-            var direct = roots
-                .Where(root => root.Documents.TryGetValue(kind, out _))
-                .Select(root => (Root: root, Document: root.Documents[kind]))
-                .ToArray();
-            var scores = direct.Select(item => ReadGrade(item.Document.Payload))
-                .Where(grade => grade.Score is not null).ToArray();
-            var score = scores.Length == 0 ? null : (int?)Math.Round(scores.Average(grade => grade.Score!.Value));
+            var hasStale = false;
+            var hasCurrent = false;
+            var scoreTotal = 0;
+            var scoreCount = 0;
+            string? directPath = null;
+            foreach (var root in roots)
+            {
+                var reviewState = root.AggregatedStates.TryGetValue(kind, out var aggregate)
+                    ? aggregate.Overall
+                    : ReviewState.NotReviewed;
+                hasStale |= reviewState == ReviewState.Stale;
+                hasCurrent |= reviewState == ReviewState.Current;
+                if (!root.Documents.TryGetValue(kind, out var document)) continue;
+                directPath ??= root.Path;
+                var grade = ReadGrade(document.Payload);
+                if (grade.Score is not { } value) continue;
+                scoreTotal += value;
+                scoreCount++;
+            }
+
+            var state = hasStale ? "stale" : hasCurrent ? "fresh" : "missing";
+            var score = scoreCount == 0 ? null : (int?)Math.Round((double)scoreTotal / scoreCount);
             result.Add(new ProjectGradeResponse(
                 kind.ToString().ToLowerInvariant(),
                 state,
                 score,
                 score is null ? null : Band(score.Value),
-                direct.FirstOrDefault().Root?.Path ?? roots.FirstOrDefault()?.Path ?? fallbackPath));
+                directPath ?? rootPath));
         }
         return result;
     }
@@ -673,7 +688,7 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(
+    private static FileMetric? ReadFileMetric(
         string root,
         string path,
         IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles)
@@ -689,6 +704,7 @@ public sealed class ProjectDashboardService
         }
 
         var info = new FileInfo(absolute);
+        if (!info.Exists) return null;
         var lines = 0;
         string? duplicateFingerprint = null;
         if (TextExtensions.Contains(extension) && info.Length <= 4 * 1024 * 1024)
@@ -710,13 +726,31 @@ public sealed class ProjectDashboardService
         return new FileMetric(path, info.Length, lines, language, duplicateFingerprint);
     }
 
+    private static IReadOnlyList<FileMetric> ReadRepositoryFileMetrics(
+        string root,
+        IReadOnlyList<string> paths,
+        IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles)
+    {
+        if (paths.Count < 512)
+            return paths.Select(path => ReadFileMetric(root, path, hierarchyFiles))
+                .OfType<FileMetric>()
+                .ToArray();
+
+        var metrics = new FileMetric?[paths.Count];
+        Parallel.For(0, paths.Count, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 1, 32),
+        }, index => metrics[index] = ReadFileMetric(root, paths[index], hierarchyFiles));
+        return metrics.OfType<FileMetric>().ToArray();
+    }
+
     private static IReadOnlyList<string> EnumerateRepositoryFiles(string root)
     {
         var git = RunGit(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z");
         if (git is not null)
             return git.Split('\0', StringSplitOptions.RemoveEmptyEntries)
                 .Select(path => path.Replace('\\', '/'))
-                .Where(path => !Excluded(path) && File.Exists(Path.Combine(root, Native(path))))
+                .Where(path => !Excluded(path))
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Select(path => Relative(root, path))
