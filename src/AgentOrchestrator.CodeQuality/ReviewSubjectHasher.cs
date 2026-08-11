@@ -11,9 +11,15 @@ public static class ReviewSubjectHasher
 {
     public static async ValueTask<string> ComputeFileContentHashAsync(
         string path,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? repositoryRoot = null,
+        long? maximumBytes = null)
     {
-        var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+        var bytes = repositoryRoot is null
+            ? await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false)
+            : await BoundedRepositoryFile.ReadAllBytesAsync(
+                repositoryRoot, path, maximumBytes ?? ReviewContentLimits.Default.MaxFileBytes, cancellationToken)
+                .ConfigureAwait(false);
         var encoding = DetectEncoding(bytes, out var preambleLength);
         var text = encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
         var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal)
