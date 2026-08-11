@@ -15,13 +15,13 @@
           @for (repository of api.repositories(); track repository.id) {
             <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
               <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
-              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
+              <span><strong>{{ repository.displayName }}</strong><small [title]="repository.rootPath || 'Legacy default'">{{ repository.rootPath || 'Legacy default' }}</small></span>
             </button>
           }
           <div class="menu-actions">
-            <button type="button" (click)="onboardRepository()">+ Onboard repository</button>
-            <button type="button" (click)="manageRepositories()">Configure repositories</button>
-            <button class="menu-actions-wide" type="button" (click)="openAgentStudioImport()">Import from Agent Studio</button>
+            <button class="secondary-button" type="button" (click)="onboardRepository()">Onboard</button>
+            <button class="secondary-button" type="button" (click)="manageRepositories()">Configure</button>
+            <button class="secondary-button" type="button" (click)="openAgentStudioImport()">Import</button>
           </div>
         </div>
       }
@@ -49,6 +49,16 @@
     <button class="icon-button" type="button" (click)="toggleReview()" [attr.aria-label]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel'" [title]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel · Ctrl+Alt+B'">◨</button>
     <button class="icon-button" (click)="setTheme()" [attr.aria-label]="'Switch to ' + (theme() === 'dark' ? 'light' : 'dark') + ' theme'">{{ theme() === 'dark' ? '☼' : '◐' }}</button>
   </header>
+
+  @if (api.connectionState() !== 'live') {
+    <div class="api-notice" role="alert" aria-live="polite">
+      <strong>{{ api.connectionState() === 'connecting' ? 'Connecting to API' : 'API unavailable' }}</strong>
+      <span>Repository data is not current.</span>
+      <button class="secondary-button" type="button" (click)="api.retryConnection()" [disabled]="api.connectionState() === 'connecting'">
+        Retry
+      </button>
+    </div>
+  }
 
   <main class="workspace" [style.grid-template-columns]="gridTemplateColumns()" [class.dragging]="dragging() !== null">
     <qs-explorer [selectedPath]="explorerSelectedPath()" [activeKind]="activeKind()" [viewportHeight]="viewportHeight()" (nodeOpen)="open($event)" (kindSelect)="selectKind($event)" (reviewRequest)="focusReviewLauncher()" />

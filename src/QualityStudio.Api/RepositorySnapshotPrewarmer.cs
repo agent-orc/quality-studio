@@ -15,6 +15,9 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
     private readonly RepositoryRegistry registry;
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly ProjectDashboardService dashboards;
+    private readonly RepositorySnapshotStore snapshotStore;
+    private readonly RepositorySensorAvailabilityCache sensorAvailabilityCache;
+    private readonly SensorRegistry sensors;
     private readonly InputResolver inputResolver;
     private readonly ILogger<RepositorySnapshotPrewarmer> logger;
 
@@ -22,12 +25,18 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
         RepositoryRegistry registry,
         RepositoryHierarchyCache hierarchyCache,
         ProjectDashboardService dashboards,
+        RepositorySnapshotStore snapshotStore,
+        RepositorySensorAvailabilityCache sensorAvailabilityCache,
+        SensorRegistry sensors,
         InputResolver inputResolver,
         ILogger<RepositorySnapshotPrewarmer> logger)
     {
         this.registry = registry;
         this.hierarchyCache = hierarchyCache;
         this.dashboards = dashboards;
+        this.snapshotStore = snapshotStore;
+        this.sensorAvailabilityCache = sensorAvailabilityCache;
+        this.sensors = sensors;
         this.inputResolver = inputResolver;
         this.logger = logger;
     }
@@ -40,21 +49,31 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
     public void Queue(RepositoryRegistration registration)
     {
         if (registration.Archived) return;
-        var key = string.Join('\0', registration.RootPath, registration.GlobalInputsDirectory,
-            registration.InputBudgetCharacters.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var key = RepositoryCacheState.RegistrationFingerprint(registration);
         if (!pending.TryAdd(key, 0)) return;
         if (!queue.Writer.TryWrite(registration)) pending.TryRemove(key, out _);
     }
 
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        foreach (var registration in registry.List())
+        {
+            var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+                ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+                : registration.GlobalInputsDirectory;
+            await snapshotStore.TryRestoreAsync(registration, globalDirectory, cancellationToken);
+        }
+        await base.StartAsync(cancellationToken);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Keep host startup non-blocking: the API becomes reachable while snapshots warm in the background.
+        // Snapshot verification is synchronous; cold snapshot construction remains in the background.
         await Task.Yield();
         QueueAll(registry.List());
         await foreach (var registration in queue.Reader.ReadAllAsync(stoppingToken))
         {
-            var key = string.Join('\0', registration.RootPath, registration.GlobalInputsDirectory,
-                registration.InputBudgetCharacters.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var key = RepositoryCacheState.RegistrationFingerprint(registration);
             try
             {
                 var started = Stopwatch.GetTimestamp();
@@ -67,11 +86,22 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
                     globalDirectory,
                     registration.InputBudgetCharacters), stoppingToken);
                 var projection = dashboards.GetMeasured(registration.RootPath, hierarchy.Snapshot);
+                var sensorAvailability = await sensorAvailabilityCache.GetAsync(
+                    registration, sensors, stoppingToken);
+                if (!hierarchy.CacheHit || !projection.CacheHit || !sensorAvailability.CacheHit)
+                {
+                    await snapshotStore.SaveAsync(
+                        registration,
+                        hierarchy.Snapshot,
+                        projection.Dashboard,
+                        sensorAvailability.Availability,
+                        stoppingToken);
+                }
                 var prewarmEvent = JsonSerializer.Serialize(new
                 {
                     @event = "qs.repository.prewarm",
                     repositoryId = registration.Id,
-                    cache = hierarchy.CacheHit && projection.CacheHit ? "warm" : "cold",
+                    cache = hierarchy.CacheHit && projection.CacheHit && sensorAvailability.CacheHit ? "warm" : "cold",
                     durationMs = Math.Round(Stopwatch.GetElapsedTime(started).TotalMilliseconds, 2),
                     phases = new
                     {
@@ -79,6 +109,8 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
                         scanMs = Math.Round(hierarchy.ScanMilliseconds, 2),
                         reviewMetaDiscoveryMs = Math.Round(hierarchy.ReviewMetaDiscoveryMilliseconds, 2),
                         projectionMs = Math.Round(projection.ProjectionMilliseconds, 2),
+                        sensorStateMs = Math.Round(sensorAvailability.RepositoryStateMilliseconds, 2),
+                        sensorInitMs = Math.Round(sensorAvailability.InitializationMilliseconds, 2),
                     },
                     fileCount = projection.Dashboard.Metrics.FileCount,
                 });

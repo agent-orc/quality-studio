@@ -102,8 +102,8 @@ public sealed class ProjectDashboardService
     private static readonly HashSet<string> TextExtensions =
         new(Languages.Keys, StringComparer.OrdinalIgnoreCase);
 
-    private readonly ConcurrentDictionary<string, ProjectDashboardResponse> cache =
-        new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, CacheSlot> cache =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     public ProjectDashboardResponse Get(
         string repositoryPath,
@@ -116,21 +116,42 @@ public sealed class ProjectDashboardService
     {
         var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var key = root + "\0" + snapshot.GitState;
-        if (cache.TryGetValue(key, out var cached))
+        var slot = cache.GetOrAdd(root, _ => new CacheSlot());
+        lock (slot.Gate)
         {
+            if (slot.Dashboard is not null && StringComparer.Ordinal.Equals(slot.GitState, snapshot.GitState))
+            {
+                return new ProjectDashboardMeasurement(
+                    slot.Dashboard,
+                    true,
+                    Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            }
+
+            slot.Dashboard = Build(root, snapshot.Roots);
+            slot.GitState = snapshot.GitState;
             return new ProjectDashboardMeasurement(
-                cached,
-                true,
+                slot.Dashboard,
+                false,
                 Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
+    }
 
-        var built = Build(root, snapshot.Roots);
-        var dashboard = cache.GetOrAdd(key, built);
-        return new ProjectDashboardMeasurement(
-            dashboard,
-            false,
-            Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+    /// <summary>Seeds a verified dashboard while keeping one state per repository.</summary>
+    public void Seed(
+        string repositoryPath,
+        RepositoryHierarchySnapshot snapshot,
+        ProjectDashboardResponse dashboard)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(dashboard);
+        var root = Path.GetFullPath(repositoryPath);
+        var slot = cache.GetOrAdd(root, _ => new CacheSlot());
+        lock (slot.Gate)
+        {
+            slot.GitState = snapshot.GitState;
+            slot.Dashboard = dashboard;
+        }
     }
 
     public string ArchitectureReviewContext(
@@ -160,9 +181,17 @@ public sealed class ProjectDashboardService
             .Where(node => node.Level == ReviewLevel.File)
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
+        var hierarchyFilesByPath = hierarchyFiles.ToDictionary(
+            node => node.Path, StringComparer.Ordinal);
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
-        var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
+        var repositoryPaths = EnumerateRepositoryFiles(root);
+        var fileMetrics = repositoryPaths.Any(path => TextExtensions.Contains(Path.GetExtension(path)))
+            ? repositoryPaths.AsParallel().AsOrdered()
+                .Select(path => ReadFileMetric(root, path, hierarchyFilesByPath.GetValueOrDefault(path)))
+            : repositoryPaths.Select(path =>
+                ReadFileMetric(root, path, hierarchyFilesByPath.GetValueOrDefault(path)));
+        var repositoryFiles = fileMetrics
+            .OfType<FileMetric>()
             .ToArray();
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
@@ -191,6 +220,13 @@ public sealed class ProjectDashboardService
                 hierarchyFiles.FirstOrDefault()?.Path ?? projectPath),
             metrics,
             hotspots);
+    }
+
+    private sealed class CacheSlot
+    {
+        public object Gate { get; } = new();
+        public string? GitState { get; set; }
+        public ProjectDashboardResponse? Dashboard { get; set; }
     }
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(
@@ -485,14 +521,19 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(string root, string path)
+    private static FileMetric? ReadFileMetric(string root, string path, HierarchyNode? hierarchyFile)
     {
+        var extension = Path.GetExtension(path);
+        var language = Languages.GetValueOrDefault(extension);
+        if (!TextExtensions.Contains(extension) && hierarchyFile?.SizeBytes is long hierarchyBytes)
+            return new FileMetric(path, hierarchyBytes, 0, language, null);
+
         var absolute = Path.Combine(root, Native(path));
         var info = new FileInfo(absolute);
-        var language = Languages.GetValueOrDefault(Path.GetExtension(path));
+        if (!info.Exists) return null;
         var lines = 0;
         string? duplicateFingerprint = null;
-        if (TextExtensions.Contains(Path.GetExtension(path)) && info.Length <= 4 * 1024 * 1024)
+        if (TextExtensions.Contains(extension) && info.Length <= 4 * 1024 * 1024)
         {
             try
             {
@@ -517,7 +558,7 @@ public sealed class ProjectDashboardService
         if (git is not null)
             return git.Split('\0', StringSplitOptions.RemoveEmptyEntries)
                 .Select(path => path.Replace('\\', '/'))
-                .Where(path => !Excluded(path) && File.Exists(Path.Combine(root, Native(path))))
+                .Where(path => !Excluded(path))
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Select(path => Relative(root, path))
