@@ -388,6 +388,41 @@ public sealed class ReviewRunStoreTests
         }
     }
 
+    [Fact]
+    public async Task Canonical_history_survives_removal_of_disposable_active_run_state()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateRun("history-only", "failed");
+            await using (var application = fixture.CreateApplication())
+            {
+                using var client = application.CreateClient();
+                _ = await client.GetFromJsonAsync<JsonElement>(
+                    $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
+                Assert.True(new QualityRunReportStore(fixture.RepositoryRoot)
+                    .TryLoad(stored.Manifest.RunId, out _));
+            }
+
+            Directory.Delete(Path.Combine(fixture.Store.RunsPath, stored.Manifest.RunId), recursive: true);
+
+            await using var restarted = fixture.CreateApplication();
+            using var restartedClient = restarted.CreateClient();
+            var history = await restartedClient.GetFromJsonAsync<JsonElement>(
+                "/api/review/runs/history", cancellationToken);
+            var run = Assert.Single(history.GetProperty("runs").EnumerateArray());
+            Assert.Equal(stored.Manifest.RunId, run.GetProperty("id").GetString());
+            Assert.Equal("failed", run.GetProperty("state").GetString());
+            Assert.Equal("partial", run.GetProperty("completeness").GetString());
+            Assert.Equal(stored.Manifest.CliType, run.GetProperty("cliType").GetString());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Theory]
     [InlineData("failed")]
     [InlineData("cancelled")]

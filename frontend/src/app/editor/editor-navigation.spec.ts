@@ -52,6 +52,9 @@ describe('Editor finding navigation', () => {
     expect(component.isSelectedLine(11)).toBeFalse();
     expect(component.codeScrollTop()).toBeGreaterThan(0);
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(3);
+    expect([...fixture.nativeElement.querySelectorAll('.finding-span.selected')]
+      .map((element: Element) => element.textContent).join('|')).toBe('line 8|line 9|line');
+    expect(fixture.nativeElement.querySelector('.finding-span.selected')?.getAttribute('aria-current')).toBe('location');
     expect(fixture.nativeElement.querySelector('[data-finding-fingerprint]')?.getAttribute('data-finding-fingerprint')).toBe(finding.fingerprint);
   });
 
@@ -61,5 +64,6 @@ describe('Editor finding navigation', () => {
     expect(component.selectedLocation()).toBeNull();
     expect(component.isSelectedLine(8)).toBeFalse();
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('.finding-span').length).toBe(0);
   });
 });
