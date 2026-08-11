@@ -13,10 +13,19 @@ public interface IReviewAgent
 
     string? Model { get; }
 
+    string CliType => AgentName;
+
+    string? ThinkingLevel => null;
+
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
-public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null);
+public sealed record ReviewAgentResult(
+    string RunId,
+    string Response,
+    TokenUsage? Usage = null,
+    string? EffectiveModel = null,
+    string? EffectiveThinkingLevel = null);
 
 public sealed class ReviewAgentRunException(
     string runId, TokenUsage usage, string? effectiveModel, Exception innerException)
@@ -59,6 +68,10 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     public string AgentName => _cliType;
 
     public string? Model { get; }
+
+    public string CliType => _cliType;
+
+    public string? ThinkingLevel => _thinkingLevel;
 
     public async Task<ReviewAgentResult> RunAsync(
         string prompt,
@@ -103,7 +116,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
 
         var completed = BuildUsage(metrics, stopwatch);
-        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model, _thinkingLevel);
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,

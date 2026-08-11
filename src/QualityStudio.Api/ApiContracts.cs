@@ -305,6 +305,30 @@ public sealed record FindingStateMutationRequest(
     DateTimeOffset? ExpiresAt,
     DateTimeOffset? ExpectedTimestamp);
 
+public sealed record FindingAssessmentMutationRequest(
+    string Path,
+    string Kind,
+    string Fingerprint,
+    string? Assessment,
+    string? Resolution,
+    string Actor,
+    string Reason,
+    long ExpectedRevision,
+    string? ReviewRunId,
+    string? OperationRunId,
+    string? TaskKey);
+
+public sealed record FindingSuppressionMutationRequest(FindingSuppressionRule Rule, long ExpectedRevision);
+public sealed record FindingSuppressionPreviewRequest(FindingSuppressionRule Rule);
+public sealed record ExactFindingSuppressionRequest(
+    string Path,
+    string Kind,
+    string Fingerprint,
+    string Author,
+    string Reason,
+    DateTimeOffset? ExpiresAt,
+    long ExpectedRevision);
+
 /// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
 public sealed record AgentStudioImportResultResponse(
     string ProjectId,

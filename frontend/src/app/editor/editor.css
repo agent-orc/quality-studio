@@ -77,3 +77,4 @@
 .statusbar-review{display:flex;align-items:center;gap:5px;text-transform:capitalize}
 .statusbar-coverage{color:var(--status-fresh);font-family:var(--font-mono)}
 .statusbar-empty{color:var(--studio-fg-dim)}
+.finding-segment-wrap{position:relative}.finding-segment{padding:0;border:0;border-bottom:1px solid var(--studio-finding-span);background:var(--studio-finding-span-bg);color:inherit;font:inherit;white-space:pre;cursor:pointer}.finding-segment.selected{border-bottom-width:2px;background:var(--studio-finding-span-selected)}.finding-segment.overlap{border-bottom-color:var(--studio-finding-span-overlap);border-bottom-style:double}.finding-segment:focus-visible{outline:2px solid var(--studio-accent)}

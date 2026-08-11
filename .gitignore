@@ -17,9 +17,12 @@ TestResults/
 # orchestrator task-pipeline artifacts stay out of the repo
 /.orchestrator/
 
-# Review usage and canonical run reports are durable repository history. Monthly
-# ledgers and .quality/reports/runs/*.json are intentionally committed; only the
-# resumable orchestration state under .quality/runs is ignored.
+# Review usage, finding policy, terminal evidence, and canonical run reports are
+# durable repository history. Only resumable orchestration under .quality/runs is ignored.
 !/.quality/
 !/.quality/usage/
 !/.quality/usage/*.jsonl
+!/.quality/findings/
+!/.quality/findings/**
+!/.quality/review-history/
+!/.quality/review-history/**
