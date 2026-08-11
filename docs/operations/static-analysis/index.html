@@ -643,6 +643,17 @@
         <li>Real S5 matched-run evidence remains pending: zero qualifying operations are committed, so the report continues to withhold a savings percentage and rollout decision.</li>
       </ul>
     </article>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · Current-main re-delivery</h3><span class="pill done">landed</span></header>
+      <p>The decided S1–S5 implementation was replayed onto integration snapshot <code>d7404cdf1e2a</code>. The remote no longer exposes a <code>develop</code> branch, so the requested fresh integration replay used its sole active integration head, <code>origin/main</code>. The newer portable-review export and URL-preview work remain intact.</p>
+      <ul>
+        <li>S1 snapshot binding now includes the repository's Gitleaks configuration/baseline and static-analysis baseline content. A dedicated API test mutates <code>.quality/security/gitleaks.baseline.json</code> during a sweep and proves the next operation receives a newly collected result hash.</li>
+        <li>S3's baseline was recaptured after the replay: 150 .NET whitespace, 32 ESLint, and 65 Prettier observations are existing. The two additional Prettier observations belong to the URL-preview files already present on integration; a repeated gate reports zero new and zero resolved observations.</li>
+        <li>S4's dashboard projection uses bounded parallel metadata reads for large repositories and trusts size data from the matching hierarchy snapshot. The 5,000-file first-visible and cached interaction canary is green while complexity remains advisory at 18 CA1502 and two CA1505 breaches.</li>
+        <li>S5 emitted <code>preflight-economy-report.json</code> to the job results directory with status <code>insufficient-evidence</code>, zero of 30 required matched operations, and <code>savingsPercent: null</code>. No rollout conclusion or model-route change is claimed.</li>
+      </ul>
+    </article>
   </section>
 
   <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 11 August 2026</footer>

@@ -179,6 +179,43 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Security_baseline_mutation_invalidates_preflight_before_the_next_model_operation()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var baselinePath = Path.Combine(".quality", "security", "gitleaks.baseline.json");
+        Directory.CreateDirectory(Path.Combine(fixture.RepositoryRoot, ".quality", "security"));
+        await File.WriteAllTextAsync(Path.Combine(fixture.RepositoryRoot, baselinePath), "{\"findings\":[]}",
+            cancellationToken);
+        var executor = new MutatingExecutorFactory(fixture.RepositoryRoot, baselinePath);
+        var sensor = new CountingPreflightSensor(available: true);
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "security",
+                cliType = "test-agent",
+                model = "test-model",
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(2, sensor.RunCount);
+            Assert.NotEqual(executor.PreflightHashes[0], executor.PreflightHashes[1]);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Compiler_error_blocks_only_the_affected_file_and_invalid_aggregate()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
