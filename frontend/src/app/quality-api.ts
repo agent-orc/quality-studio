@@ -138,8 +138,9 @@ export interface RiskMatrixCell { grade: string; coverage: string; files: number
 export interface RiskReport { days: number; currentCommit: string | null; rows: RiskRow[]; matrix: RiskMatrixCell[]; }
 export interface ScanFile { relativePath: string; state: ReviewState; reviewKind: string; metaRelativePath?: string | null; }
 export interface ScanReport { files: ScanFile[]; freshCount: number; staleCount: number; policyDriftCount: number; missingCount: number; }
-export interface HandoverRequest { findingSummary: string; filePath: string; findingText: string; reviewKind: string; metaReference: string; }
-export interface HandoverResult { dryRun: boolean; taskId: string | null; card: { title: string }; }
+export interface HandoverRequest { filePath: string; reviewKind: string; findingFingerprint: string; }
+export interface HandoverPreview { confirmationHash: string; generatedAt: string; card: { title: string; promptMarkdown: string }; }
+export interface HandoverResult { dryRun: boolean; taskId: string | null; card: { title: string; promptMarkdown: string }; }
 export interface ResolvedInput { id: string; source: string; scope: 'global' | 'project'; priority: number; includedContent: string; content: string; truncated: boolean; }
 export interface InputOmission { id: string; source: string; reason: string; omittedCharacters: number; }
 export interface ResolvedInputs { kind: ReviewKind; level: string; budgetCharacters: number; includedCharacters: number; complete: boolean; inputs: ResolvedInput[]; omissions: InputOmission[]; }
@@ -734,7 +735,11 @@ export class QualityApi {
   }
 
   async createTask(request: HandoverRequest): Promise<HandoverResult> {
-    return firstValueFrom(this.http.post<HandoverResult>(`${this.repositoryApiBase()}/handover`, request));
+    const preview = await firstValueFrom(this.http.post<HandoverPreview>(`${this.repositoryApiBase()}/handover/preview`, request));
+    if (!window.confirm(`${preview.card.title}\n\n${preview.card.promptMarkdown}`)) throw new Error('Handover cancelled.');
+    return firstValueFrom(this.http.post<HandoverResult>(`${this.repositoryApiBase()}/handover`, {
+      ...request, confirmationHash: preview.confirmationHash,
+    }));
   }
 
   async mutateThread(request: ThreadMutationRequest): Promise<ReviewThread> {

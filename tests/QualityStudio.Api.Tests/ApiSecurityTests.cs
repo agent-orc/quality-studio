@@ -207,7 +207,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         };
         using var firstHandover = await bob.PostAsJsonAsync("/api/repos/foreign/handover", handover,
             TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, firstHandover.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, firstHandover.StatusCode);
         using var secondHandover = await bob.PostAsJsonAsync("/api/repos/foreign/handover", handover,
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.TooManyRequests, secondHandover.StatusCode);
