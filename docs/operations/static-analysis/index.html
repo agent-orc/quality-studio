@@ -654,6 +654,15 @@
         <li>S5 emitted <code>preflight-economy-report.json</code> to the job results directory with status <code>insufficient-evidence</code>, zero of 30 required matched operations, and <code>savingsPercent: null</code>. No rollout conclusion or model-route change is claimed.</li>
       </ul>
     </article>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · Gate verification hardening</h3><span class="pill done">landed</span></header>
+      <p>The durable-run API test harness now waits against a bounded 30-second wall-clock deadline instead of a fixed two-second polling-delay budget. This preserves every terminal-state assertion while allowing the two test projects to execute concurrently under the solution-level CI command without reporting an in-progress run as a product failure.</p>
+      <ul>
+        <li>The full portable solution suite passes with 212 tests passed, one explicitly skipped live integration test, and zero failures. The isolated 5,000-file dashboard canary, Angular production build and 37 browser tests, static-analysis contract tests, new-debt gate, dependency audits, and Gitleaks scan are also green.</li>
+        <li>The S5 results artifact was regenerated in the operator-provided job results directory and continues to report <code>insufficient-evidence</code>, zero qualifying operations, and no savings percentage.</li>
+      </ul>
+    </article>
   </section>
 
   <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 11 August 2026</footer>
