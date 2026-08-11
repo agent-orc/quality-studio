@@ -75,7 +75,7 @@ export class ReviewPanel {
     .reduce((count, result) => count + result.findings.length, 0));
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
     run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
-  readonly activeReviewRuns = computed(() => this.api.reviewRuns()
+  readonly activeScopeRuns = computed(() => this.scopeRuns()
     .filter(run => !['done', 'failed', 'cancelled'].includes(run.state)).slice(0, 8));
   readonly reviewHistoryEntries = computed(() => typeof this.api.reviewHistory === 'function'
     ? this.api.reviewHistory().filter(entry =>

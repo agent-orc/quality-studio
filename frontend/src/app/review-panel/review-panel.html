@@ -2,13 +2,13 @@
   <qs-review-detail-styles />
   <div class="pane-header"><div><span class="eyebrow">Review</span><strong>{{ activeKind() }} findings</strong></div><span class="score" [class.stale-score]="activeState() === 'stale'">{{ activeMeta()?.grade?.band ?? '—' }}</span></div>
   <div class="review-content">
-    <button type="button" class="run-history-trigger" (click)="runDrawerOpen.set(!runDrawerOpen())" [attr.aria-expanded]="runDrawerOpen()"><span><b>Run details</b><small>{{ scopeRuns().length }} for this scope and kind</small></span><span>{{ runDrawerOpen() ? 'Close' : 'Open' }} →</span></button>
+    <button type="button" class="run-history-trigger" (click)="runDrawerOpen.set(!runDrawerOpen())" [attr.aria-expanded]="runDrawerOpen()"><span><b>Run details</b><small>{{ activeScopeRuns().length }} active · {{ reviewHistoryEntries().length }} committed</small></span><span>{{ runDrawerOpen() ? 'Close' : 'Open' }} →</span></button>
     @if (api.reviewError()) { <div class="run-error" role="alert">{{ api.reviewError() }}</div> }
     @if (runDrawerOpen()) {
       <section class="run-history-drawer" aria-label="Run history">
         <div class="section-title"><span>Active</span><small>Live orchestration</small></div>
         <div class="runs-panel">
-          @for (run of scopeRuns(); track run.id) {
+          @for (run of activeScopeRuns(); track run.id) {
             <article class="run-row"><div class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></div><div class="run-route">{{ run.cliType }} · {{ run.model ?? 'runner default' }} · {{ run.thinkingLevel ?? 'model default thinking' }}</div><div class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></div><div class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span></div><div class="run-usage"><span>Spend {{ spendLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }</div>@if (run.stopReason) { <small class="run-stop">{{ run.stopReason }}</small> }@if (run.deviation; as deviation) { <small class="run-deviation">Estimate deviation: input {{ deviation.inputTokensPercent }}% · output {{ deviation.outputTokensPercent }}%@if (deviation.costPercent !== null) { · cost {{ deviation.costPercent }}% }</small> }@if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }</article>
           } @empty { <div class="empty-findings">No runs for this scope and kind.</div> }
         </div>
