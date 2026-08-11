@@ -111,7 +111,15 @@ public sealed class ChangeSetReviewService
             verdict,
             summary);
         var path = GetPath(root, changeSet);
-        if (options.Persist) await SaveAsync(path, document, cancellationToken).ConfigureAwait(false);
+        if (options.Persist)
+        {
+            await SaveAsync(path, document, cancellationToken).ConfigureAwait(false);
+            await QualityObservationLedger.AppendAsync(
+                root,
+                QualityDomainObservationAdapters.FromChange(
+                    document, Path.GetRelativePath(root, path).Replace('\\', '/')),
+                CancellationToken.None).ConfigureAwait(false);
+        }
         return new ChangeReviewResult(document, path);
     }
 
