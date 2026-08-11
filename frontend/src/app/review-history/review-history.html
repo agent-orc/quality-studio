@@ -1,0 +1,55 @@
+<section class="history" aria-label="Archived review run history">
+  <button type="button" class="history-entry" [attr.aria-expanded]="open()" (click)="toggle()">
+    <span><b>History</b><small>Tracked · on demand</small></span><span aria-hidden="true">{{ open() ? '−' : '+' }}</span>
+  </button>
+  @if (open()) {
+    <div class="history-content">
+      <div class="history-filters" aria-label="History filters">
+        <label><span>Kind</span><select [value]="kind()" (change)="kind.set($any($event.target).value)"><option value="">All</option><option value="code">Code</option><option value="security">Security</option><option value="performance">Performance</option></select></label>
+        <label><span>Outcome</span><select [value]="outcome()" (change)="outcome.set($any($event.target).value)"><option value="">All</option><option value="done">Done</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option><option value="capped">Capped</option><option value="legacy-usage-only">Legacy usage only</option></select></label>
+        <label class="path-filter"><span>Root path</span><input [value]="path()" (input)="path.set($any($event.target).value)" placeholder="Exact root path"></label>
+        <button type="button" class="quiet" (click)="applyFilters()">Apply</button>
+      </div>
+      @if (error()) { <div class="history-message" role="alert">{{ error() }}</div> }
+      @if (compareStatus()) { <div class="history-message" aria-live="polite">{{ compareStatus() }}</div> }
+      <div class="history-list">
+        @for (run of rows(); track run.runId) {
+          <article class="history-row" [class.corrupt]="run.errorCode">
+            <button type="button" class="history-main" (click)="selectRun(run)" [disabled]="!!run.errorCode || run.provenance === 'legacy-usage-only'">
+              <span><i class="status" [class.fresh]="run.outcome === 'done'" [class.stale]="run.outcome === 'capped'" [class.missing]="run.errorCode || run.outcome === 'failed' || run.outcome === 'cancelled'"></i><b>{{ run.kind ?? 'Unreadable archive' }} · {{ run.path ?? run.runId }}</b></span>
+              <small>{{ run.errorCode ?? run.outcome }} · {{ timestamp(run.finishedAt ?? run.createdAt) }}</small>
+              @if (run.provenance === 'legacy-usage-only') { <small>{{ run.model ?? 'Unknown model' }} · {{ run.spend?.tokens?.inputTokens ?? '—' }} input · {{ run.spend?.tokens?.outputTokens ?? '—' }} output</small> }
+              @else if (!run.errorCode) { <small>{{ run.operations }} operations · {{ run.findings }} findings · attempt {{ run.attempt }}</small> }
+              @else { <small>{{ run.error }}</small> }
+            </button>
+            <button type="button" class="compare-toggle" [class.selected]="selectedRun(run.runId)" [disabled]="!canSelect(run)" [attr.aria-pressed]="selectedRun(run.runId)" (click)="toggleCompare(run)">{{ selectedRun(run.runId) ? 'Selected' : 'Compare' }}</button>
+          </article>
+        } @empty { <div class="empty-findings">{{ loading() ? 'Loading history…' : 'No archived runs match these filters.' }}</div> }
+      </div>
+      @if (nextCursor()) { <button type="button" class="load-more" (click)="loadMore()" [disabled]="loading()">{{ loading() ? 'Loading…' : 'Load more' }}</button> }
+
+      @if (detail(); as selectedDetail) {
+        <section class="history-drawer" aria-label="Run detail">
+          <header><div><span class="eyebrow">Archived run</span><b>{{ selectedDetail.run.kind }} · {{ selectedDetail.run.subject.path }}</b></div><button type="button" class="quiet" aria-label="Close run detail" (click)="closeDetail()">×</button></header>
+          <div class="detail-facts"><span><b>{{ selectedDetail.attempt.outcome }}</b>Outcome</span><span><b>{{ selectedDetail.attempt.attempt }}</b>Attempt</span><span><b>{{ selectedDetail.operations.length }}</b>Operations</span><span><b>{{ selectedDetail.findings.length }}</b>Findings</span></div>
+          <p>{{ selectedDetail.run.configuration.model ?? 'Runner default model' }} · {{ selectedDetail.run.configuration.thinkingLevel ?? 'model-default thinking' }} · {{ selectedDetail.run.configuration.cliType }} · {{ timestamp(selectedDetail.attempt.finishedAt) }}</p>
+          @for (operation of selectedDetail.operations; track operation.operationId) { <div class="operation"><span>{{ operation.state }}</span><b>{{ operation.path }}</b><small>@if (operation.grade) { {{ operation.grade.band }} · {{ operation.grade.score }} } @if (operation.verdict) { {{ operation.verdict.type }}: {{ operation.verdict.value }} }</small></div> }
+        </section>
+      }
+
+      @if (diff(); as comparison) {
+        <section class="history-diff" aria-label="Run comparison">
+          <header><span class="eyebrow">Comparison</span><b>{{ comparison.beforeRunId }} → {{ comparison.afterRunId }}</b></header>
+          <div class="comparison-warnings" aria-label="Comparability warnings">@for (label of comparison.comparability.labels; track label) { <span [class.exact]="label === 'exact'">{{ label }}</span> }</div>
+          <div class="diff-grid">
+            <article><b>Scope</b><span>+{{ comparison.scope.added.length }} / −{{ comparison.scope.removed.length }}</span><small>{{ comparison.scope.changedHashes.length }} changed hashes · {{ comparison.inputs.length }} input changes</small></article>
+            <article><b>Quality</b><span>{{ comparison.grades.length }} grade deltas</span><small>{{ comparison.verdicts.length }} typed verdict deltas</small></article>
+            <article><b>Findings</b><span>+{{ comparison.findings['new'].length }} / −{{ comparison.findings.resolved.length }}</span><small>{{ comparison.findings.persisting.length }} persisting · {{ comparison.findingChanges.length }} changed</small></article>
+            <article><b>Economy</b><span>{{ signed(comparison.economy.inputTokensChange, ' in') }}</span><small>{{ signed(comparison.economy.outputTokensChange, ' out') }} · cost {{ signed(comparison.economy.costChange) }}</small></article>
+          </div>
+          @for (grade of comparison.grades; track grade.unitId + ':' + grade.kind) { <div class="grade-delta" [class.regression]="grade.regression"><b>{{ grade.unitPath }}</b><span>{{ grade.before?.band ?? '—' }} → {{ grade.after?.band ?? '—' }}</span><small>{{ signed(grade.scoreChange) }}</small></div> }
+        </section>
+      }
+    </div>
+  }
+</section>

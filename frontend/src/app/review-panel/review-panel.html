@@ -5,7 +5,7 @@
     @if (api.reviewError()) { <div class="run-error" role="alert">{{ api.reviewError() }}</div> }
     @if (runDrawerOpen()) {
       <section class="run-history-drawer" aria-label="Run history">
-        <div class="section-title"><span>Run history</span><small>Scope filtered</small></div>
+        <div class="section-title"><span>Active and recent runs</span><small>Scope filtered · live polling</small></div>
         <div class="runs-panel">
           @for (run of scopeRuns(); track run.id) {
             <article class="run-row" [class.selected]="selectedRunId() === run.id">
@@ -56,6 +56,7 @@
             }
           </section>
         }
+        @defer (on idle) { <qs-review-history /> } @placeholder { <div class="empty-findings">History is loading…</div> }
         <div class="section-title"><span>Token usage</span><small>{{ api.usage().runs }} operations</small></div>
         <section class="usage-summary" aria-label="Token usage aggregate"><div><b>{{ formatTokens(api.usage().inputTokens) }}</b><span>Input</span></div><div><b>{{ formatTokens(api.usage().outputTokens) }}</b><span>Output</span></div><div><b>{{ formatTokens(api.usage().cachedInputTokens) }}</b><span>Cached</span></div>@for (model of api.usage().byModel.slice(0, 3); track model.key) { <p><span>{{ model.key }}</span><b>{{ model.runs }} · {{ formatTokens(model.inputTokens + model.outputTokens) }}</b></p> }</section>
       </section>
