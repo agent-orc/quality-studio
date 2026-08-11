@@ -52,6 +52,64 @@ public sealed class ProjectDashboardTests
     }
 
     [Fact]
+    public async Task Complexity_projection_reads_thresholds_and_latest_preflight_breaches()
+    {
+        var root = TemporaryRepository();
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "CodeMetricsConfig.txt"),
+                "# FORMAT: 2\nCA1502: 25\nCA1505: 20\n", TestContext.Current.CancellationToken);
+            var run = Path.Combine(root, ".quality", "runs", "review-fixture");
+            Directory.CreateDirectory(run);
+            await File.WriteAllTextAsync(Path.Combine(run, "preflight.json"), """
+                {
+                  "results": [{
+                    "findings": [
+                      {
+                        "ruleId": "CA1502",
+                        "title": "CA1502: method complexity",
+                        "description": "'Example.Run()' has a cyclomatic complexity of '31'. Rewrite or refactor the code to decrease its complexity below '26'.",
+                        "fingerprint": "sha256:ca1502",
+                        "locations": [{"path":"src/Example.cs","range":{"start":{"line":12,"column":1},"end":{"line":12,"column":1}}}]
+                      },
+                      {
+                        "ruleId": "complexity",
+                        "title": "complexity: Function has a complexity of 23.",
+                        "description": "Function 'render' has a complexity of 23. Maximum allowed is 18.",
+                        "fingerprint": "sha256:eslint",
+                        "locations": [{"path":"frontend/src/render.ts","range":{"start":{"line":7,"column":1},"end":{"line":7,"column":1}}}]
+                      },
+                      {
+                        "ruleId": "CA1505",
+                        "title": "CA1505: assembly maintainability",
+                        "description": "'Example' has a maintainability index of '7'. Rewrite or refactor the code to increase its maintainability index above '19'.",
+                        "fingerprint": "sha256:ca1505",
+                        "locations": [{"path":"src/Example.cs"}]
+                      }
+                    ]
+                  }]
+                }
+                """, TestContext.Current.CancellationToken);
+
+            var dashboard = new ProjectDashboardService().Get(root, new RepositoryHierarchyCache().Get(root));
+
+            Assert.Equal(25, dashboard.Metrics.Complexity.Thresholds["CA1502"]);
+            Assert.Equal(18, dashboard.Metrics.Complexity.Thresholds["complexity"]);
+            Assert.Equal(3, dashboard.Metrics.Complexity.TopBreaches.Count);
+            Assert.Equal("Example", dashboard.Metrics.Complexity.TopBreaches[0].Symbol);
+            Assert.Equal(13, dashboard.Metrics.Complexity.TopBreaches[0].Excess);
+            Assert.Equal("CA1505", dashboard.Metrics.Complexity.TopBreaches[0].RuleId);
+            Assert.Equal(6, dashboard.Metrics.Complexity.TopBreaches.Single(breach =>
+                breach.RuleId == "CA1502").Excess);
+            Assert.Equal(3, dashboard.Metrics.Complexity.BreachDistribution.Sum(bucket => bucket.Count));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     [Trait("Category", "MachineBound")]
     public async Task Cached_dashboard_for_5000_file_repository_is_within_interaction_budget()
     {

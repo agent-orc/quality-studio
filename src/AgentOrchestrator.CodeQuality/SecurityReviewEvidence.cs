@@ -31,8 +31,9 @@ public sealed record SecurityEvidenceBundle(
     public static SecurityEvidenceBundle Empty { get; } =
         new(SecurityEvidenceVerdict.Pass, Array.Empty<SecuritySensorEvidence>());
 
-    public string ToPromptJson()
+    public string ToPromptJson(int characterLimit = PreflightProjection.PromptCharacterLimit)
     {
+        if (characterLimit < 256) throw new ArgumentOutOfRangeException(nameof(characterLimit));
         var root = new JsonObject
         {
             ["verdict"] = VerdictName(Verdict),
@@ -40,7 +41,7 @@ public sealed record SecurityEvidenceBundle(
         };
         var indented = new JsonSerializerOptions { WriteIndented = true };
         var json = root.ToJsonString(indented);
-        if (json.Length <= PreflightProjection.PromptCharacterLimit) return json;
+        if (json.Length <= characterLimit) return json;
         return new JsonObject
         {
             ["verdict"] = VerdictName(Verdict),
