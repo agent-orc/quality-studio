@@ -257,6 +257,9 @@ public class GitleaksSecurityScanner : IReviewSensor
         string? baselinePath,
         CancellationToken cancellationToken)
     {
+        var operationRunId = "gitleaks-" + Guid.NewGuid().ToString("N");
+        var observedAt = DateTimeOffset.UtcNow;
+        var sourceRevision = FindingEvidence.SourceRevision(root);
         var hierarchyFiles = FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
             .Where(node => node.Level == ReviewLevel.File)
             .GroupBy(node => node.Path, StringComparer.Ordinal)
@@ -281,6 +284,8 @@ public class GitleaksSecurityScanner : IReviewSensor
 
             var fileContentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(absolutePath, cancellationToken)
                 .ConfigureAwait(false);
+            var fileContent = (await File.ReadAllTextAsync(absolutePath, cancellationToken).ConfigureAwait(false))
+                .Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
             var allFindings = fileGroup.ToArray();
             var acceptedFindings = allFindings.Where(finding => finding.Accepted).ToArray();
             var newFindings = allFindings.Where(finding => !finding.Accepted).ToArray();
@@ -299,6 +304,12 @@ public class GitleaksSecurityScanner : IReviewSensor
             var summary = newFindings.Length > 0
                 ? $"{newFindings.Length} new secret detection(s) and {acceptedFindings.Length} accepted placeholder match(es) were recorded by Gitleaks."
                 : $"{acceptedFindings.Length} accepted placeholder match(es) were recorded by Gitleaks.";
+            var rawInputHash = Sha256($"{request.Mode}\0{configPath ?? ""}\0{baselinePath ?? ""}\0{gitleaksPath}");
+            var inputHash = "sha256:" + rawInputHash;
+            var prompt = new PromptReference(
+                "gitleaks-security-scan",
+                GitleaksBinaryResolver.PinnedVersion,
+                inputHash);
             var doc = new ReviewMetaDocument
             {
                 Unit = new ReviewUnit(unitId, ParseAdapter(adapter), ReviewLevel.File, relativePath, Path.GetFileName(relativePath)),
@@ -308,18 +319,26 @@ public class GitleaksSecurityScanner : IReviewSensor
                 ReviewedHash = ManifestHash.Subject(reviewedHash),
                 SubjectInputs = [new SubjectInputHash(relativePath, "file", fileContentHash)],
                 ReviewInputs = new ReviewInputs(
-                    ManifestHash.ReviewInput(Sha256($"{request.Mode}\0{configPath ?? ""}\0{baselinePath ?? ""}\0{gitleaksPath}")),
+                    ManifestHash.ReviewInput(rawInputHash),
                     true,
                     [],
                     [],
-                    new PromptReference(
-                        "gitleaks-security-scan",
-                        GitleaksBinaryResolver.PinnedVersion,
-                        "sha256:" + Sha256($"{request.Mode}\0{configPath ?? ""}\0{baselinePath ?? ""}\0{gitleaksPath}"))),
+                    prompt),
                 Grade = BuildGrade(newFindings),
                 Summary = summary,
                 Aspects = [new ReviewAspect("secrets", "Secrets", BuildGrade(newFindings))],
-                Findings = allFindings.Select(ToReviewFinding).ToArray(),
+                Findings = allFindings.Select(finding => ToPersistedReviewFinding(finding, fileContent, fileContentHash)).ToArray(),
+                Origin = new ReviewOrigin(
+                    "deterministic",
+                    null,
+                    operationRunId,
+                    new ReviewRoute(null, null, null),
+                    new ReviewRoute("gitleaks", GitleaksBinaryResolver.PinnedVersion, null),
+                    prompt,
+                    inputHash,
+                    "sha256:" + reviewedHash,
+                    sourceRevision,
+                    observedAt),
             };
 
             var metaPath = Path.Combine(Path.GetDirectoryName(absolutePath)!, ".quality", "reviews", "files", $"file.{Sha256(relativePath)}.review-meta.security.json");
@@ -370,6 +389,89 @@ public class GitleaksSecurityScanner : IReviewSensor
             finding.Fingerprint,
             finding.RuleId,
             finding.Evidence);
+
+    private static ReviewFinding ToPersistedReviewFinding(
+        SecurityFindingRecord finding,
+        string fileContent,
+        string fileContentHash)
+    {
+        var locations = finding.Locations.Select((location, index) =>
+        {
+            if (location.Range is null) return location with { Role = index == 0 ? "primary" : "related" };
+            var range = ClampRange(fileContent, location.Range);
+            var excerpt = FindingIdentity.ExtractValidatedSnippet(fileContent, location.Path, range);
+            return location with
+            {
+                Range = range,
+                Role = index == 0 ? "primary" : "related",
+                CapturedExcerpt = new CapturedExcerpt(
+                    "[redacted: security-sensitive source span]",
+                    Language(location.Path),
+                    fileContentHash,
+                    "sha256:" + Sha256(excerpt)),
+            };
+        }).ToArray();
+        var evidence = new List<FindingEvidenceItem>();
+        for (var index = 0; index < locations.Length; index++)
+        {
+            if (locations[index].Range is null) continue;
+            evidence.Add(new FindingEvidenceItem(
+                $"ev-source-{index + 1}",
+                "source-span",
+                "observed",
+                "Gitleaks identified this exact source span; its text is redacted from metadata because it may contain a secret.",
+                index,
+                "gitleaks",
+                ResultHash: locations[index].CapturedExcerpt!.ExcerptHash));
+        }
+        evidence.Add(new FindingEvidenceItem(
+            "ev-deterministic",
+            "deterministic-result",
+            "observed",
+            $"Gitleaks rule '{finding.RuleId}' reported this finding.",
+            Producer: "gitleaks",
+            Reference: finding.RuleId,
+            ResultHash: finding.Fingerprint));
+
+        return ToReviewFinding(finding) with
+        {
+            Locations = locations,
+            Source = new FindingSource(
+                FindingSourceKind.Deterministic,
+                "gitleaks",
+                "gitleaks",
+                GitleaksBinaryResolver.PinnedVersion),
+            Impact = "A committed secret can expose credentials or other sensitive systems and requires immediate triage.",
+            EvidenceItems = evidence,
+            Reproduction = new FindingReproduction(
+                "not-applicable",
+                [],
+                Reason: "The finding is a deterministic scanner observation rather than a separately replayed reproduction.",
+                Attempts: []),
+        };
+    }
+
+    private static FindingRange ClampRange(string content, FindingRange range)
+    {
+        var lines = content.Split('\n');
+        var startLine = Math.Clamp(range.Start.Line, 1, lines.Length);
+        var endLine = Math.Clamp(range.End.Line, startLine, lines.Length);
+        var startColumn = Math.Clamp(range.Start.Column, 1, lines[startLine - 1].Length + 1);
+        var endColumn = Math.Clamp(range.End.Column, 1, lines[endLine - 1].Length + 1);
+        if (startLine == endLine) endColumn = Math.Max(startColumn, endColumn);
+        return new FindingRange(
+            new FindingPosition(startLine, startColumn),
+            new FindingPosition(endLine, endColumn));
+    }
+
+    private static string Language(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".cs" => "csharp",
+        ".ts" or ".js" or ".mjs" => "typescript",
+        ".json" => "json",
+        ".md" => "markdown",
+        _ => "text",
+    };
 
     private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath)
     {

@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Reflection;
+using Json.Schema;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -7,6 +9,11 @@ internal static class RepositoryTestContext
     public const string RootEnvironmentVariable = "QUALITY_STUDIO_REPOSITORY_ROOT";
     private const string RootMetadataName = "QualityStudioRepositoryRoot";
     private const string RootMarker = "QualityStudio.slnx";
+    private static readonly ConcurrentDictionary<string, Lazy<JsonSchema>> Schemas = new(StringComparer.Ordinal);
+
+    public static JsonSchema Schema(string fileName) => Schemas.GetOrAdd(fileName, name => new Lazy<JsonSchema>(
+        () => JsonSchema.FromText(File.ReadAllText(Path.Combine(FindRepositoryRoot(), "schemas", name))),
+        LazyThreadSafetyMode.ExecutionAndPublication)).Value;
 
     public static string FindRepositoryRoot()
     {

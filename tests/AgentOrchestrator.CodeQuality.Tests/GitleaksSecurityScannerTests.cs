@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Json.Schema;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -92,9 +93,26 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             var sidecars = Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories).ToArray();
             Assert.Equal(4, sidecars.Length);
             Assert.Contains(sidecars, path => path.Contains($"{Path.DirectorySeparatorChar}src{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+            var schema = RepositoryTestContext.Schema("review-meta.v3.schema.json");
             foreach (var path in sidecars)
             {
                 var content = await File.ReadAllTextAsync(path, cancellationToken);
+                using var metadata = JsonDocument.Parse(content);
+                var validation = schema.Evaluate(metadata.RootElement,
+                    new EvaluationOptions { OutputFormat = OutputFormat.List });
+                Assert.True(validation.IsValid, validation.ToString());
+                Assert.Equal(ReviewMetaDocument.CurrentSchemaVersion,
+                    metadata.RootElement.GetProperty("schemaVersion").GetInt32());
+                Assert.Equal("deterministic",
+                    metadata.RootElement.GetProperty("origin").GetProperty("kind").GetString());
+                foreach (var finding in metadata.RootElement.GetProperty("findings").EnumerateArray())
+                {
+                    Assert.Equal("[redacted: security-sensitive source span]",
+                        finding.GetProperty("locations")[0].GetProperty("capturedExcerpt").GetProperty("text").GetString());
+                    Assert.Contains(finding.GetProperty("evidenceItems").EnumerateArray(), item =>
+                        item.GetProperty("class").GetString() == "deterministic-result");
+                    Assert.Equal("not-applicable", finding.GetProperty("reproduction").GetProperty("status").GetString());
+                }
                 Assert.DoesNotContain(SecretSentinel, content, StringComparison.Ordinal);
                 Assert.DoesNotContain("-----BEGIN PRIVATE KEY-----", content, StringComparison.Ordinal);
                 Assert.DoesNotContain("Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9", content, StringComparison.Ordinal);

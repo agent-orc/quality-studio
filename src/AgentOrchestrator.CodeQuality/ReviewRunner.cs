@@ -24,7 +24,10 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? RequestedModel = null,
+    string? RequestedCliType = null,
+    string? RequestedThinkingLevel = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -116,6 +119,7 @@ public sealed class ReviewRunner
             }
         }
         var startedAt = DateTimeOffset.UtcNow;
+        var sourceRevision = FindingEvidence.SourceRevision(root);
         var stopwatch = Stopwatch.StartNew();
         QualityStudioEventSource.Log.ReviewStarted(relativePath, request.Kind, _agent.AgentName);
         try
@@ -128,19 +132,19 @@ public sealed class ReviewRunner
             catch (ReviewAgentRunCanceledException exception)
             {
                 await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
-                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
+                    startedAt, request, relativePath, sourceRevision), relativePath, request.Kind).ConfigureAwait(false);
                 throw;
             }
             catch (ReviewAgentRunException exception)
             {
                 await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
-                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
+                    startedAt, request, relativePath, sourceRevision), relativePath, request.Kind).ConfigureAwait(false);
                 throw;
             }
 
             var usage = CreateUsage(agentResult.RunId,
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
-                agentResult.EffectiveModel, startedAt, request, relativePath);
+                agentResult.EffectiveModel, startedAt, request, relativePath, sourceRevision);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
             if (request.Level == ReviewLevel.Project &&
@@ -168,6 +172,7 @@ public sealed class ReviewRunner
             {
                 findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
             }
+            FindingEvidence.Enrich(response, subjectContents);
 
             var adapter = AdapterFromUnitId(unitId);
             ReviewObservationSnapshot observation;
@@ -198,7 +203,9 @@ public sealed class ReviewRunner
                     usage,
                     threads,
                     sensorEvidence,
-                    deterministicEvidence);
+                    deterministicEvidence,
+                    request,
+                    sourceRevision);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
@@ -361,11 +368,13 @@ public sealed class ReviewRunner
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
+        DateTimeOffset startedAt, ReviewRequest request, string relativePath, string sourceRevision) =>
         new(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
-            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+            _agent.CliType, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
+            request.ReviewRunId, UsageLedger.CurrentSchemaVersion,
+            request.RequestedModel, request.RequestedThinkingLevel, _agent.ThinkingLevel, sourceRevision,
+            request.RequestedCliType);
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {
@@ -395,7 +404,9 @@ public sealed class ReviewRunner
         ReviewUsageEntry usage,
         JsonArray threads,
         SecurityEvidenceBundle sensorEvidence,
-        IReadOnlyList<SensorScanResult> deterministicEvidence)
+        IReadOnlyList<SensorScanResult> deterministicEvidence,
+        ReviewRequest request,
+        string sourceRevision)
     {
         var promptHash = ReviewPromptBuilder.TemplateHash(kind);
         var effectiveHash = inputs.EffectiveHash(promptHash);
@@ -403,6 +414,7 @@ public sealed class ReviewRunner
         {
             ["agent"] = _agent.AgentName,
             ["model"] = usage.Model,
+            ["thinkingLevel"] = _agent.ThinkingLevel,
             ["runId"] = runId,
             ["usage"] = new JsonObject
             {
@@ -427,7 +439,7 @@ public sealed class ReviewRunner
                 ["path"] = relativePath,
                 ["displayName"] = displayName ?? Path.GetFileName(relativePath),
             },
-            ["reviewedAt"] = DateTime.UtcNow.ToString("O"),
+            ["reviewedAt"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
             ["kind"] = kind,
             ["reviewer"] = reviewer,
             ["reviewedHash"] = new JsonObject
@@ -473,6 +485,34 @@ public sealed class ReviewRunner
             ["threads"] = threads.DeepClone(),
             ["deterministicEvidence"] = JsonSerializer.SerializeToNode(
                 deterministicEvidence, ReviewMetaJson.Options),
+            ["origin"] = new JsonObject
+            {
+                ["kind"] = "agent",
+                ["reviewRunId"] = request.ReviewRunId,
+                ["operationRunId"] = runId,
+                ["requested"] = new JsonObject
+                {
+                    ["cli"] = request.RequestedCliType,
+                    ["model"] = request.RequestedModel,
+                    ["thinkingLevel"] = request.RequestedThinkingLevel,
+                },
+                ["executed"] = new JsonObject
+                {
+                    ["cli"] = usage.CliType,
+                    ["model"] = usage.Model,
+                    ["thinkingLevel"] = _agent.ThinkingLevel,
+                },
+                ["prompt"] = new JsonObject
+                {
+                    ["id"] = $"file-{kind}-review",
+                    ["version"] = "1.0.0",
+                    ["contentHash"] = promptHash,
+                },
+                ["reviewInputHash"] = "sha256:" + effectiveHash,
+                ["subjectManifestHash"] = "sha256:" + reviewedHash,
+                ["sourceRevision"] = sourceRevision,
+                ["observedAt"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
+            },
         };
         if (kind == "security" && sensorEvidence.Sensors.Count > 0)
         {

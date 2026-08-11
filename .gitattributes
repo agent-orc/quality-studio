@@ -1,1 +1,3 @@
 /.quality/usage/*.jsonl merge=union
+/.quality/findings/assessments/*.jsonl merge=union
+/.quality/findings/resolutions/*.jsonl merge=union

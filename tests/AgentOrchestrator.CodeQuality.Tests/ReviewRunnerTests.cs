@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
+using Json.Schema;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -110,6 +111,24 @@ public sealed class ReviewResponseParserTests
         Assert.Contains("cannot claim deterministic", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Parse_RejectsAgentClaimingVerifiedReproductionOrTypedEvidence()
+    {
+        var verified = ValidResponse.Replace(
+            "\"findings\": []",
+            "\"findings\": [" + ValidFinding.Replace("\"locations\":", "\"reproduction\":{\"status\":\"verified\"},\"locations\":", StringComparison.Ordinal) + "]",
+            StringComparison.Ordinal);
+        var typed = ValidResponse.Replace(
+            "\"findings\": []",
+            "\"findings\": [" + ValidFinding.Replace("\"locations\":", "\"evidenceItems\":[],\"locations\":", StringComparison.Ordinal) + "]",
+            StringComparison.Ordinal);
+
+        Assert.Contains("cannot claim verified", Assert.Throws<ReviewResponseException>(
+            () => new ReviewResponseParser().Parse(verified)).Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cannot claim runner", Assert.Throws<ReviewResponseException>(
+            () => new ReviewResponseParser().Parse(typed)).Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not json")]
@@ -201,6 +220,11 @@ public sealed class ReviewRunnerTests
                 json.GetProperty("unit").GetProperty("id").GetString()!,
                 [new SubjectInputHash("src/Small.cs", "file", currentContentHash)]);
             Assert.Equal(result.ReviewedHash, currentManifest);
+            var directUsage = Assert.Single((await UsageLedger.QueryAsync(
+                root, cancellationToken: cancellationToken)).Recent);
+            Assert.Equal(UsageLedger.CurrentSchemaVersion, directUsage.SchemaVersion);
+            Assert.Null(directUsage.ReviewRunId);
+            Assert.Equal("unknown", directUsage.SourceRevision);
         }
         finally
         {
@@ -219,20 +243,27 @@ public sealed class ReviewRunnerTests
             await File.WriteAllTextAsync(Path.Combine(inputDirectory, "security.md"),
                 "---\nid: secure-boundaries\nkinds: [security]\nlevels: [file]\npriority: 50\n---\nTreat external data as untrusted.\n", cancellationToken);
             var agent = new FakeAgent(response: ReviewResponseParserTests.ValidResponse.Replace(
-                "\"findings\": []", "\"findings\": [" + ReviewResponseParserTests.ValidFinding + "]", StringComparison.Ordinal));
+                "\"findings\": []", "\"findings\": [" + ReviewResponseParserTests.ValidFinding + "]", StringComparison.Ordinal),
+                model: "effective-model", cliType: "codex", thinkingLevel: "high");
 
             var result = await new ReviewRunner(agent).ReviewAsync(new ReviewRequest(
-                "src/Small.cs", "security", GlobalGuidelines: "Global rule.", ProjectGuidelines: "Project rule.", RepositoryRoot: root),
+                "src/Small.cs", "security", GlobalGuidelines: "Global rule.", ProjectGuidelines: "Project rule.", RepositoryRoot: root,
+                ReviewRunId: "review-parent", RequestedModel: "requested-alias", RequestedCliType: "codex",
+                RequestedThinkingLevel: "high"),
                 cancellationToken);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, cancellationToken));
             var json = document.RootElement;
+            var schema = RepositoryTestContext.Schema("review-meta.v3.schema.json");
+            var validation = schema.Evaluate(json, new EvaluationOptions { OutputFormat = OutputFormat.List });
+            Assert.True(validation.IsValid, validation.ToString());
             Assert.Equal("security", json.GetProperty("kind").GetString());
             Assert.Equal("test-agent", json.GetProperty("reviewer").GetProperty("agent").GetString());
-            Assert.Equal("deterministic", json.GetProperty("reviewer").GetProperty("model").GetString());
+            Assert.Equal("effective-model", json.GetProperty("reviewer").GetProperty("model").GetString());
+            Assert.Equal("high", json.GetProperty("reviewer").GetProperty("thinkingLevel").GetString());
             Assert.Equal("run-test", json.GetProperty("reviewer").GetProperty("runId").GetString());
             var usage = json.GetProperty("reviewer").GetProperty("usage");
-            Assert.Equal("test-agent", usage.GetProperty("cliType").GetString());
+            Assert.Equal("codex", usage.GetProperty("cliType").GetString());
             Assert.Equal(120, usage.GetProperty("inputTokens").GetInt64());
             Assert.Equal(34, usage.GetProperty("outputTokens").GetInt64());
             Assert.Equal(56, usage.GetProperty("cachedInputTokens").GetInt64());
@@ -245,6 +276,18 @@ public sealed class ReviewRunnerTests
             Assert.StartsWith("finding-", json.GetProperty("findings")[0].GetProperty("id").GetString(), StringComparison.Ordinal);
             Assert.Equal("correctness.risk", json.GetProperty("findings")[0].GetProperty("ruleId").GetString());
             Assert.StartsWith("sha256:", json.GetProperty("findings")[0].GetProperty("fingerprint").GetString(), StringComparison.Ordinal);
+            var captured = json.GetProperty("findings")[0].GetProperty("locations")[0].GetProperty("capturedExcerpt");
+            Assert.Equal("internal", captured.GetProperty("text").GetString());
+            Assert.Matches("^sha256:[a-f0-9]{64}$", captured.GetProperty("contentHash").GetString());
+            var sourceEvidence = Assert.Single(json.GetProperty("findings")[0].GetProperty("evidenceItems").EnumerateArray());
+            Assert.Equal("source-span", sourceEvidence.GetProperty("class").GetString());
+            Assert.Equal("observed", sourceEvidence.GetProperty("status").GetString());
+            Assert.Equal("unknown", json.GetProperty("findings")[0].GetProperty("reproduction").GetProperty("status").GetString());
+            var origin = json.GetProperty("origin");
+            Assert.Equal("requested-alias", origin.GetProperty("requested").GetProperty("model").GetString());
+            Assert.Equal("effective-model", origin.GetProperty("executed").GetProperty("model").GetString());
+            Assert.Equal("high", origin.GetProperty("executed").GetProperty("thinkingLevel").GetString());
+            Assert.Equal("review-parent", origin.GetProperty("reviewRunId").GetString());
             Assert.Contains("Global rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Project rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Treat external data as untrusted.", agent.Prompt, StringComparison.Ordinal);
@@ -660,7 +703,8 @@ public sealed class ReviewRunnerTests
 
             Assert.Equal("run-test", Assert.Single(recorded).RunId);
             Assert.Equal("review-sweep-test", recorded[0].ReviewRunId);
-            Assert.Equal(2, recorded[0].SchemaVersion);
+            Assert.Equal(UsageLedger.CurrentSchemaVersion, recorded[0].SchemaVersion);
+            Assert.Equal("unknown", recorded[0].SourceRevision);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal("run-test", Assert.Single(report.Recent).RunId);
@@ -788,16 +832,23 @@ public sealed class ReviewRunnerTests
         private readonly Action? _onRun;
         private readonly string _model;
 
-        public FakeAgent(string? response = null, Action? onRun = null, string model = "deterministic")
+        public FakeAgent(string? response = null, Action? onRun = null, string model = "deterministic",
+            string cliType = "test-agent", string? thinkingLevel = null)
         {
             _response = response ?? ReviewResponseParserTests.ValidResponse;
             _onRun = onRun;
             _model = model;
+            CliType = cliType;
+            ThinkingLevel = thinkingLevel;
         }
 
         public string AgentName => "test-agent";
 
         public string? Model => _model;
+
+        public string CliType { get; }
+
+        public string? ThinkingLevel { get; }
 
         public string? Prompt { get; private set; }
 

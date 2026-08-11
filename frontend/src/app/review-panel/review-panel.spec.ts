@@ -30,9 +30,16 @@ describe('ReviewPanel session flow', () => {
     { id: 'wrong-kind', path: 'src/A.cs', kind: 'security' },
     { id: 'wrong-path', path: 'src/B.cs', kind: 'code' },
   ];
+  const initialHistory = [{
+    id: 'terminal', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code',
+    model: 'gpt-5', thinkingLevel: 'high', cliType: 'codex', state: 'done', completeness: 'complete',
+    createdAt: '2026-08-11T07:00:00Z', finishedAt: '2026-08-11T07:01:00Z', findingCount: 2,
+    assessedFindings: 1, assessmentCounts: { unassessed: 1, confirmed: 1, dismissed: 0, disputed: 0 },
+  }];
   const api = {
     file,
     reviewRuns: signal(initialRuns),
+    reviewHistory: signal(initialHistory),
     reviewError: signal(''),
     usage: signal({ runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, byModel: [] }),
     inputs: signal({}), guidelineTraces: signal([]),
@@ -40,6 +47,11 @@ describe('ReviewPanel session flow', () => {
     handoverConfigured: signal(false), handoverDryRun: signal(true), focusedThreadId: signal(null),
     scopeRules: signal({ schema: 'scope.v1', rules: [] }),
     mutateFindingState: jasmine.createSpy('mutateFindingState'),
+    mutateFindingAssessment: jasmine.createSpy('mutateFindingAssessment'),
+    mutateFindingResolution: jasmine.createSpy('mutateFindingResolution'),
+    loadFindingSuppressions: jasmine.createSpy('loadFindingSuppressions'),
+    previewFindingSuppression: jasmine.createSpy('previewFindingSuppression'),
+    addFindingSuppression: jasmine.createSpy('addFindingSuppression'),
     loadFile: jasmine.createSpy('loadFile'), loadTree: jasmine.createSpy('loadTree'),
     loadScopeRules: jasmine.createSpy('loadScopeRules'), previewScopeRule: jasmine.createSpy('previewScopeRule'),
     addScopeRule: jasmine.createSpy('addScopeRule'), updateScopeRule: jasmine.createSpy('updateScopeRule'),
@@ -57,11 +69,26 @@ describe('ReviewPanel session flow', () => {
   beforeEach(async () => {
     file.update(value => ({ ...value, metaDocuments: [meta] }));
     api.reviewRuns.set(initialRuns);
-    for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
+    api.reviewHistory.set(initialHistory);
+    for (const spy of [api.mutateFindingState, api.mutateFindingAssessment, api.mutateFindingResolution,
+      api.loadFindingSuppressions, api.previewFindingSuppression, api.addFindingSuppression,
+      api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
       api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
+    api.mutateFindingAssessment.and.callFake(async (request: { status: string }) =>
+      ({ ...openFinding, assessment: { schemaVersion: 1, eventId: 'assessment-new', fingerprint: openFinding.fingerprint!,
+        status: request.status, actor: 'Reviewer', reason: 'Reason.', assessedAt: '2026-08-11T08:01:00Z' } }));
+    api.mutateFindingResolution.and.callFake(async (request: { status: string }) =>
+      ({ ...openFinding, resolution: { schemaVersion: 1, eventId: 'resolution-new', fingerprint: openFinding.fingerprint!,
+        status: request.status, actor: 'Reviewer', reason: 'Reason.', resolvedAt: '2026-08-11T08:01:00Z' } }));
+    api.loadFindingSuppressions.and.resolveTo({ schemaVersion: 1, revision: 0, rules: [] });
+    api.previewFindingSuppression.and.resolveTo({ rule: { id: 'exact-a', enabled: true,
+      match: { fingerprint: openFinding.fingerprint }, effect: 'suppress', reason: 'Reason.', author: 'Reviewer',
+      createdAt: '2026-08-11T08:00:00Z' }, matches: [{ fingerprint: openFinding.fingerprint, ruleId: openFinding.ruleId,
+        path: 'src/A.cs', reviewKind: 'code', sourceKind: 'agent', title: openFinding.title }], broad: false });
+    api.addFindingSuppression.and.resolveTo({ schemaVersion: 1, revision: 1, rules: [] });
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
     api.loadScopeRules.and.resolveTo(api.scopeRules());
     api.previewScopeRule.and.resolveTo({ index: -1, action: 'exclude', pattern: 'src/A.cs', reason: 'Ignore path', matchedFiles: ['src/A.cs'], widerPattern: false });
@@ -84,6 +111,7 @@ describe('ReviewPanel session flow', () => {
   it('derives visible counts from the filtered queue and filters run history to scope and kind', () => {
     expect(component.visibleFindings().map(finding => finding.id)).toEqual(['high-open', 'medium-accepted']);
     expect(component.scopeRuns().map(run => run.id)).toEqual(['matching']);
+    expect(component.historyScopeRuns().map(run => run.id)).toEqual(['terminal']);
     expect(fixture.nativeElement.querySelector('.findings-heading small').textContent).toContain('2 visible');
 
     component.findingFilter.set('all');
@@ -133,6 +161,35 @@ describe('ReviewPanel session flow', () => {
 
     expect(api.mutateFindingState).toHaveBeenCalledWith(jasmine.objectContaining({
       state: 'false-positive', expiresAt: null,
+    }));
+  });
+
+  it('records assessment and resolution on independent axes', async () => {
+    component.openAssessment('confirmed');
+    component.stateReason.set('Confirmed from exact source evidence.');
+    await component.saveAssessment(openFinding);
+    expect(api.mutateFindingAssessment).toHaveBeenCalledWith(jasmine.objectContaining({
+      status: 'confirmed', reason: 'Confirmed from exact source evidence.', expectedAssessedAt: null,
+    }));
+
+    component.resolutionStatus.set('planned');
+    component.resolutionReason.set('Queued for implementation.');
+    component.resolutionTaskKey.set('QS-70');
+    await component.saveResolution(openFinding);
+    expect(api.mutateFindingResolution).toHaveBeenCalledWith(jasmine.objectContaining({
+      status: 'planned', taskKey: 'QS-70', expectedResolvedAt: null,
+    }));
+  });
+
+  it('defaults ignore to an exact fingerprint and previews before saving', async () => {
+    await component.openSuppression(openFinding, false);
+    expect(api.previewFindingSuppression).toHaveBeenCalledWith(jasmine.objectContaining({
+      match: { fingerprint: openFinding.fingerprint }, expectedRevision: 0,
+    }));
+    component.suppressionReason.set('Known exact noise.');
+    await component.saveSuppression(openFinding);
+    expect(api.addFindingSuppression).toHaveBeenCalledWith(jasmine.objectContaining({
+      match: { fingerprint: openFinding.fingerprint }, confirmBroad: false,
     }));
   });
 
