@@ -179,8 +179,7 @@ app.Use(async (context, next) =>
         return;
     }
 
-    if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
-        HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
+    if (RequiresMutationProtection(context, requiredRole))
     {
         if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
         {
@@ -398,6 +397,13 @@ app.MapPost("/api/findings/state", MutateFindingState).WithMetadata(new ApiRoleM
 app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
 
 app.Run();
+
+static bool RequiresMutationProtection(HttpContext context, string requiredRole) =>
+    HttpMethods.IsPost(context.Request.Method) ||
+    HttpMethods.IsPut(context.Request.Method) ||
+    HttpMethods.IsPatch(context.Request.Method) ||
+    HttpMethods.IsDelete(context.Request.Method) ||
+    string.Equals(requiredRole, ApiRoles.SensorExecute, StringComparison.Ordinal);
 
 static IResult ScopeRules(HttpContext context, RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {

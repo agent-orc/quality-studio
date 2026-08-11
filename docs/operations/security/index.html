@@ -524,6 +524,12 @@
       <h4>Approved and decided; blocked on an enforceable worker runtime</h4>
       <p>The delivery host has the Docker client but denies its daemon socket, has no Podman or bubblewrap runtime, and denies unprivileged user-namespace creation. S1 requires a snapshot broker, isolated mounts and identity, egress policy, cross-platform resource enforcement, short-lived model credentials, and adversarial canary evidence. A wrapper around the existing host process would not satisfy the approved decision, so no worker-isolation claim is made. Command-backed analyzers remain disabled by default and untrusted-repository Gate B remains locked. This is a missing enforcement dependency, not an operator-decision gate.</p>
     </div>
+
+    <h3>2026-08-12 · QS-68 · S0 follow-up delivered</h3>
+    <ul>
+      <li>Legacy scan operations that retain <code>GET</code> routes now receive the same client-ID and local Origin/anti-CSRF enforcement as explicit mutations based on their <code>sensor-execute</code> authorization policy. The Angular client secures only those known scan reads, while ordinary reads remain free of session bootstrap overhead.</li>
+      <li>API and browser regression tests prove an unprotected local scan is denied, a protected scan succeeds, and ordinary API reads do not receive the nonce header.</li>
+    </ul>
   </section>
 </main>
 </body>
