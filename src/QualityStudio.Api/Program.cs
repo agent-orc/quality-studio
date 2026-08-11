@@ -1102,7 +1102,8 @@ static IResult ReviewRunReport(
     RepositoryRegistry registry)
 {
     var repository = registry.Get(RouteRepositoryId(context));
-    var report = new QualityRunReportStore(repository.RootPath).Load(id);
+    var store = new QualityRunReportStore(repository.RootPath);
+    var report = store.Load(id);
     if (!string.Equals(report.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
         throw new FileNotFoundException($"Review run report '{id}' was not found.");
     var selectedFormat = string.IsNullOrWhiteSpace(format)
@@ -1110,7 +1111,13 @@ static IResult ReviewRunReport(
         : QualityReportRenderer.ParseFormat(format);
     var extension = QualityRunReportRenderer.FileExtension(selectedFormat);
     context.Response.Headers.ContentDisposition =
-        $"attachment; filename=\"quality-run-{report.Run.Id}.{extension}\"";
+        $"{(selectedFormat == QualityReportFormat.Html ? "inline" : "attachment")}; filename=\"quality-run-{report.Run.Id}.{extension}\"";
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    if (selectedFormat == QualityReportFormat.Html)
+    {
+        store.EnsureHtml(report);
+        return Results.Text(store.LoadHtml(report.Run.Id), QualityReportRenderer.ContentType(selectedFormat), Encoding.UTF8);
+    }
     return Results.Text(
         QualityRunReportRenderer.Render(report, selectedFormat),
         QualityReportRenderer.ContentType(selectedFormat),

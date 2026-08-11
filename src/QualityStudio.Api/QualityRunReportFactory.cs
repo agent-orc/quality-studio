@@ -70,7 +70,8 @@ public static class QualityRunReportFactory
             manifest.Model ?? "runner-default",
             manifest.ThinkingLevel ?? "model-default",
             manifest.CliType,
-            manifest.Force);
+            manifest.Force,
+            manifest.RepositorySha);
         var delta = BuildDelta(identity, observations, complete, priorReports);
         return new QualityRunReportDocument(
             QualityRunReportJson.SchemaId,

@@ -143,9 +143,9 @@
   <p class="lede">Decision dossier for a run-scoped report contract, self-contained HTML,
   SARIF for CI, a bounded Markdown summary for 0-PR pipelines, and comparable trends across runs.</p>
   <div class="meta">
-    <span><b>Status:</b> decided</span>
-    <span><b>Evidence date:</b> 11 August 2026</span>
-    <span><b>Repository:</b> Quality Studio at <code>3e0b6559faa7</code></span>
+    <span><b>Status:</b> implemented through R5</span>
+    <span><b>Evidence date:</b> 12 August 2026</span>
+    <span><b>Repository:</b> Quality Studio at <code>59941d8e9373</code></span>
     <span><b>Source task:</b> QS-64</span>
   </div>
 </header>
@@ -382,8 +382,9 @@ The new model answers “What happened in this review sweep?”</p>
   <div class="building-block">
     <h4>Storage</h4>
     <p><code>.quality/reports/runs/&lt;runId&gt;.json</code> is repository-owned and may be committed like review
-    sidecars and usage ledgers. Quality Studio writes atomically but never commits it. HTML, Markdown, and
-    SARIF stay derived unless a pipeline publishes them.</p>
+    sidecars and usage ledgers. Quality Studio writes atomically but never commits it. Since QS-87, the terminal
+    publisher also writes the replaceable <code>&lt;runId&gt;.html</code> projection beside canonical JSON so the
+    completed dossier is immediately openable; Markdown and SARIF remain on-demand projections.</p>
   </div>
   <div class="building-block">
     <h4>Revision and resume</h4>
@@ -735,10 +736,20 @@ in the app, and R4 adds run comparison. Each slice has a bounded proof and no ta
   <b>Commit trend</b>.</p>
 </div>
 
-<p class="dim">Method note: documentation-only dossier. The reference CSS declarations were copied from
-<code>agent-taskboard/docs/operations/haertung-verteilte-ausfuehrung/index.html</code>. Repository evidence was
-read from Quality Studio source, schemas, tests, docs, committed sidecars, and the live CLI report output listed
-in §2.</p>
+<div class="box">
+  <h4>12 August 2026 · QS-87 · R5</h4>
+  <p>Built the next slice after QS-73: terminal publication now persists an atomic, self-contained
+  <code>&lt;runId&gt;.html</code> beside canonical JSON and recovery backfills the projection without changing JSON
+  truth. The run manifest captures repository HEAD at enqueue, and the calm document header prints repository
+  identity plus that SHA. The report now has explicit review-verdict, findings, token-ledger, and provenance
+  sections. The API serves saved HTML inline with <code>nosniff</code>; the run detail opens it in a new tab while
+  Markdown, SARIF, and JSON remain downloads. Core, API, Angular, schema, offline/CSP, and browser evidence cover
+  the slice.</p>
+</div>
+
+<p class="dim">Method note: QS-64 established the decision record; QS-73 delivered R1 through R4; QS-87 added
+the persisted HTML dossier slice recorded as R5. Repository evidence was read from Quality Studio source,
+schemas, tests, docs, committed sidecars, the QS-73 delivery results, and the exercised app paths.</p>
 
 </main>
 </body>

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -22,6 +23,7 @@ public sealed class ReviewRunStoreTests
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var repositorySha = await fixture.InitializeGitAsync(cancellationToken);
         var fake = new CappedExecutorFactory();
         try
         {
@@ -76,6 +78,7 @@ public sealed class ReviewRunStoreTests
             var completedReport = reportStore.Load(accepted.GetProperty("id").GetString()!);
             Assert.Equal(2, completedReport.Run.Revision);
             Assert.Equal("complete", completedReport.Run.Completeness);
+            Assert.Equal(repositorySha, completedReport.Run.RepositorySha);
             Assert.Equal(3, completedReport.Observations.Count);
             Assert.Equal(3, completedReport.Execution.Reviewed);
             Assert.All(completedReport.Observations, observation => Assert.True(observation.ProducedByRun));
@@ -89,6 +92,18 @@ public sealed class ReviewRunStoreTests
             await File.WriteAllTextAsync(mutableSidecar, "{\"laterSweep\":true}", cancellationToken);
             Assert.Equal(canonicalBeforeOverwrite, await File.ReadAllBytesAsync(
                 reportStore.PathFor(completedReport.Run.Id), cancellationToken));
+            var savedHtml = await File.ReadAllTextAsync(
+                reportStore.HtmlPathFor(completedReport.Run.Id), cancellationToken);
+            Assert.Contains($"<code>{repositorySha}</code>", savedHtml, StringComparison.Ordinal);
+            Assert.Contains("Review verdicts", savedHtml, StringComparison.Ordinal);
+            Assert.Contains("Token ledger", savedHtml, StringComparison.Ordinal);
+
+            using var htmlResponse = await client.GetAsync(
+                $"/api/review/runs/{completedReport.Run.Id}/report?format=html", cancellationToken);
+            htmlResponse.EnsureSuccessStatusCode();
+            Assert.Equal("text/html", htmlResponse.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("inline", htmlResponse.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.Equal(savedHtml, await htmlResponse.Content.ReadAsStringAsync(cancellationToken));
 
             using var jsonResponse = await client.GetAsync(
                 $"/api/review/runs/{completedReport.Run.Id}/report?format=json", cancellationToken);
@@ -574,6 +589,36 @@ public sealed class ReviewRunStoreTests
             await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"),
                 "<Project Sdk=\"Microsoft.NET.Sdk\" />", cancellationToken);
             return new DurableRunFixture(repositoryRoot, hostRoot);
+        }
+
+        public async Task<string> InitializeGitAsync(CancellationToken cancellationToken)
+        {
+            await GitAsync(cancellationToken, "init", "--quiet");
+            await GitAsync(cancellationToken, "add", "-A");
+            await GitAsync(cancellationToken, "-c", "user.name=Quality Studio", "-c",
+                "user.email=quality@example.test", "commit", "--quiet", "-m", "fixture");
+            return (await GitAsync(cancellationToken, "rev-parse", "--verify", "HEAD")).Trim();
+        }
+
+        private async Task<string> GitAsync(CancellationToken cancellationToken, params string[] arguments)
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo("git")
+                {
+                    WorkingDirectory = RepositoryRoot,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                },
+            };
+            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+            process.Start();
+            var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var error = await process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+            Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
+            return output;
         }
 
         public StoredReviewRun CreateRun(

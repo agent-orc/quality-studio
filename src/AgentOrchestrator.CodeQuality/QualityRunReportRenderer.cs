@@ -108,15 +108,21 @@ public static class QualityRunReportRenderer
             .ThenBy(finding => finding.Title, StringComparer.Ordinal).ToArray();
         var html = new StringBuilder();
         html.Append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
-        html.Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'\">");
+        html.Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'none'\">");
         html.Append("<title>Quality Studio review run ").Append(H(run.Id)).Append("</title><style>");
-        html.Append(" :root{color-scheme:light dark;--bg:#fbfbfa;--surface:#f2f2ef;--ink:#171715;--muted:#62625d;--line:#d8d7d1;--ok:#19733a;--warn:#936300;--bad:#a53333} @media(prefers-color-scheme:dark){:root{--bg:#191918;--surface:#242423;--ink:#f7f7f4;--muted:#b5b4ad;--line:#3e3e3a;--ok:#68c884;--warn:#e0b14e;--bad:#ef8585}}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}main{max-width:72rem;margin:auto;padding:2rem 1.5rem 5rem}header{padding-bottom:1.5rem;border-bottom:1px solid var(--line)}h1{margin:.25rem 0;font-size:2rem}.eyebrow,.muted{color:var(--muted)}.eyebrow{text-transform:uppercase;letter-spacing:.1em;font-size:.75rem}.state{display:inline-block;margin-top:.75rem;padding:.2rem .65rem;border:1px solid var(--line);border-radius:999px;font-size:.8rem;font-weight:700}.partial{color:var(--warn)}section{margin-top:2.5rem}h2{font-size:1.25rem}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border:1px solid var(--line);background:var(--line)}.summary div{padding:1rem;background:var(--surface)}.summary b{display:block;font-size:1.25rem}table{width:100%;border-collapse:collapse}th,td{padding:.65rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:.75rem;text-transform:uppercase}.finding{padding:1rem 0;border-bottom:1px solid var(--line)}.finding h3{margin:.35rem 0;font-size:1rem}.finding p{max-width:75ch}.severity{font-size:.75rem;font-weight:700;text-transform:uppercase}.critical,.high{color:var(--bad)}.medium{color:var(--warn)}code{font-family:ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}@media(max-width:42rem){.summary{grid-template-columns:1fr 1fr}th:nth-child(3),td:nth-child(3){display:none}}@media print{body{background:#fff;color:#000}main{max-width:none;padding:0}.state{border-color:#777}} ");
-        html.Append("</style></head><body><main><header><div class=\"eyebrow\">Quality Studio · review run</div><h1>")
-            .Append(H(run.RepositoryName)).Append("</h1><div>").Append(H(run.Kind)).Append(" · ")
-            .Append(H(run.Level)).Append(" · <code>").Append(H(run.Path)).Append("</code></div><span class=\"state ")
+        html.Append(" :root{color-scheme:light dark;--bg:#fbfbfa;--surface:#f2f2ef;--ink:#171715;--muted:#62625d;--line:#d8d7d1;--ok:#19733a;--warn:#936300;--bad:#a53333} @media(prefers-color-scheme:dark){:root{--bg:#191918;--surface:#242423;--ink:#f7f7f4;--muted:#b5b4ad;--line:#3e3e3a;--ok:#68c884;--warn:#e0b14e;--bad:#ef8585}}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}main{max-width:72rem;margin:auto;padding:2.5rem 1.5rem 5rem}header{padding-bottom:1.5rem;border-bottom:1px solid var(--line)}h1{margin:.25rem 0;font-size:2rem;line-height:1.2}.eyebrow,.muted{color:var(--muted)}.eyebrow{text-transform:uppercase;letter-spacing:.1em;font-size:.75rem}.repo-line{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap;margin:.75rem 0}.state,.outcome{display:inline-block;padding:.2rem .65rem;border:1px solid var(--line);border-radius:999px;font-size:.8rem;font-weight:700}.partial{color:var(--warn)}section{margin-top:2.5rem}h2{margin-bottom:1rem;font-size:1.25rem}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border:1px solid var(--line);background:var(--line)}.summary div{padding:1rem;background:var(--surface)}.summary b{display:block;font-size:1.25rem}.verdict{padding:1rem 0;border-bottom:1px solid var(--line)}.verdict header{display:flex;justify-content:space-between;gap:1rem;padding:0;border:0}.verdict h3{margin:0;font-size:1rem}.verdict p{max-width:76ch;margin:.5rem 0}.verdict-score{font-weight:700;white-space:nowrap}table{width:100%;border-collapse:collapse}th,td{padding:.65rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}th{width:12rem;color:var(--muted);font-size:.75rem;text-transform:uppercase}.finding{padding:1rem 0;border-bottom:1px solid var(--line)}.finding h3{margin:.35rem 0;font-size:1rem}.finding p{max-width:75ch}.severity{font-size:.75rem;font-weight:700;text-transform:uppercase}.critical,.high{color:var(--bad)}.medium{color:var(--warn)}code{font-family:ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}.locations{display:flex;gap:.5rem;flex-wrap:wrap}@media(max-width:42rem){main{padding-inline:1rem}.summary{grid-template-columns:1fr 1fr}.verdict header{display:block}.verdict-score{display:block;margin-top:.4rem}th{width:8rem}}@media print{body{background:#fff;color:#000}main{max-width:none;padding:0}.state,.outcome{border-color:#777}section{break-inside:avoid}} ");
+        html.Append("</style></head><body><main><header><div class=\"eyebrow\">Quality Studio · review run dossier</div><h1>")
+            .Append(H(run.RepositoryName)).Append("</h1><div class=\"repo-line\"><strong>")
+            .Append(H(run.RepositoryId)).Append("</strong><code>")
+            .Append(H(run.RepositorySha ?? "repository SHA unavailable")).Append("</code></div><p class=\"muted\">Repository HEAD at enqueue · ")
+            .Append(H(run.Kind)).Append(" · ").Append(H(run.Level)).Append(" · <code>").Append(H(run.Path))
+            .Append("</code></p><span class=\"state ")
             .Append(run.Completeness == "partial" ? "partial" : string.Empty).Append("\">")
             .Append(H(run.State)).Append(" · ").Append(H(run.Completeness)).Append("</span><p class=\"muted\">Run <code>")
-            .Append(H(run.Id)).Append("</code> · revision ").Append(run.Revision).Append("</p></header>");
+            .Append(H(run.Id)).Append("</code> · revision ").Append(run.Revision);
+        if (run.FinishedAt.HasValue)
+            html.Append(" · finished ").Append(H(run.FinishedAt.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)));
+        html.Append("</p></header>");
         html.Append("<section><h2>Outcome summary</h2><div class=\"summary\"><div><b>")
             .Append(summary.Score?.ToString(CultureInfo.InvariantCulture) ?? "—").Append("</b><span>Score ")
             .Append(H(summary.Grade ?? "unavailable")).Append("</span></div><div><b>").Append(summary.Findings.Total)
@@ -128,31 +134,64 @@ public static class QualityRunReportRenderer
             ? $"{report.Delta.New.Count} new · {report.Delta.Persisting.Count} persisting · {report.Delta.Resolved.Count} resolved · {report.Delta.StateChanged.Count} state-changed"
             : H(report.Delta.Reason ?? "unavailable")).Append("</p></section>");
 
-        html.Append("<section><h2>Findings</h2>");
+        html.Append("<section><h2>Review verdicts</h2>");
+        foreach (var observation in report.Observations)
+        {
+            html.Append("<article class=\"verdict\"><header><div><span class=\"outcome\">")
+                .Append(H(observation.Outcome)).Append("</span><h3><code>").Append(H(observation.Path))
+                .Append("</code></h3></div><span class=\"verdict-score\">");
+            if (observation.Grade is null)
+                html.Append("Verdict unavailable");
+            else
+                html.Append(observation.Grade.Score).Append(" / 100 · ").Append(H(observation.Grade.Band));
+            html.Append("</span></header>");
+            if (observation.Grade is not null)
+                html.Append("<p>").Append(H(observation.Grade.Rationale)).Append("</p>");
+            if (observation.Summary is not null)
+                html.Append("<p class=\"muted\">").Append(H(observation.Summary)).Append("</p>");
+            html.Append("<p class=\"muted\">").Append(observation.ProducedByRun ? "Produced by this run" : "Reused observation");
+            if (observation.SidecarPath is not null)
+                html.Append(" · <code>").Append(H(observation.SidecarPath)).Append("</code> · <code>")
+                    .Append(H(observation.SidecarSha256 ?? "digest unavailable")).Append("</code>");
+            html.Append("</p></article>");
+        }
+        html.Append("</section><section><h2>Findings</h2>");
         if (findings.Length == 0) html.Append("<p class=\"muted\">No active findings were captured.</p>");
         foreach (var finding in findings)
         {
-            var location = finding.Locations.FirstOrDefault();
             html.Append("<article class=\"finding\"><span class=\"severity ").Append(H(finding.Severity)).Append("\">")
                 .Append(H(finding.Severity)).Append(" · ").Append(H(finding.State)).Append("</span><h3>")
-                .Append(H(finding.Title)).Append("</h3><code>").Append(H(finding.RuleId));
-            if (location is not null) html.Append(" · ").Append(H(location.Path)).Append(location.StartLine.HasValue ? $":{location.StartLine}" : string.Empty);
-            html.Append("</code><p>").Append(H(finding.Description)).Append("</p><p><b>Recommendation:</b> ")
+                .Append(H(finding.Title)).Append("</h3><code>").Append(H(finding.RuleId)).Append("</code>");
+            if (finding.Locations.Count > 0)
+            {
+                html.Append("<p class=\"locations\">");
+                foreach (var location in finding.Locations)
+                    html.Append("<code>").Append(H(location.Path))
+                        .Append(location.StartLine.HasValue ? $":{location.StartLine}" : string.Empty).Append("</code>");
+                html.Append("</p>");
+            }
+            html.Append("<p>").Append(H(finding.Description)).Append("</p><p><b>Recommendation:</b> ")
                 .Append(H(finding.Recommendation)).Append("</p>");
             if (finding.Evidence is not null) html.Append("<p><b>Evidence:</b> ").Append(H(finding.Evidence)).Append("</p>");
+            html.Append("<p class=\"muted\">Source: ").Append(H(finding.Source));
+            if (finding.Producer is not null) html.Append(" · ").Append(H(finding.Producer));
+            if (finding.SensorId is not null) html.Append(" · ").Append(H(finding.SensorId));
+            html.Append("</p>");
             html.Append("</article>");
         }
-        html.Append("</section><section><h2>Unit outcomes</h2><table><thead><tr><th>Outcome</th><th>Unit</th><th>Observation</th></tr></thead><tbody>");
-        foreach (var observation in report.Observations)
-            html.Append("<tr><td>").Append(H(observation.Outcome)).Append("</td><td><code>")
-                .Append(H(observation.Path)).Append("</code><br><span class=\"muted\">").Append(H(observation.Level))
-                .Append("</span></td><td>").Append(observation.SidecarPath is null ? "—" : $"<code>{H(observation.SidecarPath)}</code><br>{H(observation.SidecarSha256 ?? string.Empty)}")
-                .Append("</td></tr>");
-        html.Append("</tbody></table></section><section><h2>Usage and provenance</h2><table><tbody><tr><th>Route</th><td>")
+        html.Append("</section><section><h2>Token ledger</h2><table><tbody><tr><th>Operations</th><td>")
+            .Append(report.Execution.Usage.Operations).Append("</td></tr><tr><th>Input tokens</th><td>")
+            .Append(H(Number(report.Execution.Usage.InputTokens))).Append("</td></tr><tr><th>Cached input</th><td>")
+            .Append(H(Number(report.Execution.Usage.CachedInputTokens))).Append("</td></tr><tr><th>Output tokens</th><td>")
+            .Append(H(Number(report.Execution.Usage.OutputTokens))).Append("</td></tr><tr><th>Reasoning output</th><td>")
+            .Append(H(Number(report.Execution.Usage.ReasoningOutputTokens))).Append("</td></tr><tr><th>Elapsed</th><td>")
+            .Append(report.Execution.Usage.DurationMs).Append(" ms</td></tr><tr><th>Cost</th><td>")
+            .Append(H(Cost(report.Execution.Usage))).Append("</td></tr><tr><th>Cap</th><td>")
+            .Append(H(report.Execution.Cap.Outcome));
+        if (report.Execution.Cap.Reason is not null) html.Append(" · ").Append(H(report.Execution.Cap.Reason));
+        html.Append("</td></tr></tbody></table></section><section><h2>Provenance</h2><table><tbody><tr><th>Route</th><td>")
             .Append(H(run.CliType)).Append(" · ").Append(H(run.Model)).Append(" · ").Append(H(run.ThinkingLevel))
-            .Append("</td></tr><tr><th>Usage</th><td>").Append(H(Number(report.Execution.Usage.InputTokens))).Append(" input · ")
-            .Append(H(Number(report.Execution.Usage.OutputTokens))).Append(" output · ").Append(report.Execution.Usage.DurationMs)
-            .Append(" ms · ").Append(H(Cost(report.Execution.Usage))).Append("</td></tr><tr><th>Subject</th><td><code>")
+            .Append("</td></tr><tr><th>Subject manifest</th><td><code>")
             .Append(H(report.Subject.ManifestHash)).Append("</code></td></tr></tbody></table></section></main></body></html>\n");
         return html.ToString();
     }

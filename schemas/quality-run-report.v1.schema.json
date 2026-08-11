@@ -28,7 +28,7 @@
     "run": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "revision", "repositoryId", "repositoryName", "kind", "scopeUnitId", "level", "path", "state", "completeness", "createdAt", "startedAt", "finishedAt", "model", "thinkingLevel", "cliType", "force"],
+      "required": ["id", "revision", "repositoryId", "repositoryName", "kind", "scopeUnitId", "level", "path", "state", "completeness", "createdAt", "startedAt", "finishedAt", "model", "thinkingLevel", "cliType", "force", "repositorySha"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
         "revision": { "type": "integer", "minimum": 1 },
@@ -46,7 +46,13 @@
         "model": { "type": "string", "minLength": 1, "maxLength": 200 },
         "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
         "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
-        "force": { "type": "boolean" }
+        "force": { "type": "boolean" },
+        "repositorySha": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$" }
+          ]
+        }
       }
     },
     "subject": {

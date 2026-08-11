@@ -27,7 +27,7 @@ const finding = {
 };
 const report = {
   $schema: 'https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json', schemaVersion: 1,
-  run: { ...run, revision: 1, repositoryName: 'Quality Studio', scopeUnitId: 'program', completeness: 'complete', force: false },
+  run: { ...run, revision: 1, repositoryName: 'Quality Studio', repositorySha: '59941d8e93734a4840a63c407597f3925bbbb1d6', scopeUnitId: 'program', completeness: 'complete', force: false },
   subject: { manifestHash: hash('a'), targets: [{ unitId: 'program', name: 'Program.cs', path: run.path, subjectHash: hash('c') }] },
   execution: { reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, cancelled: 0, aggregateOutcome: null, errors: [],
     usage: { ...run.usage, operations: 1, cost: null, currency: null, priceStatus: 'unavailable', inputEstimateDeviationPercent: null, outputEstimateDeviationPercent: null, costEstimateDeviationPercent: null },
@@ -91,12 +91,21 @@ for (const capture of [
   await page.keyboard.press('Enter');
   await page.locator('.run-detail-surface').waitFor();
   await page.locator('.commit-trend-note').waitFor();
-  const fileName = `qs-73-run-report-${capture.name}.png`;
+  const fileName = `qs-87-run-report-${capture.name}.png`;
   await page.screenshot({ path: join(output, fileName), fullPage: true });
-  evidence.push({ ...capture, fileName, exportActions: await page.locator('.run-exports a').count(), keyboardOpened: await page.locator('.run-detail-surface').isVisible() });
+  const htmlAction = page.getByRole('link', { name: 'Open saved HTML report' });
+  evidence.push({
+    ...capture,
+    fileName,
+    exportActions: await page.locator('.run-exports a').count(),
+    downloadActions: await page.locator('.run-exports a[download]').count(),
+    htmlTarget: await htmlAction.getAttribute('target'),
+    htmlRel: await htmlAction.getAttribute('rel'),
+    keyboardOpened: await page.locator('.run-detail-surface').isVisible(),
+  });
   await page.close();
 }
 
 await browser.close();
-await writeFile(join(output, 'qs-73-run-report-evidence.json'), `${JSON.stringify({ capturedAt: new Date().toISOString(), baseUrl, evidence }, null, 2)}\n`);
+await writeFile(join(output, 'qs-87-run-report-evidence.json'), `${JSON.stringify({ capturedAt: new Date().toISOString(), baseUrl, evidence }, null, 2)}\n`);
 console.log(JSON.stringify({ output, evidence }, null, 2));

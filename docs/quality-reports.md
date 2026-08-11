@@ -55,7 +55,8 @@ that severity or higher.
 ## Run-scoped reports
 
 Every terminal UI review run writes a strict canonical document to
-`.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
+`.quality/reports/runs/<runId>.json` and a self-contained presentation artifact to
+`.quality/reports/runs/<runId>.html`. The snapshot contains its immutable subject
 manifest, routing provenance, usage and cap outcome, one explicit outcome per
 planned unit, the exact sidecar bytes captured by the run, finding lifecycle
 state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
@@ -70,7 +71,12 @@ same-directory replacement ensures readers see either the previous complete
 document or the next one, never an incomplete temporary write.
 
 HTML, bounded Markdown, JSON, and run-scoped SARIF are projections of this one
-document. HTML is self-contained and uses a restrictive content security policy.
+document. Terminal publication writes the HTML projection beside the JSON, and
+recovery backfills or refreshes it from canonical truth when necessary. The HTML
+is self-contained, uses a restrictive content security policy, identifies the
+repository and HEAD captured when the run was enqueued, and presents review
+verdicts, findings, the complete token ledger, and provenance without external
+assets.
 Markdown includes at most 20 active findings and states the omitted count. SARIF
 uses relative paths, stable automation and fingerprint identities, and only emits
 baseline state when the run has a comprehensive comparable predecessor. Exported
@@ -87,8 +93,9 @@ or `sarif` to select an export representation. The response media types are
 
 For one review run, use
 `GET /api/review/runs/{id}/report?format=...` or
-`GET /api/repos/{repoId}/review/runs/{id}/report?format=...`. The response carries
-an attachment filename appropriate to the requested format. Repository access is
+`GET /api/repos/{repoId}/review/runs/{id}/report?format=...`. HTML is served inline
+from the saved artifact so the UI can open it directly; Markdown, JSON, and SARIF
+retain attachment filenames appropriate to their formats. Repository access is
 resolved through the same registration boundary as the existing run routes.
 
 `GET /api/review/runs/trend?kind=code&scopeUnitId=<id>&level=file` and its
@@ -97,8 +104,10 @@ kind, scope unit ID, and level. Only complete runs are comparable; partial runs
 remain visible as events, and the highest revision wins for a resumed run. This
 run trend is separate from the Git-backed commit trend below.
 
-The JSON contract is described by
-[`schemas/quality-report.v1.schema.json`](../schemas/quality-report.v1.schema.json).
+The JSON contracts are described by
+[`schemas/quality-report.v1.schema.json`](../schemas/quality-report.v1.schema.json)
+and
+[`schemas/quality-run-report.v1.schema.json`](../schemas/quality-run-report.v1.schema.json).
 SARIF declares version 2.1.0 and the official OASIS schema URI, produces one run
 per repository, preserves stable finding fingerprints, and includes scorecard
 and trend data in run properties.

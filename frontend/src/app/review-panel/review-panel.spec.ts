@@ -191,7 +191,7 @@ describe('ReviewPanel session flow', () => {
     } as any;
     api.reviewRuns.set([run]);
     api.loadRunReport.and.resolveTo({
-      run: { id: 'terminal', revision: 1, completeness: 'complete', state: 'done', cliType: 'codex', model: 'gpt-test', thinkingLevel: 'high' },
+      run: { id: 'terminal', revision: 1, completeness: 'complete', state: 'done', repositoryId: 'default', repositoryName: 'Quality Studio', repositorySha: 'abc123', cliType: 'codex', model: 'gpt-test', thinkingLevel: 'high' },
       subject: { manifestHash: 'sha256:manifest' },
       execution: { reviewed: 1, reusedFresh: 0 },
       summary: { score: 91, grade: 'A', partialReason: null, findings: { total: 1 } },
@@ -208,6 +208,12 @@ describe('ReviewPanel session flow', () => {
     expect(api.loadRunTrend).toHaveBeenCalledWith('code', 'a', 'file');
     expect(fixture.nativeElement.querySelector('.run-detail-surface').textContent).toContain('complete snapshot');
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
+    const htmlReport = fixture.nativeElement.querySelector('.run-exports a');
+    expect(htmlReport.textContent).toContain('Open HTML');
+    expect(htmlReport.getAttribute('target')).toBe('_blank');
+    expect(htmlReport.hasAttribute('download')).toBeFalse();
+    expect(fixture.nativeElement.querySelector('.run-exports a[download]').textContent).toContain('Markdown');
+    expect(fixture.nativeElement.querySelector('.run-provenance').textContent).toContain('Quality Studio · abc123');
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
   });

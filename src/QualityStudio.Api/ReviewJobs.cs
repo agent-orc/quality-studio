@@ -174,6 +174,7 @@ public sealed class ReviewJobService : BackgroundService
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
 
         var runId = "review-" + Guid.NewGuid().ToString("N");
+        var repositorySha = RepositorySha(registration.RootPath);
         var targets = new List<ReviewRunPlanTarget>(files.Length);
         foreach (var file in files)
         {
@@ -202,7 +203,8 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            repositorySha);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -606,6 +608,14 @@ public sealed class ReviewJobService : BackgroundService
         ReviewLevel.Module => [node.Path],
         _ => null,
     };
+
+    private static string? RepositorySha(string repositoryRoot)
+    {
+        var value = CoverageSensor.GitValue(repositoryRoot, "rev-parse", "--verify", "HEAD")?.ToLowerInvariant();
+        return value is { Length: 40 or 64 } && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f')
+            ? value
+            : null;
+    }
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
     {
@@ -1057,7 +1067,12 @@ public sealed class ReviewJobService : BackgroundService
         {
             lock (gate)
             {
-                if (!ReviewRunStore.IsTerminal(state) || reportStore.TryLoad(Id, out _)) return;
+                if (!ReviewRunStore.IsTerminal(state)) return;
+                if (reportStore.TryLoad(Id, out var existingReport))
+                {
+                    reportStore.EnsureHtml(existingReport!);
+                    return;
+                }
                 PublishReport();
             }
         }

@@ -33,7 +33,8 @@ public sealed record QualityRunIdentity(
     string Model,
     string ThinkingLevel,
     string CliType,
-    bool Force);
+    bool Force,
+    string? RepositorySha = null);
 
 public sealed record QualityRunSubject(
     string ManifestHash,
@@ -179,6 +180,10 @@ public static class QualityRunReportJson
         if (report.Run.Revision < 1) throw new JsonException("A quality run report revision must be positive.");
         if (report.Run.Completeness is not ("complete" or "partial"))
             throw new JsonException("A quality run report completeness must be complete or partial.");
+        if (report.Run.RepositorySha is { } repositorySha &&
+            (repositorySha.Length is not (40 or 64) ||
+             repositorySha.Any(character => character is not (>= '0' and <= '9' or >= 'a' and <= 'f'))))
+            throw new JsonException("A quality run report repository SHA must be a lowercase Git object id.");
     }
 
     private static JsonSerializerOptions CreateOptions() => new(JsonSerializerDefaults.Web)
@@ -207,27 +212,33 @@ public sealed class QualityRunReportStore
 
     public string PathFor(string runId) => Path.Combine(reportsPath, SafeFileName(runId) + ".json");
 
+    public string HtmlPathFor(string runId) => Path.Combine(reportsPath, SafeFileName(runId) + ".html");
+
     public void Save(QualityRunReportDocument report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        var destination = PathFor(report.Run.Id);
+        var canonicalBytes = Utf8.GetBytes(QualityRunReportJson.Serialize(report));
+        var htmlBytes = Utf8.GetBytes(QualityRunReportRenderer.Render(report, QualityReportFormat.Html));
         Directory.CreateDirectory(reportsPath);
-        var temporary = Path.Combine(reportsPath, $".{report.Run.Id}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(QualityRunReportJson.Serialize(report));
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, destination, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        WriteAtomic(PathFor(report.Run.Id), canonicalBytes, report.Run.Id);
+        WriteAtomic(HtmlPathFor(report.Run.Id), htmlBytes, report.Run.Id);
+    }
+
+    public void EnsureHtml(QualityRunReportDocument report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        var destination = HtmlPathFor(report.Run.Id);
+        var bytes = Utf8.GetBytes(QualityRunReportRenderer.Render(report, QualityReportFormat.Html));
+        if (File.Exists(destination) && File.ReadAllBytes(destination).AsSpan().SequenceEqual(bytes)) return;
+        Directory.CreateDirectory(reportsPath);
+        WriteAtomic(destination, bytes, report.Run.Id);
+    }
+
+    public string LoadHtml(string runId)
+    {
+        var path = HtmlPathFor(runId);
+        if (!File.Exists(path)) throw new FileNotFoundException($"Review run HTML report '{runId}' was not found.", path);
+        return File.ReadAllText(path, Utf8);
     }
 
     public QualityRunReportDocument Load(string runId)
@@ -294,6 +305,25 @@ public sealed class QualityRunReportStore
                 character is not (>= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '.' or '_' or '-')))
             throw new ArgumentException("A review run id may contain only letters, digits, dots, underscores, and hyphens.", nameof(runId));
         return runId;
+    }
+
+    private static void WriteAtomic(string destination, byte[] bytes, string runId)
+    {
+        var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".{runId}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       4096, FileOptions.WriteThrough))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 }
 
