@@ -379,6 +379,7 @@ export class QualityApi {
   private readonly projectSnapshots = new Map<string, ProjectDashboard>();
   private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private mutationProtection: Promise<void> | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
@@ -430,23 +431,27 @@ export class QualityApi {
   }
 
   async createRepository(request: RepositoryRegistrationRequest): Promise<RepositoryRegistration> {
+    await this.ensureMutationProtection();
     const created = await firstValueFrom(this.http.post<RepositoryRegistration>('/api/repos', request));
     await this.loadRepositories(created.id);
     return created;
   }
 
   async updateRepository(id: string, request: RepositoryRegistrationRequest): Promise<RepositoryRegistration> {
+    await this.ensureMutationProtection();
     const updated = await firstValueFrom(this.http.put<RepositoryRegistration>(`/api/repos/${encodeURIComponent(id)}`, request));
     await this.loadRepositories(id);
     return updated;
   }
 
   async archiveRepository(id: string): Promise<void> {
+    await this.ensureMutationProtection();
     await firstValueFrom(this.http.delete(`/api/repos/${encodeURIComponent(id)}`));
     await this.loadRepositories(id === this.selectedRepositoryId() ? null : this.selectedRepositoryId());
   }
 
   async importFromAgentStudio(): Promise<AgentStudioImportResponse> {
+    await this.ensureMutationProtection();
     const result = await firstValueFrom(this.http.post<AgentStudioImportResponse>('/api/repos/import-from-agent-studio', {}));
     console.info(JSON.stringify({ event: 'qs.repositories.agent-studio-import', imported: result.imported, skipped: result.skipped, failed: result.failed }));
     await this.loadRepositories(this.selectedRepositoryId());
@@ -491,6 +496,7 @@ export class QualityApi {
   async startReview(request: StartReviewRequest): Promise<ReviewRun> {
     this.reviewError.set('');
     try {
+      await this.ensureMutationProtection();
       const run = await firstValueFrom(this.http.post<ReviewRun>(`${this.repositoryApiBase()}/review`, request));
       this.reviewRuns.update(runs => [run, ...runs.filter(candidate => candidate.id !== run.id)]);
       this.scheduleReviewPoll();
@@ -505,6 +511,7 @@ export class QualityApi {
   async estimateReview(request: StartReviewRequest): Promise<ReviewPreflight> {
     this.reviewError.set('');
     try {
+      await this.ensureMutationProtection();
       return await firstValueFrom(this.http.post<ReviewPreflight>(`${this.repositoryApiBase()}/review/estimate`, request));
     } catch (error) {
       this.reviewError.set(this.errorMessage(error));
@@ -560,6 +567,7 @@ export class QualityApi {
 
   async cancelReview(id: string): Promise<void> {
     try {
+      await this.ensureMutationProtection();
       const run = await firstValueFrom(this.http.delete<ReviewRun>(`${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}`));
       this.reviewRuns.update(runs => runs.map(candidate => candidate.id === run.id ? run : candidate));
       const openPath = this.file()?.path;
@@ -574,6 +582,7 @@ export class QualityApi {
 
   async pauseReview(id: string): Promise<void> {
     try {
+      await this.ensureMutationProtection();
       const run = await firstValueFrom(this.http.post<ReviewRun>(`${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/pause`, {}));
       this.reviewRuns.update(runs => runs.map(candidate => candidate.id === run.id ? run : candidate));
     } catch (error) {
@@ -583,6 +592,7 @@ export class QualityApi {
 
   async resumeReview(id: string, cap: { tokenCap?: number | null; costCap?: number | null } = {}): Promise<void> {
     try {
+      await this.ensureMutationProtection();
       const run = await firstValueFrom(this.http.post<ReviewRun>(`${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/resume`, cap));
       this.reviewRuns.update(runs => runs.map(candidate => candidate.id === run.id ? run : candidate));
       this.scheduleReviewPoll();
@@ -642,10 +652,12 @@ export class QualityApi {
   }
 
   async createTask(request: HandoverRequest): Promise<HandoverResult> {
+    await this.ensureMutationProtection();
     return firstValueFrom(this.http.post<HandoverResult>(`${this.repositoryApiBase()}/handover`, request));
   }
 
   async mutateThread(request: ThreadMutationRequest): Promise<ReviewThread> {
+    await this.ensureMutationProtection();
     const thread = await firstValueFrom(this.http.post<ReviewThread>(`${this.repositoryApiBase()}/threads`, request));
     await this.loadFile(request.path);
     console.info(JSON.stringify({ event: 'qs.thread.mutated', threadId: thread.id, path: request.path, status: thread.status, hasEntry: !!request.body }));
@@ -653,36 +665,53 @@ export class QualityApi {
   }
 
   async mutateFindingState(request: FindingStateMutationRequest): Promise<void> {
+    await this.ensureMutationProtection();
     await firstValueFrom(this.http.post(`${this.repositoryApiBase()}/findings/state`, request));
     await Promise.all([this.loadFile(request.path), this.loadTree()]);
     console.info(JSON.stringify({ event: 'qs.finding.state-mutated', fingerprint: request.fingerprint, path: request.path, state: request.state }));
   }
 
   async createGuideline(draft: GuidelineDraft): Promise<Guideline> {
+    await this.ensureMutationProtection();
     const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.repositoryApiBase()}/guidelines`, draft));
     await this.loadTree();
     return guideline;
   }
 
   async updateGuideline(existingId: string, draft: GuidelineDraft): Promise<Guideline> {
+    await this.ensureMutationProtection();
     const guideline = await firstValueFrom(this.http.put<Guideline>(`${this.repositoryApiBase()}/guidelines/${encodeURIComponent(existingId)}`, draft));
     await this.loadTree();
     return guideline;
   }
 
   async deleteGuideline(id: string): Promise<void> {
+    await this.ensureMutationProtection();
     await firstValueFrom(this.http.delete(`${this.repositoryApiBase()}/guidelines/${encodeURIComponent(id)}`));
     await this.loadTree();
   }
 
   async installGuideline(catalogueId: string): Promise<Guideline> {
+    await this.ensureMutationProtection();
     const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.repositoryApiBase()}/guidelines/catalog/${encodeURIComponent(catalogueId)}/install`, {}));
     await this.loadTree();
     return guideline;
   }
 
   async guidelineImpact(guideline: GuidelineDraft, samplePaths: string[], kind: ReviewKind): Promise<GuidelineImpact> {
+    await this.ensureMutationProtection();
     return firstValueFrom(this.http.post<GuidelineImpact>(`${this.repositoryApiBase()}/guidelines/impact`, { guideline, samplePaths, kind }));
+  }
+
+  private ensureMutationProtection(): Promise<void> {
+    if (this.mutationProtection === null) {
+      this.mutationProtection = firstValueFrom(this.http.get<{ required: boolean; token: string | null }>(
+        '/api/security/csrf', { withCredentials: true })).then(() => undefined).catch(error => {
+          this.mutationProtection = null;
+          throw error;
+        });
+    }
+    return this.mutationProtection;
   }
 
   private async loadRepositoryDetails(repositoryId: string): Promise<void> {

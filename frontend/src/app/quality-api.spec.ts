@@ -16,7 +16,10 @@ describe('QualityApi', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/';
+    http.verify();
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
@@ -82,7 +85,14 @@ describe('QualityApi', () => {
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
     const importing = api.importFromAgentStudio();
-    http.expectOne('/api/repos/import-from-agent-studio').flush({
+    const csrf = http.expectOne('/api/security/csrf');
+    expect(csrf.request.withCredentials).toBeTrue();
+    csrf.flush({ required: true, token: 'test-csrf-token' });
+    document.cookie = 'XSRF-TOKEN=test-csrf-token; path=/';
+    await new Promise(resolve => setTimeout(resolve));
+    const mutation = http.expectOne('/api/repos/import-from-agent-studio');
+    expect(mutation.request.headers.get('X-XSRF-TOKEN')).toBe('test-csrf-token');
+    mutation.flush({
       results: [
         { projectId: 'PROJ-002', displayName: 'Agent Studio', repositoryPath: 'C:\\Projects\\agent-taskboard-dev', status: 'imported', repositoryId: 'agent-studio', reason: null },
         { projectId: 'PROJ-016', displayName: 'Quality Studio', repositoryPath: 'C:\\Projects\\quality-studio', status: 'skipped', repositoryId: null, reason: 'Already registered.' },

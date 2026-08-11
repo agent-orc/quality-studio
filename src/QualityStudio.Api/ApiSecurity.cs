@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Net;
 using Microsoft.Extensions.Options;
 
 namespace QualityStudio.Api;
@@ -13,9 +14,13 @@ public sealed record ApiClientIdentity(string Id, IReadOnlySet<string> Repositor
 public sealed class ApiSecurity
 {
     public const string ClientIdHeader = "X-Client-Id";
+    public const string AntiforgeryHeader = "X-XSRF-TOKEN";
+    public const string AntiforgeryCookie = ".QualityStudio.Antiforgery";
+    public const string AntiforgeryRequestCookie = "XSRF-TOKEN";
     private const string IdentityItem = "QualityStudio.Api.Identity";
     private readonly ApiSecurityOptions options;
     private readonly IReadOnlyList<(ApiClientIdentity Identity, byte[] CredentialHash)> clients;
+    private readonly IReadOnlySet<string> allowedOrigins;
 
     public ApiSecurity(IOptions<RepositoryOptions> configured)
     {
@@ -28,6 +33,11 @@ public sealed class ApiSecurity
             throw new InvalidOperationException("QualityStudio:Security:MaxConcurrentRequests must be between 1 and 1,024.");
         if (options.SpendRequestsPerMinute is < 1 or > 1000)
             throw new InvalidOperationException("QualityStudio:Security:SpendRequestsPerMinute must be between 1 and 1,000.");
+        allowedOrigins = configured.Value.AllowedOrigins
+            .Select(NormalizeOrigin)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (allowedOrigins.Count == 0)
+            throw new InvalidOperationException("QualityStudio:AllowedOrigins must contain at least one valid origin.");
 
         if (IsLocal)
         {
@@ -99,4 +109,48 @@ public sealed class ApiSecurity
 
     public bool IsMutationClientHeaderValid(HttpContext context, ApiClientIdentity identity) =>
         IsLocal || string.Equals(context.Request.Headers[ClientIdHeader].ToString(), identity.Id, StringComparison.Ordinal);
+
+    public bool IsLocalMutationOriginValid(HttpContext context)
+    {
+        var origins = context.Request.Headers.Origin;
+        if (origins.Count != 1) return false;
+        try
+        {
+            return allowedOrigins.Contains(NormalizeOrigin(origins.ToString()));
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    public void ValidateLocalBindings(IEnumerable<string> addresses)
+    {
+        if (!IsLocal) return;
+        foreach (var address in addresses.SelectMany(value => value.Split(';', StringSplitOptions.RemoveEmptyEntries)))
+        {
+            if (!Uri.TryCreate(address.Trim(), UriKind.Absolute, out var uri) ||
+                uri.Scheme is not ("http" or "https") || !IsLoopbackHost(uri.Host))
+            {
+                throw new InvalidOperationException(
+                    "Local security mode may bind only to loopback hosts: localhost, 127.0.0.1, or ::1.");
+            }
+        }
+    }
+
+    private static string NormalizeOrigin(string value)
+    {
+        if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ||
+            uri.Scheme is not ("http" or "https") ||
+            uri.AbsolutePath != "/" || !string.IsNullOrEmpty(uri.Query) ||
+            !string.IsNullOrEmpty(uri.Fragment) || !string.IsNullOrEmpty(uri.UserInfo))
+        {
+            throw new InvalidOperationException("QualityStudio:AllowedOrigins entries must be HTTP(S) origins without paths.");
+        }
+        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
+
+    private static bool IsLoopbackHost(string host) =>
+        string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+        IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address);
 }

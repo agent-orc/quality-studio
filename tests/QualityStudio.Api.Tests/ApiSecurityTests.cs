@@ -7,6 +7,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -68,6 +69,63 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal("foreign", Assert.Single(bobReport.GetProperty("repositories").EnumerateArray())
             .GetProperty("id").GetString());
         Assert.DoesNotContain(RepositoryRoot, bobReport.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Repository_administration_routes_require_registrar_privilege()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+        var registration = new
+        {
+            id = "another",
+            displayName = "Another",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        };
+
+        using var create = await alice.PostAsJsonAsync("/api/repos", registration,
+            TestContext.Current.CancellationToken);
+        using var import = await alice.PostAsJsonAsync("/api/repos/import-from-agent-studio", new { },
+            TestContext.Current.CancellationToken);
+        using var update = await alice.PutAsJsonAsync("/api/repos/default", registration,
+            TestContext.Current.CancellationToken);
+        using var archive = await alice.DeleteAsync("/api/repos/default",
+            TestContext.Current.CancellationToken);
+
+        Assert.All([create, import, update, archive], response =>
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+    }
+
+    [Theory]
+    [InlineData("/bin/sh -c whoami")]
+    [InlineData("powershell -NoProfile -Command Get-ChildItem")]
+    public async Task Repository_configuration_rejects_free_form_analyzer_commands(string command)
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var response = await admin.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            inputBudgetCharacters = 12000,
+            enabledReviewKinds = new[] { "code", "security", "performance" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = command,
+                        ["reportPath"] = ".quality/analyzers/result.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Free-form analyzer commands are not permitted", problem.GetProperty("title").GetString());
     }
 
     [Fact]
@@ -160,6 +218,37 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Sensor_scans_have_per_client_spend_rate_limits()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+        using var alice = CreateClient(rateApplication, "alice", AliceToken);
+
+        using var first = await alice.PostAsync("/api/sensors/boundaries/scan", null,
+            TestContext.Current.CancellationToken);
+        using var second = await alice.PostAsync("/api/sensors/boundaries/scan", null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Executable_sensors_are_disabled_by_default()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+        using var response = await alice.GetAsync("/api/security/scan",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Executable sensor disabled", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
@@ -169,11 +258,77 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
         using var read = await client.GetAsync("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+        using var unprotected = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, unprotected.StatusCode);
+
+        var session = await client.GetFromJsonAsync<JsonElement>("/api/security/csrf",
+            TestContext.Current.CancellationToken);
+        client.DefaultRequestHeaders.Add(ApiSecurity.AntiforgeryHeader,
+            session.GetProperty("token").GetString());
+        client.DefaultRequestHeaders.Add("Origin", "https://attacker.example");
+        using var crossOrigin = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, crossOrigin.StatusCode);
+
+        client.DefaultRequestHeaders.Remove("Origin");
+        client.DefaultRequestHeaders.Add("Origin", "http://localhost:4200");
         using var mutation = await client.PostAsJsonAsync("/api/review", new
         {
             path = "Sample.cs", kind = "code", model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
+    }
+
+    [Fact]
+    public void Local_mode_rejects_non_loopback_server_bindings()
+    {
+        var security = new ApiSecurity(Options.Create(new RepositoryOptions
+        {
+            AllowedOrigins = ["http://localhost:4200"],
+            Security = new ApiSecurityOptions { Mode = ApiSecurityOptions.LocalMode },
+        }));
+
+        security.ValidateLocalBindings(["http://127.0.0.1:5127", "http://[::1]:5127"]);
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            security.ValidateLocalBindings(["http://0.0.0.0:5127"]));
+        Assert.Contains("loopback", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Host_owned_analyzer_profile_resolves_only_after_explicit_process_enablement()
+    {
+        var options = new RepositoryOptions
+        {
+            Security = new ApiSecurityOptions { ExecutableSensorsEnabled = true },
+            AnalyzerProfiles =
+            [
+                new AnalyzerProfileOptions
+                {
+                    Id = "typescript-ci",
+                    SensorId = "tsc",
+                    Executable = "npx",
+                    Arguments = ["--no-install", "tsc", "--noEmit", "--pretty", "false"],
+                    ReportPath = ".quality/analyzers/tsc.txt",
+                    WorkingDirectory = "frontend",
+                    ProducerVersion = "5.9.2",
+                },
+            ],
+        };
+        var policy = new AnalyzerExecutionPolicy(Options.Create(options));
+        var repositoryConfiguration = new RepositorySensorConfiguration("tsc", Configuration:
+            new Dictionary<string, string> { [AnalyzerExecutionPolicy.ProfileIdKey] = "typescript-ci" });
+
+        var resolved = policy.ResolveConfiguration(repositoryConfiguration)!;
+
+        Assert.Equal("\"npx\" \"--no-install\" \"tsc\" \"--noEmit\" \"--pretty\" \"false\"",
+            resolved["command"]);
+        Assert.Equal(".quality/analyzers/tsc.txt", resolved["reportPath"]);
+        Assert.DoesNotContain("profileId", resolved.Keys, StringComparer.OrdinalIgnoreCase);
     }
 
     public async ValueTask InitializeAsync()

@@ -22,7 +22,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Tree_returns_derived_hierarchy_and_kind_states()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/api/tree?path=", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -41,7 +41,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Tree_returns_etag_and_honours_conditional_request()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var first = await client.GetAsync("/api/tree?path=", TestContext.Current.CancellationToken);
         Assert.NotNull(first.Headers.ETag);
         var etag = first.Headers.ETag.Tag;
@@ -57,7 +57,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Project_returns_repository_dashboard_and_honours_conditional_request()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/api/project", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -87,7 +87,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             "{\"projects\":{\"frontend\":{\"root\":\"\",\"sourceRoot\":\"src\"}}}", TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "frontend", "src", "app", "app.component.ts"),
             "@Component({standalone: true}) export class AppComponent {}", TestContext.Current.CancellationToken);
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
 
         using var treeResponse = await client.GetAsync("/api/tree?path=", TestContext.Current.CancellationToken);
         var tree = await treeResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -110,7 +110,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Scan_returns_staleness_report()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/api/scan", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -131,7 +131,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         await RunGitInDirectoryAsync(secondRoot, "init", "--quiet");
         try
         {
-            using var client = application!.CreateClient();
+            using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             using var created = await client.PostAsJsonAsync("/api/repos", new
             {
                 id = "report-second",
@@ -167,7 +167,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Handover_dry_run_returns_the_would_be_card()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.PostAsJsonAsync("/api/handover", new
         {
             findingSummary = "Avoid repeated work",
@@ -186,7 +186,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Inputs_lists_resolved_project_inputs_for_each_kind()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/api/inputs", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -201,7 +201,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Guideline_authoring_endpoint_writes_a_resolver_compatible_repository_file()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var created = await client.PostAsJsonAsync("/api/guidelines", new
         {
             id = "ui-created-rule", enabled = true, priority = 90,
@@ -221,7 +221,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Security_scan_returns_redacted_scan_summary()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/api/security/scan", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -245,7 +245,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             app.MapGet("/api/coverage", () => Results.Ok());
             app.Run();
             """, TestContext.Current.CancellationToken);
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
 
         using var response = await client.GetAsync("/api/security/attack-coverage?path=",
             TestContext.Current.CancellationToken);
@@ -291,7 +291,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Sensors_list_enablement_availability_and_versions()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/api/sensors", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -312,7 +312,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Boundary_sensor_scan_persists_repository_owned_inventory()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.PostAsync("/api/sensors/boundaries/scan", null,
             TestContext.Current.CancellationToken);
 
@@ -327,7 +327,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Dependency_sensor_scan_returns_normalized_findings_and_provenance()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.PostAsync("/api/sensors/dependencies/scan", null,
             TestContext.Current.CancellationToken);
 
@@ -344,7 +344,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Health_returns_ok_for_the_dev_launcher()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -389,7 +389,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         try
         {
-            using var client = application!.CreateClient();
+            using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var before = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
             var finding = Assert.Single(Assert.Single(before.GetProperty("metaDocuments").EnumerateArray())
                 .GetProperty("findings").EnumerateArray());
@@ -439,7 +439,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             new TokenUsage(200, 50, 80, 10, 2400), "performance", "file", "Sample.cs",
             "review-api-sweep", 2), TestContext.Current.CancellationToken);
 
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         var since = Uri.EscapeDataString(timestamp.AddMinutes(-1).ToString("O"));
         using var response = await client.GetAsync($"/api/usage?since={since}&kind=performance", TestContext.Current.CancellationToken);
 
@@ -457,7 +457,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Quotas_returns_a_clean_empty_report_when_no_provider_data_is_available()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.GetAsync("/api/quotas", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -469,7 +469,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Review_endpoint_queues_and_reports_per_file_failure_without_blocking()
     {
-        using var client = application!.CreateClient();
+        using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
         using var response = await client.PostAsJsonAsync("/api/review", new
         {
             path = "Sample.cs",
@@ -521,7 +521,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         try
         {
-            using var client = application!.CreateClient();
+            using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var create = await client.PostAsJsonAsync("/api/repos", new
             {
                 id = "second",
@@ -570,7 +570,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Directory.CreateDirectory(invalidRoot);
         try
         {
-            using var client = application!.CreateClient();
+            using var client = await application!.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var response = await client.PostAsJsonAsync("/api/repos", new
             {
                 displayName = "Invalid repository",
@@ -667,6 +667,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = Path.GetDirectoryName(root),
+                    ["QualityStudio:Security:ExecutableSensorsEnabled"] = "true",
+                    ["QualityStudio:Security:SpendRequestsPerMinute"] = "100",
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",

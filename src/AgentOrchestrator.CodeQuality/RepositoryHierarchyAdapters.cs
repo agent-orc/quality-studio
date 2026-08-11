@@ -325,6 +325,7 @@ public static partial class RepositoryHierarchyBuilder
     {
         if (length == 0) return 0;
         var lines = 1;
+        byte lastByte = 0;
         using var stream = File.OpenRead(path);
         var buffer = new byte[16 * 1024];
         int read;
@@ -334,8 +335,9 @@ public static partial class RepositoryHierarchyBuilder
             {
                 if (buffer[index] == (byte)'\n') lines++;
             }
+            lastByte = buffer[read - 1];
         }
-        return lines;
+        return lastByte == (byte)'\n' ? lines - 1 : lines;
     }
 
     private static string AdapterId(string adapter, ReviewLevel level, string[] tuple)

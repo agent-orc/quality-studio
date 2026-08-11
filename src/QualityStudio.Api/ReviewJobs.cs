@@ -123,12 +123,14 @@ public sealed class ReviewJobService : BackgroundService
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly IReviewExecutorFactory executors;
     private readonly SensorRegistry sensorRegistry;
+    private readonly AnalyzerExecutionPolicy analyzerPolicy;
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
-        IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry)
+        IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
+        AnalyzerExecutionPolicy analyzerPolicy)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -138,6 +140,7 @@ public sealed class ReviewJobService : BackgroundService
         this.executors = executors;
         this.dashboards = dashboards;
         this.sensorRegistry = sensorRegistry;
+        this.analyzerPolicy = analyzerPolicy;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -423,8 +426,9 @@ public sealed class ReviewJobService : BackgroundService
                 .CollectAsync(
                     item.Repository.RootPath,
                     (item.Repository.Sensors ?? [])
-                        .Where(sensor => sensor.Enabled)
-                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                        .Where(sensor => sensor.Enabled && analyzerPolicy.CanExecute(sensor))
+                        .Select(sensor => new ReviewSensorConfiguration(
+                            sensor.Id, analyzerPolicy.ResolveConfiguration(sensor)))
                         .ToArray(),
                     linked.Token)
                 .ConfigureAwait(false);
@@ -566,8 +570,10 @@ public sealed class ReviewJobService : BackgroundService
             Sensors: item.Kind == "security"
                 ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
                     .Where(sensor => sensor.Enabled &&
+                                     analyzerPolicy.CanExecute(sensor) &&
                                      sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
-                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                    .Select(sensor => new ReviewSensorConfiguration(
+                        sensor.Id, analyzerPolicy.ResolveConfiguration(sensor)))
                     .ToArray()
                 : null,
             DeterministicEvidence: item.DeterministicEvidence);

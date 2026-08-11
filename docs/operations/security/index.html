@@ -463,6 +463,29 @@
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
   </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <p class="dim">Append-only delivery record. These entries report implementation against the slices above and do not revise the dossier's decisions or unlock gates whose remaining slices are incomplete.</p>
+
+    <h3>2026-08-11 · QS-68 · S0 delivered</h3>
+    <ul>
+      <li>Repository creation, Agent Studio import, repository update (including root, global inputs, caps, kinds, and sensors), and archive now require registrar privilege. Hosted repository-scoped identities retain access to ordinary repository mutations but cannot administer repository execution configuration.</li>
+      <li>Repository-supplied analyzer command text is rejected, including shell and PowerShell fixtures. Repository configuration can select only an immutable host-owned analyzer profile; all process-backed sensors are disabled by default, and the policy covers direct scans, availability probes, deterministic evidence collection, and security-review sensor collection.</li>
+      <li>Sensor and direct secret-scan routes use the per-client spend limiter. Local browser mutations require an allowed <code>Origin</code> and a cookie-bound anti-CSRF token, while Local startup rejects non-loopback addresses.</li>
+      <li>The Angular family is locked to the fixed 20.3.27 patch. The production browser moved to Angular's zoneless runtime, keeping the existing 480&nbsp;kB error budget green while browser tests continue to use their test polyfills.</li>
+      <li>The pre-existing 5,000-file dashboard baseline was restored without relaxing its 150&nbsp;ms threshold by reusing hierarchy file metrics and eliminating repeated aggregation work.</li>
+    </ul>
+    <div class="stx stx-part"><b>Evidence:</b> authorization route tests cover create/import/update/archive; analyzer policy tests cover shell rejection, default disablement, and host-profile resolution; local-security tests cover missing/cross-origin/valid nonce flows and loopback binding; the browser suite verifies XSRF bootstrap and mutation headers.</div>
+
+    <h3>2026-08-11 · QS-68 · S6 initial gate delivered</h3>
+    <ul>
+      <li>CI installs, builds, and tests the frontend; fails on production high/critical npm advisories; records the full npm audit separately; queries solution and spike NuGet advisories; generates an SBOM; timestamps and retains supply-chain evidence.</li>
+      <li>GitHub Actions are pinned to immutable commits and weekly Dependabot lanes cover npm, NuGet, and workflow actions.</li>
+      <li>A tested policy parser makes NuGet findings fail the gate and rejects tracked machine-specific <code>AllowedRoots</code>, hosted clients, analyzer profiles, and cleartext credential fields.</li>
+    </ul>
+    <div class="box warn"><h4>Remaining slices</h4><p>S1–S5 and the remaining S6 exit evidence were not included in this clean delivery. In priority order, the next work is the S1 isolated worker boundary, followed by S2 input bounds; hosted multi-client operation, untrusted repository review, and non-dry-run handover therefore remain locked as specified above. No slice in the approved recommendation was separately marked operator-decision-gated; the omission is delivery-size, not an inferred change of decision.</p></div>
+  </section>
 </main>
 </body>
 </html>

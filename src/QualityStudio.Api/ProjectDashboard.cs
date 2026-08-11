@@ -161,20 +161,33 @@ public sealed class ProjectDashboardService
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
-        var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
+        var hierarchyMetrics = hierarchyFiles.ToDictionary(file => file.Path, StringComparer.Ordinal);
+        var repositoryPaths = roots.All(node => node.Id.StartsWith("qs-v1/generic/", StringComparison.Ordinal))
+            ? hierarchyFiles.Select(file => file.Path).ToArray()
+            : EnumerateRepositoryFiles(root);
+        var repositoryFiles = repositoryPaths
+            .Select(path => hierarchyMetrics.TryGetValue(path, out var file)
+                ? ReadFileMetric(root, path, file.SizeBytes, file.LineCount)
+                : ReadFileMetric(root, path))
             .ToArray();
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
         var grades = BuildGrades(roots, projectPath);
         var findings = BuildFindings(hierarchy, projectPath);
         var staleness = BuildStaleness(hierarchyFiles);
+        var reviewedFiles = 0;
+        string? firstUnreviewedPath = null;
+        foreach (var file in hierarchyFiles)
+        {
+            if (file.Documents.Count > 0) reviewedFiles++;
+            else firstUnreviewedPath ??= file.Path;
+        }
         var reviewCoverage = new ProjectReviewCoverageResponse(
-            hierarchyFiles.Count(node => node.Documents.Count > 0),
+            reviewedFiles,
             hierarchyFiles.Length,
             hierarchyFiles.Length == 0 ? 0 : Math.Round(
-                hierarchyFiles.Count(node => node.Documents.Count > 0) * 100d / hierarchyFiles.Length, 1),
-            hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
+                reviewedFiles * 100d / hierarchyFiles.Length, 1),
+            firstUnreviewedPath ??
             hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
         var dependencies = BuildDependencyEdges(root, hierarchy);
         var metrics = BuildStructuralMetrics(repositoryFiles, dependencies, navigationPaths, projectPath);
@@ -197,10 +210,11 @@ public sealed class ProjectDashboardService
         IReadOnlyList<HierarchyNode> roots, string fallbackPath)
     {
         var result = new List<ProjectGradeResponse>();
+        var rootStates = roots.Select(root => (Root: root, States: root.AggregatedStates)).ToArray();
         foreach (var kind in Enum.GetValues<ReviewKind>())
         {
-            var states = roots.Select(root =>
-                root.AggregatedStates.TryGetValue(kind, out var state) ? state.Overall : ReviewState.NotReviewed).ToArray();
+            var states = rootStates.Select(item =>
+                item.States.TryGetValue(kind, out var state) ? state.Overall : ReviewState.NotReviewed).ToArray();
             var state = states.Any(candidate => candidate == ReviewState.Stale) ? "stale"
                 : states.Any(candidate => candidate == ReviewState.Current) ? "fresh" : "missing";
             var direct = roots
@@ -278,12 +292,26 @@ public sealed class ProjectDashboardService
 
     private static ProjectStalenessResponse BuildStaleness(IReadOnlyList<HierarchyNode> files)
     {
-        var fresh = files.Count(node => NodeReviewState(node) == "fresh");
-        var stale = files.Count(node => NodeReviewState(node) == "stale");
+        var fresh = 0;
+        var stale = 0;
+        string? stalePath = null;
+        string? missingPath = null;
+        foreach (var file in files)
+        {
+            var state = NodeReviewState(file);
+            if (state == "fresh") fresh++;
+            else if (state == "stale")
+            {
+                stale++;
+                stalePath ??= file.Path;
+            }
+            else
+            {
+                missingPath ??= file.Path;
+            }
+        }
         var missing = files.Count - fresh - stale;
-        var path = files.FirstOrDefault(node => NodeReviewState(node) == "stale")?.Path ??
-                   files.FirstOrDefault(node => NodeReviewState(node) == "missing")?.Path ??
-                   files.FirstOrDefault()?.Path ?? ".";
+        var path = stalePath ?? missingPath ?? files.FirstOrDefault()?.Path ?? ".";
         return new ProjectStalenessResponse(fresh, stale, missing, files.Count, path);
     }
 
@@ -394,6 +422,12 @@ public sealed class ProjectDashboardService
     private static IReadOnlyList<ProjectHotspotResponse> BuildHotspots(
         IReadOnlyList<HierarchyNode> files, IReadOnlyDictionary<string, int> churn)
     {
+        if (churn.Count == 0 && files.All(file => file.Documents.Count == 0))
+        {
+            return files.OrderBy(file => file.Path, StringComparer.Ordinal).Take(30)
+                .Select(file => new ProjectHotspotResponse(file.Path, 0, null, 0, 0, 0))
+                .ToArray();
+        }
         var result = new List<ProjectHotspotResponse>();
         foreach (var file in files)
         {
@@ -485,21 +519,27 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(string root, string path)
+    private static FileMetric ReadFileMetric(
+        string root,
+        string path,
+        long? knownSizeBytes = null,
+        int? knownLineCount = null)
     {
-        var absolute = Path.Combine(root, Native(path));
-        var info = new FileInfo(absolute);
+        string? absolute = null;
+        var sizeBytes = knownSizeBytes ?? new FileInfo(absolute = Path.Combine(root, Native(path))).Length;
         var language = Languages.GetValueOrDefault(Path.GetExtension(path));
-        var lines = 0;
+        var lines = knownLineCount ?? 0;
         string? duplicateFingerprint = null;
-        if (TextExtensions.Contains(Path.GetExtension(path)) && info.Length <= 4 * 1024 * 1024)
+        if (TextExtensions.Contains(Path.GetExtension(path)) && sizeBytes <= 4 * 1024 * 1024 &&
+            (knownLineCount is null || lines >= 3 || sizeBytes >= 64))
         {
             try
             {
-                var text = File.ReadAllText(absolute);
-                lines = text.Length == 0 ? 0
-                    : text.Count(character => character == '\n') + (text.EndsWith('\n') ? 0 : 1);
-                if ((lines >= 3 || info.Length >= 64) && info.Length <= 1024 * 1024)
+                var text = File.ReadAllText(absolute ??= Path.Combine(root, Native(path)));
+                if (knownLineCount is null)
+                    lines = text.Length == 0 ? 0
+                        : text.Count(character => character == '\n') + (text.EndsWith('\n') ? 0 : 1);
+                if ((lines >= 3 || sizeBytes >= 64) && sizeBytes <= 1024 * 1024)
                 {
                     var normalized = string.Join('\n', text.Replace("\r\n", "\n", StringComparison.Ordinal)
                         .Split('\n').Select(line => line.TrimEnd()));
@@ -508,7 +548,7 @@ public sealed class ProjectDashboardService
             }
             catch (IOException) { }
         }
-        return new FileMetric(path, info.Length, lines, language, duplicateFingerprint);
+        return new FileMetric(path, sizeBytes, lines, language, duplicateFingerprint);
     }
 
     private static IReadOnlyList<string> EnumerateRepositoryFiles(string root)

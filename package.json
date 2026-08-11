@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node scripts/dev-stack.mjs",
     "dev": "node scripts/dev-stack.mjs",
-    "test:dev-stack": "node --test tests/dev-stack.test.mjs"
+    "test:dev-stack": "node --test tests/dev-stack.test.mjs",
+    "test:security-policy": "node --test tests/security-policy.test.mjs"
   }
 }

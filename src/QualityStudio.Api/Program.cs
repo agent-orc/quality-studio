@@ -11,6 +11,7 @@ using QualityStudio.Api;
 using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Antiforgery;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,15 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
 builder.Services.AddSingleton<ApiSecurity>();
+builder.Services.AddSingleton<AnalyzerExecutionPolicy>();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = ApiSecurity.AntiforgeryHeader;
+    options.Cookie.Name = ApiSecurity.AntiforgeryCookie;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
@@ -74,7 +84,7 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxConcurrentConnections = corsOptions.Security.MaxConcurrentRequests;
 });
 builder.Services.AddCors(options => options.AddPolicy("dev-frontend", policy =>
-    policy.WithOrigins(corsOptions.AllowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+    policy.WithOrigins(corsOptions.AllowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -114,6 +124,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
         JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
+        ExecutableSensorDisabledException => (StatusCodes.Status503ServiceUnavailable, "Executable sensor disabled"),
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
         FindingStateConflictException => (StatusCodes.Status409Conflict, "Finding state changed"),
@@ -128,6 +139,7 @@ app.UseCors("dev-frontend");
 app.UseRouting();
 
 var apiSecurity = app.Services.GetRequiredService<ApiSecurity>();
+apiSecurity.ValidateLocalBindings(ConfiguredServerAddresses(builder.Configuration, app));
 if (apiSecurity.RequireHttps)
 {
     app.UseHsts();
@@ -163,10 +175,30 @@ app.Use(async (context, next) =>
     }
     apiSecurity.SetIdentity(context, identity);
 
-    if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
-        HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
+    var isMutation = HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
+                     HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method);
+    if (isMutation)
     {
-        if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
+        if (apiSecurity.IsLocal)
+        {
+            if (!apiSecurity.IsLocalMutationOriginValid(context))
+            {
+                await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                    title: "Local mutations require an allowed Origin").ExecuteAsync(context);
+                return;
+            }
+            try
+            {
+                await context.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(context);
+            }
+            catch (AntiforgeryValidationException)
+            {
+                await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                    title: "Local mutations require a valid anti-CSRF token").ExecuteAsync(context);
+                return;
+            }
+        }
+        else if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
         {
             await Results.Problem(statusCode: StatusCodes.Status401Unauthorized,
                 title: "A matching X-Client-Id is required for mutations").ExecuteAsync(context);
@@ -179,7 +211,12 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isSecuritySession = string.Equals(path, "/api/security/csrf", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryAdministration =
+        (HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport ||
+        ((HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)) &&
+         IsRepositoryResourcePath(path));
+    if (isRepositoryAdministration)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -194,6 +231,7 @@ app.Use(async (context, next) =>
         return;
     }
     else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
+             !isSecuritySession &&
              !string.Equals(path, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
@@ -206,6 +244,20 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
+app.MapGet("/api/security/csrf", (HttpContext context, IAntiforgery antiforgery, ApiSecurity security) =>
+{
+    if (!security.IsLocal) return Results.Ok(new { required = false, token = (string?)null });
+    var tokens = antiforgery.GetAndStoreTokens(context);
+    context.Response.Cookies.Append(ApiSecurity.AntiforgeryRequestCookie, tokens.RequestToken!, new CookieOptions
+    {
+        HttpOnly = false,
+        IsEssential = true,
+        SameSite = SameSiteMode.Strict,
+        Secure = context.Request.IsHttps,
+        Path = "/",
+    });
+    return Results.Ok(new { required = true, token = tokens.RequestToken });
+});
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
@@ -268,16 +320,16 @@ app.MapPost("/api/guidelines/impact", GuidelineImpact);
 app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
 app.MapGet("/api/scan", Scan);
 app.MapGet("/api/repos/{repoId}/scan", Scan);
-app.MapGet("/api/security/scan", SecurityScan);
-app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
+app.MapGet("/api/security/scan", SecurityScan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan).RequireRateLimiting("spend");
 app.MapGet("/api/security/attack-coverage", AttackCoverage);
 app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage);
 app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
@@ -767,8 +819,9 @@ static async Task<IResult> Scan(HttpContext context, RepositoryRegistry registry
 }
 
 static async Task<IResult> SecurityScan(HttpContext context, RepositoryRegistry registry, GitleaksSecurityScanner scanner,
-    ILogger<Program> logger, CancellationToken cancellationToken)
+    AnalyzerExecutionPolicy analyzerPolicy, ILogger<Program> logger, CancellationToken cancellationToken)
 {
+    analyzerPolicy.EnsureCanExecute(new RepositorySensorConfiguration("gitleaks"));
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var result = await scanner.ScanAsync(new SecurityScanRequest(repository.Root, PersistMetadata: false), cancellationToken);
@@ -842,7 +895,7 @@ static async Task<IResult> RecordAttackJudgement(
 }
 
 static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repositories, SensorRegistry sensors,
-    CancellationToken cancellationToken)
+    AnalyzerExecutionPolicy analyzerPolicy, CancellationToken cancellationToken)
 {
     var registration = repositories.Get(RouteRepositoryId(context));
     var configured = (registration.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
@@ -850,14 +903,17 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
     var descriptors = new List<object>();
     foreach (var sensor in sensors.List())
     {
-        var availability = await sensor.ProbeAvailabilityAsync(cancellationToken);
         configured.TryGetValue(sensor.Id, out var repositoryConfiguration);
+        var availability = analyzerPolicy.CanProbe(sensor)
+            ? await sensor.ProbeAvailabilityAsync(cancellationToken)
+            : AnalyzerExecutionPolicy.DisabledAvailability(sensor.Id);
         descriptors.Add(new
         {
             sensor.Id,
             sensor.Version,
             Scopes = sensor.SupportedScopes.Select(scope => scope.ToString().ToLowerInvariant()).ToArray(),
-            Enabled = repositoryConfiguration?.Enabled == true,
+            Enabled = repositoryConfiguration is not null && repositoryConfiguration.Enabled &&
+                      analyzerPolicy.CanExecute(repositoryConfiguration),
             Configuration = repositoryConfiguration?.Configuration,
             availability.Available,
             availability.UnavailableReason,
@@ -869,7 +925,8 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
 }
 
 static async Task<IResult> SensorScan(HttpContext context, string id, string? path,
-    RepositoryRegistry repositories, SensorRegistry sensors, ILogger<Program> logger,
+    RepositoryRegistry repositories, SensorRegistry sensors, AnalyzerExecutionPolicy analyzerPolicy,
+    ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
@@ -881,13 +938,15 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
     {
         throw new RepositoryRegistryValidationException($"Sensor '{id}' is not enabled for repository '{registration.Id}'.");
     }
+    analyzerPolicy.EnsureCanExecute(repositoryConfiguration);
+    var configuration = analyzerPolicy.ResolveConfiguration(repositoryConfiguration);
 
     var scope = string.IsNullOrWhiteSpace(path) ? SensorScope.Repository : SensorScope.Path;
     var result = await sensor.RunAsync(new SensorScanRequest(
         registration.RootPath,
         scope,
         path,
-        repositoryConfiguration.Configuration), cancellationToken);
+        configuration), cancellationToken);
     logger.LogInformation(new EventId(1202, "SensorScanCompleted"),
         "Ran sensor {SensorId} for repository {RepositoryId}; Available={Available}, Findings={FindingCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
         sensor.Id, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);
@@ -1154,6 +1213,24 @@ static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRep
 
 static string? RouteRepositoryId(HttpContext context) =>
     context.Request.RouteValues.TryGetValue("repoId", out var routeId) ? routeId?.ToString() : null;
+
+static bool IsRepositoryResourcePath(string path)
+{
+    var segments = path.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+    return segments.Length == 3 &&
+           string.Equals(segments[0], "api", StringComparison.OrdinalIgnoreCase) &&
+           string.Equals(segments[1], "repos", StringComparison.OrdinalIgnoreCase);
+}
+
+static IEnumerable<string> ConfiguredServerAddresses(IConfiguration configuration, WebApplication app)
+{
+    foreach (var address in app.Urls) yield return address;
+    if (configuration["urls"] is { Length: > 0 } urls) yield return urls;
+    foreach (var endpoint in configuration.GetSection("Kestrel:Endpoints").GetChildren())
+    {
+        if (endpoint["Url"] is { Length: > 0 } address) yield return address;
+    }
+}
 
 static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
 {

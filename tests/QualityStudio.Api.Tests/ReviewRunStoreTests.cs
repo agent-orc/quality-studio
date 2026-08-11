@@ -23,7 +23,7 @@ public sealed class ReviewRunStoreTests
         try
         {
             await using var application = fixture.CreateApplication(fake);
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             using var response = await client.PostAsJsonAsync("/api/review", new
             {
                 path = ".",
@@ -76,7 +76,7 @@ public sealed class ReviewRunStoreTests
         try
         {
             await using var application = fixture.CreateApplication(fake);
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
 
             using var freshResponse = await client.PostAsJsonAsync("/api/review", new
             {
@@ -144,7 +144,7 @@ public sealed class ReviewRunStoreTests
             var transitionsBefore = File.ReadAllLines(progressPath).Length;
 
             await using var application = fixture.CreateApplication();
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
 
             Assert.Equal(1, run.GetProperty("completedFiles").GetInt32());
@@ -181,7 +181,7 @@ public sealed class ReviewRunStoreTests
             var transitionsBefore = File.ReadAllLines(progressPath).Length;
 
             await using var application = fixture.CreateApplication();
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
 
             Assert.Equal(1, run.GetProperty("completedFiles").GetInt32());
@@ -225,7 +225,7 @@ public sealed class ReviewRunStoreTests
             var transitionsBefore = File.ReadAllLines(progressPath).Length;
 
             await using var application = fixture.CreateApplication(executor);
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
 
             Assert.Equal("skipped-fresh", run.GetProperty("aggregateState").GetString());
@@ -250,7 +250,7 @@ public sealed class ReviewRunStoreTests
             var stored = fixture.CreateRun("excluded-resume", "queued", "project", [exclusion]);
 
             await using var application = fixture.CreateApplication(executor);
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
 
             Assert.Equal("done", run.GetProperty("aggregateState").GetString());
@@ -281,7 +281,7 @@ public sealed class ReviewRunStoreTests
             await File.AppendAllTextAsync(fixture.ProgressPath(stored.Manifest.RunId), "{\"path\":", cancellationToken);
 
             await using var application = fixture.CreateApplication();
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
 
             Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
@@ -306,7 +306,7 @@ public sealed class ReviewRunStoreTests
             var progressBefore = await File.ReadAllTextAsync(progressPath, cancellationToken);
 
             await using var application = fixture.CreateApplication();
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var run = await client.GetFromJsonAsync<JsonElement>(
                 $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
             await Task.Delay(100, cancellationToken);
@@ -332,7 +332,7 @@ public sealed class ReviewRunStoreTests
             var progressBefore = await File.ReadAllTextAsync(progressPath, cancellationToken);
 
             await using var application = fixture.CreateApplication();
-            using var client = application.CreateClient();
+            using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
             var paused = await client.GetFromJsonAsync<JsonElement>(
                 $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
             await Task.Delay(100, cancellationToken);

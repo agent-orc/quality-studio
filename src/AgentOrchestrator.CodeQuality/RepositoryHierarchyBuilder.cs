@@ -112,7 +112,8 @@ public static partial class RepositoryHierarchyBuilder
                     ReviewLevel.File,
                     relativeSource,
                     new FileInfo(sourcePath).Length,
-                    sourceContent.Length == 0 ? 0 : sourceContent.Count(character => character == '\n') + 1);
+                    sourceContent.Length == 0 ? 0 : sourceContent.Count(character => character == '\n') +
+                        (sourceContent.EndsWith('\n') ? 0 : 1));
                 ns.AddChild(file);
 
                 var symbols = new HashSet<string>(StringComparer.Ordinal);

@@ -44,17 +44,20 @@ public sealed class RepositoryRegistry
     private readonly IReadOnlyList<string> supportedSensors;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
+    private readonly AnalyzerExecutionPolicy analyzerPolicy;
     private readonly SemaphoreSlim gate = new(1, 1);
     private List<RepositoryRegistration> entries;
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
-        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex)
+        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex,
+        AnalyzerExecutionPolicy analyzerPolicy)
     {
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
         this.logger = logger;
         this.metaIndex = metaIndex;
+        this.analyzerPolicy = analyzerPolicy;
         if (legacyOptions.AllowedRoots.Length == 0)
             throw new InvalidOperationException("QualityStudio:AllowedRoots must contain at least one directory.");
         allowedRoots = legacyOptions.AllowedRoots.Select(path => ResolvePath(path, contentRoot))
@@ -286,6 +289,7 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException(
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
+        foreach (var sensor in sensors) analyzerPolicy.ValidateRepositoryConfiguration(sensor);
 
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
@@ -335,6 +339,7 @@ public sealed class RepositoryRegistry
             EnsureAllowedDirectory(entry.GlobalInputsDirectory,
                 "A registered global inputs directory is outside the configured allowed roots.");
         }
+        foreach (var sensor in entry.Sensors ?? []) analyzerPolicy.ValidateRepositoryConfiguration(sensor);
     }
 
     private void EnsureAllowedDirectory(string path, string internalMessage)

@@ -29,7 +29,7 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
             new { id = "PROJ-005", displayName = "Missing on disk", shortCode = "MISS", repositoryPath = missingProjectPath, archived = false },
         });
         using var application = new TestApplication(repositoryRoot, hostRoot, handler);
-        using var client = application.CreateClient();
+        using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
 
         using var response = await client.PostAsync("/api/repos/import-from-agent-studio", null, TestContext.Current.CancellationToken);
 
@@ -73,7 +73,7 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
     public async Task Import_returns_a_clear_error_and_leaves_the_registry_untouched_when_agent_studio_is_offline()
     {
         using var application = new TestApplication(repositoryRoot, hostRoot, handler: new OfflineHandler());
-        using var client = application.CreateClient();
+        using var client = await application.CreateLocalClientAsync(TestContext.Current.CancellationToken);
 
         using var response = await client.PostAsync("/api/repos/import-from-agent-studio", null, TestContext.Current.CancellationToken);
 
