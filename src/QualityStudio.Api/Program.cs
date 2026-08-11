@@ -292,6 +292,8 @@ app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
+app.MapGet("/api/review/runs/{id}/preflight", ReviewRunPreflight);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/preflight", ReviewRunPreflight);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -858,6 +860,8 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
             sensor.Version,
             Scopes = sensor.SupportedScopes.Select(scope => scope.ToString().ToLowerInvariant()).ToArray(),
             Enabled = repositoryConfiguration?.Enabled == true,
+            Required = repositoryConfiguration?.Required == true,
+            CommandId = repositoryConfiguration?.CommandId,
             Configuration = repositoryConfiguration?.Configuration,
             availability.Available,
             availability.UnavailableReason,
@@ -1007,6 +1011,12 @@ static IResult ReviewRun(HttpContext context, string id, RepositoryRegistry regi
 {
     var repository = registry.Get(RouteRepositoryId(context));
     return Results.Ok(jobs.Get(repository.Id, id));
+}
+
+static IResult ReviewRunPreflight(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(jobs.GetPreflight(repository.Id, id));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

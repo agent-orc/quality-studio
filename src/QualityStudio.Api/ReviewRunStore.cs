@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
@@ -65,19 +66,26 @@ public sealed record ReviewRunStatus(
     string PriceStatus = "unknownModel",
     int SkippedFiles = 0,
     string? AggregateState = null,
-    string? StopReason = null);
+    string? StopReason = null,
+    string PreflightState = "queued",
+    int PreflightChecks = 0,
+    int PreflightUnavailableChecks = 0,
+    string? PreflightResultHash = null,
+    long? PreflightDurationMs = null,
+    int BlockedFiles = 0);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
     ReviewRunStatus Status,
-    IReadOnlyList<ReviewRunFileTransition> Progress);
+    IReadOnlyList<ReviewRunFileTransition> Progress,
+    PreflightSnapshot? Preflight = null);
 
 /// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
 public sealed class ReviewRunStore
 {
     public const string RelativeRunsPath = ".quality/runs";
     private static readonly UTF8Encoding Utf8 = new(false);
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private static readonly JsonSerializerOptions LineJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string runsPath;
 
@@ -152,6 +160,16 @@ public sealed class ReviewRunStore
         }
     }
 
+    public void WritePreflight(PreflightSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var directory = RunDirectory(snapshot.RunId);
+        Directory.CreateDirectory(directory);
+        WriteAtomically(
+            Path.Combine(directory, "preflight.json"),
+            JsonSerializer.Serialize(snapshot, JsonOptions) + Environment.NewLine);
+    }
+
     public IReadOnlyList<StoredReviewRun> LoadAll(Action<string, Exception>? loadFailed = null)
     {
         if (!Directory.Exists(runsPath)) return [];
@@ -175,7 +193,11 @@ public sealed class ReviewRunStore
                 if (!string.Equals(manifest.RunId, status.RunId, StringComparison.Ordinal) ||
                     !string.Equals(Path.GetFileName(directory), manifest.RunId, StringComparison.Ordinal))
                     throw new InvalidDataException($"Review run files disagree about the run id in '{directory}'.");
-                loaded.Add(new StoredReviewRun(manifest, status, ReadProgress(directory, manifest.RunId)));
+                var preflightPath = Path.Combine(directory, "preflight.json");
+                var preflight = File.Exists(preflightPath) ? ReadRequired<PreflightSnapshot>(preflightPath) : null;
+                if (preflight is not null && !string.Equals(preflight.RunId, manifest.RunId, StringComparison.Ordinal))
+                    throw new InvalidDataException($"Preflight result disagrees about the run id in '{directory}'.");
+                loaded.Add(new StoredReviewRun(manifest, status, ReadProgress(directory, manifest.RunId), preflight));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
             {
@@ -185,7 +207,8 @@ public sealed class ReviewRunStore
         return loaded;
     }
 
-    public static bool IsTerminal(string state) => state is "done" or "failed" or "cancelled" or "capped";
+    public static bool IsTerminal(string state) =>
+        state is "done" or "failed" or "cancelled" or "capped" or "blocked-preflight";
 
     private IReadOnlyList<ReviewRunFileTransition> ReadProgress(string directory, string runId)
     {
@@ -230,5 +253,32 @@ public sealed class ReviewRunStore
             bufferSize: 4096, FileOptions.WriteThrough);
         stream.Write(bytes);
         stream.Flush(flushToDisk: true);
+    }
+
+    private static void WriteAtomically(string destination, string content)
+    {
+        var temporary = destination + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            var bytes = Utf8.GetBytes(content);
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       bufferSize: 4096, FileOptions.WriteThrough))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        return options;
     }
 }
