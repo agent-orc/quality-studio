@@ -466,7 +466,6 @@ export class QualityApi {
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
   readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
-  readonly reviewHistory = signal<ReviewHistoryEnvelope[]>([]);
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
@@ -620,13 +619,10 @@ export class QualityApi {
     if (!this.connected() || repositoryId !== this.selectedRepositoryId()) return;
     try {
       const before = new Map(this.reviewRuns().map(run => [run.id, run.state]));
-      const [result, history] = await Promise.all([
-        firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`)),
-        firstValueFrom(this.http.get<{ runs: ReviewHistoryEnvelope[] }>(`${this.repositoryApiBase(repositoryId)}/review/history`)),
-      ]);
+      const result = await firstValueFrom(
+        this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`));
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.reviewRuns.set(result.runs);
-      this.reviewHistory.set(history.runs);
       const completed = result.runs.some(run => ['done', 'failed', 'cancelled', 'capped'].includes(run.state) && ['queued', 'running'].includes(before.get(run.id) ?? ''));
       if (completed) {
         const openPath = this.file()?.path;
@@ -665,10 +661,6 @@ export class QualityApi {
 
   repositoryReportUrl(format: RunReportFormat = 'html'): string {
     return `${this.repositoryApiBase()}/report?format=${format}`;
-  }
-
-  reviewHistoryEvidenceUrl(id: string): string {
-    return `${this.repositoryApiBase()}/review/history/${encodeURIComponent(id)}`;
   }
 
   async loadUsage(since?: string, kind?: ReviewKind, repositoryId = this.selectedRepositoryId()): Promise<void> {
