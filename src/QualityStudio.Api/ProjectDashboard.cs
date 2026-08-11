@@ -197,9 +197,10 @@ public sealed class ProjectDashboardService
             .Where(node => node.Level == ReviewLevel.File)
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
+        var hierarchyFilesByPath = hierarchyFiles.ToDictionary(node => node.Path, StringComparer.Ordinal);
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
         var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
+            .Select(path => ReadFileMetric(root, path, hierarchyFilesByPath))
             .ToArray();
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
@@ -672,14 +673,25 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(string root, string path)
+    private static FileMetric ReadFileMetric(
+        string root,
+        string path,
+        IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles)
     {
         var absolute = Path.Combine(root, Native(path));
+        var extension = Path.GetExtension(path);
+        var language = Languages.GetValueOrDefault(extension);
+        if (!TextExtensions.Contains(extension) &&
+            hierarchyFiles.TryGetValue(path, out var hierarchyFile) &&
+            hierarchyFile.SizeBytes is { } knownSize)
+        {
+            return new FileMetric(path, knownSize, 0, language, null);
+        }
+
         var info = new FileInfo(absolute);
-        var language = Languages.GetValueOrDefault(Path.GetExtension(path));
         var lines = 0;
         string? duplicateFingerprint = null;
-        if (TextExtensions.Contains(Path.GetExtension(path)) && info.Length <= 4 * 1024 * 1024)
+        if (TextExtensions.Contains(extension) && info.Length <= 4 * 1024 * 1024)
         {
             try
             {
