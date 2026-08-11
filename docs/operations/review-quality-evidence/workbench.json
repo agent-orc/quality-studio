@@ -4,11 +4,51 @@
   "title": "Actionable Review Findings and Quality Evidence",
   "summary": "Decision dossier for an evidence-first Quality Studio finding contract: exact highlighted source spans, typed evidence and reproducibility, requested and executed model attribution, independent human assessment and resolution, a scoped repository-owned ignore policy, immutable terminal run history, and a conservative bridge to the delivered TE-38 per-model review-quality evidence receiver. Recommends five approval-ready slices and keeps observational precision distinct from recall or causal model quality.",
   "entrypoint": "index.html",
-  "status": "decision-pending",
+  "status": "decided",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-11T00:24:54Z",
+  "updatedAt": "2026-08-11T14:43:12Z",
   "sourceTaskKeys": [
     "QS-61"
   ],
-  "key": "QS-W2"
+  "key": "QS-W2",
+  "decision": {
+    "outcome": "feature-spawn",
+    "state": "succeeded",
+    "operationId": "agt-2621-qs-w2-blanket-approval-20260811",
+    "sourceRevision": "e2bf7953d8a48449c4aac88d289b355624abef6f",
+    "sourceFingerprint": "8e63de5e5c997fe985f23e0bdfbb173a9aed77c0192dd9a2cea754fd5aaccc48",
+    "preparedAt": "2026-08-11T14:43:12Z",
+    "preparedBy": "Operator, recorded by AGT-2621",
+    "confirmedAt": "2026-08-11T14:43:12Z",
+    "confirmedBy": "Operator, recorded by AGT-2621",
+    "decidedAt": "2026-08-11T14:43:12Z",
+    "spawnedTaskKeys": [
+      "QS-70"
+    ],
+    "responses": [],
+    "taskDraft": {
+      "title": "Implement approved QS-W2 dossier recommendations",
+      "goal": "Deliver the recommendations approved by the operator on 2026-08-11; the existing implementation is tracked by QS-70.",
+      "acceptanceCriteria": [
+        "The existing implementation card QS-70 delivers the approved dossier recommendations with review evidence.",
+        "The Dossier records QS-70 as the implementation receipt."
+      ],
+      "evidenceLinks": [
+        "docs/operations/review-quality-evidence/index.html",
+        "task:QS-70"
+      ],
+      "chosenOption": "Blanket approval recorded by the operator on 2026-08-11.",
+      "relatedTaskKeys": [
+        "QS-70"
+      ],
+      "targetProject": "Quality Studio",
+      "initialLane": "1-preparation",
+      "mode": "coding",
+      "taskType": "feature"
+    }
+  },
+  "relatedTaskKeys": [
+    "QS-70"
+  ],
+  "editedBy": "Operator, recorded by AGT-2621"
 }
