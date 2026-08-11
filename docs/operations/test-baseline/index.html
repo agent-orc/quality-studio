@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Studio Test Baseline</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <p class="kicker">Quality Studio / QS-66 / Decision dossier</p>
+    <h1>A test baseline that stays green</h1>
+    <p class="lede">The current acceptance surface is red for several different reasons: one real production-build regression, machine-dependent checks mixed into routine commands, and missing host prerequisites. The sustainable answer is a tiered gate with explicit fixtures, pinned tools, and a measured coverage ratchet.</p>
+    <div class="meta">
+      <span><b>Repository state</b> <code>3e0b655</code></span>
+      <span><b>Observed</b> 11 August 2026</span>
+      <span><b>Decision</b> pending</span>
+      <span><b>Recommended option</b> B</span>
+    </div>
+  </header>
+
+  <div class="box bad">
+    <h4>Current gate: fail, and the failure is reproducible</h4>
+    <ul>
+      <li>The production Angular build exits 1: the initial bundle is <b>494.94 kB</b> against the existing <b>480 kB</b> error budget.</li>
+      <li>An unfiltered Release .NET run exits 1 under host load: the dashboard projection took <b>354 ms</b> against a <b>150 ms</b> timing assertion.</li>
+      <li>The root dev-stack suite exits 1 on Linux: <b>2 of 5</b> cases fail because a Windows <code>npm.cmd</code> fixture is spawned as a Linux executable and returns <code>EACCES</code>.</li>
+      <li>The default Angular test command exits 1 when no system Chrome is installed, even though a compatible Playwright Chromium is already cached elsewhere on the host.</li>
+    </ul>
+  </div>
+
+  <div class="box ok">
+    <h4>Deterministic assertions are largely healthy once their environment is explicit</h4>
+    <p>The filtered .NET lane passed <b>175</b> tests with one opt-in live review skipped. Both declared machine-bound .NET tests passed when isolated. Angular passed all <b>17</b> Jasmine cases when <code>CHROME_BIN</code> pointed at the cached Chromium. The repository security scan passed with 268 files, zero new findings, and pinned Gitleaks 8.24.2.</p>
+  </div>
+
+  <div class="box warn">
+    <h4>QS-57 delivery state: useful evidence, no repository baseline</h4>
+    <p>The QS-57 worktree is clean at the same commit <code>3e0b655</code> and has no diff from this task. Its 34 collected files show a prepared green development build and test run. They also preserve an earlier review failure caused by absent <code>frontend/node_modules</code>. QS-57 did not run the production frontend build, did not add a CI contract, and did not deliver <code>status.md</code> or a repository change. This dossier uses its evidence but does not treat the baseline as delivered.</p>
+  </div>
+
+  <h2><span class="no">00</span>Contents</h2>
+  <ul class="toc">
+    <li><a href="#decision">Decision requested</a></li>
+    <li><a href="#reproduction">What is red and why</a></li>
+    <li><a href="#estate">Test estate</a></li>
+    <li><a href="#coverage">Coverage by feature area</a></li>
+    <li><a href="#portability">Portable and machine-bound</a></li>
+    <li><a href="#baseline">Sustainable baseline contract</a></li>
+    <li><a href="#options">Options</a></li>
+    <li><a href="#slices">Implementation slices</a></li>
+    <li><a href="#green">Definition of green</a></li>
+    <li><a href="#evidence">Evidence ledger</a></li>
+  </ul>
+
+  <h2 id="decision"><span class="no">01</span>Decision requested</h2>
+  <div class="box accent">
+    <h4>Approve Option B and Slices 1 through 5 as one ordered improvement wave</h4>
+    <p>Make a deterministic, clean-checkout PR gate mandatory. Keep host integration in its own controlled job. Run timing, real-service, and live-agent checks as release canaries with retained measurements. Preserve the 480 kB product budget, repair the current regression, and ratchet measured coverage from the first generated baseline.</p>
+  </div>
+  <p>This decision does not declare today's repository green. It defines the shortest contract that can become green without hiding product or infrastructure failures.</p>
+
+  <h2 id="reproduction"><span class="no">02</span>What is red and why</h2>
+  <table>
+    <thead>
+      <tr><th>Check</th><th>Observed result</th><th>Cause</th><th>Classification</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>npm run build</code></td>
+        <td><span class="pill open">Exit 1</span><br>494.94 kB initial bundle</td>
+        <td><a href="../../../frontend/angular.json">angular.json</a> sets a 480 kB production error budget. The development build used by QS-57 bypasses this gate.</td>
+        <td><b>Product regression</b></td>
+      </tr>
+      <tr>
+        <td>Unfiltered Release <code>dotnet test</code></td>
+        <td><span class="pill open">Exit 1</span><br>354 ms vs 150 ms</td>
+        <td><a href="../../../tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs">ProjectDashboardTests</a> correctly carries <code>MachineBound</code>, but <a href="../../../.github/workflows/build.yml">build.yml</a> does not exclude that category.</td>
+        <td><b>Gate composition defect</b></td>
+      </tr>
+      <tr>
+        <td><code>npm run test:dev-stack</code></td>
+        <td><span class="pill open">2 fail / 3 pass</span></td>
+        <td><a href="../../../tests/dev-stack.test.mjs">dev-stack.test.mjs</a> writes a non-executable Windows batch fixture on every operating system. Linux reports <code>spawn .../npm.cmd EACCES</code>.</td>
+        <td><b>Portable fixture defect</b></td>
+      </tr>
+      <tr>
+        <td>Default <code>npm test</code> in <code>frontend/</code></td>
+        <td><span class="pill open">Exit 1</span><br>browser not found</td>
+        <td><a href="../../../frontend/tests/run-tests.mjs">run-tests.mjs</a> searches only system install paths. The repository depends on <code>playwright-core</code> but does not resolve its cached browser.</td>
+        <td><b>Missing prerequisite contract</b></td>
+      </tr>
+      <tr>
+        <td>Filtered Release .NET tests</td>
+        <td><span class="pill done">175 pass</span><br>1 opt-in skip</td>
+        <td><code>--filter Category!=MachineBound</code> follows the repository-wide test convention and removes the timing check from the routine lane.</td>
+        <td><b>Portable lane green</b></td>
+      </tr>
+      <tr>
+        <td>Angular tests with explicit Chromium</td>
+        <td><span class="pill done">17 pass</span></td>
+        <td><code>CHROME_BIN</code> points to Playwright Chromium 151 and <code>CHROME_NO_SANDBOX=1</code> matches the controlled Linux runner.</td>
+        <td><b>Assertions green</b></td>
+      </tr>
+      <tr>
+        <td>Security scan</td>
+        <td><span class="pill done">Exit 0</span><br>0 block / 0 warn</td>
+        <td>The scanner resolved pinned Gitleaks 8.24.2 and scanned 268 files. A cold runner can still require a GitHub download before this step.</td>
+        <td><b>Green, network bootstrap remains</b></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>The current CI is narrower than the product claim</h3>
+  <p><a href="../../../README.md">README.md</a> states that the core library, CLI, API, and Angular browser are covered by CI. The only required workflow job restores, builds, and tests the .NET solution, then runs the security scanner. It has no Node setup, <code>npm ci</code>, production Angular build, browser test, root launcher test, coverage report, or test artifact upload. It also uses <code>10.0.x</code> instead of the observed 10.0.301 SDK.</p>
+
+  <h2 id="estate"><span class="no">03</span>Test estate</h2>
+  <table>
+    <thead>
+      <tr><th>Estate</th><th>What exists</th><th>Current outcome</th><th>Where it runs</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Core and CLI xUnit</b></td>
+        <td>23 discovered test classes in one assembly. 134 portable pass outcomes, one opt-in live review skip, and one declared machine-bound scan.</td>
+        <td><span class="pill done">Portable green</span></td>
+        <td>Current CI, but without the required filter</td>
+      </tr>
+      <tr>
+        <td><b>API xUnit</b></td>
+        <td>5 classes: 41 portable pass outcomes and one declared machine-bound dashboard timing check.</td>
+        <td><span class="pill part">Full run can be red</span></td>
+        <td>Current CI, mixed into the same command</td>
+      </tr>
+      <tr>
+        <td><b>Angular Jasmine</b></td>
+        <td>5 spec files and 17 cases covering the API service, explorer activation, project dashboard states, usage dialog, and syntax tokenizer.</td>
+        <td><span class="pill part">Green with browser path</span></td>
+        <td>Not in CI</td>
+      </tr>
+      <tr>
+        <td><b>Root Node integration</b></td>
+        <td>5 dev-stack cases with child processes, local sockets, temporary repositories, and readiness waits.</td>
+        <td><span class="pill open">2 fail on Linux</span></td>
+        <td>Not in CI</td>
+      </tr>
+      <tr>
+        <td><b>Browser and evidence harnesses</b></td>
+        <td>8 manual scripts for screenshots, syntax, security, quota, UI performance, and real API repository switching.</td>
+        <td><span class="pill new">Manual evidence only</span></td>
+        <td>Not in CI; some require a live server</td>
+      </tr>
+      <tr>
+        <td><b>Committed fixtures</b></td>
+        <td>11 files: Cobertura, lcov, TRX and native coverage; npm and .NET audit output; SARIF; and one flow-review source fixture.</td>
+        <td><span class="pill done">Stable inputs</span></td>
+        <td>Copied into the core test output</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="coverage"><span class="no">04</span>Coverage by feature area</h2>
+  <p class="dim">The repository does not produce code-coverage measurements today. The table therefore reports behavioral coverage from concrete tests and routes, not invented percentages.</p>
+  <table>
+    <thead>
+      <tr><th>Feature area</th><th>Existing proof</th><th>Material gap</th><th>Priority</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Hierarchy, scope, staleness, dashboard</b></td>
+        <td>Repository hierarchy, aggregation, staleness, cache invalidation, repository scope, dashboard projection, and 5,000-file checks have xUnit coverage.</td>
+        <td>The two performance assertions are single-sample host timings. There is no required Windows run, and real Git is used by many otherwise portable tests.</td>
+        <td><span class="pill part">Stabilize</span></td>
+      </tr>
+      <tr>
+        <td><b>Review execution, inputs, findings, change review</b></td>
+        <td>Prompt building, strict response parsing, review runner, flow review, input precedence, finding state, staleness, change delta, and reporting have broad unit coverage.</td>
+        <td>The only live agent integration is skipped unless <code>QUALITY_RUN_LIVE_REVIEW=1</code>. API pause and cancel routes and the browser review mutation surfaces have no direct routine proof.</td>
+        <td><span class="pill part">Add boundary tests</span></td>
+      </tr>
+      <tr>
+        <td><b>Sensors, security, coverage ingestion, reports</b></td>
+        <td>Attack coverage, boundary inventory, SARIF, dependency audit normalization, Gitleaks, coverage ingestion, and report rendering use committed fixtures and deterministic fakes.</td>
+        <td>Coverage is ingested but never generated for this repository. Cold Gitleaks provisioning is network-dependent. Live package-manager audit behavior is represented by recorded output, not a controlled canary.</td>
+        <td><span class="pill part">Instrument</span></td>
+      </tr>
+      <tr>
+        <td><b>API, registry, auth, review runs</b></td>
+        <td>41 portable tests exercise in-process HTTP, tenancy and auth, rate limits, repository import, reports, sensors, usage, quotas, finding state, and review-run recovery.</td>
+        <td>No direct HTTP test references repository update/delete, risk, guideline update/delete/catalog/impact, review estimate, pause, cancel, handover configuration, or thread mutation routes declared in <a href="../../../src/QualityStudio.Api/Program.cs">Program.cs</a>.</td>
+        <td><span class="pill open">High</span></td>
+      </tr>
+      <tr>
+        <td><b>Angular product surfaces</b></td>
+        <td>17 cases cover API data loading, tree interaction, dashboard states, usage accessibility, and tokenizer fidelity.</td>
+        <td>No component spec exists for the editor, review panel, review actions, attack coverage, app shell, or routing. Component schematics globally set <code>skipTests: true</code>. There is no routine real-API browser journey.</td>
+        <td><span class="pill open">Highest</span></td>
+      </tr>
+      <tr>
+        <td><b>CLI and developer startup</b></td>
+        <td>Core CLI behavior is covered through service tests, report exit-code tests, and a real security scan. The root launcher has five integration cases.</td>
+        <td>The Linux launcher fixture is red. CLI entry-point parsing is not exercised as a command matrix. The embedded-shell test uses mock API and mock web scripts rather than the shipped Angular application.</td>
+        <td><span class="pill open">High</span></td>
+      </tr>
+      <tr>
+        <td><b>Website and documentation deployment</b></td>
+        <td>A separate workflow publishes <code>website/</code> to the deploy branch.</td>
+        <td>The workflow performs no HTML link, markup, or smoke validation before force-publishing the branch.</td>
+        <td><span class="pill new">Later</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <h4>There is no numeric coverage baseline</h4>
+    <p>The .NET test projects do not reference Coverlet or another collector. Karma installs <code>karma-coverage</code> but does not load the plugin, configure a reporter, or run a coverage command. No workflow publishes coverage artifacts or enforces a threshold. A percentage claim would therefore be unsupported.</p>
+  </div>
+
+  <h2 id="portability"><span class="no">05</span>Portable and machine-bound</h2>
+  <table>
+    <thead>
+      <tr><th>Class</th><th>Examples in this repository</th><th>Correct lane</th><th>Required action</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Deterministic portable</b></td>
+        <td>Pure parsers, projections, hash vectors, in-memory fakes, recorded SARIF/audit/coverage documents, Angular TestBed with intercepted HTTP.</td>
+        <td>Required on every PR</td>
+        <td>Zero retries. Fail on the first assertion. Provision all declared tools in the job.</td>
+      </tr>
+      <tr>
+        <td><b>Tool-bound integration</b></td>
+        <td>At least 10 xUnit classes spawn real <code>git</code>, <code>dotnet</code>, or fake Gitleaks processes. Angular requires a browser binary.</td>
+        <td>Controlled PR jobs</td>
+        <td>Pin tool versions, centralize process fixtures, and classify each boundary. Replace real tools with fakes where the product boundary itself is not under test.</td>
+      </tr>
+      <tr>
+        <td><b>Host integration</b></td>
+        <td>The root dev-stack tests use real child processes, ports, signals, and readiness timing.</td>
+        <td>Dedicated Linux and Windows jobs</td>
+        <td>Use OS-neutral Node fixtures, allocate free ports, preserve child output on failure, and never share fixed ports across jobs.</td>
+      </tr>
+      <tr>
+        <td><b>Performance machine-bound</b></td>
+        <td>Two xUnit methods carry <code>MachineBound</code>. <code>frontend/tests/perf.mjs</code> and <code>project-switch-perf.mjs</code> enforce browser and real-backend timing.</td>
+        <td>Scheduled and release canary</td>
+        <td>Record host metadata and multiple samples. Do not mix these checks into the portable PR command.</td>
+      </tr>
+      <tr>
+        <td><b>External live</b></td>
+        <td>Live agent review, first-run Gitleaks download, and live registry/package-manager access.</td>
+        <td>Explicit canary</td>
+        <td>Separate product failure from unavailable dependency. Retain transcripts without credentials or secrets.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Trait coverage is incomplete. Only two .NET methods declare <code>MachineBound</code>, while process creation appears in ten xUnit classes. This does not mean every method in those classes must move. It means every boundary must be audited and either faked or classified before the word portable is accurate.</p>
+
+  <h2 id="baseline"><span class="no">06</span>Sustainable baseline contract</h2>
+  <div class="building-blocks">
+    <div class="building-block">
+      <h4>Required PR: portable</h4>
+      <ul>
+        <li>Pin .NET 10.0.301 and Node 22.</li>
+        <li>Restore from lock files and build Release.</li>
+        <li>Run xUnit with <code>Category!=MachineBound</code>.</li>
+        <li>Run the production Angular build. Keep the 480 kB limit.</li>
+        <li>Provision pinned Chromium, then run all Angular specs.</li>
+        <li>Run pinned Gitleaks with explicit provisioning.</li>
+      </ul>
+      <div class="stx stx-open">Blocked today by the production bundle.</div>
+    </div>
+    <div class="building-block">
+      <h4>Required PR: host integration</h4>
+      <ul>
+        <li>Run the dev-stack suite separately on Linux and Windows.</li>
+        <li>Use dynamic ports and OS-neutral fixture executables.</li>
+        <li>Persist stdout and stderr for every early exit.</li>
+        <li>Run without depending on a warmed package or browser cache.</li>
+      </ul>
+      <div class="stx stx-open">Blocked today by the <code>npm.cmd</code> fixture.</div>
+    </div>
+    <div class="building-block">
+      <h4>Coverage ratchet</h4>
+      <ul>
+        <li>Generate Cobertura for both .NET assemblies and lcov for Angular.</li>
+        <li>Fail if either report is missing or unreadable.</li>
+        <li>Commit the first measured baseline by project and feature area.</li>
+        <li>Fail subsequent PRs on a decrease. Raise the baseline only with added tests.</li>
+      </ul>
+      <div class="stx stx-part">No arbitrary percentage before measurement.</div>
+    </div>
+    <div class="building-block">
+      <h4>Release canary</h4>
+      <ul>
+        <li>Run both <code>MachineBound</code> xUnit checks.</li>
+        <li>Run both frontend performance stages with retained JSON and screenshots.</li>
+        <li>Run the live-agent test when review execution changes.</li>
+        <li>Report dependency-unavailable separately from product-failed.</li>
+      </ul>
+      <div class="stx stx-part">Release-blocking, not PR-timing noise.</div>
+    </div>
+  </div>
+
+  <h3>Fixture and test-data rules</h3>
+  <ul>
+    <li><b>Fresh checkout is the reference.</b> CI installs frontend dependencies and the browser. A warm local cache may speed the run but may not change the result.</li>
+    <li><b>Version every external format fixture.</b> Audit, SARIF, coverage, review response, and API contract documents carry a source tool/version and a small validity assertion.</li>
+    <li><b>Centralize temporary repositories.</b> One builder owns Git identity, fixed timestamps, line endings, cleanup, allowed roots, and failure diagnostics.</li>
+    <li><b>Share API contract builders.</b> Replace repeated inline dashboard, review, and repository payloads in TypeScript and Node scripts with typed builders or schema-validated JSON fixtures.</li>
+    <li><b>Keep performance corpus generation outside the measured interval.</b> Store the measured browser/runtime/host metadata with every canary result.</li>
+    <li><b>No silent quarantine.</b> Any temporary quarantine has an owner, linked defect, evidence, and expiry. Portable assertions are never retried to manufacture green.</li>
+  </ul>
+
+  <h2 id="options"><span class="no">07</span>Options</h2>
+  <table>
+    <thead>
+      <tr><th>Option</th><th>Scope</th><th>Trade-off</th><th>Decision</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>A. Patch the visible failures</b></td>
+        <td>Raise or bypass the bundle budget, exclude the one timing test, and document <code>CHROME_BIN</code>.</td>
+        <td>Fast, but leaves Angular and the dev launcher outside CI, leaves tool drift, and still has no coverage signal.</td>
+        <td><span class="pill open">Reject</span></td>
+      </tr>
+      <tr>
+        <td><b>B. Tiered required gate plus canary</b></td>
+        <td>Repair the product regression, define portable and host jobs, pin tools, add coverage artifacts and a ratchet, then close the highest-risk feature gaps.</td>
+        <td>More initial work, but each failure has one owner and a stable meaning. Timing noise cannot hide a deterministic regression.</td>
+        <td><span class="pill done">Recommend</span></td>
+      </tr>
+      <tr>
+        <td><b>C. Everything on every PR</b></td>
+        <td>Run production build, all unit tests, dev stack, real backend switching, performance thresholds, and live services on every change.</td>
+        <td>Broadest immediate signal, but host timing and external availability make routine green unsustainable and slow feedback.</td>
+        <td><span class="pill part">Reject for PR gate</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="slices"><span class="no">08</span>Implementation slices</h2>
+  <table>
+    <thead>
+      <tr><th>Slice</th><th>Implementation</th><th>Acceptance</th><th>Dependency</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>1. Truthful required gate</b><br><span class="pill open">Blocking</span></td>
+        <td>Reduce the production initial bundle below 480 kB without raising the budget. Pin .NET 10.0.301 and Node 22. Add frontend install, production build, explicit Chromium provisioning, Angular tests, filtered .NET tests, and explicit Gitleaks provisioning to CI. Align README claims.</td>
+        <td>A cold-cache, clean-checkout run passes. Development build output is not accepted as shipping evidence. Every CI step has a distinct name and exit status.</td>
+        <td>None</td>
+      </tr>
+      <tr>
+        <td><b>2. Host and fixture repair</b><br><span class="pill queued">Next</span></td>
+        <td>Replace the hard-coded <code>npm.cmd</code> fixture with a platform-neutral Node stub, allocate free ports, include captured child output in failures, and run the five dev-stack cases in Linux and Windows jobs. Centralize temporary Git repository creation.</td>
+        <td>5 of 5 launcher cases pass on both operating systems from clean environments. Port collisions and missing executables produce diagnostic failures, not timeouts.</td>
+        <td>Slice 1 job structure</td>
+      </tr>
+      <tr>
+        <td><b>3. Honest portability taxonomy</b><br><span class="pill queued">Next</span></td>
+        <td>Audit the ten process-spawning xUnit classes. Fake tool boundaries where the child process is incidental. Apply <code>MachineBound</code> where real process, timing, socket, or host behavior is intentional. Keep the two existing timing checks in the canary.</td>
+        <td>The portable lane has no undeclared host dependency. The machine lane lists every selected test and retains timing/host evidence.</td>
+        <td>Slice 2 fixture helpers</td>
+      </tr>
+      <tr>
+        <td><b>4. Coverage generation and priority gaps</b><br><span class="pill queued">Next</span></td>
+        <td>Add .NET Cobertura and Angular lcov generation, publish artifacts, and record the first measured ratchet. Add direct API tests for the uncovered mutation and lifecycle routes. Add Angular component tests for editor, review panel/actions, and attack-coverage judgements, plus one real-API browser journey.</td>
+        <td>Both coverage reports are present and schema-readable. CI blocks regression from the recorded baseline. Each listed high-risk surface has positive and failure-path proof.</td>
+        <td>Slices 1 and 3</td>
+      </tr>
+      <tr>
+        <td><b>5. Release canary and upkeep</b><br><span class="pill queued">Then</span></td>
+        <td>Schedule the machine-bound xUnit tests and both frontend performance stages on a labeled host. Retain JSON, screenshots, host metadata, and multiple samples. Add the live review canary only for changes that affect review execution.</td>
+        <td>Release candidates require a recent green canary. Failures identify product regression, machine variance, or unavailable dependency. Quarantine requires owner and expiry.</td>
+        <td>Slices 2 through 4</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="box accent">
+    <h4>Parallelization boundary</h4>
+    <p>After Slice 1 fixes the shared gate contract, Slice 2 host fixtures and Slice 4 coverage plumbing can proceed in parallel. Feature-test additions in Slice 4 should wait for the fixture and portability choices they consume. Slice 5 consumes all prior lane definitions.</p>
+  </div>
+
+  <h2 id="green"><span class="no">09</span>Definition of green</h2>
+  <ul>
+    <li>The production Angular bundle is within the existing 480 kB error budget. A development build cannot satisfy this condition.</li>
+    <li>The required portable .NET, Angular, security, and host-integration jobs pass from a clean checkout without inherited caches.</li>
+    <li>No machine-bound timing assertion runs in the portable .NET command.</li>
+    <li>Linux and Windows dev-stack jobs use isolated ports and platform-neutral fixtures.</li>
+    <li>.NET Cobertura and Angular lcov artifacts exist, parse, and do not fall below the committed ratchet.</li>
+    <li>The release canary is recent and green for changes affecting hierarchy performance, browser performance, repository switching, or live review execution.</li>
+    <li>Failures remain visible. Missing tools and unavailable networks are classified separately, not converted into passing product results.</li>
+    <li>README and contributor commands name the same checks that branch protection requires.</li>
+  </ul>
+
+  <h2 id="evidence"><span class="no">10</span>Evidence ledger</h2>
+  <table>
+    <thead>
+      <tr><th>Claim</th><th>Repository or run evidence</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>CI covers only .NET and the security scan.</td><td><a href="../../../.github/workflows/build.yml"><code>.github/workflows/build.yml</code></a></td></tr>
+      <tr><td>Production build budget is 480 kB; production run measured 494.94 kB and exited 1.</td><td><a href="../../../frontend/angular.json"><code>frontend/angular.json</code></a>; local QS-66 reproduction at <code>3e0b655</code>, 2026-08-11</td></tr>
+      <tr><td>Dashboard timing is explicitly machine-bound but mixed into current CI.</td><td><a href="../../../tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs"><code>ProjectDashboardTests.cs</code></a>; local run measured 354 ms</td></tr>
+      <tr><td>Only two .NET tests carry <code>MachineBound</code>.</td><td><a href="../../../tests/AgentOrchestrator.CodeQuality.Tests/RepositoryHierarchyBuilderTests.cs"><code>RepositoryHierarchyBuilderTests.cs</code></a> and <a href="../../../tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs"><code>ProjectDashboardTests.cs</code></a></td></tr>
+      <tr><td>Root launcher fixture is Windows-specific and fails on Linux.</td><td><a href="../../../tests/dev-stack.test.mjs"><code>tests/dev-stack.test.mjs</code></a>; reproduced <code>EACCES</code> from <code>npm.cmd</code></td></tr>
+      <tr><td>Angular test discovery depends on system paths or <code>CHROME_BIN</code>.</td><td><a href="../../../frontend/tests/run-tests.mjs"><code>frontend/tests/run-tests.mjs</code></a>; 17 cases passed with explicit Playwright Chromium</td></tr>
+      <tr><td>Coverage ingestion exists, but repository coverage generation does not.</td><td><a href="../../../frontend/karma.conf.cjs"><code>frontend/karma.conf.cjs</code></a>, both xUnit project files, and <a href="../../../docs/coverage-and-risk.md"><code>docs/coverage-and-risk.md</code></a></td></tr>
+      <tr><td>Angular test generation is disabled by default.</td><td><a href="../../../frontend/angular.json"><code>frontend/angular.json</code></a>, <code>schematics.*.skipTests</code></td></tr>
+      <tr><td>QS-57 supplied prepared-run evidence but no repository diff.</td><td><code>/home/agent/runner-work/tasks/QS-57/results/</code>: 34 files; clean QS-57 worktree at <code>3e0b655</code></td></tr>
+      <tr><td>Security scanner is pinned but can download on a cold host.</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs"><code>GitleaksBinaryResolver.cs</code></a>; standalone scan passed with 8.24.2</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box">
+    <h4>Evidence limits</h4>
+    <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
+  </div>
+</main>
+</body>
+</html>
