@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
-import { QualityApi, ReviewFinding, ReviewMetaDocument } from '../quality-api';
+import { QualityApi, ReviewFinding, ReviewMetaDocument, ReviewRun } from '../quality-api';
 import { ReviewPanel } from './review-panel';
 import { ReviewEvidenceApi } from './review-evidence-api';
 
@@ -27,14 +27,13 @@ describe('ReviewPanel session flow', () => {
     findings: [waivedFinding, acceptedFinding, openFinding], findingCounts: { open: 1, accepted: 1, waived: 1, falsePositive: 0, resolved: 0 },
   };
   const file = signal({ path: 'src/A.cs', content: '', metaDocuments: [meta], sizeBytes: 0, lineEnding: 'lf' as const, encoding: 'utf-8' as const });
-  const initialRuns = [
-    { id: 'matching', path: 'src/A.cs', kind: 'code' },
-    { id: 'wrong-kind', path: 'src/A.cs', kind: 'security' },
-    { id: 'wrong-path', path: 'src/B.cs', kind: 'code' },
-  ];
   const api = {
     file,
-    reviewRuns: signal(initialRuns),
+    reviewRuns: signal([
+      reviewRun('matching', 'src/A.cs', 'code', 'running'),
+      reviewRun('wrong-kind', 'src/A.cs', 'security', 'running'),
+      reviewRun('wrong-path', 'src/B.cs', 'code', 'running'),
+    ]),
     reviewHistory: signal([
       historyEntry('committed', 'src/A.cs', 'code'),
       historyEntry('wrong-history-kind', 'src/A.cs', 'security'),
@@ -64,7 +63,11 @@ describe('ReviewPanel session flow', () => {
 
   beforeEach(async () => {
     file.update(value => ({ ...value, metaDocuments: [meta] }));
-    api.reviewRuns.set(initialRuns);
+    api.reviewRuns.set([
+      reviewRun('matching', 'src/A.cs', 'code', 'running'),
+      reviewRun('wrong-kind', 'src/A.cs', 'security', 'running'),
+      reviewRun('wrong-path', 'src/B.cs', 'code', 'running'),
+    ]);
     api.reviewHistory.set([
       historyEntry('committed', 'src/A.cs', 'code'),
       historyEntry('wrong-history-kind', 'src/A.cs', 'security'),
@@ -110,6 +113,24 @@ describe('ReviewPanel session flow', () => {
     fixture.detectChanges();
     expect(component.visibleFindings().map(finding => finding.id)).toEqual(['critical-waived']);
     expect(fixture.nativeElement.querySelectorAll('.finding-card').length).toBe(1);
+  });
+
+  it('keeps terminal local records out of the active run projection', () => {
+    api.reviewRuns.set([
+      reviewRun('active', 'src/A.cs', 'code', 'running'),
+      reviewRun('terminal', 'src/A.cs', 'code', 'done'),
+    ]);
+
+    fixture.detectChanges();
+    component.runDrawerOpen.set(true);
+    fixture.detectChanges();
+
+    const activeRows: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll(
+      '.run-history-drawer > .runs-panel:not(.history-panel) .run-row',
+    );
+    expect(activeRows.length).toBe(1);
+    expect(activeRows[0].textContent).toContain('running');
+    expect(activeRows[0].textContent).not.toContain('done');
   });
 
   it('emits code navigation for current evidence but not for a stale range', () => {
@@ -271,6 +292,18 @@ describe('ReviewPanel session flow', () => {
     expect(component.suppressionScopeStatus()).toContain('Saved scope for 1 finding');
   });
 });
+
+function reviewRun(id: string, path: string, kind: ReviewRun['kind'], state: ReviewRun['state']): ReviewRun {
+  return {
+    id, path, kind, state, repositoryId: 'default', level: 'file', model: 'gpt-5', thinkingLevel: 'high', cliType: 'codex',
+    totalFiles: 1, completedFiles: state === 'done' ? 1 : 0, failedFiles: 0, skippedFiles: 0,
+    createdAt: '2026-08-11T08:00:00Z', startedAt: '2026-08-11T08:00:01Z', finishedAt: state === 'done' ? '2026-08-11T08:00:02Z' : null,
+    files: [], errors: [], usageOperations: 0,
+    usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0 },
+    estimate: null, tokenCap: null, costCap: null, costSpent: null, currency: null, priceStatus: 'available',
+    aggregateState: null, stopReason: null, deviation: null,
+  };
+}
 
 function historyEntry(id: string, path: string, kind: string) {
   return {
