@@ -8,7 +8,7 @@ using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public class GitleaksSecurityScanner : IReviewSensor
+public class GitleaksSecurityScanner : ISecurityEvidenceSensor
 {
     private readonly GitleaksBinaryResolver _resolver;
     private readonly HttpClient _httpClient;
