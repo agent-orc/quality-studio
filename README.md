@@ -210,6 +210,7 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
+- [`docs/operations/style-guide/`](docs/operations/style-guide/index.html) is the living visual standard for Quality Studio controls and applied admin surfaces.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 
 ## Minimal API

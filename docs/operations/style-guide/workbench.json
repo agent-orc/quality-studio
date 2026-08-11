@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "quality-studio-style-guide",
+  "title": "Quality Studio Style Guide",
+  "summary": "Living dossier for Quality Studio controls and compact admin patterns. It derives from Agent Studio's admin design guideline and records buttons, form controls, notices, density, scrollable modals, number formatting, and applied surfaces.",
+  "entrypoint": "index.html",
+  "status": "decided",
+  "phase": "living-standard",
+  "updatedAt": "2026-08-11T14:30:00Z",
+  "sourceTaskKeys": [
+    "QS-80"
+  ],
+  "relatedTaskKeys": [
+    "AGT-2583",
+    "AGT-2617"
+  ],
+  "implementationTasks": [
+    "QS-80"
+  ],
+  "key": "QS-SG1"
+}

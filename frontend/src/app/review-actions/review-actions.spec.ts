@@ -76,6 +76,26 @@ describe('ReviewActions', () => {
     expect(component.modelsForCli().map(model => model.modelId)).toEqual(['claude-sonnet-5']);
   });
 
+  it('accepts scaled token caps and sends the parsed token count', async () => {
+    api.estimateReview.and.resolveTo({
+      repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: null,
+      thinkingLevel: null, cliType: 'codex', tokenCap: 100000, costCap: null, overrideBelowFloor: false,
+      estimate: { files: 1, operations: 1, promptCharacters: 4000, inputTokens: 1000, outputTokens: 200,
+        cost: null, currency: null, priceStatus: 'unknownModel', historySamples: 0,
+        method: 'Rendered prompt characters / 4.', expectedFreshSkips: 0 },
+      recommendation: { policyVersion: '2026-07-24', recommendedModel: 'gpt-5.6-sol',
+        recommendedThinkingLevel: 'xhigh', capabilityTier: 'frontier', score: 70,
+        correctnessFloor: 'sol-xhigh', reason: 'Correctness floor.', selectionSource: 'model-routing-policy' },
+    });
+    component.setCapKind('tokens');
+    component.setTokenCapValue('0.1M');
+
+    await component.prepare();
+
+    expect(component.capValue()).toBe(100_000);
+    expect(api.estimateReview).toHaveBeenCalledWith(jasmine.objectContaining({ tokenCap: 100_000, costCap: null }));
+  });
+
   it('renders inline server-owned preflight and explicitly confirms a below-floor start', async () => {
     api.estimateReview.and.resolveTo({
       repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: 'gpt-5.6-sol',
