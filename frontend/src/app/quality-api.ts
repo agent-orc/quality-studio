@@ -62,6 +62,10 @@ export interface DeterministicSensorResult { available: boolean; unavailableReas
 export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
 export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
+export interface FindingSuppressionMatch { fingerprint: string | null; ruleId?: string | null; pathPattern?: string | null; reviewKinds?: ReviewKind[]; sourceKinds?: Array<'agent' | 'deterministic'>; }
+export interface FindingSuppressionRule { id: string; enabled: boolean; match: FindingSuppressionMatch; effect: 'suppress'; reason: string; author: string; createdAt: string; expiresAt?: string | null; }
+export interface FindingSuppressionDocument { schemaVersion: 1; revision: number; rules: FindingSuppressionRule[]; }
+export interface FindingSuppressionMutationRequest { fingerprint: string; author: string; reason: string; expiresAt?: string | null; expectedRevision: number; }
 export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
 export interface SecurityScanProvenance { scanner: string; version: string; mode: string; range: string | null; configPath: string | null; baselinePath: string | null; scannedAt: string; }
 export interface SecurityScanCounts { filesScanned: number; newFindings: number; acceptedFindings: number; blockFindings: number; warnFindings: number; cleanFiles: number; }
@@ -429,6 +433,8 @@ export class QualityApi {
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
   readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
+  readonly findingSuppressions = signal<FindingSuppressionDocument>({ schemaVersion: 1, revision: 0, rules: [] });
+  readonly includeIgnoredFindings = signal(false);
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
@@ -464,6 +470,8 @@ export class QualityApi {
     this.selectedRepositoryId.set(id);
     this.connectionState.set('connecting');
     this.file.set(null);
+    this.findingSuppressions.set({ schemaVersion: 1, revision: 0, rules: [] });
+    this.includeIgnoredFindings.set(false);
     this.attackCoverage.set(null);
     const treeSnapshot = this.treeSnapshots.get(id);
     const projectSnapshot = this.projectSnapshots.get(id);
@@ -752,6 +760,44 @@ export class QualityApi {
       .find(finding => finding.fingerprint === request.fingerprint) ?? null;
   }
 
+  isFindingSuppressed(finding: ReviewFinding): boolean {
+    if (!finding.fingerprint) return false;
+    const now = Date.now();
+    return this.findingSuppressions().rules.some(rule =>
+      rule.enabled && rule.effect === 'suppress' && rule.match.fingerprint === finding.fingerprint &&
+      (!rule.expiresAt || Date.parse(rule.expiresAt) > now));
+  }
+
+  suppressionFor(finding: ReviewFinding): FindingSuppressionRule | null {
+    if (!finding.fingerprint) return null;
+    const now = Date.now();
+    return this.findingSuppressions().rules.find(rule =>
+      rule.enabled && rule.effect === 'suppress' && rule.match.fingerprint === finding.fingerprint &&
+      (!rule.expiresAt || Date.parse(rule.expiresAt) > now)) ?? null;
+  }
+
+  async loadFindingSuppressions(repositoryId = this.selectedRepositoryId()): Promise<FindingSuppressionDocument> {
+    const response = await firstValueFrom(this.http.get<FindingSuppressionDocument>(
+      `${this.repositoryApiBase(repositoryId)}/findings/suppressions`));
+    if (repositoryId === this.selectedRepositoryId()) this.findingSuppressions.set(response);
+    return response;
+  }
+
+  async ignoreFinding(request: FindingSuppressionMutationRequest): Promise<FindingSuppressionDocument> {
+    const response = await firstValueFrom(this.http.post<FindingSuppressionDocument>(
+      `${this.repositoryApiBase()}/findings/suppressions`, request));
+    this.findingSuppressions.set(response);
+    return response;
+  }
+
+  async unignoreFinding(id: string, expectedRevision: number): Promise<FindingSuppressionDocument> {
+    const response = await firstValueFrom(this.http.delete<FindingSuppressionDocument>(
+      `${this.repositoryApiBase()}/findings/suppressions/${encodeURIComponent(id)}`,
+      { params: { expectedRevision } }));
+    this.findingSuppressions.set(response);
+    return response;
+  }
+
   async loadScopeRules(): Promise<ScopeRulesResponse> {
     const response = await firstValueFrom(this.http.get<ScopeRulesResponse>(`${this.repositoryApiBase()}/scope/rules`));
     this.scopeRules.set(response);
@@ -813,6 +859,11 @@ export class QualityApi {
 
   private async loadRepositoryDetails(repositoryId: string): Promise<void> {
     const base = this.repositoryApiBase(repositoryId);
+    void this.loadFindingSuppressions(repositoryId).catch(error => {
+      if (repositoryId === this.selectedRepositoryId()) {
+        console.warn(JSON.stringify({ event: 'qs.finding-suppressions.unavailable', repositoryId, reason: this.errorMessage(error) }));
+      }
+    });
     try {
       const [scan, inputs, guidelines, risk] = await Promise.all([
         firstValueFrom(this.http.get<ScanReport>(`${base}/scan`)),

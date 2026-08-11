@@ -4,9 +4,9 @@
   "title": "Actionable Review Findings and Quality Evidence",
   "summary": "Decision dossier for an evidence-first Quality Studio finding contract: exact highlighted source spans, typed evidence and reproducibility, requested and executed model attribution, independent human assessment and resolution, a scoped repository-owned ignore policy, immutable terminal run history, and a conservative bridge to the delivered TE-38 per-model review-quality evidence receiver. Recommends five approval-ready slices and keeps observational precision distinct from recall or causal model quality.",
   "entrypoint": "index.html",
-  "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:12Z",
+  "status": "documented",
+  "phase": "implementation",
+  "updatedAt": "2026-08-11T22:06:55Z",
   "sourceTaskKeys": [
     "QS-61"
   ],
@@ -48,7 +48,24 @@
     }
   },
   "relatedTaskKeys": [
-    "QS-70"
+    "QS-70",
+    "QS-84"
   ],
+  "implementationState": {
+    "status": "documented",
+    "updatedOn": "2026-08-12",
+    "cardKey": "QS-84",
+    "baseRevision": "59941d8e93734a4840a63c407597f3925bbbb1d6",
+    "delivered": [
+      "S1 exact highlighted finding spans",
+      "S3 exact-fingerprint persistent ignore list"
+    ],
+    "remaining": [
+      "S2 typed evidence and execution provenance",
+      "S3 independent assessment/resolution and broader scoped suppression preview",
+      "S5 receiver-first Token Economy bridge"
+    ],
+    "evidence": "task:QS-84/results"
+  },
   "editedBy": "Operator, recorded by AGT-2621"
 }

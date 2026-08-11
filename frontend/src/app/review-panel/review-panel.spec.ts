@@ -39,11 +39,17 @@ describe('ReviewPanel session flow', () => {
     scan: signal({ freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 }),
     handoverConfigured: signal(false), handoverDryRun: signal(true), focusedThreadId: signal(null),
     scopeRules: signal({ schema: 'scope.v1', rules: [] }),
+    findingSuppressions: signal({ schemaVersion: 1 as const, revision: 0, rules: [] as any[] }),
+    includeIgnoredFindings: signal(false),
+    isFindingSuppressed: (finding: ReviewFinding) => !!api.findingSuppressions().rules.find(rule => rule.match.fingerprint === finding.fingerprint),
+    suppressionFor: (finding: ReviewFinding) => api.findingSuppressions().rules.find(rule => rule.match.fingerprint === finding.fingerprint) ?? null,
     mutateFindingState: jasmine.createSpy('mutateFindingState'),
     loadFile: jasmine.createSpy('loadFile'), loadTree: jasmine.createSpy('loadTree'),
     loadScopeRules: jasmine.createSpy('loadScopeRules'), previewScopeRule: jasmine.createSpy('previewScopeRule'),
     addScopeRule: jasmine.createSpy('addScopeRule'), updateScopeRule: jasmine.createSpy('updateScopeRule'),
     deleteScopeRule: jasmine.createSpy('deleteScopeRule'),
+    ignoreFinding: jasmine.createSpy('ignoreFinding'), unignoreFinding: jasmine.createSpy('unignoreFinding'),
+    loadFindingSuppressions: jasmine.createSpy('loadFindingSuppressions'),
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
@@ -58,7 +64,8 @@ describe('ReviewPanel session flow', () => {
     file.update(value => ({ ...value, metaDocuments: [meta] }));
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
-      api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
+      api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.ignoreFinding, api.unignoreFinding,
+      api.loadFindingSuppressions, api.createTask, api.pauseReview, api.cancelReview,
       api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
@@ -67,6 +74,23 @@ describe('ReviewPanel session flow', () => {
     api.previewScopeRule.and.resolveTo({ index: -1, action: 'exclude', pattern: 'src/A.cs', reason: 'Ignore path', matchedFiles: ['src/A.cs'], widerPattern: false });
     api.addScopeRule.and.resolveTo(api.scopeRules()); api.updateScopeRule.and.resolveTo(api.scopeRules());
     api.deleteScopeRule.and.resolveTo(api.scopeRules());
+    api.findingSuppressions.set({ schemaVersion: 1, revision: 0, rules: [] });
+    api.includeIgnoredFindings.set(false);
+    api.ignoreFinding.and.callFake(async (request: { fingerprint: string; author: string; reason: string }) => {
+      const document = { schemaVersion: 1 as const, revision: 1, rules: [{
+        id: 'finding-test', enabled: true, effect: 'suppress' as const,
+        match: { fingerprint: request.fingerprint }, author: request.author, reason: request.reason,
+        createdAt: '2026-08-12T00:00:00Z', expiresAt: null,
+      }] };
+      api.findingSuppressions.set(document);
+      return document;
+    });
+    api.unignoreFinding.and.callFake(async () => {
+      const document = { schemaVersion: 1 as const, revision: 2, rules: [] };
+      api.findingSuppressions.set(document);
+      return document;
+    });
+    api.loadFindingSuppressions.and.resolveTo(api.findingSuppressions());
 
     await TestBed.configureTestingModule({
       imports: [ReviewPanel],
@@ -84,7 +108,7 @@ describe('ReviewPanel session flow', () => {
   it('derives visible counts from the filtered queue and filters run history to scope and kind', () => {
     expect(component.visibleFindings().map(finding => finding.id)).toEqual(['high-open', 'medium-accepted']);
     expect(component.scopeRuns().map(run => run.id)).toEqual(['matching']);
-    expect(fixture.nativeElement.querySelector('.findings-heading small').textContent).toContain('2 visible');
+    expect(fixture.nativeElement.querySelector('.findings-heading small').textContent).toContain('2 shown');
 
     component.findingFilter.set('all');
     component.severityFilter.set('critical');
@@ -163,6 +187,26 @@ describe('ReviewPanel session flow', () => {
       pattern: 'src/A.cs', action: 'exclude', confirmExpansion: false,
     }));
     expect(component.scopeStatus()).toContain('future reviews');
+  });
+
+  it('keeps exact ignored findings observable through the ignore list', async () => {
+    component.openIgnoreForm();
+    component.ignoreReason.set('Known generated noise.');
+    await component.ignoreFinding(openFinding);
+
+    expect(api.ignoreFinding).toHaveBeenCalledWith(jasmine.objectContaining({
+      fingerprint: openFinding.fingerprint, reason: 'Known generated noise.', expectedRevision: 0,
+    }));
+    expect(component.visibleFindings().map(finding => finding.id)).not.toContain(openFinding.id);
+
+    api.includeIgnoredFindings.set(true);
+    fixture.detectChanges();
+    expect(component.visibleFindings().map(finding => finding.id)).toContain(openFinding.id);
+    expect(fixture.nativeElement.querySelector('.finding-card.ignored')).not.toBeNull();
+
+    await component.unignoreFinding(openFinding);
+    expect(api.unignoreFinding).toHaveBeenCalledWith('finding-test', 1);
+    expect(component.visibleFindings().map(finding => finding.id)).toContain(openFinding.id);
   });
 
   it('edits an existing scope rule through the repository API', async () => {

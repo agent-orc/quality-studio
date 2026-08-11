@@ -63,7 +63,11 @@
             <div class="project-view-loading">Opening project dashboard…</div>
           }
         } @else {
-          <qs-editor [selectedPath]="selected()" [activeKind]="activeKind()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" [selectedLocationIndex]="selectedLocationIndex()" [viewportHeight]="viewportHeight()" (kindSelect)="selectKind($event)" (findingSelect)="selectFinding($event)" (nodeOpen)="open($event, true, true)" />
+          @defer (when !isProjectView()) {
+            <qs-editor [selectedPath]="selected()" [activeKind]="activeKind()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" [selectedLocationIndex]="selectedLocationIndex()" [viewportHeight]="viewportHeight()" (kindSelect)="selectKind($event)" (findingSelect)="selectFinding($event)" (nodeOpen)="open($event, true, true)" />
+          } @placeholder {
+            <div class="project-view-loading">Opening code evidence…</div>
+          }
         }
       </div>
     </section>

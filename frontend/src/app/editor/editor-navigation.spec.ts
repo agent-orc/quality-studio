@@ -20,6 +20,7 @@ describe('Editor finding navigation', () => {
       sizeBytes: 240, lineEnding: 'lf' as const, encoding: 'utf-8' as const,
     }),
     loading: signal(false), risk: signal({ rows: [], matrix: [] }), focusedThreadId: signal(null),
+    includeIgnoredFindings: signal(false), isFindingSuppressed: () => false,
     mutateThread: jasmine.createSpy('mutateThread'),
   };
   const node = { id: 'a', name: 'A.cs', path: 'src/A.cs', level: 'file', kinds: { code: { direct: 'fresh' } }, children: [] };

@@ -177,7 +177,7 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Implemented for QS-84 scope</span>
       <span><b>Recommendation</b> Approve option C</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-61</span>
@@ -208,6 +208,7 @@
       <li><a href="#models">Per-model review-quality evidence</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#acceptance">Decision guardrails</a></li>
+      <li><a href="#implementation">Implementation state</a></li>
     </ol>
   </nav>
 
@@ -555,7 +556,7 @@
     <p>Each slice has a reviewable boundary and acceptance proof. The sequence avoids a flag day and produces value after S1.</p>
 
     <article class="slice">
-      <header><span class="pill queued">S1 · Quality Studio</span><h3>Exact-span finding highlight on review-meta v2</h3></header>
+      <header><span class="pill done">S1 · Quality Studio</span><h3>Exact-span finding highlight on review-meta v2</h3></header>
       <p><b>Scope:</b> Segment each syntax-token line at finding range boundaries, add selected/overlap state, scroll card selection to the primary anchor, show <code>path:line:column</code> on cards, and keep whole-line treatment secondary.</p>
       <ul>
         <li>Use current <code>ReviewFinding.locations</code>; no backend or schema change.</li>
@@ -577,7 +578,7 @@
     </article>
 
     <article class="slice">
-      <header><span class="pill queued">S3 · Quality Studio</span><h3>Human assessment, resolution, and scoped ignore policy</h3></header>
+      <header><span class="pill part">S3 · Quality Studio</span><h3>Human assessment, resolution, and scoped ignore policy</h3></header>
       <p><b>Scope:</b> Introduce append-only assessment events, an independent resolution projection, and <code>.quality/findings/suppressions.json</code> with exact-first UI and match preview.</p>
       <ul>
         <li>Mutations remain API/service-owned with optimistic concurrency; the browser never edits state files directly.</li>
@@ -629,6 +630,21 @@
         <tr><td><b>Both themes and keyboard paths work</b></td><td>Exact-span, overlap chooser, finding detail, assessment, and suppression preview have automated UI coverage and retained light/dark evidence.</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation state</h2>
+    <p class="dim">Living delivery ledger checked against <code>origin/main</code> and updated on 12 August 2026 for <code>QS-84</code>.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What is built</th></tr></thead>
+      <tbody>
+        <tr><td>2026-08-11</td><td><code>QS-69</code></td><td><b>Wave 1 review session</b></td><td>Landed on <code>origin/main</code> at <code>62ca75f</code>: one scope launcher and governed model/CLI selection, repository scope rules, sticky active-run controls, finding queue navigation and filters, bidirectional code focus, and the Accept/Dismiss/Reopen lifecycle facade. Canonical run reporting (<code>QS-73</code>, <code>8fe2552</code>) and portable evidence export (<code>QS-74</code>, <code>d7404cd</code>) are also present on the integration branch.</td></tr>
+        <tr><td>2026-08-12</td><td><code>QS-84</code></td><td><b>S1 · Exact-span presentation</b></td><td>Built against the existing one-based inclusive <code>ReviewFinding.locations</code> contract. Syntax tokens are segmented at range boundaries without changing source text; selected, overlapping, multi-line, Unicode, and end-of-line spans are keyboard-addressable and expose exact columns. Stale metadata does not claim a current-source span, and the whole-line treatment is now secondary context.</td></tr>
+        <tr><td>2026-08-12</td><td><code>QS-84</code></td><td><b>S3 · Finding-level ignore policy</b></td><td>Built the exact-fingerprint portion of S3 as a revisioned, atomic, API-owned <code>.quality/findings/suppressions.json</code> policy. The Review queue hides active rules by default, reports a separate ignored count, retains them behind the Ignore list, records author/reason/optional expiry, and supports removal. Rules survive store and application restarts and do not delete observations or convert suppression into dismissal.</td></tr>
+      </tbody>
+    </table>
+    <div class="box warn"><h4>Remaining dossier scope</h4><p>QS-84 intentionally closes the two operator-named gaps. Review-meta v3 typed evidence/provenance (S2), independent assessment and resolution events plus broader scoped suppression preview (the remainder of S3), and the receiver-first TE bridge (S5) are not claimed here. The earlier unmerged QS-70 salvage result was inspected as evidence but was not treated as delivered work.</p></div>
+    <p class="source">Retained QS-84 evidence: before/after light and dark finding-path screenshots, exact-span overlap audits, ignore-list reload/removal evidence, frontend component tests, core persistence tests, API integration tests, and full build/test logs are listed in the task result report.</p>
   </section>
 
   <footer>

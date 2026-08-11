@@ -37,6 +37,11 @@ export class ReviewPanel {
   readonly dispositionMode = signal<'accept' | 'dismiss' | 'reopen' | null>(null);
   readonly dismissState = signal<'waived' | 'false-positive'>('waived');
   readonly lastMutation = signal<LastFindingMutation | null>(null);
+  readonly ignoreFormOpen = signal(false);
+  readonly ignoreAuthor = signal('Reviewer');
+  readonly ignoreReason = signal('');
+  readonly ignoreExpiry = signal('');
+  readonly ignoreStatus = signal('');
   readonly scopeManagerOpen = signal(false);
   readonly scopeAction = signal<'include' | 'exclude'>('exclude');
   readonly scopePattern = signal('');
@@ -74,6 +79,8 @@ export class ReviewPanel {
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
+  readonly ignoredFindingCount = computed(() => (this.activeMeta()?.findings ?? [])
+    .filter(finding => this.api.isFindingSuppressed(finding)).length);
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const severity = this.severityFilter();
@@ -84,6 +91,7 @@ export class ReviewPanel {
       return `${location?.path ?? ''}:${String(location?.range?.start.line ?? 0).padStart(9, '0')}`;
     };
     return [...(this.activeMeta()?.findings ?? [])]
+      .filter(finding => this.api.includeIgnoredFindings() || !this.api.isFindingSuppressed(finding))
       .filter(finding => severity === 'all' || finding.severity === severity)
       .filter(finding => {
         if (stateFilter === 'all') return true;
@@ -116,8 +124,64 @@ export class ReviewPanel {
     const location = finding.locations[locationIndex];
     if (!location) return 'Location unavailable';
     if (this.activeState() === 'stale' || !location.range) return `${location.path} · source changed`;
-    const end = location.range.end.line === location.range.start.line ? '' : `-${location.range.end.line}`;
-    return `${location.path}:${location.range.start.line}${end}`;
+    const start = `${location.range.start.line}:${location.range.start.column}`;
+    const end = location.range.end.line === location.range.start.line && location.range.end.column === location.range.start.column
+      ? ''
+      : `-${location.range.end.line}:${location.range.end.column}`;
+    return `${location.path}:${start}${end}`;
+  }
+
+  openIgnoreForm(): void {
+    this.ignoreFormOpen.set(true);
+    this.ignoreReason.set('');
+    this.ignoreExpiry.set('');
+    this.ignoreStatus.set('');
+  }
+
+  async ignoreFinding(finding: ReviewFinding): Promise<void> {
+    const fingerprint = finding.fingerprint;
+    const author = this.ignoreAuthor().trim();
+    const reason = this.ignoreReason().trim();
+    if (!fingerprint) { this.ignoreStatus.set('Finding identity is unavailable.'); return; }
+    if (!author || !reason) { this.ignoreStatus.set('Author and reason are required.'); return; }
+    this.ignoreStatus.set('Saving to the repository ignore list…');
+    try {
+      await this.api.ignoreFinding({
+        fingerprint,
+        author,
+        reason,
+        expiresAt: this.ignoreExpiry() ? new Date(this.ignoreExpiry()).toISOString() : null,
+        expectedRevision: this.api.findingSuppressions().revision,
+      });
+      this.ignoreFormOpen.set(false);
+      this.ignoreReason.set('');
+      this.ignoreExpiry.set('');
+      this.ignoreStatus.set('Finding ignored. The observation remains available in the ignore list.');
+    } catch (error) {
+      if ((error as { status?: number }).status === 409) {
+        await this.api.loadFindingSuppressions();
+        this.ignoreStatus.set('The ignore list changed elsewhere. It was reloaded; review it and try again.');
+      } else {
+        this.ignoreStatus.set(this.api.errorMessage(error));
+      }
+    }
+  }
+
+  async unignoreFinding(finding: ReviewFinding): Promise<void> {
+    const rule = this.api.suppressionFor(finding);
+    if (!rule) return;
+    this.ignoreStatus.set('Removing from the repository ignore list…');
+    try {
+      await this.api.unignoreFinding(rule.id, this.api.findingSuppressions().revision);
+      this.ignoreStatus.set('Finding restored to the review queue.');
+    } catch (error) {
+      if ((error as { status?: number }).status === 409) {
+        await this.api.loadFindingSuppressions();
+        this.ignoreStatus.set('The ignore list changed elsewhere. It was reloaded; review it and try again.');
+      } else {
+        this.ignoreStatus.set(this.api.errorMessage(error));
+      }
+    }
   }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }

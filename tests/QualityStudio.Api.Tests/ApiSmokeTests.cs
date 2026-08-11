@@ -511,6 +511,48 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Finding_ignore_list_persists_exact_rules_and_enforces_revision_concurrency()
+    {
+        var fingerprint = "sha256:" + new string('e', 64);
+        using var client = application!.CreateClient();
+        var before = await client.GetFromJsonAsync<JsonElement>(
+            "/api/findings/suppressions", TestContext.Current.CancellationToken);
+        var revision = before.GetProperty("revision").GetInt64();
+
+        using var ignored = await client.PostAsJsonAsync("/api/findings/suppressions", new
+        {
+            fingerprint,
+            author = "Ada",
+            reason = "Known generated noise.",
+            expiresAt = (DateTimeOffset?)null,
+            expectedRevision = revision,
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, ignored.StatusCode);
+        var ignoredDocument = await ignored.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(revision + 1, ignoredDocument.GetProperty("revision").GetInt64());
+        var rule = Assert.Single(ignoredDocument.GetProperty("rules").EnumerateArray(), item =>
+            item.GetProperty("match").GetProperty("fingerprint").GetString() == fingerprint);
+        var id = rule.GetProperty("id").GetString()!;
+
+        var restartedView = await client.GetFromJsonAsync<JsonElement>(
+            "/api/findings/suppressions", TestContext.Current.CancellationToken);
+        Assert.Contains(restartedView.GetProperty("rules").EnumerateArray(), item =>
+            item.GetProperty("match").GetProperty("fingerprint").GetString() == fingerprint);
+        Assert.True(File.Exists(Path.Combine(repositoryRoot, FindingSuppressionStore.RelativePath)));
+
+        using var conflict = await client.DeleteAsync(
+            $"/api/findings/suppressions/{id}?expectedRevision={revision}", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+
+        using var restored = await client.DeleteAsync(
+            $"/api/findings/suppressions/{id}?expectedRevision={revision + 1}", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+        var restoredDocument = await restored.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(restoredDocument.GetProperty("rules").EnumerateArray(), item =>
+            item.GetProperty("match").GetProperty("fingerprint").GetString() == fingerprint);
+    }
+
+    [Fact]
     public async Task Usage_returns_filtered_ledger_aggregates_and_recent_entries()
     {
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);

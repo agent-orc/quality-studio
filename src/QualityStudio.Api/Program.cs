@@ -119,6 +119,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
         FindingStateConflictException => (StatusCodes.Status409Conflict, "Finding state changed"),
+        FindingSuppressionConflictException => (StatusCodes.Status409Conflict, "Finding ignore list changed"),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected API error"),
     };
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("QualityStudio.Api.Errors");
@@ -324,6 +325,12 @@ app.MapPost("/api/threads", MutateThread);
 app.MapPost("/api/repos/{repoId}/threads", MutateThread);
 app.MapPost("/api/findings/state", MutateFindingState);
 app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
+app.MapGet("/api/findings/suppressions", FindingSuppressions);
+app.MapGet("/api/repos/{repoId}/findings/suppressions", FindingSuppressions);
+app.MapPost("/api/findings/suppressions", AddFindingSuppression);
+app.MapPost("/api/repos/{repoId}/findings/suppressions", AddFindingSuppression);
+app.MapDelete("/api/findings/suppressions/{id}", RemoveFindingSuppression);
+app.MapDelete("/api/repos/{repoId}/findings/suppressions/{id}", RemoveFindingSuppression);
 
 app.Run();
 
@@ -615,6 +622,45 @@ static async Task<IResult> MutateFindingState(HttpContext context, FindingStateM
     logger.LogInformation(new EventId(1501, "FindingStateMutated"),
         "Set finding {FindingFingerprint} to {FindingState} for {FilePath} in repository {RepositoryId} by {Author}; ElapsedMilliseconds={ElapsedMilliseconds}",
         updated.Fingerprint, FindingStateStore.StateName(updated.State), relative, registration.Id, updated.Author, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(updated);
+}
+
+static IResult FindingSuppressions(HttpContext context, RepositoryRegistry registry)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    return Results.Ok(new FindingSuppressionStore(repository.Root).Read());
+}
+
+static IResult AddFindingSuppression(HttpContext context, FindingSuppressionMutationRequest request,
+    RepositoryRegistry registry, ILogger<Program> logger)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var createdAt = DateTimeOffset.UtcNow;
+    var id = $"finding-{Guid.NewGuid():N}";
+    var rule = new FindingSuppressionRule(
+        id,
+        true,
+        new FindingSuppressionMatch(Fingerprint: request.Fingerprint),
+        "suppress",
+        request.Reason,
+        request.Author,
+        createdAt,
+        request.ExpiresAt);
+    var updated = new FindingSuppressionStore(repository.Root).Add(rule, request.ExpectedRevision);
+    logger.LogInformation(new EventId(1502, "FindingIgnored"),
+        "Added finding {FindingFingerprint} to repository {RepositoryId} ignore list at revision {Revision} by {Author}",
+        request.Fingerprint, registration.Id, updated.Revision, request.Author);
+    return Results.Ok(updated);
+}
+
+static IResult RemoveFindingSuppression(HttpContext context, string id, long expectedRevision,
+    RepositoryRegistry registry, ILogger<Program> logger)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var updated = new FindingSuppressionStore(repository.Root).Remove(id, expectedRevision);
+    logger.LogInformation(new EventId(1503, "FindingUnignored"),
+        "Removed ignore rule {SuppressionId} from repository {RepositoryId} at revision {Revision}",
+        id, registration.Id, updated.Revision);
     return Results.Ok(updated);
 }
 
