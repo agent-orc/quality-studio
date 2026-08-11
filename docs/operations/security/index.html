@@ -482,6 +482,7 @@
     <ul>
       <li>CI now installs, builds, and tests the locked frontend graph; gates the production npm graph at high severity; and retains the separate full-tree audit with its query timestamp.</li>
       <li>CI queries NuGet advisories for the solution and out-of-solution code-graph spike, fails through a tested JSON gate, generates a pinned-tool SBOM, and retains the resulting evidence.</li>
+      <li>The generated SBOM is schema-checked for detected dependency packages before retention; an empty manifest now fails the CI gate instead of becoming misleading green evidence.</li>
       <li>The secret gate scans both the current worktree and all Git history. The documented historical unit-key false positive is suppressed by its exact Gitleaks fingerprint.</li>
       <li>Every GitHub Action reference is pinned to an immutable commit, and weekly test-backed Dependabot lanes cover npm, NuGet, and Actions updates.</li>
     </ul>
