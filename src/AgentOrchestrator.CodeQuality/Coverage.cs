@@ -36,9 +36,13 @@ public sealed record CoverageSnapshot(
         if (!File.Exists(path)) return null;
         try
         {
-            return JsonSerializer.Deserialize<CoverageSnapshot>(File.ReadAllText(path), JsonOptions);
+            return JsonSerializer.Deserialize<CoverageSnapshot>(
+                BoundedRepositoryFile.ReadAllText(
+                    repositoryRoot, path, ReviewContentLimits.Default.MaxSidecarBytes),
+                JsonOptions);
         }
-        catch (JsonException)
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException or
+                                           ArgumentException or ReviewContentLimitException)
         {
             return null;
         }
@@ -538,7 +542,7 @@ public sealed class CoverageSensor : IReviewSensor
             }
             var regex = Glob(normalized);
             foreach (var file in Directory.EnumerateFiles(root, "*", new EnumerationOptions
-                     { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
+            { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
             {
                 var relative = System.IO.Path.GetRelativePath(root, file).Replace('\\', '/');
                 if (regex.IsMatch(relative)) results.Add(System.IO.Path.GetFullPath(file));

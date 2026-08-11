@@ -21,32 +21,49 @@ public static class ReviewMetaDiscovery
         int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
     {
         var root = Path.GetFullPath(repositoryPath);
+        var limits = ReviewContentLimits.Default;
         var nodes = Flatten(projects).ToDictionary(node => node.Id, StringComparer.Ordinal);
+        long aggregateBytes = 0;
         foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
-                     .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
+                     .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal))
+                     .Take(limits.MaxSidecarCount))
         {
-            using var json = JsonDocument.Parse(File.ReadAllText(path));
-            var document = json.RootElement;
-            if (!document.TryGetProperty("unit", out var unit) ||
-                !unit.TryGetProperty("id", out var idProperty) ||
-                !document.TryGetProperty("kind", out var kindProperty))
+            try
             {
-                continue;
-            }
+                aggregateBytes = checked(aggregateBytes +
+                    BoundedRepositoryFile.Length(root, path, limits.MaxSidecarBytes));
+                if (aggregateBytes > limits.MaxSidecarAggregateBytes) continue;
+                var content = BoundedRepositoryFile.ReadAllText(root, path, limits.MaxSidecarBytes);
+                _ = ReviewMetaJson.Deserialize(content);
+                using var json = JsonDocument.Parse(content);
+                var document = json.RootElement;
+                if (!document.TryGetProperty("unit", out var unit) ||
+                    !unit.TryGetProperty("id", out var idProperty) ||
+                    !document.TryGetProperty("kind", out var kindProperty))
+                {
+                    continue;
+                }
 
-            var unitId = idProperty.GetString();
-            if (unitId is null || !nodes.TryGetValue(unitId, out var node) ||
-                !Enum.TryParse<ReviewKind>(kindProperty.GetString(), true, out var kind))
+                var unitId = idProperty.GetString();
+                if (unitId is null || !nodes.TryGetValue(unitId, out var node) ||
+                    !Enum.TryParse<ReviewKind>(kindProperty.GetString(), true, out var kind))
+                {
+                    continue;
+                }
+
+                node.Attach(new AttachedReviewMetaDocument(
+                    unitId,
+                    kind,
+                    DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
+                    Path.GetRelativePath(root, path).Replace('\\', '/'),
+                    document.GetRawText()));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or
+                                              ArgumentException or ReviewContentLimitException or InvalidOperationException or
+                                              OverflowException)
             {
-                continue;
+                // Invalid repository-owned sidecars are quarantined by the API index and never enter the hierarchy.
             }
-
-            node.Attach(new AttachedReviewMetaDocument(
-                unitId,
-                kind,
-                DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
-                Path.GetRelativePath(root, path).Replace('\\', '/'),
-                document.GetRawText()));
         }
     }
 
@@ -72,7 +89,7 @@ public static class ReviewMetaDiscovery
                     .DistinctBy(candidate => candidate.Id, StringComparer.Ordinal)
                     .Select(candidate =>
                     {
-                        var contentHash = HashNormalizedText(Path.GetFullPath(candidate.Path, root));
+                        var contentHash = HashNormalizedText(root, Path.GetFullPath(candidate.Path, root));
                         var subjectHash = "sha256:" + ReviewSubjectHasher.ComputeManifestHash(candidate.Id,
                             [new SubjectInputHash(candidate.Path, "file", contentHash)]);
                         return new AggregateMemberHash(candidate.Id, candidate.Path, subjectHash);
@@ -93,7 +110,7 @@ public static class ReviewMetaDiscovery
             }
 
             var expected = input.GetProperty("contentHash").GetString();
-            if (!StringComparer.Ordinal.Equals(expected, HashNormalizedText(path)))
+            if (!StringComparer.Ordinal.Equals(expected, HashNormalizedText(root, path)))
             {
                 return ReviewState.Stale;
             }
@@ -112,9 +129,10 @@ public static class ReviewMetaDiscovery
             : ReviewState.PolicyDrift;
     }
 
-    private static string HashNormalizedText(string path)
+    private static string HashNormalizedText(string root, string path)
     {
-        var text = File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var text = BoundedRepositoryFile.ReadAllText(root, path, ReviewContentLimits.Default.MaxFileBytes)
+            .Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
         return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     }
 

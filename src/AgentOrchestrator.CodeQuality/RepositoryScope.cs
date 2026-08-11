@@ -127,7 +127,11 @@ internal sealed class RepositoryScope
                 rule.SourceKind == RuleSourceKind.GitIgnore && rule.IsMatch(relativeIgnore));
             if (priorGitRule?.Action == ScopeRuleAction.Exclude) continue;
             var basePath = Canonical(Path.GetDirectoryName(relativeIgnore) ?? ".");
-            var lines = File.ReadAllLines(ignoreFile);
+            var lines = BoundedRepositoryFile.ReadAllText(
+                    root, ignoreFile, ReviewContentLimits.Default.MaxFileBytes)
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split('\n');
             for (var index = 0; index < lines.Length; index++)
             {
                 var parsed = ParseGitIgnoreLine(lines[index]);
@@ -169,11 +173,12 @@ internal sealed class RepositoryScope
         var path = Path.Combine(root, ConfigurationPath.Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(path)) return;
 
-        using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions
-        {
-            AllowTrailingCommas = false,
-            CommentHandling = JsonCommentHandling.Disallow,
-        });
+        using var document = JsonDocument.Parse(BoundedRepositoryFile.ReadAllText(
+            root, path, ReviewContentLimits.Default.MaxSidecarBytes), new JsonDocumentOptions
+            {
+                AllowTrailingCommas = false,
+                CommentHandling = JsonCommentHandling.Disallow,
+            });
         if (document.RootElement.ValueKind != JsonValueKind.Object ||
             !document.RootElement.TryGetProperty("rules", out var configuredRules) ||
             configuredRules.ValueKind != JsonValueKind.Array)

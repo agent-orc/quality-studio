@@ -91,9 +91,12 @@ public static partial class RepositoryHierarchyBuilder
         {
             module.AddExclusion(new ScopeExclusion(candidate.Relative, candidate.Decision.Reason!));
         }
-        var files = candidates.Where(candidate => candidate.Decision.Included).Select(candidate => candidate.Path);
+        var files = candidates.Where(candidate => candidate.Decision.Included)
+            .Select(candidate => new SourceFile(candidate.Path, BoundedRepositoryFile.ReadEnumeratedText(
+                root, candidate.Path, ReviewContentLimits.Default.MaxFileBytes)))
+            .ToArray();
 
-        foreach (var group in files.GroupBy(ReadNamespace).OrderBy(group => group.Key, StringComparer.Ordinal))
+        foreach (var group in files.GroupBy(source => ReadNamespace(source.Content)).OrderBy(group => group.Key, StringComparer.Ordinal))
         {
             var ns = new HierarchyNode(
                 Id(ReviewLevel.Namespace, [module.Id, group.Key]),
@@ -102,10 +105,11 @@ public static partial class RepositoryHierarchyBuilder
                 $"{relativeProject}/.namespaces/{Uri.EscapeDataString(group.Key)}");
             module.AddChild(ns);
 
-            foreach (var sourcePath in group)
+            foreach (var source in group)
             {
+                var sourcePath = source.Path;
                 var relativeSource = Relative(root, sourcePath);
-                var sourceContent = File.ReadAllText(sourcePath);
+                var sourceContent = source.Content;
                 var file = new HierarchyNode(
                     Id(ReviewLevel.File, [module.Id, relativeSource]),
                     Path.GetFileName(sourcePath),
@@ -140,14 +144,16 @@ public static partial class RepositoryHierarchyBuilder
     {
         if (Path.GetExtension(solution).Equals(".slnx", StringComparison.OrdinalIgnoreCase))
         {
-            return XDocument.Load(solution).Descendants("Project")
+            return XDocument.Parse(BoundedRepositoryFile.ReadAllText(
+                    root, solution, ReviewContentLimits.Default.MaxFileBytes)).Descendants("Project")
                 .Select(element => element.Attribute("Path")?.Value)
                 .Where(path => !string.IsNullOrWhiteSpace(path))
                 .Select(path => Path.GetFullPath(path!, Path.GetDirectoryName(solution)!))
                 .Where(path => IsContained(root, path));
         }
 
-        return File.ReadLines(solution)
+        return BoundedRepositoryFile.ReadAllText(root, solution, ReviewContentLimits.Default.MaxFileBytes)
+            .Split('\n')
             .Select(line => SlnProjectRegex().Match(line))
             .Where(match => match.Success)
             .Select(match => Path.GetFullPath(match.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar), Path.GetDirectoryName(solution)!))
@@ -164,11 +170,13 @@ public static partial class RepositoryHierarchyBuilder
             .Any(part => part is "bin" or "obj" or ".quality" or ".git");
     }
 
-    private static string ReadNamespace(string path)
+    private static string ReadNamespace(string content)
     {
-        var match = NamespaceRegex().Match(File.ReadAllText(path));
+        var match = NamespaceRegex().Match(content);
         return match.Success ? match.Groups[1].Value : "<global>";
     }
+
+    private sealed record SourceFile(string Path, string Content);
 
     private static string Relative(string root, string path) =>
         Path.GetRelativePath(root, path).Replace('\\', '/');

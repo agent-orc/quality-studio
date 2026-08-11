@@ -500,9 +500,26 @@
       <li>The browser must request a preview and presents the exact title and prompt for explicit confirmation. Delivery requires the matching SHA-256 confirmation hash over the repository, fingerprint, and complete card, so altered or unpreviewed content is rejected.</li>
       <li>Task instructions now come only from the host-owned <code>quality-studio-handover.v2</code> template. Model prose is carried as a labeled base64 JSON data attachment, with source commit, finding fingerprint, review-meta reference, template version, and approving client identity recorded in the card; hostile prompt, HTML, Markdown, bidi, template, and terminal-control fixtures remain data and render as text.</li>
     </ul>
+    <h3>2026-08-11 · QS-68 · S2 delivered</h3>
+    <ul>
+      <li>A versioned <code>ContentLimits</code> contract now bounds individual file bytes, aggregate file count and bytes, rendered prompt bytes and estimated tokens, streamed response bytes, individual and aggregate sidecar bytes/count, finding count, thread count, and individual response/sidecar text fields. Startup rejects unsupported or unsafe limit configurations.</li>
+      <li>The file API, hierarchy parsers, review inputs and hashing, staleness/report/guideline projections, review-thread mutations, canonical handover, and review-sidecar indexing use the shared confined regular-file opener. Size is checked before allocation, reparse traversal is rejected, and a file that grows while being read still trips the byte ceiling.</li>
+      <li>File and aggregate preflight rejects oversized operations with a stable 413 before an agent is launched. Review estimates now retain the largest single-operation token/cost requirement; a run cannot start below it, and queued work is capped before the next operation whenever the remaining budget is smaller than that requirement.</li>
+      <li>Review responses are bounded while CLI deltas stream and again at the parser boundary. Excess findings, thread updates, or text fields are rejected before identity or persistence. Serialized metadata is capped before its atomic move.</li>
+      <li>The metadata index accepts only supported versioned review-meta documents within the configured count/size/structure limits. Invalid or oversized repository-owned sidecars stay unindexed and appear only as bounded, payload-free quarantine diagnostics at <code>/api/review-meta/diagnostics</code>.</li>
+    </ul>
+    <p class="dim"><b>Gate note:</b> S2 is implemented and tested independently, but Gate B remains locked because S1 is still required to place the now-bounded snapshot and result contracts behind a genuine process boundary.</p>
+
+    <h3>2026-08-11 · QS-68 · S5 delivered</h3>
+    <ul>
+      <li>Hosted bearer-hash entries now require a unique key ID, explicit audience, expiry, repository scope, and explicit roles. Authentication keeps fixed-time hash comparison and rejects expired, wrong-audience, revoked, unknown, and malformed credentials.</li>
+      <li>A bounded host-owned JSON revocation source is read on every authenticated request, so revocation is immediate without API restart. Missing, linked, oversized, unreadable, or invalid revocation state fails closed.</li>
+      <li>Every API endpoint carries explicit authorization metadata for one of six roles: read, repository administration, review spending, sensor execution, state mutation, or handover. Missing endpoint policy fails closed, the complete route inventory is tested, and repository scope plus mutation client-ID binding remain additional independent checks.</li>
+      <li>Structured authorization audit events record key ID, action role, repository, decision/reason, and result status. Tests capture the events and prove bearer material is absent.</li>
+    </ul>
     <div class="box warn">
-      <h4>Approved slices not yet delivered by QS-68</h4>
-      <p><b>S1</b> remains pending because a real worker boundary requires a worker runtime, snapshot broker, short-lived model credential path, egress policy, and cross-platform resource enforcement; an in-process substitute would not satisfy the decision. <b>S2 and S5</b> also remain pending at this implementation point. They were not skipped for approval reasons. Gate B and hosted multi-client operation remain locked.</p>
+      <h4>Approved slice not yet delivered by QS-68</h4>
+      <p><b>S1</b> remains pending at this implementation point because a real worker boundary requires a worker runtime, snapshot broker, short-lived model credential path, egress policy, cross-platform resource enforcement, and adversarial canary evidence. A command wrapper without those enforced controls would not satisfy the approved decision. Command-backed analyzers remain disabled by default, untrusted-repository Gate B remains locked, and no worker-isolation claim is made.</p>
     </div>
   </section>
 </main>

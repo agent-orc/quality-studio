@@ -10,15 +10,21 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class StalenessEvaluator
 {
     private readonly InputResolver inputResolver;
+    private readonly ReviewContentLimits limits;
 
-    public StalenessEvaluator(InputResolver? inputResolver = null) => this.inputResolver = inputResolver ?? new InputResolver();
+    public StalenessEvaluator(InputResolver? inputResolver = null, ReviewContentLimits? contentLimits = null)
+    {
+        this.inputResolver = inputResolver ?? new InputResolver();
+        limits = (contentLimits ?? ReviewContentLimits.Default).Validate();
+    }
 
     public async Task<ReviewFreshness> EvaluateReviewAsync(
         string metaPath,
         string currentSubjectHash,
         string currentReviewInputsHash,
         string? requestedModel,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? repositoryRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(metaPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(currentSubjectHash);
@@ -27,9 +33,11 @@ public sealed class StalenessEvaluator
 
         try
         {
-            await using var stream = File.OpenRead(metaPath);
-            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
+            var confinedRoot = Path.GetFullPath(repositoryRoot ?? Path.GetDirectoryName(Path.GetFullPath(metaPath))!);
+            var content = await BoundedRepositoryFile.ReadAllTextAsync(
+                confinedRoot, metaPath, limits.MaxSidecarBytes, cancellationToken).ConfigureAwait(false);
+            _ = ReviewMetaJson.Deserialize(content);
+            using var document = JsonDocument.Parse(content);
             var root = document.RootElement;
             var storedSubjectHash = root.GetProperty("reviewedHash").GetProperty("value").GetString();
             var storedReviewInputsHash = root.GetProperty("reviewInputs").GetProperty("effectiveHash")
@@ -44,7 +52,8 @@ public sealed class StalenessEvaluator
                 modelUnchanged);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException
-                                           or KeyNotFoundException or InvalidOperationException)
+                                           or KeyNotFoundException or InvalidOperationException or ArgumentException or
+                                           ReviewContentLimitException)
         {
             return new(false, false, false);
         }
@@ -128,8 +137,8 @@ public sealed class StalenessEvaluator
                 }
 
                 var absolutePath = ResolveWithinRoot(root, input.Path);
-                var contentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(absolutePath, cancellationToken)
-                    .ConfigureAwait(false);
+                var contentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
+                    absolutePath, cancellationToken, root, limits.MaxFileBytes).ConfigureAwait(false);
                 currentInputs.Add(new SubjectInputHash(input.Path, input.Selector, contentHash));
             }
         }
@@ -142,20 +151,22 @@ public sealed class StalenessEvaluator
         if (!string.Equals(currentHash, metadata.ReviewedHash, StringComparison.Ordinal)) return StalenessState.Stale;
         if (metadata.ReviewInputHash is null) return StalenessState.Fresh;
         var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
-            options.GlobalInputsDirectory, options.InputBudgetCharacters);
+            options.GlobalInputsDirectory, options.InputBudgetCharacters, limits);
         var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh
             : StalenessState.PolicyDrift;
     }
 
-    private static async Task<Dictionary<string, ReviewMetadata>> LoadMetadataAsync(
+    private async Task<Dictionary<string, ReviewMetadata>> LoadMetadataAsync(
         IAsyncEnumerable<string> repositoryFiles,
         string root,
         string reviewKind,
         CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, ReviewMetadata>(StringComparer.Ordinal);
+        var sidecarCount = 0;
+        long sidecarBytes = 0;
         await foreach (var relativePath in repositoryFiles)
         {
             if (!IsMetaPath(relativePath))
@@ -166,9 +177,16 @@ public sealed class StalenessEvaluator
             ReviewMetadata? metadata;
             try
             {
-                await using var stream = File.OpenRead(ResolveWithinRoot(root, relativePath));
-                using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
+                sidecarCount++;
+                if (sidecarCount > limits.MaxSidecarCount) continue;
+                var absolutePath = ResolveWithinRoot(root, relativePath);
+                var length = BoundedRepositoryFile.Length(root, absolutePath, limits.MaxSidecarBytes);
+                sidecarBytes = checked(sidecarBytes + length);
+                if (sidecarBytes > limits.MaxSidecarAggregateBytes) continue;
+                var content = await BoundedRepositoryFile.ReadAllTextAsync(
+                    root, absolutePath, limits.MaxSidecarBytes, cancellationToken).ConfigureAwait(false);
+                _ = ReviewMetaJson.Deserialize(content);
+                using var document = JsonDocument.Parse(content);
                 var json = document.RootElement;
                 var kind = json.GetProperty("kind").GetString();
                 if (!string.Equals(kind, reviewKind, StringComparison.Ordinal))
@@ -204,9 +222,12 @@ public sealed class StalenessEvaluator
                     level,
                     reviewInputHash);
             }
-            catch (Exception exception) when (exception is IOException or JsonException or KeyNotFoundException or InvalidOperationException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or
+                                               KeyNotFoundException or InvalidOperationException or ArgumentException or
+                                               ReviewContentLimitException or OverflowException)
             {
-                throw new StalenessScanException($"Cannot read review metadata '{relativePath}'.", exception);
+                // Invalid and oversized repository-owned sidecars are quarantined by omission.
+                continue;
             }
 
             if (!result.TryAdd(metadata.SubjectPath, metadata))

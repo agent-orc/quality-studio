@@ -118,9 +118,13 @@ public sealed class QualityReportBuilder
     private static readonly string[] SeverityNames = ["critical", "high", "medium", "low", "info"];
     private static readonly string[] StateNames = ["open", "accepted", "waived", "false-positive", "resolved"];
     private readonly Func<DateTimeOffset> clock;
+    private readonly ReviewContentLimits limits;
 
-    public QualityReportBuilder(Func<DateTimeOffset>? clock = null) =>
+    public QualityReportBuilder(Func<DateTimeOffset>? clock = null, ReviewContentLimits? contentLimits = null)
+    {
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+        limits = (contentLimits ?? ReviewContentLimits.Default).Validate();
+    }
 
     public async Task<QualityReportDocument> BuildAsync(
         IReadOnlyList<QualityReportRepository> repositories,
@@ -132,7 +136,7 @@ public sealed class QualityReportBuilder
         var reports = new List<RepositoryQualityReport>(repositories.Count);
         foreach (var repository in repositories)
         {
-            reports.Add(await BuildRepositoryAsync(repository, cancellationToken).ConfigureAwait(false));
+            reports.Add(await BuildRepositoryAsync(repository, limits, cancellationToken).ConfigureAwait(false));
         }
 
         var ranked = reports
@@ -153,6 +157,7 @@ public sealed class QualityReportBuilder
 
     private static async Task<RepositoryQualityReport> BuildRepositoryAsync(
         QualityReportRepository repository,
+        ReviewContentLimits limits,
         CancellationToken cancellationToken)
     {
         var root = Path.GetFullPath(repository.Root);
@@ -167,7 +172,7 @@ public sealed class QualityReportBuilder
         try
         {
             var states = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
-            var observations = LoadCurrentObservations(root, repository.Id, states);
+            var observations = LoadCurrentObservations(root, repository.Id, states, limits);
             var kindScores = BuildKindScores(kinds, observations);
             var scoredKinds = kindScores.Where(kind => kind.Score.HasValue).Select(kind => kind.Score!.Value).ToArray();
             var score = scoredKinds.Length == 0
@@ -221,27 +226,49 @@ public sealed class QualityReportBuilder
     private static IReadOnlyList<Observation> LoadCurrentObservations(
         string root,
         string repositoryId,
-        IReadOnlyDictionary<string, FindingStateRecord> states)
+        IReadOnlyDictionary<string, FindingStateRecord> states,
+        ReviewContentLimits limits)
     {
         var result = new List<Observation>();
-        foreach (var path in EnumerateSidecars(root))
+        long aggregateBytes = 0;
+        foreach (var path in EnumerateSidecars(root).Take(limits.MaxSidecarCount))
         {
             JsonObject metadata;
             try
             {
-                metadata = JsonNode.Parse(File.ReadAllText(path))?.AsObject()
+                var length = BoundedRepositoryFile.Length(root, path, limits.MaxSidecarBytes);
+                aggregateBytes = checked(aggregateBytes + length);
+                if (aggregateBytes > limits.MaxSidecarAggregateBytes) continue;
+                var content = BoundedRepositoryFile.ReadAllText(root, path, limits.MaxSidecarBytes);
+                var contract = ReviewMetaJson.Deserialize(content);
+                if (contract.Findings.Count > limits.MaxFindings || contract.Threads.Count > limits.MaxThreads)
+                    continue;
+                metadata = JsonNode.Parse(content)?.AsObject()
                     ?? throw new JsonException("Review metadata must be an object.");
+                ValidateTextFields(metadata, limits.MaxTextFieldCharacters);
             }
-            catch (JsonException exception)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or
+                                               ArgumentException or InvalidOperationException or
+                                               ReviewContentLimitException or OverflowException)
             {
-                throw new QualityReportException(
-                    $"Cannot read review metadata '{Path.GetRelativePath(root, path)}'.", exception);
+                // The metadata index exposes a bounded diagnostic; reports omit quarantined payloads.
+                continue;
             }
 
             var projected = FindingStateProjection.Apply(metadata, states);
             if (ParseObservation(projected, repositoryId) is { } observation) result.Add(observation);
         }
         return result;
+    }
+
+    private static void ValidateTextFields(JsonNode node, int maximumCharacters)
+    {
+        if (node is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > maximumCharacters)
+            throw new ReviewContentLimitException($"Review metadata text exceeds {maximumCharacters} characters.");
+        if (node is JsonObject objectValue)
+            foreach (var child in objectValue) if (child.Value is not null) ValidateTextFields(child.Value, maximumCharacters);
+        if (node is JsonArray arrayValue)
+            foreach (var child in arrayValue) if (child is not null) ValidateTextFields(child, maximumCharacters);
     }
 
     private static IEnumerable<string> EnumerateSidecars(string root)
