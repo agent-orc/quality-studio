@@ -1102,7 +1102,7 @@ public sealed class ReviewJobService : BackgroundService
         {
             lock (gate)
             {
-                if (ReviewHistoryStore.IsCommittable(state)) CommitTerminal();
+                if (ReviewHistoryStore.IsCommittable(state) && FinishedAt is not null) CommitTerminal();
             }
         }
 
