@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { formatDateTime } from '../format';
+import { primaryFindingLocationLabel } from '../editor/finding-segments';
 import { FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
@@ -13,6 +14,7 @@ import { ReviewActions } from '../review-actions/review-actions';
 })
 export class ReviewPanel {
   readonly api = inject(QualityApi);
+  readonly findingDetail = viewChild<ElementRef<HTMLElement>>('findingDetail');
   readonly activeKind = input.required<ReviewKind>();
   readonly selectedPath = input.required<string>();
   readonly selectedNode = input<FlatNode | undefined>();
@@ -37,6 +39,17 @@ export class ReviewPanel {
     this.threadFilter() === 'detached' ? thread.anchorState === 'detached' : thread.status === this.threadFilter() && thread.anchorState !== 'detached'));
   readonly deterministicFindingCount = computed(() => (this.activeMeta()?.deterministicEvidence ?? [])
     .reduce((count, result) => count + result.findings.length, 0));
+
+  constructor() {
+    effect(() => {
+      const finding = this.selectedFinding();
+      const detail = this.findingDetail()?.nativeElement;
+      if (!finding || !detail) return;
+      queueMicrotask(() => {
+        if (this.selectedFinding()?.id === finding.id && this.findingDetail()?.nativeElement === detail) detail.focus();
+      });
+    });
+  }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }
 
@@ -96,6 +109,8 @@ export class ReviewPanel {
   findingCount(state: 'open' | 'accepted' | 'waived' | 'falsePositive' | 'resolved'): number {
     return this.activeMeta()?.findingCounts?.[state] ?? 0;
   }
+
+  findingLocation(finding: ReviewFinding): string { return primaryFindingLocationLabel(finding); }
 
   scannedAt(value: string): string { return formatDateTime(value); }
 

@@ -631,6 +631,24 @@
     </table>
   </section>
 
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <article class="slice">
+      <header><span class="pill done">Delivered</span><h3>S1 · Exact-span finding highlight on review-meta v2</h3></header>
+      <p><b>Date:</b> <time datetime="2026-08-11">11 August 2026</time> · <b>Card:</b> QS-70</p>
+      <ul>
+        <li>Syntax-token lines now split at one-based inclusive finding boundaries while retaining syntax classes. Single-line, multi-line, UTF-16 Unicode, end-of-line, and overlapping ranges have pure segmentation coverage.</li>
+        <li>Finding cards show <code>path:line:column</code>. Selecting a card scrolls the virtualized editor to its primary v2 location, marks the exact selected columns, exposes the range and selection in the accessible name, and focuses the detail.</li>
+        <li>Overlapping exact spans expose a keyboard-operable chooser. Whole-line tint remains secondary, and all new span/overlap treatments use central theme-aware semantic tokens.</li>
+        <li>Angular component coverage proves deep virtualized selection and overlap keyboard interaction. The retained light/dark browser evidence and geometry audit are <code>qs-70-s1-light.png</code>, <code>qs-70-s1-dark.png</code>, and <code>qs-70-s1-exact-span-audit.json</code> in the QS-70 result bundle.</li>
+      </ul>
+    </article>
+    <div class="box warn">
+      <h4>Delivery boundary</h4>
+      <p>S2 through S4 remain separate ordered Quality Studio implementation cards and are not folded into QS-70. S5 remains dependency-gated: the dossier requires the Token Economy TE-38 v2 receiver to land before the Quality Studio exporter.</p>
+    </div>
+  </section>
+
   <footer>
     Decision dossier for QS-61. Repository claims were checked against Quality Studio commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. TE-38 claims were checked against Token Economy commit <code>2b368472cd1af0a5e5385a87f2da718c778191d5</code>, its committed aggregate, schema, generated model view, and retained integration report.
   </footer>

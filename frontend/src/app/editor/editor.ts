@@ -4,6 +4,7 @@ import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
+import { FindingLineMatch, FindingTokenSegment, segmentFindingLine } from './finding-segments';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
@@ -14,7 +15,7 @@ type FolderSortColumn = 'name' | ReviewKind | 'coverage' | 'state' | 'findings' 
 type RiskSortColumn = 'path' | 'grade' | 'coverage' | 'changes' | 'risk';
 type SortDirection = 'asc' | 'desc';
 type CodeLayoutRow =
-  | { key: string; kind: 'code'; top: number; height: number; text: string; number: number; findings: ReviewFinding[] }
+  | { key: string; kind: 'code'; top: number; height: number; text: string; number: number; findings: ReviewFinding[]; segments: FindingTokenSegment[] }
   | { key: string; kind: 'thread'; top: number; height: number; thread: ReviewThread; line: number; expanded: boolean }
   | { key: string; kind: 'composer'; top: number; height: number; line: number };
 
@@ -30,6 +31,7 @@ export class Editor {
   private readonly syntaxHighlighting = inject(SyntaxHighlighting);
   readonly selectedPath = input.required<string>();
   readonly activeKind = input.required<ReviewKind>();
+  readonly selectedFinding = input<ReviewFinding | null>(null);
   readonly selectedNode = input<FlatNode | undefined>();
   readonly viewportHeight = input.required<number>();
   readonly kindSelect = output<ReviewKind>();
@@ -45,6 +47,7 @@ export class Editor {
   readonly riskSort = signal<{ column: RiskSortColumn; direction: SortDirection }>({ column: 'risk', direction: 'desc' });
   readonly expandedThreads = signal<Record<string, boolean>>({});
   readonly composingLine = signal<number | null>(null);
+  readonly overlapChooser = signal<string | null>(null);
   readonly drafts = signal<Record<string, string>>({});
   readonly syntaxState = signal<'plain' | 'loading' | 'ready' | 'error' | 'large'>('plain');
   private readonly syntaxCache = signal<{ path: string; lines: Array<TokenLine | undefined> }>({ path: '', lines: [] });
@@ -56,11 +59,12 @@ export class Editor {
   readonly availableMeta = computed(() => this.api.file()?.metaDocuments ?? []);
   readonly activeState = computed(() => this.selectedNode()?.kinds[this.activeKind()]?.direct ?? 'missing');
   readonly findingsByLine = computed(() => {
-    const map = new Map<number, ReviewFinding[]>();
+    const map = new Map<number, FindingLineMatch[]>();
     const path = this.api.file()?.path;
     for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
       if (location.path !== path || !location.range) continue;
-      for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), finding]);
+      const match = { finding, range: location.range } satisfies FindingLineMatch;
+      for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), match]);
     }
     return map;
   });
@@ -81,7 +85,10 @@ export class Editor {
     let top = 0;
     this.codeLines().forEach((text, index) => {
       const number = index + 1;
-      rows.push({ key: `line:${number}`, kind: 'code', text, number, top, height: this.lineHeight, findings: markers.get(number) ?? [] });
+      const matches = markers.get(number) ?? [];
+      const findings = [...new Map(matches.map(match => [match.finding.fingerprint ?? match.finding.id, match.finding])).values()];
+      const segments = segmentFindingLine(this.tokensForLine(number, text), text, number, matches, this.selectedFinding()?.id ?? null);
+      rows.push({ key: `line:${number}`, kind: 'code', text, number, top, height: this.lineHeight, findings, segments });
       top += this.lineHeight;
       for (const thread of threads.get(number) ?? []) {
         const expanded = !!this.expandedThreads()[thread.id];
@@ -205,6 +212,17 @@ export class Editor {
         if (row) this.codeScrollTop.set(Math.max(0, row.top - 80));
       });
     });
+    effect(() => {
+      const finding = this.selectedFinding();
+      const path = this.api.file()?.path;
+      this.overlapChooser.set(null);
+      const location = finding?.locations.find(candidate => candidate.path === path && candidate.range)?.range;
+      if (!location) return;
+      queueMicrotask(() => {
+        const row = this.layoutRows().find(candidate => candidate.kind === 'code' && candidate.number === location.start.line);
+        if (row) this.codeScrollTop.set(Math.max(0, row.top - this.lineHeight * 4));
+      });
+    });
   }
 
   selectKind(kind: ReviewKind): void { this.kindSelect.emit(kind); }
@@ -221,6 +239,33 @@ export class Editor {
 
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
 
+  segmentKey(line: number, segment: FindingTokenSegment): string {
+    return `${line}:${segment.startColumn}:${segment.endColumn}:${segment.findings.map(finding => finding.fingerprint ?? finding.id).join(',')}`;
+  }
+
+  segmentLabel(line: number, segment: FindingTokenSegment): string {
+    const location = `${this.api.file()?.path ?? this.selectedPath()}:${line}:${segment.startColumn}-${segment.endColumn}`;
+    const findings = segment.findings.map(finding => `${finding.severity} ${finding.title}`).join('; ');
+    const overlap = segment.overlap ? `; ${segment.findings.length} overlapping findings; activate to choose` : '';
+    const selected = segment.selected ? '; selected' : '';
+    return `${findings}; ${location}${overlap}${selected}`;
+  }
+
+  activateSegment(line: number, segment: FindingTokenSegment): void {
+    if (segment.overlap) {
+      const key = this.segmentKey(line, segment);
+      this.overlapChooser.set(this.overlapChooser() === key ? null : key);
+      return;
+    }
+    const finding = segment.findings[0];
+    if (finding) this.findingSelect.emit(finding);
+  }
+
+  selectOverlap(finding: ReviewFinding): void {
+    this.overlapChooser.set(null);
+    this.findingSelect.emit(finding);
+  }
+
   toggleThread(thread: ReviewThread): void {
     this.expandedThreads.update(value => ({ ...value, [thread.id]: !value[thread.id] }));
     this.api.focusedThreadId.set(thread.id);
@@ -236,7 +281,7 @@ export class Editor {
     const body = this.drafts()[`line:${line}`]?.trim();
     const file = this.api.file();
     if (!body || !file) return;
-    const finding = this.findingsByLine().get(line)?.[0];
+    const finding = this.findingsByLine().get(line)?.[0]?.finding;
     const created = await this.api.mutateThread({ path: file.path, kind: this.activeKind(), line, body, findingFingerprint: finding?.fingerprint, humanName: 'Reviewer' });
     this.composingLine.set(null); this.setDraft(`line:${line}`, ''); this.api.focusedThreadId.set(created.id);
   }
