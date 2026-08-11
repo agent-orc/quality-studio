@@ -12,6 +12,7 @@ namespace AgentOrchestrator.CodeQuality;
 public static partial class FindingIdentity
 {
     public const string Canonicalization = "quality-studio-finding-v1";
+    public const string OccurrenceCanonicalization = "quality-studio-occurrence-v2";
 
     public static IReadOnlyList<FindingIdentityRecord> Assign(
         JsonObject response,
@@ -66,6 +67,14 @@ public static partial class FindingIdentity
         var canonical = $"{Canonicalization}\0{NormalizePath(path)}\0{normalizedSnippet}\0{ruleId.Trim()}";
         return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
+
+    public static string OccurrenceFingerprint(string legacyFingerprint) =>
+        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{OccurrenceCanonicalization}\0{legacyFingerprint}")));
+
+    public static string IssueId(string occurrenceFingerprint) =>
+        "issue-sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"quality-studio-issue-v1\0{occurrenceFingerprint}")));
 
     public static string NormalizeSnippet(string snippet) =>
         Whitespace().Replace(NormalizeLineEndings(snippet).Trim(), " ");

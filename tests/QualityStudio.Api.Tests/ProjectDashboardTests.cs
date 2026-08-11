@@ -1,4 +1,5 @@
 using AgentOrchestrator.CodeQuality;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -113,6 +114,50 @@ public sealed class ProjectDashboardTests
             Directory.Delete(root, true);
         }
     }
+
+    [Fact]
+    public async Task ObservationReadDashboardExposesPerModelRecords()
+    {
+        var root = TemporaryRepository();
+        try
+        {
+            await QualityObservationLedger.AppendAsync(root, Observation("a", "model-a"),
+                TestContext.Current.CancellationToken);
+            await QualityObservationLedger.AppendAsync(root, Observation("b", "model-b"),
+                TestContext.Current.CancellationToken);
+            var snapshot = new RepositoryHierarchyCache().Get(root);
+            var service = new ProjectDashboardService(Options.Create(new QualityTaxonomyOptions
+            {
+                ObservationReadEnabled = true,
+            }));
+
+            var dashboard = service.Get(root, snapshot);
+
+            Assert.Equal(["model-a", "model-b"], dashboard.ModelRecords.Select(item => item.EffectiveModel));
+            Assert.All(dashboard.ModelRecords, item => Assert.Equal("controlled", item.Comparability));
+            Assert.Empty(dashboard.UnknownAspects);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    private static QualityObservationDocument Observation(string id, string model) => new()
+    {
+        ObservationId = id,
+        ObservedAt = new DateTimeOffset(2026, 8, 11, 8, id == "a" ? 0 : 1, 0, TimeSpan.Zero),
+        Taxonomy = QualityTaxonomyCatalogue.CoreReference,
+        Subject = new QualityObservationSubject("unit:project", "sha256:subject", "project"),
+        Profile = new QualityObservationProfile("project-code-review", "1.0.0", "sha256:prompt", "sha256:inputs"),
+        Producer = new QualityObservationProducer(
+            "agent", "codex", "openai", model, model, "high", "route-v1", id, id),
+        EvidenceStatus = "available",
+        Aspects = [new QualityObservationAspect(
+            "code.architecture", "pass", "Architecture is sound.",
+            Grade: new QualityObservationGrade(90, "A"))],
+        Assessment = "pass",
+    };
 
     private static string TemporaryRepository()
     {
