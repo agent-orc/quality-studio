@@ -22,6 +22,7 @@ public sealed class ReviewPromptBuilderTests
         Assert.Contains("class Thing { }", prompt, StringComparison.Ordinal);
         Assert.Contains("Strict output format", prompt, StringComparison.Ordinal);
         Assert.Contains("ruleId", prompt, StringComparison.Ordinal);
+        Assert.Contains("Never reproduce credentials or secret values", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("{{", prompt, StringComparison.Ordinal);
     }
 
@@ -749,6 +750,24 @@ public sealed class ReviewRunnerTests
             Assert.Equal(321, Assert.Single(recorded).Tokens.InputTokens);
             Assert.Equal("failed-run", Assert.Single((await UsageLedger.QueryAsync(root,
                 cancellationToken: TestContext.Current.CancellationToken)).Recent).RunId);
+        });
+    }
+
+    [Fact]
+    public async Task ReviewAsync_RedactsModelAuthoredCredentialsBeforeMetadataPersistence()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            const string seededCredential = "AKIAIOSFODNN7EXAMPLE";
+            var response = ReviewResponseParserTests.ValidResponse.Replace(
+                "Looks sound.", $"Leaked credential {seededCredential}.", StringComparison.Ordinal);
+
+            var result = await new ReviewRunner(new FakeAgent(response)).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), TestContext.Current.CancellationToken);
+
+            var persisted = await File.ReadAllTextAsync(result.MetaPath, TestContext.Current.CancellationToken);
+            Assert.DoesNotContain(seededCredential, persisted, StringComparison.Ordinal);
+            Assert.Contains("[REDACTED CREDENTIAL]", persisted, StringComparison.Ordinal);
         });
     }
 
