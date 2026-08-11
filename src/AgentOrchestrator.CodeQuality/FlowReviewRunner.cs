@@ -103,6 +103,11 @@ public sealed class FlowReviewRunner
 
         if (!request.PersistMetadata) return new FlowReviewResult(null, report);
         await SaveAsync(reportPath, report, cancellationToken).ConfigureAwait(false);
+        await QualityObservationLedger.AppendAsync(
+            prepared.Root,
+            QualityDomainObservationAdapters.FromFlow(
+                report, Path.GetRelativePath(prepared.Root, reportPath).Replace('\\', '/')),
+            CancellationToken.None).ConfigureAwait(false);
         return new FlowReviewResult(reportPath, report);
     }
 
