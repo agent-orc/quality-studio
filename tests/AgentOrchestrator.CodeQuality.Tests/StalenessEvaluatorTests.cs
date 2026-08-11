@@ -92,7 +92,8 @@ public sealed class StalenessEvaluatorTests
         var metaPath = await fixture.WriteMetaAsync("src/stable.cs", "class Stable {}\n");
         var root = JsonNode.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken))!.AsObject();
         var resolved = new InputResolver().Resolve(fixture.Root, "code", ReviewLevel.File);
-        root["reviewInputs"] = new JsonObject { ["effectiveHash"] = new JsonObject { ["value"] = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash("code")) } };
+        root["reviewInputs"]!["effectiveHash"]!["value"] =
+            resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash("code"));
         await File.WriteAllTextAsync(metaPath, root.ToJsonString(), cancellationToken);
         var reviewedHash = root["reviewedHash"]!["value"]!.GetValue<string>();
         await fixture.WriteSourceAsync(".quality/inputs/style.md", "---\nid: stable-style\nenabled: true\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nAfter.\n");
@@ -133,12 +134,11 @@ public sealed class StalenessEvaluatorTests
         try
         {
             var metaPath = Path.Combine(directory.FullName, "review-meta.json");
-            await File.WriteAllTextAsync(metaPath, JsonSerializer.Serialize(new
-            {
-                reviewedHash = new { value = storedSubject },
-                reviewInputs = new { effectiveHash = new { value = storedInputs } },
-                reviewer = new { model = storedModel },
-            }), TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(metaPath,
+                ReviewMetaJson.Serialize(CreateMetadata(
+                    "qs-v1/dotnet/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "Sample.cs", storedSubject, [], storedInputs, storedModel)),
+                TestContext.Current.CancellationToken);
 
             var result = await new StalenessEvaluator().EvaluateReviewAsync(
                 metaPath,
@@ -157,6 +157,30 @@ public sealed class StalenessEvaluatorTests
             directory.Delete(true);
         }
     }
+
+    private static ReviewMetaDocument CreateMetadata(
+        string unitId,
+        string subjectPath,
+        string reviewedHash,
+        IReadOnlyList<SubjectInputHash> subjectInputs,
+        string reviewInputHash = "inputs-current",
+        string model = "model-current") => new()
+        {
+            Unit = new ReviewUnit(unitId, ReviewAdapter.Dotnet, ReviewLevel.File, subjectPath,
+            Path.GetFileName(subjectPath)),
+            ReviewedAt = new DateTimeOffset(2026, 8, 11, 9, 0, 0, TimeSpan.Zero),
+            Kind = ReviewKind.Code,
+            Reviewer = new ReviewerIdentity("test-agent", model),
+            ReviewedHash = ManifestHash.Subject(reviewedHash),
+            SubjectInputs = subjectInputs,
+            ReviewInputs = new ReviewInputs(
+            ManifestHash.ReviewInput(reviewInputHash), true, [], [],
+            new PromptReference("file-code-review", "1.0.0", "sha256:prompt")),
+            Grade = new ReviewGrade(100, GradeBand.A, "Fixture."),
+            Summary = "Fixture.",
+            Aspects = [],
+            Findings = [],
+        };
 
     private sealed class RepositoryFixture : IDisposable
     {
@@ -194,15 +218,11 @@ public sealed class StalenessEvaluatorTests
             var directory = Path.Combine(Path.GetDirectoryName(contentPath)!, ".quality", "reviews", "files");
             Directory.CreateDirectory(directory);
             var metaPath = Path.Combine(directory, $"file.{key}.review-meta.code.json");
-            var document = new
-            {
-                schemaVersion = 1,
-                unit = new { id = unitId, level = "file", path = subjectPath },
-                kind = "code",
-                reviewedHash = new { algorithm = "sha256", value = reviewedHash },
-                subjectInputs = new[] { new { path = subjectPath, selector = "file", contentHash } },
-            };
-            await File.WriteAllTextAsync(metaPath, JsonSerializer.Serialize(document));
+            var effectiveInputs = new InputResolver().Resolve(Root, "code", ReviewLevel.File)
+                .EffectiveHash(ReviewPromptBuilder.TemplateHash("code"));
+            var document = CreateMetadata(unitId, subjectPath, reviewedHash,
+                [new SubjectInputHash(subjectPath, "file", contentHash)], effectiveInputs);
+            await File.WriteAllTextAsync(metaPath, ReviewMetaJson.Serialize(document));
             return metaPath;
         }
 

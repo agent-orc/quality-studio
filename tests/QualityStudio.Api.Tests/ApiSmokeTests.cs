@@ -113,8 +113,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium",
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
@@ -128,15 +131,22 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var rejected = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium",
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
 
         using var accepted = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium", confirmBelowFloor = true,
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
+            confirmBelowFloor = true,
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
         var run = await accepted.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -164,7 +174,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var previewResponse = await client.PostAsJsonAsync("/api/scope/rules/preview", new
         {
-            action = "exclude", pattern = "*.cs", reason = "Reviewed by the generated-code pipeline.",
+            action = "exclude",
+            pattern = "*.cs",
+            reason = "Reviewed by the generated-code pipeline.",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
         var preview = await previewResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -173,7 +185,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var createdResponse = await client.PostAsJsonAsync("/api/scope/rules", new
         {
-            action = "exclude", pattern = "Sample.cs", reason = "Ignore this exact path in future reviews.",
+            action = "exclude",
+            pattern = "Sample.cs",
+            reason = "Ignore this exact path in future reviews.",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
         var created = await createdResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -188,7 +202,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var updatedResponse = await client.PutAsJsonAsync("/api/scope/rules/0", new
         {
-            action = "include", pattern = "Sample.cs",
+            action = "include",
+            pattern = "Sample.cs",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, updatedResponse.StatusCode);
         var updated = await updatedResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -282,7 +297,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         };
         using var forged = await client.PostAsJsonAsync("/api/handover", new
         {
-            request.filePath, request.reviewKind, request.findingFingerprint,
+            request.filePath,
+            request.reviewKind,
+            request.findingFingerprint,
             confirmationHash = "sha256:" + new string('0', 64),
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Conflict, forged.StatusCode);
@@ -295,7 +312,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             StringComparison.Ordinal);
         using var response = await client.PostAsJsonAsync("/api/handover", new
         {
-            request.filePath, request.reviewKind, request.findingFingerprint,
+            request.filePath,
+            request.reviewKind,
+            request.findingFingerprint,
             confirmationHash = preview.GetProperty("confirmationHash").GetString(),
         }, TestContext.Current.CancellationToken);
 
@@ -331,8 +350,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/guidelines", new
         {
-            id = "ui-created-rule", enabled = true, priority = 90,
-            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Prefer immutable values.",
+            id = "ui-created-rule",
+            enabled = true,
+            priority = 90,
+            kinds = new[] { "code" },
+            levels = new[] { "file" },
+            content = "Prefer immutable values.",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -481,6 +504,43 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task File_api_rejects_oversized_repository_content_before_allocation()
+    {
+        var path = Path.Combine(repositoryRoot, "oversized.txt");
+        await File.WriteAllTextAsync(path, new string('x', 1024 * 1024 + 1),
+            TestContext.Current.CancellationToken);
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync("/api/file?path=oversized.txt",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.DoesNotContain(new string('x', 100),
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Invalid_review_sidecars_are_quarantined_with_bounded_diagnostics()
+    {
+        var directory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "invalid.review-meta.code.json");
+        await File.WriteAllTextAsync(path,
+            "{\"unit\":{\"path\":\"Sample.cs\"},\"kind\":\"code\",\"payload\":\"untrusted\"}",
+            TestContext.Current.CancellationToken);
+        using var client = application!.CreateClient();
+
+        var diagnostics = await client.GetFromJsonAsync<JsonElement>("/api/review-meta/diagnostics",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, diagnostics.GetProperty("schemaVersion").GetInt32());
+        var diagnostic = Assert.Single(diagnostics.GetProperty("diagnostics").EnumerateArray(), item =>
+            item.GetProperty("path").GetString()!.EndsWith("invalid.review-meta.code.json", StringComparison.Ordinal));
+        Assert.Contains("quarantined", diagnostic.GetProperty("reason").GetString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("untrusted", diagnostic.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Finding_state_action_projects_state_and_rejects_a_conflicting_write()
     {
         var fingerprint = "sha256:" + new string('d', 64);
@@ -488,28 +548,30 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
         Directory.CreateDirectory(metadataDirectory);
         var metadataPath = Path.Combine(metadataDirectory, "file.test.review-meta.code.json");
-        var metadata = new JsonObject
+        var contentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
+            Path.Combine(repositoryRoot, "Sample.cs"), TestContext.Current.CancellationToken);
+        const string unitId = "qs-v1/generic/file/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        var subjectInputs = new[] { new SubjectInputHash("Sample.cs", "file", contentHash) };
+        var metadata = new ReviewMetaDocument
         {
-            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
-            ["reviewedAt"] = "2026-07-22T09:00:00.000Z",
-            ["kind"] = "code",
-            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
-            ["grade"] = new JsonObject { ["score"] = 60, ["band"] = "D", ["rationale"] = "One finding." },
-            ["summary"] = "One finding.",
-            ["findings"] = new JsonArray(new JsonObject
-            {
-                ["id"] = findingId,
-                ["fingerprint"] = fingerprint,
-                ["ruleId"] = "correctness.test",
-                ["aspect"] = "correctness",
-                ["severity"] = "high",
-                ["title"] = "Test finding",
-                ["description"] = "A finding used by the API test.",
-                ["recommendation"] = "Review it.",
-                ["locations"] = new JsonArray(new JsonObject { ["path"] = "Sample.cs" }),
-            }),
+            Unit = new ReviewUnit(unitId, ReviewAdapter.Generic, ReviewLevel.File, "Sample.cs", "Sample.cs"),
+            ReviewedAt = new DateTimeOffset(2026, 7, 22, 9, 0, 0, TimeSpan.Zero),
+            Kind = ReviewKind.Code,
+            Reviewer = new ReviewerIdentity("test", "test"),
+            ReviewedHash = ManifestHash.Subject(ReviewSubjectHasher.ComputeManifestHash(unitId, subjectInputs)),
+            SubjectInputs = subjectInputs,
+            ReviewInputs = new ReviewInputs(ManifestHash.ReviewInput(new string('a', 64)), true, [], [],
+                new PromptReference("file-code-review", "1.0.0", "sha256:" + new string('b', 64))),
+            Grade = new ReviewGrade(60, GradeBand.D, "One finding."),
+            Summary = "One finding.",
+            Aspects = [new ReviewAspect("correctness", "Correctness", new ReviewGrade(60, GradeBand.D, "One finding."))],
+            Findings = [new ReviewFinding(findingId, "correctness", FindingSeverity.High,
+                "Test finding", "A finding used by the API test.", "Review it.",
+                [new FindingLocation("Sample.cs", new FindingRange(
+                    new FindingPosition(1, 1), new FindingPosition(1, 1)))],
+                fingerprint, "correctness.test")],
         };
-        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(metadataPath, ReviewMetaJson.Serialize(metadata), TestContext.Current.CancellationToken);
         var identity = new FindingIdentityRecord(fingerprint, findingId, "Sample.cs", "correctness.test");
         var store = new FindingStateStore(repositoryRoot);
         var state = (await store.MergeReviewAsync([identity], [], "test", TestContext.Current.CancellationToken))[fingerprint];
