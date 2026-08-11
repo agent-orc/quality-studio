@@ -2,8 +2,8 @@ export function buildEconomyReport(matches, generatedAt = new Date().toISOString
   const accepted = matches.filter((match) =>
     match.snapshotMatched === true &&
     match.routeMatched === true &&
-    match.falseClean !== true &&
-    match.staleReuse !== true &&
+    match.falseClean === false &&
+    match.staleReuse === false &&
     Number.isInteger(match.operations) &&
     match.operations > 0 &&
     hasUsage(match.before) &&
