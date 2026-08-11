@@ -105,6 +105,7 @@ public sealed class ReviewRunner
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
+        var sourceRevision = SourceRevision(root);
         var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
         if (!force)
         {
@@ -183,7 +184,7 @@ public sealed class ReviewRunner
                 promptHash,
                 reviewInputHash,
                 reviewedHash,
-                SourceRevision(root),
+                sourceRevision,
                 DateTimeOffset.UtcNow);
             if (request.Kind == "security")
             {
@@ -682,7 +683,9 @@ public sealed class ReviewRunner
     private static string SourceRevision(string root)
     {
         var commit = CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD");
-        return string.IsNullOrWhiteSpace(commit) ? "unknown" : "git:" + commit.Trim();
+        if (string.IsNullOrWhiteSpace(commit)) return "unknown";
+        var changes = CoverageSensor.GitValue(root, "status", "--porcelain=v1", "--untracked-files=normal");
+        return "git:" + commit.Trim() + (string.IsNullOrWhiteSpace(changes) ? string.Empty : "+uncommitted");
     }
 
     private static string Combine(string resolved, string? supplied) =>
