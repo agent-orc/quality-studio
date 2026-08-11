@@ -9,6 +9,7 @@
     "test": "node ./tests/run-tests.mjs",
     "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
+    "evidence:review-start": "node tests/review-start-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence",
     "evidence:run-report": "node tests/run-report-evidence.mjs"

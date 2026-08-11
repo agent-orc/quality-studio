@@ -554,6 +554,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("2026-07-24", json.GetProperty("policyVersion").GetString());
+        Assert.Equal("gpt-5.6-sol",
+            json.GetProperty("runnerDefaults").GetProperty("codex").GetProperty("model").GetString());
         var models = json.GetProperty("models").EnumerateArray().ToArray();
         var sol = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "gpt-5.6-sol");
         Assert.Equal("frontier", sol.GetProperty("capabilityTier").GetString());
@@ -561,6 +563,21 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var retired = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "claude-opus-4-1");
         Assert.Equal("deprecated", retired.GetProperty("routingStatus").GetString());
         Assert.False(retired.GetProperty("availableForNewRuns").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Review_preflight_resolves_the_same_runner_default_exposed_by_the_catalog()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.cs", kind = "code", cliType = "codex",
+        }, TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("gpt-5.6-sol", json.GetProperty("model").GetString());
+        Assert.Equal("codex", json.GetProperty("cliType").GetString());
     }
 
     [Fact]
@@ -775,6 +792,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",
+                    ["ReviewJobs:RunnerDefaults:codex:Model"] = "gpt-5.6-sol",
                 }));
             builder.ConfigureServices(services =>
             {

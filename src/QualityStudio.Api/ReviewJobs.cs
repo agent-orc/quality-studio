@@ -37,6 +37,25 @@ public sealed record ReviewPreflightResponse(
     ReviewModelRecommendation Recommendation,
     bool OverrideBelowFloor);
 
+public sealed record ReviewRunnerDefaultRoute(string Model, string? ThinkingLevel);
+
+public sealed record ReviewModelCatalogResponse(
+    int SchemaVersion,
+    string PolicyVersion,
+    string EvidenceAsOfDate,
+    string SourceRepository,
+    string SourceCommit,
+    IReadOnlyList<string> ThinkingLevels,
+    IReadOnlyList<ReviewModelOption> Models,
+    IReadOnlyDictionary<string, ReviewRunnerDefaultRoute> RunnerDefaults)
+{
+    public static ReviewModelCatalogResponse Create(
+        ReviewModelCatalogSnapshot catalog,
+        IReadOnlyDictionary<string, ReviewRunnerDefaultRoute> defaults) =>
+        new(catalog.SchemaVersion, catalog.PolicyVersion, catalog.EvidenceAsOfDate,
+            catalog.SourceRepository, catalog.SourceCommit, catalog.ThinkingLevels, catalog.Models, defaults);
+}
+
 public sealed record ReviewEstimateDeviation(
     decimal InputTokensPercent,
     decimal OutputTokensPercent,
@@ -117,6 +136,46 @@ public sealed class ReviewJobsOptions
     public const string SectionName = "ReviewJobs";
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
+    public Dictionary<string, ReviewRunnerDefaultOptions> RunnerDefaults { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class ReviewRunnerDefaultOptions
+{
+    public string Model { get; set; } = string.Empty;
+    public string? ThinkingLevel { get; set; }
+}
+
+/// <summary>
+/// Resolves the same config-owned route for the picker and the execution boundary so the
+/// displayed Runner default can never drift from the model passed to CodingAgentRunner.
+/// </summary>
+public sealed class ReviewRunnerDefaults(
+    IOptionsMonitor<ReviewJobsOptions> options,
+    ReviewModelCatalog catalog)
+{
+    public IReadOnlyDictionary<string, ReviewRunnerDefaultRoute> Snapshot()
+    {
+        var result = new Dictionary<string, ReviewRunnerDefaultRoute>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (cliType, configured) in options.CurrentValue.RunnerDefaults)
+        {
+            var selection = catalog.Resolve(cliType, configured.Model, configured.ThinkingLevel);
+            if (selection.Model is null) continue;
+            result[selection.CliType] = new ReviewRunnerDefaultRoute(selection.Model, selection.ThinkingLevel);
+        }
+        return result;
+    }
+
+    public ReviewModelSelection Resolve(string? cliType, string? model, string? thinkingLevel)
+    {
+        if (!string.IsNullOrWhiteSpace(model) || !string.IsNullOrWhiteSpace(thinkingLevel))
+            return catalog.Resolve(cliType, model, thinkingLevel);
+
+        var cli = ReviewModelCatalog.NormalizeCli(cliType);
+        return Snapshot().TryGetValue(cli, out var configured)
+            ? catalog.Resolve(cli, configured.Model, configured.ThinkingLevel)
+            : catalog.Resolve(cli, null, null);
+    }
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -126,7 +185,7 @@ public sealed class ReviewJobService : BackgroundService
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
     private readonly ConcurrentDictionary<string, ReviewWorkItem> runs = new(StringComparer.Ordinal);
     private readonly RepositoryRegistry repositories;
-    private readonly ReviewJobsOptions options;
+    private readonly IOptionsMonitor<ReviewJobsOptions> options;
     private readonly ILogger<ReviewJobService> logger;
     private readonly QuotaService quotas;
     private readonly RepositoryHierarchyCache hierarchyCache;
@@ -135,14 +194,15 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private readonly ReviewRunnerDefaults runnerDefaults;
 
-    public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
+    public ReviewJobService(RepositoryRegistry repositories, IOptionsMonitor<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
-        ReviewModelCatalog modelCatalog)
+        ReviewModelCatalog modelCatalog, ReviewRunnerDefaults runnerDefaults)
     {
         this.repositories = repositories;
-        this.options = options.Value;
+        this.options = options;
         this.logger = logger;
         this.quotas = quotas;
         this.hierarchyCache = hierarchyCache;
@@ -150,6 +210,7 @@ public sealed class ReviewJobService : BackgroundService
         this.dashboards = dashboards;
         this.sensorRegistry = sensorRegistry;
         this.modelCatalog = modelCatalog;
+        this.runnerDefaults = runnerDefaults;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -160,7 +221,7 @@ public sealed class ReviewJobService : BackgroundService
         var stopwatch = Stopwatch.StartNew();
         var plan = PreparePlan(repositoryId, request);
         var (registration, access, node, files) = plan;
-        var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
+        var selection = runnerDefaults.Resolve(request.CliType, request.Model, request.ThinkingLevel);
         var cliType = selection.CliType;
         var model = selection.Model;
         var recommendation = modelCatalog.Recommend(request.Kind, node.Level, files.Length);
@@ -223,7 +284,7 @@ public sealed class ReviewJobService : BackgroundService
         string repositoryId, StartReviewRequest request, CancellationToken cancellationToken = default)
     {
         var plan = PreparePlan(repositoryId, request);
-        var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
+        var selection = runnerDefaults.Resolve(request.CliType, request.Model, request.ThinkingLevel);
         var cliType = selection.CliType;
         var model = selection.Model;
         var recommendation = modelCatalog.Recommend(request.Kind, plan.Node.Level, plan.Files.Length);
@@ -348,7 +409,7 @@ public sealed class ReviewJobService : BackgroundService
 
     public IReadOnlyList<ReviewRunResponse> List(string repositoryId) => runs.Values
         .Where(run => string.Equals(run.Repository.Id, repositoryId, StringComparison.OrdinalIgnoreCase))
-        .OrderByDescending(run => run.CreatedAt).Take(Math.Max(1, options.RecentRunLimit)).Select(run => run.Snapshot()).ToArray();
+        .OrderByDescending(run => run.CreatedAt).Take(Math.Max(1, options.CurrentValue.RecentRunLimit)).Select(run => run.Snapshot()).ToArray();
 
     public ReviewRunResponse Get(string repositoryId, string id) => Find(repositoryId, id).Snapshot();
 
@@ -476,7 +537,7 @@ public sealed class ReviewJobService : BackgroundService
                 await Parallel.ForEachAsync(item.PendingFiles(),
                     new ParallelOptions
                     {
-                        MaxDegreeOfParallelism = Math.Clamp(options.MaxConcurrency, 1, 16),
+                        MaxDegreeOfParallelism = Math.Clamp(options.CurrentValue.MaxConcurrency, 1, 16),
                         CancellationToken = linked.Token,
                     },
                     (file, cancellationToken) => RunFileAsync(item, file, cancellationToken)).ConfigureAwait(false);

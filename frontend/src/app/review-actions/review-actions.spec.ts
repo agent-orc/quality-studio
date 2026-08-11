@@ -13,6 +13,7 @@ describe('ReviewActions', () => {
     sourceRepository: 'agent-orc/token-economy',
     sourceCommit: 'abc',
     thinkingLevels: ['low', 'medium', 'high', 'xhigh'],
+    runnerDefaults: { codex: { model: 'gpt-5.6-sol', thinkingLevel: null } },
     models: [
       { modelId: 'gpt-5.6-sol', aliases: ['sol'], cliType: 'codex', capabilityTier: 'frontier', suitability: 'Demanding reviews.', routingStatus: 'selectable', supportedThinkingLevels: ['low', 'medium', 'high', 'xhigh'], provisional: false, evidenceStatus: 'observational', note: 'Evidence note.', priceAvailable: false, availableForNewRuns: true },
       { modelId: 'gpt-5.5', aliases: [], cliType: 'codex', capabilityTier: 'balanced', suitability: 'Unsupported.', routingStatus: 'unsupported', supportedThinkingLevels: ['medium'], provisional: false, evidenceStatus: 'unknown', note: 'Not qualified.', priceAvailable: false, availableForNewRuns: false },
@@ -24,7 +25,7 @@ describe('ReviewActions', () => {
     reviewRuns: signal<any[]>([]),
     connected: computed(() => true),
     reviewError: signal(''),
-    selectedRepository: signal({ displayName: 'Sample repository' }),
+    selectedRepository: signal({ displayName: 'Sample repository', defaultReviewTokenCap: 100000, defaultReviewCostCap: null }),
     estimateReview: jasmine.createSpy('estimateReview'),
     startReview: jasmine.createSpy('startReview'),
     pauseReview: jasmine.createSpy('pauseReview'), cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
@@ -36,7 +37,9 @@ describe('ReviewActions', () => {
   beforeEach(async () => {
     api.estimateReview.calls.reset();
     api.startReview.calls.reset();
+    api.modelCatalog.set(catalog);
     api.reviewRuns.set([]);
+    api.selectedRepository.set({ displayName: 'Sample repository', defaultReviewTokenCap: 100000, defaultReviewCostCap: null });
     await TestBed.configureTestingModule({
       imports: [ReviewActions],
       providers: [{ provide: QualityApi, useValue: api }],
@@ -54,12 +57,27 @@ describe('ReviewActions', () => {
     fixture.detectChanges();
 
     const options = [...fixture.nativeElement.querySelectorAll('[role="option"]')] as HTMLElement[];
-    expect(options[0].textContent).toContain('Runner default model');
+    expect(options[0].textContent).toContain('Runner default (gpt-5.6-sol)');
     expect(options[1].textContent).toContain('gpt-5.6-sol');
     expect(options[1].textContent).toContain('frontier');
     expect(options[1].textContent).toContain('Demanding reviews');
     expect(options.some(option => option.textContent?.includes('gpt-5.5'))).toBeFalse();
     expect(options.some(option => option.textContent?.includes('claude-sonnet-5'))).toBeFalse();
+  });
+
+  it('updates resolved Runner and repository defaults from live API state', () => {
+    const model = fixture.nativeElement.querySelector('[aria-label="Review model"]') as HTMLInputElement;
+    expect(model.placeholder).toBe('Runner default (gpt-5.6-sol)');
+
+    api.modelCatalog.set({ ...catalog, runnerDefaults: { codex: { model: 'gpt-5.6-terra', thinkingLevel: 'medium' } } });
+    api.selectedRepository.set({ displayName: 'Sample repository', defaultReviewTokenCap: 250000, defaultReviewCostCap: null });
+    component.optionsOpen.set(true);
+    fixture.detectChanges();
+
+    expect(model.placeholder).toBe('Runner default (gpt-5.6-terra)');
+    expect((fixture.nativeElement.querySelector('[aria-label="Review cap type"]') as HTMLSelectElement).options[0].text)
+      .toBe('Repo default (250,000 tokens)');
+    expect(fixture.nativeElement.querySelector('.options-toggle').textContent).toContain('250K token cap');
   });
 
   it('keeps free text as an escape hatch and resets route overrides when the CLI changes', () => {
