@@ -1,7 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
 import { QualityApi, ReviewFinding, ReviewMetaDocument } from '../quality-api';
 import { ReviewPanel } from './review-panel';
+import { ReviewEvidenceApi } from './review-evidence-api';
 
 describe('ReviewPanel session flow', () => {
   let fixture: ComponentFixture<ReviewPanel>;
@@ -33,6 +35,12 @@ describe('ReviewPanel session flow', () => {
   const api = {
     file,
     reviewRuns: signal(initialRuns),
+    reviewHistory: signal([
+      historyEntry('committed', 'src/A.cs', 'code'),
+      historyEntry('wrong-history-kind', 'src/A.cs', 'security'),
+      historyEntry('wrong-history-path', 'src/B.cs', 'code'),
+    ]),
+    reviewHistoryEvidenceUrl: (id: string) => `/api/review/history/${id}`,
     reviewError: signal(''),
     usage: signal({ runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, byModel: [] }),
     inputs: signal({}), guidelineTraces: signal([]),
@@ -57,6 +65,11 @@ describe('ReviewPanel session flow', () => {
   beforeEach(async () => {
     file.update(value => ({ ...value, metaDocuments: [meta] }));
     api.reviewRuns.set(initialRuns);
+    api.reviewHistory.set([
+      historyEntry('committed', 'src/A.cs', 'code'),
+      historyEntry('wrong-history-kind', 'src/A.cs', 'security'),
+      historyEntry('wrong-history-path', 'src/B.cs', 'code'),
+    ]);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
       api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
@@ -70,7 +83,7 @@ describe('ReviewPanel session flow', () => {
 
     await TestBed.configureTestingModule({
       imports: [ReviewPanel],
-      providers: [{ provide: QualityApi, useValue: api }],
+      providers: [provideHttpClient(), { provide: QualityApi, useValue: api }],
     }).compileComponents();
     fixture = TestBed.createComponent(ReviewPanel);
     component = fixture.componentInstance;
@@ -84,7 +97,13 @@ describe('ReviewPanel session flow', () => {
   it('derives visible counts from the filtered queue and filters run history to scope and kind', () => {
     expect(component.visibleFindings().map(finding => finding.id)).toEqual(['high-open', 'medium-accepted']);
     expect(component.scopeRuns().map(run => run.id)).toEqual(['matching']);
+    expect(component.reviewHistoryEntries().map(entry => entry.run.runId)).toEqual(['committed']);
     expect(fixture.nativeElement.querySelector('.findings-heading small').textContent).toContain('2 visible');
+
+    api.reviewRuns.set([]);
+    component.runDrawerOpen.set(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.history-row').length).toBe(1);
 
     component.findingFilter.set('all');
     component.severityFilter.set('critical');
@@ -211,4 +230,63 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
   });
+
+  it('persists independent assessment and resolution axes with optimistic revision', async () => {
+    const evidenceApi = fixture.debugElement.injector.get(ReviewEvidenceApi);
+    const mutate = spyOn(evidenceApi, 'mutateAssessment').and.resolveTo();
+    const assessed = { ...openFinding, assessment: { status: 'unassessed' as const, revision: 4, source: 'human' as const } };
+    component.stateAuthor.set('Grace');
+    component.stateReason.set('The captured evidence was reproduced independently.');
+
+    await component.setFindingPolicy(assessed, 'confirmed', 'planned');
+
+    expect(mutate).toHaveBeenCalledWith(jasmine.objectContaining({
+      fingerprint: assessed.fingerprint, assessment: 'confirmed', resolution: 'planned',
+      actor: 'Grace', expectedRevision: 4,
+    }));
+    expect(component.stateStatus()).toBe('Saved');
+  });
+
+  it('previews a scoped suppression before saving the confirmed match set', async () => {
+    const evidenceApi = fixture.debugElement.injector.get(ReviewEvidenceApi);
+    const preview = {
+      matchCount: 1,
+      matches: [{ fingerprint: openFinding.fingerprint!, ruleId: openFinding.ruleId, path: 'src/A.cs',
+        reviewKind: 'code' as const, sourceKind: 'agent', findingId: openFinding.id, title: openFinding.title }],
+    };
+    const previewRequest = spyOn(evidenceApi, 'previewSuppression').and.resolveTo(preview);
+    const saveRequest = spyOn(evidenceApi, 'saveSuppression').and.resolveTo(preview);
+    component.stateAuthor.set('Grace');
+    component.stateReason.set('Generated adapter scope reviewed by the owner.');
+    component.scopePathPattern.set('src/**');
+
+    await component.previewScopedSuppression(openFinding);
+    expect(previewRequest).toHaveBeenCalledWith(jasmine.objectContaining({
+      match: jasmine.objectContaining({ ruleId: openFinding.ruleId, pathPattern: 'src/**', reviewKinds: ['code'] }),
+    }));
+    expect(component.suppressionPreview()?.result.matchCount).toBe(1);
+
+    await component.saveScopedSuppression();
+    expect(saveRequest).toHaveBeenCalledWith(jasmine.anything(), 0, 'src/A.cs');
+    expect(component.suppressionScopeStatus()).toContain('Saved scope for 1 finding');
+  });
 });
+
+function historyEntry(id: string, path: string, kind: string) {
+  return {
+    schemaVersion: 1, contentHash: `sha256:${'d'.repeat(64)}`,
+    run: {
+      runId: id, repositoryId: 'default', scope: { id: path, name: path, path }, level: 'file', kind,
+      requestedRoute: { cli: null, model: null, thinkingLevel: null },
+      executedRoute: { cli: 'codex', model: 'gpt-5', thinkingLevel: 'high' },
+      createdAt: '2026-08-11T08:00:00Z', startedAt: '2026-08-11T08:00:01Z', finishedAt: '2026-08-11T08:00:02Z', state: 'done',
+      estimate: null, tokenCap: null, costCap: null, estimateDeviation: null, targets: [], aggregateControls: null,
+      aggregateExclusions: null, force: false, outcomes: [], aggregateState: null, usageOperations: 1,
+      usage: { inputTokens: 10, outputTokens: 2, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 100 },
+      costSpent: null, currency: null, priceStatus: 'available',
+      evidence: [{ path, state: 'done', metaReference: null, metaHash: null, findingFingerprints: [],
+        findingFingerprintsByAspect: {}, evidenceClasses: {}, reproductionStatuses: {} }],
+      errors: [], stopReason: null,
+    },
+  };
+}
