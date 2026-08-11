@@ -4,16 +4,54 @@
   "title": "Quality Studio Test Baseline",
   "summary": "Decision-ready, repository-grounded analysis of the red Quality Studio acceptance surface, test coverage by feature area, portable versus machine-bound boundaries, CI and fixture requirements, options, and an ordered implementation plan. Recommends a tiered required gate plus release canary while preserving the existing production bundle budget.",
   "entrypoint": "index.html",
-  "status": "decision-pending",
+  "status": "decided",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-11T00:45:00Z",
+  "updatedAt": "2026-08-11T14:43:19Z",
   "sourceTaskKeys": [
     "QS-66"
   ],
   "relatedTaskKeys": [
     "QS-57",
     "QS-51",
-    "QS-52"
+    "QS-52",
+    "QS-75"
   ],
-  "key": "QS-W5"
+  "key": "QS-W5",
+  "decision": {
+    "outcome": "feature-spawn",
+    "state": "succeeded",
+    "operationId": "agt-2621-qs-w5-blanket-approval-20260811",
+    "sourceRevision": "02cbe38ec4f7f5016e3aec2bc1a00c95fe0492da",
+    "sourceFingerprint": "0919298a1441654ec770f14e0afed09fe8712635bae44c109fd3a06f1b850491",
+    "preparedAt": "2026-08-11T14:43:19Z",
+    "preparedBy": "Operator, recorded by AGT-2621",
+    "confirmedAt": "2026-08-11T14:43:19Z",
+    "confirmedBy": "Operator, recorded by AGT-2621",
+    "decidedAt": "2026-08-11T14:43:19Z",
+    "spawnedTaskKeys": [
+      "QS-75"
+    ],
+    "responses": [],
+    "taskDraft": {
+      "title": "Implement approved QS-W5 dossier recommendations",
+      "goal": "Deliver the recommendations approved by the operator on 2026-08-11; the existing implementation is tracked by QS-75.",
+      "acceptanceCriteria": [
+        "The existing implementation card QS-75 delivers the approved dossier recommendations with review evidence.",
+        "The Dossier records QS-75 as the implementation receipt."
+      ],
+      "evidenceLinks": [
+        "docs/operations/test-baseline/index.html",
+        "task:QS-75"
+      ],
+      "chosenOption": "Blanket approval recorded by the operator on 2026-08-11.",
+      "relatedTaskKeys": [
+        "QS-75"
+      ],
+      "targetProject": "Quality Studio",
+      "initialLane": "1-preparation",
+      "mode": "coding",
+      "taskType": "feature"
+    }
+  },
+  "editedBy": "Operator, recorded by AGT-2621"
 }
