@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Actionable Review Findings and Quality Evidence</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+<style>
+  a { color: var(--develop); text-underline-offset: 3px; }
+  pre { margin: 14px 0; padding: 16px 18px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--ink-1); font: 13px/1.55 ui-monospace, Consolas, monospace; }
+  pre code { padding: 0; background: transparent; font: inherit; }
+  .decision-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+  .decision-grid .box { margin: 0; }
+  .decision-grid strong { display: block; margin-bottom: 4px; }
+  .decision-grid p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .source { color: var(--ink-2); font-size: 13px; }
+  .finding-preview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 20px 0; background: var(--surface-1); }
+  .finding-preview header { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+  .finding-preview header b { font-size: 14px; }
+  .finding-preview header small { display: block; color: var(--ink-3); }
+  .finding-preview .detail { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .75fr); gap: 0; }
+  .finding-preview .code-proof { margin: 0; border: 0; border-radius: 0; border-right: 1px solid var(--line); background: var(--surface-1); }
+  .finding-preview .facts { padding: 14px 16px; }
+  .finding-preview .facts p { margin: 0 0 12px; color: var(--ink-2); font-size: 13px; }
+  mark { padding: 1px 0; border-bottom: 2px solid var(--warn); background: var(--warn-soft); color: var(--ink-1); }
+  .tree { margin: 18px 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font: 13px/1.7 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+  .slice { margin: 14px 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  .slice header { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .slice h3 { margin: 0; font-size: 17px; }
+  .slice p { margin: 8px 0; }
+  .slice ul { margin-bottom: 0; }
+  .contract td:first-child { width: 20%; }
+  .contract td:nth-child(2) { width: 30%; }
+  .nowrap { white-space: nowrap; }
+  footer { margin-top: 54px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 13px; }
+  @media (max-width: 760px) {
+    main { padding: 0 18px; }
+    .decision-grid { grid-template-columns: 1fr; }
+    .finding-preview .detail { grid-template-columns: 1fr; }
+    .finding-preview .code-proof { border-right: 0; border-bottom: 1px solid var(--line); }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <p class="kicker">Decision dossier · QS-61 · Source snapshot 3e0b655</p>
+    <h1>Make every review finding inspectable, reproducible, and learnable</h1>
+    <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
+    <div class="meta">
+      <span><b>Status</b> Decision pending</span>
+      <span><b>Recommendation</b> Approve option C</span>
+      <span><b>Evidence cut</b> 11 August 2026</span>
+      <span><b>Source card</b> QS-61</span>
+    </div>
+  </header>
+
+  <section class="box accent" aria-labelledby="approval-title">
+    <h4 id="approval-title">Approval requested</h4>
+    <p><b>Approve slices S1 through S4 for Quality Studio, in order, and authorize S5 as a paired Token Economy and Quality Studio contract slice.</b> Keep the existing local resumable run store. Add exact-span presentation, typed evidence and reproduction, independent assessment and suppression policy, immutable terminal run history, and the TE-38 export bridge. Do not use per-model evidence for routing until its declared gates pass.</p>
+  </section>
+
+  <div class="decision-grid" aria-label="Decision summary">
+    <div class="box"><strong>Preserve</strong><p>Stable fingerprints, review-meta sidecars, analyzer separation, lifecycle history, usage JSONL, and restart recovery.</p></div>
+    <div class="box"><strong>Add</strong><p>Exact highlighted spans, evidence classes, reproduction status, executed model attribution, scoped suppressions, and terminal run evidence.</p></div>
+    <div class="box"><strong>Refuse</strong><p>Deleting ignored observations, treating model prose as reproduction, or presenting observational precision as recall or causality.</p></div>
+  </div>
+
+  <nav aria-label="Contents">
+    <h2><span class="no">00</span>Contents</h2>
+    <ol class="toc">
+      <li><a href="#decision">Decision and options</a></li>
+      <li><a href="#actual">What the repository actually has</a></li>
+      <li><a href="#model">Target finding data model</a></li>
+      <li><a href="#evidence">Evidence and reproducibility</a></li>
+      <li><a href="#presentation">Target presentation</a></li>
+      <li><a href="#suppression">Assessment and ignore list</a></li>
+      <li><a href="#runs">Run state and durable history</a></li>
+      <li><a href="#models">Per-model review-quality evidence</a></li>
+      <li><a href="#slices">Implementation slices</a></li>
+      <li><a href="#acceptance">Decision guardrails</a></li>
+    </ol>
+  </nav>
+
+  <section id="decision">
+    <h2><span class="no">01</span>Decision and options</h2>
+    <p>The product needs one evidence plane with two projections: an evidence-first finding detail for a reviewer, and an immutable run/outcome stream for history and model-quality analysis. A UI-only patch would make the current gap less visible without producing trustworthy data.</p>
+    <table>
+      <thead><tr><th>Option</th><th>What ships</th><th>Assessment</th></tr></thead>
+      <tbody>
+        <tr><td><b>A. Highlight only</b></td><td>Render current line/column ranges as selected spans.</td><td>Useful fast relief, but evidence stays free text, runs stay non-portable, and TE-38 remains empty. Include as S1, not as the endpoint.</td></tr>
+        <tr><td><b>B. Sidecar v3 only</b></td><td>Typed evidence and provenance in review metadata.</td><td>Improves the contract, but leaves review flow, suppression, run history, and outcomes fragmented.</td></tr>
+        <tr><td><b>C. Evidence plane</b> <span class="pill done">recommended</span></td><td>Exact-span UI, structured finding observation, independent assessment/resolution, scoped suppression policy, terminal history, and TE export.</td><td>Closes all four operator concerns while reusing current code and repository-owned storage.</td></tr>
+        <tr><td><b>D. External review database</b></td><td>Move findings and runs into a new service.</td><td>Not justified. It adds deployment and authority boundaries before the existing local contracts are exhausted.</td></tr>
+      </tbody>
+    </table>
+    <div class="box ok"><h4>Recommendation</h4><p>Choose C, delivered incrementally. S1 is independently releasable. S2 through S4 establish the durable contract. S5 connects the resulting operational evidence to the already delivered TE-38 receiver.</p></div>
+  </section>
+
+  <section id="actual">
+    <h2><span class="no">02</span>What the repository actually has</h2>
+    <p class="dim">The operator shorthand is directionally right, but the code has already solved parts of each problem. The target should close the remaining gaps instead of replacing working contracts.</p>
+    <table>
+      <thead><tr><th>Area</th><th>Repository evidence</th><th>Finding</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Anchors</b></td>
+          <td>Review prompts require tight one-based inclusive ranges. The parser validates them, and <code>FindingIdentity.Assign</code> verifies each range against reviewed content before hashing the primary snippet.</td>
+          <td><span class="pill part">partial</span> Exact spans exist in data, but are not retained as readable captured excerpts.</td>
+        </tr>
+        <tr>
+          <td><b>Code presentation</b></td>
+          <td><code>Editor.findingsByLine</code> expands every range into line membership. The template paints a whole-line tint and a narrow marker, while syntax tokens render independently.</td>
+          <td><span class="pill open">open</span> Columns never affect rendering. Overlaps and the selected finding are not represented as exact spans.</td>
+        </tr>
+        <tr>
+          <td><b>Finding detail</b></td>
+          <td>The card shows severity, title, lifecycle state, and description. The detail adds guideline, optional free-text <code>evidence</code>, recommendation, and lifecycle controls.</td>
+          <td><span class="pill open">open</span> No location, code excerpt, evidence class, reproduction status, or model/thinking provenance is visible on the finding.</td>
+        </tr>
+        <tr>
+          <td><b>Evidence</b></td>
+          <td>Review-meta v2 has an optional string <code>evidence</code>. Deterministic findings separately carry sensor, producer, version, and run index. Analyzer results stay separate from the agent grade.</td>
+          <td><span class="pill part">partial</span> Machine evidence is structured; agent evidence is not. A string cannot distinguish a code fact, executed test, runtime trace, reference, or unverified claim.</td>
+        </tr>
+        <tr>
+          <td><b>Reproduction</b></td>
+          <td>All three file-review prompts explicitly forbid tools, edits, and commands.</td>
+          <td><span class="pill open">open</span> The review agent can specify a reproduction, but cannot honestly mark it verified. Verification needs a separate executor or deterministic sensor result.</td>
+        </tr>
+        <tr>
+          <td><b>Lifecycle</b></td>
+          <td><code>.quality/findings/state.json</code> persists open, accepted, waived, false-positive, and resolved records by fingerprint, including author, reason, timestamp, and expiry.</td>
+          <td><span class="pill part">partial</span> This is an exact-finding decision store, not a reusable ignore list. It also combines human validity assessment with remediation state, which makes TE confirmed/dismissed outcomes ambiguous.</td>
+        </tr>
+        <tr>
+          <td><b>Run state</b></td>
+          <td><code>ReviewRunStore</code> writes immutable manifest, append-only progress, and atomic status files, then reloads them after API restart.</td>
+          <td><span class="pill part">partial</span> The active store is restart-safe, not volatile memory. It is still machine-local and Git-ignored, so it is not portable terminal history or model evidence.</td>
+        </tr>
+        <tr>
+          <td><b>Model attribution</b></td>
+          <td>The sidecar records effective model, operation run ID, CLI, usage, prompt hash, and effective review-input hash. Usage is append-only and grouped by model.</td>
+          <td><span class="pill part">partial</span> Requested versus effective model is collapsed. Standard review requests do not carry thinking level even though CodingAgentRunner 0.7.0 supports it.</td>
+        </tr>
+        <tr>
+          <td><b>Local precedent</b></td>
+          <td>The attack-coverage ledger already stores immutable observations with evidence, reviewer model and thinking level, hashes, token cost, commit, history, confidence, and disagreement.</td>
+          <td><span class="pill done">reuse</span> Extend this observation/projection pattern to ordinary findings rather than inventing a second philosophy.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="box">
+      <h4>Primary code sources</h4>
+      <ul>
+        <li><a href="../../../frontend/src/app/editor/editor.ts">frontend/src/app/editor/editor.ts:58-65, 77-98</a> and <a href="../../../frontend/src/app/editor/editor.html">editor.html:147-159</a>: ranges become line membership; syntax tokens and markers remain separate.</li>
+        <li><a href="../../../frontend/src/app/review-panel/review-panel.html">frontend/src/app/review-panel/review-panel.html:49-51</a>: current card and detail fields.</li>
+        <li><a href="../../../schemas/review-meta.v2.schema.json">schemas/review-meta.v2.schema.json:633-744</a>: ranges, optional evidence string, and deterministic-only source union.</li>
+        <li><a href="../../../src/AgentOrchestrator.CodeQuality/FindingIdentity.cs">FindingIdentity.cs:16-68</a>: server-validated span and stable fingerprint.</li>
+        <li><a href="../../../src/AgentOrchestrator.CodeQuality/FindingStateStore.cs">FindingStateStore.cs:49-126</a> and <a href="../../finding-lifecycle.md">docs/finding-lifecycle.md</a>: repository-owned lifecycle projection.</li>
+        <li><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs:75-210</a>, <a href="../../review-runs.md">docs/review-runs.md</a>, and <a href="../../../.gitignore">.gitignore:11, 20-24</a>: restart-safe but ignored orchestration versus committed usage history.</li>
+        <li><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs:295-407</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/ReviewAgent.cs">ReviewAgent.cs:65-116</a>: effective model and CLI usage capture, without thinking level.</li>
+        <li><a href="../../../src/AgentOrchestrator.CodeQuality/AttackCoverageModels.cs">AttackCoverageModels.cs:76-150</a> and <a href="../../attack-coverage.md">docs/attack-coverage.md:41-67</a>: existing immutable evidence/provenance pattern.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="model">
+    <h2><span class="no">03</span>Target finding data model</h2>
+    <p>Use <code>review-meta.v3</code> for the latest observation and project it into the API shape below. Common run provenance may be stored once at document level, but every finding returned by the API must resolve it so the finding remains intelligible by itself.</p>
+    <pre aria-label="Target finding JSON example"><code>{
+  "schemaVersion": 3,
+  "id": "finding-&lt;sha256&gt;",
+  "fingerprint": "sha256:&lt;stable identity&gt;",
+  "reviewKind": "code",
+  "rule": { "id": "built-in:code", "aspect": "correctness" },
+  "severity": "high",
+  "title": "Review route omits thinking level",
+  "problem": "The selected reasoning level is not passed into the review run.",
+  "impact": "Runs cannot be reproduced or grouped into valid model/level cohorts.",
+  "remediation": "Capture requested and resolved thinking level through CliRunRequest.",
+  "anchors": [{
+    "id": "primary",
+    "role": "primary",
+    "path": "src/QualityStudio.Api/ReviewJobs.cs",
+    "range": {
+      "start": { "line": 13, "column": 1 },
+      "end": { "line": 20, "column": 25 }
+    },
+    "symbolId": "QualityStudio.Api.StartReviewRequest",
+    "capturedExcerpt": {
+      "text": "public sealed record StartReviewRequest(...)",
+      "language": "csharp",
+      "contentHash": "sha256:&lt;file content&gt;",
+      "excerptHash": "sha256:&lt;exact excerpt&gt;"
+    }
+  }],
+  "evidence": [{
+    "id": "ev-source",
+    "class": "source-span",
+    "status": "observed",
+    "anchorId": "primary",
+    "summary": "The request contains model and CLI but no thinking level."
+  }],
+  "reproduction": {
+    "status": "specified",
+    "steps": ["Start a review with an explicit thinking level", "Inspect the run manifest"],
+    "expected": "The requested and resolved levels are retained.",
+    "observed": "The manifest has no thinking-level field.",
+    "attempts": []
+  },
+  "origin": {
+    "kind": "agent",
+    "reviewRunId": "review-&lt;id&gt;",
+    "operationRunId": "quality-&lt;id&gt;",
+    "requested": { "model": "gpt-5.6-sol", "thinkingLevel": "medium" },
+    "executed": { "cli": "codex", "model": "gpt-5.6-sol", "thinkingLevel": "medium" },
+    "prompt": { "id": "file-code-review", "version": "1.0.0", "hash": "sha256:&lt;prompt&gt;" },
+    "reviewInputHash": "sha256:&lt;effective inputs&gt;",
+    "subjectManifestHash": "sha256:&lt;reviewed subject&gt;",
+    "sourceRevision": "git:&lt;commit or explicit uncommitted state&gt;",
+    "observedAt": "2026-08-11T00:00:00Z"
+  },
+  "assessment": {
+    "status": "unassessed",
+    "assessedBy": null,
+    "reason": null,
+    "assessedAt": null
+  },
+  "resolution": { "status": "open", "taskKey": null, "resolvedAt": null },
+  "suppression": null
+}</code></pre>
+
+    <table class="contract">
+      <thead><tr><th>Group</th><th>Contract</th><th>Why it is actionable</th></tr></thead>
+      <tbody>
+        <tr><td><b>Identity</b></td><td><code>id</code>, <code>fingerprint</code>, kind, rule, aspect, severity</td><td>Keeps recurrence, lifecycle, guideline trace, and report joins stable. Retain the current runner-owned fingerprint algorithm.</td></tr>
+        <tr><td><b>Claim</b></td><td>Title, problem, impact, remediation</td><td>Separates what is wrong, why it matters, and what change is proposed. The current description/recommendation pair can migrate losslessly.</td></tr>
+        <tr><td><b>Anchors</b></td><td>Primary/related roles, exact range, optional symbol, captured excerpt and hashes</td><td>Supports exact highlight now and preserves readable evidence after source drift. The current path/range remains authoritative for fresh code.</td></tr>
+        <tr><td><b>Evidence</b></td><td>Typed items with producer/status/reference and safe summary</td><td>Prevents a free-text assertion from looking equivalent to an analyzer, executed test, or runtime observation.</td></tr>
+        <tr><td><b>Reproduction</b></td><td>Status, prerequisites, steps, expected/observed result, attempts</td><td>Makes the next verification step explicit and prevents an agent forbidden to run commands from claiming verification.</td></tr>
+        <tr><td><b>Origin</b></td><td>Parent/operation run, requested and executed route, prompt/input/subject hashes, revision and time</td><td>Lets a reviewer reproduce the review and lets TE form comparable cohorts from actual execution, not card intent.</td></tr>
+        <tr><td><b>Human state</b></td><td>Assessment, resolution, and suppression are independent projections</td><td>Produces valid confirmed/dismissed labels without losing remediation or ignore policy.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="box warn">
+      <h4>Compatibility rule</h4>
+      <p>Readers continue to accept review-meta v1/v2. A v2 <code>description</code> maps to <code>problem</code>, <code>recommendation</code> maps to <code>remediation</code>, location becomes an anchor, and the optional evidence string becomes a visible <code>legacy-claim</code> item. It must not be upgraded to observed or verified evidence.</p>
+    </div>
+  </section>
+
+  <section id="evidence">
+    <h2><span class="no">04</span>Evidence and reproducibility</h2>
+    <p>A finding is actionable when a reviewer can locate the claim, distinguish the strength of its evidence, replay the check when appropriate, and see who or what produced it.</p>
+    <table>
+      <thead><tr><th>Evidence class</th><th>Required fields</th><th>Trust rule</th></tr></thead>
+      <tbody>
+        <tr><td><code>source-span</code></td><td>Anchor, excerpt/content hashes, runner-captured summary</td><td>Required for every file finding. The runner captures it after validating the model range; the model never supplies the trusted hashes.</td></tr>
+        <tr><td><code>deterministic-result</code></td><td>Sensor, producer/version, rule, result hash, artifact reference</td><td>Machine fact with producer provenance. Keep separate from the agent grade, matching the existing deterministic-evidence contract.</td></tr>
+        <tr><td><code>test-result</code></td><td>Test id, command, exit/result, timestamp, environment and artifact</td><td>Verified only when emitted by an executor. Quoted model prose is not a test result.</td></tr>
+        <tr><td><code>runtime-observation</code></td><td>Trace/log/HTTP reference, bounded excerpt hash, time and environment</td><td>Observed behavior. Secrets and unrestricted logs stay out of the sidecar; use confined artifact references and redacted excerpts.</td></tr>
+        <tr><td><code>external-reference</code></td><td>Stable standard/advisory id, version and applicability note</td><td>Supports a rule or risk frame, but never proves that the local defect exists without a source, analyzer, test, or runtime fact.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Reproduction status vocabulary</h3>
+    <table>
+      <thead><tr><th>Status</th><th>Meaning</th><th>UI</th></tr></thead>
+      <tbody>
+        <tr><td><code>verified</code></td><td>At least one retained executor/sensor attempt reproduced the observed result on a named revision/environment.</td><td>Show command/result and the newest attempt first.</td></tr>
+        <tr><td><code>specified</code></td><td>Concrete steps and expected/observed behavior exist, but no retained execution proves them.</td><td>Normal default for agent review because current prompts forbid tools.</td></tr>
+        <tr><td><code>not-applicable</code></td><td>A replay is not meaningful, for example a local clarity issue. A reason is required.</td><td>Do not show this as verified.</td></tr>
+        <tr><td><code>blocked</code></td><td>Attempt was prevented by missing service, credentials, platform, data, or another named dependency.</td><td>Show the blocker and permit a verification follow-up task.</td></tr>
+        <tr><td><code>unknown</code></td><td>No usable reproduction contract was supplied.</td><td>Visibly incomplete; never silently treated as not applicable.</td></tr>
+      </tbody>
+    </table>
+    <p class="source">Current prompt constraint: <a href="../../../src/AgentOrchestrator.CodeQuality/prompts/file-code-review.v1.md">file-code-review.v1.md:3</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/prompts/file-security-review.v1.md">file-security-review.v1.md:3</a>, and <a href="../../../src/AgentOrchestrator.CodeQuality/prompts/file-performance-review.v1.md">file-performance-review.v1.md:3</a> all say not to use tools or run commands.</p>
+  </section>
+
+  <section id="presentation">
+    <h2><span class="no">05</span>Target presentation</h2>
+    <p>The finding list stays compact. Selecting a card scrolls the primary anchor into view, highlights only the exact column span, and opens an evidence-first detail. Whole-line tint remains a secondary multi-line affordance, not the claimed location.</p>
+
+    <div class="finding-preview" aria-label="Illustrative finding presentation">
+      <header>
+        <span class="pill open">high</span>
+        <div><b>Review route omits thinking level</b><small>ReviewJobs.cs:13:1 · built-in:code · open</small></div>
+        <span class="pill part">specified</span>
+      </header>
+      <div class="detail">
+        <pre class="code-proof"><code>13 │ public sealed record StartReviewRequest(
+14 │     string Path,
+15 │     string Kind,
+16 │     <mark>string? Model = null,
+17 │     string? CliType = null,</mark>
+18 │     long? TokenCap = null,
+19 │     decimal? CostCap = null,
+20 │     bool Force = false);</code></pre>
+        <div class="facts">
+          <p><b>Why it matters</b><br>Without executed thinking level, a review cannot enter a comparable model/level cohort.</p>
+          <p><b>Evidence</b><br><span class="pill queued">source span</span> runner captured</p>
+          <p><b>Origin</b><br><code>codex · gpt-5.6-sol · medium</code><br><code>review-&lt;id&gt;</code></p>
+          <p><b>Next action</b><br>Pass and persist requested and resolved thinking level.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3>Interaction contract</h3>
+    <ul>
+      <li><b>Finding card:</b> severity, title, <code>path:line:column</code>, assessment/resolution, strongest evidence class, reproduction status, and source kind. Description remains one line.</li>
+      <li><b>Editor:</b> selected exact span uses a token-derived background and underline; other findings use restrained underlines and the existing severity marker. Overlap opens a keyboard-accessible chooser.</li>
+      <li><b>Detail:</b> problem and impact first, then captured code, typed evidence, reproduction, origin, recommendation, assessment, resolution, suppression, discussion, and task handover.</li>
+      <li><b>Stale finding:</b> retain the captured excerpt with a “captured evidence” label; only highlight current source when the anchor content hash matches or anchor healing succeeds.</li>
+      <li><b>Accessibility:</b> status always has text or an icon as well as color; selecting a finding moves programmatic focus to its detail and exposes the range in the accessible name.</li>
+      <li><b>Design system:</b> use the existing <code>--studio-*</code>, <code>--space-*</code>, radius, syntax token, pane, status, and severity primitives. Add semantic finding-span tokens centrally, not component-local colors or badge shapes.</li>
+    </ul>
+  </section>
+
+  <section id="suppression">
+    <h2><span class="no">06</span>Assessment and ignore list</h2>
+    <p>Call the UI surface “Ignore list” for operator recognition, but store explicit <b>suppression rules</b>. Ignoring controls presentation and scoring; it never deletes the observation or rewrites whether a human confirmed it.</p>
+
+    <table>
+      <thead><tr><th>Axis</th><th>Values</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><b>Assessment</b></td><td><code>unassessed</code>, <code>confirmed</code>, <code>dismissed</code>, <code>disputed</code></td><td>Was the emitted finding valid? This is the only source for TE confirmed/dismissed outcomes.</td></tr>
+        <tr><td><b>Resolution</b></td><td><code>open</code>, <code>planned</code>, <code>fixed</code>, <code>risk-accepted</code>, <code>obsolete</code></td><td>What happened to valid work? Links follow-up task and time without changing the assessment.</td></tr>
+        <tr><td><b>Suppression</b></td><td>none, exact fingerprint, or scoped rule match</td><td>Should matching observations be muted/excluded by default? Reason, author, creation time, and optional expiry are mandatory.</td></tr>
+      </tbody>
+    </table>
+
+    <pre aria-label="Target suppression rule example"><code>{
+  "schemaVersion": 1,
+  "revision": 7,
+  "rules": [{
+    "id": "generated-client-nullability",
+    "enabled": true,
+    "match": {
+      "ruleId": "dotnet-nullability",
+      "pathPattern": "src/Generated/**",
+      "reviewKinds": ["code"],
+      "sourceKinds": ["agent", "deterministic"]
+    },
+    "effect": "suppress",
+    "reason": "Generated client is replaced from the upstream schema.",
+    "author": "operator@example.invalid",
+    "createdAt": "2026-08-11T00:00:00Z",
+    "expiresAt": "2026-11-11T00:00:00Z"
+  }]
+}</code></pre>
+
+    <div class="box warn">
+      <h4>Safety and migration rules</h4>
+      <ul>
+        <li>Default “Ignore this finding” creates an exact fingerprint rule. Broader path/rule scopes require an explicit dialog that previews current matches before save.</li>
+        <li>No title, description, or arbitrary regular-expression matching. Use stable fingerprint, rule id, normalized repository path glob, review kind, and source kind.</li>
+        <li>Suppressed findings remain queryable and counted separately. Confirmation rate never treats suppression as dismissal.</li>
+        <li>Migrate current <code>accepted</code> to confirmed/open, <code>waived</code> to confirmed/risk-accepted, <code>false-positive</code> to dismissed/obsolete, and <code>resolved</code> to unassessed/fixed-by-absence. Preserve the original event and label this as a compatibility projection, not newly observed human evidence.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="runs">
+    <h2><span class="no">07</span>Run state and durable history</h2>
+    <p>The current store should not be described as purely volatile. It already survives an API restart and resumes unfinished work. The actual gap is that the data is disposable, machine-local orchestration and cannot serve as portable terminal history.</p>
+
+    <div class="tree" aria-label="Target repository evidence layout">.quality/
+├── runs/&lt;runId&gt;/                         active/resumable, local, Git-ignored (existing)
+│   ├── manifest.json
+│   ├── progress.jsonl
+│   └── status.json
+├── review-history/runs/&lt;runId&gt;.json       immutable terminal evidence, committed (new)
+├── findings/assessments/YYYY-MM.jsonl      append-only human outcome events (new)
+├── findings/suppressions.json              revisioned ignore policy (new)
+├── findings/state.json                     v1 compatibility during migration (existing)
+└── usage/YYYY-MM.jsonl                     append-only committed usage (existing)</div>
+
+    <table>
+      <thead><tr><th>Layer</th><th>Write contract</th><th>Consumer</th></tr></thead>
+      <tbody>
+        <tr><td><b>Active run</b></td><td>Keep create-only manifest, append-only file transitions, atomic status, and startup recovery.</td><td>Queue, pause/resume, live progress. Never pretend another host can resume a process that still belongs to the first host.</td></tr>
+        <tr><td><b>Terminal run</b></td><td>Create once at terminal transition. Include plan, requested/executed route, reviewed/skipped/failed operations, finding fingerprints by aspect, usage, input hashes, and sidecar hashes.</td><td>Run history UI, audit, report export, model evidence. Readable after the disposable run directory is gone.</td></tr>
+        <tr><td><b>Assessment events</b></td><td>Append, never rewrite. Event joins finding fingerprint, terminal run/operation, assessment, actor, reason, and time.</td><td>Latest lifecycle projection and time-bounded TE outcome snapshots.</td></tr>
+      </tbody>
+    </table>
+    <p>The Review panel should split <b>Active</b> from <b>History</b>. “Live · polling” belongs only to active runs. History lists terminal time, actual model/level/CLI, scope, result, finding and assessment coverage, usage, and an export/evidence link.</p>
+  </section>
+
+  <section id="models">
+    <h2><span class="no">08</span>Per-model review-quality evidence</h2>
+    <div class="box ok">
+      <h4>TE-38 state: receiver delivered, operational feed absent</h4>
+      <p>Token Economy card <b>TE-38</b> delivered commit <code>2b368472cd1af0a5e5385a87f2da718c778191d5</code>. That commit is on <code>origin/main</code> and is an ancestor of tag <code>v0.3.1</code>. It contains the schema, fixture, append-only importer, cohort aggregator, confidence gates, generated model knowledge, and tests. The retained integration report records 320 passing tests. Its committed aggregate contains one excluded fixture and <b>zero eligible operational runs</b>, so every model remains <code>unknown / insufficientEvidence</code> and review routing returns no candidate.</p>
+    </div>
+
+    <p>TE-38 correctly treats Quality Studio data as observational. Its current gates are at least 20 operational runs, at least 20 assessed findings, and at least 70% finding-outcome coverage. A gated confirmation rate is a precision signal over findings the reviewer emitted. It cannot measure missed findings or recall, and it cannot establish that the model caused the outcome.</p>
+
+    <table>
+      <thead><tr><th>TE-38 field</th><th>Quality Studio today</th><th>Target source</th></tr></thead>
+      <tbody>
+        <tr><td><code>sourceRunId</code>, completion</td><td>Available in the durable local run store.</td><td>Immutable terminal run id and UTC terminal time.</td></tr>
+        <tr><td>Executed model</td><td>Effective model exists per operation and in sidecars; selected model exists in the manifest.</td><td>Preserve requested and executed values. Cohort only on executed.</td></tr>
+        <tr><td>Thinking level</td><td><span class="pill open">missing</span> from standard review request, runner, manifest, sidecar, and usage entry.</td><td>Requested plus CodingAgentRunner-resolved level. Unknown stays unknown; never infer from model default after the fact.</td></tr>
+        <tr><td>CLI</td><td>Available in manifest and usage.</td><td>Executed CLI from the operation provenance.</td></tr>
+        <tr><td>Review aspect</td><td><span class="pill open">ambiguous</span> A sweep has one kind, while its sidecars may contain multiple aspect ids.</td><td>One observation per operation and aspect, joined to the parent run. Do not rename <code>code</code> to <code>correctness</code>.</td></tr>
+        <tr><td>Files/findings</td><td>Run file counts and latest sidecar findings exist, but no immutable run-to-finding set remains after replacement.</td><td>Terminal record captures operation, aspect, file, and emitted fingerprints.</td></tr>
+        <tr><td>Confirmed/dismissed</td><td>Accepted/waived/false-positive/resolved are not a clean truth label.</td><td>Aggregate only explicit human <code>confirmed</code> and <code>dismissed</code> assessment events. Missing remains unknown.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Required TE contract alignment</h3>
+    <p>TE-38 v1 says one immutable artifact per run and has one singular <code>reviewAspect</code>. That is not a lossless representation of a Quality Studio sweep with multiple operations and aspects. It also cannot enrich an already imported immutable run when assessments arrive later. S5 should version the bridge, not guess:</p>
+    <ul>
+      <li>Add an immutable <code>observationId</code> and parent <code>sourceRunId</code>, plus explicit review kind, aspect, operation id, and evidence cutoff time.</li>
+      <li>Accept append-only assessment observations or revisioned derived outcome snapshots without rewriting the terminal run.</li>
+      <li>Group by executed model, resolved thinking level, CLI, review kind/aspect, prompt version, and comparable scope. Show sample and assessment coverage beside every rate.</li>
+      <li>Keep current TE-38 gates and <code>observational</code> label. Add controlled seeded-defect comparisons before making recall or model-superiority claims.</li>
+    </ul>
+    <p class="source">Cross-repository evidence: <a href="https://github.com/agent-orc/token-economy/blob/2b368472cd1af0a5e5385a87f2da718c778191d5/docs/quality-studio-review-evidence.md">Token Economy TE-38 review-evidence contract</a>, <a href="https://github.com/agent-orc/token-economy/blob/2b368472cd1af0a5e5385a87f2da718c778191d5/benchmarks/schema/quality-studio-review-run.schema.json">v1 drop schema</a>, and <a href="https://github.com/agent-orc/token-economy/blob/2b368472cd1af0a5e5385a87f2da718c778191d5/docs/model-routing-knowledge.md#review-quality-quality-studio">generated per-model view</a>.</p>
+  </section>
+
+  <section id="slices">
+    <h2><span class="no">09</span>Implementation slices</h2>
+    <p>Each slice has a reviewable boundary and acceptance proof. The sequence avoids a flag day and produces value after S1.</p>
+
+    <article class="slice">
+      <header><span class="pill queued">S1 · Quality Studio</span><h3>Exact-span finding highlight on review-meta v2</h3></header>
+      <p><b>Scope:</b> Segment each syntax-token line at finding range boundaries, add selected/overlap state, scroll card selection to the primary anchor, show <code>path:line:column</code> on cards, and keep whole-line treatment secondary.</p>
+      <ul>
+        <li>Use current <code>ReviewFinding.locations</code>; no backend or schema change.</li>
+        <li>Add pure range/token segmentation tests for single-line, multi-line, Unicode, end-of-line, and overlapping findings.</li>
+        <li>Add Playwright coverage and light/dark screenshots using central tokens and shared primitives.</li>
+        <li><b>Accept when:</b> the selected columns, not just the line, are visually and programmatically identifiable, and virtual scrolling still renders the correct segment.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><span class="pill queued">S2 · Quality Studio</span><h3>Review-meta v3 finding evidence and execution provenance</h3></header>
+      <p><b>Scope:</b> Add the v3 contract, runner-captured excerpts/hashes, typed evidence, reproduction status, source revision, and requested/executed model plus thinking-level provenance. Keep v1/v2 readers.</p>
+      <ul>
+        <li>Extend <code>StartReviewRequest</code>, estimate/start parity, manifest, executor factory, <code>CliRunRequest.ThinkingLevel</code>, run metrics, usage, reviewer identity, schemas, C# records, TypeScript API, and prompt output.</li>
+        <li>Runner creates trusted source-span evidence after current range validation. Legacy evidence remains labelled as a claim.</li>
+        <li>Render evidence/reproduction/origin sections in the detail, reusing the attack-coverage evidence/provenance grammar.</li>
+        <li><b>Accept when:</b> a v3 round-trip proves requested and resolved route, source hashes, typed evidence and reproduction; v1/v2 fixtures still load; an agent cannot claim deterministic provenance or verified execution.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><span class="pill queued">S3 · Quality Studio</span><h3>Human assessment, resolution, and scoped ignore policy</h3></header>
+      <p><b>Scope:</b> Introduce append-only assessment events, an independent resolution projection, and <code>.quality/findings/suppressions.json</code> with exact-first UI and match preview.</p>
+      <ul>
+        <li>Mutations remain API/service-owned with optimistic concurrency; the browser never edits state files directly.</li>
+        <li>Add filters and counts for unassessed, confirmed, dismissed, disputed, open, planned, fixed, risk-accepted, and suppressed.</li>
+        <li>Compatibility projection retains all v1 lifecycle records and original timestamps.</li>
+        <li><b>Accept when:</b> exact and scoped rules survive restart, expiry re-exposes findings, broad rule preview matches the stored projection, observations remain present, and confirmed/dismissed counts ignore suppression and automatic disappearance.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><span class="pill queued">S4 · Quality Studio</span><h3>Immutable terminal review history</h3></header>
+      <p><b>Scope:</b> Preserve the existing active store and create one committed terminal record at terminal transition, plus an Active/History UI split.</p>
+      <ul>
+        <li>Terminal record joins manifest, actual operation routes, hashes, sidecar references, findings, outcomes available at completion, errors, caps, estimate deviation, and usage.</li>
+        <li>Create-only and idempotent by run id/content hash. Add a union-safe merge rule or per-run file layout; never rewrite prior terminal records.</li>
+        <li>Recovery can recreate a missing terminal record from a terminal active directory, but conflicting content is surfaced as corruption.</li>
+        <li><b>Accept when:</b> API restart, active-directory deletion, and a fresh clone with committed history all retain the same terminal run view; no terminal artifact contains repository absolute paths or unrestricted model output.</li>
+      </ul>
+    </article>
+
+    <article class="slice">
+      <header><span class="pill new">S5 · Token Economy then Quality Studio</span><h3>TE-38 v2 bridge and evidence cutoff export</h3></header>
+      <p><b>Scope:</b> First version the TE receiver for parent-run/operation/aspect and later assessment events. Then add a Quality Studio exporter and contract fixture against that schema.</p>
+      <ul>
+        <li>Token Economy keeps append-only ingestion, actual route checks, confidence gates, observational labels, and null suitability below gate.</li>
+        <li>Quality Studio exports every eligible terminal operation, including zero-finding runs. Missing outcome coverage remains null, never zero.</li>
+        <li>Generated per-model views show N, dates, aspects, route, files, emitted findings, confirmed/dismissed, assessment coverage, precision, and “recall unavailable”.</li>
+        <li><b>Accept when:</b> a real non-fixture QS run imports idempotently, a later assessment event increases coverage without rewriting the run, invalid model/level/CLI combinations stay ineligible, and no routing candidate appears before the gates pass.</li>
+      </ul>
+    </article>
+
+    <div class="box accent">
+      <h4>Operator-ready approval wording</h4>
+      <p>“Approve QS-61 option C. Queue S1-S4 for Quality Studio in order. Queue S5 as a paired Token Economy contract-v2 card followed by the Quality Studio exporter card. Per-model evidence remains observational and cannot influence routing until declared gates pass; controlled recall work is a separate later experiment.”</p>
+    </div>
+  </section>
+
+  <section id="acceptance">
+    <h2><span class="no">10</span>Decision guardrails</h2>
+    <table>
+      <thead><tr><th>Invariant</th><th>Acceptance signal</th></tr></thead>
+      <tbody>
+        <tr><td><b>Evidence remains interrogable</b></td><td>Every visible evidence chip expands to its exact captured span, producer result, test/runtime artifact, or versioned external reference.</td></tr>
+        <tr><td><b>No false certainty</b></td><td>Unknown source, reproduction, route, outcome, price, or recall stays explicitly unknown. No missing dimension becomes zero or a default inferred after the run.</td></tr>
+        <tr><td><b>Observation is immutable</b></td><td>Assessment, resolution, suppression, and anchor healing are separate events/projections. They never rewrite what the reviewer originally emitted.</td></tr>
+        <tr><td><b>Current source is not confused with captured source</b></td><td>Hash mismatch switches the detail to captured-evidence mode and suppresses a misleading current-code highlight.</td></tr>
+        <tr><td><b>Model policy remains conservative</b></td><td>Actual model/level/CLI are captured. TE observational precision cannot cross the model-routing policy's correctness floors or claim controlled validation.</td></tr>
+        <tr><td><b>Storage has clear ownership</b></td><td>Active run mutation remains behind <code>ReviewJobService</code>/<code>ReviewRunStore</code>; finding assessment and suppression use API services; terminal history is create-only.</td></tr>
+        <tr><td><b>Both themes and keyboard paths work</b></td><td>Exact-span, overlap chooser, finding detail, assessment, and suppression preview have automated UI coverage and retained light/dark evidence.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    Decision dossier for QS-61. Repository claims were checked against Quality Studio commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. TE-38 claims were checked against Token Economy commit <code>2b368472cd1af0a5e5385a87f2da718c778191d5</code>, its committed aggregate, schema, generated model view, and retained integration report.
+  </footer>
+</main>
+</body>
+</html>
