@@ -31,7 +31,9 @@ public sealed partial class ReviewResponseParser
             throw new ReviewResponseException("The agent returned invalid JSON.", exception);
         }
 
-        ValidateGrade(RequireObject(root, "grade"));
+        var grade = RequireObject(root, "grade");
+        RejectUnknown(grade, "grade", "score", "band", "rationale");
+        ValidateGrade(grade);
         RequireString(root, "summary");
         var aspects = RequireArray(root, "aspects");
         var findings = RequireArray(root, "findings");
@@ -44,9 +46,12 @@ public sealed partial class ReviewResponseParser
         foreach (var aspectNode in aspects)
         {
             var aspect = aspectNode?.AsObject() ?? throw Invalid("aspect");
+            RejectUnknown(aspect, "aspect", "id", "title", "grade");
             var id = RequireString(aspect, "id");
             RequireString(aspect, "title");
-            ValidateGrade(RequireObject(aspect, "grade"));
+            var aspectGrade = RequireObject(aspect, "grade");
+            RejectUnknown(aspectGrade, "aspect.grade", "score", "band", "rationale");
+            ValidateGrade(aspectGrade);
             if (!aspectIds.Add(id))
             {
                 throw new ReviewResponseException($"Duplicate review aspect '{id}'.");
@@ -56,10 +61,13 @@ public sealed partial class ReviewResponseParser
         foreach (var findingNode in findings)
         {
             var finding = findingNode?.AsObject() ?? throw Invalid("finding");
-            if (finding.ContainsKey("source"))
+            RejectUnknown(finding, "finding", "id", "fingerprint", "ruleId", "aspect", "severity", "title",
+                "description", "impact", "recommendation", "locations", "evidence", "reproduction", "source",
+                "origin", "anchors");
+            if (finding.ContainsKey("source") || finding.ContainsKey("origin") || finding.ContainsKey("anchors"))
             {
                 throw new ReviewResponseException(
-                    "Agent-authored findings cannot claim deterministic source provenance.");
+                    "Agent-authored findings cannot claim deterministic source provenance, runner-captured anchors, or execution provenance.");
             }
             foreach (var property in new[] { "id", "ruleId", "aspect", "severity", "title", "description", "recommendation" })
             {
@@ -91,11 +99,20 @@ public sealed partial class ReviewResponseParser
             foreach (var locationNode in locations)
             {
                 var location = locationNode?.AsObject() ?? throw Invalid("location");
+                RejectUnknown(location, "location", "path", "range", "symbolId");
                 RequireString(location, "path");
                 var range = RequireObject(location, "range");
-                ValidatePosition(RequireObject(range, "start"));
-                ValidatePosition(RequireObject(range, "end"));
+                RejectUnknown(range, "range", "start", "end");
+                var start = RequireObject(range, "start");
+                var end = RequireObject(range, "end");
+                RejectUnknown(start, "position", "line", "column");
+                RejectUnknown(end, "position", "line", "column");
+                ValidatePosition(start);
+                ValidatePosition(end);
             }
+
+            ValidateAgentEvidence(finding);
+            ValidateReproduction(finding);
 
             if (finding["fingerprint"] is JsonValue fingerprintNode &&
                 (!fingerprintNode.TryGetValue<string>(out var fingerprint) ||
@@ -161,8 +178,59 @@ public sealed partial class ReviewResponseParser
         }
     }
 
+    private static void ValidateAgentEvidence(JsonObject finding)
+    {
+        if (finding["evidence"] is null) return;
+        if (finding["evidence"] is JsonValue legacy && legacy.TryGetValue<string>(out var legacyText))
+        {
+            if (string.IsNullOrWhiteSpace(legacyText) || legacyText.Length > 20_000) throw Invalid("evidence");
+            return;
+        }
+        if (finding["evidence"] is not JsonArray evidence) throw Invalid("evidence");
+        foreach (var itemNode in evidence)
+        {
+            var item = itemNode?.AsObject() ?? throw Invalid("evidence");
+            RejectUnknown(item, "evidence", "id", "class", "status", "summary", "reference");
+            var evidenceClass = RequireString(item, "class");
+            if (evidenceClass != "external-reference")
+                throw new ReviewResponseException(
+                    $"Agent-authored findings cannot claim '{evidenceClass}' evidence; trusted execution and source evidence is runner-owned.");
+            if (RequireString(item, "status") != "claimed") throw Invalid("evidence.status");
+            if (RequireString(item, "summary").Length > 4_000) throw Invalid("evidence.summary");
+            RequireString(item, "reference");
+        }
+    }
+
+    private static void ValidateReproduction(JsonObject finding)
+    {
+        if (finding["reproduction"] is null) return;
+        var reproduction = RequireObject(finding, "reproduction");
+        RejectUnknown(reproduction, "reproduction", "status", "steps", "expected", "observed", "reason", "attempts");
+        var status = RequireString(reproduction, "status");
+        if (status == "verified")
+            throw new ReviewResponseException("Agent-authored findings cannot claim verified reproduction.");
+        if (status is not ("specified" or "not-applicable" or "blocked" or "unknown"))
+            throw Invalid("reproduction.status");
+        if (reproduction["steps"] is not JsonArray steps || steps.Any(step =>
+                step is not JsonValue value || !value.TryGetValue<string>(out var text) || string.IsNullOrWhiteSpace(text)))
+            throw Invalid("reproduction.steps");
+        if (reproduction["attempts"] is JsonArray attempts && attempts.Count > 0)
+            throw new ReviewResponseException("Agent-authored findings cannot claim retained reproduction attempts.");
+        if (status == "specified" && steps.Count == 0) throw Invalid("reproduction.steps");
+        if (status == "not-applicable" &&
+            (reproduction["reason"] is not JsonValue reason || !reason.TryGetValue<string>(out var reasonText) || string.IsNullOrWhiteSpace(reasonText)))
+            throw Invalid("reproduction.reason");
+    }
+
     private static JsonObject RequireObject(JsonObject value, string name) =>
         value[name] as JsonObject ?? throw Invalid(name);
+
+    private static void RejectUnknown(JsonObject value, string name, params string[] allowed)
+    {
+        var fields = allowed.ToHashSet(StringComparer.Ordinal);
+        var unknown = value.Select(property => property.Key).FirstOrDefault(property => !fields.Contains(property));
+        if (unknown is not null) throw new ReviewResponseException($"Unexpected {name} property '{unknown}'.");
+    }
 
     private static JsonArray RequireArray(JsonObject value, string name) =>
         value[name] as JsonArray ?? throw Invalid(name);
