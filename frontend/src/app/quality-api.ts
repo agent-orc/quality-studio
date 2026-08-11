@@ -183,8 +183,9 @@ export interface AgentStudioImportResult {
   reason: string | null;
 }
 export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
-export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped';
+export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped' | 'blocked-preflight';
 export type ReviewUnitState = ReviewRunState | 'skipped' | 'skipped-fresh';
+export type ReviewPreflightState = 'queued' | 'running' | 'done' | 'unavailable' | 'failed' | 'blocked';
 export type ModelCapabilityTier = 'light' | 'balanced' | 'frontier';
 export type ModelRoutingStatus = 'selectable' | 'fallbackOnly' | 'unsupported' | 'restricted' | 'deprecated';
 export interface ReviewModelOption {
@@ -208,6 +209,7 @@ export interface ReviewPreflight {
   repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null;
   cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null;
   recommendation: ReviewModelRecommendation; overrideBelowFloor: boolean;
+  preflightResultHash?: string | null; preflightChecks?: number; preflightUnavailableChecks?: number;
 }
 export interface ReviewRun {
   id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string;
@@ -216,6 +218,8 @@ export interface ReviewRun {
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
+  preflightState?: ReviewPreflightState; preflightChecks?: number; preflightUnavailableChecks?: number;
+  preflightResultHash?: string | null; preflightDurationMs?: number | null; blockedFiles?: number;
   economy?: ReviewRunEconomyEvidence | null;
 }
 export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
