@@ -72,6 +72,31 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+
+            var runId = accepted.GetProperty("id").GetString()!;
+            var createdAt = accepted.GetProperty("createdAt").GetDateTimeOffset();
+            var archive = new ReviewRunArchiveStore(fixture.RepositoryRoot).Load(createdAt, runId);
+            Assert.Equal([1, 2], archive.Attempts.Select(attempt => attempt.Attempt));
+            Assert.Equal(["capped", "done"], archive.Attempts.Select(attempt => attempt.Outcome));
+            Assert.Equal([1, 2, 2], archive.Operations.Select(operation => operation.Attempt));
+            Assert.Equal(3, archive.Operations.Select(operation => operation.OperationId).Distinct().Count());
+            Assert.Equal(3, archive.Findings.Count);
+            Assert.Equal(1, archive.Attempts[0].Counters.UsageOperations);
+            Assert.Equal(1, archive.Attempts[0].CumulativeCounters.UsageOperations);
+            Assert.Equal(2, archive.Attempts[1].Counters.UsageOperations);
+            Assert.Equal(3, archive.Attempts[1].CumulativeCounters.UsageOperations);
+
+            var ledger = await UsageLedger.QueryAsync(fixture.RepositoryRoot, cancellationToken: cancellationToken);
+            Assert.Equal(3, ledger.Runs);
+            Assert.All(ledger.Recent, entry =>
+            {
+                Assert.Equal(3, entry.SchemaVersion);
+                Assert.Equal(runId, entry.ReviewRunId);
+                Assert.False(string.IsNullOrWhiteSpace(entry.OperationId));
+                Assert.True(entry.Attempt > 0);
+                Assert.Contains(archive.Operations, operation => operation.OperationId == entry.OperationId &&
+                    operation.Attempt == entry.Attempt);
+            });
         }
         finally
         {
@@ -128,6 +153,98 @@ public sealed class ReviewRunStoreTests
                 file => Assert.Equal("done", file.GetProperty("state").GetString()));
             Assert.Equal("done", forced.GetProperty("aggregateState").GetString());
             Assert.Equal(3, fake.AgentCalls);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Tracked_archive_serves_history_after_the_recovery_journal_is_deleted()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var runId = string.Empty;
+        try
+        {
+            await using (var application = fixture.CreateApplication(new FreshnessExecutorFactory()))
+            {
+                using var client = application.CreateClient();
+                using var response = await client.PostAsJsonAsync("/api/review", new
+                {
+                    path = ".",
+                    kind = "code",
+                    cliType = "test-agent",
+                    model = "claude-sonnet-5",
+                }, cancellationToken);
+                response.EnsureSuccessStatusCode();
+                var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+                runId = accepted.GetProperty("id").GetString()!;
+                await WaitForStateAsync(client, runId, "done", cancellationToken);
+            }
+
+            Directory.Delete(Path.Combine(fixture.Store.RunsPath, runId), recursive: true);
+
+            await using var cleanApplication = fixture.CreateApplication();
+            using var cleanClient = cleanApplication.CreateClient();
+            var history = await cleanClient.GetFromJsonAsync<JsonElement>(
+                "/api/review/history?kind=code&outcome=done", cancellationToken);
+            var summary = Assert.Single(history.GetProperty("runs").EnumerateArray(),
+                run => run.GetProperty("runId").GetString() == runId);
+            Assert.Equal("done", summary.GetProperty("outcome").GetString());
+
+            var detail = await cleanClient.GetFromJsonAsync<JsonElement>(
+                $"/api/review/history/{runId}", cancellationToken);
+            Assert.Equal(runId, detail.GetProperty("run").GetProperty("runId").GetString());
+            Assert.Equal(1, detail.GetProperty("attempt").GetProperty("attempt").GetInt32());
+            Assert.Equal(3, detail.GetProperty("operations").GetArrayLength());
+
+            var recent = await cleanClient.GetFromJsonAsync<JsonElement>("/api/review/runs", cancellationToken);
+            Assert.Contains(recent.GetProperty("runs").EnumerateArray(),
+                run => run.GetProperty("id").GetString() == runId && run.GetProperty("state").GetString() == "done");
+            var existing = await cleanClient.GetFromJsonAsync<JsonElement>($"/api/review/runs/{runId}", cancellationToken);
+            Assert.Equal("done", existing.GetProperty("state").GetString());
+            var localStore = new ReviewRunArchiveStore(fixture.RepositoryRoot);
+            var localDetail = ReviewRunHistoryReader.Get(localStore, RepositoryRegistry.DefaultRepositoryId, runId);
+            var localDiff = await ReviewRunDiffService.CompareAsync(fixture.RepositoryRoot, localDetail, localDetail,
+                cancellationToken: cancellationToken);
+            Assert.Equal(["exact"], localDiff.Comparability.Labels);
+            var diff = await cleanClient.GetFromJsonAsync<JsonElement>(
+                $"/api/review/history/{runId}/diff?against={Uri.EscapeDataString(runId)}", cancellationToken);
+            Assert.Equal("exact", Assert.Single(diff.GetProperty("comparability").GetProperty("labels").EnumerateArray())
+                .GetString());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task V0_run_migration_is_idempotent_and_preserves_unknown_quality_fields()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var initial = fixture.CreateRun("migrate", "done");
+            fixture.Store.AppendProgress(new ReviewRunFileTransition(
+                "Sample.cs", "done", initial.Manifest.CreatedAt, initial.Manifest.CreatedAt.AddSeconds(1),
+                initial.Manifest.RunId, null));
+            var stored = new StoredReviewRun(initial.Manifest, initial.Status, fixture.Store.LoadAll().Single().Progress);
+
+            ReviewRunArchiveMigration.Migrate(fixture.RepositoryRoot, stored, cancellationToken);
+            ReviewRunArchiveMigration.Migrate(fixture.RepositoryRoot, stored, cancellationToken);
+
+            var archive = new ReviewRunArchiveStore(fixture.RepositoryRoot)
+                .Load(stored.Manifest.CreatedAt, stored.Manifest.RunId);
+            Assert.Equal(ReviewRunArchiveMigration.Provenance, archive.Run.Provenance);
+            Assert.Single(archive.Operations);
+            var attempt = Assert.Single(archive.Attempts);
+            Assert.Null(attempt.Quality.LowestGrade);
+            Assert.Null(attempt.Quality.WorstSecurityVerdict);
+            Assert.Empty(archive.Findings);
         }
         finally
         {
@@ -299,6 +416,62 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
             var transitions = fixture.Store.LoadAll().Single().Progress.Select(progress => progress.State).ToArray();
             Assert.Equal(["queued", "running", "queued", "running", "failed"], transitions);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Archived_operation_is_reconciled_after_crash_before_journal_completion()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        try
+        {
+            var stored = fixture.CreateRun("archived-mid-file", "queued");
+            const string operationId = "operation-already-archived";
+            var startedAt = stored.Manifest.CreatedAt.AddSeconds(1);
+            var finishedAt = startedAt.AddSeconds(1);
+            fixture.Store.AppendProgress(new ReviewRunFileTransition(
+                "Sample.cs", "running", startedAt, null, stored.Manifest.RunId, null,
+                operationId, 1, 1));
+            fixture.Store.WriteStatus(stored.Status with
+            {
+                State = "running",
+                StartedAt = stored.Manifest.CreatedAt,
+                Attempt = 1,
+                AttemptStartedAt = stored.Manifest.CreatedAt,
+            });
+            var archiveStore = new ReviewRunArchiveStore(fixture.RepositoryRoot);
+            archiveStore.CreateRun(ReviewRunArchiveRecord.FromManifest(stored.Manifest));
+            archiveStore.AppendOperation(stored.Manifest.CreatedAt, new ReviewRunOperationRecord
+            {
+                RunId = stored.Manifest.RunId,
+                OperationId = operationId,
+                Ordinal = 1,
+                Attempt = 1,
+                UnitId = "file-sample",
+                Path = "Sample.cs",
+                Level = "file",
+                State = "done",
+                StartedAt = startedAt,
+                FinishedAt = finishedAt,
+            });
+
+            await using var application = fixture.CreateApplication(executor);
+            using var client = application.CreateClient();
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+
+            Assert.Equal("done", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
+            Assert.Empty(executor.Requests);
+            var transitions = fixture.Store.LoadAll().Single().Progress.Select(progress => progress.State).ToArray();
+            Assert.Equal(["queued", "running", "done"], transitions);
+            var archive = archiveStore.Load(stored.Manifest.CreatedAt, stored.Manifest.RunId);
+            Assert.Single(archive.Operations);
+            Assert.Equal(operationId, Assert.Single(archive.Attempts).OperationIds.Single());
         }
         finally
         {
@@ -545,12 +718,45 @@ public sealed class ReviewRunStoreTests
                 CancellationToken cancellationToken)
             {
                 Interlocked.Increment(ref owner.operationCount);
-                var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
+                var providerRunId = $"test-{Guid.NewGuid():N}";
+                var entry = new ReviewUsageEntry(providerRunId, DateTimeOffset.UtcNow,
                     model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
-                    request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
+                    request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath,
+                    request.ReviewRunId, 3, request.OperationId, request.ReviewAttempt);
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
-                return new ReviewExecutionResult(false, null);
+                var metaPath = Path.Combine(request.RepositoryRoot!, ".quality", "test-results",
+                    request.OperationId! + ".review-meta.json");
+                Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
+                var reviewedHash = "sha256:" + new string('b', 64);
+                var finding = new ReviewFinding(
+                    "finding-1", "correctness", FindingSeverity.High, "Archived finding", "Description",
+                    "Recommendation", [new FindingLocation(request.FilePath)],
+                    "sha256:" + new string('d', 64), "test-rule");
+                var document = new ReviewMetaDocument
+                {
+                    Unit = new ReviewUnit(request.UnitId!, ReviewAdapter.Generic, request.Level,
+                        request.FilePath, request.DisplayName ?? request.FilePath),
+                    ReviewedAt = DateTimeOffset.UtcNow,
+                    Kind = Enum.Parse<ReviewKind>(request.Kind, ignoreCase: true),
+                    Reviewer = new ReviewerIdentity(cliType, model ?? "claude-sonnet-5", RunId: providerRunId),
+                    ReviewedHash = ManifestHash.Subject(reviewedHash),
+                    SubjectInputs = [new SubjectInputHash(request.FilePath, "file", reviewedHash)],
+                    ReviewInputs = new ReviewInputs(
+                        ManifestHash.ReviewInput("sha256:" + new string('c', 64)), true, [], [],
+                        new PromptReference("test", "1", "sha256:" + new string('e', 64))),
+                    Grade = new ReviewGrade(82, GradeBand.B, "Fixture grade"),
+                    Summary = "Fixture review",
+                    Aspects = [new ReviewAspect("correctness", "Correctness", new ReviewGrade(82, GradeBand.B, "Fixture grade"))],
+                    Findings = [finding],
+                };
+                await using (var stream = new FileStream(metaPath, FileMode.CreateNew, FileAccess.Write,
+                                 FileShare.None, 4096, FileOptions.Asynchronous))
+                    await ReviewMetaJson.SaveAsync(stream, document, cancellationToken);
+                var inputs = new ResolvedInputs(request.Kind, request.Level.ToString().ToLowerInvariant(),
+                    1000, 0, [], []);
+                return new ReviewExecutionResult(false,
+                    new ReviewResult(metaPath, reviewedHash, providerRunId, inputs, entry));
             }
         }
     }
