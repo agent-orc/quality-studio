@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "reporting-exports",
+  "title": "Reporting and exports that outlive the review screen",
+  "summary": "Decision-ready analysis of Quality Studio reporting at commit 3e0b6559faa7. It distinguishes the existing current repository report from the missing exact-run artifact, recommends immutable numbered run-report revisions rendered as JSON, calm standalone HTML, Markdown, and SARIF, defines zero-PR push-pipeline delivery, separates comparable run trends from Git-backed repository trends, and provides five approval-ready implementation slices.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-08-11T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-64"
+  ],
+  "implementationTasks": [
+    {
+      "title": "Capture immutable review-run report revisions",
+      "promptMarkdown": "Implement slice S1 from docs/operations/reporting-exports/index.html. Add the fully specified review-run-report.v1 JSON schema and typed model. Capture the exact observation at the review-operation write boundary, including skipped-fresh observations, and persist numbered immutable terminal revisions through ReviewRunStore. Capped then resumed runs must create separate revisions under the same run ID. Do not reconstruct legacy runs from current sidecars, do not include absolute roots or source content, and add restart, concurrency, terminal-state, resume, schema, and legacy-unavailable tests."
+    },
+    {
+      "title": "Render and serve run reports in HTML, Markdown, JSON, and SARIF",
+      "promptMarkdown": "Implement slice S2 from docs/operations/reporting-exports/index.html after S1. Render four deterministic adapters from the canonical run-report JSON: semantic self-contained calm HTML, detailed Markdown, JSON, and SARIF 2.1.0. Add repository-scoped immutable revision and latest routes with safe media types and Content-Disposition filenames. Preserve existing current-state /report routes. Validate SARIF against both the local profile and official SARIF 2.1.0 schema, and add output-escaping, lifecycle suppression, partial-state, and active-run 409 tests."
+    },
+    {
+      "title": "Add review-run export actions to the Quality Studio UI",
+      "promptMarkdown": "Implement slice S3 from docs/operations/reporting-exports/index.html after S2. Add Open report plus Markdown, SARIF, and JSON downloads to terminal review rows, expose numbered partial revisions for resumed capped runs, and use backend-rendered artifacts. Preserve pause, cancel, resume, polling, and repository authorization behavior. Use central design tokens and existing button/menu components. Cover done, failed, cancelled, capped, resumed, legacy-unavailable, and permission-denied states, plus one browser test for filenames and media types."
+    },
+    {
+      "title": "Publish a quality report bundle on direct-to-main CI runs",
+      "promptMarkdown": "Implement slice S4 from docs/operations/reporting-exports/index.html. Add quality report --bundle <directory> so the current repository report model is built once, four formats are written, and gates are evaluated afterward with existing exit codes. Update the push-to-main workflow to append summary.md to the job summary and upload the complete bundle even when a quality threshold fails. Keep SARIF provider upload optional and separately permissioned; do not depend on pull requests or PR comments."
+    },
+    {
+      "title": "Add comparable review-run trends without blending Git history",
+      "promptMarkdown": "Implement slice S5 from docs/operations/reporting-exports/index.html after S1 and S3. Build run trends only across identical repository, path, level, and kind keys. Include every terminal revision operationally, exclude partial revisions from the default complete-score line, calculate finding deltas by fingerprint, and expose usage, cost, duration, model, and force annotations. Add the compact UI trend and report table while retaining the existing Git-backed series under the explicit label Committed repository trend."
+    }
+  ]
+}

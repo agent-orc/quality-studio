@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reporting and exports | Quality Studio decision dossier</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+<header class="page">
+  <p class="kicker">Decision dossier · Quality Studio · QS-64</p>
+  <h1>Reporting and exports that outlive the review screen</h1>
+  <p class="lede">A repository-grounded proposal for immutable run reports, SARIF interoperability,
+  pull-request-independent Markdown summaries, and honest trends across both review runs and committed quality truth.</p>
+  <div class="meta">
+    <span><b>Status:</b> decision pending</span>
+    <span><b>Prepared:</b> 11 August 2026</span>
+    <span><b>Evidence commit:</b> <code>3e0b6559faa7</code></span>
+    <span><b>Recommendation:</b> approve slices S1 through S5</span>
+  </div>
+</header>
+
+<nav class="box" aria-label="Contents">
+  <h4>Contents</h4>
+  <ul class="toc">
+    <li><a href="#decision">Decision in one page</a></li>
+    <li><a href="#current-state">§1 Current repository state</a></li>
+    <li><a href="#boundary">§2 The required reporting boundary</a></li>
+    <li><a href="#formats">§3 Proposed formats and examples</a></li>
+    <li><a href="#ci">§4 Zero-PR pipeline delivery</a></li>
+    <li><a href="#trend">§5 Trends across runs</a></li>
+    <li><a href="#options">§6 Options and recommendation</a></li>
+    <li><a href="#slices">§7 Implementation slices</a></li>
+    <li><a href="#guardrails">§8 Guardrails and non-goals</a></li>
+    <li><a href="#approval">§9 Approval block</a></li>
+  </ul>
+</nav>
+
+<section id="decision" class="box accent">
+  <h4>Decision in one page</h4>
+  <p class="stx stx-part"><b>Recommendation:</b> keep the existing repository snapshot report, but add a
+  separate immutable <code>review-run-report.v1</code> artifact captured at the review-operation boundary.
+  Render JSON, calm standalone HTML, concise Markdown, and SARIF from that one snapshot. Add numbered
+  revisions because a capped run can resume under the same run ID.</p>
+  <ul>
+    <li><b>Run truth and repository truth remain distinct.</b> A run report answers what this execution reviewed,
+      produced, skipped, spent, and failed. The existing quality report answers what the repository says now.</li>
+    <li><b>Capture before sidecars can change again.</b> A later run can overwrite the same review sidecar.
+      Reconstructing an older run from current sidecars would be false history.</li>
+    <li><b>One snapshot, four adapters.</b> JSON is canonical. HTML is for humans, Markdown is for push pipelines,
+      and SARIF is for CI and code-scanning consumers. Adapters must not invent data absent from JSON.</li>
+    <li><b>Two trend lines, never blended.</b> Run history is keyed by scope and kind. Repository quality history
+      stays Git-backed and commit-addressed.</li>
+    <li><b>No pull request dependency.</b> The primary pipeline surface is the job summary and archived artifacts on
+      a push to <code>main</code>. A PR comment integration is explicitly out of scope.</li>
+  </ul>
+</section>
+
+<h2 id="current-state"><span class="no">§1</span>Current repository state</h2>
+<p class="dim">The following findings come from the checked-out code, committed review data, schemas, tests,
+and one current report invocation. They are not inferred from a desired architecture.</p>
+
+<h3>§1.1 A capable current-state exporter already exists</h3>
+<p><code>QualityReportRenderer</code> supports Markdown, HTML, JSON, and SARIF, and the CLI writes output before
+evaluating gates. The API exposes the same report builder at <code>GET /api/report</code> and
+<code>GET /api/repos/{repoId}/report</code>. The useful core should be reused, not replaced.</p>
+
+<table>
+  <thead><tr><th>Existing capability</th><th>Repository evidence</th><th>What it actually means</th></tr></thead>
+  <tbody>
+    <tr><td><b>Four formats</b></td><td><code>src/AgentOrchestrator.CodeQuality/QualityReport.cs:520-551</code></td><td>One repository-state model can already render Markdown, HTML, JSON, and SARIF.</td></tr>
+    <tr><td><b>CLI output and gates</b></td><td><code>src/quality-cli/Program.cs:85-114</code></td><td>The document is written before <code>--fail-under</code> and <code>--fail-on</code> set exit code 1.</td></tr>
+    <tr><td><b>HTTP export</b></td><td><code>src/QualityStudio.Api/Program.cs:283-284, 909-941</code></td><td>The API can export current state for one accessible repository or the registry.</td></tr>
+    <tr><td><b>SARIF identity</b></td><td><code>QualityReport.cs:637-737</code>; <code>QualityReportTests.cs:34-61</code></td><td>Rule IDs, relative locations, partial fingerprints, severity mapping, and accepted suppressions exist.</td></tr>
+    <tr><td><b>Git trend</b></td><td><code>QualityReport.cs:400-458</code></td><td>Commits that changed sidecars are replayed and a point is emitted only when a per-kind mean score changes.</td></tr>
+  </tbody>
+</table>
+
+<h3>§1.2 The current report is not a review-run report</h3>
+<p>The current report builder enumerates the review sidecars present now, projects the current finding lifecycle
+state, scans current staleness, and reconstructs Git history. Its model has repositories, scorecards, trends, and
+findings, but no review run ID, selected scope, per-run outcome, skipped files, errors, token cap, estimate, or
+estimate deviation. Evidence: <code>QualityReport.cs:30-105, 125-213</code>.</p>
+
+<p>UI review orchestration persists a different record under <code>.quality/runs/&lt;runId&gt;/</code>:</p>
+<table>
+  <thead><tr><th>File</th><th>Contains</th><th>Does not contain</th></tr></thead>
+  <tbody>
+    <tr><td><code>manifest.json</code></td><td>Repository ID, node, kind, model, CLI, target paths and subject hashes, estimate, cap, force flag</td><td>The resulting grades, summaries, findings, and deterministic evidence</td></tr>
+    <tr><td><code>progress.jsonl</code></td><td>Path, state, timestamps, and error text for each transition</td><td>The review observation written for a completed operation</td></tr>
+    <tr><td><code>status.json</code></td><td>Counts, state, errors, usage, spend, cap, aggregate state, stop reason</td><td>An immutable, shareable snapshot or any export revision</td></tr>
+  </tbody>
+</table>
+<p class="evidence-link">Evidence: <code>src/QualityStudio.Api/ReviewRunStore.cs:5-59</code> and
+<code>docs/review-runs.md:27-37</code>. The entire run directory is ignored by Git at <code>.gitignore:11</code>.</p>
+
+<div class="box bad">
+  <h4>The exact-run evidence gap</h4>
+  <p><code>ReviewRunner</code> atomically replaces the standing sidecar and returns only its path, reviewed hash,
+  agent run ID, inputs, and usage (<code>ReviewRunner.cs:31-33, 147-190</code>). The job service records that the file
+  finished but does not snapshot the sidecar (<code>ReviewJobs.cs:468-497, 999-1015</code>). A later review of the
+  same unit can replace the sidecar. Therefore an old run cannot be reported exactly from current repository state.</p>
+</div>
+
+<h3>§1.3 The browser is a terminal status list, not an exit surface</h3>
+<p>The review panel shows the eight newest rows, progress, spend, pause, cancel, resume, deviation, and the first
+error. There is no open, copy, or download action (<code>frontend/src/app/review-panel/review-panel.html:5-18</code>).
+The frontend client starts, polls, pauses, resumes, and cancels runs, but never calls <code>/report</code>
+(<code>frontend/src/app/quality-api.ts:491-599</code>). The export API exists outside the user flow.</p>
+
+<h3>§1.4 The human outputs are too thin</h3>
+<p>The Markdown renderer lists a finding's severity, lifecycle state, source, title, and first location, but omits
+its description, recommendation, other locations, review rationale, and run provenance
+(<code>QualityReport.cs:555-627</code>). HTML is that Markdown escaped into one <code>&lt;pre&gt;</code>, not a semantic
+document (<code>QualityReport.cs:628-635</code>). JSON and SARIF carry more detail than the human report.</p>
+
+<h3>§1.5 Measured current output</h3>
+<p>The command below was executed in this checkout at <code>3e0b6559faa7</code>:</p>
+<div class="box"><code>dotnet run --project src/quality-cli -- report . --format json</code></div>
+<table>
+  <thead><tr><th>Measure</th><th>Current value</th><th>Interpretation</th></tr></thead>
+  <tbody>
+    <tr><td>Project score</td><td><b>87 / 100 (B)</b></td><td>Mean of the only scored kind, code.</td></tr>
+    <tr><td>Review coverage</td><td><b>2 / 149 files, 1.34%</b></td><td>Two committed file reviews exist.</td></tr>
+    <tr><td>Staleness</td><td><b>0 fresh, 2 stale, 445 missing</b></td><td>447 file-kind pairs across 149 files and three enabled kinds.</td></tr>
+    <tr><td>Findings</td><td><b>7 open</b></td><td>Four medium and three low findings, all from current sidecars.</td></tr>
+    <tr><td>Trend</td><td><b>98 → 87</b></td><td>Only two code points: <code>bc99e8c34491</code> and <code>49d892023caa</code>; security and performance have none.</td></tr>
+  </tbody>
+</table>
+<p>The committed sample at <code>results/quality-report.sample.md</code> still says 2 of 107 files and 1.87%.
+That is valid dated evidence from 25 July, but it demonstrates why an exported report must carry its generation
+time and commit and must not be presented as live truth.</p>
+
+<h2 id="boundary"><span class="no">§2</span>The required reporting boundary</h2>
+<p>The product needs two explicit report subjects. Treating them as one model creates either false run history or
+an impoverished repository report.</p>
+
+<table>
+  <thead><tr><th>Subject</th><th>Question answered</th><th>Source of truth</th><th>Identity</th></tr></thead>
+  <tbody>
+    <tr><td><b>Review run</b></td><td>What did this execution attempt, observe, spend, skip, and fail?</td><td>Immutable snapshots captured as each operation completes, plus the durable run manifest and status</td><td><code>repositoryId + reviewRunId + revision</code></td></tr>
+    <tr><td><b>Repository snapshot</b></td><td>What is the standing quality truth now, and how did committed truth change?</td><td>Current sidecars, finding state, scans, and Git history</td><td><code>repositoryId + generatedAt + commit</code></td></tr>
+  </tbody>
+</table>
+
+<section class="box ok">
+  <h4>Recommended canonical artifact</h4>
+  <p>Add <code>review-run-report.v1.json</code>. Capture the complete projected observation at the same operation
+  boundary that writes the sidecar, not by rereading mutable sidecars at export time. Store it through
+  <code>ReviewRunStore</code> under
+  <code>.quality/runs/&lt;runId&gt;/artifacts/r&lt;revision&gt;/report.json</code>. The directory remains operational data,
+  not committed quality truth.</p>
+</section>
+
+<h3>§2.1 Revisions are required, not optional polish</h3>
+<p>The current state machine classifies <code>capped</code> as terminal, but <code>Resume</code> can return the same run
+to <code>queued</code> with a higher cap (<code>ReviewRunStore.cs:159</code> and <code>ReviewJobs.cs:914-952</code>).
+Overwriting a shared partial report after resume would break auditability. Each transition to <code>capped</code>,
+<code>done</code>, <code>failed</code>, or <code>cancelled</code> must freeze the next numbered revision. A stable
+<code>latest</code> endpoint may resolve to the newest revision; a revision URL never changes.</p>
+
+<h3>§2.2 Capture semantics</h3>
+<ul>
+  <li><b>Done operation:</b> capture the exact metadata JSON returned by the write boundary, including grade,
+    rationale, summary, findings, projected lifecycle state, analyzer evidence, reviewer, usage, input hash, and subject hash.</li>
+  <li><b>Skipped fresh:</b> capture the verified fresh observation and mark <code>operationState: skipped-fresh</code>.
+    A null review result is insufficient for the report.</li>
+  <li><b>Failed, skipped, or cancelled:</b> record the operation state, bounded error detail, target subject hash,
+    and timestamps. Never invent a grade or findings.</li>
+  <li><b>Aggregate review:</b> capture it as a separate unit with its aggregate controls and exclusions.</li>
+  <li><b>Concurrent writes:</b> the snapshot bytes must come from the same in-memory document that is atomically
+    written, or be read under the same write lock and checked against the returned agent run ID. A later sidecar is not acceptable.</li>
+  <li><b>Legacy runs:</b> return a typed <code>report-unavailable</code> result when no observations were captured.
+    Do not backfill from current sidecars.</li>
+</ul>
+
+<h2 id="formats"><span class="no">§3</span>Proposed formats and examples</h2>
+<p>All four representations render the same canonical fields. Filenames are deterministic and contain no
+repository root: <code>quality-run-&lt;safe-repository-id&gt;-&lt;run-id&gt;-r&lt;revision&gt;.&lt;ext&gt;</code>.</p>
+
+<table>
+  <thead><tr><th>Format</th><th>Media type</th><th>Primary consumer</th><th>Required behavior</th></tr></thead>
+  <tbody>
+    <tr><td><b>JSON</b></td><td><code>application/json</code></td><td>Canonical interchange, tests, future adapters</td><td>Versioned schema; complete run and unit facts; no absolute paths or source content</td></tr>
+    <tr><td><b>HTML</b></td><td><code>text/html</code></td><td>Human sharing and review</td><td>Self-contained, semantic, calm, responsive, printable, light/dark, no scripts or external assets</td></tr>
+    <tr><td><b>Markdown</b></td><td><code>text/markdown</code></td><td>CI job summaries, logs, chat handoff</td><td>Short by default; full finding detail; stable anchors; no PR-specific assumptions</td></tr>
+    <tr><td><b>SARIF 2.1.0</b></td><td><code>application/sarif+json</code></td><td>Code scanning and CI interop</td><td>One SARIF run per review-run revision; stable rule IDs, relative URIs, fingerprints, suppressions, invocation outcome</td></tr>
+  </tbody>
+</table>
+
+<h3>§3.1 Canonical JSON</h3>
+<p>The model below is intentionally run-scoped. Repository-wide scorecard, comparison, and Git trend remain in
+<code>quality-report.v1</code>.</p>
+<div class="box" style="overflow-x:auto"><pre><code>{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-run-report.v1.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-7f31...",
+    "revision": 2,
+    "repository": { "id": "payments", "name": "Payments" },
+    "subject": { "path": "src/Payments", "level": "module", "kind": "security" },
+    "execution": { "state": "done", "createdAt": "...", "finishedAt": "..." },
+    "engine": { "cliType": "codex", "model": "...", "force": false },
+    "counts": { "total": 18, "reviewed": 15, "fresh": 2, "failed": 1, "skipped": 0 },
+    "usage": { "inputTokens": 48210, "outputTokens": 6371, "durationMs": 192004 },
+    "estimate": { "inputTokens": 45110, "outputTokens": 7100 },
+    "deviation": { "inputTokensPercent": 6.87, "outputTokensPercent": -10.27 }
+  },
+  "summary": { "score": 82, "grade": "B", "activeFindings": 4 },
+  "units": [
+    {
+      "path": "src/Payments/ChargeService.cs",
+      "operationState": "done",
+      "subjectHash": "sha256:...",
+      "review": { "grade": { "score": 78, "band": "C" }, "findings": [ ... ] }
+    }
+  ],
+  "integrity": { "contentHash": "sha256:..." }
+}</code></pre></div>
+<p><b>Required schema details:</b> define every nested object, enum, timestamp, fingerprint, and nullable field.
+The current <code>quality-report.v1.schema.json</code> leaves trend items and several nested arrays effectively
+untyped; the new contract should not repeat that weakness.</p>
+
+<h3>§3.2 Calm standalone HTML</h3>
+<p>The HTML report should read as a small engineering document, not a screen dump. Use the same calm document
+grammar as this dossier: a restrained header, outcome box, small facts table, finding sections, and provenance at
+the end. It must contain the full finding description and recommendation that current human exports omit.</p>
+<table>
+  <thead><tr><th>Order</th><th>Section</th><th>Content</th></tr></thead>
+  <tbody>
+    <tr><td>01</td><td><b>Run outcome</b></td><td>Done, partial, failed, or cancelled in text and icon; scope, kind, revision, timestamps</td></tr>
+    <tr><td>02</td><td><b>Executive summary</b></td><td>Grade only when evidence exists; reviewed/fresh/failed/skipped counts; active findings</td></tr>
+    <tr><td>03</td><td><b>Findings</b></td><td>Severity, lifecycle state at completion, rule, every location, description, recommendation, source</td></tr>
+    <tr><td>04</td><td><b>Units and failures</b></td><td>Per-unit grade/state, skipped-fresh units, failures without fabricated quality claims</td></tr>
+    <tr><td>05</td><td><b>Cost and method</b></td><td>Estimate versus actual, CLI/model, inputs hash, subject hash, deterministic sensor provenance</td></tr>
+    <tr><td>06</td><td><b>Integrity</b></td><td>Run ID, revision, schema, generated time, repository commit if available, canonical JSON hash</td></tr>
+  </tbody>
+</table>
+<div class="box warn"><h4>Partial reports must look partial</h4><p>A capped or failed revision uses an explicit
+<span class="pill part">partial</span> label and says which units lack observations. It does not calculate a
+scope grade from only the successful subset unless that value is labeled <q>reviewed subset</q>.</p></div>
+
+<h3>§3.3 Markdown summary</h3>
+<p>Markdown is a compact pipeline surface, not a lossy duplicate of HTML. Default to the outcome and active
+findings, then include collapsible or lower-priority operational details only where the renderer supports plain
+Markdown safely.</p>
+<div class="box" style="overflow-x:auto"><pre><code># Quality review: security · src/Payments
+
+**Done · revision 2 · 15 reviewed · 2 fresh · 1 failed**
+
+Score: **82/100 (B)** · Active findings: **4** · Tokens: **54,581**
+
+## Blocking findings
+
+- **HIGH · QS-AUTH-004 · open** Unsafe authorization fallback
+  `src/Payments/Auth.cs:88` · Agent finding
+  Recommendation: reject requests when policy resolution fails.
+
+## Execution notes
+
+- `src/Payments/Legacy.cs`: failed, parser response was invalid.
+- Estimate deviation: input +6.87%, output -10.27%.
+
+Run `review-7f31...` · revision 2 · schema v1 · content `sha256:...`</code></pre></div>
+
+<h3>§3.4 SARIF 2.1.0</h3>
+<p>Reuse the existing severity, fingerprint, relative URI, and suppression behavior. Change the subject from one
+SARIF run per repository snapshot to one SARIF run per review-run revision.</p>
+<div class="box" style="overflow-x:auto"><pre><code>{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [{
+    "tool": { "driver": { "name": "Quality Studio", "rules": [ ... ] } },
+    "automationDetails": { "id": "quality-studio/payments/review-7f31/r2/" },
+    "invocations": [{ "executionSuccessful": true }],
+    "results": [{
+      "ruleId": "QS-AUTH-004",
+      "level": "error",
+      "message": { "text": "Unsafe authorization fallback: ..." },
+      "partialFingerprints": { "qualityStudioFingerprint/v1": "sha256:..." },
+      "locations": [{ "physicalLocation": {
+        "artifactLocation": { "uri": "src/Payments/Auth.cs" },
+        "region": { "startLine": 88 }
+      }}],
+      "properties": { "reviewRunId": "review-7f31...", "revision": 2, "state": "open" }
+    }],
+    "properties": { "kind": "security", "scope": "src/Payments", "state": "done" }
+  }]
+}</code></pre></div>
+<ul>
+  <li><b>Mapping:</b> critical/high to <code>error</code>, medium to <code>warning</code>, low/info to <code>note</code>.</li>
+  <li><b>Lifecycle:</b> open and accepted remain active results; waived and false-positive receive accepted external
+    suppressions; resolved observations are omitted from active results but remain counted in run properties if captured.</li>
+  <li><b>Failures:</b> execution failures belong in <code>invocations.toolExecutionNotifications</code>, not as fake code findings.</li>
+  <li><b>Validation:</b> retain the local profile test and also validate against the official SARIF 2.1.0 schema.
+    The current test validates only <code>schemas/sarif-2.1.0-output.schema.json</code>, a deliberately smaller profile.</li>
+</ul>
+
+<h2 id="ci"><span class="no">§4</span>Zero-PR pipeline delivery</h2>
+<p>The operator mandate says the organization runs with zero pull requests. The relevant industry pattern is the
+direct-to-trunk variant of trunk-based development, also described as
+<a href="https://trunkbaseddevelopment.com/committing-straight-to-the-trunk/">committing straight to the trunk</a>.
+Quality evidence therefore has to attach to the pushed commit and CI run, not wait for a PR comment.</p>
+
+<h3>§4.1 Current CI evidence</h3>
+<p><code>.github/workflows/build.yml</code> triggers on both push and pull request, but runs only restore, build,
+test, and security scan. It never calls <code>quality report</code> and never uploads an artifact. Its only permission
+is <code>contents: read</code> (<code>build.yml:3-10, 24-34</code>).</p>
+
+<section class="box accent">
+  <h4>Recommended delivery pattern</h4>
+  <ol>
+    <li>On every push to <code>main</code>, build a report bundle once from the checked-out commit.</li>
+    <li>Append <code>summary.md</code> to the CI job summary. This is the primary human surface.</li>
+    <li>Archive <code>report.html</code>, <code>report.json</code>, <code>report.sarif</code>, and
+      <code>summary.md</code> even when the quality gate exits 1.</li>
+    <li>Optionally upload SARIF to the code-scanning provider in deployments that grant the required permission.
+      The portable SARIF artifact remains the base contract.</li>
+  </ol>
+</section>
+
+<p>Proposed CLI after slice S4:</p>
+<div class="box" style="overflow-x:auto"><pre><code>set +e
+dotnet run --project src/quality-cli -- report . \
+  --bundle artifacts/quality \
+  --fail-under 80 \
+  --fail-on high
+quality_exit=$?
+set -e
+
+cat artifacts/quality/summary.md &gt;&gt; "$GITHUB_STEP_SUMMARY"
+exit "$quality_exit"</code></pre></div>
+<p><code>--bundle</code> does not exist today. It should build the model once, write all four formats atomically,
+then evaluate gates. Artifact upload steps must use the CI provider's <q>always</q> condition so exit code 1 does
+not discard the report. Existing single-format commands remain compatible.</p>
+
+<div class="box warn">
+  <h4>SARIF upload is an adapter, not the source of truth</h4>
+  <p>GitHub code scanning requires an upload step and typically <code>security-events: write</code>; the current
+  workflow does not grant it. Do not couple report generation to that permission or to one vendor. Generate and
+  archive valid SARIF first, then upload where enabled.</p>
+</div>
+
+<h2 id="trend"><span class="no">§5</span>Trends across runs</h2>
+<p>The existing Git curve is valuable but it is not a run curve. It suppresses commits where the mean score did
+not change, cannot show capped or failed runs, and has no run usage or estimate. Keep it and add a separate run series.</p>
+
+<table>
+  <thead><tr><th>Series</th><th>X-axis</th><th>Comparator</th><th>Measures</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr><td><b>Run history</b></td><td><code>finishedAt</code> and run revision</td><td>Exact <code>repositoryId + path + level + kind</code></td><td>Reviewed-subset score, active/new/resolved findings, done/fresh/failed/skipped, tokens, cost, duration, estimate deviation</td><td>Immutable run report JSON</td></tr>
+    <tr><td><b>Repository quality</b></td><td>Git author time and commit</td><td>Repository and kind</td><td>Standing per-kind score, review coverage, active finding counts, fresh/stale/policy-drift/missing</td><td>Committed sidecars and finding state</td></tr>
+  </tbody>
+</table>
+
+<h3>§5.1 Run comparison rules</h3>
+<ul>
+  <li>Compare only the same path, level, and kind. A file security run and a project code run do not form a curve.</li>
+  <li>Include every terminal revision in the operational history, including capped, failed, and cancelled.</li>
+  <li>Exclude partial revisions from the main quality-score line by default. Show their reviewed-subset score only
+    with a partial marker and never connect it as if scope were complete.</li>
+  <li>Use stable finding fingerprints for new, persisting, and resolved deltas. Titles and line numbers are not identity.</li>
+  <li>Display model/CLI changes and <code>force</code> runs as annotations because they affect comparability.</li>
+  <li>Do not invent points for legacy runs that lack captured observations.</li>
+</ul>
+
+<h3>§5.2 First useful UI and report</h3>
+<p>Add a scope-filtered trend block above the run list: latest complete grade, delta from the prior comparable
+complete run, active finding delta, last five run outcomes, and usage per run. The full HTML export adds a small
+table of comparable revisions. The current Git trend remains labeled <q>Committed repository trend</q>.</p>
+
+<h2 id="options"><span class="no">§6</span>Options and recommendation</h2>
+<table>
+  <thead><tr><th>Option</th><th>What ships</th><th>Strength</th><th>Failure mode</th><th>Decision</th></tr></thead>
+  <tbody>
+    <tr><td><b>A. Polish current report only</b></td><td>Semantic HTML, better Markdown, current SARIF, UI link to <code>/report</code></td><td>Smallest change; reuses current builder</td><td>Still cannot say what one UI run produced; old runs remain unrecoverable; run trend remains impossible</td><td><span class="pill open">reject</span></td></tr>
+    <tr><td><b>B. Canonical run artifact plus renderers</b></td><td>Immutable run JSON revisions, four adapters, run export API/UI, bundle CLI, dual trends</td><td>Solves the actual evidence boundary and reuses existing mappings</td><td>Requires capture contract changes and careful capped-run revision tests</td><td><span class="pill done">recommend</span></td></tr>
+    <tr><td><b>C. External reporting service</b></td><td>Database, hosted URLs, CI ingestion, dashboards</td><td>Cross-host retention and organization-wide aggregation</td><td>New service, auth, tenancy, retention, and failure plane before local truth is correct</td><td><span class="pill queued">defer</span></td></tr>
+  </tbody>
+</table>
+
+<section class="box ok">
+  <h4>Recommendation B</h4>
+  <p>Approve the local artifact contract and all five slices below. It closes the evidence gap without introducing
+  a report database. The JSON boundary also makes a later hosted reporting service an adapter instead of a rewrite.</p>
+</section>
+
+<h2 id="slices"><span class="no">§7</span>Implementation slices</h2>
+<p>Each slice has an independently reviewable outcome. S1 is the correctness floor. S2 through S5 must not
+reconstruct exact-run evidence from mutable sidecars if S1 is absent.</p>
+
+<h3>S1 · Capture the immutable run artifact contract</h3>
+<p><span class="pill new">approve first</span></p>
+<ul>
+  <li>Add a fully specified <code>schemas/review-run-report.v1.schema.json</code> and typed core model.</li>
+  <li>Extend the review execution result so the exact written observation is available to the job service for both
+    completed and skipped-fresh operations.</li>
+  <li>Persist per-operation snapshots and freeze numbered report revisions through <code>ReviewRunStore</code>.</li>
+  <li>Add <code>reportRevision</code> to durable status. Increment only when a terminal snapshot is successfully frozen.</li>
+  <li>Capture capped partial revisions and allow a later resumed revision without mutating the earlier artifact.</li>
+</ul>
+<div class="stx stx-ok"><b>Acceptance:</b> restart recovery preserves observations; concurrent runs cannot
+misattribute a sidecar; every terminal state gets a schema-valid revision; capped then resumed produces two immutable
+revisions; legacy runs return typed unavailable; absolute roots and source content are absent.</div>
+<p class="evidence-link">Primary seams: <code>ReviewRunner.cs</code>, <code>ReviewRunStore.cs</code>,
+<code>ReviewJobs.cs</code>, and <code>ReviewRunStoreTests.cs</code>.</p>
+
+<h3>S2 · Render and serve the four run formats</h3>
+<p><span class="pill new">depends on S1</span></p>
+<ul>
+  <li>Add pure renderers from the run JSON model: semantic calm HTML, detailed Markdown, JSON, and SARIF.</li>
+  <li>Add repository-scoped routes for revision inventory, an immutable revision, and latest:
+    <code>/api/repos/{repoId}/review/runs/{id}/reports/{revision}?format=...</code>.</li>
+  <li>Return correct media type and a sanitized <code>Content-Disposition</code> filename. Active runs return 409 with
+    a stable problem type until a revision exists.</li>
+  <li>Keep current <code>/report</code> endpoints and current-state model unchanged except for shared safe primitives.</li>
+</ul>
+<div class="stx stx-ok"><b>Acceptance:</b> all adapters are deterministic from one JSON fixture; HTML encodes
+every untrusted field and works without script/network access; Markdown includes full descriptions and recommendations;
+SARIF validates against local and official schemas; waived/false-positive mappings match current behavior.</div>
+
+<h3>S3 · Put exports in the run UI</h3>
+<p><span class="pill new">depends on S2</span></p>
+<ul>
+  <li>Add <q>Open report</q> plus Download Markdown, SARIF, and JSON to terminal run rows.</li>
+  <li>For a resumed capped run, show available revision count and label old revisions partial.</li>
+  <li>Open HTML in a new first-party route or tab; downloads use the backend response and never rebuild data in the browser.</li>
+  <li>Keep pause, cancel, and resume actions unchanged. Use the existing frontend token scale and standard button/menu primitives.</li>
+</ul>
+<div class="stx stx-ok"><b>Acceptance:</b> done, failed, cancelled, capped, resumed, unavailable-legacy, and
+permission-denied states have component tests; one browser test downloads each media type and verifies filename and content.</div>
+
+<h3>S4 · Make push CI a first-class report consumer</h3>
+<p><span class="pill new">can follow S2</span></p>
+<ul>
+  <li>Add <code>quality report --bundle &lt;directory&gt;</code>; build current repository state once and render all four files.</li>
+  <li>Update the repository workflow so push-to-main writes Markdown to the job summary and archives the full bundle
+    under an always condition.</li>
+  <li>Keep gate exit codes 0, 1, and 2. Artifact generation must complete before a gate failure exits.</li>
+  <li>Add optional SARIF upload as a separately permissioned step. Do not require a PR or a PR comment.</li>
+</ul>
+<div class="stx stx-ok"><b>Acceptance:</b> a fixture push with a failing quality threshold still has four
+downloadable artifacts and a job summary, while the job ends failed; generation errors end with code 2 and do not
+publish a deceptively complete bundle.</div>
+
+<h3>S5 · Add honest run trends</h3>
+<p><span class="pill new">depends on S1; UI follows S3</span></p>
+<ul>
+  <li>Build a read model over captured revisions, keyed by repository, path, level, and kind.</li>
+  <li>Return complete and partial points, finding fingerprint deltas, outcome counts, usage, cost, duration, and model annotations.</li>
+  <li>Add the compact scope trend to the review panel and a comparable-run table to HTML/Markdown.</li>
+  <li>Rename the existing trend label to <q>Committed repository trend</q> and enrich future points with coverage and
+    finding counts in a later schema version only if the contract is versioned.</li>
+</ul>
+<div class="stx stx-ok"><b>Acceptance:</b> same-scope runs compare; mixed scopes never do; partial points are not
+connected to the complete score curve; repeated equal scores remain visible as runs; Git history remains byte-for-byte
+independent of ignored run artifacts.</div>
+
+<table>
+  <thead><tr><th>Order</th><th>Slice</th><th>Risk controlled</th><th>Operator-visible outcome</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>S1</td><td>False historical attribution</td><td>Exact run JSON exists and survives API restart</td></tr>
+    <tr><td>2</td><td>S2</td><td>Adapter drift and unsafe HTML</td><td>Four downloadable representations by run revision</td></tr>
+    <tr><td>3</td><td>S3</td><td>Exports remain hidden in the API</td><td>Review rows become exit surfaces</td></tr>
+    <tr><td>4</td><td>S4</td><td>Evidence depends on a PR or vanishes on gate failure</td><td>Push job summary and durable CI bundle</td></tr>
+    <tr><td>5</td><td>S5</td><td>Misleading mixed-scope trend</td><td>Comparable run trend beside committed quality trend</td></tr>
+  </tbody>
+</table>
+
+<h2 id="guardrails"><span class="no">§8</span>Guardrails and non-goals</h2>
+<ul>
+  <li><b>No source code in exports.</b> Locations, hashes, evidence summaries, and recommendations are sufficient.
+    This reduces accidental disclosure when HTML is shared.</li>
+  <li><b>No absolute repository roots.</b> Existing current reports already omit them; preserve that boundary.</li>
+  <li><b>No report from mutable current state for an old run.</b> Typed unavailable is preferable to false precision.</li>
+  <li><b>No external fonts, scripts, or CDNs in HTML.</b> The report must remain readable as a downloaded file.</li>
+  <li><b>No PR comments as the primary Markdown destination.</b> The push job summary is the mandated path.</li>
+  <li><b>No report database in this wave.</b> Local run artifacts plus Git-backed standing truth are enough to prove the model.</li>
+  <li><b>No automatic thresholds chosen by the product.</b> <code>--fail-under</code> and <code>--fail-on</code> remain explicit operator policy.</li>
+  <li><b>No silent retention policy.</b> Run artifacts remain under the existing ignored run directory. A future
+    retention slice must expose age/size settings and must not delete revisions while they are being served.</li>
+  <li><b>Encode every output field.</b> Finding titles, descriptions, recommendations, paths, model names, and error
+    text are data. HTML, Markdown, headers, and SARIF each need format-specific escaping tests.</li>
+</ul>
+
+<h2 id="approval"><span class="no">§9</span>Approval block</h2>
+<section class="box accent">
+  <h4>Proposed operator decision</h4>
+  <p><b>Approve Recommendation B and slices S1 through S5 in order.</b> JSON is canonical; HTML, Markdown, and SARIF
+  are adapters. Review-run revisions are captured immutably under the existing durable run store. Repository-wide
+  reports and their Git-backed trend remain separate. Push-to-main job summaries are primary; PR integration is not required.</p>
+</section>
+<table>
+  <thead><tr><th>Decision</th><th>Default proposed for approval</th></tr></thead>
+  <tbody>
+    <tr><td>D1 · Run artifact</td><td>Immutable <code>review-run-report.v1</code>, captured at operation completion</td></tr>
+    <tr><td>D2 · Capped resume</td><td>Numbered immutable revisions; <code>latest</code> is a resolver, not a mutable artifact</td></tr>
+    <tr><td>D3 · Human report</td><td>Self-contained calm HTML with complete findings and explicit partial states</td></tr>
+    <tr><td>D4 · CI interop</td><td>Portable SARIF plus push job Markdown summary and archived bundle</td></tr>
+    <tr><td>D5 · Trend</td><td>Comparable run series beside, never blended with, committed repository trend</td></tr>
+    <tr><td>D6 · Storage</td><td>Existing ignored durable run directory; no external report service in this wave</td></tr>
+  </tbody>
+</table>
+
+<footer class="meta">
+  <span><b>Primary evidence:</b> repository commit <code>3e0b6559faa7</code></span>
+  <span><b>External pattern reference:</b> direct-to-trunk, used only to frame zero-PR delivery</span>
+  <span><b>Source task:</b> QS-64</span>
+</footer>
+
+</main>
+</body>
+</html>
