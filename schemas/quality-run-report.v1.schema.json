@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "title": "Quality Studio review run report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "run", "subject", "execution", "observations", "delta", "summary"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "run": { "$ref": "#/$defs/run" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "execution": { "$ref": "#/$defs/execution" },
+    "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
+    "delta": { "$ref": "#/$defs/delta" },
+    "summary": { "$ref": "#/$defs/summary" }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "repositoryId", "repositoryName", "kind", "scopeUnitId", "level", "path", "state", "completeness", "createdAt", "startedAt", "finishedAt", "model", "thinkingLevel", "cliType", "force"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "repositoryName": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "kind": { "enum": ["code", "security", "performance"] },
+        "scopeUnitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "level": { "enum": ["project", "module", "namespace", "file"] },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "state": { "enum": ["done", "failed", "cancelled", "capped"] },
+        "completeness": { "enum": ["complete", "partial"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "startedAt": { "type": ["string", "null"], "format": "date-time" },
+        "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+        "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "force": { "type": "boolean" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifestHash", "targets"],
+      "properties": {
+        "manifestHash": { "$ref": "#/$defs/sha256" },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["unitId", "name", "path", "subjectHash"],
+            "properties": {
+              "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+              "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "path": { "$ref": "#/$defs/repoPath" },
+              "subjectHash": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed", "reusedFresh", "failed", "skipped", "cancelled", "aggregateOutcome", "errors", "usage", "cap", "estimate"],
+      "properties": {
+        "reviewed": { "type": "integer", "minimum": 0 },
+        "reusedFresh": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 },
+        "aggregateOutcome": { "$ref": "#/$defs/nullableString" },
+        "errors": { "type": "array", "items": { "type": "string", "maxLength": 4000 } },
+        "usage": { "$ref": "#/$defs/usage" },
+        "cap": { "$ref": "#/$defs/cap" },
+        "estimate": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/estimate" }] }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operations", "inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs", "cost", "currency", "priceStatus", "inputEstimateDeviationPercent", "outputEstimateDeviationPercent", "costEstimateDeviationPercent"],
+      "properties": {
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "outputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "cost": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "priceStatus": { "type": "string", "minLength": 1 },
+        "inputEstimateDeviationPercent": { "$ref": "#/$defs/nullableNumber" },
+        "outputEstimateDeviationPercent": { "$ref": "#/$defs/nullableNumber" },
+        "costEstimateDeviationPercent": { "$ref": "#/$defs/nullableNumber" }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit", "outcome", "reason"],
+      "properties": {
+        "tokenLimit": { "$ref": "#/$defs/nullableInteger" },
+        "costLimit": { "$ref": "#/$defs/nullableNumber" },
+        "outcome": { "enum": ["not-configured", "within-cap", "reached"] },
+        "reason": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "operations", "inputTokens", "outputTokens", "cost", "currency", "historySamples", "method"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "cost": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "historySamples": { "type": "integer", "minimum": 0 },
+        "method": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "level", "path", "outcome", "producedByRun", "sidecarPath", "sidecarSha256", "capturedAt", "reviewedHash", "providerRunId", "grade", "summary", "findings"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "level": { "enum": ["project", "module", "namespace", "file"] },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "outcome": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+        "producedByRun": { "type": "boolean" },
+        "sidecarPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/repoPath" }] },
+        "sidecarSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+        "capturedAt": { "type": ["string", "null"], "format": "date-time" },
+        "reviewedHash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+        "providerRunId": { "$ref": "#/$defs/nullableString" },
+        "grade": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/grade" }] },
+        "summary": { "$ref": "#/$defs/nullableString" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band", "rationale"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ruleId", "aspect", "severity", "state", "title", "description", "recommendation", "evidence", "fingerprint", "locations", "source", "sensorId", "producer"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "aspect": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "recommendation": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "evidence": { "$ref": "#/$defs/nullableString" },
+        "fingerprint": { "$ref": "#/$defs/sha256" },
+        "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+        "source": { "enum": ["agent", "deterministic"] },
+        "sensorId": { "$ref": "#/$defs/nullableString" },
+        "producer": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "startLine": { "$ref": "#/$defs/nullableInteger" },
+        "startColumn": { "$ref": "#/$defs/nullableInteger" },
+        "endLine": { "$ref": "#/$defs/nullableInteger" },
+        "endColumn": { "$ref": "#/$defs/nullableInteger" }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "priorRunId", "reason", "new", "persisting", "resolved", "stateChanged"],
+      "properties": {
+        "status": { "enum": ["available", "unavailable"] },
+        "priorRunId": { "$ref": "#/$defs/nullableString" },
+        "reason": { "$ref": "#/$defs/nullableString" },
+        "new": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } },
+        "persisting": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } },
+        "resolved": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } },
+        "stateChanged": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "grade", "findings", "highestSeverity", "partialReason"],
+      "properties": {
+        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "grade": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "findings": { "$ref": "#/$defs/findingCounts" },
+        "highestSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] },
+        "partialReason": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "findingCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "bySeverity", "byState"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "bySeverity": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "byState": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    }
+  }
+}

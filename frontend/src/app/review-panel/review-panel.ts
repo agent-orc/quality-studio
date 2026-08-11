@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -50,6 +50,13 @@ export class ReviewPanel {
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
   readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
   readonly runDrawerOpen = signal(false);
+  readonly selectedRunId = signal<string | null>(null);
+  readonly runReport = signal<QualityRunReport | null>(null);
+  readonly runTrend = signal<QualityRunTrendPoint[]>([]);
+  readonly runTrendCursor = signal<string | null>(null);
+  readonly runDetailLoading = signal(false);
+  readonly runDetailError = signal('');
+  readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
@@ -63,6 +70,10 @@ export class ReviewPanel {
     .reduce((count, result) => count + result.findings.length, 0));
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
     run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
+  readonly selectedRun = computed(() => this.scopeRuns().find(run => run.id === this.selectedRunId()) ?? null);
+  readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
+    .flatMap(observation => observation.findings)
+    .filter(finding => finding.state !== 'resolved'));
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const severity = this.severityFilter();
@@ -330,6 +341,58 @@ export class ReviewPanel {
     if (run.costCap !== null) return `${this.formatCost(run.costSpent, run.currency)} / ${this.formatCost(run.costCap, run.currency)}`;
     return run.costSpent === null ? `cost ${run.priceStatus}` : this.formatCost(run.costSpent, run.currency);
   }
+
+  async openRun(run: ReviewRun): Promise<void> {
+    this.selectedRunId.set(run.id);
+    this.runReport.set(null);
+    this.runTrend.set([]);
+    this.runTrendCursor.set(null);
+    this.runDetailError.set('');
+    if (!['done', 'failed', 'cancelled', 'capped'].includes(run.state)) return;
+    this.runDetailLoading.set(true);
+    try {
+      const scopeUnitId = this.selectedNode()?.id;
+      const [report, trend] = await Promise.all([
+        this.api.loadRunReport(run.id),
+        scopeUnitId ? this.api.loadRunTrend(run.kind, scopeUnitId, run.level) : Promise.resolve(null),
+      ]);
+      this.runReport.set(report);
+      this.runTrend.set(trend?.points ?? []);
+      this.runTrendCursor.set(trend?.nextCursor ?? null);
+    } catch (error) {
+      this.runDetailError.set(this.api.errorMessage(error));
+    } finally {
+      this.runDetailLoading.set(false);
+    }
+  }
+
+  closeRun(): void {
+    this.selectedRunId.set(null);
+    this.runReport.set(null);
+    this.runTrend.set([]);
+    this.runTrendCursor.set(null);
+    this.runDetailError.set('');
+  }
+
+  async loadOlderTrend(): Promise<void> {
+    const cursor = this.runTrendCursor();
+    const run = this.selectedRun();
+    const scopeUnitId = this.selectedNode()?.id;
+    if (!cursor || !run || !scopeUnitId) return;
+    try {
+      const page = await this.api.loadRunTrend(run.kind, scopeUnitId, run.level, cursor);
+      this.runTrend.update(points => [...points, ...page.points]);
+      this.runTrendCursor.set(page.nextCursor);
+    } catch (error) {
+      this.runDetailError.set(this.api.errorMessage(error));
+    }
+  }
+
+  reportUrl(runId: string, format: RunReportFormat): string { return this.api.runReportUrl(runId, format); }
+
+  reportFileName(runId: string, format: RunReportFormat): string { return this.api.runReportFileName(runId, format); }
+
+  trendScoreWidth(point: QualityRunTrendPoint): number { return point.score ?? 0; }
 
   async resumeCapped(run: ReviewRun): Promise<void> {
     const current = run.tokenCap ?? run.costCap;

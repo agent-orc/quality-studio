@@ -25,13 +25,14 @@ describe('ReviewPanel session flow', () => {
     findings: [waivedFinding, acceptedFinding, openFinding], findingCounts: { open: 1, accepted: 1, waived: 1, falsePositive: 0, resolved: 0 },
   };
   const file = signal({ path: 'src/A.cs', content: '', metaDocuments: [meta], sizeBytes: 0, lineEnding: 'lf' as const, encoding: 'utf-8' as const });
+  const initialRuns = [
+    { id: 'matching', path: 'src/A.cs', kind: 'code' },
+    { id: 'wrong-kind', path: 'src/A.cs', kind: 'security' },
+    { id: 'wrong-path', path: 'src/B.cs', kind: 'code' },
+  ];
   const api = {
     file,
-    reviewRuns: signal([
-      { id: 'matching', path: 'src/A.cs', kind: 'code' },
-      { id: 'wrong-kind', path: 'src/A.cs', kind: 'security' },
-      { id: 'wrong-path', path: 'src/B.cs', kind: 'code' },
-    ]),
+    reviewRuns: signal(initialRuns),
     reviewError: signal(''),
     usage: signal({ runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, byModel: [] }),
     inputs: signal({}), guidelineTraces: signal([]),
@@ -45,15 +46,20 @@ describe('ReviewPanel session flow', () => {
     deleteScopeRule: jasmine.createSpy('deleteScopeRule'),
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
+    loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
+    runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
+    runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
+    repositoryReportUrl: () => '/api/repos/default/report?format=html',
     errorMessage: (error: unknown) => error instanceof Error ? error.message : 'request failed',
   };
   const node = { id: 'a', name: 'A.cs', path: 'src/A.cs', level: 'file', kinds: { code: { direct: 'fresh', metaPath: 'a.review-meta.json' } }, children: [] };
 
   beforeEach(async () => {
     file.update(value => ({ ...value, metaDocuments: [meta] }));
+    api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview]) spy.calls.reset();
+      api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -173,5 +179,36 @@ describe('ReviewPanel session flow', () => {
       pattern: 'src/New.cs', reason: 'New reason',
     }));
     expect(component.editingScopeRuleIndex()).toBeNull();
+  });
+
+  it('opens a terminal canonical snapshot with exports and its separate run trend', async () => {
+    const run = {
+      id: 'terminal', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code', state: 'done',
+      model: 'gpt-test', thinkingLevel: 'high', cliType: 'codex', completedFiles: 1, totalFiles: 1,
+      failedFiles: 0, skippedFiles: 0, errors: [], usageOperations: 0, usage: { inputTokens: 0, outputTokens: 0,
+        cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0 }, costSpent: null, currency: null,
+      stopReason: null, deviation: null, createdAt: '2026-08-11T08:00:00Z',
+    } as any;
+    api.reviewRuns.set([run]);
+    api.loadRunReport.and.resolveTo({
+      run: { id: 'terminal', revision: 1, completeness: 'complete', state: 'done', cliType: 'codex', model: 'gpt-test', thinkingLevel: 'high' },
+      subject: { manifestHash: 'sha256:manifest' },
+      execution: { reviewed: 1, reusedFresh: 0 },
+      summary: { score: 91, grade: 'A', partialReason: null, findings: { total: 1 } },
+      observations: [{ unitId: 'a', path: 'src/A.cs', level: 'file', outcome: 'done', producedByRun: true,
+        grade: { score: 91, band: 'A', rationale: 'Good.' }, findings: [{ fingerprint: 'sha256:f', severity: 'high', state: 'open', ruleId: 'rule', title: 'Captured', description: 'Evidence.' }] }],
+    } as any);
+    api.loadRunTrend.and.resolveTo({ points: [{ runId: 'terminal', revision: 1, finishedAt: '2026-08-11T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 91, grade: 'A', activeFindings: 1, newFindings: 1, persistingFindings: 0, resolvedFindings: 0, stateChangedFindings: 0, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 100, outputTokens: 20, cost: null, currency: null }], nextCursor: null });
+
+    component.runDrawerOpen.set(true);
+    await component.openRun(run);
+    fixture.detectChanges();
+
+    expect(api.loadRunReport).toHaveBeenCalledWith('terminal');
+    expect(api.loadRunTrend).toHaveBeenCalledWith('code', 'a', 'file');
+    expect(fixture.nativeElement.querySelector('.run-detail-surface').textContent).toContain('complete snapshot');
+    expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
+    expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
+    expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
   });
 });

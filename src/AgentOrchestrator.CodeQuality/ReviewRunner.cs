@@ -28,9 +28,30 @@ public sealed record ReviewRequest(
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
-public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
+public sealed record ReviewResult(
+    string MetaPath,
+    string ReviewedHash,
+    string RunId,
+    ResolvedInputs Inputs,
+    ReviewUsageEntry Usage,
+    ReviewObservationSnapshot? Observation = null);
 
-public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
+/// <summary>
+/// Immutable copy of the review metadata and lifecycle states observed by one sweep operation.
+/// The JSON is captured while the sidecar write lock is held so a later sweep cannot be
+/// accidentally attributed to this operation.
+/// </summary>
+public sealed record ReviewObservationSnapshot(
+    string SidecarPath,
+    string SidecarSha256,
+    DateTimeOffset CapturedAt,
+    string ReviewMetaJson,
+    IReadOnlyDictionary<string, string> FindingStates);
+
+public sealed record ReviewExecutionResult(
+    bool SkippedFresh,
+    ReviewResult? Review,
+    ReviewObservationSnapshot? Observation = null);
 
 public sealed record ReviewPromptMeasurement(int Characters, string Path, string Level);
 
@@ -87,7 +108,12 @@ public sealed class ReviewRunner
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
                 metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
-            if (freshness.IsFresh) return new ReviewExecutionResult(true, null);
+            if (freshness.IsFresh)
+            {
+                var observation = await CaptureExistingObservationAsync(root, metaPath, cancellationToken)
+                    .ConfigureAwait(false);
+                return new ReviewExecutionResult(true, null, observation);
+            }
         }
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
@@ -144,12 +170,13 @@ public sealed class ReviewRunner
             }
 
             var adapter = AdapterFromUnitId(unitId);
+            ReviewObservationSnapshot observation;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 var previousFindings = LoadFindingIdentities(metaPath);
-                await new FindingStateStore(root).MergeReviewAsync(
+                var findingStates = await new FindingStateStore(root).MergeReviewAsync(
                     findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
                 threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
                 ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
@@ -174,12 +201,14 @@ public sealed class ReviewRunner
                     deterministicEvidence);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+                var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
                 await File.WriteAllTextAsync(
                     temporaryPath,
-                    meta.ToJsonString(JsonOptions) + Environment.NewLine,
+                    metadataJson,
                     new UTF8Encoding(false),
                     cancellationToken).ConfigureAwait(false);
                 File.Move(temporaryPath, metaPath, true);
+                observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);
             }
             finally
             {
@@ -188,13 +217,52 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage));
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
+                observation);
         }
         catch (Exception exception)
         {
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
         }
+    }
+
+    private static async Task<ReviewObservationSnapshot> CaptureExistingObservationAsync(
+        string root,
+        string metaPath,
+        CancellationToken cancellationToken)
+    {
+        var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
+        await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var metadataJson = await File.ReadAllTextAsync(metaPath, cancellationToken).ConfigureAwait(false);
+            var states = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
+            return CreateObservationSnapshot(root, metaPath, metadataJson, states);
+        }
+        finally
+        {
+            writeLock.Release();
+        }
+    }
+
+    private static ReviewObservationSnapshot CreateObservationSnapshot(
+        string root,
+        string metaPath,
+        string metadataJson,
+        IReadOnlyDictionary<string, FindingStateRecord> states)
+    {
+        var bytes = Encoding.UTF8.GetBytes(metadataJson);
+        var findingStates = states.ToDictionary(
+            pair => pair.Key,
+            pair => FindingStateStore.StateName(pair.Value.State),
+            StringComparer.Ordinal);
+        return new ReviewObservationSnapshot(
+            NormalizeRelativePath(root, metaPath),
+            "sha256:" + Convert.ToHexStringLower(SHA256.HashData(bytes)),
+            DateTimeOffset.UtcNow,
+            metadataJson,
+            findingStates);
     }
 
     public async Task<ReviewPromptMeasurement> MeasurePromptAsync(

@@ -216,6 +216,40 @@ export interface ReviewRun {
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
 }
+export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
+export interface QualityRunFinding {
+  id: string; ruleId: string; aspect: string; severity: FindingSeverity; state: FindingState;
+  title: string; description: string; recommendation: string; evidence: string | null; fingerprint: string;
+  locations: { path: string; startLine: number | null; startColumn: number | null; endLine: number | null; endColumn: number | null }[];
+  source: 'agent' | 'deterministic'; sensorId: string | null; producer: string | null;
+}
+export interface QualityRunObservation {
+  unitId: string; level: string; path: string; outcome: ReviewUnitState; producedByRun: boolean;
+  sidecarPath: string | null; sidecarSha256: string | null; capturedAt: string | null;
+  reviewedHash: string | null; providerRunId: string | null; grade: ReviewGrade | null; summary: string | null;
+  findings: QualityRunFinding[];
+}
+export interface QualityRunEstimate {
+  files: number; operations: number; inputTokens: number; outputTokens: number; cost: number | null;
+  currency: string | null; historySamples: number; method: string;
+}
+export interface QualityRunReport {
+  $schema: string; schemaVersion: number;
+  run: { id: string; revision: number; repositoryId: string; repositoryName: string; kind: ReviewKind; scopeUnitId: string; level: string; path: string; state: ReviewRunState; completeness: 'complete' | 'partial'; createdAt: string; startedAt: string | null; finishedAt: string | null; model: string; thinkingLevel: string; cliType: string; force: boolean };
+  subject: { manifestHash: string; targets: { unitId: string; name: string; path: string; subjectHash: string }[] };
+  execution: { reviewed: number; reusedFresh: number; failed: number; skipped: number; cancelled: number; aggregateOutcome: ReviewUnitState | null; errors: string[]; usage: TokenUsage & { operations: number; cost: number | null; currency: string | null; priceStatus: string; inputEstimateDeviationPercent: number | null; outputEstimateDeviationPercent: number | null; costEstimateDeviationPercent: number | null }; cap: { tokenLimit: number | null; costLimit: number | null; outcome: string; reason: string | null }; estimate: QualityRunEstimate | null };
+  observations: QualityRunObservation[];
+  delta: { status: 'available' | 'unavailable'; priorRunId: string | null; reason: string | null; new: string[]; persisting: string[]; resolved: string[]; stateChanged: string[] };
+  summary: { score: number | null; grade: string | null; findings: { total: number; bySeverity: Record<string, number>; byState: Record<string, number> }; highestSeverity: FindingSeverity | null; partialReason: string | null };
+}
+export interface QualityRunTrendPoint {
+  runId: string; revision: number; finishedAt: string; state: ReviewRunState; completeness: 'complete' | 'partial';
+  comparable: boolean; comparisonReason: string | null; score: number | null; grade: string | null;
+  activeFindings: number; newFindings: number; persistingFindings: number; resolvedFindings: number; stateChangedFindings: number;
+  reviewed: number; reusedFresh: number; failed: number; skipped: number; inputTokens: number | null; outputTokens: number | null;
+  cost: number | null; currency: string | null;
+}
+export interface QualityRunTrendPage { points: QualityRunTrendPoint[]; nextCursor: string | null; }
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
@@ -563,6 +597,32 @@ export class QualityApi {
     } catch (error) {
       this.reviewError.set(this.errorMessage(error));
     }
+  }
+
+  async loadRunReport(id: string): Promise<QualityRunReport> {
+    return await firstValueFrom(this.http.get<QualityRunReport>(
+      `${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/report`,
+      { params: { format: 'json' } }));
+  }
+
+  async loadRunTrend(kind: ReviewKind, scopeUnitId: string, level: string, cursor?: string): Promise<QualityRunTrendPage> {
+    const params: Record<string, string> = { kind, scopeUnitId, level, limit: '30' };
+    if (cursor) params['cursor'] = cursor;
+    return await firstValueFrom(this.http.get<QualityRunTrendPage>(
+      `${this.repositoryApiBase()}/review/runs/trend`, { params }));
+  }
+
+  runReportUrl(id: string, format: RunReportFormat): string {
+    return `${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/report?format=${format}`;
+  }
+
+  runReportFileName(id: string, format: RunReportFormat): string {
+    const extension = format === 'markdown' ? 'md' : format === 'sarif' ? 'sarif' : format;
+    return `quality-run-${id}.${extension}`;
+  }
+
+  repositoryReportUrl(format: RunReportFormat = 'html'): string {
+    return `${this.repositoryApiBase()}/report?format=${format}`;
   }
 
   async loadUsage(since?: string, kind?: ReviewKind, repositoryId = this.selectedRepositoryId()): Promise<void> {

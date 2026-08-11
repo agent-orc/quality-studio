@@ -8,9 +8,54 @@
         <div class="section-title"><span>Run history</span><small>Scope filtered</small></div>
         <div class="runs-panel">
           @for (run of scopeRuns(); track run.id) {
-            <article class="run-row"><div class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></div><div class="run-route">{{ run.cliType }} · {{ run.model ?? 'runner default' }} · {{ run.thinkingLevel ?? 'model default thinking' }}</div><div class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></div><div class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span></div><div class="run-usage"><span>Spend {{ spendLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }</div>@if (run.stopReason) { <small class="run-stop">{{ run.stopReason }}</small> }@if (run.deviation; as deviation) { <small class="run-deviation">Estimate deviation: input {{ deviation.inputTokensPercent }}% · output {{ deviation.outputTokensPercent }}%@if (deviation.costPercent !== null) { · cost {{ deviation.costPercent }}% }</small> }@if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }</article>
+            <article class="run-row" [class.selected]="selectedRunId() === run.id">
+              <button class="run-open" type="button" (click)="openRun(run)" [attr.aria-expanded]="selectedRunId() === run.id">
+                <span class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></span>
+                <span class="run-route">{{ run.cliType }} · {{ run.model ?? 'runner default' }} · {{ run.thinkingLevel ?? 'model default thinking' }}</span>
+                <span class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></span>
+                <span class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span><span>Details →</span></span>
+              </button>
+              <div class="run-usage"><span>Spend {{ spendLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }</div>
+              @if (run.stopReason) { <small class="run-stop">{{ run.stopReason }}</small> }
+              @if (run.deviation; as deviation) { <small class="run-deviation">Estimate deviation: input {{ deviation.inputTokensPercent }}% · output {{ deviation.outputTokensPercent }}%@if (deviation.costPercent !== null) { · cost {{ deviation.costPercent }}% }</small> }
+              @if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }
+            </article>
           } @empty { <div class="empty-findings">No runs for this scope and kind.</div> }
         </div>
+        @if (selectedRun(); as selectedRun) {
+          <section class="run-detail-surface" aria-label="Selected run detail">
+            <header><div><span class="eyebrow">Run detail</span><b>{{ selectedRun.state }} · {{ selectedRun.id }}</b></div><button type="button" aria-label="Close run detail" (click)="closeRun()">×</button></header>
+            @if (runDetailLoading()) { <p class="run-detail-message" role="status">Loading canonical run snapshot…</p> }
+            @if (runDetailError()) { <p class="run-error" role="alert">{{ runDetailError() }}</p> }
+            @if (runReport(); as report) {
+              <div class="run-report-state"><span class="status" [class.fresh]="report.run.completeness === 'complete'" [class.stale]="report.run.completeness === 'partial'"></span><b>{{ report.run.completeness }} snapshot</b><small>revision {{ report.run.revision }}</small></div>
+              @if (report.summary.partialReason) { <p class="run-partial">{{ report.summary.partialReason }}</p> }
+              <div class="run-summary-grid"><span><b>{{ report.summary.score ?? '—' }}</b><small>Score {{ report.summary.grade ?? 'unavailable' }}</small></span><span><b>{{ report.summary.findings.total }}</b><small>Active findings</small></span><span><b>{{ report.execution.reviewed }}</b><small>Reviewed</small></span><span><b>{{ report.execution.reusedFresh }}</b><small>Reused fresh</small></span></div>
+              <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
+
+              <div class="section-title"><span>Run trend</span><small>Same kind, scope, and level</small></div>
+              <div class="run-trend" role="list" aria-label="Comparable run trend">
+                @for (point of runTrend(); track point.runId) {
+                  <article role="listitem" [class.event]="!point.comparable" [title]="point.comparisonReason ?? 'Comparable complete run'">
+                    <div><b>{{ point.score ?? 'event' }}</b><small>{{ scannedAt(point.finishedAt) }} · {{ point.state }}</small></div>
+                    <span class="trend-track"><i [style.width.%]="trendScoreWidth(point)"></i></span>
+                    <small>{{ point.activeFindings }} active · +{{ point.newFindings }} / −{{ point.resolvedFindings }} · {{ point.reviewed }} reviewed / {{ point.reusedFresh }} reused · {{ formatTokens((point.inputTokens ?? 0) + (point.outputTokens ?? 0)) }} · {{ point.cost === null ? 'cost unavailable' : point.cost + ' ' + (point.currency ?? 'USD') }}</small>
+                  </article>
+                } @empty { <p class="run-detail-message">No run trend points yet.</p> }
+              </div>
+              @if (runTrendCursor()) { <button class="trend-more" type="button" (click)="loadOlderTrend()">Load older snapshots</button> }
+              <div class="commit-trend-note"><div><b>Commit trend</b><span>Committed score history remains a separate repository curve.</span></div><a [href]="api.repositoryReportUrl('html')">Open repository report</a></div>
+
+              <div class="section-title"><span>Unit outcomes</span><small>{{ report.observations.length }}</small></div>
+              <div class="run-units">@for (observation of report.observations; track observation.unitId) { <article><span class="status" [class.fresh]="observation.outcome === 'done' || observation.outcome === 'skipped-fresh'" [class.stale]="observation.outcome === 'skipped'" [class.missing]="observation.outcome === 'failed' || observation.outcome === 'cancelled'"></span><div><b>{{ observation.path }}</b><small>{{ observation.level }} · {{ observation.outcome }} · {{ observation.producedByRun ? 'produced' : observation.outcome === 'skipped-fresh' ? 'reused' : 'no observation' }}</small></div><span>{{ observation.grade?.band ?? '—' }}</span></article> }</div>
+              <div class="section-title"><span>Captured findings</span><small>{{ runFindings().length }}</small></div>
+              <div class="run-findings">@for (finding of runFindings(); track finding.fingerprint) { <article><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><div><b>{{ finding.title }}</b><small>{{ finding.state }} · {{ finding.ruleId }}</small><p>{{ finding.description }}</p></div></article> } @empty { <p class="run-detail-message">No active findings in this snapshot.</p> }</div>
+              <div class="run-provenance"><b>Provenance</b><code>{{ report.run.cliType }} · {{ report.run.model }} · {{ report.run.thinkingLevel }}</code><code>{{ report.subject.manifestHash }}</code></div>
+            } @else if (!runDetailLoading() && !runDetailError()) {
+              <p class="run-detail-message">A canonical export becomes available when this run reaches a terminal state.</p>
+            }
+          </section>
+        }
         <div class="section-title"><span>Token usage</span><small>{{ api.usage().runs }} operations</small></div>
         <section class="usage-summary" aria-label="Token usage aggregate"><div><b>{{ formatTokens(api.usage().inputTokens) }}</b><span>Input</span></div><div><b>{{ formatTokens(api.usage().outputTokens) }}</b><span>Output</span></div><div><b>{{ formatTokens(api.usage().cachedInputTokens) }}</b><span>Cached</span></div>@for (model of api.usage().byModel.slice(0, 3); track model.key) { <p><span>{{ model.key }}</span><b>{{ model.runs }} · {{ formatTokens(model.inputTokens + model.outputTokens) }}</b></p> }</section>
       </section>

@@ -144,4 +144,23 @@ describe('QualityApi', () => {
     expect(api.modelCatalog().policyVersion).toBe('2026-07-24');
     expect(api.modelCatalog().models[0].capabilityTier).toBe('frontier');
   });
+
+  it('loads canonical run reports and same-scope trend pages from repository routes', async () => {
+    const reportLoading = api.loadRunReport('run / 1');
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/run%20%2F%201/report'
+      && request.params.get('format') === 'json').flush({ run: { id: 'run / 1' } });
+    expect((await reportLoading).run.id).toBe('run / 1');
+
+    const trendLoading = api.loadRunTrend('security', 'scope:src/A.cs', 'file', '30');
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/trend'
+      && request.params.get('kind') === 'security'
+      && request.params.get('scopeUnitId') === 'scope:src/A.cs'
+      && request.params.get('level') === 'file'
+      && request.params.get('cursor') === '30'
+      && request.params.get('limit') === '30').flush({ points: [], nextCursor: null });
+    expect((await trendLoading).points).toEqual([]);
+
+    expect(api.runReportUrl('run / 1', 'sarif')).toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=sarif');
+    expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
+  });
 });

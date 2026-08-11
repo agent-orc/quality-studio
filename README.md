@@ -197,9 +197,12 @@ posture, and registry comparison as Markdown, HTML, JSON, or SARIF:
 
 ```shell
 dotnet run --project src/quality-cli -- report . --format sarif --output quality-report.sarif
+dotnet run --project src/quality-cli -- report . --run <run-id> --format html --output quality-run.html
 ```
 
-CI gates use `--fail-under <score>` and `--fail-on <severity>`. See
+Run-scoped exports render the exact terminal snapshot captured under
+`.quality/reports/runs/`; they do not re-read mutable review sidecars. CI gates
+use `--fail-under <score>` and `--fail-on <severity>`. See
 [`docs/quality-reports.md`](docs/quality-reports.md) for report semantics,
 endpoint formats, and documented exit codes.
 

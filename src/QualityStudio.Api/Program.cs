@@ -112,6 +112,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
         StalenessScanException => (StatusCodes.Status422UnprocessableEntity, "Repository scan failed"),
         QualityReportException => (StatusCodes.Status422UnprocessableEntity, "Quality report failed"),
+        InvalidDataException => (StatusCodes.Status422UnprocessableEntity, "Stored report is invalid"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
         JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
@@ -302,8 +303,12 @@ app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
+app.MapGet("/api/review/runs/trend", ReviewRunTrend);
+app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
+app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1088,6 +1093,46 @@ static IResult ReviewRun(HttpContext context, string id, RepositoryRegistry regi
 {
     var repository = registry.Get(RouteRepositoryId(context));
     return Results.Ok(jobs.Get(repository.Id, id));
+}
+
+static IResult ReviewRunReport(
+    HttpContext context,
+    string id,
+    string? format,
+    RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var report = new QualityRunReportStore(repository.RootPath).Load(id);
+    if (!string.Equals(report.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
+        throw new FileNotFoundException($"Review run report '{id}' was not found.");
+    var selectedFormat = string.IsNullOrWhiteSpace(format)
+        ? QualityReportFormat.Json
+        : QualityReportRenderer.ParseFormat(format);
+    var extension = QualityRunReportRenderer.FileExtension(selectedFormat);
+    context.Response.Headers.ContentDisposition =
+        $"attachment; filename=\"quality-run-{report.Run.Id}.{extension}\"";
+    return Results.Text(
+        QualityRunReportRenderer.Render(report, selectedFormat),
+        QualityReportRenderer.ContentType(selectedFormat),
+        Encoding.UTF8);
+}
+
+static IResult ReviewRunTrend(
+    HttpContext context,
+    string? kind,
+    string? scopeUnitId,
+    string? level,
+    string? cursor,
+    int? limit,
+    RepositoryRegistry registry)
+{
+    if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(scopeUnitId) ||
+        string.IsNullOrWhiteSpace(level))
+        throw new ArgumentException("Run trend requires kind, scopeUnitId, and level.");
+    var repository = registry.Get(RouteRepositoryId(context));
+    var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
+    return Results.Ok(QualityRunTrendBuilder.Build(
+        reports, kind, scopeUnitId, level, cursor, limit ?? 30));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

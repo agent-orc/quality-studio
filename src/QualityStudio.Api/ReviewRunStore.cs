@@ -105,7 +105,10 @@ public sealed record ReviewRunResult(
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
     ReviewRunStatus Status,
-    IReadOnlyList<ReviewRunFileTransition> Progress);
+    IReadOnlyList<ReviewRunFileTransition> Progress,
+    IReadOnlyDictionary<string, ReviewObservationSnapshot>? Observations = null);
+
+public sealed record StoredReviewObservation(string OperationId, ReviewObservationSnapshot Snapshot);
 
 /// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
 public sealed class ReviewRunStore
@@ -224,6 +227,25 @@ public sealed class ReviewRunStore
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }
 
+    /// <summary>
+    /// Durably captures an operation's exact review observation before progress is marked complete.
+    /// This file remains disposable orchestration state; terminal reports project it into canonical truth.
+    /// </summary>
+    public void WriteObservation(string runId, string operationId, ReviewObservationSnapshot snapshot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationId);
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var directory = RunDirectory(runId);
+        Directory.CreateDirectory(directory);
+        var destination = Path.Combine(directory, "observations.json");
+        var observations = ReadObservations(directory).ToDictionary(pair => pair.Key, pair => pair.Value,
+            StringComparer.Ordinal);
+        observations[operationId] = snapshot;
+        var document = observations.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => new StoredReviewObservation(pair.Key, pair.Value)).ToArray();
+        WriteAtomic(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
+    }
+
     public IReadOnlyList<StoredReviewRun> LoadAll(Action<string, Exception>? loadFailed = null)
     {
         if (!Directory.Exists(runsPath)) return [];
@@ -247,7 +269,8 @@ public sealed class ReviewRunStore
                 if (!string.Equals(manifest.RunId, status.RunId, StringComparison.Ordinal) ||
                     !string.Equals(Path.GetFileName(directory), manifest.RunId, StringComparison.Ordinal))
                     throw new InvalidDataException($"Review run files disagree about the run id in '{directory}'.");
-                loaded.Add(new StoredReviewRun(manifest, status, ReadProgress(directory, manifest.RunId)));
+                loaded.Add(new StoredReviewRun(manifest, status, ReadProgress(directory, manifest.RunId),
+                    ReadObservations(directory)));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
             {
@@ -282,6 +305,21 @@ public sealed class ReviewRunStore
         return transitions;
     }
 
+    private IReadOnlyDictionary<string, ReviewObservationSnapshot> ReadObservations(string directory)
+    {
+        var path = Path.Combine(directory, "observations.json");
+        if (!File.Exists(path)) return new Dictionary<string, ReviewObservationSnapshot>(StringComparer.Ordinal);
+        var stored = JsonSerializer.Deserialize<StoredReviewObservation[]>(File.ReadAllText(path), JsonOptions)
+                     ?? throw new InvalidDataException($"Review run observations are empty: {path}");
+        var observations = new Dictionary<string, ReviewObservationSnapshot>(StringComparer.Ordinal);
+        foreach (var item in stored)
+        {
+            if (string.IsNullOrWhiteSpace(item.OperationId) || !observations.TryAdd(item.OperationId, item.Snapshot))
+                throw new InvalidDataException($"Review run observations contain an invalid operation id: {path}");
+        }
+        return observations;
+    }
+
     private string RunDirectory(string runId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
@@ -306,7 +344,8 @@ public sealed class ReviewRunStore
 
     private static void WriteAtomic(string destination, string content)
     {
-        var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $"result.{Guid.NewGuid():N}.tmp");
+        var temporary = Path.Combine(Path.GetDirectoryName(destination)!,
+            $"{Path.GetFileNameWithoutExtension(destination)}.{Guid.NewGuid():N}.tmp");
         try
         {
             var bytes = Utf8.GetBytes(content);

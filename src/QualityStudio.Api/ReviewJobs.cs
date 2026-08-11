@@ -421,6 +421,7 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     var item = ReviewWorkItem.Restore(stored, registration, store);
                     if (!runs.TryAdd(item.Id, item)) continue;
+                    item.EnsureTerminalReport();
                     if (!ReviewRunStore.IsTerminal(item.State))
                     {
                         item.PrepareForRecovery();
@@ -491,7 +492,7 @@ public sealed class ReviewJobService : BackgroundService
                             CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
                             item.Force,
                             linked.Token).ConfigureAwait(false);
-                        if (execution.SkippedFresh) item.SkipAggregateFresh(); else item.FinishAggregate();
+                        item.FinishAggregate(execution);
                     }
                 }
             }
@@ -534,7 +535,7 @@ public sealed class ReviewJobService : BackgroundService
                 CreateRequest(item, file, ReviewLevel.File, [file.Path]),
                 item.Force,
                 cancellationToken).ConfigureAwait(false);
-            if (execution.SkippedFresh) item.SkipFileFresh(file.Path); else item.FinishFile(file.Path, null);
+            item.FinishFile(file.Path, execution);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -543,7 +544,7 @@ public sealed class ReviewJobService : BackgroundService
         }
         catch (Exception exception)
         {
-            item.FinishFile(file.Path, exception.Message);
+            item.FailFile(file.Path, exception.Message);
             logger.LogError(new EventId(1504, "ReviewFileFailed"), exception,
                 "File {ReviewFilePath} failed in review {ReviewRunId}", file.Path, item.Id);
         }
@@ -621,6 +622,8 @@ public sealed class ReviewJobService : BackgroundService
         private readonly ReviewRunManifest manifest;
         private readonly ReviewRunStore store;
         private readonly Dictionary<string, MutableFileProgress> progress;
+        private readonly Dictionary<string, ReviewObservationSnapshot> observations;
+        private readonly QualityRunReportStore reportStore;
         private readonly List<string> errors;
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
@@ -635,17 +638,25 @@ public sealed class ReviewJobService : BackgroundService
         private bool attemptActive;
         private bool resumePending;
         private string state;
+        private int reportRevision;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
             RepositoryRegistration repository,
             ReviewRunStore store,
             ReviewRunStatus? status,
-            IReadOnlyList<ReviewRunFileTransition>? transitions)
+            IReadOnlyList<ReviewRunFileTransition>? transitions,
+            IReadOnlyDictionary<string, ReviewObservationSnapshot>? storedObservations)
         {
             this.manifest = manifest;
             this.store = store;
             Repository = repository;
+            reportStore = new QualityRunReportStore(repository.RootPath);
+            observations = storedObservations?.ToDictionary(pair => pair.Key, pair => pair.Value,
+                StringComparer.Ordinal) ?? new Dictionary<string, ReviewObservationSnapshot>(StringComparer.Ordinal);
+            reportRevision = reportStore.TryLoad(manifest.RunId, out var existingReport)
+                ? existingReport!.Run.Revision
+                : 0;
             if (!Enum.TryParse<ReviewLevel>(manifest.Level, ignoreCase: true, out var level) || level == ReviewLevel.Function)
                 throw new ArgumentException($"Review manifest has unsupported level '{manifest.Level}'.");
             Node = new HierarchyNode(manifest.Node.Id, manifest.Node.Name, level, manifest.Node.Path);
@@ -690,12 +701,13 @@ public sealed class ReviewJobService : BackgroundService
         public static ReviewWorkItem Create(
             ReviewRunManifest manifest,
             RepositoryRegistration repository,
-            ReviewRunStore store) => new(manifest, repository, store, null, null);
+            ReviewRunStore store) => new(manifest, repository, store, null, null, null);
 
         public static ReviewWorkItem Restore(
             StoredReviewRun stored,
             RepositoryRegistration repository,
-            ReviewRunStore store) => new(stored.Manifest, repository, store, stored.Status, stored.Progress);
+            ReviewRunStore store) => new(stored.Manifest, repository, store, stored.Status, stored.Progress,
+                stored.Observations);
 
         public string Id => manifest.RunId;
         public RepositoryRegistration Repository { get; }
@@ -767,29 +779,30 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public void FinishFile(string path, string? error)
+        public void FinishFile(string path, ReviewExecutionResult execution)
         {
             lock (gate)
             {
                 var file = progress[path];
                 if (file.State != "running") return;
-                file.State = error is null ? "done" : "failed";
-                file.Error = error;
+                CaptureObservation(path, execution.Observation);
+                file.State = execution.SkippedFresh ? "skipped-fresh" : "done";
+                file.Error = null;
                 file.FinishedAt = DateTimeOffset.UtcNow;
-                if (error is not null) errors.Add($"{path}: {error}");
                 Append(file);
             }
         }
 
-        public void SkipFileFresh(string path)
+        public void FailFile(string path, string error)
         {
             lock (gate)
             {
                 var file = progress[path];
                 if (file.State != "running") return;
-                file.State = "skipped-fresh";
-                file.Error = null;
+                file.State = "failed";
+                file.Error = error;
                 file.FinishedAt = DateTimeOffset.UtcNow;
+                errors.Add($"{path}: {error}");
                 Append(file);
             }
         }
@@ -826,22 +839,13 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public void FinishAggregate()
+        public void FinishAggregate(ReviewExecutionResult execution)
         {
             lock (gate)
             {
                 if (aggregateState != "running") return;
-                aggregateState = "done";
-                PersistStatus();
-            }
-        }
-
-        public void SkipAggregateFresh()
-        {
-            lock (gate)
-            {
-                if (aggregateState != "running") return;
-                aggregateState = "skipped-fresh";
+                CaptureObservation(QualityRunReportFactory.AggregateOperationId, execution.Observation);
+                aggregateState = execution.SkippedFresh ? "skipped-fresh" : "done";
                 PersistStatus();
             }
         }
@@ -896,6 +900,7 @@ public sealed class ReviewJobService : BackgroundService
                 }
                 if (aggregateState == "queued") aggregateState = "skipped";
                 PersistStatus();
+                PublishReport();
                 return true;
             }
         }
@@ -909,6 +914,7 @@ public sealed class ReviewJobService : BackgroundService
                 if (aggregateState == "running") aggregateState = "done";
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
+                PublishReport();
                 return true;
             }
         }
@@ -923,6 +929,7 @@ public sealed class ReviewJobService : BackgroundService
                 errors.Add(error);
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
+                PublishReport();
             }
         }
 
@@ -945,6 +952,7 @@ public sealed class ReviewJobService : BackgroundService
                 }
                 if (aggregateState is "queued" or "running") aggregateState = "cancelled";
                 PersistStatus();
+                PublishReport();
                 cancellation = attemptCancellation;
             }
             cancellation.Cancel();
@@ -1045,6 +1053,15 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate) return DurableStatusCore();
         }
 
+        public void EnsureTerminalReport()
+        {
+            lock (gate)
+            {
+                if (!ReviewRunStore.IsTerminal(state) || reportStore.TryLoad(Id, out _)) return;
+                PublishReport();
+            }
+        }
+
         private void RequeueFileCore(MutableFileProgress file)
         {
             file.State = "queued";
@@ -1063,11 +1080,38 @@ public sealed class ReviewJobService : BackgroundService
         private void AppendProgress(MutableFileProgress file) => store.AppendProgress(
             new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error));
 
+        private void CaptureObservation(string operationId, ReviewObservationSnapshot? snapshot)
+        {
+            if (snapshot is null) return;
+            // The durable observation write deliberately precedes the progress transition.
+            store.WriteObservation(Id, operationId, snapshot);
+            observations[operationId] = snapshot;
+        }
+
         private void PersistStatus()
         {
             var status = DurableStatusCore();
             store.WriteStatus(status);
             store.WriteResult(manifest, status);
+        }
+
+        private void PublishReport()
+        {
+            var status = DurableStatusCore();
+            var latest = manifest.Targets.Select(target => progress[target.Path])
+                .Select(file => new ReviewRunFileTransition(
+                    file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error)).ToArray();
+            var report = QualityRunReportFactory.Build(
+                manifest,
+                status,
+                latest,
+                observations,
+                Repository.RootPath,
+                Repository.DisplayName,
+                reportRevision + 1,
+                reportStore.LoadAll());
+            reportStore.Save(report);
+            reportRevision = report.Run.Revision;
         }
 
         private ReviewRunStatus DurableStatusCore()

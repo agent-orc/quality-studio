@@ -187,6 +187,13 @@ public sealed class ReviewRunnerTests
             Assert.Equal("src/Small.cs", json.GetProperty("unit").GetProperty("path").GetString());
             Assert.Equal(result.ReviewedHash, json.GetProperty("reviewedHash").GetProperty("value").GetString());
             Assert.StartsWith(Path.Combine(root, "src", ".quality", "reviews", "files"), result.MetaPath, StringComparison.Ordinal);
+            Assert.NotNull(result.Observation);
+            Assert.StartsWith("src/.quality/reviews/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);
+            Assert.EndsWith(".review-meta.code.json", result.Observation.SidecarPath, StringComparison.Ordinal);
+            Assert.DoesNotContain(root, result.Observation.ReviewMetaJson, StringComparison.Ordinal);
+            Assert.Equal("sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(result.Observation.ReviewMetaJson))).ToLowerInvariant(),
+                result.Observation.SidecarSha256);
 
             // Independently verify the stored manifest against the current file bytes.
             var currentContentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(file, cancellationToken);
@@ -456,9 +463,16 @@ public sealed class ReviewRunnerTests
             await runner.ReviewAsync(second, cancellationToken);
             await runner.ReviewAsync(aggregate, cancellationToken);
 
-            Assert.True((await runner.ReviewIfNeededAsync(first, cancellationToken: cancellationToken)).SkippedFresh);
-            Assert.True((await runner.ReviewIfNeededAsync(second, cancellationToken: cancellationToken)).SkippedFresh);
-            Assert.True((await runner.ReviewIfNeededAsync(aggregate, cancellationToken: cancellationToken)).SkippedFresh);
+            var freshFirst = await runner.ReviewIfNeededAsync(first, cancellationToken: cancellationToken);
+            var freshSecond = await runner.ReviewIfNeededAsync(second, cancellationToken: cancellationToken);
+            var freshAggregate = await runner.ReviewIfNeededAsync(aggregate, cancellationToken: cancellationToken);
+            Assert.True(freshFirst.SkippedFresh);
+            Assert.True(freshSecond.SkippedFresh);
+            Assert.True(freshAggregate.SkippedFresh);
+            Assert.NotNull(freshFirst.Observation);
+            Assert.NotNull(freshSecond.Observation);
+            Assert.NotNull(freshAggregate.Observation);
+            Assert.Null(freshFirst.Review);
             Assert.Equal(3, agent.RunCount);
             Assert.Equal(3, recordedUsage.Count);
 

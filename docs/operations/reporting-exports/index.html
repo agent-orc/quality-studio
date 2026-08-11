@@ -143,7 +143,7 @@
   <p class="lede">Decision dossier for a run-scoped report contract, self-contained HTML,
   SARIF for CI, a bounded Markdown summary for 0-PR pipelines, and comparable trends across runs.</p>
   <div class="meta">
-    <span><b>Status:</b> decision pending</span>
+    <span><b>Status:</b> decided</span>
     <span><b>Evidence date:</b> 11 August 2026</span>
     <span><b>Repository:</b> Quality Studio at <code>3e0b6559faa7</code></span>
     <span><b>Source task:</b> QS-64</span>
@@ -700,6 +700,39 @@ in the app, and R4 adds run comparison. Each slice has a bounded proof and no ta
   <p>This wave does not redesign the current repository scorecard, change finding lifecycle semantics, auto-commit
   generated reports, add cloud hosting, send data to a forge, infer model effectiveness, or introduce a report
   database. Those choices are not required to stop reviews from dying in the app.</p>
+</div>
+
+<h2 id="implementation"><span class="no">Implementation</span>Delivered slices</h2>
+
+<div class="box">
+  <h4>11 August 2026 · QS-73 · R1</h4>
+  <p>Delivered the strict <code>quality-run-report.v1</code> schema and canonical models, exact observation
+  capture for produced and fresh-reused sidecars, atomic repository-owned run storage, explicit partial outcomes,
+  terminal publication, and cap/resume revisions. Tests cover schema validation, all-fresh accounting, immutable
+  earlier snapshots after a later sidecar write, cap/resume without duplicate work, and incomplete temporary writes.</p>
+</div>
+
+<div class="box">
+  <h4>11 August 2026 · QS-73 · R2</h4>
+  <p>Delivered shared HTML, bounded Markdown, canonical JSON, and run-scoped SARIF renderers; scoped and unscoped
+  download endpoints; and <code>quality report --run &lt;id&gt;</code> with stable 0/1/2 gates and artifact-before-gate
+  behavior. The portable renderers encode hostile content, omit repository roots, preserve relative locations and
+  stable fingerprints, and attach the requested media type and filename.</p>
+</div>
+
+<div class="box">
+  <h4>11 August 2026 · QS-73 · R3</h4>
+  <p>Delivered a keyboard-operable run row and detail surface with completeness, summary, unit outcomes, findings,
+  provenance, and text export actions for all four formats. The implementation reuses the existing pane primitives
+  and central design tokens, keeps selected-file review behavior intact, and is covered by browser tests.</p>
+</div>
+
+<div class="box">
+  <h4>11 August 2026 · QS-73 · R4</h4>
+  <p>Delivered the paged same-series run trend projection and API/UI presentation for score, active and changed
+  findings, outcomes, tokens, and cost. Complete snapshots form comparable points, partial snapshots remain events,
+  the highest resumed revision wins, and the existing Git-backed curve stays visibly labeled
+  <b>Commit trend</b>.</p>
 </div>
 
 <p class="dim">Method note: documentation-only dossier. The reference CSS declarations were copied from

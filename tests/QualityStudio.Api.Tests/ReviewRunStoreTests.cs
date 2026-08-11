@@ -1,5 +1,8 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 using CodingAgentRunner.Quota;
 using CodingAgentRunner.Events;
@@ -50,6 +53,11 @@ public sealed class ReviewRunStoreTests
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
             Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
             Assert.Equal(1, fake.OperationCount);
+            var reportStore = new QualityRunReportStore(fixture.RepositoryRoot);
+            var cappedReport = reportStore.Load(accepted.GetProperty("id").GetString()!);
+            Assert.Equal(1, cappedReport.Run.Revision);
+            Assert.Equal("capped", cappedReport.Run.State);
+            Assert.Equal("partial", cappedReport.Run.Completeness);
 
             using var resume = await client.PostAsJsonAsync(
                 $"/api/review/runs/{accepted.GetProperty("id").GetString()}/resume",
@@ -65,6 +73,48 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("test-agent", fake.CliType);
             Assert.Equal("claude-sonnet-5", fake.Model);
             Assert.Equal("high", fake.ThinkingLevel);
+            var completedReport = reportStore.Load(accepted.GetProperty("id").GetString()!);
+            Assert.Equal(2, completedReport.Run.Revision);
+            Assert.Equal("complete", completedReport.Run.Completeness);
+            Assert.Equal(3, completedReport.Observations.Count);
+            Assert.Equal(3, completedReport.Execution.Reviewed);
+            Assert.All(completedReport.Observations, observation => Assert.True(observation.ProducedByRun));
+            Assert.DoesNotContain(fixture.RepositoryRoot, QualityRunReportJson.Serialize(completedReport),
+                StringComparison.OrdinalIgnoreCase);
+            var canonicalBeforeOverwrite = await File.ReadAllBytesAsync(
+                reportStore.PathFor(completedReport.Run.Id), cancellationToken);
+            var mutableSidecar = Path.Combine(fixture.RepositoryRoot,
+                completedReport.Observations[0].SidecarPath!.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(mutableSidecar)!);
+            await File.WriteAllTextAsync(mutableSidecar, "{\"laterSweep\":true}", cancellationToken);
+            Assert.Equal(canonicalBeforeOverwrite, await File.ReadAllBytesAsync(
+                reportStore.PathFor(completedReport.Run.Id), cancellationToken));
+
+            using var jsonResponse = await client.GetAsync(
+                $"/api/review/runs/{completedReport.Run.Id}/report?format=json", cancellationToken);
+            jsonResponse.EnsureSuccessStatusCode();
+            Assert.Equal("application/json", jsonResponse.Content.Headers.ContentType?.MediaType);
+            Assert.Contains($"quality-run-{completedReport.Run.Id}.json",
+                jsonResponse.Content.Headers.ContentDisposition?.FileName, StringComparison.Ordinal);
+            var exported = await jsonResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal(completedReport.Run.Id, exported.GetProperty("run").GetProperty("id").GetString());
+            Assert.Equal(3, exported.GetProperty("observations").GetArrayLength());
+
+            using var sarifResponse = await client.GetAsync(
+                $"/api/review/runs/{completedReport.Run.Id}/report?format=sarif", cancellationToken);
+            sarifResponse.EnsureSuccessStatusCode();
+            Assert.Equal("application/sarif+json", sarifResponse.Content.Headers.ContentType?.MediaType);
+            var sarif = await sarifResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal(completedReport.Run.Id,
+                Assert.Single(sarif.GetProperty("runs").EnumerateArray()).GetProperty("properties")
+                    .GetProperty("reviewRunId").GetString());
+
+            var trendUrl = "/api/review/runs/trend?kind=code&scopeUnitId=" +
+                           Uri.EscapeDataString(completedReport.Run.ScopeUnitId) + "&level=project";
+            var trend = await client.GetFromJsonAsync<JsonElement>(trendUrl, cancellationToken);
+            Assert.Contains(trend.GetProperty("points").EnumerateArray(), point =>
+                point.GetProperty("runId").GetString() == completedReport.Run.Id &&
+                point.GetProperty("comparable").GetBoolean());
 
             using var result = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
                 fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "result.json"), cancellationToken));
@@ -109,6 +159,12 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("skipped-fresh", fresh.GetProperty("aggregateState").GetString());
             Assert.Equal(0, fresh.GetProperty("usageOperations").GetInt32());
             Assert.Equal(0, fake.AgentCalls);
+            var freshReport = new QualityRunReportStore(fixture.RepositoryRoot)
+                .Load(freshAccepted.GetProperty("id").GetString()!);
+            Assert.Equal("complete", freshReport.Run.Completeness);
+            Assert.Equal(0, freshReport.Execution.Reviewed);
+            Assert.Equal(3, freshReport.Execution.ReusedFresh);
+            Assert.All(freshReport.Observations, observation => Assert.False(observation.ProducedByRun));
 
             using var forcedResponse = await client.PostAsJsonAsync("/api/review", new
             {
@@ -332,6 +388,37 @@ public sealed class ReviewRunStoreTests
         }
     }
 
+    [Theory]
+    [InlineData("failed")]
+    [InlineData("cancelled")]
+    [InlineData("capped")]
+    public async Task Recovered_terminal_states_publish_explicit_partial_canonical_reports(string state)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateRun("terminal-report", state);
+
+            await using var application = fixture.CreateApplication();
+            using var client = application.CreateClient();
+            var run = await client.GetFromJsonAsync<JsonElement>(
+                $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
+            var report = new QualityRunReportStore(fixture.RepositoryRoot).Load(stored.Manifest.RunId);
+
+            Assert.Equal(state, run.GetProperty("state").GetString());
+            Assert.Equal(state, report.Run.State);
+            Assert.Equal("partial", report.Run.Completeness);
+            Assert.NotNull(report.Summary.PartialReason);
+            Assert.Single(report.Observations);
+            Assert.Null(report.Observations[0].SidecarSha256);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Fact]
     public async Task Paused_run_waits_for_an_explicit_resume()
     {
@@ -403,6 +490,61 @@ public sealed class ReviewRunStoreTests
             await Task.Delay(20, cancellationToken);
         }
         return run;
+    }
+
+    private static ReviewExecutionResult CapturedExecution(
+        ReviewRequest request,
+        bool skippedFresh,
+        int sequence = 1)
+    {
+        var fingerprint = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
+            Encoding.UTF8.GetBytes($"{request.FilePath}\0{request.Level}\0{sequence}")));
+        var reviewedHash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
+            Encoding.UTF8.GetBytes($"{request.UnitId}\0{request.FilePath}")));
+        var metadata = new JsonObject
+        {
+            ["$schema"] = ReviewMetaDocument.SchemaId,
+            ["schemaVersion"] = ReviewMetaDocument.CurrentSchemaVersion,
+            ["unit"] = new JsonObject
+            {
+                ["id"] = request.UnitId ?? "unit-test",
+                ["level"] = request.Level.ToString().ToLowerInvariant(),
+                ["path"] = request.FilePath.Replace('\\', '/'),
+            },
+            ["reviewedAt"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["kind"] = request.Kind,
+            ["reviewer"] = new JsonObject { ["runId"] = $"provider-{sequence}" },
+            ["reviewedHash"] = new JsonObject { ["value"] = reviewedHash },
+            ["grade"] = new JsonObject
+            {
+                ["score"] = 84,
+                ["band"] = "B",
+                ["rationale"] = "Captured test observation.",
+            },
+            ["summary"] = "Captured test observation.",
+            ["findings"] = new JsonArray(new JsonObject
+            {
+                ["id"] = $"finding-{sequence}",
+                ["ruleId"] = "quality.test",
+                ["aspect"] = "correctness",
+                ["severity"] = "medium",
+                ["title"] = "Captured finding",
+                ["description"] = "Captured before progress completion.",
+                ["recommendation"] = "Keep the snapshot.",
+                ["fingerprint"] = fingerprint,
+                ["locations"] = new JsonArray(new JsonObject { ["path"] = request.FilePath.Replace('\\', '/') }),
+            }),
+        };
+        var json = metadata.ToJsonString() + Environment.NewLine;
+        var sidecarHash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
+        var sidecarName = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(request.FilePath)))[..16];
+        var snapshot = new ReviewObservationSnapshot(
+            $".quality/reviews/captured/{sidecarName}.review-meta.{request.Kind}.json",
+            sidecarHash,
+            DateTimeOffset.UtcNow,
+            json,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [fingerprint] = "open" });
+        return new ReviewExecutionResult(skippedFresh, null, snapshot);
     }
 
     private sealed class DurableRunFixture : IDisposable
@@ -544,13 +686,13 @@ public sealed class ReviewRunStoreTests
                 bool force,
                 CancellationToken cancellationToken)
             {
-                Interlocked.Increment(ref owner.operationCount);
+                var operation = Interlocked.Increment(ref owner.operationCount);
                 var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
                     model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
                     request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
-                return new ReviewExecutionResult(false, null);
+                return CapturedExecution(request, skippedFresh: false, operation);
             }
         }
     }
@@ -570,8 +712,8 @@ public sealed class ReviewRunStoreTests
                 bool force,
                 CancellationToken cancellationToken)
             {
-                if (force) Interlocked.Increment(ref owner.agentCalls);
-                return Task.FromResult(new ReviewExecutionResult(!force, null));
+                var operation = force ? Interlocked.Increment(ref owner.agentCalls) : 0;
+                return Task.FromResult(CapturedExecution(request, skippedFresh: !force, operation));
             }
         }
     }
@@ -598,7 +740,7 @@ public sealed class ReviewRunStoreTests
                 CancellationToken cancellationToken)
             {
                 lock (requests) requests.Add(request);
-                return Task.FromResult(new ReviewExecutionResult(false, null));
+                return Task.FromResult(CapturedExecution(request, skippedFresh: false));
             }
         }
     }

@@ -31,6 +31,8 @@ quality report . --format html --output quality-report.html
 quality report . --format json --output quality-report.json
 quality report . --format sarif --output quality-report.sarif
 quality report . --fail-under 80 --fail-on high
+quality report . --run <run-id> --format markdown --output quality-run.md
+quality report . --run <run-id> --format sarif --fail-on high --output quality-run.sarif
 ```
 
 Supported formats are `markdown`, `html`, `json`, and `sarif`. Without
@@ -50,6 +52,30 @@ Exit codes are stable:
 `--fail-on critical|high|medium|low|info` fails when an active finding exists at
 that severity or higher.
 
+## Run-scoped reports
+
+Every terminal UI review run writes a strict canonical document to
+`.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
+manifest, routing provenance, usage and cap outcome, one explicit outcome per
+planned unit, the exact sidecar bytes captured by the run, finding lifecycle
+state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
+`capped` runs are all reportable. Incomplete outcomes are visibly marked
+`partial` and do not invent a score or baseline state.
+
+A fresh skip is represented as `skipped-fresh` with `producedByRun: false`; it is
+counted as reused evidence, not as a model operation. A capped run writes its
+current revision before stopping. Resuming the same run keeps its ID and creates
+the next canonical revision after the later terminal transition. Atomic
+same-directory replacement ensures readers see either the previous complete
+document or the next one, never an incomplete temporary write.
+
+HTML, bounded Markdown, JSON, and run-scoped SARIF are projections of this one
+document. HTML is self-contained and uses a restrictive content security policy.
+Markdown includes at most 20 active findings and states the omitted count. SARIF
+uses relative paths, stable automation and fingerprint identities, and only emits
+baseline state when the run has a comprehensive comparable predecessor. Exported
+documents omit the absolute repository root.
+
 ## HTTP
 
 `GET /api/report` builds a comparison report for every active registry
@@ -59,13 +85,25 @@ or `sarif` to select an export representation. The response media types are
 `text/markdown`, `text/html`, `application/json`, and
 `application/sarif+json`.
 
+For one review run, use
+`GET /api/review/runs/{id}/report?format=...` or
+`GET /api/repos/{repoId}/review/runs/{id}/report?format=...`. The response carries
+an attachment filename appropriate to the requested format. Repository access is
+resolved through the same registration boundary as the existing run routes.
+
+`GET /api/review/runs/trend?kind=code&scopeUnitId=<id>&level=file` and its
+repository-scoped form return paged run history. A series is keyed by repository,
+kind, scope unit ID, and level. Only complete runs are comparable; partial runs
+remain visible as events, and the highest revision wins for a resumed run. This
+run trend is separate from the Git-backed commit trend below.
+
 The JSON contract is described by
 [`schemas/quality-report.v1.schema.json`](../schemas/quality-report.v1.schema.json).
 SARIF declares version 2.1.0 and the official OASIS schema URI, produces one run
 per repository, preserves stable finding fingerprints, and includes scorecard
 and trend data in run properties.
 
-## Git-backed trend
+## Git-backed commit trend
 
 Trend storage is Git itself. Quality Studio finds commits that changed review
 sidecars, reconstructs the complete sidecar set at each such commit, and emits a

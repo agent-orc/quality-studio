@@ -33,6 +33,17 @@ Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
   records the chosen `model`, `thinkingLevel`, and `cli` (using explicit
   `runner-default` / `model-default` markers when no override was chosen), together with
   scope, outcome, counts, usage, and cost status for downstream Token Economy analysis.
+- `observations.json` is the orchestration checkpoint for exact file and aggregate
+  observations. It is replaced atomically before the corresponding progress
+  transition is appended, allowing recovery to publish the same captured evidence.
+
+At every terminal transition the API projects these immutable inputs into
+`.quality/reports/runs/<runId>.json`. This canonical, strict-schema snapshot is
+repository-owned durable history. A capped run publishes revision 1; resuming and
+finishing that run publishes a higher revision without repeating already completed
+operations. Renderers, API downloads, CLI gates, and run trends all consume this
+snapshot rather than mutable current sidecars. See
+[`quality-reports.md`](quality-reports.md) for formats and trend semantics.
 
 Model options come from the governed Token Economy snapshot described in
 [`model-catalog-integration.md`](model-catalog-integration.md). The model and optional
@@ -43,4 +54,6 @@ At startup the API scans the registered repositories for durable runs. `queued` 
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
-`.quality/runs/` is ignored by Git because it is disposable orchestration working data. The review sidecars remain the committed review truth.
+`.quality/runs/` is ignored by Git because it is disposable orchestration working
+data. Review sidecars remain the committed current-state truth, while canonical
+run reports preserve the historical truth of each terminal execution.
