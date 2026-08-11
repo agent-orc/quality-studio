@@ -24,9 +24,11 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    RequestedReviewRoute? RequestedRoute = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
+public sealed record RequestedReviewRoute(string? Model, string? ThinkingLevel, string? CliType);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
@@ -114,7 +116,7 @@ public sealed class ReviewRunner
 
             var usage = CreateUsage(agentResult.RunId,
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
-                agentResult.EffectiveModel, startedAt, request, relativePath);
+                agentResult.EffectiveModel, startedAt, request, relativePath, agentResult.EffectiveThinkingLevel);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
             if (request.Level == ReviewLevel.Project &&
@@ -138,10 +140,30 @@ public sealed class ReviewRunner
                 SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
             }
             var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+            var promptHash = ReviewPromptBuilder.TemplateHash(request.Kind);
+            var reviewInputHash = inputs.EffectiveHash(promptHash);
+            var requestedModel = request.RequestedRoute is null ? _agent.Model : request.RequestedRoute.Model;
+            var requestedThinkingLevel = request.RequestedRoute is null ? _agent.ThinkingLevel : request.RequestedRoute.ThinkingLevel;
+            var findingOrigin = new FindingOriginContext(
+                request.ReviewRunId,
+                agentResult.RunId,
+                requestedModel,
+                requestedThinkingLevel,
+                _agent.CliType,
+                usage.Model,
+                agentResult.EffectiveThinkingLevel ?? _agent.ThinkingLevel,
+                $"file-{request.Kind}-review",
+                "1.0.0",
+                promptHash,
+                reviewInputHash,
+                reviewedHash,
+                SourceRevision(root),
+                DateTimeOffset.UtcNow);
             if (request.Kind == "security")
             {
                 findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
             }
+            FindingEvidenceCapture.EnrichFindings(response, subjectContents, findingOrigin);
 
             var adapter = AdapterFromUnitId(unitId);
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
@@ -293,11 +315,15 @@ public sealed class ReviewRunner
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
+        DateTimeOffset startedAt, ReviewRequest request, string relativePath, string? effectiveThinkingLevel = null) =>
         new(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
             _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+            request.ReviewRunId,
+            request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion,
+            request.RequestedRoute is null ? _agent.Model : request.RequestedRoute.Model,
+            effectiveThinkingLevel ?? _agent.ThinkingLevel,
+            request.RequestedRoute is null ? _agent.ThinkingLevel : request.RequestedRoute.ThinkingLevel);
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {
@@ -336,6 +362,17 @@ public sealed class ReviewRunner
             ["agent"] = _agent.AgentName,
             ["model"] = usage.Model,
             ["runId"] = runId,
+            ["requested"] = new JsonObject
+            {
+                ["model"] = usage.RequestedModel,
+                ["thinkingLevel"] = usage.RequestedThinkingLevel,
+            },
+            ["executed"] = new JsonObject
+            {
+                ["cli"] = usage.CliType,
+                ["model"] = usage.Model,
+                ["thinkingLevel"] = usage.ThinkingLevel,
+            },
             ["usage"] = new JsonObject
             {
                 ["cliType"] = usage.CliType,
@@ -349,8 +386,8 @@ public sealed class ReviewRunner
 
         var meta = new JsonObject
         {
-            ["$schema"] = ReviewMetaDocument.SchemaId,
-            ["schemaVersion"] = ReviewMetaDocument.CurrentSchemaVersion,
+            ["$schema"] = ReviewMetaV3.SchemaId,
+            ["schemaVersion"] = ReviewMetaV3.SchemaVersion,
             ["unit"] = new JsonObject
             {
                 ["id"] = unitId,
@@ -573,6 +610,12 @@ public sealed class ReviewRunner
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static string SourceRevision(string root)
+    {
+        var commit = CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD");
+        return string.IsNullOrWhiteSpace(commit) ? "unknown" : "git:" + commit.Trim();
+    }
 
     private static string Combine(string resolved, string? supplied) =>
         string.IsNullOrWhiteSpace(supplied)
