@@ -141,8 +141,8 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
+      <span><b>Status</b> decided</span>
+      <span><b>Phase</b> implementation in progress</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,34 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <p>This section is append-only. The operator approved Option C and all slices S0–S6 on 2026-08-11; previously decision-gated work is therefore recorded as <b>decided</b>, whether delivered or still pending.</p>
+
+    <h3>2026-08-11 · QS-68 · S0 delivered</h3>
+    <ul>
+      <li>Repository creation, import, update, and archive administration now requires registrar authority. A repository-scoped hosted client can no longer change its root, global inputs directory, sensor selection, or archive state.</li>
+      <li>Command-backed sensors are disabled by default. Repository-provided analyzer commands are rejected; an enabled command-backed sensor must select an immutable host-owned analyzer profile id. Legacy command configuration without a valid profile is disabled during registry migration.</li>
+      <li>Local mode now rejects non-loopback configured bindings. Local mutations require an allowed Origin and a signed, expiring anti-CSRF session nonce; the Angular client obtains and attaches it automatically.</li>
+      <li>Staleness, security, attack-coverage, and sensor scans use the per-client spend limiter.</li>
+      <li>All Angular runtime and toolchain packages are pinned together at 20.3.27. The production dependency audit reports zero high or critical advisories.</li>
+      <li>API and browser regression tests cover registrar enforcement, free-form shell rejection, host-profile resolution, scan limiting, loopback validation, Origin/nonce denial, and nonce attachment.</li>
+    </ul>
+
+    <h3>2026-08-11 · QS-68 · S6 delivered</h3>
+    <ul>
+      <li>CI now installs, builds, and tests the locked frontend graph; gates the production npm graph at high severity; and retains the separate full-tree audit with its query timestamp.</li>
+      <li>CI queries NuGet advisories for the solution and out-of-solution code-graph spike, fails through a tested JSON gate, generates a pinned-tool SBOM, and retains the resulting evidence.</li>
+      <li>The secret gate scans both the current worktree and all Git history. The documented historical unit-key false positive is suppressed by its exact Gitleaks fingerprint.</li>
+      <li>Every GitHub Action reference is pinned to an immutable commit, and weekly test-backed Dependabot lanes cover npm, NuGet, and Actions updates.</li>
+    </ul>
+
+    <div class="box warn">
+      <h4>Approved slices not delivered by QS-68</h4>
+      <p><b>S1</b> remains pending because a real worker boundary requires a worker runtime, snapshot broker, short-lived model credential path, egress policy, and cross-platform resource enforcement; an in-process substitute would not satisfy the decision. <b>S2–S5</b> also remain pending: versioned repository-input caps and quarantine (S2), output DLP and tracked-config policy (S3), fingerprint-only previewed handover (S4), and reloadable role-separated credential lifecycle with audit (S5). They were not skipped for approval reasons; this delivery completed the independently testable Gate A containment and continuous gate without claiming partial controls as finished slices.</p>
+    </div>
   </section>
 </main>
 </body>

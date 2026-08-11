@@ -1,0 +1,2 @@
+# Reviewed false positive: a deterministic unit-key test vector, not a credential.
+7994d81d32d955fb2bcf335326a55107ff0ef4aa:docs/concept.md:generic-api-key:1461
