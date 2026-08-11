@@ -19,7 +19,20 @@ public sealed record ReviewRunEstimate(
     string? Currency,
     string PriceStatus,
     int HistorySamples,
-    string Method);
+    string Method,
+    long? PromptCharactersBeforeCompaction = null);
+
+public sealed record ReviewRunEconomyEvidence(
+    long StaticDurationMs,
+    int PreflightCacheHits,
+    int FindingCount,
+    int ModelCallsPlanned,
+    int ModelCallsBlocked,
+    int ModelCallsExecuted,
+    long? PromptCharactersBeforeCompaction,
+    long? PromptCharactersAfterCompaction,
+    TokenUsage ActualUsage,
+    ReviewEstimateDeviation? EstimateDeviation);
 
 public sealed record ReviewRunManifest(
     string RunId,
@@ -73,7 +86,9 @@ public sealed record ReviewRunStatus(
     int PreflightUnavailableChecks = 0,
     string? PreflightResultHash = null,
     long? PreflightDurationMs = null,
-    int BlockedFiles = 0);
+    int BlockedFiles = 0,
+    int PreflightCacheHits = 0,
+    int PreflightFindings = 0);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so
@@ -102,7 +117,8 @@ public sealed record ReviewRunResult(
     decimal? CostSpent,
     string? Currency,
     string PriceStatus,
-    string? StopReason);
+    string? StopReason,
+    ReviewRunEconomyEvidence? Economy = null);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
@@ -220,9 +236,26 @@ public sealed class ReviewRunStore
             status.CostSpent,
             status.Currency,
             status.PriceStatus,
-            status.StopReason);
+            status.StopReason,
+            Economy(manifest, status));
         WriteAtomically(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
+    }
+
+    private static ReviewRunEconomyEvidence Economy(ReviewRunManifest manifest, ReviewRunStatus status)
+    {
+        var aggregateBlocked = string.Equals(status.AggregateState, "blocked-preflight", StringComparison.Ordinal) ? 1 : 0;
+        return new ReviewRunEconomyEvidence(
+            status.PreflightDurationMs ?? 0,
+            status.PreflightCacheHits,
+            status.PreflightFindings,
+            manifest.Estimate?.Operations ?? status.TotalFiles + (manifest.Level == "file" ? 0 : 1),
+            status.BlockedFiles + aggregateBlocked,
+            status.UsageOperations,
+            manifest.Estimate?.PromptCharactersBeforeCompaction,
+            manifest.Estimate?.PromptCharacters,
+            status.Usage,
+            null);
     }
 
     public void WritePreflight(PreflightSnapshot snapshot)
