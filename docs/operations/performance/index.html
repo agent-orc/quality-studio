@@ -139,13 +139,13 @@
   <header class="page">
     <p class="kicker">Quality Studio · QS-59 · operator decision</p>
     <h1>Performance after QS-54</h1>
-    <p class="lede">QS-54 shipped and made repeat switches fast on its fixture. Fresh rebase measurements show that the real large repository still spends seconds deriving cold state and returns a 29 MB tree. Review parsing is not the problem; model time and terminal notification are.</p>
+    <p class="lede">QS-54 shipped and made repeat switches fast on its fixture. Fresh integration-base measurements show that the real large repository still spends seconds deriving cold state and returns a 29 MB tree. Review parsing is not the problem; model time and terminal notification are.</p>
     <div class="meta">
       <span><b>Status</b> <span class="pill new">decision pending</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Measured</b> 11 August 2026</span>
-      <span><b>Source base</b> <code>e9623e6</code></span>
-      <span><b>Measured revision</b> <code>d0847d2</code></span>
+      <span><b>Product base</b> <code>62ca75f</code></span>
+      <span><b>Benchmark revision</b> <code>1f81939</code></span>
     </div>
   </header>
 
@@ -173,26 +173,26 @@
   <table>
     <thead><tr><th>Area</th><th>Current evidence</th><th>Judgement</th><th>Approved target</th></tr></thead>
     <tbody>
-      <tr><td>API liveness</td><td>0.651 s median to <code>/health</code> on the real large repository</td><td><span class="pill done">healthy</span></td><td>Keep liveness non-blocking</td></tr>
-      <tr><td>Initial usable state</td><td>8.536 s median process-to-project-plus-tree; 7.919–9.450 s range</td><td><span class="pill open">fails</span></td><td>&lt; 2.0 s median, &lt; 3.0 s p95 with a valid persisted snapshot</td></tr>
-      <tr><td>Warm large-repo switch</td><td>301.69 ms median, 696.43 ms p95; tree payload 29,119,333 bytes</td><td><span class="pill open">p95 fails 500 ms</span></td><td>&lt; 150 ms median, &lt; 500 ms p95; root payload &lt; 1 MB</td></tr>
-      <tr><td>Initial frontend bundle</td><td>476.18 kB raw against a 480 kB error budget</td><td><span class="pill part">passes narrowly</span></td><td>&le; 450 kB raw; preserve at least 30 kB headroom</td></tr>
-      <tr><td>Review execution</td><td>14.534 s model call of 14.834 s wall time; 98.0%</td><td><span class="pill part">model-bound</span></td><td>No model downgrade; expose phases and improve sweep throughput separately</td></tr>
-      <tr><td>Review completion</td><td>1,411.72 ms median terminal-to-visible; only 8.63 ms after the response arrives</td><td><span class="pill open">poll-bound</span></td><td>&lt; 100 ms p95 terminal-to-visible via push, polling retained as fallback</td></tr>
-      <tr><td>Long session</td><td>+18,520 KiB anonymous RSS after 100 Git-state invalidations (+28.05%)</td><td><span class="pill open">unbounded</span></td><td>&lt; 5% retained anonymous growth after the same run</td></tr>
+      <tr><td>API liveness</td><td>0.776 s median to <code>/health</code> on the real large repository</td><td><span class="pill done">healthy</span></td><td>Keep liveness non-blocking</td></tr>
+      <tr><td>Initial usable state</td><td>7.967 s median process-to-project-plus-tree; 6.776–11.823 s range</td><td><span class="pill open">fails</span></td><td>&lt; 2.0 s median, &lt; 3.0 s p95 with a valid persisted snapshot</td></tr>
+      <tr><td>Warm large-repo switch</td><td>494.81 ms median, 828.93 ms p95; tree payload 29,119,333 bytes</td><td><span class="pill open">fails 500 ms p95</span></td><td>&lt; 150 ms median, &lt; 500 ms p95; root payload &lt; 1 MB</td></tr>
+      <tr><td>Initial frontend bundle</td><td>475.24 kB raw against a 480 kB error budget</td><td><span class="pill part">passes narrowly</span></td><td>&le; 450 kB raw; preserve at least 30 kB headroom</td></tr>
+      <tr><td>Review execution</td><td>17.498 s model call of 18.136 s wall time; 96.48%</td><td><span class="pill part">model-bound</span></td><td>No model downgrade; expose phases and improve sweep throughput separately</td></tr>
+      <tr><td>Review completion</td><td>1,692.33 ms median terminal-to-visible; 277.63 ms after the response arrives</td><td><span class="pill open">poll-bound</span></td><td>&lt; 100 ms p95 first-visible via push, polling retained as fallback</td></tr>
+      <tr><td>Long session</td><td>+16,020 KiB anonymous RSS after 100 Git-state invalidations (+25.99%)</td><td><span class="pill open">unbounded</span></td><td>&lt; 5% retained anonymous growth after the same run</td></tr>
     </tbody>
   </table>
-  <p class="dim">The measured large repository is the clean Agent Taskboard checkout at <code>9af1a848</code>, with 3,927 tracked files. The Quality Studio API is the Release build from fresh source base <code>e9623e6</code>; measured revision <code>d0847d2</code> adds only this dossier and its measurement harnesses.</p>
+  <p class="dim">The measured large repository is the clean Agent Taskboard checkout at <code>9af1a848</code>, with 3,927 tracked files. Quality Studio product code is fresh <code>origin/main</code> at <code>62ca75f</code>; benchmark revision <code>1f81939</code> adds only this dossier and its measurement harnesses.</p>
 
   <h2 id="method"><span class="no">02</span>Method and limits</h2>
   <p>Measurements ran on Linux 6.8, .NET SDK 10.0.301 / runtime 10.0.9, Node 22.23.1, Chromium 149.0.7827.55, and an Intel i7-8700 with 12 logical CPUs and 62 GiB RAM. Every backend startup sample spawned a new Release API process. Startup requests began immediately after <code>/health</code> responded, so the result includes contention with QS-54 background prewarming exactly as a first operator session experiences it.</p>
-  <p>The mandated base reconciliation found no <code>refs/heads/develop</code> on the configured origin; <code>origin/HEAD</code> advertises <code>origin/main</code>. The worktree was therefore fetched and rebased to fresh <code>origin/main</code> at <code>e9623e6</code>, then only the two QS-59 salvage commits were replayed. No newer operation dossier was overwritten.</p>
+  <p>The mandated base reconciliation found no <code>refs/heads/develop</code> on the configured origin; <code>origin/HEAD</code> advertises <code>origin/main</code>. A fresh fetch showed the task worktree already equal to <code>origin/main</code> at <code>62ca75f</code>, so the integration rebase itself was a verified no-op. Only the three prior QS-59 dossier/harness commits were then replayed; all newer product and operation-dossier work remained intact.</p>
   <ul>
     <li><b>Startup:</b> five Quality Studio process starts and three Agent Taskboard process starts; project and tree requested concurrently after health.</li>
     <li><b>Large-repo steady state:</b> one prewarmed Agent Taskboard process, then 20 concurrent project-plus-tree requests.</li>
     <li><b>Memory:</b> a generated Git repository with 1,603 tracked Angular/TypeScript files; five warm invalidations before baseline, then 100 distinct dirty states and project requests.</li>
     <li><b>Review:</b> one live runner-default Codex review of an isolated 12-line C# file; a separate 10,000-iteration strict-parser probe with a 12,644-byte, 30-finding response.</li>
-    <li><b>Rendering:</b> the real Angular application with a controlled local API. The API became terminal 100 ms after queueing; the product's 1,500 ms polling code was not changed.</li>
+    <li><b>Rendering:</b> the real Angular application and current two-step preflight/start workflow with a controlled local API. The API became terminal 100 ms after queueing; the product's 1,500 ms polling code was not changed.</li>
   </ul>
   <section class="box warn">
     <h4>Interpretation boundary</h4>
@@ -200,13 +200,13 @@
   </section>
   <section class="box bad">
     <h4>One timing gate remains host-sensitive</h4>
-    <p>The production Angular build passes at 476.18 kB against the 480 kB error ceiling, but leaves only 3.82 kB headroom and still exceeds the 350 kB warning threshold by 126.18 kB. The API suite's <code>MachineBound</code> 5,000-file projection test measured 302 ms against 150 ms in the suite, then passed when rerun alone. Keep both thresholds: split initial code toward 450 kB and schedule machine-bound timing gates in an isolated performance profile.</p>
+    <p>The production Angular build passes at 475.24 kB against the 480 kB error ceiling, but leaves only 4.76 kB headroom and still exceeds the 350 kB warning threshold by 125.24 kB. The API suite's machine-bound 5,000-file projection test measured 254 ms against 150 ms in the suite, then passed when rerun alone. Keep both thresholds: split initial code toward 450 kB and schedule machine-bound timing gates in an isolated performance profile.</p>
   </section>
 
   <h2 id="qs54"><span class="no">03</span>QS-54 delivery state</h2>
   <section class="box ok">
     <h4>Delivered, not merely attempted</h4>
-    <p>The successful QS-54 result commit is <code>26fd785</code>. On fresh source base <code>e9623e6</code>, 11 of its 18 touched files remain byte-identical. The seven shared shell/API files have later feature work, but direct code inspection and live probes confirm the QS-54 behavior anchors: the one-slot hierarchy cache, <code>RepositorySnapshotPrewarmer</code>, dashboard projection cache, <code>Server-Timing</code> phases, stale-while-revalidate switch UI, tests, and real-backend harness. Three other QS-54 result refs contain no separate implementation.</p>
+    <p>The successful QS-54 result commit is <code>26fd785</code>. On fresh product base <code>62ca75f</code>, 10 of its 18 touched files remain byte-identical. The eight shared shell/API/style files have later feature work, but direct code inspection and live probes confirm the QS-54 behavior anchors: the one-slot hierarchy cache, <code>RepositorySnapshotPrewarmer</code>, dashboard projection cache, <code>Server-Timing</code> phases, stale-while-revalidate switch UI, tests, and real-backend harness. Two other QS-54 salvage refs contain no separate implementation.</p>
   </section>
   <p>QS-54's recorded before-values remain the correct baseline for the intervention it delivered:</p>
   <table>
@@ -227,50 +227,50 @@
   <table>
     <thead><tr><th>Repository</th><th>Samples</th><th>Process → health median</th><th>Process → project + tree median</th><th>Range</th></tr></thead>
     <tbody>
-      <tr><td>Quality Studio, 313 tracked / 287 projected files</td><td>5</td><td>568.88 ms</td><td><b>2,127.12 ms</b></td><td>1,926.97–2,177.53 ms</td></tr>
-      <tr><td>Agent Taskboard, 3,927 files</td><td>3</td><td>650.59 ms</td><td><b>8,535.77 ms</b></td><td>7,919.11–9,449.98 ms</td></tr>
+      <tr><td>Quality Studio, 321 tracked / 295 projected files</td><td>5</td><td>780.58 ms</td><td><b>2,731.61 ms</b></td><td>2,311.86–5,724.35 ms</td></tr>
+      <tr><td>Agent Taskboard, 3,927 files</td><td>3</td><td>775.84 ms</td><td><b>7,966.71 ms</b></td><td>6,775.59–11,823.44 ms</td></tr>
     </tbody>
   </table>
-  <p>The large-repo project request's <code>Server-Timing</code> attributes 5,692.02–7,305.84 ms to <code>cache-wait</code>: the request waits behind the background prewarmer's per-repository cache lock. The matching cold scans took 5,982.82–7,663.89 ms; projection added 1,305.58–1,613.65 ms. QS-54 made later requests warm, but the first session after every API restart still pays nearly the same work.</p>
+  <p>The large-repo project request's <code>Server-Timing</code> attributes 4,585.39–8,904.67 ms to <code>cache-wait</code>: the request waits behind the background prewarmer's per-repository cache lock. The matching cold scans took 4,877.89–9,259.17 ms; projection added 1,267.17–2,072.51 ms. QS-54 made later requests warm, but the first session after every API restart still pays nearly the same work.</p>
 
   <h3>The real tree exceeds the switch contract even when the cache is warm</h3>
   <table>
     <thead><tr><th>Response</th><th>Payload</th><th>Client time</th><th>Evidence</th></tr></thead>
     <tbody>
-      <tr><td>Project dashboard</td><td>11,409 bytes</td><td>21.89–73.78 ms</td><td>Warm projection is 0–0.02 ms; Git state is 19.34–39.77 ms</td></tr>
-      <tr><td>Recursive root tree</td><td><b>29,119,333 bytes</b></td><td><b>301.69 ms median / 696.43 ms p95</b></td><td>20 warm project-plus-tree requests; 222.35–1,111.22 ms</td></tr>
+      <tr><td>Project dashboard</td><td>11,409 bytes</td><td>27.35–69.59 ms</td><td>Warm projection is 0–0.02 ms; Git state is 21.79–65.67 ms</td></tr>
+      <tr><td>Recursive root tree</td><td><b>29,119,333 bytes</b></td><td><b>494.81 ms median / 828.93 ms p95</b></td><td>20 warm project-plus-tree requests; 310.99–837.62 ms</td></tr>
     </tbody>
   </table>
   <p><code>GET /api/tree?path=</code> returns the complete descendant graph. For every node, <code>TreeNodeResponse.From</code> recursively flattens descendants for coverage and recursively recomputes review summaries. The API log stops its tree stopwatch before response JSON serialization, so the current server log omits the largest visible phase. The Angular explorer virtualizes rows, but receives the entire 29 MB first.</p>
-  <p>The existing 1,600-file real-backend browser fixture remains useful but is not representative of this graph: its fresh three switches were usable in 167.2, 31.6, and 70.3 ms, with transition paint in 15.7–24.8 ms. It passes. The real 3,927-file response still misses the 500 ms p95 contract.</p>
+  <p>The existing 1,600-file real-backend browser fixture remains useful but is not representative of this graph: its fresh three switches were usable in 202.6, 40.4, and 147.4 ms, with transition paint in 13.8–28.4 ms. It passes. The real 3,927-file response still misses the 500 ms p95 contract.</p>
 
   <h2 id="review"><span class="no">05</span>Review-run latency breakdown</h2>
   <figure>
     <svg viewBox="0 0 1000 245" role="img" aria-labelledby="review-chart-title review-chart-desc">
       <title id="review-chart-title">Measured review latency phases</title>
-      <desc id="review-chart-desc">The model call dominates live review wall time. Parser and response-to-paint rendering are tiny; polling adds about 1.4 seconds after terminal state.</desc>
-      <text x="34" y="35" class="s-label">Live review wall: 14,834 ms</text>
-      <rect x="34" y="52" width="882" height="30" rx="5" fill="var(--develop)"></rect>
-      <rect x="916" y="52" width="18" height="30" rx="5" fill="var(--warn)"></rect>
-      <text x="45" y="72" fill="white" font-family="system-ui" font-size="12" font-weight="600">Model call 14,534 ms · 98.0%</text>
-      <text x="744" y="102" class="s-sub">Other process + persistence 300 ms</text>
+      <desc id="review-chart-desc">The model call dominates live review wall time. Parsing is negligible; polling contributes about 1.4 seconds and refresh plus rendering about 0.28 seconds after the terminal response.</desc>
+      <text x="34" y="35" class="s-label">Live review wall: 18,136 ms</text>
+      <rect x="34" y="52" width="869" height="30" rx="5" fill="var(--develop)"></rect>
+      <rect x="903" y="52" width="31" height="30" rx="5" fill="var(--warn)"></rect>
+      <text x="45" y="72" fill="white" font-family="system-ui" font-size="12" font-weight="600">Model call 17,498 ms · 96.48%</text>
+      <text x="720" y="102" class="s-sub">Other process + persistence 637.77 ms</text>
       <text x="34" y="140" class="s-label">After the server is terminal</text>
-      <rect x="34" y="156" width="713" height="30" rx="5" fill="var(--warn)"></rect>
-      <rect x="747" y="156" width="12" height="30" rx="5" fill="var(--ok)"></rect>
-      <text x="45" y="176" fill="white" font-family="system-ui" font-size="12" font-weight="600">Wait for poll 1,411.72 ms median</text>
-      <text x="775" y="176" class="s-sub">Response → paint 8.63 ms</text>
-      <text x="34" y="222" class="s-tiny">Parser probe: 0.1075 ms median, 0.4275 ms p95 for 30 findings (too small to draw at this scale).</text>
+      <rect x="34" y="156" width="707" height="30" rx="5" fill="var(--warn)"></rect>
+      <rect x="741" y="156" width="139" height="30" rx="5" fill="var(--ok)"></rect>
+      <text x="45" y="176" fill="white" font-family="system-ui" font-size="12" font-weight="600">Poll schedule contribution ≈ 1,414.70 ms</text>
+      <text x="754" y="176" fill="white" font-family="system-ui" font-size="12">Response → visible 277.63 ms</text>
+      <text x="34" y="222" class="s-tiny">Parser probe: 0.2160 ms median, 0.7565 ms p95 for 30 findings (too small to draw at this scale).</text>
     </svg>
     <figcaption><b>Two different clocks.</b> The first row is one real external review. The second is a five-run controlled UI experiment after server terminal state. It isolates why “done” appears late.</figcaption>
   </figure>
   <table>
     <thead><tr><th>Phase</th><th>Measured</th><th>Share / conclusion</th></tr></thead>
     <tbody>
-      <tr><td>Runner-reported model call</td><td>14,534 ms</td><td>98.0% of 14,833.91 ms wall; 13,732 input, 464 output, 9,984 cached input, 107 reasoning tokens</td></tr>
-      <tr><td>Process start, prompt preparation, ledger, parse, identity, and atomic metadata write</td><td>299.91 ms combined upper bound</td><td>2.0%; the current code does not split these phases</td></tr>
-      <tr><td>Strict parser only</td><td>0.1075 ms median, 0.4275 ms p95</td><td>12,644-byte response with 30 findings over 10,000 parses; not a cost block</td></tr>
-      <tr><td>Server terminal → visible “done”</td><td>1,411.72 ms median</td><td>Product polls every 1,500 ms; 1,410.34–1,425.04 ms observed</td></tr>
-      <tr><td>Terminal HTTP response → visible “done”</td><td>8.63 ms median</td><td>7.21–13.88 ms; Angular rendering is not the delay</td></tr>
+      <tr><td>Runner-reported model call</td><td>17,498 ms</td><td>96.48% of 18,135.77 ms wall; 13,864 input, 572 output, 9,984 cached input, 223 reasoning tokens</td></tr>
+      <tr><td>Process start, prompt preparation, ledger, parse, identity, and atomic metadata write</td><td>637.77 ms combined upper bound</td><td>3.52%; the current code does not split these phases</td></tr>
+      <tr><td>Strict parser only</td><td>0.2160 ms median, 0.7565 ms p95</td><td>12,644-byte response with 30 findings over 10,000 parses; not a cost block</td></tr>
+      <tr><td>Server terminal → visible “done”</td><td>1,692.33 ms median</td><td>Product polls every 1,500 ms; 1,691.18–1,695.74 ms observed</td></tr>
+      <tr><td>Terminal HTTP response → visible “done”</td><td>277.63 ms median</td><td>275.30–283.43 ms; refresh/response/render work is secondary but must not block first paint</td></tr>
     </tbody>
   </table>
   <p>The runner records only aggregate model duration in the usage ledger; <code>ReviewRunner</code> starts its total stopwatch immediately before <code>IReviewAgent.RunAsync</code> and logs only the combined completion time. Add phase telemetry before making any model-side performance decision. The missing routing-policy document means this dossier intentionally does not recommend a faster model or lower thinking level.</p>
@@ -279,37 +279,42 @@
   <table>
     <thead><tr><th>Distinct states after baseline</th><th>Anonymous RSS</th><th>Change from baseline</th></tr></thead>
     <tbody>
-      <tr><td>0 (after five warm invalidations)</td><td>66,020 KiB</td><td>—</td></tr>
-      <tr><td>20</td><td>72,408 KiB</td><td>+6,388 KiB</td></tr>
-      <tr><td>40</td><td>75,856 KiB</td><td>+9,836 KiB</td></tr>
-      <tr><td>60</td><td>76,260 KiB</td><td>+10,240 KiB</td></tr>
-      <tr><td>70</td><td>82,648 KiB</td><td>+16,628 KiB</td></tr>
-      <tr><td>80</td><td>83,348 KiB</td><td>+17,328 KiB</td></tr>
-      <tr><td>100</td><td><b>84,540 KiB</b></td><td><b>+18,520 KiB / +28.05%</b></td></tr>
+      <tr><td>0 (after five warm invalidations)</td><td>61,644 KiB</td><td>—</td></tr>
+      <tr><td>20</td><td>68,424 KiB</td><td>+6,780 KiB</td></tr>
+      <tr><td>40</td><td>69,504 KiB</td><td>+7,860 KiB</td></tr>
+      <tr><td>60</td><td>80,036 KiB</td><td>+18,392 KiB</td></tr>
+      <tr><td>70</td><td>78,060 KiB</td><td>+16,416 KiB</td></tr>
+      <tr><td>80</td><td>82,568 KiB</td><td>+20,924 KiB</td></tr>
+      <tr><td>100</td><td><b>77,664 KiB</b></td><td><b>+16,020 KiB / +25.99%</b></td></tr>
     </tbody>
   </table>
-  <p>Anonymous RSS fluctuates with GC but rises to its run maximum at the final sample. This is consistent with the code: <code>ProjectDashboardService.cache</code> is a process-lifetime <code>ConcurrentDictionary</code> keyed by <code>root + GitState</code> and has no eviction. Every new dirty state retains another projection. The hierarchy cache itself replaces one snapshot per root; the dashboard cache retains all prior states. The measured request cost across the invalidation run was 154.43 ms median, 229.61 ms p95.</p>
+  <p>Anonymous RSS fluctuates with GC, peaks at +20,924 KiB after 80 invalidations, and remains +16,020 KiB above baseline at the final sample. This matches the code risk: <code>ProjectDashboardService.cache</code> is a process-lifetime <code>ConcurrentDictionary</code> keyed by <code>root + GitState</code> and has no eviction. Every new dirty state retains another projection. The hierarchy cache itself replaces one snapshot per root; the dashboard cache retains all prior states. The measured request cost across the invalidation run was 268.84 ms median, 403.58 ms p95.</p>
 
   <h2 id="blocks"><span class="no">07</span>Top three cost blocks</h2>
   <div class="building-blocks">
     <section class="building-block">
       <h4>1 · External model execution</h4>
-      <p><b>14.534 s</b> in one 14.834 s review. Parsing is 0.108 ms median, so parser tuning cannot move end-to-end latency.</p>
+      <p><b>17.498 s</b> in one 18.136 s review. Parsing is 0.216 ms median, so parser tuning cannot move end-to-end latency.</p>
       <div class="stx stx-part">Correctness-bound: measure phases; do not downgrade routing.</div>
     </section>
     <section class="building-block">
       <h4>2 · Cold hierarchy + projection</h4>
-      <p><b>7.60–9.10 s</b> prewarm total on 3,927 real files. The first request then waits 5.69–7.31 s on the cache lock.</p>
+      <p><b>6.25–11.46 s</b> prewarm total on 3,927 real files. The first request then waits 4.59–8.90 s on the cache lock.</p>
       <div class="stx stx-open">Persist verified snapshots across process restarts.</div>
     </section>
     <section class="building-block">
-      <h4>3 · Presentation after the work</h4>
-      <p><b>29.1 MB</b> recursive tree makes warm switching 696 ms p95; review polling adds <b>1.412 s</b> after terminal state.</p>
-      <div class="stx stx-open">Lazy tree transport + push review events.</div>
+      <h4>3 · Terminal notification and refresh</h4>
+      <p>Review completion remains invisible for <b>1.692 s</b> after terminal state: about 1.415 s of poll scheduling plus 277.63 ms response/refresh/render.</p>
+      <div class="stx stx-open">Push review events; paint before refresh.</div>
+    </section>
+    <section class="building-block">
+      <h4>Large-repo transport risk</h4>
+      <p>The <b>29.1 MB</b> recursive root tree makes warm project-plus-tree switching 494.81 ms median / 828.93 ms p95.</p>
+      <div class="stx stx-open">Load one tree level at a time.</div>
     </section>
     <section class="building-block">
       <h4>Resource risk · retained projections</h4>
-      <p><b>+18.1 MiB</b> anonymous RSS after 100 states. Not ranked by immediate latency, but it is deterministic code debt and a small bounded fix.</p>
+      <p><b>+15.64 MiB</b> anonymous RSS after 100 states. Not ranked by immediate latency, but it is deterministic code debt and a small bounded fix.</p>
       <div class="stx stx-part">Keep current and previous state only.</div>
     </section>
   </div>
@@ -321,9 +326,9 @@
     <li>Load children when a standard explorer row expands; retain virtualized rendering and per-repository browser snapshots.</li>
     <li>Remove recursive descendant flattening from every response node by deriving aggregate coverage/review counts once in the immutable snapshot.</li>
     <li>Time projection, JSON serialization, bytes, and total response completion. The current <code>TreeLoaded</code> stopwatch ends too early.</li>
-    <li>Increase production-build headroom while touching the shell: defer at least 26.18 kB of non-initial review/administration code and leave the 480 kB error budget unchanged. Target 450 kB or less.</li>
+    <li>Increase production-build headroom while touching the shell: defer at least 25.24 kB of non-initial review/administration code and leave the 480 kB error budget unchanged. Target 450 kB or less.</li>
   </ul>
-  <p><b>Expected gain:</b> root payload from 29.1 MB to below 1 MB (&gt;96% reduction), real warm project-plus-tree from 301.69 ms median / 696.43 ms p95 to below 150 / 500 ms, and at least 26.18 kB (5.5%) raw reduction versus today's initial bundle. <b>Acceptance:</b> production build passes at &le; 450 kB initial, expand-to-visible p95 &lt; 100 ms for cached children, identical grade/finding/coverage facts, keyboard behavior unchanged.</p>
+  <p><b>Expected gain:</b> root payload from 29.1 MB to below 1 MB (&gt;96% reduction), real warm project-plus-tree from 494.81 ms median / 828.93 ms p95 to below 150 / 500 ms, and at least 25.24 kB (5.3%) raw reduction versus today's initial bundle. <b>Acceptance:</b> production build passes at &le; 450 kB initial, expand-to-visible p95 &lt; 100 ms for cached children, identical grade/finding/coverage facts, keyboard behavior unchanged.</p>
 
   <h3>Slice P2 — Persisted verified startup snapshot</h3>
   <ul>
@@ -332,16 +337,16 @@
     <li>Hydrate before queueing background refresh. Keep <code>/health</code> as liveness and expose snapshot readiness separately so the UI can distinguish live, restoring, and rebuilding.</li>
     <li>Preserve the current cold rebuild as the correctness fallback.</li>
   </ul>
-  <p><b>Expected gain:</b> remove the observed 5.98–7.66 s hierarchy scan from valid restart paths (76–81% of process-to-usable in the three paired samples). With P1, target process-to-usable below 2.0 s median and 3.0 s p95 on the same 3,927-file repository. <b>Acceptance:</b> five restart samples, plus corrupt-cache, changed-index, dirty-file, and changed-global-input tests.</p>
+  <p><b>Expected gain:</b> remove the observed 4.88–9.26 s hierarchy scan from valid restart paths (72–78% of process-to-usable in the three paired samples). With P1, target process-to-usable below 2.0 s median and 3.0 s p95 on the same 3,927-file repository. <b>Acceptance:</b> five restart samples, plus corrupt-cache, changed-index, dirty-file, and changed-global-input tests.</p>
 
   <h3>Slice P3 — Push review state and phase telemetry</h3>
   <ul>
     <li>Publish review-run transitions from the application-owned <code>ReviewJobService</code> over server-sent events; keep the existing 1,500 ms poll as reconnect/fallback.</li>
-    <li>Update the existing review-run signal from events and refresh tree/project/file only after terminal state, coalesced once per run.</li>
+    <li>Update the existing review-run signal and paint terminal state immediately from events; refresh tree/project/file afterward, coalesced once per run so refresh work cannot block first-visible state.</li>
     <li>Record <code>promptPreparationMs</code>, <code>agentMs</code>, <code>parseMs</code>, <code>identityAndMergeMs</code>, <code>persistMs</code>, and <code>notificationMs</code>. Do not put partial phases into the committed usage ledger until its schema is versioned.</li>
     <li>Leave model and thinking-level routing untouched pending the repository's authoritative policy document.</li>
   </ul>
-  <p><b>Expected gain:</b> terminal-to-visible from 1,411.72 ms median to below 100 ms p95 (&gt;92% reduction); render cost already measures below 14 ms. Single-call model time is expected to remain provider-bound until phase data supports a correctness-safe optimization. <b>Acceptance:</b> five controlled completions, reconnect fallback, duplicate/out-of-order transition tests.</p>
+  <p><b>Expected gain:</b> terminal-to-visible from 1,692.33 ms median to below 100 ms p95 (&gt;94% reduction) by eliminating the polling schedule and moving the current 277.63 ms response/refresh/render path behind first paint. Single-call model time is expected to remain provider-bound until phase data supports a correctness-safe optimization. <b>Acceptance:</b> five controlled completions, reconnect fallback, duplicate/out-of-order transition tests, and proof that refresh requests begin after the terminal state is visible.</p>
 
   <h3>Slice P4 — Bounded projection retention</h3>
   <ul>
@@ -349,7 +354,7 @@
     <li>Remove slots when a registry entry is archived or its root changes. Add observable cache entry count and estimated retained bytes.</li>
     <li>Bound frontend project/tree snapshots to currently registered repositories and clear archived ids.</li>
   </ul>
-  <p><b>Expected gain:</b> eliminate the observed +18,520 KiB retained growth. <b>Acceptance:</b> the same 100-state probe ends within 5% of baseline anonymous RSS after GC opportunity, cache cardinality remains bounded, and no stale state is served.</p>
+  <p><b>Expected gain:</b> eliminate the observed +16,020 KiB retained growth. <b>Acceptance:</b> the same 100-state probe ends within 5% of baseline anonymous RSS after GC opportunity, cache cardinality remains bounded, and no stale state is served.</p>
 
   <h2 id="options"><span class="no">09</span>Options and decision</h2>
   <table>
@@ -370,7 +375,9 @@
     <thead><tr><th>Artifact</th><th>What it proves</th></tr></thead>
     <tbody>
       <tr><td><code>performance-benchmark.json</code></td><td>Fresh startup samples, phase headers, 20 warm real-repo requests, payload sizes, and 100-state memory series</td></tr>
+      <tr><td><code>qs54-delivery-state.json</code></td><td>Hash-level identical/evolved ledger for all 18 files touched by the successful QS-54 result commit</td></tr>
       <tr><td><code>project-switch-perf.json</code></td><td>Current real API + Chromium 1,600-file transition and usable-switch timings, plus prewarm phases</td></tr>
+      <tr><td><code>qs-56-perf.json</code></td><td>Current 5,000-file dashboard, 333,782-byte file, tree-toggle, and review-aspect browser budgets</td></tr>
       <tr><td><code>review-live-latency.json</code></td><td>One isolated real runner-default review, token usage, model duration, and wall time</td></tr>
       <tr><td><code>review-parser-latency.json</code></td><td>10,000 strict-parser samples for a representative 30-finding response</td></tr>
       <tr><td><code>review-render-latency.json</code></td><td>Five real-Angular terminal-to-visible and response-to-visible measurements</td></tr>
