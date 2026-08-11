@@ -412,6 +412,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 .GetProperty("findings").EnumerateArray());
             Assert.Equal("accepted", projected.GetProperty("state").GetString());
             Assert.Equal("Ada", projected.GetProperty("stateAuthor").GetString());
+            Assert.Equal("confirmed", projected.GetProperty("assessment").GetProperty("status").GetString());
+            Assert.Equal("open", projected.GetProperty("resolution").GetProperty("status").GetString());
+            Assert.Equal("compatibility", projected.GetProperty("assessment").GetProperty("source").GetString());
 
             using var conflict = await client.PostAsJsonAsync("/api/findings/state", new
             {
@@ -424,6 +427,50 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 expectedTimestamp = state.Timestamp,
             }, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+
+            using var assessed = await client.PostAsJsonAsync("/api/findings/assessment", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                assessment = "dismissed",
+                resolution = "obsolete",
+                actor = "Grace",
+                reason = "The rule does not apply to this generated adapter.",
+                expectedRevision = 0,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, assessed.StatusCode);
+
+            using var assessmentConflict = await client.PostAsJsonAsync("/api/findings/assessment", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                assessment = "disputed",
+                actor = "Linus",
+                reason = "Stale assessment.",
+                expectedRevision = 0,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Conflict, assessmentConflict.StatusCode);
+
+            using var suppressed = await client.PostAsJsonAsync("/api/findings/suppressions/exact", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                author = "Grace",
+                reason = "Ignore this stable occurrence only.",
+                expectedRevision = 0,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, suppressed.StatusCode);
+
+            var final = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var evidencePolicy = Assert.Single(Assert.Single(final.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.Equal("dismissed", evidencePolicy.GetProperty("assessment").GetProperty("status").GetString());
+            Assert.Equal("obsolete", evidencePolicy.GetProperty("resolution").GetProperty("status").GetString());
+            Assert.Equal("Grace", evidencePolicy.GetProperty("assessment").GetProperty("assessedBy").GetString());
+            Assert.StartsWith("exact-", evidencePolicy.GetProperty("suppression").GetProperty("ruleId").GetString(), StringComparison.Ordinal);
         }
         finally
         {
@@ -534,6 +581,16 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         }
         var list = await client.GetFromJsonAsync<JsonElement>("/api/review/runs", TestContext.Current.CancellationToken);
         Assert.Contains(list.GetProperty("runs").EnumerateArray(), candidate => candidate.GetProperty("id").GetString() == id);
+        var history = await client.GetFromJsonAsync<JsonElement>("/api/review/history", TestContext.Current.CancellationToken);
+        var committed = Assert.Single(history.GetProperty("runs").EnumerateArray(),
+            candidate => candidate.GetProperty("run").GetProperty("runId").GetString() == id);
+        Assert.Equal("done", committed.GetProperty("run").GetProperty("state").GetString());
+        Assert.Equal("failed", Assert.Single(committed.GetProperty("run").GetProperty("evidence").EnumerateArray()).GetProperty("state").GetString());
+        Assert.DoesNotContain(repositoryRoot, committed.GetRawText(), StringComparison.OrdinalIgnoreCase);
+
+        Directory.Delete(runDirectory, recursive: true);
+        var retained = await client.GetFromJsonAsync<JsonElement>($"/api/review/history/{id}", TestContext.Current.CancellationToken);
+        Assert.Equal(id, retained.GetProperty("run").GetProperty("runId").GetString());
     }
 
     [Fact]

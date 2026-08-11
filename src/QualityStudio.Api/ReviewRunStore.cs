@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
@@ -36,7 +37,10 @@ public sealed record ReviewRunManifest(
     long? TokenCap = null,
     decimal? CostCap = null,
     bool Force = false,
-    string? ThinkingLevel = null);
+    string? ThinkingLevel = null,
+    string? RequestedModel = null,
+    string? RequestedThinkingLevel = null,
+    string? RequestedCliType = null);
 
 public sealed record ReviewRunFileTransition(
     string Path,
@@ -100,7 +104,8 @@ public sealed record ReviewRunResult(
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
     ReviewRunStatus Status,
-    IReadOnlyList<ReviewRunFileTransition> Progress);
+    IReadOnlyList<ReviewRunFileTransition> Progress,
+    IReadOnlyList<ReviewRunOperationEvidence>? Evidence = null);
 
 /// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
 public sealed class ReviewRunStore
@@ -109,12 +114,14 @@ public sealed class ReviewRunStore
     private static readonly UTF8Encoding Utf8 = new(false);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private static readonly JsonSerializerOptions LineJsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly string repositoryRoot;
     private readonly string runsPath;
 
     public ReviewRunStore(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        runsPath = Path.Combine(Path.GetFullPath(repositoryRoot), RelativeRunsPath.Replace('/', Path.DirectorySeparatorChar));
+        this.repositoryRoot = Path.GetFullPath(repositoryRoot);
+        runsPath = Path.Combine(this.repositoryRoot, RelativeRunsPath.Replace('/', Path.DirectorySeparatorChar));
     }
 
     public string RunsPath => runsPath;
@@ -135,6 +142,8 @@ public sealed class ReviewRunStore
         }
         WriteStatus(status);
         WriteResult(manifest, status);
+        if (ReviewHistoryStore.IsCommittable(status.State))
+            new ReviewHistoryStore(repositoryRoot).Commit(manifest, status, ReadProgress(directory, manifest.RunId), []);
     }
 
     public void AppendProgress(ReviewRunFileTransition transition)
@@ -181,6 +190,75 @@ public sealed class ReviewRunStore
         {
             if (File.Exists(temporary)) File.Delete(temporary);
         }
+    }
+
+    public ReviewRunOperationEvidence CaptureOperationEvidence(string subjectPath, string state, ReviewResult? review)
+    {
+        var normalizedSubject = subjectPath == "." ? "." : NormalizeRelative(subjectPath);
+        if (review is null)
+            return new(normalizedSubject, state, null, null, null, null, null, null, [],
+                new Dictionary<string, IReadOnlyList<string>>(),
+                new Dictionary<string, int>(), new Dictionary<string, int>());
+        var absoluteMeta = Path.GetFullPath(review.MetaPath);
+        if (!PathConfinement.IsWithin(repositoryRoot, absoluteMeta))
+            throw new InvalidDataException("Review evidence metadata escapes the repository root.");
+        PathConfinement.RejectReparseTraversal(repositoryRoot, absoluteMeta);
+        var metaReference = NormalizeRelative(Path.GetRelativePath(repositoryRoot, absoluteMeta));
+        var bytes = File.ReadAllBytes(absoluteMeta);
+        var metaHash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(bytes));
+        using var document = JsonDocument.Parse(bytes);
+        var root = document.RootElement;
+        ReviewHistoryRoute? requested = null;
+        ReviewHistoryRoute? executed = null;
+        string? operationRunId = review.RunId;
+        if (root.TryGetProperty("reviewer", out var reviewer))
+        {
+            if (reviewer.TryGetProperty("requested", out var route))
+                requested = new(null, OptionalString(route, "model"), OptionalString(route, "thinkingLevel"));
+            if (reviewer.TryGetProperty("executed", out route))
+                executed = new(OptionalString(route, "cli"), OptionalString(route, "model"), OptionalString(route, "thinkingLevel"));
+            operationRunId = OptionalString(reviewer, "runId") ?? operationRunId;
+        }
+        var fingerprints = new List<string>();
+        var fingerprintsByAspect = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var evidenceClasses = new Dictionary<string, int>(StringComparer.Ordinal);
+        var reproductionStatuses = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (root.TryGetProperty("findings", out var findings) && findings.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var finding in findings.EnumerateArray())
+            {
+                if (OptionalString(finding, "fingerprint") is { } fingerprint)
+                {
+                    fingerprints.Add(fingerprint);
+                    var aspect = OptionalString(finding, "aspect") ?? "unknown";
+                    if (!fingerprintsByAspect.TryGetValue(aspect, out var aspectFindings))
+                        fingerprintsByAspect[aspect] = aspectFindings = [];
+                    aspectFindings.Add(fingerprint);
+                }
+                if (finding.TryGetProperty("evidence", out var evidence) && evidence.ValueKind == JsonValueKind.Array)
+                    foreach (var item in evidence.EnumerateArray()) Count(evidenceClasses, OptionalString(item, "class") ?? "unknown");
+                if (finding.TryGetProperty("reproduction", out var reproduction))
+                    Count(reproductionStatuses, OptionalString(reproduction, "status") ?? "unknown");
+                if (finding.TryGetProperty("origin", out var origin)) operationRunId = OptionalString(origin, "operationRunId") ?? operationRunId;
+            }
+        }
+        return new(normalizedSubject, state, metaReference, metaHash, review.ReviewedHash, operationRunId,
+            requested, executed, fingerprints.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
+            fingerprintsByAspect.ToDictionary(pair => pair.Key,
+                pair => (IReadOnlyList<string>)pair.Value.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
+                StringComparer.Ordinal),
+            evidenceClasses, reproductionStatuses);
+    }
+
+    public void AppendEvidence(string runId, ReviewRunOperationEvidence evidence)
+    {
+        var path = Path.Combine(RunDirectory(runId), "evidence.jsonl");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var line = Utf8.GetBytes(JsonSerializer.Serialize(evidence, LineJsonOptions) + "\n");
+        using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read,
+            bufferSize: 4096, FileOptions.WriteThrough);
+        stream.Write(line);
+        stream.Flush(flushToDisk: true);
     }
 
     public void WriteResult(ReviewRunManifest manifest, ReviewRunStatus status)
@@ -240,7 +318,8 @@ public sealed class ReviewRunStore
                 if (!string.Equals(manifest.RunId, status.RunId, StringComparison.Ordinal) ||
                     !string.Equals(Path.GetFileName(directory), manifest.RunId, StringComparison.Ordinal))
                     throw new InvalidDataException($"Review run files disagree about the run id in '{directory}'.");
-                loaded.Add(new StoredReviewRun(manifest, status, ReadProgress(directory, manifest.RunId)));
+                loaded.Add(new StoredReviewRun(manifest, status, ReadProgress(directory, manifest.RunId),
+                    ReadEvidence(directory)));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
             {
@@ -273,6 +352,42 @@ public sealed class ReviewRunStore
             }
         }
         return transitions;
+    }
+
+    private static IReadOnlyList<ReviewRunOperationEvidence> ReadEvidence(string directory)
+    {
+        var path = Path.Combine(directory, "evidence.jsonl");
+        if (!File.Exists(path)) return [];
+        var result = new List<ReviewRunOperationEvidence>();
+        foreach (var line in File.ReadLines(path))
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            try
+            {
+                if (JsonSerializer.Deserialize<ReviewRunOperationEvidence>(line, LineJsonOptions) is { } evidence) result.Add(evidence);
+            }
+            catch (JsonException)
+            {
+                // Retain all complete immutable evidence entries around a crash-truncated final line.
+            }
+        }
+        return result;
+    }
+
+    private string NormalizeRelative(string path)
+    {
+        if (Path.IsPathRooted(path) || path.Split('/', '\\').Any(part => part is "" or "." or ".."))
+            throw new InvalidDataException("Review history paths must be normalized and repository-relative.");
+        return path.Replace('\\', '/');
+    }
+
+    private static string? OptionalString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static void Count(IDictionary<string, int> counts, string key)
+    {
+        counts.TryGetValue(key, out var current);
+        counts[key] = current + 1;
     }
 
     private string RunDirectory(string runId)

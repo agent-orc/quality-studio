@@ -60,7 +60,7 @@
         <div class="project-view-loading">Opening project dashboard…</div>
       }
     } @else {
-      <qs-editor [selectedPath]="selected()" [activeKind]="activeKind()" [selectedNode]="selectedNode()" [viewportHeight]="viewportHeight()" (kindSelect)="selectKind($event)" (findingSelect)="selectFinding($event)" (nodeOpen)="open($event, true, true)" />
+      <qs-editor [selectedPath]="selected()" [activeKind]="activeKind()" [selectedNode]="selectedNode()" [selectedFinding]="selectedFinding()" [viewportHeight]="viewportHeight()" (kindSelect)="selectKind($event)" (findingSelect)="selectFinding($event)" (nodeOpen)="open($event, true, true)" />
     }
     <div class="resize-handle" [class.collapsed]="!reviewVisible()" [class.dragging]="dragging() === 'review'" role="separator" aria-orientation="vertical" aria-label="Resize review panel" [attr.aria-disabled]="!reviewVisible()" [attr.tabindex]="reviewVisible() ? 0 : -1" (pointerdown)="reviewVisible() && startReviewDrag($event)" (dblclick)="reviewVisible() && resetReviewWidth()" (keydown)="reviewVisible() && onHandleKeydown($event, 'review')"></div>
     @defer (when reviewVisible()) {
