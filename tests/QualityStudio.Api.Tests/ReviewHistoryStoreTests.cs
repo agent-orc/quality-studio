@@ -157,6 +157,61 @@ public sealed class ReviewHistoryStoreTests
         }
     }
 
+    [Fact]
+    public async Task TerminalHistorySnapshotsAssessmentOutcomesAtTheCompletionCutoff()
+    {
+        var root = Directory.CreateTempSubdirectory("review-history-outcomes-");
+        var fingerprint = "sha256:" + new string('e', 64);
+        try
+        {
+            var (manifest, status, progress) = TerminalRun(root.FullName, "outcomes");
+            var beforeCompletion = status.FinishedAt!.Value.AddMilliseconds(-1);
+            var identity = new FindingIdentityRecord(
+                fingerprint, "finding-" + new string('e', 64), "src/A.cs", "built-in:code");
+            await new FindingAssessmentStore(root.FullName, () => beforeCompletion).AppendAsync(
+                identity,
+                FindingAssessmentStatus.Confirmed,
+                FindingResolutionStatus.Planned,
+                "Reviewer",
+                "Confirmed before the review completed.",
+                0,
+                reviewRunId: manifest.RunId,
+                operationRunId: "operation-1",
+                taskKey: "QS-71",
+                cancellationToken: TestContext.Current.CancellationToken);
+            var evidence = new ReviewRunOperationEvidence(
+                "src/A.cs", "done", null, null, null, "operation-1", null, null,
+                [fingerprint],
+                new Dictionary<string, IReadOnlyList<string>> { ["correctness"] = [fingerprint] },
+                new Dictionary<string, int>(),
+                new Dictionary<string, int>());
+            var store = new ReviewHistoryStore(root.FullName);
+            var first = store.Commit(manifest, status, progress, [evidence]);
+
+            var outcome = Assert.Single(first.Run.FindingOutcomes!);
+            Assert.Equal("confirmed", outcome.Assessment);
+            Assert.Equal("planned", outcome.Resolution);
+            Assert.Equal("QS-71", outcome.TaskKey);
+
+            await new FindingAssessmentStore(root.FullName, () => status.FinishedAt.Value.AddSeconds(1)).AppendAsync(
+                identity,
+                FindingAssessmentStatus.Dismissed,
+                FindingResolutionStatus.Obsolete,
+                "Reviewer",
+                "Later evidence changed the current projection only.",
+                outcome.Revision,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            var repeated = store.Commit(manifest, status, progress, [evidence]);
+            Assert.Equal(first.ContentHash, repeated.ContentHash);
+            Assert.Equal("confirmed", Assert.Single(repeated.Run.FindingOutcomes!).Assessment);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
     private static (ReviewRunManifest Manifest, ReviewRunStatus Status, ReviewRunFileTransition[] Progress)
         TerminalRun(string root, string suffix)
     {

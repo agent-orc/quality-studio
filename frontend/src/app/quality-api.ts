@@ -284,6 +284,7 @@ export interface ReviewHistoryEnvelope {
     outcomes: ReviewFileProgress[]; aggregateState: string | null; usageOperations: number; usage: TokenUsage;
     costSpent: number | null; currency: string | null; priceStatus: string;
     evidence: Array<{ path: string; state: string; metaReference: string | null; metaHash: string | null; findingFingerprints: string[]; findingFingerprintsByAspect: Record<string, string[]>; evidenceClasses: Record<string, number>; reproductionStatuses: Record<string, number> }>;
+    findingOutcomes?: Array<{ fingerprint: string; assessment: FindingAssessmentStatus; resolution: FindingResolutionStatus; source: 'none' | 'human' | 'compatibility'; revision: number; actor: string | null; reason: string | null; occurredAt: string | null; taskKey: string | null }> | null;
     errors: string[]; stopReason: string | null;
   };
 }

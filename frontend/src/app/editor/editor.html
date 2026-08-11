@@ -142,7 +142,7 @@
       }
     }
 
-    <div class="code-viewport" #codeViewport [scrollTop]="codeScrollTop()" (scroll)="codeScrollTop.set($any($event.target).scrollTop)">
+    <div class="code-viewport" [scrollTop]="codeScrollTop()" (scroll)="codeScrollTop.set($any($event.target).scrollTop)">
       @if (api.loading()) { <div class="loading">Opening file...</div> }
       <div class="code-space" [style.height.px]="codeSpaceHeight()">
         @for (row of visibleRows(); track row.key) {
