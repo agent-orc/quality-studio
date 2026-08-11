@@ -320,6 +320,18 @@ public static class GeneralReviewObservationAdapter
                     new QualityEvidenceLocator(Path: locations.FirstOrDefault()?["path"]?.GetValue<string>() ?? context.RelativePath)));
                 evidenceRefs.Add(evidenceId);
             }
+            if (evidenceRefs.Count == 0)
+            {
+                var evidenceId = $"{findingId}-subject";
+                evidence.Add(new QualityEvidence(
+                    evidenceId,
+                    "source-code",
+                    new QualityEvidenceLocator(Path: context.RelativePath),
+                    finding["description"]!.GetValue<string>(),
+                    contentHashes.GetValueOrDefault(context.RelativePath),
+                    Extensions: NoExtensions));
+                evidenceRefs.Add(evidenceId);
+            }
 
             var fingerprint = finding["fingerprint"]!.GetValue<string>();
             var occurrenceFingerprint = FindingIdentity.OccurrenceFingerprint(fingerprint);
