@@ -62,21 +62,27 @@ jobs:
           } > "$CANARY_RESULTS/host-metadata.txt"
 
       - name: Run three machine-bound .NET samples
+        id: machine
+        continue-on-error: true
         run: |
+          status=0
           for sample in 1 2 3; do
             dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj \
               --configuration Release --no-build \
               --filter "Category=MachineBound" \
               --logger "trx;LogFileName=machine-core-$sample.trx" \
-              --results-directory "$CANARY_RESULTS/dotnet"
+              --results-directory "$CANARY_RESULTS/dotnet" || status=1
             dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj \
               --configuration Release --no-build \
               --filter "Category=MachineBound" \
               --logger "trx;LogFileName=machine-api-$sample.trx" \
-              --results-directory "$CANARY_RESULTS/dotnet"
+              --results-directory "$CANARY_RESULTS/dotnet" || status=1
           done
+          exit "$status"
 
       - name: Start real product stack
+        id: stack
+        continue-on-error: true
         run: |
           JOB_RESULTS_DIR="$CANARY_RESULTS/stack" node scripts/dev-stack.mjs > "$CANARY_RESULTS/stack.log" 2>&1 &
           echo $! > "$CANARY_RESULTS/stack.pid"
@@ -88,14 +94,19 @@ jobs:
           exit 1
 
       - name: Run three browser performance samples
+        id: browser
+        if: steps.stack.outcome == 'success'
+        continue-on-error: true
         working-directory: frontend
         run: |
+          status=0
           for sample in 1 2 3; do
-            JOB_RESULTS_DIR="$CANARY_RESULTS/browser-$sample" node tests/perf.mjs
+            JOB_RESULTS_DIR="$CANARY_RESULTS/browser-$sample" node tests/perf.mjs || status=1
             JOB_RESULTS_DIR="$CANARY_RESULTS/project-switch-$sample" \
               QS_API_DLL="$GITHUB_WORKSPACE/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll" \
-              node tests/project-switch-perf.mjs
+              node tests/project-switch-perf.mjs || status=1
           done
+          exit "$status"
 
       - name: Stop real product stack
         if: always()
@@ -103,7 +114,9 @@ jobs:
           if test -f "$CANARY_RESULTS/stack.pid"; then kill -TERM "$(cat "$CANARY_RESULTS/stack.pid")" || true; fi
 
       - name: Run explicitly approved live review check
+        id: live
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review }}
+        continue-on-error: true
         env:
           QUALITY_RUN_LIVE_REVIEW: "1"
         run: >-
@@ -121,3 +134,30 @@ jobs:
           path: ${{ runner.temp }}/quality-studio-canary
           if-no-files-found: error
           retention-days: 30
+
+      - name: Enforce classified canary result
+        if: always()
+        env:
+          MACHINE_OUTCOME: ${{ steps.machine.outcome }}
+          STACK_OUTCOME: ${{ steps.stack.outcome }}
+          BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          LIVE_OUTCOME: ${{ steps.live.outcome }}
+          LIVE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review }}
+        run: |
+          status=0
+          if test "$MACHINE_OUTCOME" != "success"; then
+            echo "machine variance: machine-bound .NET samples failed"
+            status=1
+          fi
+          if test "$STACK_OUTCOME" != "success"; then
+            echo "product failed: the real product stack did not become ready"
+            status=1
+          elif test "$BROWSER_OUTCOME" != "success"; then
+            echo "product or machine variance: browser performance samples failed"
+            status=1
+          fi
+          if test "$LIVE_REQUESTED" = "true" && test "$LIVE_OUTCOME" != "success"; then
+            echo "product failed or external dependency unavailable: live review canary failed"
+            status=1
+          fi
+          exit "$status"
