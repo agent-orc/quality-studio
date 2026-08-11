@@ -182,6 +182,28 @@ public sealed class FindingLifecycleTests
     }
 
     [Fact]
+    public async Task FindingProducerKindFlowsIntoTheOpeningLifecycleEvent()
+    {
+        var root = Directory.CreateTempSubdirectory("finding-producer-lifecycle-");
+        try
+        {
+            var finding = Identity('9') with { ProducerKind = "deterministic-sensor" };
+
+            await new FindingStateStore(root.FullName).MergeReviewAsync(
+                [finding], [], "gitleaks", TestContext.Current.CancellationToken);
+
+            var lifecycleEvent = Assert.Single(await IssueLifecycleStore.ReadAsync(
+                root.FullName, TestContext.Current.CancellationToken));
+            Assert.Equal("deterministic-sensor", lifecycleEvent.ProducerKind);
+            Assert.Equal("gitleaks", lifecycleEvent.Author);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
     public async Task LegacyV1SnapshotRemainsReadableWithoutLifecycleHistory()
     {
         var root = Directory.CreateTempSubdirectory("finding-state-v1-");

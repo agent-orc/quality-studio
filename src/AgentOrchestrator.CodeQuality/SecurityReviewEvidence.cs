@@ -354,7 +354,12 @@ public static class SecurityReviewCombiner
             {
                 findings.Add(SecurityEvidenceBundle.FindingJson(finding, sensor));
                 var path = SecurityEvidenceBundle.NormalizePath(finding.Locations.FirstOrDefault()?.Path ?? ".");
-                identities.Add(new FindingIdentityRecord(finding.Fingerprint, finding.Id, path, finding.RuleId));
+                identities.Add(new FindingIdentityRecord(
+                    finding.Fingerprint,
+                    finding.Id,
+                    path,
+                    finding.RuleId,
+                    "deterministic-sensor"));
             }
         }
         return identities;

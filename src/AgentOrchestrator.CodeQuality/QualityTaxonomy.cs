@@ -284,6 +284,22 @@ public static class QualityTaxonomyCatalogue
 
 public static class QualityObservationJson
 {
+    private static readonly HashSet<string> ProducerKinds =
+        ["agent", "deterministic-sensor", "human", "imported", "unknown"];
+    private static readonly HashSet<string> EvidenceStatuses =
+        ["available", "partial", "unavailable"];
+    private static readonly HashSet<string> Assessments =
+        ["pass", "concern", "fail", "inconclusive", "not-applicable", "not-assessed"];
+    private static readonly HashSet<string> Changes =
+        ["improved", "regressed", "mixed", "unchanged", "no-observed-delta", "inconclusive"];
+    private static readonly HashSet<string> Decisions =
+        ["allow", "warn", "block", "defer"];
+    private static readonly HashSet<string> EvidenceKinds =
+        ["source-code", "test-result", "runtime-measurement", "tool-result", "artifact", "document", "human-attestation"];
+    private static readonly HashSet<string> Severities =
+        ["critical", "high", "medium", "low", "info"];
+    private static readonly HashSet<string> GradeBands = ["A", "B", "C", "D", "F"];
+
     public static JsonSerializerOptions Options { get; } = CreateOptions();
 
     public static string Serialize(QualityObservationDocument observation)
@@ -349,15 +365,53 @@ public static class QualityObservationJson
             throw new JsonException($"Unsupported core taxonomy '{observation.Taxonomy.Id}'.");
         if (!TryGetSemVerMajor(observation.Taxonomy.Version, out var major) || major != 1)
             throw new JsonException($"Unsupported taxonomy version '{observation.Taxonomy.Version}'.");
+        if (!IsTaggedSha256(observation.ObservationId, "observation-sha256:") ||
+            !IsTaggedSha256(observation.Taxonomy.Digest, "sha256:") ||
+            observation.ExtensionCatalogues.Any(item =>
+                string.IsNullOrWhiteSpace(item.Id) ||
+                !TryGetSemVerMajor(item.Version, out _) ||
+                !IsTaggedSha256(item.Digest, "sha256:")) ||
+            !IsTaggedSha256(observation.Subject.ManifestHash, "sha256:") ||
+            !IsTaggedSha256(observation.Profile.PromptHash, "sha256:") ||
+            !IsTaggedSha256(observation.Profile.ReviewInputsHash, "sha256:"))
+            throw new JsonException("Quality observation identity and catalogue, subject, and profile hashes must be SHA-256 values.");
         if (observation.ObservedAt.Offset != TimeSpan.Zero)
             throw new JsonException("observedAt must be a UTC instant.");
+        if (!ProducerKinds.Contains(observation.Producer.Kind) ||
+            !EvidenceStatuses.Contains(observation.EvidenceStatus) ||
+            !Assessments.Contains(observation.Assessment) ||
+            observation.Change is not null && !Changes.Contains(observation.Change) ||
+            observation.Decision is not null &&
+            (!Decisions.Contains(observation.Decision.Value) || string.IsNullOrWhiteSpace(observation.Decision.PolicyRef)))
+            throw new JsonException("Quality observation contains an unsupported semantic axis value.");
         var evidenceIds = observation.Evidence.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         if (evidenceIds.Count != observation.Evidence.Count)
             throw new JsonException("Quality observation evidence ids must be unique.");
+        if (observation.Evidence.Any(item =>
+                string.IsNullOrWhiteSpace(item.Id) ||
+                !EvidenceKinds.Contains(item.Kind) ||
+                string.IsNullOrWhiteSpace(item.Summary) ||
+                item.ContentHash is not null && !IsTaggedSha256(item.ContentHash, "sha256:") ||
+                item.Locator is null ||
+                item.Locator.Path is null && item.Locator.SymbolId is null && item.Locator.ArtifactRef is null &&
+                item.Locator.Uri is null && item.Locator.Line is null && item.Locator.Column is null))
+            throw new JsonException("Quality observation contains invalid typed evidence.");
+        if (observation.Aspects.Any(item =>
+                string.IsNullOrWhiteSpace(item.AspectId) ||
+                !Assessments.Contains(item.Assessment) ||
+                string.IsNullOrWhiteSpace(item.Rationale) ||
+                item.Change is not null && !Changes.Contains(item.Change) ||
+                item.Grade is not null &&
+                (item.Grade.Score is < 0 or > 100 || !GradeBands.Contains(item.Grade.Band))))
+            throw new JsonException("Quality observation contains an invalid aspect assessment or grade.");
         foreach (var finding in observation.Findings)
         {
             if (finding is null)
                 throw new JsonException("Quality observation findings cannot contain null entries.");
+            if (!Severities.Contains(finding.Severity) ||
+                !ProducerKinds.Contains(finding.Source.Kind) ||
+                string.IsNullOrWhiteSpace(finding.Source.ProducerRef))
+                throw new JsonException($"Finding '{finding.ObservationFindingId}' has invalid severity or producer provenance.");
             if (finding.EvidenceRefs is not { Count: > 0 } ||
                 finding.EvidenceRefs.Any(reference => !evidenceIds.Contains(reference)))
                 throw new JsonException($"Finding '{finding.ObservationFindingId}' has an unresolved evidence reference.");
@@ -370,6 +424,11 @@ public static class QualityObservationJson
         major = 0;
         return separator > 0 && int.TryParse(version.AsSpan(0, separator), out major);
     }
+
+    private static bool IsTaggedSha256(string? value, string prefix) =>
+        value is not null && value.Length == prefix.Length + 64 &&
+        value.StartsWith(prefix, StringComparison.Ordinal) &&
+        value[prefix.Length..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     private static JsonSerializerOptions CreateOptions() => new(JsonSerializerDefaults.Web)
     {
