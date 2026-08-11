@@ -75,7 +75,7 @@ public static partial class RepositoryHierarchyBuilder
             .ToArray();
         foreach (var angularPath in angularFiles)
         {
-            using var document = ParseJson(Path.Combine(root, Native(angularPath)));
+            using var document = ParseJson(root, Path.Combine(root, Native(angularPath)));
             if (!document.RootElement.TryGetProperty("projects", out var projects) ||
                 projects.ValueKind != JsonValueKind.Object)
             {
@@ -110,7 +110,7 @@ public static partial class RepositoryHierarchyBuilder
                      .Where(path => Path.GetFileName(path).Equals("package.json", StringComparison.OrdinalIgnoreCase))
                      .Order(StringComparer.Ordinal))
         {
-            using var package = TryParseJson(Path.Combine(root, Native(packagePath)));
+            using var package = TryParseJson(root, Path.Combine(root, Native(packagePath)));
             if (package is null || !package.RootElement.TryGetProperty("workspaces", out var workspaces))
             {
                 continue;
@@ -130,7 +130,7 @@ public static partial class RepositoryHierarchyBuilder
                     continue;
                 }
 
-                using var candidate = TryParseJson(Path.Combine(root, Native(candidatePackage)));
+                using var candidate = TryParseJson(root, Path.Combine(root, Native(candidatePackage)));
                 var name = candidate is not null && candidate.RootElement.TryGetProperty("name", out var nameProperty)
                     ? nameProperty.GetString()
                     : null;
@@ -150,7 +150,7 @@ public static partial class RepositoryHierarchyBuilder
                                     path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                      .Order(StringComparer.Ordinal))
         {
-            using var config = TryParseJson(Path.Combine(root, Native(configPath)));
+            using var config = TryParseJson(root, Path.Combine(root, Native(configPath)));
             if (config is null || !config.RootElement.TryGetProperty("references", out var references) ||
                 references.ValueKind != JsonValueKind.Array)
             {
@@ -345,15 +345,16 @@ public static partial class RepositoryHierarchyBuilder
         return $"qs-v1/{adapter}/{level.ToString().ToLowerInvariant()}/{hash}";
     }
 
-    private static JsonDocument ParseJson(string path) => JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions
-    {
-        CommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    });
+    private static JsonDocument ParseJson(string root, string path) => JsonDocument.Parse(
+        BoundedRepositoryFile.ReadAllText(root, path, ReviewContentLimits.Default.MaxFileBytes), new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        });
 
-    private static JsonDocument? TryParseJson(string path)
+    private static JsonDocument? TryParseJson(string root, string path)
     {
-        try { return ParseJson(path); }
+        try { return ParseJson(root, path); }
         catch (JsonException) { return null; }
     }
 
@@ -385,7 +386,8 @@ public static partial class RepositoryHierarchyBuilder
                      .Order(StringComparer.Ordinal))
         {
             var baseDirectory = RepositoryDirectory(ignorePath);
-            foreach (var rawLine in File.ReadLines(Path.Combine(root, Native(ignorePath))))
+            foreach (var rawLine in BoundedRepositoryFile.ReadAllText(
+                         root, Path.Combine(root, Native(ignorePath)), ReviewContentLimits.Default.MaxFileBytes).Split('\n'))
             {
                 var line = rawLine.Trim();
                 if (line.Length == 0 || line[0] == '#') continue;
