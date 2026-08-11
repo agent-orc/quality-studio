@@ -141,8 +141,8 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
-      <span><b>Phase</b> decision-ready</span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
+      <span><b>Phase</b> implementation delivered</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -550,6 +551,19 @@
       <tr><td>Committed change data uses two summary verdicts and four fixed aspects</td><td><a href="../../../.quality/changes/e4cc1d14752690df02cc8e16dcdefdcdc90d882b.json"><code>.quality/changes/*.json</code></a>; 20 files inspected with <code>jq</code></td></tr>
       <tr><td>Platform vocabulary was explicitly exploratory and historically cross-referenced</td><td><code>agent-taskboard/docs/mockups/quality-system/taxonomy.md:1-5, 51-65, 174-236</code>; <code>backend/Features/Security/SecurityReviewModels.cs:3-20</code>; deletion commit <code>e2802d02b</code></td></tr>
       <tr><td>Current platform route policy treats model plus thinking level as the route and warns that history is observational</td><td><code>agent-taskboard/docs/system/domains/model-routing-policy.md</code>, version 2026-07-24</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p>This section is append-only. The operator approved Option B and all five slices on 11 August 2026.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+    <tbody>
+      <tr><td>11 August 2026</td><td><code>QS-76</code></td><td><code>T1</code></td><td>Added the independently versioned <code>quality-studio/core@1.0.0</code> catalogue, taxonomy and observation schemas, typed C# contracts, compatibility mappings, unknown-major quarantine, extension round-trip behavior, and positive and negative conformance vectors.</td></tr>
+      <tr><td>11 August 2026</td><td><code>QS-76</code></td><td><code>T2</code></td><td>Added the idempotent monthly observation ledger, general-review dual-write, usage-ledger v3 observation joins, full requested and effective route provenance, crash recovery ordering, and independent read and write feature flags.</td></tr>
+      <tr><td>11 August 2026</td><td><code>QS-76</code></td><td><code>T3</code></td><td>Added typed evidence and producer sources, issue and occurrence identities with retained aliases, append-only lifecycle events, a compatibility state projection, policy-backed resolution, and correct deterministic-sensor provenance in JSON, reports, and SARIF.</td></tr>
+      <tr><td>11 August 2026</td><td><code>QS-76</code></td><td><code>T4</code></td><td>Added one versioned observation reducer for exact current selection, current-sidecar regeneration, report and dashboard reads, per-model and profile records, comparability labels, and visible but aggregate-excluded unknown taxonomy aspects.</td></tr>
+      <tr><td>11 August 2026</td><td><code>QS-76</code></td><td><code>T5</code></td><td>Added common observation adapters for security combination, change review, deep-flow review, and attack coverage while retaining domain files. Added <code>quality taxonomy migrate [path] (--dry-run|--apply)</code> with exact run joins, deterministic idempotency, byte-preserving imports, and machine-readable imported, skipped, ambiguous-source, unknown-model, and error counts.</td></tr>
     </tbody>
   </table>
 

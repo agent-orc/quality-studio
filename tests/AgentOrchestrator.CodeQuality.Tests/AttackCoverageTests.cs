@@ -277,6 +277,29 @@ public sealed class AttackCoverageTests
                 TestContext.Current.CancellationToken);
             Assert.Equal(FindingState.Resolved,
                 findingStates["sha256:" + new string('b', 64)].State);
+            var common = await QualityObservationLedger.ReadAsync(
+                root, TestContext.Current.CancellationToken);
+            Assert.Equal(3, common.Count);
+            Assert.Equal(["pass", "fail", "pass"], common.Select(item => item.Assessment));
+            Assert.All(common, item => Assert.Equal("security.attack-coverage", Assert.Single(item.Aspects).AspectId));
+            var observationSchema = JsonSchema.FromText(await File.ReadAllTextAsync(
+                Path.Combine(RepositoryTestContext.FindRepositoryRoot(), "schemas", "quality-observation.v1.schema.json"),
+                TestContext.Current.CancellationToken),
+                new BuildOptions { SchemaRegistry = new SchemaRegistry() });
+            Assert.All(common, item =>
+            {
+                Assert.True(item.Legacy!.Values.ContainsKey("assessmentId"));
+                Assert.True(item.Legacy.Values.ContainsKey("catalogueEntryHash"));
+                Assert.True(item.Extensions.ContainsKey("quality-studio:attack-coverage.v1"));
+                using var json = JsonDocument.Parse(QualityObservationJson.Serialize(item));
+                var result = observationSchema.Evaluate(
+                    json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+                Assert.True(result.IsValid, result.ToString());
+            });
+            var resolution = Assert.Single(
+                await IssueLifecycleStore.ReadAsync(root, TestContext.Current.CancellationToken),
+                item => item.State == "resolved");
+            Assert.Equal([common[^1].ObservationId], resolution.BasisObservationIds);
         }
         finally
         {
