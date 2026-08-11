@@ -143,7 +143,7 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> decided</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
@@ -180,6 +180,7 @@
     <li><a href="#slices">Implementation slices</a></li>
     <li><a href="#green">Definition of green</a></li>
     <li><a href="#evidence">Evidence ledger</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 
   <h2 id="decision"><span class="no">01</span>Decision requested</h2>
@@ -547,6 +548,36 @@
     <h4>Evidence limits</h4>
     <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
   </div>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <p class="dim">Append-only delivery ledger. The operator approved Option B and all five slices on 11 August 2026; the decision status is <b>decided</b>.</p>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>1. Truthful required gate</b></td>
+        <td>Pinned .NET 10.0.301, Node 22.23.1, npm 10, NuGet lock files, and Playwright Chromium provisioning. The required workflow now restores locked dependencies, builds the production Angular bundle under the unchanged 480 kB limit, resolves Chromium from Playwright, filters machine-bound .NET tests, provisions pinned Gitleaks in its own step, scans, and retains coverage evidence. README commands now match the gate.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>2. Host and fixture repair</b></td>
+        <td>Replaced the Windows-only <code>npm.cmd</code> test fixture with a platform-neutral Node stub, allocated free ports per launcher case, retained child stdout/stderr in startup failures, and added required Linux and Windows host-integration jobs. Temporary Git setup now shares one diagnostic helper with fixed identity, timestamps, line endings, command capture, and cleanup.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>3. Honest portability taxonomy</b></td>
+        <td>Audited process-spawning xUnit fixtures, centralized incidental Git processes, marked controlled Git/.NET/native-tool suites <code>ToolBound</code>, and kept host timing checks <code>MachineBound</code>. Routine coverage excludes machine timing; the release workflow selects the machine list explicitly and retains TRX evidence.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>4. Coverage generation and priority gaps</b></td>
+        <td>Added Coverlet Cobertura and Angular lcov generation, schema/readability checks, artifact publishing, and the first measured line-rate ratchet by project and feature area. Added positive and failure-path API proof for repository, risk, guideline, estimate, pause/cancel/resume, handover configuration, thread, and attack-judgement lifecycles; added attack-coverage component attention/error tests. Existing editor and review session component tests and the real-API project-switch browser journey are now part of the declared gate/canary contract.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>5. Release canary and upkeep</b></td>
+        <td>Added a scheduled and manual canary for the labeled <code>quality-studio-canary</code> Linux host. It records host metadata, runs three machine-bound .NET and browser-performance samples, exercises real repository switching, retains JSON/screenshots/TRX/logs for 30 days, and exposes the live review check only as an explicit manual option for review-execution changes.</td>
+      </tr>
+    </tbody>
+  </table>
 </main>
 </body>
 </html>
