@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunFinding, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -10,6 +10,13 @@ interface LastFindingMutation {
   previousExpiresAt: string | null;
   expectedTimestamp: string | null;
   appliedState: Exclude<FindingState, 'resolved'>;
+}
+
+interface RunComparisonFinding {
+  status: 'new' | 'unchanged' | 'resolved' | 'disposition changed';
+  finding: QualityRunFinding;
+  baselineState: FindingState | null;
+  candidateState: FindingState | null;
 }
 
 @Component({
@@ -56,6 +63,10 @@ export class ReviewPanel {
   readonly runTrendCursor = signal<string | null>(null);
   readonly runDetailLoading = signal(false);
   readonly runDetailError = signal('');
+  readonly comparisonOpen = signal(false);
+  readonly comparisonReport = signal<QualityRunReport | null>(null);
+  readonly comparisonLoading = signal(false);
+  readonly comparisonError = signal('');
   readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
@@ -74,6 +85,52 @@ export class ReviewPanel {
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
+  readonly comparisonRouteChanged = computed(() => {
+    const baseline = this.comparisonReport();
+    const candidate = this.runReport();
+    return !!baseline && !!candidate && (baseline.run.cliType !== candidate.run.cliType ||
+      baseline.run.model !== candidate.run.model || baseline.run.thinkingLevel !== candidate.run.thinkingLevel);
+  });
+  readonly comparisonInputsChanged = computed(() => {
+    const baseline = this.comparisonReport();
+    const candidate = this.runReport();
+    return !!baseline && !!candidate && baseline.subject.manifestHash !== candidate.subject.manifestHash;
+  });
+  readonly comparisonWarning = computed(() => {
+    const routeChanged = this.comparisonRouteChanged();
+    const inputsChanged = this.comparisonInputsChanged();
+    if (routeChanged && inputsChanged) return 'Route and inputs changed. Do not attribute the quality delta to the model alone.';
+    if (routeChanged) return 'The route changed. Treat this as an outcome comparison, not a causal model result.';
+    if (inputsChanged) return 'The reviewed inputs changed. Treat this as an outcome comparison, not a controlled model result.';
+    return '';
+  });
+  readonly comparisonFindings = computed<RunComparisonFinding[]>(() => {
+    const candidate = this.runReport();
+    const baseline = this.comparisonReport();
+    if (!candidate || !baseline || candidate.delta.status !== 'available') return [];
+    const candidateFindings = this.indexRunFindings(candidate);
+    const baselineFindings = this.indexRunFindings(baseline);
+    const changed = new Set(candidate.delta.stateChanged);
+    const rows = (fingerprints: string[], status: RunComparisonFinding['status']) => fingerprints
+      .map(fingerprint => {
+        const candidateFinding = candidateFindings.get(fingerprint) ?? null;
+        const baselineFinding = baselineFindings.get(fingerprint) ?? null;
+        const finding = candidateFinding ?? baselineFinding;
+        return finding ? {
+          status,
+          finding,
+          baselineState: baselineFinding?.state ?? null,
+          candidateState: candidateFinding?.state ?? null,
+        } : null;
+      })
+      .filter((row): row is RunComparisonFinding => row !== null);
+    return [
+      ...rows(candidate.delta.new, 'new'),
+      ...rows(candidate.delta.resolved, 'resolved'),
+      ...rows(candidate.delta.stateChanged, 'disposition changed'),
+      ...rows(candidate.delta.persisting.filter(fingerprint => !changed.has(fingerprint)), 'unchanged'),
+    ];
+  });
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const severity = this.severityFilter();
@@ -331,7 +388,10 @@ export class ReviewPanel {
     return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}m tok` : value >= 1_000 ? `${(value / 1_000).toFixed(1)}k tok` : `${value} tok`;
   }
 
-  formatDuration(value: number): string { return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`; }
+  formatDuration(value: number): string {
+    if (value >= 60_000) return `${Math.floor(value / 60_000)}m ${Math.round(value % 60_000 / 1000)}s`;
+    return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
+  }
 
   spendLabel(run: ReviewRun): string {
     if (run.tokenCap !== null) {
@@ -348,6 +408,7 @@ export class ReviewPanel {
     this.runTrend.set([]);
     this.runTrendCursor.set(null);
     this.runDetailError.set('');
+    this.closeComparison();
     if (!['done', 'failed', 'cancelled', 'capped'].includes(run.state)) return;
     this.runDetailLoading.set(true);
     try {
@@ -372,6 +433,40 @@ export class ReviewPanel {
     this.runTrend.set([]);
     this.runTrendCursor.set(null);
     this.runDetailError.set('');
+    this.closeComparison();
+  }
+
+  async toggleComparison(): Promise<void> {
+    if (this.comparisonOpen()) { this.closeComparison(); return; }
+    const candidate = this.runReport();
+    const baselineId = candidate?.delta.priorRunId;
+    this.comparisonOpen.set(true);
+    this.comparisonError.set('');
+    if (!candidate || candidate.delta.status !== 'available' || !baselineId) {
+      this.comparisonError.set(candidate?.delta.reason ?? 'A comparable baseline is unavailable.');
+      return;
+    }
+    if (this.comparisonReport()?.run.id === baselineId) return;
+    this.comparisonLoading.set(true);
+    try {
+      const baseline = await this.api.loadRunReport(baselineId);
+      if (baseline.run.repositoryId !== candidate.run.repositoryId || baseline.run.kind !== candidate.run.kind ||
+          baseline.run.scopeUnitId !== candidate.run.scopeUnitId || baseline.run.level !== candidate.run.level) {
+        throw new Error('The stored baseline is not compatible with this run.');
+      }
+      this.comparisonReport.set(baseline);
+    } catch (error) {
+      this.comparisonError.set(this.api.errorMessage(error));
+    } finally {
+      this.comparisonLoading.set(false);
+    }
+  }
+
+  closeComparison(): void {
+    this.comparisonOpen.set(false);
+    this.comparisonReport.set(null);
+    this.comparisonLoading.set(false);
+    this.comparisonError.set('');
   }
 
   async loadOlderTrend(): Promise<void> {
@@ -394,6 +489,44 @@ export class ReviewPanel {
 
   trendScoreWidth(point: QualityRunTrendPoint): number { return point.score ?? 0; }
 
+  comparisonTokens(report: QualityRunReport): number | null {
+    const input = report.execution.usage.inputTokens;
+    const output = report.execution.usage.outputTokens;
+    return input === null && output === null ? null : (input ?? 0) + (output ?? 0);
+  }
+
+  comparisonDelta(baseline: number | null, candidate: number | null, suffix = ''): string {
+    if (baseline === null || candidate === null) return 'delta unavailable';
+    const delta = candidate - baseline;
+    return delta === 0 ? 'no change' : `${delta > 0 ? '+' : ''}${delta}${suffix}`;
+  }
+
+  comparisonTokenDelta(baseline: QualityRunReport, candidate: QualityRunReport): string {
+    const baselineTokens = this.comparisonTokens(baseline);
+    const candidateTokens = this.comparisonTokens(candidate);
+    if (baselineTokens === null || candidateTokens === null) return 'delta unavailable';
+    const delta = candidateTokens - baselineTokens;
+    return delta === 0 ? 'no change' : `${delta > 0 ? '+' : '−'}${this.formatTokens(Math.abs(delta))}`;
+  }
+
+  comparisonDurationDelta(baseline: QualityRunReport, candidate: QualityRunReport): string {
+    const delta = candidate.execution.usage.durationMs - baseline.execution.usage.durationMs;
+    return delta === 0 ? 'no change' : `${delta > 0 ? '+' : '−'}${this.formatDuration(Math.abs(delta))}`;
+  }
+
+  comparisonState(row: RunComparisonFinding): string {
+    if (row.status === 'new') return `${row.candidateState ?? 'observed'} in candidate`;
+    if (row.status === 'resolved') return `${row.baselineState ?? 'observed'} in baseline · absent from candidate`;
+    if (row.status === 'disposition changed') return `${row.baselineState ?? 'unknown'} → ${row.candidateState ?? 'unknown'}`;
+    return row.candidateState ?? row.baselineState ?? 'unchanged';
+  }
+
+  comparisonLocation(finding: QualityRunFinding): string {
+    const location = finding.locations[0];
+    if (!location) return 'Location unavailable';
+    return location.startLine === null ? location.path : `${location.path}:${location.startLine}`;
+  }
+
   async resumeCapped(run: ReviewRun): Promise<void> {
     const current = run.tokenCap ?? run.costCap;
     const entered = prompt(`Raise the ${run.tokenCap !== null ? 'token' : 'cost'} cap to resume ${run.skippedFiles} skipped file(s):`, current === null ? '' : String(current * 2));
@@ -405,5 +538,10 @@ export class ReviewPanel {
 
   private formatCost(value: number | null, currency: string | null): string {
     return value === null ? 'unavailable' : `${value.toFixed(4)} ${currency ?? 'USD'}`;
+  }
+
+  private indexRunFindings(report: QualityRunReport): Map<string, QualityRunFinding> {
+    return new Map(report.observations.flatMap(observation => observation.findings)
+      .map(finding => [finding.fingerprint, finding]));
   }
 }

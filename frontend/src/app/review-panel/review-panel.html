@@ -33,6 +33,42 @@
               <div class="run-summary-grid"><span><b>{{ report.summary.score ?? '—' }}</b><small>Score {{ report.summary.grade ?? 'unavailable' }}</small></span><span><b>{{ report.summary.findings.total }}</b><small>Active findings</small></span><span><b>{{ report.execution.reviewed }}</b><small>Reviewed</small></span><span><b>{{ report.execution.reusedFresh }}</b><small>Reused fresh</small></span></div>
               <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
 
+              @if (report.delta.status === 'available' && report.delta.priorRunId) {
+                <button type="button" class="run-history-trigger run-compare-trigger" (click)="toggleComparison()" [attr.aria-expanded]="comparisonOpen()">
+                  <span><b>Compare outcomes</b><small>Canonical baseline {{ report.delta.priorRunId }}</small></span><span>{{ comparisonOpen() ? 'Close' : 'Compare' }} →</span>
+                </button>
+              } @else {
+                <div class="commit-trend-note comparison-unavailable"><div><b>Comparison unavailable</b><span>{{ report.delta.reason ?? 'No compatible prior run snapshot exists.' }}</span></div></div>
+              }
+              @if (comparisonOpen()) {
+                <section class="run-comparison" aria-label="Run outcome comparison">
+                  <header class="commit-trend-note"><div><span class="eyebrow">Outcome comparison</span><b>Baseline → candidate</b></div><button type="button" aria-label="Close run comparison" (click)="closeComparison()">×</button></header>
+                  @if (comparisonLoading()) { <p class="run-detail-message" role="status">Loading canonical baseline snapshot…</p> }
+                  @if (comparisonError()) { <p class="run-error" role="alert">{{ comparisonError() }}</p> }
+                  @if (comparisonReport(); as baseline) {
+                    <div class="run-summary-grid comparison-runs">
+                      <span><small>Baseline · {{ scannedAt(baseline.run.finishedAt ?? baseline.run.createdAt) }}</small><b>{{ baseline.run.id }}</b><code>{{ baseline.run.cliType }} · {{ baseline.run.model }} · {{ baseline.run.thinkingLevel }}</code></span>
+                      <span><small>Candidate · {{ scannedAt(report.run.finishedAt ?? report.run.createdAt) }}</small><b>{{ report.run.id }}</b><code>{{ report.run.cliType }} · {{ report.run.model }} · {{ report.run.thinkingLevel }}</code></span>
+                    </div>
+                    <p class="comparison-context">Inputs {{ comparisonInputsChanged() ? 'changed' : 'match' }} · route {{ comparisonRouteChanged() ? 'changed' : 'matches' }}</p>
+                    @if (comparisonWarning()) { <p class="comparison-warning" role="note">{{ comparisonWarning() }}</p> }
+                    <div class="run-summary-grid comparison-metrics">
+                      <span><b>{{ baseline.summary.findings.total }} → {{ report.summary.findings.total }}</b><small>Active findings · {{ comparisonDelta(baseline.summary.findings.total, report.summary.findings.total) }}</small></span>
+                      <span><b>{{ baseline.summary.score ?? '—' }} → {{ report.summary.score ?? '—' }}</b><small>Score · {{ comparisonDelta(baseline.summary.score, report.summary.score) }}</small></span>
+                      <span><b>{{ formatTokens(comparisonTokens(baseline)) }} → {{ formatTokens(comparisonTokens(report)) }}</b><small>Total tokens · {{ comparisonTokenDelta(baseline, report) }}</small></span>
+                      <span><b>{{ formatDuration(baseline.execution.usage.durationMs) }} → {{ formatDuration(report.execution.usage.durationMs) }}</b><small>Duration · {{ comparisonDurationDelta(baseline, report) }}</small></span>
+                    </div>
+                    <div class="comparison-counts" aria-label="Finding delta counts"><span><b>{{ report.delta.new.length }}</b> new</span><span><b>{{ report.delta.persisting.length - report.delta.stateChanged.length }}</b> unchanged</span><span><b>{{ report.delta.resolved.length }}</b> resolved</span><span><b>{{ report.delta.stateChanged.length }}</b> disposition changed</span></div>
+                    <div class="section-title"><span>Finding delta</span><small>Stable fingerprints</small></div>
+                    <div class="run-findings comparison-findings" role="list">
+                      @for (row of comparisonFindings(); track row.finding.fingerprint) {
+                        <article role="listitem" [attr.data-change]="row.status"><span class="finding-state">{{ row.status }}</span><div><b>{{ row.finding.title }}</b><small>{{ comparisonLocation(row.finding) }} · {{ comparisonState(row) }}</small><p>{{ row.finding.ruleId }}</p></div></article>
+                      } @empty { <p class="run-detail-message">No finding changes were recorded.</p> }
+                    </div>
+                  }
+                </section>
+              }
+
               <div class="section-title"><span>Run trend</span><small>Same kind, scope, and level</small></div>
               <div class="run-trend" role="list" aria-label="Comparable run trend">
                 @for (point of runTrend(); track point.runId) {

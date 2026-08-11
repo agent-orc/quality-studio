@@ -195,6 +195,7 @@ describe('ReviewPanel session flow', () => {
       subject: { manifestHash: 'sha256:manifest' },
       execution: { reviewed: 1, reusedFresh: 0 },
       summary: { score: 91, grade: 'A', partialReason: null, findings: { total: 1 } },
+      delta: { status: 'unavailable', priorRunId: null, reason: 'No prior comparable run snapshot exists.', new: [], persisting: [], resolved: [], stateChanged: [] },
       observations: [{ unitId: 'a', path: 'src/A.cs', level: 'file', outcome: 'done', producedByRun: true,
         grade: { score: 91, band: 'A', rationale: 'Good.' }, findings: [{ fingerprint: 'sha256:f', severity: 'high', state: 'open', ruleId: 'rule', title: 'Captured', description: 'Evidence.' }] }],
     } as any);
@@ -208,7 +209,74 @@ describe('ReviewPanel session flow', () => {
     expect(api.loadRunTrend).toHaveBeenCalledWith('code', 'a', 'file');
     expect(fixture.nativeElement.querySelector('.run-detail-surface').textContent).toContain('complete snapshot');
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
-    expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
+    expect(fixture.nativeElement.querySelector('.commit-trend-note:not(.comparison-unavailable)').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+  });
+
+  it('compares the selected run with its canonical baseline and warns when route and inputs changed', async () => {
+    const run = {
+      id: 'candidate', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code', state: 'done',
+      model: 'gpt-candidate', thinkingLevel: 'high', cliType: 'codex', completedFiles: 1, totalFiles: 1,
+      failedFiles: 0, skippedFiles: 0, errors: [], usageOperations: 1, usage: { inputTokens: 750, outputTokens: 150,
+        cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 8000 }, costSpent: null, currency: null,
+      stopReason: null, deviation: null, createdAt: '2026-08-11T08:00:00Z',
+    } as any;
+    const runIdentity = (id: string, model: string) => ({
+      id, revision: 1, repositoryId: 'default', repositoryName: 'Quality Studio', kind: 'code', scopeUnitId: 'a',
+      level: 'file', path: 'src/A.cs', state: 'done', completeness: 'complete', createdAt: '2026-08-11T08:00:00Z',
+      startedAt: '2026-08-11T08:00:01Z', finishedAt: '2026-08-11T08:00:08Z', model, thinkingLevel: 'high',
+      cliType: 'codex', force: false,
+    });
+    const finding = (fingerprint: string, title: string, state: string) => ({
+      id: title, fingerprint, ruleId: `rule.${title}`, aspect: 'correctness', severity: 'high', state,
+      title, description: `${title} evidence.`, recommendation: 'Review it.', evidence: null,
+      locations: [{ path: 'src/A.cs', startLine: 8, startColumn: 1, endLine: 8, endColumn: 3 }],
+      source: 'agent', sensorId: null, producer: null,
+    });
+    const newId = `sha256:${'1'.repeat(64)}`;
+    const persistingId = `sha256:${'2'.repeat(64)}`;
+    const resolvedId = `sha256:${'3'.repeat(64)}`;
+    const stateChangedId = `sha256:${'4'.repeat(64)}`;
+    const execution = (inputTokens: number, outputTokens: number, durationMs: number) => ({
+      reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, cancelled: 0, aggregateOutcome: null, errors: [],
+      usage: { operations: 1, inputTokens, outputTokens, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs,
+        cost: null, currency: null, priceStatus: 'unavailable', inputEstimateDeviationPercent: null,
+        outputEstimateDeviationPercent: null, costEstimateDeviationPercent: null },
+      cap: { tokenLimit: null, costLimit: null, outcome: 'not-configured', reason: null }, estimate: null,
+    });
+    const baseline = {
+      run: runIdentity('baseline', 'gpt-baseline'), subject: { manifestHash: 'sha256:baseline', targets: [] },
+      execution: execution(500, 100, 10000),
+      observations: [{ unitId: 'a', path: 'src/A.cs', level: 'file', outcome: 'done', producedByRun: true,
+        findings: [finding(persistingId, 'Persisting', 'open'), finding(resolvedId, 'Resolved', 'open'),
+          finding(stateChangedId, 'Disposition', 'open')] }],
+      delta: { status: 'unavailable', priorRunId: null, reason: null, new: [], persisting: [], resolved: [], stateChanged: [] },
+      summary: { score: 72, grade: 'C', findings: { total: 3 }, partialReason: null },
+    } as any;
+    const candidate = {
+      run: runIdentity('candidate', 'gpt-candidate'), subject: { manifestHash: 'sha256:candidate', targets: [] },
+      execution: execution(750, 150, 8000),
+      observations: [{ unitId: 'a', path: 'src/A.cs', level: 'file', outcome: 'done', producedByRun: true,
+        findings: [finding(newId, 'New', 'open'), finding(persistingId, 'Persisting', 'open'),
+          finding(stateChangedId, 'Disposition', 'accepted')] }],
+      delta: { status: 'available', priorRunId: 'baseline', reason: null, new: [newId],
+        persisting: [persistingId, stateChangedId], resolved: [resolvedId], stateChanged: [stateChangedId] },
+      summary: { score: 84, grade: 'B', findings: { total: 3 }, partialReason: null },
+    } as any;
+    api.reviewRuns.set([run]);
+    api.loadRunReport.and.callFake(async (id: string) => id === 'candidate' ? candidate : baseline);
+    api.loadRunTrend.and.resolveTo({ points: [], nextCursor: null });
+
+    component.runDrawerOpen.set(true);
+    await component.openRun(run);
+    await component.toggleComparison();
+    fixture.detectChanges();
+
+    expect(api.loadRunReport).toHaveBeenCalledWith('baseline');
+    expect(fixture.nativeElement.querySelector('.comparison-warning').textContent).toContain('Route and inputs changed');
+    expect(fixture.nativeElement.querySelector('.comparison-metrics').textContent).toContain('72 → 84');
+    expect(fixture.nativeElement.querySelectorAll('.comparison-findings article').length).toBe(4);
+    expect(fixture.nativeElement.querySelector('.comparison-findings').textContent).toContain('disposition changed');
+    expect(fixture.nativeElement.querySelector('.comparison-findings').textContent).toContain('absent from candidate');
   });
 });

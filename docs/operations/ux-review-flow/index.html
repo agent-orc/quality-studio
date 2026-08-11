@@ -187,10 +187,10 @@
     <h1>Review flow: from intent to disposition</h1>
     <p class="lede">A repository-grounded walkthrough of starting a review, watching it run, reading and locating findings, taking action, and comparing outcomes. The recommendation turns the existing three-pane engineer workspace into one continuous review session rather than adding another dashboard.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
-      <span><b>Phase</b> Decision ready</span>
-      <span><b>Evidence date</b> 11 August 2026</span>
-      <span><b>Baseline</b> main + QS-55 + QS-56</span>
+      <span><b>Status</b> Documented</span>
+      <span><b>Phase</b> Implementation</span>
+      <span><b>Evidence date</b> 12 August 2026</span>
+      <span><b>Baseline</b> origin/main + QS-69 + QS-73</span>
     </div>
   </header>
 
@@ -219,11 +219,11 @@
 
   <section id="basis">
     <h2><span class="no">01</span>Evidence basis</h2>
-    <p>This dossier reviews the actual implementation and preserved acceptance evidence. QS-55 and QS-56 are not integrated into the checked-out main commit, so their preserved commits are treated as the requested visual baselines and are never represented as current main.</p>
+    <p>This dossier began from preserved QS-55 and QS-56 acceptance evidence and now tracks the delivered state. QS-69 integrated those baselines and S0-S5; QS-73 added canonical terminal-run evidence; QS-83 adds the comparison entry. The original audit and mockups remain below as decision provenance, while Section 10 is the authoritative implementation state.</p>
     <table>
       <thead><tr><th>Source</th><th>What it establishes</th><th>Provenance</th></tr></thead>
       <tbody>
-        <tr><td><b>Current main</b></td><td>Three-pane placement, run polling and response shape, finding selection, lifecycle API, and durable run store.</td><td class="source">3e0b6559</td></tr>
+        <tr><td><b>Current origin/main</b></td><td>Three-pane session flow through S5 plus atomic canonical terminal-run reports, fingerprint deltas, report exports, and same-scope run trends.</td><td class="source">59941d8e · includes 62ca75f and 8fe2552</td></tr>
         <tr><td><b>QS-55 findings state</b></td><td>13 px finding bodies, 14 px card titles, 16 px detail title, audited contrast, and 24 × 22 px code marker hit area.</td><td class="source">0ac0dae8 · mocked preview captures</td></tr>
         <tr><td><b>QS-56 picker state</b></td><td>Catalog-backed model combobox, thinking levels, route annotations, model validation, and route fields on runs.</td><td class="source">2b3f31ef · live API captures</td></tr>
         <tr><td><b>Product contracts</b></td><td>Three-pane engineer workspace, durable run semantics, lifecycle meaning, and the source-to-detail drill-down requirement.</td><td class="source">docs/concept.md · docs/review-runs.md · docs/finding-lifecycle.md</td></tr>
@@ -237,7 +237,7 @@
   </section>
 
   <section id="walk">
-    <h2><span class="no">02</span>Operator walkthrough</h2>
+    <h2><span class="no">02</span>Original operator walkthrough · pre-wave</h2>
     <table class="journey">
       <thead><tr><th>Step</th><th>What the operator does today</th><th>Where confidence breaks</th></tr></thead>
       <tbody>
@@ -503,7 +503,7 @@
       </div>
       <div class="building-block">
         <h4>Outcome is immutable evidence</h4>
-        <p>Do not compare the mutable current sidecar to itself. Snapshot only fields required for traceability and delta, and version the projection. Define retention before presenting comparison as durable history.</p>
+        <p>Do not compare the mutable current sidecar to itself. Snapshot only fields required for traceability and delta, and version the projection. The shipped contract retains every canonical report until an explicit repository-owner removal; it performs no automatic pruning.</p>
       </div>
       <div class="building-block">
         <h4>Navigation uses fingerprint</h4>
@@ -524,15 +524,15 @@
         <li>Approve <b>Option B, session-centered workspace</b>, and reject a new Reviews dashboard in this wave.</li>
         <li>Approve the sequence <b>S0 → S1/S3 → S2/S4 → S5/S6</b>, with S1 and S3 allowed to proceed in parallel after S0.</li>
         <li>Approve <b>Accept / Dismiss / Ignore</b> as operator vocabulary, with Dismiss mapping explicitly to Waive or False positive and Ignore remaining a separate future-review rule.</li>
-        <li>Approve a versioned immutable run outcome as the prerequisite for comparison. Decide retention in S6 before calling history durable.</li>
+        <li>Approve a versioned immutable run outcome as the prerequisite for comparison. The implemented retention contract keeps every canonical report until explicit repository-owner removal.</li>
         <li>Approve backend-owned model recommendation metadata and the rule that cost or quota never crosses a correctness floor.</li>
       </ul>
     </div>
-    <div class="box warn">
-      <h4>Only remaining policy choice inside the approved direction</h4>
-      <p><b>Run outcome retention:</b> recommend retaining the newest 50 outcomes per repository plus every operator-pinned comparison baseline. This is an initial operational default, not yet grounded in repository volume data. S6 must measure typical outcome size and expose cleanup before the default becomes a durable contract.</p>
+    <div class="box ok">
+      <h4>Run outcome retention implemented conservatively</h4>
+      <p><b>Current contract:</b> terminal-run reports under <code>.quality/reports/runs/</code> are repository-owned durable history and are not pruned automatically. Comparison therefore never loses a baseline because of an implicit age or count threshold. A future cleanup or pinning policy remains a separate operational enhancement and must preserve explicit evidence semantics.</p>
     </div>
-    <p class="dim compact">Evidence register: <code>frontend/src/app/{explorer,editor,review-panel,review-actions}</code>, <code>frontend/src/app/quality-api.ts</code>, <code>src/QualityStudio.Api/{ReviewJobs,ReviewRunStore}.cs</code>, <code>src/AgentOrchestrator.CodeQuality/FindingStateStore.cs</code>, <code>docs/{concept,review-runs,finding-lifecycle}.md</code>, preserved commits <code>0ac0dae8</code> and <code>2b3f31ef</code>, and the local evidence files linked above.</p>
+    <p class="dim compact">Evidence register: <code>frontend/src/app/{explorer,editor,review-panel,review-actions}</code>, <code>frontend/src/app/quality-api.ts</code>, <code>src/QualityStudio.Api/{ReviewJobs,ReviewRunStore,QualityRunReportFactory}.cs</code>, <code>src/AgentOrchestrator.CodeQuality/{FindingStateStore,QualityRunReport}.cs</code>, <code>docs/{concept,review-runs,finding-lifecycle,quality-reports}.md</code>, preserved commits <code>0ac0dae8</code>, <code>2b3f31ef</code>, <code>62ca75f</code>, and <code>8fe2552</code>, and the local evidence files linked above.</p>
   </section>
 
   <section id="implementation">
@@ -547,15 +547,27 @@
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S3</span></td><td>Added an active-by-default finding queue with state/severity filters, severity/location/title sorting, real visible counts, previous/next controls, multi-location commands, and bidirectional finding/code focus. The editor centers and highlights the selected range; fingerprint plus location index is restored from the URL, including cross-file locations, while stale findings remain readable with non-authoritative navigation disabled.</td></tr>
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S4</span></td><td>Introduced the Accept, Dismiss, and Reopen operator facade over the lifecycle API. Consequence copy preserves Accepted as active and grade-affecting; Dismiss requires Waive or False positive and exposes expiry only for Waive. Mutations retain optimistic concurrency, recover from conflicts by reloading current state, offer a short-lived Undo, and expose task creation after acceptance when handover is configured.</td></tr>
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S5</span></td><td>Added repository-scoped CRUD and match preview for the existing <code>.quality/scope.json</code> <code>scope.v1</code> contract. The application service validates ordered include/exclude rules and required reasons, blocks traversal, writes atomically, and requires explicit confirmation for wider patterns. “Ignore path…” defaults to an exact-path exclusion and the management surface clearly separates future review eligibility from finding disposition.</td></tr>
+        <tr><td>11 Aug 2026</td><td><code>QS-73</code></td><td><span class="slice-id">S6</span><br>substrate</td><td>Added strict, atomic canonical reports for every terminal run, exact captured observations, immutable subject manifests, routing and usage provenance, fingerprint-aligned deltas against the latest compatible complete snapshot, repository-scoped report downloads, and paged same-scope trends. Later sidecar writes and API restarts no longer alter a historical outcome.</td></tr>
+        <tr><td>12 Aug 2026</td><td><code>QS-83</code></td><td><span class="slice-id">S6</span><br>entry</td><td>Added the operator comparison entry to run detail. It loads the canonical prior baseline, validates repository/kind/scope/level compatibility, compares active findings, score, tokens, and duration, and renders New, Unchanged, Resolved, and Disposition changed rows from stable fingerprints. Route or input changes produce an explicit no-causal-attribution warning. Keyboard, reduced-motion, dark/light, and narrow-viewport evidence is preserved below.</td></tr>
       </tbody>
     </table>
-    <div class="box warn">
-      <h4>Skipped operator-decision-gated slice</h4>
-      <p><span class="slice-id">S6</span> was not implemented. Its immutable outcome retention contract remains the dossier’s only open policy choice: the proposed newest 50 outcomes plus pinned baselines is explicitly described as an ungrounded initial default that must be decided and measured before durable comparison history ships.</p>
+    <div class="box ok">
+      <h4>Session-centered flow delivered through S6</h4>
+      <p>QS-69 delivered S0-S5, QS-73 supplied the immutable S6 evidence substrate, and QS-83 completed the comparison entry. Partial, missing, or incompatible snapshots remain visible as unavailable evidence rather than being coerced into a quality delta.</p>
+    </div>
+    <div class="shot-grid">
+      <figure class="shot">
+        <img src="assets/qs-83-run-comparison-before-dark--real.png" alt="Before QS-83: terminal run detail shows exports and a trend, but no outcome comparison entry">
+        <figcaption><b>Before QS-83 · real app.</b> QS-73 exposed the canonical snapshot and trend, but operators had to infer changes from a compact score series or exported JSON.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/qs-83-run-comparison-after-dark--real.png" alt="After QS-83: run comparison shows baseline and candidate metrics, a route and input warning, and fingerprint-aligned finding changes">
+        <figcaption><b>After QS-83 · real app.</b> One keyboard-accessible entry opens the immutable baseline/candidate comparison with causal caution, outcome metrics, and traceable finding categories.</figcaption>
+      </figure>
     </div>
   </section>
 
-  <footer class="page-footer">Prepared for the 12 August 2026 operator review. Repository artifacts and UI copy are English. This dossier proposes implementation slices; it does not mutate review, finding, task, or ignore state.</footer>
+  <footer class="page-footer">Updated after QS-83 on 12 August 2026. Repository artifacts and UI copy are English. This living dossier records the implemented S0-S6 session flow and its preserved acceptance evidence.</footer>
 </main>
 </body>
 </html>
