@@ -191,10 +191,13 @@ public sealed class ProjectDashboardService
         var hierarchyMetrics = hierarchyFiles
             .Where(node => node.SizeBytes is not null)
             .ToDictionary(node => node.Path, StringComparer.Ordinal);
-        var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => hierarchyMetrics.TryGetValue(path, out var node)
-                ? ReadFileMetric(root, path, node.SizeBytes, node.LineCount)
-                : ReadFileMetric(root, path))
+        var repositoryFiles = (IsGenericHierarchy(roots)
+                ? hierarchyFiles.Select(node =>
+                    ReadFileMetric(root, node.Path, node.SizeBytes, node.LineCount))
+                : EnumerateRepositoryFiles(root).Select(path =>
+                    hierarchyMetrics.TryGetValue(path, out var node)
+                        ? ReadFileMetric(root, path, node.SizeBytes, node.LineCount)
+                        : ReadFileMetric(root, path)))
             .OfType<FileMetric>()
             .ToArray();
 
@@ -241,6 +244,9 @@ public sealed class ProjectDashboardService
             .Order(StringComparer.Ordinal)
             .Select(path => $"{Path.GetFileName(path)}:{new FileInfo(path).Length}:{File.GetLastWriteTimeUtc(path).Ticks}"));
     }
+
+    private static bool IsGenericHierarchy(IReadOnlyList<HierarchyNode> roots) =>
+        roots.Count == 1 && roots[0].Id.StartsWith("qs-v1/generic/project/", StringComparison.Ordinal);
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(
         IReadOnlyList<HierarchyNode> roots, string fallbackPath)
