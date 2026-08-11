@@ -27,12 +27,28 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^observation-sha256:[0-9a-f]{64}$" }
     },
-    "policyRef": { "type": "string", "minLength": 1 }
+    "policyRef": { "type": "string", "minLength": 1 },
+    "legacySource": { "type": "string", "minLength": 1 }
   },
   "allOf": [
     {
       "if": { "properties": { "state": { "const": "resolved" } }, "required": ["state"] },
-      "then": { "required": ["basisObservationIds", "policyRef"] }
+      "then": {
+        "anyOf": [
+          { "required": ["basisObservationIds", "policyRef"] },
+          {
+            "properties": { "producerKind": { "const": "imported" } },
+            "required": ["producerKind", "legacySource"]
+          }
+        ]
+      }
+    },
+    {
+      "if": { "required": ["legacySource"] },
+      "then": {
+        "properties": { "producerKind": { "const": "imported" } },
+        "required": ["producerKind"]
+      }
     }
   ],
   "$defs": {
