@@ -22,6 +22,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
 builder.Services.AddSingleton<ApiSecurity>();
+builder.Services.AddSingleton<LocalMutationProtection>();
+builder.Services.AddSingleton<AnalyzerProfileRegistry>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
@@ -69,6 +71,7 @@ builder.Services.AddSingleton(_ => new QuotaService(
     store: FileQuotaCacheStore.Global()));
 var corsOptions = builder.Configuration.GetSection(RepositoryOptions.SectionName).Get<RepositoryOptions>()
     ?? new RepositoryOptions();
+ApiSecurity.ValidateLocalBindings(corsOptions, builder.Configuration);
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = corsOptions.Security.MaxRequestBodyBytes;
@@ -167,6 +170,16 @@ app.Use(async (context, next) =>
     if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
         HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
     {
+        if (apiSecurity.IsLocal)
+        {
+            var localMutations = context.RequestServices.GetRequiredService<LocalMutationProtection>();
+            if (!apiSecurity.IsAllowedLocalOrigin(context) || !localMutations.Validate(context))
+            {
+                await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                    title: "Local mutations require an allowed Origin and anti-CSRF token").ExecuteAsync(context);
+                return;
+            }
+        }
         if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
         {
             await Results.Problem(statusCode: StatusCodes.Status401Unauthorized,
@@ -180,7 +193,11 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryAdministration =
+        (HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport ||
+        (repositoryId is not null && (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)) &&
+         IsRepositoryItemPath(context.Request.Path));
+    if (isRepositoryAdministration)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -207,6 +224,16 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
+
+app.MapGet("/api/security/csrf", (HttpContext context, ApiSecurity security, LocalMutationProtection protection) =>
+{
+    if (!security.IsLocal) return Results.NotFound();
+    if (!security.IsAllowedLocalOrigin(context))
+        return Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Origin is not allowed");
+    context.Response.Headers.CacheControl = "no-store";
+    context.Response.Headers.Vary = "Origin";
+    return Results.Ok(protection.Issue());
+});
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
@@ -265,20 +292,20 @@ app.MapDelete("/api/guidelines/{guidelineId}", DeleteGuideline);
 app.MapDelete("/api/repos/{repoId}/guidelines/{guidelineId}", DeleteGuideline);
 app.MapPost("/api/guidelines/catalog/{catalogueId}/install", InstallGuideline);
 app.MapPost("/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install", InstallGuideline);
-app.MapPost("/api/guidelines/impact", GuidelineImpact);
-app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
-app.MapGet("/api/scan", Scan);
-app.MapGet("/api/repos/{repoId}/scan", Scan);
-app.MapGet("/api/security/scan", SecurityScan);
-app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
-app.MapGet("/api/security/attack-coverage", AttackCoverage);
-app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage);
+app.MapPost("/api/guidelines/impact", GuidelineImpact).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact).RequireRateLimiting("spend");
+app.MapGet("/api/scan", Scan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/scan", Scan).RequireRateLimiting("spend");
+app.MapGet("/api/security/scan", SecurityScan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan).RequireRateLimiting("spend");
+app.MapGet("/api/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend");
 app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
@@ -298,8 +325,8 @@ app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
-app.MapPost("/api/review/estimate", EstimateReview);
-app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
+app.MapPost("/api/review/estimate", EstimateReview).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview).RequireRateLimiting("spend");
 app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
@@ -931,15 +958,20 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
     var descriptors = new List<object>();
     foreach (var sensor in sensors.List())
     {
-        var availability = await sensor.ProbeAvailabilityAsync(cancellationToken);
         configured.TryGetValue(sensor.Id, out var repositoryConfiguration);
+        var availability = repositoryConfiguration?.Enabled == true
+            ? await sensor.ProbeAvailabilityAsync(cancellationToken)
+            : new SensorAvailability(false, "Sensor is disabled for this repository.");
         descriptors.Add(new
         {
             sensor.Id,
             sensor.Version,
             Scopes = sensor.SupportedScopes.Select(scope => scope.ToString().ToLowerInvariant()).ToArray(),
             Enabled = repositoryConfiguration?.Enabled == true,
-            Configuration = repositoryConfiguration?.Configuration,
+            ProfileId = repositoryConfiguration?.ProfileId,
+            Configuration = AnalyzerProfileRegistry.IsCommandBacked(sensor.Id)
+                ? null
+                : repositoryConfiguration?.Configuration,
             availability.Available,
             availability.UnavailableReason,
             availability.ToolVersions,
@@ -950,7 +982,7 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
 }
 
 static async Task<IResult> SensorScan(HttpContext context, string id, string? path,
-    RepositoryRegistry repositories, SensorRegistry sensors, ILogger<Program> logger,
+    RepositoryRegistry repositories, SensorRegistry sensors, AnalyzerProfileRegistry profiles, ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
@@ -968,7 +1000,7 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
         registration.RootPath,
         scope,
         path,
-        repositoryConfiguration.Configuration), cancellationToken);
+        profiles.Resolve(repositoryConfiguration)), cancellationToken);
     logger.LogInformation(new EventId(1202, "SensorScanCompleted"),
         "Ran sensor {SensorId} for repository {RepositoryId}; Available={Available}, Findings={FindingCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
         sensor.Id, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);
@@ -1235,6 +1267,12 @@ static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRep
 
 static string? RouteRepositoryId(HttpContext context) =>
     context.Request.RouteValues.TryGetValue("repoId", out var routeId) ? routeId?.ToString() : null;
+
+static bool IsRepositoryItemPath(PathString path)
+{
+    if (!path.StartsWithSegments("/api/repos", out var remaining)) return false;
+    return remaining.Value?.Split('/', StringSplitOptions.RemoveEmptyEntries).Length == 1;
+}
 
 static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
 {
