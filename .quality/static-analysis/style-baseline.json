@@ -268,34 +268,34 @@
     {
       "tool": "dotnet",
       "path": "src/quality-cli/Program.cs",
-      "line": 392,
+      "line": 407,
       "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:49d9dd39e9976f0573ecfbf87f480748a4dbe1540f300d7fa0424c4e0ffc270f"
+      "fingerprint": "sha256:88257a55a800036eaa413afb3f36cad58ca5589c8b13089188ee4341e5bf45a6"
     },
     {
       "tool": "dotnet",
       "path": "src/quality-cli/Program.cs",
-      "line": 393,
+      "line": 408,
       "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:4eb21888504449c5a6f4c5c40ecab270b17a29cbc0dcbf04f0be58a2a2e5495b"
+      "fingerprint": "sha256:b8a670653c16095bb0d16c969e3f586ffa684f2f293cc957bd79c253d0e0ac3c"
     },
     {
       "tool": "dotnet",
       "path": "src/quality-cli/Program.cs",
-      "line": 394,
+      "line": 409,
       "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:6d08c8f423f234278709073a616a47e346cb1c3d0b5eb386db18053355132b79"
+      "fingerprint": "sha256:fcafdb9547297a17b1dfec2a5f241419e6c529064a6ab54df8a1ccc45db84bc7"
     },
     {
       "tool": "dotnet",
       "path": "src/quality-cli/Program.cs",
-      "line": 395,
+      "line": 410,
       "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b3eccd2a4d730131608095b9c1e4edd6bc8c6426b5e9e0432ba3472b157f0059"
+      "fingerprint": "sha256:3ff3ddd4ccaa213bcff1413128fb6bf9c831f1225381038000ac24f99611b7c2"
     },
     {
       "tool": "dotnet",
@@ -316,58 +316,18 @@
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
-      "line": 563,
+      "line": 568,
       "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:cfa17f4406dd37ff0b619e7d77741d0f6b17406b5f17b4a030af51b02b40ab60"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 564,
-      "column": 9,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:ec3cfa373637558508ecfc1a87c47f0acebe56245f2abe9b94a5877c0a48d827"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 565,
-      "column": 9,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:9ac808021970c213b01d39bf010057a0092c28e674be63bf14c258bb8c40d5d1"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 566,
-      "column": 13,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:e312d32b4b159954c91f742a5b912d2caa669e6e4621e5ffaf5a10736352240e"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 567,
-      "column": 13,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:c47f7bd84e891e810322841a866fbeae7a06e6aa7faa2f6260dbeb598d0fe5be"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 568,
-      "column": 13,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:5f52fda5f05bbd61d5c745c3807663fa542b61ea1c5c8217bf3fa7793c3d41e9"
+      "fingerprint": "sha256:e610a37c77f0fd719424793d75fc038b2cac9086d6ea7736678516a09dad41f4"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 569,
-      "column": 13,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:9eeee30a19b1f2db668c06c30b2d1cdb0e58375f2bfcf4aef366d3b7a96aab83"
+      "fingerprint": "sha256:e69268114f8af21955914ebcbeeeb53ebdfab30bcb0fdcf0843a77b6dc0f3ae7"
     },
     {
       "tool": "dotnet",
@@ -381,17 +341,17 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 571,
-      "column": 9,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:752a9cbe1eedcedfd4066dc91992b28838c01f7e3903b2ef5158d630325d31e3"
+      "fingerprint": "sha256:f54ba8193e37f21d3dd451c809a1cf7b8bcb9850f4ab1916042d78fa9fa7d350"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 572,
-      "column": 9,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b6bcc4545cf4a9d4f61cae10e9ffc7ae40abc8a7b2ec7f02328002bade3b5188"
+      "fingerprint": "sha256:ef34066015c674bce41383b3a07b71f8db0c727e683abe07b7033acaffd3ef6c"
     },
     {
       "tool": "dotnet",
@@ -413,17 +373,17 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 575,
-      "column": 13,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b2080ee39e15bde971a27abf0ac2c528803a5f5584ff35c64a8ebd9925c65b18"
+      "fingerprint": "sha256:a9c00fbd30591754b23c4bb992d625650df23ee570efeecf6f3123e7410aad0e"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 576,
-      "column": 13,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:e10ece25385508b0dd2773b0436086c02ab5eea93ea74a6b32837e1a9e579f3f"
+      "fingerprint": "sha256:7fac46912066a8852e1dfe86a3ac2d63c4cfaffe6a2eb44742d8239e9f1a090f"
     },
     {
       "tool": "dotnet",
@@ -437,49 +397,49 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 578,
-      "column": 5,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:834505e1b7a17329461e10b9483e21e6447533979bac4182815e5011ade4733d"
+      "fingerprint": "sha256:0dba8781be17aacd7a818bfa3dccde2e11763bf058274637b943508addaae1ff"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
-      "line": 644,
-      "column": 5,
+      "line": 579,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:1aea9046f27cae13dfe3eb6223de5efd90594a74878754a7279cfa5624032beb"
+      "fingerprint": "sha256:939f1ad05aa2fec899bb3fb73378cde3d4a81e2410936e952823bfbda8031e1e"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
-      "line": 645,
-      "column": 5,
+      "line": 580,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b01679c9f243e35474bc6369baa161ac13f089ff3220d8e0e3d49f93e23a286b"
+      "fingerprint": "sha256:a297011eac005b5af6e141d8f729fd2d50542f6e5ecd94ccc0ee827f806be801"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
-      "line": 646,
-      "column": 5,
+      "line": 581,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:3776be6a2b7ed1ce31c30d47559ee66e9faea5b8fcbe2762016edbcd5bc3fb34"
+      "fingerprint": "sha256:c5ca706c26698c8e8049b958b0eb58e92818b1d836dfc52eb5c4fc214eadecbf"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
-      "line": 647,
-      "column": 5,
+      "line": 582,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b5fa41cc05f0a159554bf6ade525409d2d1aec024eb45048a20f0ba50a392092"
+      "fingerprint": "sha256:41180910230665ce62f8ebf15bfaf0c8128ebf2d87cf01bacae70115d544d531"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
-      "line": 648,
+      "line": 583,
       "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:35a885ddc4c816557b3a2ad3d3881ac85cef6cb7fc41101698f1bc83fdd16b6e"
+      "fingerprint": "sha256:cf882e6d96bda0c7d60c79523f3e1f0f2617d132176b9bcf41e5cc5eaa09a24c"
     },
     {
       "tool": "dotnet",
@@ -493,41 +453,41 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 650,
-      "column": 9,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:afaf60b62db61891575cec9531855a454791d49d589021444abbe87254b16619"
+      "fingerprint": "sha256:2ef32a811e8acb7473be5a825399b044fc8641caef8ecaa469b5fe1614c9e620"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 651,
-      "column": 13,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:56385d4a218523373431c87fea88bbfaf1e249827142574cbdcfcf8d68f1862f"
+      "fingerprint": "sha256:37d4cdc01454297e5cbfd6cb86abb938771fd4b588f2e82c9b80843fa99eaa2d"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 652,
-      "column": 9,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:9526044fe2aae06368fee51247e30b2136e16d02bf055b56277bb54c1f26f211"
+      "fingerprint": "sha256:bc93d907f4458128cfd6e98edc69da7a306f2284f97077e4a540f4ad027d6035"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 653,
-      "column": 9,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:bfcd6391960c7c7970f5e411ff70da578e914d739692ffc34e877c9c5c63f947"
+      "fingerprint": "sha256:98d8d04d96bbcf996389f28fbc3bc3f520d3accc984941f3954711e380e4d7c4"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 654,
-      "column": 9,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:23bc90c4a1b79e406a4e2e727cbe3e05693aacd354cf555bc2d7e67d7c6cb47f"
+      "fingerprint": "sha256:bc78124a461f94b4752bb6cb375b65ada64e3065d75a61caf834681ee5911082"
     },
     {
       "tool": "dotnet",
@@ -541,9 +501,9 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 656,
-      "column": 9,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:51a627d631b53d2530f04a610b7f1b4daf65c08386b2524cdb0a66dfd4d1db42"
+      "fingerprint": "sha256:2552e9d342f24e9151f2a087deb8697a176af7e2daf2f04697b813d1490fc340"
     },
     {
       "tool": "dotnet",
@@ -557,17 +517,17 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 658,
-      "column": 13,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:900c130be09647948d1e924d9c420db8685b62b2c99e576f6accf23327adad91"
+      "fingerprint": "sha256:c0f933f2680e0e15e9edf8c9072f898e54e46581874ab524f695b525eb687720"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 659,
-      "column": 13,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:a94a65dfc1b35e058dd8348334f9521c3c5dfaa9016670eeab5c1fbe18550e69"
+      "fingerprint": "sha256:acb0eaa726d36a1d24c598268f9002e36e6a15963bf9f77aa12a07d13c1c34b9"
     },
     {
       "tool": "dotnet",
@@ -589,9 +549,9 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 662,
-      "column": 13,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:d0d9674bd3d60879bc5a92366ce330404d1f9ce87894746826625d65dc7063bb"
+      "fingerprint": "sha256:55d67ccf2185dc0bf740275754a5f307e5ea7c52c8e350a4eba7fd7d90e89d0a"
     },
     {
       "tool": "dotnet",
@@ -613,57 +573,57 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 665,
-      "column": 17,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:12059603eaf0cb8fa758aad4bab417f8faf211dd5680d84dd707c29f45f68a32"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 665,
-      "column": 37,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:0713a9f44989648c92aa7702f54126e7ae86e7b016523b9dfc390f80bfcecf69"
+      "fingerprint": "sha256:3350f24c9ff1495326067e5bd1327a4930729271bc3e64fc1ccc02fb13157600"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 666,
-      "column": 17,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:1b175ff5a04b36facfe0b8840f076d6a7a956d16db5704c33c9088ec959c3c26"
+      "fingerprint": "sha256:248d3cc6604885ce29c074ab1da76f17042c670221ee23323d0d9ab3be3c9d68"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 667,
-      "column": 17,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:c79011e2df8d9757cd098ae795a00b62ef02be34377ebba7cbabf09a2da1085e"
+      "fingerprint": "sha256:057c16de8effd31573725424b787ce05a1ef0373328a2e2cf798d7e08c413b43"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 668,
-      "column": 17,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:89aaaa0953e2ee34c9ebb03478b8c9ae89ff7ed64a8200bafc2a2ec6c1e25139"
+      "fingerprint": "sha256:ca4abf3092bc44bb0d27701742c05a2aef3cc3a5357e6741786888f36d2d4fcb"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 669,
-      "column": 21,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b863f7c815479cc8aba84be2bfa0910205904590f2caaef38b2af62188a81fe0"
+      "fingerprint": "sha256:5624b484b4ddd5f02d6abdeb079b17125616a3f9e220158a68897a81fcb122be"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 670,
-      "column": 21,
+      "column": 17,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:d5d294b6a05a7ea45c1c36074291f01adc0e569c6aa8832c64bc649c17e495b7"
+      "fingerprint": "sha256:96db4122cd48e28f7ba0b021665c3c7b41bb11ada738daa80b6527e543506aad"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 670,
+      "column": 37,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:b62f85d53cdd4ac71113e66c02cdf683841d7ff958b98a40291c13d5d6beb4bd"
     },
     {
       "tool": "dotnet",
@@ -677,73 +637,73 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 672,
-      "column": 13,
+      "column": 17,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:c885aed51fec029553cf2f4d561ad6fd6948d5982498527dd836d4a3365b53d1"
+      "fingerprint": "sha256:6751bc7d065ea6710254f2c67f22fa82b1790726036159003adc3c04903694f5"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 673,
-      "column": 13,
+      "column": 17,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:37cfe395c62127f527edbe73bfe64e62ee4530315939702009b89603f20c7920"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 673,
-      "column": 51,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:25df4df8085ff458612b67d487d7ddd4ce90144ae6f94a1f205899f66ca12d5f"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 673,
-      "column": 81,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:3def0dc8d3040297be79554cb3d5c9e186aad2a8f108cfe48f64450ef883a3f6"
+      "fingerprint": "sha256:908b9314575017e4bba754d1eb93aefb5096d65f8e548c14d81247486f94e664"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 674,
-      "column": 9,
+      "column": 21,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:47cecfe0fb5d4c88830edef9a9da1f49766d9357b2320af71851ab822ccb34f1"
+      "fingerprint": "sha256:20e24e3b1a7f88441e04b2963ddeb3074b8e452c4b5ad1905859c1f26c385677"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 675,
-      "column": 9,
+      "column": 21,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:289bb4029e38447a323ff7a3bdb7b75345d0fad8c63f729967f8b753d74e0969"
+      "fingerprint": "sha256:ec82d69c9bd612056a74f477c704c99fdcab2af9f214b61be40693cc1e3f3d3a"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 676,
-      "column": 5,
+      "column": 17,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:ef0de2f1b57abe7d3d2316216bb49284611b3d6456adc9b98ba28e08f90e5e61"
+      "fingerprint": "sha256:a7d434525e0e44a25aedb3751b8588e7335fa75be8748cacabd8e73c4c06d1d7"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 677,
-      "column": 5,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:dcad7d83f93a15ed6ac3d805468b5edbce6e807d0acc7eaa22730be14235f466"
+      "fingerprint": "sha256:bde2ddb37ffa9375a3253549e73a1dd54c37ca7ffe6c78c97dddb9c2fb85fdae"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 678,
-      "column": 5,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:2226501b59a87def1f2ad5936dcc036a527d4ab1702ce8f411d2c3564f32ea92"
+      "fingerprint": "sha256:021395915aa71d4d1c346c42f4f9dbc088aaae2cd05e91dda79d4f7deca5cad2"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 678,
+      "column": 51,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:54e6cc02fe100e27a773e06471c8af4ad4cd72987acb7c604664d8db546f1f4b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 678,
+      "column": 81,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e7cf570126269b9a3e2501264e221b4c5eae855f71cae335b416d2822e866815"
     },
     {
       "tool": "dotnet",
@@ -757,9 +717,9 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 680,
-      "column": 13,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:419d3ccaadc34284cb5bac277cb9a1ce907c3606bc7c484563994dba601e1cd6"
+      "fingerprint": "sha256:e92b5d8d13f4585919f7133fbf9a4073c0ff8ab01688925c4dddec65d4f49bfb"
     },
     {
       "tool": "dotnet",
@@ -797,41 +757,33 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 685,
-      "column": 9,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:6e49db86b8cdea3b95b77e1eec0b7e54c3b087245164c72e4cc291f3601098ae"
+      "fingerprint": "sha256:fe6664fe19e91aba8aa2a9cc9103213fa36337ea0490061bcc7620f529018138"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 686,
-      "column": 13,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:ffafd6bd8b51249edf0edbaadd1aef8730796ef58f9a8edd6cedae0eac10ea17"
+      "fingerprint": "sha256:915bb05186010a8bafa8fa85a1cfdeffd1f7d11aed8aa3c0353dd5441c3b6b54"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 687,
-      "column": 13,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:947ab33d3d0b66e3dc3e3809b4d3d859fe2d1642e5587f1a8be408bf8e98718f"
+      "fingerprint": "sha256:2995c4adaa652c878efe9c345b28eeac78b069a33a99ab7e391fda11ec8de1fb"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 688,
-      "column": 13,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:fc84db07556e6edea075cd08220f2763e42004936e8cae98fd34c280d674302c"
-    },
-    {
-      "tool": "dotnet",
-      "path": "src/QualityStudio.Api/Program.cs",
-      "line": 688,
-      "column": 59,
-      "rule": "WHITESPACE",
-      "fingerprint": "sha256:51201e1b73c533f018a8cd20abdcf91b58ae67fc43bf18490668c5c41d92983b"
+      "fingerprint": "sha256:ff45a9fc0211d73c3f828f2a3ea77f335aa6d09974006b36750bd87ef62c7000"
     },
     {
       "tool": "dotnet",
@@ -853,41 +805,49 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 691,
-      "column": 9,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:03a797f3ea00406c02250ea74fcd8cc4d747a09e4ef659563c4d6c5469f5396c"
+      "fingerprint": "sha256:bf674fdaa90d2d640fdb8ba1d47f34579a573cae4841b7c1b8d4bc0860458223"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 692,
-      "column": 5,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:6c0f0680dff1d9f864fd44e6ba30453ec159128b2fb3e3c3bdfaf344887adf43"
+      "fingerprint": "sha256:bfd107e10d4b75e79d92861874a181e47020e8df619bbf99e58882e4f67b85ec"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 693,
-      "column": 5,
+      "column": 13,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:69f968b1e73933cd64735c111a64690a8e4b8412fb5d295635695751e60482bb"
+      "fingerprint": "sha256:d4a3fcdbcdcd628fac5d54b7067e5b070e92a442cb1ba68695add37a171cb96e"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 693,
+      "column": 59,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:51fe56324f7de6d27d20ab099ec9304311993425ebb0da7360c20e6d5caa9584"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 694,
-      "column": 5,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:1a1a825a0aa87a53bed18a979ef414d0dfdff83c5f60b3e17424021069ae7040"
+      "fingerprint": "sha256:71abaa1fab6a61b66141fbe2498ea94472ee69c005edb80dd53367ac4af2be10"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 695,
-      "column": 5,
+      "column": 9,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:458c3ca4d48fb1508908f9bdf9d29d6d72ed98ce50bbb3ecbbb91cdfe60609ad"
+      "fingerprint": "sha256:ecddac51dec61d85041587d1bfb93dff2acec9b3c8cadfe3355cc176e2d8c3fe"
     },
     {
       "tool": "dotnet",
@@ -917,105 +877,145 @@
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 699,
-      "column": 9,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:7d61012eed23ef2103f671d0ca7268a3e709c018bb67bfed8bc71093141007ae"
+      "fingerprint": "sha256:aa5d94cbf3a26ac009834b519c6c08487a8bdb95432bc4f52c4367889edaf05b"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 700,
-      "column": 9,
+      "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:0e9d0587446aa7b9d051d83538b51c7cb3deb5e05d6a9cf55b73e8837d7e4416"
+      "fingerprint": "sha256:4961f51cea38212cbb34d03b5e801ec8a4fa107f9a5e42b6144430ce6d729a98"
     },
     {
       "tool": "dotnet",
       "path": "src/QualityStudio.Api/Program.cs",
       "line": 701,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:cb976193c55d8efbe2b9d01a16ec168fe4c210176afcbfc7c7675eea84afcccc"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 702,
       "column": 5,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:579fb3380b268bde1ed53a67f7d62299f9d61c772276d0695add8383f0e7547c"
+      "fingerprint": "sha256:ba0e793a0953118fda83f053d534550a861afae00370c998c88e7e977e482194"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 703,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:1168fd5e212ceff6bd49bc7f97c2ea861b3e7795e795de6421d704592119b74e"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 704,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:4d340a00f5d035faa905f64681df6cc27acb7d512a6cfb9b8c61d268f966c676"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 705,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:a3d45b0e1095200457923508338fa2a5997800f8c85bb62bb445b40693a0a803"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 706,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:4254db8dacc500ceff8e8d536aa970f4f7a47dc46588140aabf9638d6c40832a"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 672,
+      "line": 686,
       "column": 47,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:d9c8736a3fdf26268449218bea39b4ef82893e86b36f243401f8490353ea87ce"
+      "fingerprint": "sha256:6f4e46b94369734aa912f49967c4bce6ed45fe8dfc54f218a6bbdd5a3e1cedda"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 676,
+      "line": 690,
       "column": 37,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:f06ec365d4eff25aef8f3475550461f8b87637eae70a0ef23666a3cceb023e16"
+      "fingerprint": "sha256:fd1e7ccd2c7bbf0715606c0815f2fb2754b7b7bb3886759cbbdef1fc30963c4b"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 678,
+      "line": 692,
       "column": 44,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:40da1c5162aed75f1688180c171583eecf52886bb00be58e0e6928e6bc14512c"
+      "fingerprint": "sha256:8480438a47966638c4454ad091a77159d5c84bf92bacaab49e741ccb339d432e"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 679,
+      "line": 693,
       "column": 64,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:01ff13db140480c0ec486b3ccf60ccb4e7cb377a328807f4e3d9e8e79d93e9d1"
+      "fingerprint": "sha256:804a30ce8224f51d014753196203315861f1a54e62c72612f0cad28a5daf0d86"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 715,
+      "line": 729,
       "column": 39,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:def8ac6e7a96d514b35b8381fec22600272c3e2abb174099a93deb1875cf8185"
+      "fingerprint": "sha256:a76d3f759350d74b7f4a5694601525ff51c823ed41e2174a1c9ff6eb5edc5d47"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 715,
+      "line": 729,
       "column": 70,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b155dabde6f8c75ca0382d8bd311c8351176cbcdce3e9014479c8102fc9c915f"
+      "fingerprint": "sha256:f8b2cf7d0a47c921da3b07399ab6b49506299ba27f32c835097fdcff18781fb2"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 722,
+      "line": 736,
       "column": 37,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:453f0865f7e5bf43bdcdfe44f2bf7551f77a64f5feeb39fd5d62b9ad4eca3de5"
+      "fingerprint": "sha256:9f4456fd6b0bde01564937827dc58d044e766a9d8a2fbe8e39434d0f54604da9"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 724,
+      "line": 738,
       "column": 40,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:b803961e7e3625a90f97ad83a507c728268fc13fbc3f391f2d732ee1523793a5"
+      "fingerprint": "sha256:182d01985351f190dafcfe44fc88460921cb5a067726f69d7bc826a53a28cb1c"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 724,
+      "line": 738,
       "column": 42,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:7717fbcb5c1fc0452abfcbd00fc7b72010b9d8ec9355cc87e87c36d55493acdd"
+      "fingerprint": "sha256:7d406f7447ef81dd540b0642c094e123ce7b4cb7fa1943c14c6269304d090e3b"
     },
     {
       "tool": "dotnet",
       "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
-      "line": 726,
+      "line": 740,
       "column": 101,
       "rule": "WHITESPACE",
-      "fingerprint": "sha256:73ab59e2f466565d730c3af5545718729c156771c64835d42bb5e9dc6af2b54a"
+      "fingerprint": "sha256:e9985c1104ea796249e39edd10ae26ae542cdd82e3aadf392a006e0c8a133afb"
     },
     {
       "tool": "dotnet",
@@ -1379,11 +1379,27 @@
     },
     {
       "tool": "eslint",
+      "path": "frontend/src/app/review-panel/review-panel.spec.ts",
+      "line": 191,
+      "column": 10,
+      "rule": "@typescript-eslint/no-explicit-any",
+      "fingerprint": "sha256:7332ec859a01872dbf7fa7f265e8adff52f206498b748c384e26fd6cf87bd35d"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/review-panel/review-panel.spec.ts",
+      "line": 200,
+      "column": 10,
+      "rule": "@typescript-eslint/no-explicit-any",
+      "fingerprint": "sha256:ba2aadc7d758c0dfa1944acd352aec696770a7ed4a9ae0475130c407c984e29d"
+    },
+    {
+      "tool": "eslint",
       "path": "frontend/src/app/review-panel/review-panel.ts",
-      "line": 139,
+      "line": 150,
       "column": 3,
       "rule": "complexity",
-      "fingerprint": "sha256:07ec389586f03586fe9e24c2571ab30daaf290664e762148628eee9e359ee92c"
+      "fingerprint": "sha256:f78f359c7196d45df6c2276aa4998dee94e5df7eaf2f1789be4145cedd6704f4"
     },
     {
       "tool": "eslint",
@@ -1912,6 +1928,14 @@
       "column": 1,
       "rule": "prettier",
       "fingerprint": "sha256:554bc95923a5fd9a999fd9fca12cc93c0a2e8ba4f6eab8958f8ffb4ad1300a17"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/run-report-evidence.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:995c148106fba587bcbdd4eff124e1a6ea33c3205347a46e0652f1e8c6a0fccb"
     },
     {
       "tool": "prettier",
