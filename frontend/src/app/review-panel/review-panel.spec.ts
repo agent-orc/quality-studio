@@ -93,6 +93,18 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.finding-card').length).toBe(1);
   });
 
+  it('opens run details when archived detail or comparison state is restored from the URL', () => {
+    const originalUrl = location.href;
+    try {
+      history.replaceState(null, '', '?compare=before,after');
+      const routedFixture = TestBed.createComponent(ReviewPanel);
+      expect(routedFixture.componentInstance.runDrawerOpen()).toBeTrue();
+      routedFixture.destroy();
+    } finally {
+      history.replaceState(null, '', originalUrl);
+    }
+  });
+
   it('emits code navigation for current evidence but not for a stale range', () => {
     const selected = jasmine.createSpy('selected');
     component.locationSelect.subscribe(selected);
