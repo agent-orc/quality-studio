@@ -41,7 +41,10 @@ jobs:
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test QualityStudio.slnx --configuration Release --no-build
+        run: dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
+
+      - name: Dashboard performance canary
+        run: dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~Cached_dashboard_for_5000_file_repository_is_within_interaction_budget"
 
       - name: TypeScript compiler
         run: node frontend/node_modules/typescript/bin/tsc --noEmit --project frontend/tsconfig.app.json
@@ -54,6 +57,8 @@ jobs:
 
       - name: Frontend tests
         run: npm --prefix frontend test
+        env:
+          CHROME_NO_SANDBOX: "1"
 
       - name: Static-analysis new-debt gate
         run: npm run static:check
