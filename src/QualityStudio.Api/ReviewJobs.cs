@@ -89,13 +89,15 @@ public interface IReviewExecutorFactory
 
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
-    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
+    StalenessEvaluator stalenessEvaluator,
+    IOptions<QualityTaxonomyOptions> qualityTaxonomyOptions) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
                 cliType, model, thinkingLevel, eventObserver: eventObserver),
-            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
+            qualityTaxonomyOptions: qualityTaxonomyOptions.Value));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -188,7 +190,9 @@ public sealed class ReviewJobService : BackgroundService
             tokenCap,
             costCap,
             request.Force,
-            selection.ThinkingLevel);
+            ThinkingLevel: selection.ThinkingLevel,
+            Provider: ProviderFor(cliType),
+            RoutingPolicyVersion: modelCatalog.Snapshot.PolicyVersion);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -574,7 +578,11 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            Provider: item.Provider,
+            RequestedModel: item.Model,
+            ThinkingLevel: item.ThinkingLevel,
+            RoutingPolicyVersion: item.RoutingPolicyVersion);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -584,6 +592,14 @@ public sealed class ReviewJobService : BackgroundService
             .Distinct(StringComparer.Ordinal).ToArray(),
         ReviewLevel.Module => [node.Path],
         _ => null,
+    };
+
+    private static string ProviderFor(string cliType) => cliType switch
+    {
+        "codex" => "openai",
+        "claude" => "anthropic",
+        "gemini" or "antigravity" => "google",
+        _ => cliType,
     };
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
@@ -685,8 +701,10 @@ public sealed class ReviewJobService : BackgroundService
         public IReadOnlyList<ScopeExclusion>? AggregateExclusions => manifest.AggregateExclusions;
         public string Kind => manifest.Kind;
         public string? Model => manifest.Model;
-        public string? ThinkingLevel => manifest.ThinkingLevel;
         public string CliType => manifest.CliType;
+        public string? Provider => manifest.Provider;
+        public string? ThinkingLevel => manifest.ThinkingLevel;
+        public string? RoutingPolicyVersion => manifest.RoutingPolicyVersion;
         public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
         public DateTimeOffset? StartedAt { get; private set; }

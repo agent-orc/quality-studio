@@ -92,6 +92,33 @@ public sealed class FlowReviewRunnerTests
     }
 
     [Fact]
+    public async Task Enabled_domain_dual_write_retains_flow_report_and_common_observation()
+    {
+        using var repository = await FixtureRepository.CreateAsync(TestContext.Current.CancellationToken);
+        var inventory = await InventoryAsync(repository.Root);
+        var runner = new FlowReviewRunner(
+            new QueueAgent("""
+                {"verdict":"pass","summary":"The complete flow is sound.","findings":[]}
+                """),
+            qualityTaxonomyOptions: new QualityTaxonomyOptions { ObservationWriteEnabled = true });
+
+        var result = await runner.ReviewAsync(
+            Request(repository.Root, inventory, "/login", "login"), TestContext.Current.CancellationToken);
+        var observations = await new QualityObservationStore(repository.Root)
+            .ReadAllAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(File.Exists(result.ReportPath));
+        var observation = Assert.Single(observations.Observations);
+        Assert.Equal("flow-business-logic-review", observation.Profile.Id);
+        Assert.Equal(QualityAssessment.Pass, observation.Assessment);
+        Assert.Equal(result.Report.Provenance.RunId, observation.Producer.RunId);
+        Assert.Equal("anthropic", observation.Producer.Provider);
+        Assert.Equal("claude-sonnet-4-5", observation.Producer.RequestedModel);
+        Assert.Equal("high", observation.Producer.ThinkingLevel);
+        Assert.Equal("2026-07-24", observation.Producer.RoutePolicyVersion);
+    }
+
+    [Fact]
     public async Task FalsePositiveDispositionRemainsVisibleAndCountedOnNextReview()
     {
         using var repository = await FixtureRepository.CreateAsync(TestContext.Current.CancellationToken);
@@ -250,7 +277,10 @@ public sealed class FlowReviewRunnerTests
                 "flow-" + Guid.NewGuid().ToString("N"),
                 responses.Dequeue(),
                 new TokenUsage(2_000, 500, 250, 100, 800),
-                "claude-sonnet-4-5"));
+                "claude-sonnet-4-5",
+                "anthropic",
+                "high",
+                "2026-07-24"));
         }
     }
 

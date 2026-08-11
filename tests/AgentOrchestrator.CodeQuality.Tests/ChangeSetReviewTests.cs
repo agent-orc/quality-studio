@@ -95,6 +95,31 @@ public sealed class ChangeSetReviewTests
     }
 
     [Fact]
+    public async Task Enabled_domain_dual_write_retains_change_document_and_change_axis()
+    {
+        using var repository = await TestRepository.CreateAsync();
+        await repository.WriteAsync("README.md", "before\n");
+        var @base = await repository.CommitAsync("base");
+        await repository.WriteAsync("README.md", "after\n");
+        var head = await repository.CommitAsync("head");
+        var service = new ChangeSetReviewService(qualityTaxonomyOptions:
+            new QualityTaxonomyOptions { ObservationWriteEnabled = true });
+
+        var result = Assert.Single(await service.ReviewAsync(
+            new GitMergeRangeChangeSetProvider(),
+            new ChangeSetQuery(repository.Root, @base, head),
+            cancellationToken: TestContext.Current.CancellationToken));
+        var stored = await new QualityObservationStore(repository.Root)
+            .ReadAllAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(File.Exists(result.Path));
+        var observation = Assert.Single(stored.Observations);
+        Assert.Equal("change", observation.Profile.Kind);
+        Assert.NotNull(observation.Change);
+        Assert.All(observation.Aspects, aspect => Assert.NotNull(aspect.Assessment));
+    }
+
+    [Fact]
     public async Task Two_parent_merge_keeps_base_topic_head_and_merge_identity_distinct()
     {
         using var repository = await TestRepository.CreateAsync();

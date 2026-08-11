@@ -30,7 +30,9 @@ public static class ChangeDiffCommand
                 options.Head,
                 options.Branch,
                 options.Last);
-            var results = await new ChangeSetReviewService().ReviewAsync(
+            var results = await new ChangeSetReviewService(
+                    qualityTaxonomyOptions: QualityTaxonomyOptions.FromEnvironment())
+                .ReviewAsync(
                 new GitMergeRangeChangeSetProvider(),
                 query,
                 new ChangeReviewOptions(!options.NoWrite, reviewer),

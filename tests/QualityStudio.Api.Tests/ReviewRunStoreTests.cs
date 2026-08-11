@@ -72,6 +72,14 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
+                fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "manifest.json"), cancellationToken));
+            Assert.Equal("test-agent", manifest.RootElement.GetProperty("provider").GetString());
+            Assert.Equal("2026-07-24", manifest.RootElement.GetProperty("routingPolicyVersion").GetString());
+            Assert.Equal("test-agent", fake.LastRequest!.Provider);
+            Assert.Equal("claude-sonnet-5", fake.LastRequest.RequestedModel);
+            Assert.Equal("high", fake.LastRequest.ThinkingLevel);
+            Assert.Equal("2026-07-24", fake.LastRequest.RoutingPolicyVersion);
         }
         finally
         {
@@ -526,6 +534,7 @@ public sealed class ReviewRunStoreTests
         public string? CliType { get; private set; }
         public string? Model { get; private set; }
         public string? ThinkingLevel { get; private set; }
+        public ReviewRequest? LastRequest { get; private set; }
 
         public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel,
             Action<string, CliRunEvent> eventObserver, Action<ReviewUsageEntry> usageRecorded)
@@ -545,6 +554,7 @@ public sealed class ReviewRunStoreTests
                 CancellationToken cancellationToken)
             {
                 Interlocked.Increment(ref owner.operationCount);
+                owner.LastRequest = request;
                 var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
                     model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
                     request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);

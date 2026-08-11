@@ -16,7 +16,14 @@ public interface IReviewAgent
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
-public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null);
+public sealed record ReviewAgentResult(
+    string RunId,
+    string Response,
+    TokenUsage? Usage = null,
+    string? EffectiveModel = null,
+    string? Provider = null,
+    string? ThinkingLevel = null,
+    string? RoutingPolicyVersion = null);
 
 public sealed class ReviewAgentRunException(
     string runId, TokenUsage usage, string? effectiveModel, Exception innerException)
@@ -103,8 +110,23 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
 
         var completed = BuildUsage(metrics, stopwatch);
-        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+        return new ReviewAgentResult(
+            runId,
+            output.ToString(),
+            completed.Usage,
+            completed.Model,
+            Provider(_cliType),
+            _thinkingLevel,
+            ReviewModelCatalog.Default.Snapshot.PolicyVersion);
     }
+
+    private static string? Provider(string cliType) => cliType switch
+    {
+        "codex" => "openai",
+        "claude" or "claude-code" => "anthropic",
+        "gemini" or "antigravity" => "google",
+        _ => null,
+    };
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,
         System.Diagnostics.Stopwatch stopwatch)

@@ -4,11 +4,12 @@
   "title": "Quality Studio data-model taxonomy",
   "summary": "Code-grounded assessment of finding, evidence, verdict, aspect, lifecycle, and per-model history contracts; recommends an independently versioned core catalogue and immutable quality observations with a five-slice migration.",
   "entrypoint": "index.html",
-  "status": "decision-pending",
-  "phase": "decision-ready",
+  "status": "decided",
+  "phase": "implemented",
   "updatedAt": "2026-08-11T00:00:00Z",
   "sourceTaskKeys": [
-    "QS-67"
+    "QS-67",
+    "QS-76"
   ],
   "key": "QS-W4"
 }

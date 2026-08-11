@@ -141,8 +141,8 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
-      <span><b>Phase</b> decision-ready</span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
+      <span><b>Phase</b> implemented</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
@@ -557,6 +557,19 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery record. The operator approved Option B and all five slices on 11 August 2026.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+    <tbody>
+      <tr><td>2026-08-11</td><td><code>QS-76</code></td><td><b>T1 · Contract and catalogue foundation</b></td><td>Added the independently versioned <code>quality-studio/core@1.0.0</code> catalogue, taxonomy and observation JSON Schemas, typed C# contracts, lossless explicit extensions, unknown-major quarantine, and deterministic adapters with conformance vectors for every section 8 mapping.</td></tr>
+      <tr><td>2026-08-11</td><td><code>QS-76</code></td><td><b>T2 · Immutable observation dual-write</b></td><td>Added the gated monthly append-only observation store, deterministic idempotent IDs, malformed-line tolerance, observation-before-sidecar ordering, complete requested/effective route provenance with explicit unknowns, usage run joins, and API run-manifest provenance fields. Existing <code>review-meta.v2</code> output remains the compatibility projection.</td></tr>
+      <tr><td>2026-08-11</td><td><code>QS-76</code></td><td><b>T3 · Evidence, provenance, and lifecycle v2</b></td><td>Added typed evidence references, explicit agent/sensor/human/imported/unknown producer kinds, issue IDs and occurrence-v2 fingerprints with legacy aliases, append-only lifecycle events, explicit policy-backed resolution, expiry/reopen behavior, and the derived v1 state snapshot. Security sensor findings now retain deterministic provenance through review, report, and SARIF projections.</td></tr>
+      <tr><td>2026-08-11</td><td><code>QS-76</code></td><td><b>T4 · Observation-backed projections</b></td><td>Added one versioned reducer for deterministic current selection, compatibility-sidecar regeneration, report and repository-dashboard read cutover, core-only aggregation with visible unknown terms, and per-model/profile records labelled controlled, observational, or incomplete from their provenance coordinates.</td></tr>
+      <tr><td>2026-08-11</td><td><code>QS-76</code></td><td><b>T5 · Domain adapters and migration</b></td><td>Added common-observation dual-write adapters for security combination, change review, deep-flow review, and attack coverage while retaining domain v1 files. Added <code>quality taxonomy migrate [path] --dry-run|--apply</code> with an optional machine-readable report, exact run-ID usage enrichment, deterministic idempotency, explicit ambiguity/unknown/error counts, and non-destructive imports for sidecars, flows, changes, attacks, and lifecycle snapshots.</td></tr>
+    </tbody>
+  </table>
 </main>
 </body>
 </html>

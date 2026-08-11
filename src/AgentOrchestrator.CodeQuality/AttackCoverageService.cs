@@ -247,9 +247,15 @@ public sealed class AttackCoverageService
     private const string DeterministicPromptVersion = "boundary-analyzer-rules.v1";
     private static readonly string DeterministicPromptHash = AttackCoverageJson.Hash(DeterministicPromptVersion);
     private readonly Func<DateTimeOffset> clock;
+    private readonly QualityTaxonomyOptions qualityTaxonomyOptions;
 
-    public AttackCoverageService(Func<DateTimeOffset>? clock = null) =>
+    public AttackCoverageService(
+        Func<DateTimeOffset>? clock = null,
+        QualityTaxonomyOptions? qualityTaxonomyOptions = null)
+    {
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+        this.qualityTaxonomyOptions = qualityTaxonomyOptions ?? new QualityTaxonomyOptions();
+    }
 
     public async Task<AttackCoverageMatrix> BuildAsync(
         string repositoryRoot,
@@ -340,7 +346,9 @@ public sealed class AttackCoverageService
         if (!AttackCatalogueResolver.Applies(attack.Entry, boundary))
             throw new ArgumentException("The attack does not apply to the selected boundary.", nameof(submission));
         await EnsureFindingLifecycleLinkAsync(
-            repositoryRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);
+            repositoryRoot, boundary, attack.Entry, submission,
+            updateLegacyState: !qualityTaxonomyOptions.ObservationWriteEnabled,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         var snapshot = await BoundaryCoverageHasher.SnapshotAsync(repositoryRoot, boundary, cancellationToken)
             .ConfigureAwait(false);
         var prompt = AttackCoveragePrompt.Reference();
@@ -367,6 +375,7 @@ public sealed class AttackCoverageService
             clock().ToUniversalTime(),
             submission.Commit ?? await GitAsync(repositoryRoot, "rev-parse", "HEAD").ConfigureAwait(false),
             submission.CommitRange);
+        await AppendCommonObservationAsync(repositoryRoot, observation, cancellationToken).ConfigureAwait(false);
         await new AttackCoverageLedger(repositoryRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
         return observation;
     }
@@ -413,7 +422,8 @@ public sealed class AttackCoverageService
                 var currentFindings = matchingFindings.Select(finding => new FindingIdentityRecord(
                         finding.Fingerprint, finding.Id, finding.Locations[0].Path, finding.RuleId))
                     .ToArray();
-                if (currentFindings.Length > 0 || previousFindings.Length > 0)
+                if (!qualityTaxonomyOptions.ObservationWriteEnabled &&
+                    (currentFindings.Length > 0 || previousFindings.Length > 0))
                 {
                     await new FindingStateStore(repositoryRoot).MergeReviewAsync(
                         currentFindings, previousFindings, "boundary-analyzer", cancellationToken)
@@ -474,6 +484,7 @@ public sealed class AttackCoverageService
                     clock().ToUniversalTime(),
                     commit,
                     null);
+                await AppendCommonObservationAsync(repositoryRoot, observation, cancellationToken).ConfigureAwait(false);
                 await ledger.AppendAsync(observation, cancellationToken).ConfigureAwait(false);
                 appended.Add(observation);
             }
@@ -481,11 +492,31 @@ public sealed class AttackCoverageService
         return appended;
     }
 
+    private async Task AppendCommonObservationAsync(
+        string repositoryRoot,
+        AttackCoverageObservation observation,
+        CancellationToken cancellationToken)
+    {
+        if (!qualityTaxonomyOptions.ObservationWriteEnabled) return;
+        var sourcePath = AttackCoverageLedger.RelativePath + "#assessment=" + observation.AssessmentId;
+        var observationId = QualityObservationIdentity.ObservationId(
+            observation.AssessmentId,
+            "boundary:" + observation.BoundaryId,
+            "security",
+            observation.CoveredCodeHash,
+            observation.CatalogueEntryHash,
+            QualityTaxonomyCatalogue.CoreDigest);
+        var common = QualityDomainObservationAdapters.FromAttack(observation, sourcePath, observationId);
+        await new QualityObservationStore(repositoryRoot).AppendAsync(common, cancellationToken).ConfigureAwait(false);
+        await new FindingLifecycleStore(repositoryRoot).ObserveAsync(common, cancellationToken).ConfigureAwait(false);
+    }
+
     private static async Task EnsureFindingLifecycleLinkAsync(
         string repositoryRoot,
         BoundaryEntry boundary,
         AttackCatalogueEntry attack,
         AttackJudgementSubmission submission,
+        bool updateLegacyState,
         CancellationToken cancellationToken)
     {
         var store = new FindingStateStore(repositoryRoot);
@@ -548,7 +579,7 @@ public sealed class AttackCoverageService
                     submission.FindingFingerprint!, findingId, boundary.Location.Path, attack.Id));
             }
         }
-        if (current.Count > 0 || previous.Length > 0)
+        if (updateLegacyState && (current.Count > 0 || previous.Length > 0))
             await store.MergeReviewAsync(
                 current, previous, submission.Reviewer.Agent, cancellationToken).ConfigureAwait(false);
     }

@@ -79,6 +79,45 @@ public sealed class QualityReportTests
     }
 
     [Fact]
+    public async Task Top_level_sensor_finding_remains_deterministic_in_report_and_sarif()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(88);
+        await fixture.MarkTopLevelFindingAsDeterministicAsync();
+
+        var report = await new QualityReportBuilder().BuildAsync(
+            [fixture.Request], TestContext.Current.CancellationToken);
+        var finding = Assert.Single(Assert.Single(report.Repositories).Findings);
+        Assert.Equal("deterministic", finding.Source);
+        Assert.Equal("gitleaks", finding.SensorId);
+        Assert.Equal("Gitleaks", finding.Producer);
+
+        using var sarif = JsonDocument.Parse(QualityReportRenderer.Render(report, QualityReportFormat.Sarif));
+        var result = Assert.Single(Assert.Single(sarif.RootElement.GetProperty("runs").EnumerateArray())
+            .GetProperty("results").EnumerateArray());
+        Assert.Equal("deterministic", result.GetProperty("properties").GetProperty("source").GetString());
+        Assert.Equal("gitleaks", result.GetProperty("properties").GetProperty("sensorId").GetString());
+    }
+
+    [Fact]
+    public async Task Observation_read_cutover_preserves_equivalent_report_totals_and_exposes_model_records()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(88);
+        await fixture.AddEquivalentObservationAsync();
+
+        var report = await new QualityReportBuilder(
+                qualityTaxonomyOptions: new QualityTaxonomyOptions { ObservationReadEnabled = true })
+            .BuildAsync([fixture.Request], TestContext.Current.CancellationToken);
+
+        var repository = Assert.Single(report.Repositories);
+        Assert.Equal(88, repository.Scorecard.Score);
+        Assert.Equal(1, repository.Scorecard.Findings.Total);
+        var model = Assert.Single(repository.ModelRecords!);
+        Assert.Equal("fixture-model", model.EffectiveModel);
+        Assert.Equal(1, model.SampleCount);
+        Assert.Equal(88, model.AverageScore);
+    }
+
+    [Fact]
     public async Task Cli_exit_codes_cover_passing_failing_and_invalid_gates()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(68);
@@ -207,6 +246,68 @@ public sealed class QualityReportTests
             });
             await File.WriteAllTextAsync(
                 sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        }
+
+        public async Task MarkTopLevelFindingAsDeterministicAsync()
+        {
+            var metadata = JsonNode.Parse(await File.ReadAllTextAsync(
+                sidecarPath, TestContext.Current.CancellationToken))!.AsObject();
+            metadata["findings"]![0]!["source"] = new JsonObject
+            {
+                ["kind"] = "deterministic",
+                ["sensorId"] = "gitleaks",
+                ["producer"] = "Gitleaks",
+            };
+            await File.WriteAllTextAsync(sidecarPath, metadata.ToJsonString(),
+                TestContext.Current.CancellationToken);
+        }
+
+        public async Task AddEquivalentObservationAsync()
+        {
+            const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            var evidence = new QualityEvidence("ev-1", QualityEvidenceKind.SourceCode,
+                new QualityEvidenceLocator("src/App.cs", StartLine: 1, StartColumn: 1, EndLine: 1, EndColumn: 10),
+                "Fixture evidence.", null, null, null, QualityObservationJson.NoExtensions);
+            var observation = new QualityObservation(
+                QualityObservation.SchemaId,
+                1,
+                "observation-sha256:" + new string('7', 64),
+                new DateTimeOffset(2026, 7, 25, 9, 0, 0, TimeSpan.Zero),
+                new QualityCatalogueReference(QualityTaxonomyCatalogue.CoreId,
+                    QualityTaxonomyCatalogue.CoreVersion, QualityTaxonomyCatalogue.CoreDigest),
+                null,
+                new QualitySubject(unitId, "sha256:" + reviewedHash, "file", QualityObservationJson.NoExtensions),
+                new QualityProfile("file-code-review", "1.0.0", "sha256:" + new string('8', 64),
+                    "sha256:" + new string('9', 64), "code", QualityObservationJson.NoExtensions),
+                new QualityProducer(QualityProducerKind.Agent, "fixture-agent", "fixture-provider", "fixture-model",
+                    "fixture-model", "high", "fixture-policy", "fixture-run", null,
+                    QualityObservationJson.NoExtensions),
+                QualityEvidenceStatus.Available,
+                [evidence],
+                [new QualityAspectObservation("code.correctness", "Correctness", QualityAssessment.Concern, null,
+                    "Equivalent fixture score.", new QualityGrade(score, QualityReportBuilder.Grade(score)),
+                    QualityObservationJson.NoExtensions)],
+                QualityAssessment.Concern,
+                null,
+                null,
+                [new QualityObservationFinding(
+                    "finding-" + new string('b', 64),
+                    "issue-sha256:" + new string('a', 64),
+                    "sha256:" + new string('c', 64),
+                    QualityObservationIdentity.FingerprintAlgorithm,
+                    [Fingerprint],
+                    "quality.test",
+                    "code.correctness",
+                    FindingSeverity.High,
+                    "Fixture finding",
+                    "A deterministic fixture finding.",
+                    "Fix the fixture.",
+                    ["ev-1"],
+                    new QualityFindingSource(QualityProducerKind.Agent, "self"),
+                    QualityObservationJson.NoExtensions)],
+                null,
+                QualityObservationJson.NoExtensions);
+            await new QualityObservationStore(Root).AppendAsync(observation, TestContext.Current.CancellationToken);
         }
 
         private async Task WriteSidecarAsync()

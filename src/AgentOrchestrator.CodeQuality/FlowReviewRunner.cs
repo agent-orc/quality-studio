@@ -21,16 +21,19 @@ public sealed class FlowReviewRunner
     private readonly FlowReviewResponseParser responseParser;
     private readonly ModelPriceCatalog prices;
     private readonly Func<DateTimeOffset> clock;
+    private readonly QualityTaxonomyOptions qualityTaxonomyOptions;
 
     public FlowReviewRunner(
         IReviewAgent? agent = null,
         ModelPriceCatalog? prices = null,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        QualityTaxonomyOptions? qualityTaxonomyOptions = null)
     {
         this.agent = agent ?? new CodingAgentReviewAgent();
         responseParser = new FlowReviewResponseParser();
         this.prices = prices ?? ModelPriceCatalog.Default;
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+        this.qualityTaxonomyOptions = qualityTaxonomyOptions ?? new QualityTaxonomyOptions();
     }
 
     public async Task<FlowReviewResult> ReviewAsync(
@@ -74,9 +77,22 @@ public sealed class FlowReviewRunner
         var identities = findings.Select(finding =>
             new FindingIdentityRecord(finding.Fingerprint, finding.Id,
                 finding.FlowPath[finding.WeakestPointIndex].Path, finding.RuleId)).ToArray();
-        var states = await new FindingStateStore(prepared.Root).MergeReviewAsync(
-            identities, previous, agent.AgentName, cancellationToken).ConfigureAwait(false);
-        findings = findings.Select(finding => finding with { State = states[finding.Fingerprint].State }).ToArray();
+        if (qualityTaxonomyOptions.ObservationWriteEnabled)
+        {
+            var states = await new FindingStateStore(prepared.Root).ReadAsync(cancellationToken).ConfigureAwait(false);
+            findings = findings.Select(finding => finding with
+            {
+                State = states.TryGetValue(finding.Fingerprint, out var state) && state.State != FindingState.Resolved
+                    ? state.State
+                    : FindingState.Open,
+            }).ToArray();
+        }
+        else
+        {
+            var states = await new FindingStateStore(prepared.Root).MergeReviewAsync(
+                identities, previous, agent.AgentName, cancellationToken).ConfigureAwait(false);
+            findings = findings.Select(finding => finding with { State = states[finding.Fingerprint].State }).ToArray();
+        }
 
         var reviewedAt = clock().ToUniversalTime();
         var report = new FlowReviewReport(
@@ -102,6 +118,29 @@ public sealed class FlowReviewRunner
                 ComputeCost(model, usage, startedAt)));
 
         if (!request.PersistMetadata) return new FlowReviewResult(null, report);
+        if (qualityTaxonomyOptions.ObservationWriteEnabled)
+        {
+            var relative = Path.GetRelativePath(prepared.Root, reportPath).Replace('\\', '/');
+            var observationId = QualityObservationIdentity.ObservationId(
+                report.Provenance.RunId,
+                "flow:" + report.Flow.Id,
+                "security",
+                report.Provenance.InputHash,
+                report.Provenance.InputHash,
+                QualityTaxonomyCatalogue.CoreDigest);
+            var observation = QualityDomainObservationAdapters.FromFlow(
+                report,
+                relative,
+                observationId,
+                agentResult.Provider,
+                agent.Model,
+                agentResult.ThinkingLevel,
+                agentResult.RoutingPolicyVersion);
+            await new QualityObservationStore(prepared.Root).AppendAsync(observation, cancellationToken)
+                .ConfigureAwait(false);
+            await new FindingLifecycleStore(prepared.Root).ObserveAsync(observation, cancellationToken)
+                .ConfigureAwait(false);
+        }
         await SaveAsync(reportPath, report, cancellationToken).ConfigureAwait(false);
         return new FlowReviewResult(reportPath, report);
     }

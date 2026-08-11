@@ -1,0 +1,83 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1.0.0",
+  "axes": {
+    "producerKind": [
+      { "id": "agent", "description": "A model-backed review agent produced the fact.", "order": 0 },
+      { "id": "deterministic-sensor", "description": "A deterministic tool or sensor produced the fact.", "order": 1 },
+      { "id": "human", "description": "A human produced the fact.", "order": 2 },
+      { "id": "imported", "description": "An external contract supplied the fact.", "order": 3 },
+      { "id": "unknown", "description": "The producer cannot be established without inference.", "order": 4 }
+    ],
+    "evidenceStatus": [
+      { "id": "available", "description": "All evidence required by the profile is available.", "order": 0 },
+      { "id": "partial", "description": "Some required evidence is available.", "order": 1 },
+      { "id": "unavailable", "description": "Required evidence is unavailable.", "order": 2 }
+    ],
+    "assessment": [
+      { "id": "pass", "description": "The evidence establishes conformance.", "order": 0 },
+      { "id": "concern", "description": "The evidence establishes a concern without full failure.", "order": 1 },
+      { "id": "fail", "description": "The evidence establishes non-conformance.", "order": 2 },
+      { "id": "inconclusive", "description": "The available evidence cannot establish an outcome.", "order": 3 },
+      { "id": "not-applicable", "description": "The assessed requirement does not apply to the subject.", "order": 4 },
+      { "id": "not-assessed", "description": "No assessment was performed.", "order": 5 }
+    ],
+    "change": [
+      { "id": "improved", "description": "The compared quality state improved.", "order": 0 },
+      { "id": "regressed", "description": "The compared quality state regressed.", "order": 1, "aliases": ["regression"] },
+      { "id": "mixed", "description": "The compared state contains material improvements and regressions.", "order": 2 },
+      { "id": "unchanged", "description": "The compared quality state is materially unchanged.", "order": 3, "aliases": ["neutral"] },
+      { "id": "no-observed-delta", "description": "No quality delta was observed in the comparison.", "order": 4, "aliases": ["no-quality-delta"] },
+      { "id": "inconclusive", "description": "The comparison evidence cannot establish a direction.", "order": 5 }
+    ],
+    "decision": [
+      { "id": "allow", "description": "The referenced policy permits continuation.", "order": 0 },
+      { "id": "warn", "description": "The referenced policy permits continuation with a warning.", "order": 1 },
+      { "id": "block", "description": "The referenced policy prevents continuation.", "order": 2 },
+      { "id": "defer", "description": "The referenced policy defers a decision.", "order": 3 }
+    ],
+    "severity": [
+      { "id": "critical", "description": "Immediate, system-level impact.", "order": 0 },
+      { "id": "high", "description": "Material impact requiring prompt action.", "order": 1 },
+      { "id": "medium", "description": "Meaningful impact requiring planned action.", "order": 2 },
+      { "id": "low", "description": "Limited impact or localized weakness.", "order": 3 },
+      { "id": "info", "description": "Informational observation without remediation urgency.", "order": 4 }
+    ],
+    "lifecycle": [
+      { "id": "open", "description": "The issue is active.", "order": 0 },
+      { "id": "accepted-risk", "description": "An authorized actor accepted the issue risk.", "order": 1, "aliases": ["accepted"] },
+      { "id": "waived", "description": "An authorized actor waived the issue under stated conditions.", "order": 2 },
+      { "id": "false-positive", "description": "The issue does not represent the reported condition.", "order": 3, "aliases": ["falsePositive"] },
+      { "id": "resolved", "description": "The issue was explicitly or policy-backed resolved.", "order": 4 }
+    ],
+    "evidenceKind": [
+      { "id": "source-code", "description": "A source location or source fragment.", "order": 0 },
+      { "id": "test-result", "description": "A test execution result.", "order": 1 },
+      { "id": "runtime-measurement", "description": "A measured runtime value.", "order": 2 },
+      { "id": "tool-result", "description": "Structured or textual output from a tool.", "order": 3 },
+      { "id": "artifact", "description": "A generated or stored artifact.", "order": 4 },
+      { "id": "document", "description": "A human- or machine-readable document.", "order": 5 },
+      { "id": "human-attestation", "description": "A statement made by a human actor.", "order": 6 }
+    ]
+  },
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "description": "Behavioral correctness of code.", "order": 0, "aliases": ["correctness"], "allowedAxes": ["assessment"] },
+    { "id": "code.architecture", "title": "Architecture", "description": "Architectural fitness and boundaries.", "order": 1, "aliases": ["architecture"], "allowedAxes": ["assessment"] },
+    { "id": "security.general", "title": "Security", "description": "General security posture.", "order": 2, "aliases": ["security"], "allowedAxes": ["assessment"] },
+    { "id": "security.secrets", "title": "Secrets", "description": "Secret exposure and handling.", "order": 3, "aliases": ["secrets"], "allowedAxes": ["assessment"] },
+    { "id": "security.dependencies", "title": "Dependencies", "description": "Dependency vulnerability posture.", "order": 4, "aliases": ["dependencies"], "allowedAxes": ["assessment"] },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "description": "Identity and access control correctness.", "order": 5, "aliases": ["authentication-authorization"], "allowedAxes": ["assessment"] },
+    { "id": "security.input-validation", "title": "Input validation", "description": "Validation of caller-influenced input.", "order": 6, "aliases": ["input-validation"], "allowedAxes": ["assessment"] },
+    { "id": "security.configuration-iac", "title": "Configuration and IaC", "description": "Secure configuration and infrastructure-as-code.", "order": 7, "aliases": ["configuration-iac"], "allowedAxes": ["assessment"] },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "description": "Externally reachable boundary exposure.", "order": 8, "aliases": ["boundaries"], "allowedAxes": ["assessment"] },
+    { "id": "security.business-logic", "title": "Business logic", "description": "Security of business-logic flows.", "order": 9, "allowedAxes": ["assessment"] },
+    { "id": "security.attack-coverage", "title": "Attack coverage", "description": "Coverage of applicable attack scenarios.", "order": 10, "allowedAxes": ["assessment"] },
+    { "id": "performance.general", "title": "Performance", "description": "General performance fitness.", "order": 11, "aliases": ["performance"], "allowedAxes": ["assessment"] },
+    { "id": "change.risk", "title": "Risk", "description": "Change risk direction.", "order": 12, "aliases": ["risk"], "allowedAxes": ["assessment"] },
+    { "id": "change.test-evidence", "title": "Test evidence", "description": "Change in supporting test evidence.", "order": 13, "aliases": ["test-evidence"], "allowedAxes": ["assessment"] },
+    { "id": "change.scope-discipline", "title": "Scope discipline", "description": "Change in scope discipline.", "order": 14, "aliases": ["scope-discipline"], "allowedAxes": ["assessment"] },
+    { "id": "change.architecture-drift", "title": "Architecture drift", "description": "Change in architectural alignment.", "order": 15, "aliases": ["architecture-drift"], "allowedAxes": ["assessment"] }
+  ]
+}

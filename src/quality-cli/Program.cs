@@ -46,6 +46,11 @@ public static class QualityCli
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
         }
 
+        if (string.Equals(args[0], "taxonomy", StringComparison.Ordinal))
+        {
+            return await RunTaxonomyAsync(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -75,6 +80,73 @@ public static class QualityCli
         }
     }
 
+    private static async Task<int> RunTaxonomyAsync(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help")
+        {
+            PrintTaxonomyUsage();
+            return args.Length == 0 ? 2 : 0;
+        }
+        if (args[0] != "migrate")
+        {
+            Console.Error.WriteLine($"Unknown taxonomy command: {args[0]}");
+            PrintTaxonomyUsage();
+            return 2;
+        }
+        try
+        {
+            var path = ".";
+            var pathSet = false;
+            bool? apply = null;
+            string? reportPath = null;
+            for (var index = 1; index < args.Length; index++)
+            {
+                switch (args[index])
+                {
+                    case "--dry-run":
+                        if (apply is not null) throw new ArgumentException("Choose exactly one of --dry-run or --apply.");
+                        apply = false;
+                        break;
+                    case "--apply":
+                        if (apply is not null) throw new ArgumentException("Choose exactly one of --dry-run or --apply.");
+                        apply = true;
+                        break;
+                    case "--report" when index + 1 < args.Length:
+                        reportPath = args[++index];
+                        break;
+                    case "--report":
+                        throw new ArgumentException("Missing value for --report.");
+                    default:
+                        if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                            throw new ArgumentException($"Unexpected argument: {args[index]}");
+                        path = args[index];
+                        pathSet = true;
+                        break;
+                }
+            }
+            if (apply is null) throw new ArgumentException("Choose exactly one of --dry-run or --apply.");
+            var report = await new QualityTaxonomyMigrator().MigrateAsync(path, apply.Value);
+            var json = QualityTaxonomyMigrator.SerializeReport(report);
+            if (reportPath is null)
+            {
+                Console.Write(json);
+            }
+            else
+            {
+                var absolute = Path.GetFullPath(reportPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+                await File.WriteAllTextAsync(absolute, json, new UTF8Encoding(false));
+                Console.WriteLine($"quality taxonomy migrate: wrote {absolute}");
+            }
+            return report.Errors == 0 ? 0 : 1;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException or JsonException)
+        {
+            Console.Error.WriteLine($"quality taxonomy migrate failed: {exception.Message}");
+            return 2;
+        }
+    }
+
     private static async Task<int> RunReportAsync(string[] args)
     {
         if (args.Length > 0 && args[0] is "-h" or "--help")
@@ -94,7 +166,9 @@ public static class QualityCli
                 new("gitleaks", GitleaksBinaryResolver.PinnedVersion, true),
                 new("dependencies", DependencyVulnerabilitySensor.SensorVersion, true),
             };
-            var report = await new QualityReportBuilder().BuildAsync(
+            var report = await new QualityReportBuilder(
+                    qualityTaxonomyOptions: QualityTaxonomyOptions.FromEnvironment())
+                .BuildAsync(
                 [new QualityReportRepository("default", name, root, Sensors: sensors)]);
             var rendered = QualityReportRenderer.Render(report, options.Format);
             if (options.OutputPath is null)
@@ -138,7 +212,10 @@ public static class QualityCli
             var sensors = options.Kind == "security"
                 ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()])
                 : null;
-            var result = await new ReviewRunner(sensorRegistry: sensors).ReviewAsync(new ReviewRequest(
+            var result = await new ReviewRunner(
+                    sensorRegistry: sensors,
+                    qualityTaxonomyOptions: QualityTaxonomyOptions.FromEnvironment())
+                .ReviewAsync(new ReviewRequest(
                 options.File, options.Kind, GlobalInputsDirectory: globalInputs,
                 InputBudgetCharacters: options.BudgetCharacters,
                 Sensors: options.Kind == "security"
@@ -271,7 +348,9 @@ public static class QualityCli
                 stream, options, CancellationToken.None)
                 ?? throw new JsonException("Flow review request must be a JSON object.");
             var stopwatch = Stopwatch.StartNew();
-            var result = await new FlowReviewRunner().ReviewAsync(request);
+            var result = await new FlowReviewRunner(
+                    qualityTaxonomyOptions: QualityTaxonomyOptions.FromEnvironment())
+                .ReviewAsync(request);
             Console.WriteLine(
                 $"quality flow review: {result.Report.Verdict.ToString().ToLowerInvariant()} | flow {result.Report.Flow.Id} | findings {result.Report.Findings.Count} | false-positive {result.Report.FindingCounts.FalsePositive} | cost {FormatCost(result.Report.Provenance.Cost)} | {stopwatch.ElapsedMilliseconds} ms");
             if (result.Report.UndeterminedReason is not null)
@@ -493,7 +572,10 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality taxonomy migrate [path] (--dry-run|--apply) [--report <file>]\n  quality report [path] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+
+    private static void PrintTaxonomyUsage() => Console.WriteLine(
+        "Usage:\n  quality taxonomy migrate [path] (--dry-run|--apply) [--report <file>]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");

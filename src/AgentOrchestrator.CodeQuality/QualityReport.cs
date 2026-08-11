@@ -39,7 +39,8 @@ public sealed record RepositoryQualityReport(
     string Name,
     QualityScorecard Scorecard,
     IReadOnlyList<QualityTrendSeries> Trend,
-    IReadOnlyList<QualityFinding> Findings);
+    IReadOnlyList<QualityFinding> Findings,
+    IReadOnlyList<QualityModelAggregate>? ModelRecords = null);
 
 public sealed record QualityScorecard(
     int Score,
@@ -118,9 +119,15 @@ public sealed class QualityReportBuilder
     private static readonly string[] SeverityNames = ["critical", "high", "medium", "low", "info"];
     private static readonly string[] StateNames = ["open", "accepted", "waived", "false-positive", "resolved"];
     private readonly Func<DateTimeOffset> clock;
+    private readonly QualityTaxonomyOptions qualityTaxonomyOptions;
 
-    public QualityReportBuilder(Func<DateTimeOffset>? clock = null) =>
+    public QualityReportBuilder(
+        Func<DateTimeOffset>? clock = null,
+        QualityTaxonomyOptions? qualityTaxonomyOptions = null)
+    {
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+        this.qualityTaxonomyOptions = qualityTaxonomyOptions ?? new QualityTaxonomyOptions();
+    }
 
     public async Task<QualityReportDocument> BuildAsync(
         IReadOnlyList<QualityReportRepository> repositories,
@@ -151,7 +158,7 @@ public sealed class QualityReportBuilder
         return new QualityReportDocument(SchemaId, 1, clock().ToUniversalTime(), reports, new QualityComparison(ranked));
     }
 
-    private static async Task<RepositoryQualityReport> BuildRepositoryAsync(
+    private async Task<RepositoryQualityReport> BuildRepositoryAsync(
         QualityReportRepository repository,
         CancellationToken cancellationToken)
     {
@@ -167,7 +174,12 @@ public sealed class QualityReportBuilder
         try
         {
             var states = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
-            var observations = LoadCurrentObservations(root, repository.Id, states);
+            var storedObservations = qualityTaxonomyOptions.ObservationReadEnabled
+                ? await new QualityObservationStore(root).ReadAllAsync(cancellationToken).ConfigureAwait(false)
+                : null;
+            var observations = storedObservations is { Observations.Count: > 0 }
+                ? LoadCurrentObservations(storedObservations.Observations, repository.Id, states)
+                : LoadCurrentSidecarObservations(root, repository.Id, states);
             var kindScores = BuildKindScores(kinds, observations);
             var scoredKinds = kindScores.Where(kind => kind.Score.HasValue).Select(kind => kind.Score!.Value).ToArray();
             var score = scoredKinds.Length == 0
@@ -210,7 +222,9 @@ public sealed class QualityReportBuilder
                 coverage,
                 repository.Sensors ?? []);
             return new RepositoryQualityReport(repository.Id, repository.Name, scorecard, trend,
-                observations.SelectMany(observation => observation.Findings).ToArray());
+                observations.SelectMany(observation => observation.Findings).ToArray(),
+                storedObservations is null ? null :
+                    QualityObservationReducer.AggregateByModel(storedObservations.Observations));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -218,7 +232,7 @@ public sealed class QualityReportBuilder
         }
     }
 
-    private static IReadOnlyList<Observation> LoadCurrentObservations(
+    private static IReadOnlyList<Observation> LoadCurrentSidecarObservations(
         string root,
         string repositoryId,
         IReadOnlyDictionary<string, FindingStateRecord> states)
@@ -243,6 +257,57 @@ public sealed class QualityReportBuilder
         }
         return result;
     }
+
+    private static IReadOnlyList<Observation> LoadCurrentObservations(
+        IReadOnlyList<QualityObservation> observations,
+        string repositoryId,
+        IReadOnlyDictionary<string, FindingStateRecord> states) =>
+        QualityObservationReducer.SelectCurrent(observations)
+            .Select(observation =>
+            {
+                var score = QualityObservationReducer.Score(observation);
+                var findings = observation.Findings.Select(finding =>
+                {
+                    var fingerprint = finding.FingerprintAliases.FirstOrDefault(alias => states.ContainsKey(alias)) ??
+                                      finding.OccurrenceFingerprint;
+                    var state = states.GetValueOrDefault(fingerprint)?.State ?? FindingState.Open;
+                    var locations = observation.Evidence
+                        .Where(item => finding.EvidenceRefs.Contains(item.Id, StringComparer.Ordinal))
+                        .Where(item => !string.IsNullOrWhiteSpace(item.Locator.Path))
+                        .Select(item => new QualityFindingLocation(
+                            item.Locator.Path!, item.Locator.StartLine, item.Locator.StartColumn,
+                            item.Locator.EndLine, item.Locator.EndColumn)).ToArray();
+                    var source = finding.Source.Kind switch
+                    {
+                        QualityProducerKind.DeterministicSensor => "deterministic",
+                        QualityProducerKind.Agent => "agent",
+                        QualityProducerKind.Human => "human",
+                        QualityProducerKind.Imported => "imported",
+                        _ => "unknown",
+                    };
+                    return new QualityFinding(
+                        repositoryId,
+                        finding.ObservationFindingId,
+                        finding.RuleRef,
+                        observation.Profile.Kind,
+                        JsonNamingPolicy.KebabCaseLower.ConvertName(finding.Severity.ToString()),
+                        FindingStateStore.StateName(state),
+                        finding.Title,
+                        finding.Description,
+                        finding.Recommendation,
+                        fingerprint,
+                        locations,
+                        source,
+                        finding.Source.Kind == QualityProducerKind.DeterministicSensor
+                            ? finding.Source.ProducerRef : null,
+                        finding.Source.ProducerRef);
+                }).ToArray();
+                return new Observation(
+                    observation.Profile.Kind,
+                    observation.Subject.Scope,
+                    score,
+                    findings);
+            }).ToArray();
 
     private static IEnumerable<string> EnumerateSidecars(string root)
     {
@@ -271,7 +336,16 @@ public sealed class QualityReportBuilder
         var findings = new List<QualityFinding>();
         foreach (var finding in metadata["findings"]?.AsArray().OfType<JsonObject>() ?? [])
         {
-            if (ParseFinding(finding, repositoryId, kind, "agent", null, null) is { } parsed)
+            var sourceNode = finding["source"]?.AsObject();
+            var deterministic = string.Equals(
+                sourceNode?["kind"]?.GetValue<string>(), "deterministic", StringComparison.Ordinal);
+            if (ParseFinding(
+                    finding,
+                    repositoryId,
+                    kind,
+                    deterministic ? "deterministic" : "agent",
+                    deterministic ? sourceNode?["sensorId"]?.GetValue<string>() : null,
+                    deterministic ? sourceNode?["producer"]?.GetValue<string>() : null) is { } parsed)
                 findings.Add(parsed);
         }
         foreach (var sensor in metadata["deterministicEvidence"]?.AsArray().OfType<JsonObject>() ?? [])
@@ -354,16 +428,17 @@ public sealed class QualityReportBuilder
         IReadOnlyList<Observation> observations) =>
         kinds.Select(kind =>
         {
-            var selected = observations.Where(observation => observation.Kind == kind).ToArray();
+            var selected = observations.Where(observation => observation.Kind == kind && observation.Score.HasValue)
+                .ToArray();
             var levels = selected.GroupBy(observation => observation.Level, StringComparer.Ordinal)
                 .OrderBy(group => LevelOrder(group.Key))
                 .Select(group =>
                 {
-                    var score = (int)Math.Round(group.Average(item => item.Score), MidpointRounding.AwayFromZero);
+                    var score = (int)Math.Round(group.Average(item => item.Score!.Value), MidpointRounding.AwayFromZero);
                     return new QualityLevelScore(group.Key, score, Grade(score), group.Count());
                 }).ToArray();
             if (selected.Length == 0) return new QualityKindScore(kind, null, "not-reviewed", levels);
-            var score = (int)Math.Round(selected.Average(item => item.Score), MidpointRounding.AwayFromZero);
+            var score = (int)Math.Round(selected.Average(item => item.Score!.Value), MidpointRounding.AwayFromZero);
             return new QualityKindScore(kind, score, Grade(score), levels);
         }).ToArray();
 
@@ -383,7 +458,10 @@ public sealed class QualityReportBuilder
     {
         var all = findings.ToArray();
         var currentFingerprints = all.Select(finding => finding.Fingerprint).ToHashSet(StringComparer.Ordinal);
-        var historicalStates = states.Values.Where(state => !currentFingerprints.Contains(state.Fingerprint)).ToArray();
+        var historicalStates = states.Values.Where(state => !currentFingerprints.Contains(state.Fingerprint))
+            .GroupBy(state => state.FindingId, StringComparer.Ordinal)
+            .Select(group => group.OrderByDescending(state => state.Timestamp).First())
+            .ToArray();
         var byState = StateNames.ToDictionary(name => name, name => all.Count(finding => finding.State == name),
             StringComparer.Ordinal);
         foreach (var state in historicalStates)
@@ -511,7 +589,7 @@ public sealed class QualityReportBuilder
     private sealed record Observation(
         string Kind,
         string Level,
-        int Score,
+        int? Score,
         IReadOnlyList<QualityFinding> Findings);
 
     private sealed record Commit(string Hash, DateTimeOffset At);
@@ -585,9 +663,12 @@ public static class QualityReportRenderer
                 var location = finding.Locations.FirstOrDefault();
                 var at = location is null ? string.Empty :
                     $" — {EscapeMarkdown(location.Path)}{(location.StartLine.HasValue ? $":{location.StartLine}" : string.Empty)}";
-                var source = finding.Source == "deterministic"
-                    ? $"deterministic:{finding.Producer ?? finding.SensorId ?? "analyzer"}"
-                    : "agent";
+                var source = finding.Source switch
+                {
+                    "deterministic" => $"deterministic:{finding.Producer ?? finding.SensorId ?? "analyzer"}",
+                    "agent" => "agent",
+                    _ => finding.Source,
+                };
                 text.AppendLine($"- [{EscapeMarkdown(finding.Severity)}/{EscapeMarkdown(finding.State)}/{EscapeMarkdown(source)}] {EscapeMarkdown(finding.Title)}{at}");
             }
             text.AppendLine();

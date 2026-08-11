@@ -24,11 +24,21 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? Provider = null,
+    string? RequestedModel = null,
+    string? ThinkingLevel = null,
+    string? RoutingPolicyVersion = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
-public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
+public sealed record ReviewResult(
+    string MetaPath,
+    string ReviewedHash,
+    string RunId,
+    ResolvedInputs Inputs,
+    ReviewUsageEntry Usage,
+    string? ObservationId = null);
 
 public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
 
@@ -44,6 +54,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly QualityTaxonomyOptions _qualityTaxonomyOptions;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -52,7 +63,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        QualityTaxonomyOptions? qualityTaxonomyOptions = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -61,6 +73,7 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _qualityTaxonomyOptions = qualityTaxonomyOptions ?? new QualityTaxonomyOptions();
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -143,14 +156,45 @@ public sealed class ReviewRunner
                 findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
             }
 
+            string? observationId = null;
+            QualityObservation? writtenObservation = null;
+            if (_qualityTaxonomyOptions.ObservationWriteEnabled)
+            {
+                var observation = GeneralReviewObservationAdapter.Create(
+                    response,
+                    unitId,
+                    reviewedHash,
+                    reviewInputsHash,
+                    request.Kind,
+                    request.Level,
+                    agentResult.RunId,
+                    request.ReviewRunId,
+                    DateTimeOffset.UtcNow,
+                    _agent.AgentName,
+                    request.Provider ?? agentResult.Provider,
+                    request.RequestedModel ?? _agent.Model,
+                    agentResult.EffectiveModel ?? _agent.Model,
+                    request.ThinkingLevel ?? agentResult.ThinkingLevel,
+                    request.RoutingPolicyVersion ?? agentResult.RoutingPolicyVersion,
+                    sensorEvidence,
+                    deterministicEvidence);
+                await new QualityObservationStore(root).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
+                await new FindingLifecycleStore(root).ObserveAsync(observation, cancellationToken).ConfigureAwait(false);
+                observationId = observation.ObservationId;
+                writtenObservation = observation;
+            }
+
             var adapter = AdapterFromUnitId(unitId);
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 var previousFindings = LoadFindingIdentities(metaPath);
-                await new FindingStateStore(root).MergeReviewAsync(
-                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
+                if (!_qualityTaxonomyOptions.ObservationWriteEnabled)
+                {
+                    await new FindingStateStore(root).MergeReviewAsync(
+                        findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
+                }
                 threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
                 ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
                 ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
@@ -172,6 +216,23 @@ public sealed class ReviewRunner
                     threads,
                     sensorEvidence,
                     deterministicEvidence);
+                if (_qualityTaxonomyOptions.ObservationReadEnabled && writtenObservation is not null)
+                {
+                    var stored = await new QualityObservationStore(root).ReadAllAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    var selected = QualityObservationReducer.SelectCurrent(
+                        stored.Observations,
+                        new QualityObservationSelectionContext(
+                            writtenObservation.Subject.UnitId,
+                            writtenObservation.Profile.Kind,
+                            writtenObservation.Subject.ManifestHash,
+                            writtenObservation.Profile.Id,
+                            writtenObservation.Profile.Version,
+                            writtenObservation.Profile.PromptHash,
+                            writtenObservation.Taxonomy.Digest)).SingleOrDefault()
+                        ?? throw new ReviewRunException("The authoritative observation could not be selected for projection.");
+                    meta = QualityObservationReducer.CreateReviewMetaProjection(selected, meta);
+                }
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 await File.WriteAllTextAsync(
@@ -188,7 +249,7 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage));
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observationId));
         }
         catch (Exception exception)
         {

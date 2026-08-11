@@ -36,7 +36,9 @@ public sealed record ReviewRunManifest(
     long? TokenCap = null,
     decimal? CostCap = null,
     bool Force = false,
-    string? ThinkingLevel = null);
+    string? ThinkingLevel = null,
+    string? Provider = null,
+    string? RoutingPolicyVersion = null);
 
 public sealed record ReviewRunFileTransition(
     string Path,

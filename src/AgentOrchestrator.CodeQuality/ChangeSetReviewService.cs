@@ -15,9 +15,15 @@ public sealed class ChangeSetReviewService
 
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private readonly IChangeCoverageProvider? coverageProvider;
+    private readonly QualityTaxonomyOptions qualityTaxonomyOptions;
 
-    public ChangeSetReviewService(IChangeCoverageProvider? coverageProvider = null) =>
+    public ChangeSetReviewService(
+        IChangeCoverageProvider? coverageProvider = null,
+        QualityTaxonomyOptions? qualityTaxonomyOptions = null)
+    {
         this.coverageProvider = coverageProvider;
+        this.qualityTaxonomyOptions = qualityTaxonomyOptions ?? new QualityTaxonomyOptions();
+    }
 
     public async Task<IReadOnlyList<ChangeReviewResult>> ReviewAsync(
         IChangeSetProvider provider,
@@ -111,7 +117,24 @@ public sealed class ChangeSetReviewService
             verdict,
             summary);
         var path = GetPath(root, changeSet);
-        if (options.Persist) await SaveAsync(path, document, cancellationToken).ConfigureAwait(false);
+        if (options.Persist)
+        {
+            if (qualityTaxonomyOptions.ObservationWriteEnabled)
+            {
+                var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+                var observationId = QualityObservationIdentity.ObservationId(
+                    "change:" + changeSet.ResultCommit,
+                    "change:" + changeSet.ResultCommit,
+                    "change",
+                    QualityObservationJson.Hash(changeSet.BaseCommit + "\0" + changeSet.ResultCommit),
+                    QualityObservationJson.Hash(JsonSerializer.Serialize(changeSet)),
+                    QualityTaxonomyCatalogue.CoreDigest);
+                await new QualityObservationStore(root).AppendAsync(
+                    QualityDomainObservationAdapters.FromChange(document, relative, observationId), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            await SaveAsync(path, document, cancellationToken).ConfigureAwait(false);
+        }
         return new ChangeReviewResult(document, path);
     }
 

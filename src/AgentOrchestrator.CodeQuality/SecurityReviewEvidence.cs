@@ -77,6 +77,13 @@ public sealed record SecurityEvidenceBundle(
             ["locations"] = new JsonArray(finding.Locations.Select(location => (JsonNode)LocationJson(location)).ToArray()),
             ["fingerprint"] = finding.Fingerprint,
             ["ruleId"] = finding.RuleId,
+            ["source"] = new JsonObject
+            {
+                ["kind"] = "deterministic",
+                ["sensorId"] = sensor.SensorId,
+                ["producer"] = sensor.SensorId,
+                ["producerVersion"] = sensor.SensorVersion,
+            },
             ["evidence"] = new JsonObject
             {
                 ["source"] = "machine-sensor",

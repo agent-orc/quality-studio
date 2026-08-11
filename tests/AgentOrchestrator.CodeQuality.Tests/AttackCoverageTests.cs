@@ -159,7 +159,9 @@ public sealed class AttackCoverageTests
             var first = Entry("attack-one", AttackSeverity.Medium, "http");
             var second = Entry("attack-two", AttackSeverity.Medium, "http");
             var catalogue = Catalogue(first, second);
-            var service = new AttackCoverageService(() => new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+            var service = new AttackCoverageService(
+                () => new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero),
+                new QualityTaxonomyOptions { ObservationWriteEnabled = true });
             foreach (var attack in new[] { first, second })
             {
                 await service.RecordAsync(root, inventory, catalogue,
@@ -190,6 +192,14 @@ public sealed class AttackCoverageTests
             var untouched = Cell(matrix, "one", second.Id);
             Assert.Empty(untouched.StalenessReasons);
             Assert.Equal(provenance.CoveredCodeHash, untouched.Provenance[0].CoveredCodeHash);
+            var common = await new QualityObservationStore(root)
+                .ReadAllAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(2, common.Observations.Count);
+            Assert.All(common.Observations, observation =>
+            {
+                Assert.Equal("security.attack-coverage", Assert.Single(observation.Aspects).AspectId);
+                Assert.True(observation.Extensions.ContainsKey("quality-studio/attack-assessment-id"));
+            });
         }
         finally
         {

@@ -167,6 +167,45 @@ public sealed class ReviewResponseParserTests
 public sealed class ReviewRunnerTests
 {
     [Fact]
+    public async Task ReviewAsync_DualWritesObservationWithResolvedRouteProvenance()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var options = new QualityTaxonomyOptions
+            {
+                ObservationWriteEnabled = true,
+                ObservationReadEnabled = true,
+            };
+            var result = await new ReviewRunner(new FakeAgent(), qualityTaxonomyOptions: options).ReviewAsync(
+                new ReviewRequest(
+                    "src/Small.cs",
+                    RepositoryRoot: root,
+                    ReviewRunId: "review-route-test",
+                    Provider: "openai",
+                    RequestedModel: "gpt-5.6-codex",
+                    ThinkingLevel: "high",
+                    RoutingPolicyVersion: "2026-07-24"),
+                TestContext.Current.CancellationToken);
+
+            Assert.NotNull(result.ObservationId);
+            var stored = await new QualityObservationStore(root).ReadAllAsync(TestContext.Current.CancellationToken);
+            var observation = Assert.Single(stored.Observations);
+            Assert.Equal(result.ObservationId, observation.ObservationId);
+            Assert.Equal("openai", observation.Producer.Provider);
+            Assert.Equal("gpt-5.6-codex", observation.Producer.RequestedModel);
+            Assert.Equal("deterministic", observation.Producer.EffectiveModel);
+            Assert.Equal("high", observation.Producer.ThinkingLevel);
+            Assert.Equal("2026-07-24", observation.Producer.RoutePolicyVersion);
+            Assert.Equal("review-route-test", observation.Producer.ReviewRunId);
+
+            using var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(
+                result.MetaPath, TestContext.Current.CancellationToken));
+            Assert.Equal("deterministic",
+                metadata.RootElement.GetProperty("reviewer").GetProperty("model").GetString());
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesFreshQs3Metadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -278,6 +317,8 @@ public sealed class ReviewRunnerTests
             var finding = Assert.Single(metadata.GetProperty("findings").EnumerateArray());
             Assert.Equal("gitleaks-planted-secret", finding.GetProperty("id").GetString());
             Assert.Equal("secrets", finding.GetProperty("aspect").GetString());
+            Assert.Equal("deterministic", finding.GetProperty("source").GetProperty("kind").GetString());
+            Assert.Equal("gitleaks", finding.GetProperty("source").GetProperty("sensorId").GetString());
             Assert.Contains("\"source\": \"machine-sensor\"", finding.GetProperty("evidence").GetString(), StringComparison.Ordinal);
             var sensorReference = Assert.Single(metadata.GetProperty("reviewer").GetProperty("sensors").EnumerateArray());
             Assert.Equal("gitleaks", sensorReference.GetProperty("id").GetString());
@@ -323,7 +364,9 @@ public sealed class ReviewRunnerTests
                     new Dictionary<string, string> { ["Microsoft.CodeAnalysis"] = "4.14.0" }));
             var agent = new FakeAgent();
 
-            var result = await new ReviewRunner(agent).ReviewAsync(
+            var result = await new ReviewRunner(
+                agent,
+                qualityTaxonomyOptions: new QualityTaxonomyOptions { ObservationWriteEnabled = true }).ReviewAsync(
                 new ReviewRequest(
                     "src/Small.cs",
                     RepositoryRoot: root,
@@ -342,6 +385,12 @@ public sealed class ReviewRunnerTests
             Assert.Contains("Judge their applicability", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("deduplicate", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("does not set or cap", agent.Prompt, StringComparison.Ordinal);
+            var observations = await new QualityObservationStore(root)
+                .ReadAllAsync(TestContext.Current.CancellationToken);
+            var commonFinding = Assert.Single(Assert.Single(observations.Observations).Findings);
+            Assert.Equal(QualityProducerKind.DeterministicSensor, commonFinding.Source.Kind);
+            Assert.Equal("roslyn", commonFinding.Source.ProducerRef);
+            Assert.Equal("CA1822", commonFinding.RuleRef);
         });
     }
 
