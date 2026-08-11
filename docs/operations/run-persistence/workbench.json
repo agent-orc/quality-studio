@@ -4,9 +4,9 @@
   "title": "Quality Studio run persistence",
   "summary": "Decision-ready storage design for durable Quality Studio review runs. The recommendation keeps the tested, Git-ignored .quality/runs recovery journal and adds a tracked folder-per-run archive under .quality/run-history. It preserves run plans, immutable stopped attempts, operation results, finding observations, typed verdicts and timestamps; extends the existing token ledger with operation IDs; defines deterministic history and two-run diff APIs; and supplies five implementation slices with acceptance criteria and a non-fabricating migration path.",
   "entrypoint": "index.html",
-  "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:14Z",
+  "status": "documented",
+  "phase": "implementation",
+  "updatedAt": "2026-08-11T22:05:00Z",
   "sourceTaskKeys": [
     "QS-62"
   ],
@@ -47,8 +47,25 @@
       "taskType": "feature"
     }
   },
+  "implementationState": {
+    "status": "documented",
+    "updatedAt": "2026-08-11T22:05:00Z",
+    "cardKeys": [
+      "QS-71",
+      "QS-85"
+    ],
+    "built": [
+      "tracked run archive contracts and storage",
+      "operation and finding dual-write",
+      "usage ledger v3 operation and attempt identity",
+      "restart recovery and conservative v0 migration",
+      "history, detail, and deterministic diff APIs",
+      "on-demand run history and comparison UI"
+    ]
+  },
   "relatedTaskKeys": [
-    "QS-71"
+    "QS-71",
+    "QS-85"
   ],
-  "editedBy": "Operator, recorded by AGT-2621"
+  "editedBy": "QS-85 implementation receipt"
 }

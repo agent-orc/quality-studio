@@ -141,8 +141,8 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
-    <span><b>Phase</b> decision ready</span>
+    <span><b>Status</b> documented</span>
+    <span><b>Phase</b> implementation</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
   </div>
@@ -165,6 +165,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -483,6 +484,37 @@
 </table>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<p class="dim">Append-only delivery record. The entries below report implementation without revising the decisions above.</p>
+
+<h3>11 August 2026 · QS-71 · RP-1</h3>
+<p><b>Archive foundation landed.</b> Added the tracked month-partitioned run archive, immutable run manifests, append-only operation and finding facts, create-only attempt records, path confinement, strict corruption reporting, and v1 JSON schemas. Contract tests cover schema validation, immutability, idempotency, two-attempt history, unsafe IDs, and corrupt rows.</p>
+
+<h3>11 August 2026 · QS-71 · RP-2</h3>
+<p><b>Stable operation identity and dual-write landed.</b> Review orchestration now allocates operation IDs before execution, carries attempt identity through the durable journal and usage ledger v3, archives lifecycle results and sidecar evidence, and finalizes per-attempt plus cumulative counters and spend. Existing ledger v1/v2 and recovery files remain readable and unmodified.</p>
+
+<h3>11 August 2026 · QS-71 · RP-3</h3>
+<p><b>Migration and history reads landed.</b> Startup performs conservative idempotent v0 recovery-folder migration, active run lists compose with archived terminal summaries, and repository-scoped cursor/filter and attempt-detail APIs read tracked history. Clean-clone and repeated-migration tests verify that ignored recovery state is not required and unknown historical facts are not fabricated.</p>
+
+<h3>11 August 2026 · QS-71 · RP-4</h3>
+<p><b>Deterministic comparison landed.</b> The diff API classifies scope, policy, model, completeness, and rename comparability before returning execution, grade, typed-verdict, finding lifecycle/severity, and nullable economy deltas. Golden tests cover exact and non-exact reruns, target and input changes, capped outcomes, finding correlation, and unavailable usage or price data.</p>
+
+<h3>11 August 2026 · QS-71 · RP-5</h3>
+<p><b>History and compare UI landed.</b> Added an on-demand paged history surface with exact filters, corrupt-entry visibility, detail drawer, comparable two-run selection, URL-restored state, and warnings rendered before quality deltas. The view is a deferred frontend chunk and uses the central design tokens; component coverage exercises paging, filtering, URL restoration, keyboard-reachable controls, both themes, and responsive grid structure.</p>
+
+<h3>11 August 2026 · QS-71 · RP-2/RP-3 verification addendum</h3>
+<p><b>Observation and legacy migration edges landed.</b> Fresh-skip operations now archive grade, finding state, provider identity, and sidecar linkage from the immutable captured observation. V0 migration preserves complete captured operation/finding evidence and derives its attempt quality summary without turning missing evidence into a verdict. History also exposes unmatched v1/v2/v3 ledger groups as non-comparable <code>legacy-usage-only</code> summaries containing only known model, path, kind, level, and token spend.</p>
+
+<h3>12 August 2026 · QS-85 · Wave 2 integration receipt</h3>
+<p><b>The verified QS-71 persistence delivery is now carried on the current integration baseline and revalidated as the durable-history slice.</b> Wave 1 had already built RP-1 through RP-5 in delivery commit <code>6b16ca9</code>, but that result commit was not an ancestor of <code>origin/main</code>. QS-85 reused that exact parent-matched implementation rather than redesigning it, then exercised the restart, clean-clone history, usage-ledger v3, live API, and browser history paths.</p>
+<ul>
+  <li>Terminal run identity, operation results, finding observations, typed quality evidence, and immutable stopped attempts are stored in the tracked, month-partitioned <code>.quality/run-history/</code> contract. The mutable <code>.quality/runs/</code> journal remains recovery-only.</li>
+  <li>Every new agent operation carries the backend-allocated operation ID and attempt into the append-only usage ledger v3; v1 and v2 remain readable and are never rewritten.</li>
+  <li>Startup recovery, conservative v0 migration, clean-clone history/detail, active-plus-archive composition, corrupt-history visibility, and deterministic two-run comparison are covered by backend tests.</li>
+  <li>The deferred History UI provides on-demand paging, filters, archived detail, comparable two-run selection, warnings-before-deltas, and URL-restored state using the shared Studio design tokens.</li>
+  <li>Reviewer evidence, including before/after browser captures and the complete verification matrix, is recorded under the QS-85 task results directory.</li>
+</ul>
 </main>
 </body>
 </html>

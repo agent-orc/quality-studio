@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
 import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { ReviewHistory } from '../review-history/review-history';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -14,7 +15,7 @@ interface LastFindingMutation {
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [],
+  imports: [ReviewHistory],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,7 +50,8 @@ export class ReviewPanel {
   readonly findingFilter = signal<'active' | FindingState | 'all'>('active');
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
   readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
-  readonly runDrawerOpen = signal(false);
+  readonly runDrawerOpen = signal(typeof location !== 'undefined' &&
+    (new URLSearchParams(location.search).has('history') || new URLSearchParams(location.search).has('compare')));
   readonly selectedRunId = signal<string | null>(null);
   readonly runReport = signal<QualityRunReport | null>(null);
   readonly runTrend = signal<QualityRunTrendPoint[]>([]);
