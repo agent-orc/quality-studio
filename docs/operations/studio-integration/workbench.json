@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "studio-integration",
   "title": "Quality Studio and Agent Studio Integration",
-  "summary": "Decision dossier for converging Quality Studio review semantics with Agent Studio pipelines without merging product identities. It recommends a QS-owned finding envelope and portable change-review provider executed on Studio's existing fenced Review Plane, while Studio retains delivery grading, council policy, deterministic gates, integration, and lane authority. It verifies the current url-preview-embed navigation contract with QS as sender and Studio as the display-only receiver.",
+  "summary": "Decision dossier for converging Quality Studio review semantics with Agent Studio pipelines without merging product identities. It recommends a QS-owned finding envelope and portable change-review provider executed on Studio\u0027s existing fenced Review Plane, while Studio retains delivery grading, council policy, deterministic gates, integration, and lane authority. It verifies the current url-preview-embed navigation contract with QS as sender and Studio as the display-only receiver.",
   "entrypoint": "index.html",
   "status": "decision-pending",
   "phase": "decision-ready",
@@ -18,7 +18,7 @@
     },
     {
       "title": "Export portable no-write Quality Studio change-review evidence",
-      "promptMarkdown": "Implement Slice 2 from docs/operations/studio-integration/index.html in the Quality Studio repository. Extend quality diff with --format json --output <path> while preserving --no-write and exit codes 0/1/2. The artifact must bind base/head, include policy and prompt provenance, usage, deterministic delta, agent judgement status, and shared finding envelopes. With --no-write it must not write .quality/changes or alter the worktree/index. Prove the contract in a temporary real Git fixture, including provider unavailable behavior. Do not add a new HTTP scheduler."
+      "promptMarkdown": "Implement Slice 2 from docs/operations/studio-integration/index.html in the Quality Studio repository. Extend quality diff with --format json --output \u003Cpath\u003E while preserving --no-write and exit codes 0/1/2. The artifact must bind base/head, include policy and prompt provenance, usage, deterministic delta, agent judgement status, and shared finding envelopes. With --no-write it must not write .quality/changes or alter the worktree/index. Prove the contract in a temporary real Git fixture, including provider unavailable behavior. Do not add a new HTTP scheduler."
     },
     {
       "title": "Run Quality Studio change review as shadow evidence in Agent Studio",
@@ -32,5 +32,6 @@
       "title": "Replace the duplicate Studio code-quality aspect with QS evidence",
       "promptMarkdown": "After paired operator review finds no lost blocking code issue or subject mismatch, implement Slice 5 from docs/operations/studio-integration/index.html. Replace only the narrow Studio code-quality aspect with the QS provider result. Retain requirement-fit, tests-and-evidence, documentation-impact, Delivery Grade, council, build/test gates, and integration policy. Route QS findings through Studio orchestration policy so QS never mutates a task directly. Add Open in Quality Studio evidence links using repository/path/kind/fingerprint and a per-project rollback switch for one release window. Prove one code-quality model call is removed and rollback does not rewrite history."
     }
-  ]
+  ],
+  "key": "QS-W6"
 }
