@@ -2,10 +2,16 @@
   "name": "quality-studio",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  },
   "scripts": {
     "start": "node scripts/dev-stack.mjs",
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs",
+    "test:coverage-contract": "node --test tests/check-coverage.test.mjs",
+    "coverage:check": "node scripts/check-coverage.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
     "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs"
   }

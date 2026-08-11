@@ -1,5 +1,6 @@
 using AgentOrchestrator.CodeQuality;
 using System.Diagnostics;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -132,11 +133,12 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "ToolBound")]
     public void CacheReusesGitStateAndInvalidatesOnWorktreeContent()
     {
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, "main.py"), "print(1)\n");
-        RunGit("init", "--quiet");
+        GitTestRepository.Initialize(root);
         var cache = new RepositoryHierarchyCache();
 
         var firstMeasurement = cache.GetMeasured(root);
@@ -175,19 +177,6 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
 
         Assert.Equal(5_000, Flatten([project]).Count(node => node.Level == ReviewLevel.File));
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"5,000-file hierarchy took {stopwatch.Elapsed}.");
-    }
-
-    private void RunGit(params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)

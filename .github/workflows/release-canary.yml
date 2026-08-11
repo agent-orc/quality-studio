@@ -1,0 +1,123 @@
+name: Release canary
+
+on:
+  schedule:
+    - cron: "17 3 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      run_live_review:
+        description: Run the external live review check for review-execution changes
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-studio-release-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Machine, browser, real API, and optional live canary
+    runs-on: [self-hosted, linux, x64, quality-studio-canary]
+    timeout-minutes: 75
+    env:
+      CANARY_RESULTS: ${{ runner.temp }}/quality-studio-canary
+      CHROME_NO_SANDBOX: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10.0.301
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.301
+
+      - name: Set up Node 22.23.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Restore and build release candidate
+        run: |
+          dotnet restore QualityStudio.slnx --locked-mode
+          dotnet build QualityStudio.slnx --configuration Release --no-restore
+          npm --prefix frontend ci
+          npm --prefix frontend run browser:install
+
+      - name: Record controlled-host metadata
+        run: |
+          mkdir -p "$CANARY_RESULTS"
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            echo "kernel=$(uname -srvmo)"
+            echo "dotnet=$(dotnet --version)"
+            echo "node=$(node --version)"
+            echo "npm=$(npm --version)"
+            echo "git=$(git --version)"
+          } > "$CANARY_RESULTS/host-metadata.txt"
+
+      - name: Run three machine-bound .NET samples
+        run: |
+          for sample in 1 2 3; do
+            dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj \
+              --configuration Release --no-build \
+              --filter "Category=MachineBound" \
+              --logger "trx;LogFileName=machine-core-$sample.trx" \
+              --results-directory "$CANARY_RESULTS/dotnet"
+            dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj \
+              --configuration Release --no-build \
+              --filter "Category=MachineBound" \
+              --logger "trx;LogFileName=machine-api-$sample.trx" \
+              --results-directory "$CANARY_RESULTS/dotnet"
+          done
+
+      - name: Start real product stack
+        run: |
+          JOB_RESULTS_DIR="$CANARY_RESULTS/stack" node scripts/dev-stack.mjs > "$CANARY_RESULTS/stack.log" 2>&1 &
+          echo $! > "$CANARY_RESULTS/stack.pid"
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:4200/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$CANARY_RESULTS/stack.log"
+          exit 1
+
+      - name: Run three browser performance samples
+        working-directory: frontend
+        run: |
+          for sample in 1 2 3; do
+            JOB_RESULTS_DIR="$CANARY_RESULTS/browser-$sample" node tests/perf.mjs
+            JOB_RESULTS_DIR="$CANARY_RESULTS/project-switch-$sample" \
+              QS_API_DLL="$GITHUB_WORKSPACE/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll" \
+              node tests/project-switch-perf.mjs
+          done
+
+      - name: Stop real product stack
+        if: always()
+        run: |
+          if test -f "$CANARY_RESULTS/stack.pid"; then kill -TERM "$(cat "$CANARY_RESULTS/stack.pid")" || true; fi
+
+      - name: Run explicitly approved live review check
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review }}
+        env:
+          QUALITY_RUN_LIVE_REVIEW: "1"
+        run: >-
+          dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj
+          --configuration Release --no-build
+          --filter "FullyQualifiedName~LiveReviewIntegrationTests"
+          --logger "trx;LogFileName=live-review.trx"
+          --results-directory "$CANARY_RESULTS/live-review"
+
+      - name: Publish canary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-canary-${{ github.run_id }}
+          path: ${{ runner.temp }}/quality-studio-canary
+          if-no-files-found: error
+          retention-days: 30

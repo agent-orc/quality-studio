@@ -7,9 +7,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class AgentStudioImportTests : IAsyncLifetime
 {
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-import-tests", Guid.NewGuid().ToString("N"));
@@ -90,8 +92,8 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
         Directory.CreateDirectory(hostRoot);
         Directory.CreateDirectory(secondProjectRoot);
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
-        await RunGitInDirectoryAsync(repositoryRoot, "init", "--quiet");
-        await RunGitInDirectoryAsync(secondProjectRoot, "init", "--quiet");
+        await GitTestRepository.InitializeAsync(repositoryRoot);
+        await GitTestRepository.InitializeAsync(secondProjectRoot);
     }
 
     public ValueTask DisposeAsync()
@@ -103,26 +105,6 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
         }
 
         return ValueTask.CompletedTask;
-    }
-
-    private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = workingDirectory,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        process.Start();
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class StubHandler(IReadOnlyList<object> projects) : HttpMessageHandler

@@ -162,6 +162,27 @@ public static class QualityCli
             return args.Length == 0 ? 2 : 0;
         }
 
+        if (string.Equals(args[0], "provision", StringComparison.Ordinal))
+        {
+            if (args.Length != 1)
+            {
+                Console.Error.WriteLine("quality security provision does not accept arguments.");
+                return 2;
+            }
+            try
+            {
+                var path = await new GitleaksBinaryResolver().ResolveAsync(
+                    Environment.GetEnvironmentVariable("QUALITY_GITLEAKS_PATH"));
+                Console.WriteLine($"quality security provision: Gitleaks {GitleaksBinaryResolver.PinnedVersion} ready ({Path.GetFileName(path)})");
+                return 0;
+            }
+            catch (SecurityScannerUnavailableException exception)
+            {
+                Console.Error.WriteLine($"quality security provision failed: {exception.Message}");
+                return 2;
+            }
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown security command: {args[0]}");
@@ -493,10 +514,10 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security provision\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
-        "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
+        "Usage:\n  quality security provision\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private static void PrintBoundariesUsage() => Console.WriteLine(
         "Usage:\n  quality boundaries scan [path]");
