@@ -24,6 +24,28 @@ public sealed class ReviewRunStoreTests
         {
             await using var application = fixture.CreateApplication(fake);
             using var client = application.CreateClient();
+            var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-5",
+                thinkingLevel = "high",
+            }, cancellationToken);
+            estimate.EnsureSuccessStatusCode();
+            var estimateJson = await estimate.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var maxOperationTokens = estimateJson.GetProperty("estimate").GetProperty("maxOperationTokens").GetInt64();
+            using var rejected = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-5",
+                thinkingLevel = "high",
+                tokenCap = maxOperationTokens - 1,
+            }, cancellationToken);
+            Assert.Equal(System.Net.HttpStatusCode.RequestEntityTooLarge, rejected.StatusCode);
+            Assert.Equal(0, fake.OperationCount);
             using var response = await client.PostAsJsonAsync("/api/review", new
             {
                 path = ".",
@@ -31,7 +53,7 @@ public sealed class ReviewRunStoreTests
                 cliType = "test-agent",
                 model = "claude-sonnet-5",
                 thinkingLevel = "high",
-                tokenCap = 5,
+                tokenCap = maxOperationTokens + 5,
             }, cancellationToken);
             response.EnsureSuccessStatusCode();
             var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
@@ -48,12 +70,12 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("skipped", run.GetProperty("aggregateState").GetString());
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "done");
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
-            Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
+            Assert.Contains("remaining run budget", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
             Assert.Equal(1, fake.OperationCount);
 
             using var resume = await client.PostAsJsonAsync(
                 $"/api/review/runs/{accepted.GetProperty("id").GetString()}/resume",
-                new { tokenCap = 100 }, cancellationToken);
+                new { tokenCap = maxOperationTokens * 3 }, cancellationToken);
             resume.EnsureSuccessStatusCode();
             var completed = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
             Assert.Equal(2, completed.GetProperty("completedFiles").GetInt32());

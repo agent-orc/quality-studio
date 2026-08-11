@@ -6,8 +6,9 @@ namespace AgentOrchestrator.CodeQuality;
 
 public sealed partial class ReviewResponseParser
 {
-    public JsonObject Parse(string response)
+    public JsonObject Parse(string response, ReviewContentLimits? contentLimits = null)
     {
+        var limits = (contentLimits ?? ReviewContentLimits.Default).Validate();
         if (string.IsNullOrWhiteSpace(response))
         {
             throw new ReviewResponseException("The agent returned no review response.");
@@ -35,6 +36,8 @@ public sealed partial class ReviewResponseParser
         RequireString(root, "summary");
         var aspects = RequireArray(root, "aspects");
         var findings = RequireArray(root, "findings");
+        if (findings.Count > limits.MaxFindings)
+            throw new ReviewResponseException($"The response exceeds the {limits.MaxFindings}-finding limit.");
         if (aspects.Count == 0)
         {
             throw new ReviewResponseException("At least one review aspect is required.");
@@ -108,6 +111,8 @@ public sealed partial class ReviewResponseParser
 
         if (root["threadUpdates"] is JsonArray updates)
         {
+            if (updates.Count > limits.MaxThreads)
+                throw new ReviewResponseException($"The response exceeds the {limits.MaxThreads}-thread update limit.");
             var threadIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var updateNode in updates)
             {
@@ -123,7 +128,20 @@ public sealed partial class ReviewResponseParser
             }
         }
 
+        ValidateTextFields(root, limits.MaxTextFieldCharacters);
+
         return root;
+    }
+
+    private static void ValidateTextFields(JsonNode node, int maximumCharacters)
+    {
+        if (node is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > maximumCharacters)
+            throw new ReviewResponseException(
+                $"A review response text field exceeds the {maximumCharacters}-character limit.");
+        if (node is JsonObject objectValue)
+            foreach (var child in objectValue) if (child.Value is not null) ValidateTextFields(child.Value, maximumCharacters);
+        if (node is JsonArray arrayValue)
+            foreach (var child in arrayValue) if (child is not null) ValidateTextFields(child, maximumCharacters);
     }
 
     private static void ValidateGrade(JsonObject grade)

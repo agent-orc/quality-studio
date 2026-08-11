@@ -18,6 +18,8 @@ public sealed class RepositoryOptions
 
     public ApiSecurityOptions Security { get; set; } = new();
 
+    public AgentOrchestrator.CodeQuality.ReviewContentLimits ContentLimits { get; set; } = new();
+
     public List<AnalyzerProfileOptions> AnalyzerProfiles { get; set; } = [];
 }
 
@@ -32,6 +34,8 @@ public sealed class ApiSecurityOptions
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
     public bool CommandBackedAnalyzersEnabled { get; set; }
+    public string Audience { get; set; } = "quality-studio-api";
+    public string? RevocationFile { get; set; }
     public List<ApiClientOptions> Clients { get; set; } = [];
 }
 
@@ -49,7 +53,10 @@ public sealed class AnalyzerProfileOptions
 public sealed class ApiClientOptions
 {
     public string Id { get; set; } = string.Empty;
+    public string KeyId { get; set; } = string.Empty;
     public string CredentialSha256 { get; set; } = string.Empty;
+    public string Audience { get; set; } = string.Empty;
+    public DateTimeOffset? ExpiresAt { get; set; }
     public string[] Repositories { get; set; } = [];
-    public bool CanRegisterRepositories { get; set; }
+    public string[] Roles { get; set; } = [];
 }

@@ -94,12 +94,14 @@ public interface IReviewExecutorFactory
 
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
-    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
+    StalenessEvaluator stalenessEvaluator,
+    IOptions<RepositoryOptions> repositoryOptions) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
-                cliType, model, thinkingLevel, eventObserver: eventObserver),
+                cliType, model, thinkingLevel, eventObserver: eventObserver,
+                maxResponseBytes: repositoryOptions.Value.ContentLimits.Validate().MaxResponseBytes),
             usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
@@ -136,11 +138,13 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private readonly ReviewContentLimits contentLimits;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
-        AnalyzerProfileRegistry analyzerProfiles, ReviewModelCatalog modelCatalog)
+        AnalyzerProfileRegistry analyzerProfiles, ReviewModelCatalog modelCatalog,
+        IOptions<RepositoryOptions> repositoryOptions)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -152,6 +156,7 @@ public sealed class ReviewJobService : BackgroundService
         this.sensorRegistry = sensorRegistry;
         this.analyzerProfiles = analyzerProfiles;
         this.modelCatalog = modelCatalog;
+        contentLimits = repositoryOptions.Value.ContentLimits.Validate();
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -174,13 +179,15 @@ public sealed class ReviewJobService : BackgroundService
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
+        EnsureOperationFitsBudget(estimate, tokenCap, costCap);
 
         var runId = "review-" + Guid.NewGuid().ToString("N");
         var targets = new List<ReviewRunPlanTarget>(files.Length);
         foreach (var file in files)
         {
             var subjectHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
-                access.ResolveFile(file.Path), cancellationToken).ConfigureAwait(false);
+                access.ResolveFile(file.Path), cancellationToken, access.Root, contentLimits.MaxFileBytes)
+                .ConfigureAwait(false);
             targets.Add(new ReviewRunPlanTarget(file.Id, file.Name, file.Path, subjectHash));
         }
 
@@ -234,6 +241,7 @@ public sealed class ReviewJobService : BackgroundService
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
+        EnsureOperationFitsBudget(estimate, tokenCap, costCap);
         return new ReviewPreflightResponse(plan.Registration.Id, plan.Node.Path,
             plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, selection.ThinkingLevel,
             cliType, estimate, tokenCap, costCap, recommendation, belowFloor);
@@ -269,14 +277,14 @@ public sealed class ReviewJobService : BackgroundService
         foreach (var file in plan.Files)
         {
             measurements.Add(await promptRunner.MeasurePromptAsync(
-                CreateEstimateRequest(plan, file, ReviewLevel.File, [file.Path], kind), cancellationToken)
+                CreateEstimateRequest(plan, file, ReviewLevel.File, [file.Path], kind, contentLimits), cancellationToken)
                 .ConfigureAwait(false));
         }
         if (plan.Node.Level != ReviewLevel.File)
         {
             measurements.Add(await promptRunner.MeasurePromptAsync(
                 CreateEstimateRequest(plan, plan.Node, plan.Node.Level,
-                    plan.Files.Select(file => file.Path).ToArray(), kind), cancellationToken).ConfigureAwait(false));
+                    plan.Files.Select(file => file.Path).ToArray(), kind, contentLimits), cancellationToken).ConfigureAwait(false));
         }
 
         var history = await UsageLedger.QueryAsync(plan.Registration.RootPath, kind: kind, recentLimit: 200,
@@ -299,6 +307,19 @@ public sealed class ReviewJobService : BackgroundService
         var inputTokens = measurements.Sum(measurement => (long)Math.Ceiling(measurement.Characters / 4m));
         var outputTokens = measurements.Sum(measurement =>
             Math.Max(1L, (long)Math.Ceiling(Math.Ceiling(measurement.Characters / 4m) * outputRatio)));
+        var operationTokens = measurements.Select(measurement =>
+        {
+            var operationInput = (long)Math.Ceiling(measurement.Characters / 4m);
+            var operationOutput = Math.Max(1L, (long)Math.Ceiling(operationInput * outputRatio));
+            return operationInput + operationOutput;
+        }).ToArray();
+        var operationCosts = operationTokens.Select((_, index) =>
+        {
+            var operationInput = (long)Math.Ceiling(measurements[index].Characters / 4m);
+            var operationOutput = Math.Max(1L, (long)Math.Ceiling(operationInput * outputRatio));
+            return prices.ComputeCost(model ?? "runner-default",
+                new PricingTokenUsage(operationInput, operationOutput, 0, 0), DateTime.UtcNow).Total;
+        }).ToArray();
         var cost = prices.ComputeCost(model ?? "runner-default",
             new PricingTokenUsage(inputTokens, outputTokens, 0, 0), DateTime.UtcNow);
         var reviewKind = Enum.Parse<ReviewKind>(kind, ignoreCase: true);
@@ -309,12 +330,26 @@ public sealed class ReviewJobService : BackgroundService
             samples.Length == 0
                 ? "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
                 : $"Input is actual rendered prompt characters / 4; output uses {samples.Length} recorded .quality/usage operation(s).",
-            expectedFreshSkips
+            expectedFreshSkips,
+            operationTokens.DefaultIfEmpty().Max(),
+            operationCosts.All(value => value.HasValue) ? operationCosts.Max(value => value!.Value) : null
         );
     }
 
+    private static void EnsureOperationFitsBudget(
+        ReviewRunEstimate estimate, long? tokenCap, decimal? costCap)
+    {
+        if (tokenCap.HasValue && estimate.MaxOperationTokens > tokenCap.Value)
+            throw new ReviewContentLimitException(
+                $"One review operation requires an estimated {estimate.MaxOperationTokens:N0} tokens, above the {tokenCap.Value:N0}-token run cap.");
+        if (costCap.HasValue && estimate.MaxOperationCost.HasValue && estimate.MaxOperationCost.Value > costCap.Value)
+            throw new ReviewContentLimitException(
+                $"One review operation has an estimated cost of {estimate.MaxOperationCost.Value:0.####}, above the {costCap.Value:0.####} run cap.");
+    }
+
     private static ReviewRequest CreateEstimateRequest(
-        PreparedPlan plan, HierarchyNode node, ReviewLevel level, IReadOnlyList<string> files, string kind) =>
+        PreparedPlan plan, HierarchyNode node, ReviewLevel level, IReadOnlyList<string> files, string kind,
+        ReviewContentLimits contentLimits) =>
         new(node.Path, kind, level,
             RepositoryRoot: plan.Registration.RootPath,
             GlobalInputsDirectory: plan.Registration.GlobalInputsDirectory,
@@ -326,7 +361,8 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : plan.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: AggregateControls(plan.Node),
-            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions);
+            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions,
+            ContentLimits: contentLimits);
 
     private static (long? TokenCap, decimal? CostCap) ResolveCap(
         RepositoryRegistration registration, long? requestedTokens, decimal? requestedCost)
@@ -467,7 +503,7 @@ public sealed class ReviewJobService : BackgroundService
             {
                 foreach (var file in item.PendingFiles())
                 {
-                    if (item.TryStopAtCap()) break;
+                    if (item.TryStopBeforeOperation()) break;
                     await RunFileAsync(item, file, linked.Token).ConfigureAwait(false);
                     if (item.TryStopAtCap()) break;
                 }
@@ -485,7 +521,7 @@ public sealed class ReviewJobService : BackgroundService
 
             if (item.State == "running" && item.Node.Level != ReviewLevel.File)
             {
-                if (!item.TryStopAtCap())
+                if (!item.TryStopBeforeOperation())
                 {
                     if (item.StartAggregate())
                     {
@@ -596,7 +632,8 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, analyzerProfiles.Resolve(sensor)))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            ContentLimits: contentLimits);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -882,24 +919,58 @@ public sealed class ReviewJobService : BackgroundService
                 var hasRemainingFiles = progress.Values.Any(file => file.State == "queued");
                 var hasAggregate = aggregateState == "queued";
                 if (!hasRemainingFiles && !hasAggregate) return false;
-                state = "capped";
-                FinishedAt = DateTimeOffset.UtcNow;
-                stopReason = costCap.HasValue && costSpent is null
+                var reason = costCap.HasValue && costSpent is null
                     ? $"Cost cap enforcement stopped because actual model pricing is unavailable ({priceStatus}). Resume with a token cap."
                     : tokenCap.HasValue
                     ? $"Token cap of {tokenCap.Value:N0} reached after {ConsumedTokens():N0} tokens."
                     : $"Cost cap of {costCap!.Value:0.####} {currency ?? "USD"} reached after {costSpent:0.####} {currency ?? "USD"}.";
-                foreach (var file in progress.Values.Where(file => file.State == "queued"))
-                {
-                    file.State = "skipped";
-                    file.FinishedAt = FinishedAt;
-                    file.Error = stopReason;
-                    AppendProgress(file);
-                }
-                if (aggregateState == "queued") aggregateState = "skipped";
-                PersistStatus();
+                StopForBudgetCore(reason);
                 return true;
             }
+        }
+
+        public bool TryStopBeforeOperation()
+        {
+            lock (gate)
+            {
+                if (state != "running") return state == "capped";
+                var estimate = manifest.Estimate;
+                if (estimate is null) return TryStopAtCap();
+                var remainingTokens = tokenCap.HasValue ? tokenCap.Value - ConsumedTokens() : long.MaxValue;
+                var remainingCost = costCap.HasValue && costSpent.HasValue
+                    ? costCap.Value - costSpent.Value
+                    : decimal.MaxValue;
+                if (tokenCap.HasValue && estimate.MaxOperationTokens > remainingTokens)
+                {
+                    StopForBudgetCore(
+                        $"The next operation needs up to {estimate.MaxOperationTokens:N0} estimated tokens, above the {Math.Max(0, remainingTokens):N0} remaining run budget.");
+                    return true;
+                }
+                if (costCap.HasValue && estimate.MaxOperationCost.HasValue &&
+                    estimate.MaxOperationCost.Value > remainingCost)
+                {
+                    StopForBudgetCore(
+                        $"The next operation has an estimated cost of {estimate.MaxOperationCost.Value:0.####}, above the {Math.Max(0, remainingCost):0.####} remaining run budget.");
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        private void StopForBudgetCore(string reason)
+        {
+            state = "capped";
+            FinishedAt = DateTimeOffset.UtcNow;
+            stopReason = reason;
+            foreach (var file in progress.Values.Where(file => file.State == "queued"))
+            {
+                file.State = "skipped";
+                file.FinishedAt = FinishedAt;
+                file.Error = stopReason;
+                AppendProgress(file);
+            }
+            if (aggregateState == "queued") aggregateState = "skipped";
+            PersistStatus();
         }
 
         public bool Complete()

@@ -24,7 +24,8 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    ReviewContentLimits? ContentLimits = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -86,10 +87,12 @@ public sealed class ReviewRunner
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
-                metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
+                metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken, root)
+                .ConfigureAwait(false);
             if (freshness.IsFresh) return new ReviewExecutionResult(true, null);
         }
         var startedAt = DateTimeOffset.UtcNow;
+        var limits = (request.ContentLimits ?? ReviewContentLimits.Default).Validate();
         var stopwatch = Stopwatch.StartNew();
         QualityStudioEventSource.Log.ReviewStarted(relativePath, request.Kind, _agent.AgentName);
         try
@@ -116,7 +119,10 @@ public sealed class ReviewRunner
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
                 agentResult.EffectiveModel, startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
-            var response = _responseParser.Parse(agentResult.Response);
+            if (Encoding.UTF8.GetByteCount(agentResult.Response) > limits.MaxResponseBytes)
+                throw new ReviewResponseException(
+                    $"The agent response exceeds the {limits.MaxResponseBytes}-byte limit.");
+            var response = _responseParser.Parse(agentResult.Response, limits);
             ReviewOutputRedactor.Redact(response);
             if (request.Level == ReviewLevel.Project &&
                 string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
@@ -133,7 +139,8 @@ public sealed class ReviewRunner
                 throw new ReviewRunException("The review target changed while the agent was reviewing it; no metadata was written.");
             }
 
-            var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, cancellationToken).ConfigureAwait(false);
+            var subjectContents = await ReadSubjectContentsAsync(root, subjectPaths, files, limits, cancellationToken)
+                .ConfigureAwait(false);
             if (request.Kind == "security")
             {
                 SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
@@ -149,10 +156,10 @@ public sealed class ReviewRunner
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var previousFindings = LoadFindingIdentities(metaPath);
+                var previousFindings = LoadFindingIdentities(root, metaPath, limits);
                 await new FindingStateStore(root).MergeReviewAsync(
                     findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
-                threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
+                threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent, root, limits);
                 ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
                 ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
                 var meta = CreateMeta(
@@ -175,9 +182,13 @@ public sealed class ReviewRunner
                     deterministicEvidence);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+                var serialized = meta.ToJsonString(JsonOptions) + Environment.NewLine;
+                if (Encoding.UTF8.GetByteCount(serialized) > limits.MaxSidecarBytes)
+                    throw new ReviewContentLimitException(
+                        $"Review metadata exceeds the {limits.MaxSidecarBytes}-byte sidecar limit.");
                 await File.WriteAllTextAsync(
                     temporaryPath,
-                    meta.ToJsonString(JsonOptions) + Environment.NewLine,
+                    serialized,
                     new UTF8Encoding(false),
                     cancellationToken).ConfigureAwait(false);
                 File.Move(temporaryPath, metaPath, true);
@@ -209,6 +220,7 @@ public sealed class ReviewRunner
 
     private async Task<PreparedPrompt> PreparePromptAsync(ReviewRequest request, CancellationToken cancellationToken)
     {
+        var limits = (request.ContentLimits ?? ReviewContentLimits.Default).Validate();
         var root = Path.GetFullPath(request.RepositoryRoot ?? Directory.GetCurrentDirectory());
         var relativePath = NormalizeRelativePath(root, request.FilePath);
         string[] subjectPaths = request.Level == ReviewLevel.File
@@ -217,12 +229,24 @@ public sealed class ReviewRunner
               ?? [];
         if (subjectPaths.Length == 0)
             throw new ArgumentException("An aggregate review requires at least one descendant file.", nameof(request));
+        if (request.Level != ReviewLevel.File && subjectPaths.Length > limits.MaxAggregateFiles)
+            throw new ReviewContentLimitException(
+                $"Aggregate review exceeds the {limits.MaxAggregateFiles}-file limit.");
 
         var files = subjectPaths.Select(path => Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar))).ToArray();
         foreach (var file in files)
         {
             EnsureContained(root, file);
             if (!File.Exists(file)) throw new FileNotFoundException("Review target does not exist.", file);
+        }
+
+        long aggregateBytes = 0;
+        foreach (var file in files)
+        {
+            aggregateBytes = checked(aggregateBytes + BoundedRepositoryFile.Length(root, file, limits.MaxFileBytes));
+            if (request.Level != ReviewLevel.File && aggregateBytes > limits.MaxAggregateBytes)
+                throw new ReviewContentLimitException(
+                    $"Aggregate review exceeds the {limits.MaxAggregateBytes}-byte limit.");
         }
 
         var scope = RepositoryScope.Load(root);
@@ -234,15 +258,16 @@ public sealed class ReviewRunner
                     $"Review target '{subjectPaths[index]}' is excluded: {decision.Reason}", nameof(request));
         }
 
-        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
+        var fileContent = await BuildSubjectContentAsync(root, subjectPaths, files, request.Level, limits, cancellationToken)
+            .ConfigureAwait(false);
         var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+            request.GlobalInputsDirectory, request.InputBudgetCharacters, limits);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
         var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
             ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
         var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
-        var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
+        var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent, root, limits);
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
             .Where(thread => thread["status"]?.GetValue<string>() == "open")
             .Select(thread => (JsonNode)thread.DeepClone()).ToArray());
@@ -262,6 +287,12 @@ public sealed class ReviewRunner
             request.Level,
             coverageEvidence,
             DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
+        if (Encoding.UTF8.GetByteCount(prompt) > limits.MaxPromptBytes)
+            throw new ReviewContentLimitException($"Rendered prompt exceeds the {limits.MaxPromptBytes}-byte limit.");
+        var estimatedPromptTokens = (prompt.Length + 3L) / 4L;
+        if (estimatedPromptTokens > limits.MaxPromptTokens)
+            throw new ReviewContentLimitException(
+                $"Rendered prompt exceeds the {limits.MaxPromptTokens}-token estimate limit.");
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
             prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
@@ -360,7 +391,8 @@ public sealed class ReviewRunner
                 ["path"] = relativePath,
                 ["displayName"] = displayName ?? Path.GetFileName(relativePath),
             },
-            ["reviewedAt"] = DateTime.UtcNow.ToString("O"),
+            ["reviewedAt"] = DateTimeOffset.UtcNow.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture),
             ["kind"] = kind,
             ["reviewer"] = reviewer,
             ["reviewedHash"] = new JsonObject
@@ -461,32 +493,49 @@ public sealed class ReviewRunner
     }
 
     private static async Task<string> BuildSubjectContentAsync(
-        IReadOnlyList<string> paths, IReadOnlyList<string> files, ReviewLevel level, CancellationToken cancellationToken)
+        string root,
+        IReadOnlyList<string> paths,
+        IReadOnlyList<string> files,
+        ReviewLevel level,
+        ReviewContentLimits limits,
+        CancellationToken cancellationToken)
     {
-        if (level == ReviewLevel.File) return await File.ReadAllTextAsync(files[0], cancellationToken).ConfigureAwait(false);
+        if (level == ReviewLevel.File)
+            return await BoundedRepositoryFile.ReadAllTextAsync(root, files[0], limits.MaxFileBytes, cancellationToken)
+                .ConfigureAwait(false);
         var builder = new StringBuilder();
         for (var index = 0; index < files.Count; index++)
         {
             builder.AppendLine($"\n--- {paths[index]} ---");
-            builder.AppendLine(await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false));
+            builder.AppendLine(await BoundedRepositoryFile.ReadAllTextAsync(
+                root, files[index], limits.MaxFileBytes, cancellationToken).ConfigureAwait(false));
         }
         return builder.ToString();
     }
 
     private static async Task<IReadOnlyDictionary<string, string>> ReadSubjectContentsAsync(
-        IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
+        string root,
+        IReadOnlyList<string> paths,
+        IReadOnlyList<string> files,
+        ReviewContentLimits limits,
+        CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var index = 0; index < files.Count; index++)
-            result[paths[index]] = await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false);
+            result[paths[index]] = await BoundedRepositoryFile.ReadAllTextAsync(
+                root, files[index], limits.MaxFileBytes, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
-    private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(string metaPath)
+    private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(
+        string root, string metaPath, ReviewContentLimits limits)
     {
         if (!File.Exists(metaPath)) return [];
-        var root = JsonNode.Parse(File.ReadAllText(metaPath))?.AsObject();
-        return root?["findings"]?.AsArray().OfType<JsonObject>().Select(finding => new FindingIdentityRecord(
+        var metadata = JsonNode.Parse(BoundedRepositoryFile.ReadAllText(root, metaPath, limits.MaxSidecarBytes))?.AsObject();
+        var findings = metadata?["findings"]?.AsArray();
+        if (findings is { Count: > 0 } && findings.Count > limits.MaxFindings)
+            throw new ReviewContentLimitException($"Review metadata exceeds the {limits.MaxFindings}-finding limit.");
+        return findings?.OfType<JsonObject>().Select(finding => new FindingIdentityRecord(
             finding["fingerprint"]?.GetValue<string>() ?? string.Empty,
             finding["id"]?.GetValue<string>() ?? string.Empty,
             finding["locations"]?.AsArray().OfType<JsonObject>().FirstOrDefault()?["path"]?.GetValue<string>() ?? string.Empty,
@@ -495,13 +544,18 @@ public sealed class ReviewRunner
     }
 
     private static async Task<IReadOnlyList<SubjectInputHash>> HashInputsAsync(
-        IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
+        string root,
+        IReadOnlyList<string> paths,
+        IReadOnlyList<string> files,
+        ReviewContentLimits limits,
+        CancellationToken cancellationToken)
     {
         var result = new SubjectInputHash[files.Count];
         for (var index = 0; index < files.Count; index++)
         {
             result[index] = new SubjectInputHash(paths[index], "file",
-                await ReviewSubjectHasher.ComputeFileContentHashAsync(files[index], cancellationToken).ConfigureAwait(false));
+                await ReviewSubjectHasher.ComputeFileContentHashAsync(
+                    files[index], cancellationToken, root, limits.MaxFileBytes).ConfigureAwait(false));
         }
         return result;
     }
@@ -510,7 +564,8 @@ public sealed class ReviewRunner
         string root, string relativePath, string unitId, ReviewRequest request,
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
-        var fileInputs = await HashInputsAsync(paths, files, cancellationToken).ConfigureAwait(false);
+        var limits = (request.ContentLimits ?? ReviewContentLimits.Default).Validate();
+        var fileInputs = await HashInputsAsync(root, paths, files, limits, cancellationToken).ConfigureAwait(false);
         if (request.Level == ReviewLevel.File) return new PreparedSubject(fileInputs, null, null);
 
         var units = request.SubjectUnits?.ToDictionary(unit => unit.Path, StringComparer.Ordinal);
@@ -532,7 +587,9 @@ public sealed class ReviewRunner
             var normalized = NormalizeRelativePath(root, controlPath);
             var controlFile = Path.Combine(root, normalized.Replace('/', Path.DirectorySeparatorChar));
             if (File.Exists(controlFile))
-                aggregateInputs.Add(new(normalized, "aggregate-control", await ReviewSubjectHasher.ComputeFileContentHashAsync(controlFile, cancellationToken).ConfigureAwait(false)));
+                aggregateInputs.Add(new(normalized, "aggregate-control",
+                    await ReviewSubjectHasher.ComputeFileContentHashAsync(
+                        controlFile, cancellationToken, root, limits.MaxFileBytes).ConfigureAwait(false)));
         }
         return new PreparedSubject(aggregateInputs, members, request.AggregateExclusions ?? []);
     }
