@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using AgentOrchestrator.CodeQuality;
 
@@ -51,7 +52,23 @@ public sealed record ProjectStructuralMetricsResponse(
     IReadOnlyList<ProjectDistributionBucketResponse> FileSizeDistribution,
     IReadOnlyList<ProjectDistributionBucketResponse> FolderSizeDistribution,
     IReadOnlyList<ProjectDuplicationCandidateResponse> DuplicationCandidates,
-    IReadOnlyList<ProjectDependencyEdgeResponse> DependencyEdges);
+    IReadOnlyList<ProjectDependencyEdgeResponse> DependencyEdges,
+    ProjectComplexityMetricsResponse Complexity);
+
+public sealed record ProjectComplexityMetricsResponse(
+    IReadOnlyDictionary<string, int> Thresholds,
+    IReadOnlyList<ProjectDistributionBucketResponse> BreachDistribution,
+    IReadOnlyList<ProjectComplexityBreachResponse> TopBreaches);
+
+public sealed record ProjectComplexityBreachResponse(
+    string Path,
+    int Line,
+    string Symbol,
+    string RuleId,
+    int Value,
+    int Threshold,
+    int Excess,
+    string Fingerprint);
 
 public sealed record ProjectLanguageMetricResponse(
     string Language, int Files, int Lines, long Bytes, string Path);
@@ -86,17 +103,37 @@ public sealed class ProjectDashboardService
     private static readonly IReadOnlyDictionary<string, string> Languages =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            [".cs"] = "C#", [".fs"] = "F#", [".vb"] = "Visual Basic",
-            [".ts"] = "TypeScript", [".tsx"] = "TypeScript",
-            [".js"] = "JavaScript", [".jsx"] = "JavaScript",
-            [".py"] = "Python", [".java"] = "Java", [".kt"] = "Kotlin",
-            [".go"] = "Go", [".rs"] = "Rust", [".cpp"] = "C++", [".cc"] = "C++",
-            [".c"] = "C", [".h"] = "C/C++ header", [".hpp"] = "C/C++ header",
-            [".rb"] = "Ruby", [".php"] = "PHP", [".swift"] = "Swift",
-            [".html"] = "HTML", [".css"] = "CSS", [".scss"] = "SCSS",
-            [".sql"] = "SQL", [".sh"] = "Shell", [".ps1"] = "PowerShell",
-            [".json"] = "JSON", [".xml"] = "XML", [".yml"] = "YAML",
-            [".yaml"] = "YAML", [".md"] = "Markdown",
+            [".cs"] = "C#",
+            [".fs"] = "F#",
+            [".vb"] = "Visual Basic",
+            [".ts"] = "TypeScript",
+            [".tsx"] = "TypeScript",
+            [".js"] = "JavaScript",
+            [".jsx"] = "JavaScript",
+            [".py"] = "Python",
+            [".java"] = "Java",
+            [".kt"] = "Kotlin",
+            [".go"] = "Go",
+            [".rs"] = "Rust",
+            [".cpp"] = "C++",
+            [".cc"] = "C++",
+            [".c"] = "C",
+            [".h"] = "C/C++ header",
+            [".hpp"] = "C/C++ header",
+            [".rb"] = "Ruby",
+            [".php"] = "PHP",
+            [".swift"] = "Swift",
+            [".html"] = "HTML",
+            [".css"] = "CSS",
+            [".scss"] = "SCSS",
+            [".sql"] = "SQL",
+            [".sh"] = "Shell",
+            [".ps1"] = "PowerShell",
+            [".json"] = "JSON",
+            [".xml"] = "XML",
+            [".yml"] = "YAML",
+            [".yaml"] = "YAML",
+            [".md"] = "Markdown",
         };
 
     private static readonly HashSet<string> TextExtensions =
@@ -116,7 +153,7 @@ public sealed class ProjectDashboardService
     {
         var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var key = root + "\0" + snapshot.GitState;
+        var key = root + "\0" + snapshot.GitState + "\0" + ComplexityEvidenceCacheKey(root);
         if (cache.TryGetValue(key, out var cached))
         {
             return new ProjectDashboardMeasurement(
@@ -177,7 +214,7 @@ public sealed class ProjectDashboardService
             hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
             hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
         var dependencies = BuildDependencyEdges(root, hierarchy);
-        var metrics = BuildStructuralMetrics(repositoryFiles, dependencies, navigationPaths, projectPath);
+        var metrics = BuildStructuralMetrics(root, repositoryFiles, dependencies, navigationPaths, projectPath);
         var churn = ReadGitChurn(root);
         var hotspots = BuildHotspots(hierarchyFiles, churn);
 
@@ -292,6 +329,7 @@ public sealed class ProjectDashboardService
         : node.Documents.Count > 0 ? "fresh" : "missing";
 
     private static ProjectStructuralMetricsResponse BuildStructuralMetrics(
+        string root,
         IReadOnlyList<FileMetric> files,
         IReadOnlyList<ProjectDependencyEdgeResponse> dependencies,
         IReadOnlySet<string> navigationPaths,
@@ -343,7 +381,156 @@ public sealed class ProjectDashboardService
             Distribution(files.Select(file => file.Bytes)),
             Distribution(folders.Values),
             duplicates,
-            dependencies);
+            dependencies,
+            ReadComplexityMetrics(root));
+    }
+
+    private static ProjectComplexityMetricsResponse ReadComplexityMetrics(string root)
+    {
+        var thresholds = ReadComplexityThresholds(root);
+        var results = LatestPreflightResults(root);
+        if (results is null)
+            return new ProjectComplexityMetricsResponse(thresholds, [], []);
+
+        var breaches = new List<ProjectComplexityBreachResponse>();
+        foreach (var result in results.Value.EnumerateArray())
+        {
+            if (!result.TryGetProperty("findings", out var findings) || findings.ValueKind != JsonValueKind.Array)
+                continue;
+            foreach (var finding in findings.EnumerateArray())
+            {
+                var ruleId = finding.TryGetProperty("ruleId", out var rule) ? rule.GetString() : null;
+                if (ruleId is null || !thresholds.TryGetValue(ruleId, out var threshold)) continue;
+                var description = finding.TryGetProperty("description", out var descriptionElement)
+                    ? descriptionElement.GetString() ?? string.Empty : string.Empty;
+                var value = MetricValue(ruleId, description);
+                if (value is null || !IsMetricBreach(ruleId, value.Value, threshold)) continue;
+                var location = finding.TryGetProperty("locations", out var locations) &&
+                               locations.ValueKind == JsonValueKind.Array
+                    ? locations.EnumerateArray().FirstOrDefault() : default;
+                var path = location.ValueKind == JsonValueKind.Object &&
+                           location.TryGetProperty("path", out var pathElement)
+                    ? pathElement.GetString() ?? "." : ".";
+                var line = location.ValueKind == JsonValueKind.Object &&
+                           location.TryGetProperty("range", out var range) &&
+                           range.ValueKind == JsonValueKind.Object &&
+                           range.TryGetProperty("start", out var start) &&
+                           start.ValueKind == JsonValueKind.Object &&
+                           start.TryGetProperty("line", out var lineElement)
+                    ? lineElement.GetInt32() : 1;
+                var title = finding.TryGetProperty("title", out var titleElement)
+                    ? titleElement.GetString() ?? ruleId : ruleId;
+                var symbol = MetricSymbol(description) ?? title;
+                var fingerprint = finding.TryGetProperty("fingerprint", out var fingerprintElement)
+                    ? fingerprintElement.GetString() ?? string.Empty : string.Empty;
+                breaches.Add(new ProjectComplexityBreachResponse(
+                    path, line, symbol, ruleId, value.Value, threshold,
+                    MetricExcess(ruleId, value.Value, threshold), fingerprint));
+            }
+        }
+
+        var ordered = breaches
+            .OrderByDescending(breach => breach.Excess)
+            .ThenBy(breach => breach.Path, StringComparer.Ordinal)
+            .ThenBy(breach => breach.Line)
+            .ToArray();
+        var distribution = ordered
+            .GroupBy(breach => $"{breach.RuleId} · {ComplexityBand(breach.RuleId, breach.Value, breach.Threshold)}", StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new ProjectDistributionBucketResponse(group.Key, group.Count()))
+            .ToArray();
+        return new ProjectComplexityMetricsResponse(thresholds, distribution, ordered.Take(25).ToArray());
+    }
+
+    private static IReadOnlyDictionary<string, int> ReadComplexityThresholds(string root)
+    {
+        var thresholds = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["CA1502"] = 25,
+            ["CA1505"] = 20,
+            ["complexity"] = 18,
+        };
+        var path = Path.Combine(root, "CodeMetricsConfig.txt");
+        if (!File.Exists(path)) return thresholds;
+        foreach (var line in File.ReadLines(path))
+        {
+            var match = Regex.Match(line, @"^\s*(?<rule>CA150[25])\s*:\s*(?<value>\d+)\s*$",
+                RegexOptions.CultureInvariant);
+            if (match.Success)
+                thresholds[match.Groups["rule"].Value] =
+                    int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture);
+        }
+        return thresholds;
+    }
+
+    private static JsonElement? LatestPreflightResults(string root)
+    {
+        var runs = Path.Combine(root, ".quality", "runs");
+        if (!Directory.Exists(runs)) return null;
+        var path = Directory.EnumerateFiles(runs, "preflight.json", SearchOption.AllDirectories)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (path is null) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            return document.RootElement.TryGetProperty("results", out var results) &&
+                   results.ValueKind == JsonValueKind.Array
+                ? results.Clone() : null;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static string ComplexityEvidenceCacheKey(string root)
+    {
+        var runs = Path.Combine(root, ".quality", "runs");
+        if (!Directory.Exists(runs)) return "none";
+        var latest = Directory.EnumerateFiles(runs, "preflight.json", SearchOption.AllDirectories)
+            .Select(path => new FileInfo(path))
+            .OrderByDescending(file => file.LastWriteTimeUtc)
+            .FirstOrDefault();
+        return latest is null ? "none" : $"{latest.LastWriteTimeUtc.Ticks}:{latest.Length}";
+    }
+
+    private static int? MetricValue(string ruleId, string description)
+    {
+        var pattern = ruleId switch
+        {
+            "complexity" => @"complexity\s+of\s+(?<value>\d+)",
+            "CA1505" => @"maintainability\s+index\s+of\s+'(?<value>\d+)'",
+            _ => @"complexity\s+of\s+'(?<value>\d+)'",
+        };
+        var match = Regex.Match(description, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success
+            ? int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture)
+            : null;
+    }
+
+    private static string? MetricSymbol(string description)
+    {
+        var match = Regex.Match(description, @"(?:^(?:The\s+)?|(?:method|type|function)\s+)'(?<symbol>[^']+)'",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["symbol"].Value : null;
+    }
+
+    private static bool IsMetricBreach(string ruleId, int value, int threshold) =>
+        ruleId == "CA1505" ? value < threshold : value > threshold;
+
+    private static int MetricExcess(string ruleId, int value, int threshold) =>
+        ruleId == "CA1505" ? threshold - value : value - threshold;
+
+    private static string ComplexityBand(string ruleId, int value, int threshold)
+    {
+        if (ruleId == "CA1505")
+        {
+            var midpoint = Math.Max(1, threshold / 2);
+            return value < midpoint ? $"< {midpoint}" : $"{midpoint}–{threshold - 1}";
+        }
+        var moderate = threshold + Math.Max(5, threshold / 2);
+        return value <= moderate ? $"{threshold + 1}–{moderate}" : $"> {moderate}";
     }
 
     private static IReadOnlyList<ProjectDistributionBucketResponse> Distribution(IEnumerable<long> values)
@@ -543,7 +730,11 @@ public sealed class ProjectDashboardService
 
     private static string Band(int score) => score switch
     {
-        >= 90 => "A", >= 80 => "B", >= 70 => "C", >= 60 => "D", _ => "F",
+        >= 90 => "A",
+        >= 80 => "B",
+        >= 70 => "C",
+        >= 60 => "D",
+        _ => "F",
     };
 
     private static int? ParseInt(string? value) =>

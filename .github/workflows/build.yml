@@ -21,17 +21,47 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
       - name: Restore
         run: dotnet restore QualityStudio.slnx
 
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
       - name: Build
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
       - name: Test
         run: dotnet test QualityStudio.slnx --configuration Release --no-build
+
+      - name: TypeScript compiler
+        run: node frontend/node_modules/typescript/bin/tsc --noEmit --project frontend/tsconfig.app.json
+
+      - name: Angular template compiler
+        run: node frontend/node_modules/@angular/compiler-cli/bundles/src/bin/ngc.js --project frontend/tsconfig.app.json
+
+      - name: Angular production budget
+        run: npm --prefix frontend run build -- --configuration production --no-progress
+
+      - name: Frontend tests
+        run: npm --prefix frontend test
+
+      - name: Static-analysis new-debt gate
+        run: npm run static:check
+
+      - name: Dependency audit
+        run: |
+          dotnet list QualityStudio.slnx package --vulnerable --include-transitive
+          npm audit --prefix frontend --audit-level=critical
 
       - name: Security scan
         run: dotnet run --project src/quality-cli -- security scan .

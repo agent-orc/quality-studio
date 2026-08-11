@@ -1,0 +1,20 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,fs,vb}]
+indent_style = space
+indent_size = 4
+dotnet_diagnostic.CA1502.severity = warning
+dotnet_diagnostic.CA1505.severity = warning
+
+[*.{json,jsonc,yml,yaml,html,css,scss,ts,js,mjs,cjs}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
