@@ -9,6 +9,7 @@ describe('QualityApi', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.removeItem('qs-last-repository');
     TestBed.configureTestingModule({
       providers: [QualityApi, provideHttpClient(), provideHttpClientTesting()],
     });
@@ -17,6 +18,35 @@ describe('QualityApi', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('selects the preferred repository restored by the application session', async () => {
+    const loading = api.loadRepositories('agent-studio');
+    http.expectOne('/api/repos').flush({
+      repositories: [
+        { id: 'default', displayName: 'Quality Studio', rootPath: '/work/quality-studio', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null },
+        { id: 'agent-studio', displayName: 'Agent Studio', rootPath: 'C:\\Projects\\agent-taskboard-devspace\\agent-taskboard', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null },
+      ],
+      defaultRepositoryId: 'default',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('agent-studio');
+    expect(api.selectedRepository()?.displayName).toBe('Agent Studio');
+  });
+
+  it('shows API-down state and clears it after a successful retry request', async () => {
+    const repositories = api.loadRepositories();
+    http.expectOne('/api/repos').error(new ProgressEvent('error'));
+    await repositories;
+
+    expect(api.connectionState()).toBe('offline');
+
+    const retry = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    await retry;
+
+    expect(api.connectionState()).toBe('live');
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
