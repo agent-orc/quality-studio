@@ -267,7 +267,8 @@ public sealed class ReviewRunnerTests
                 "src/Small.cs",
                 "security",
                 RepositoryRoot: root,
-                Sensors: [new ReviewSensorConfiguration(sensor.Id)]),
+                Sensors: [new ReviewSensorConfiguration(sensor.Id)],
+                ObservationWriteEnabled: true),
                 TestContext.Current.CancellationToken);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
@@ -278,6 +279,8 @@ public sealed class ReviewRunnerTests
             var finding = Assert.Single(metadata.GetProperty("findings").EnumerateArray());
             Assert.Equal("gitleaks-planted-secret", finding.GetProperty("id").GetString());
             Assert.Equal("secrets", finding.GetProperty("aspect").GetString());
+            Assert.Equal("deterministic", finding.GetProperty("source").GetProperty("kind").GetString());
+            Assert.Equal("gitleaks", finding.GetProperty("source").GetProperty("sensorId").GetString());
             Assert.Contains("\"source\": \"machine-sensor\"", finding.GetProperty("evidence").GetString(), StringComparison.Ordinal);
             var sensorReference = Assert.Single(metadata.GetProperty("reviewer").GetProperty("sensors").EnumerateArray());
             Assert.Equal("gitleaks", sensorReference.GetProperty("id").GetString());
@@ -285,6 +288,12 @@ public sealed class ReviewRunnerTests
             Assert.Contains("\"id\": \"gitleaks\"", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("machine-produced sensor evidence", agent.Prompt, StringComparison.OrdinalIgnoreCase);
             Assert.Single(Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories));
+            var observation = Assert.Single(await QualityObservationLedger.ReadAsync(
+                root, TestContext.Current.CancellationToken));
+            var observationFinding = Assert.Single(observation.Findings);
+            Assert.Equal("deterministic-sensor", observationFinding.Source.Kind);
+            Assert.All(observationFinding.EvidenceRefs, evidenceRef =>
+                Assert.Contains(observation.Evidence, evidence => evidence.Id == evidenceRef));
         });
     }
 
