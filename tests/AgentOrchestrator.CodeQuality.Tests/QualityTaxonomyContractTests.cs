@@ -175,6 +175,35 @@ public sealed class QualityTaxonomyContractTests
         Assert.Contains("unresolved evidence", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RuntimeContractRejectsInvalidHashesAndSemanticAxisValues()
+    {
+        var observation = CreateObservation();
+
+        Assert.Throws<JsonException>(() => QualityObservationJson.Serialize(observation with
+        {
+            Subject = observation.Subject with { ManifestHash = "sha256:not-a-digest" },
+        }));
+        Assert.Throws<JsonException>(() => QualityObservationJson.Serialize(observation with
+        {
+            Producer = observation.Producer with { Kind = "model" },
+        }));
+        Assert.Throws<JsonException>(() => QualityObservationJson.Serialize(observation with
+        {
+            EvidenceStatus = "assumed",
+        }));
+        Assert.Throws<JsonException>(() => QualityObservationJson.Serialize(observation with
+        {
+            Aspects =
+            [
+                observation.Aspects[0] with
+                {
+                    Grade = new QualityObservationGrade(101, "A"),
+                },
+            ],
+        }));
+    }
+
     public static TheoryData<LegacyQualityVocabulary, string, string?, string?, string?, string?> MappingVectors => new()
     {
         { LegacyQualityVocabulary.SecurityVerdict, "pass", "pass", null, "allow", null },
