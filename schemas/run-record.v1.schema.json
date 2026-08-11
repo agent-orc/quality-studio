@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio archived run v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "repositoryId", "createdAt", "subject", "level", "kind", "targets", "configuration", "sourceRevision"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/id" },
+    "repositoryId": { "$ref": "#/$defs/id" },
+    "createdAt": { "$ref": "#/$defs/timestamp" },
+    "subject": { "$ref": "#/$defs/node" },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/target" }
+    },
+    "configuration": { "$ref": "#/$defs/configuration" },
+    "sourceRevision": { "$ref": "#/$defs/sourceRevision" },
+    "provenance": { "type": "string", "minLength": 1, "maxLength": 200 }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "path": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/path" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path", "subjectHash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/path" },
+        "subjectHash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "thinkingLevel", "cliType", "force", "tokenCap", "costCap", "estimate"],
+      "properties": {
+        "model": { "type": ["string", "null"] },
+        "thinkingLevel": { "type": ["string", "null"] },
+        "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "force": { "type": "boolean" },
+        "tokenCap": { "type": ["integer", "null"], "minimum": 1 },
+        "costCap": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "estimate": { "type": ["object", "null"] }
+      }
+    },
+    "sourceRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "dirty"],
+      "properties": {
+        "commit": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40,64}$" },
+        "dirty": { "type": ["boolean", "null"] }
+      }
+    }
+  }
+}

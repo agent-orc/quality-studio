@@ -3,10 +3,11 @@ import { formatDateTime } from '../format';
 import { FindingState, HandoverRequest, QualityApi, ReviewFinding, ReviewKind, ReviewRun, ReviewThread } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 import { ReviewActions } from '../review-actions/review-actions';
+import { ReviewHistory } from '../review-history/review-history';
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [ReviewActions],
+  imports: [ReviewActions, ReviewHistory],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

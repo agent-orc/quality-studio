@@ -18,6 +18,7 @@
         </article>
       } @empty { <div class="empty-findings">No review runs yet.</div> }
     </section>
+    @defer (on idle) { <qs-review-history /> } @placeholder { <div class="empty-findings">History is loading…</div> }
     <div class="section-title"><span>Token usage</span><small>{{ api.usage().runs }} operations</small></div>
     <section class="usage-summary" aria-label="Token usage aggregate">
       <div><b>{{ formatTokens(api.usage().inputTokens) }}</b><span>Input</span></div><div><b>{{ formatTokens(api.usage().outputTokens) }}</b><span>Output</span></div><div><b>{{ formatTokens(api.usage().cachedInputTokens) }}</b><span>Cached</span></div>

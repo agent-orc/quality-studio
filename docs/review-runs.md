@@ -39,8 +39,41 @@ Model options come from the governed Token Economy snapshot described in
 thinking-level override are persisted in the manifest before enqueue and passed to the
 same CodingAgentRunner request used for every file and aggregate operation.
 
-At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed.
+At startup the API scans the registered repositories for durable runs before host
+readiness completes. `queued` and formerly `running` runs are enqueued again; a
+file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A
+file that was `running` when the process stopped is returned to `queued`, because
+its sidecar write cannot be assumed to have completed. `paused` runs are restored
+but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are
+loaded into recent history without being resumed.
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
 `.quality/runs/` is ignored by Git because it is disposable orchestration working data. The review sidecars remain the committed review truth.
+
+## Tracked terminal archive and history
+
+Terminal run evidence is independently persisted under
+`.quality/run-history/YYYY-MM/<runId>/`. `run.json` is an immutable enqueue-time
+manifest, including resolved model, thinking level, and CLI; `operations.jsonl`
+and `findings.jsonl` are append-only, idempotent facts; and `attempts/0001.json`,
+`0002.json`, and later attempt records are create-only. Each attempt records both
+its own and cumulative counters and spend.
+The versioned contracts are in `schemas/run-*.v1.schema.json`. Quality Studio
+never stages or commits these files; repository owners retain normal Git control.
+
+At startup, present v0 `.quality/runs/` folders are conservatively migrated into
+the tracked format. Migration is idempotent and records provenance. Missing
+historical grades, verdicts, findings, or usage remain unknown rather than being
+invented. A fresh clone therefore retains terminal history even when the ignored
+recovery cache is absent.
+
+`GET /api/review/history` reads this archive on demand with cursor pagination and
+optional exact `kind`, `path`, and `outcome` filters. `GET
+/api/review/history/{id}` returns an attempt detail; `GET
+/api/review/history/{id}/diff?against=<olderId>` returns deterministic scope,
+input, execution, grade, typed-verdict, finding, and economy deltas. Corrupt
+archive entries remain visible as typed history errors instead of disappearing.
+Repository-scoped forms are available under `/api/repos/{repoId}`. The UI keeps
+live controls on the operational routes and lazy-loads archived history and
+two-run comparison only when opened.
