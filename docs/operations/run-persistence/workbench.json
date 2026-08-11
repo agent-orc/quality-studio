@@ -4,11 +4,51 @@
   "title": "Quality Studio run persistence",
   "summary": "Decision-ready storage design for durable Quality Studio review runs. The recommendation keeps the tested, Git-ignored .quality/runs recovery journal and adds a tracked folder-per-run archive under .quality/run-history. It preserves run plans, immutable stopped attempts, operation results, finding observations, typed verdicts and timestamps; extends the existing token ledger with operation IDs; defines deterministic history and two-run diff APIs; and supplies five implementation slices with acceptance criteria and a non-fabricating migration path.",
   "entrypoint": "index.html",
-  "status": "decision-pending",
+  "status": "decided",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-11T00:35:51Z",
+  "updatedAt": "2026-08-11T14:43:14Z",
   "sourceTaskKeys": [
     "QS-62"
   ],
-  "key": "QS-W3"
+  "key": "QS-W3",
+  "decision": {
+    "outcome": "feature-spawn",
+    "state": "succeeded",
+    "operationId": "agt-2621-qs-w3-blanket-approval-20260811",
+    "sourceRevision": "91de3c847e2a056ce9b4ad19dddc5259cceacb12",
+    "sourceFingerprint": "d21f8297b0ef01ff84c16d0bfccdeef54fb82c86f93ba510c702dda9a19b76b9",
+    "preparedAt": "2026-08-11T14:43:14Z",
+    "preparedBy": "Operator, recorded by AGT-2621",
+    "confirmedAt": "2026-08-11T14:43:14Z",
+    "confirmedBy": "Operator, recorded by AGT-2621",
+    "decidedAt": "2026-08-11T14:43:14Z",
+    "spawnedTaskKeys": [
+      "QS-71"
+    ],
+    "responses": [],
+    "taskDraft": {
+      "title": "Implement approved QS-W3 dossier recommendations",
+      "goal": "Deliver the recommendations approved by the operator on 2026-08-11; the existing implementation is tracked by QS-71.",
+      "acceptanceCriteria": [
+        "The existing implementation card QS-71 delivers the approved dossier recommendations with review evidence.",
+        "The Dossier records QS-71 as the implementation receipt."
+      ],
+      "evidenceLinks": [
+        "docs/operations/run-persistence/index.html",
+        "task:QS-71"
+      ],
+      "chosenOption": "Blanket approval recorded by the operator on 2026-08-11.",
+      "relatedTaskKeys": [
+        "QS-71"
+      ],
+      "targetProject": "Quality Studio",
+      "initialLane": "1-preparation",
+      "mode": "coding",
+      "taskType": "feature"
+    }
+  },
+  "relatedTaskKeys": [
+    "QS-71"
+  ],
+  "editedBy": "Operator, recorded by AGT-2621"
 }
