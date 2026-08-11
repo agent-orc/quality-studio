@@ -577,6 +577,27 @@
     </div>
   </section>
 
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · S1 — One snapshot-bound preflight</h3><span class="pill done">landed</span></header>
+      <p>The API now collects every enabled analyzer and security sensor once into a versioned, immutable <code>PreflightSnapshot</code> before model scheduling. Each normalized check records required/optional policy, pass/findings/unavailable/failed status, duration, subject/configuration/tool/result hashes, command identity, full standalone findings, and existing sensor provenance. The snapshot is persisted atomically as <code>.quality/runs/&lt;run-id&gt;/preflight.json</code> and exposed at <code>GET /api/review/runs/&lt;run-id&gt;/preflight</code> (including the repository-qualified route).</p>
+      <ul>
+        <li>Review estimates render the exact snapshot projection used by execution. Deterministic and security projections reuse the collected facts; Gitleaks receives count/hash-only prompt treatment, other machine findings use compact identity/location fields, clean checks contribute no prose, and every static projection is bounded to 2,000 characters.</li>
+        <li>Run status exposes preflight state, check/unavailable counts, result hash, duration, and blocked-file count. A required unavailable/failed check produces <code>blocked-preflight</code> with zero model calls; optional unavailability remains a visible coverage gap without a grade cap.</li>
+        <li>Before each operation the backend re-hashes the complete planned subject and the configured sensor set. A mismatch recollects and atomically replaces the snapshot before another model call. Non-terminal process recovery recollects instead of trusting tool state from the previous process.</li>
+        <li>Fresh repository registrations enable only complete built-in checks by default; configuration-dependent SARIF/Roslyn/ESLint/TypeScript/coverage sensors remain disabled until explicitly configured. <code>ReviewJobs:UseSnapshotPreflight=false</code> restores the prior collection path.</li>
+        <li>Acceptance coverage proves one invocation across a multi-file plus aggregate sweep, stable canonical hashes, source/config invalidation, durable reload and API projection, required/optional unavailable behavior, zero-call blocking, and prompt redaction/bounds. Release build and the portable .NET suite are green.</li>
+      </ul>
+    </article>
+
+    <div class="box warn">
+      <h4>Delivery boundary after S1</h4>
+      <p>S2–S4 were not declared delivered in QS-72: they require the repository-owned compiler/budget command matrix, the currently failing Angular 480 kB production-budget baseline, pinned lint/style tooling and baselines, then measured complexity distributions and thresholds in that priority order. S5 remains evidence-gated by its required 30 matched real review operations; this checkout has no committed usage sample from which to publish that result. None of these slices was skipped as an operator-decision gate, and no routing/model floor was changed.</p>
+    </div>
+  </section>
+
   <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
 </main>
 </body>
