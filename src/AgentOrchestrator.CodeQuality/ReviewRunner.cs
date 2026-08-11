@@ -231,7 +231,7 @@ public sealed class ReviewRunner
                     observedAt);
                 if (writeObservation)
                 {
-                    var observation = GeneralReviewObservationAdapter.Create(response,
+                    var observationDocument = GeneralReviewObservationAdapter.Create(response,
                         new GeneralReviewObservationContext(
                             unitId,
                             relativePath,
@@ -251,9 +251,9 @@ public sealed class ReviewRunner
                             initialSubject.Inputs,
                             sensorEvidence,
                             meta));
-                    await QualityObservationLedger.AppendAsync(root, observation, CancellationToken.None)
+                    await QualityObservationLedger.AppendAsync(root, observationDocument, CancellationToken.None)
                         .ConfigureAwait(false);
-                    _observationWritten?.Invoke(observation);
+                    _observationWritten?.Invoke(observationDocument);
                 }
                 if (readObservation)
                 {
