@@ -64,6 +64,14 @@ public sealed class QualityTaxonomyContractTests
             .Replace("\"findings\": []", "\"decision\": { \"value\": \"block\" },\n  \"findings\": []", StringComparison.Ordinal);
         using var invalidDecision = JsonDocument.Parse(decisionWithoutPolicy);
         AssertValid(schema, invalidDecision.RootElement, expected: false);
+
+        using var wrongCore = JsonDocument.Parse(json.RootElement.GetRawText()
+            .Replace("\"id\": \"quality-studio/core\"", "\"id\": \"com.acme/core\"", StringComparison.Ordinal));
+        AssertValid(schema, wrongCore.RootElement, expected: false);
+        Assert.Throws<JsonException>(() => QualityObservationJson.Serialize(observation with
+        {
+            Taxonomy = observation.Taxonomy with { Id = "com.acme/core" },
+        }));
     }
 
     [Fact]
@@ -91,6 +99,80 @@ public sealed class QualityTaxonomyContractTests
         var installed = QualityTaxonomyCatalogue.SelectInstalledAspects(
             loaded.Observation, [QualityTaxonomyCatalogue.CoreDocument]);
         Assert.Equal("code.correctness", Assert.Single(installed).AspectId);
+    }
+
+    [Fact]
+    public void ExtensionCatalogueTermsUseTheirDeclaredPrefixAndRetainSourceIdentity()
+    {
+        var schema = LoadSchema("quality-taxonomy.v1.schema.json");
+        var extension = QualityTaxonomyCatalogue.CoreDocument with
+        {
+            Id = "com.acme/quality",
+            Prefix = "com.acme",
+            Aspects =
+            [
+                new QualityAspectTerm(
+                    "com.acme:resilience.backpressure",
+                    "Backpressure",
+                    "The subject applies bounded backpressure.",
+                    0,
+                    ["assessment"],
+                    Extensions: NoExtensions),
+            ],
+        };
+        using var extensionJson = JsonDocument.Parse(JsonSerializer.Serialize(
+            extension, QualityObservationJson.Options));
+        AssertValid(schema, extensionJson.RootElement, expected: true);
+
+        var extensionReference = new QualityCatalogueReference(
+            extension.Id, extension.Version, "sha256:" + new string('f', 64));
+        var observation = CreateObservation() with
+        {
+            ExtensionCatalogues = [extensionReference],
+            Aspects =
+            [
+                new QualityObservationAspect(
+                    "com.acme:resilience.backpressure", "pass", "Bounded.", Extensions: NoExtensions),
+            ],
+        };
+
+        Assert.Empty(QualityTaxonomyCatalogue.SelectInstalledAspects(
+            observation, [QualityTaxonomyCatalogue.CoreDocument]));
+        Assert.Single(QualityTaxonomyCatalogue.SelectInstalledAspects(
+            observation, [QualityTaxonomyCatalogue.CoreDocument, extension]));
+        Assert.Equal(extensionReference,
+            QualityTaxonomyCatalogue.SourceCatalogue(observation, observation.Aspects[0].AspectId));
+
+        var wrongPrefix = extension with
+        {
+            Aspects = [extension.Aspects[0] with { Id = "vendor.experimental" }],
+        };
+        Assert.False(QualityTaxonomyCatalogue.IsInstalledAspect("vendor.experimental", [wrongPrefix]));
+    }
+
+    [Fact]
+    public void FindingsMustReferenceExistingTypedEvidence()
+    {
+        var observation = CreateObservation() with
+        {
+            Findings =
+            [
+                new QualityObservationFinding(
+                    "of-1",
+                    "issue-sha256:" + new string('a', 64),
+                    "sha256:" + new string('b', 64),
+                    FindingIdentity.OccurrenceCanonicalization,
+                    "rule@1",
+                    "code.correctness",
+                    "high",
+                    ["missing-evidence"],
+                    new QualityFindingSource("agent", "self", NoExtensions),
+                    Extensions: NoExtensions),
+            ],
+        };
+
+        var exception = Assert.Throws<JsonException>(() => QualityObservationJson.Serialize(observation));
+        Assert.Contains("unresolved evidence", exception.Message, StringComparison.Ordinal);
     }
 
     public static TheoryData<LegacyQualityVocabulary, string, string?, string?, string?, string?> MappingVectors => new()
@@ -194,7 +276,8 @@ public sealed class QualityTaxonomyContractTests
     }
 
     private static JsonSchema LoadSchema(string fileName) => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", fileName)));
+        RepositoryTestContext.FindRepositoryRoot(), "schemas", fileName)),
+        new BuildOptions { SchemaRegistry = new SchemaRegistry() });
 
     private static void AssertValid(JsonSchema schema, JsonElement element, bool expected)
     {
