@@ -149,6 +149,22 @@ public sealed class ReviewResponseParserTests
             () => new ReviewResponseParser().Parse(invalidSeverity)).Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Parse_RejectsBoundedFindingCountsAndTextFields()
+    {
+        var finding = ValidFinding.Replace("src/Small.cs", "Small.cs", StringComparison.Ordinal);
+        var tooManyFindings = ValidResponse.Replace(
+            "\"findings\": []", $"\"findings\": [{finding},{finding}]", StringComparison.Ordinal);
+        var longSummary = ValidResponse.Replace("Looks sound.", new string('x', 129), StringComparison.Ordinal);
+
+        Assert.Contains("finding limit", Assert.Throws<ReviewResponseException>(() =>
+            new ReviewResponseParser().Parse(tooManyFindings,
+                ReviewContentLimits.Default with { MaxFindings = 1 })).Message, StringComparison.Ordinal);
+        Assert.Contains("text field", Assert.Throws<ReviewResponseException>(() =>
+            new ReviewResponseParser().Parse(longSummary,
+                ReviewContentLimits.Default with { MaxTextFieldCharacters = 128 })).Message, StringComparison.Ordinal);
+    }
+
     internal const string ValidResponse = """
         {
           "grade": { "score": 95, "band": "A", "rationale": "Correct and clear." },
@@ -167,6 +183,63 @@ public sealed class ReviewResponseParserTests
 
 public sealed class ReviewRunnerTests
 {
+    [Fact]
+    public async Task ReviewAsync_RejectsOversizedFilesAndAggregatesBeforeAgentLaunch()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "quality-review-limits", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "src"));
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(Path.Combine(root, "src", "Large.cs"), new string('x', 2_048), cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(root, "src", "Second.cs"), "class Second {}", cancellationToken);
+        var agent = new FakeAgent();
+        var runner = new ReviewRunner(agent);
+        try
+        {
+            await Assert.ThrowsAsync<ReviewContentLimitException>(() => runner.ReviewAsync(new ReviewRequest(
+                "src/Large.cs",
+                RepositoryRoot: root,
+                ContentLimits: ReviewContentLimits.Default with { MaxFileBytes = 1_024 }), cancellationToken));
+            await Assert.ThrowsAsync<ReviewContentLimitException>(() => runner.ReviewAsync(new ReviewRequest(
+                "src",
+                Level: ReviewLevel.Module,
+                RepositoryRoot: root,
+                SubjectFiles: ["src/Large.cs", "src/Second.cs"],
+                ContentLimits: ReviewContentLimits.Default with { MaxAggregateFiles = 1 }), cancellationToken));
+            var promptLimit = await Assert.ThrowsAsync<ReviewContentLimitException>(() => runner.ReviewAsync(
+                new ReviewRequest(
+                    "src/Large.cs",
+                    RepositoryRoot: root,
+                    ContentLimits: ReviewContentLimits.Default with { MaxPromptTokens = 128 }),
+                cancellationToken));
+
+            Assert.Contains("token estimate", promptLimit.Message, StringComparison.Ordinal);
+            Assert.Equal(0, agent.RunCount);
+        }
+        finally
+        {
+            TestDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task ReviewAsync_RejectsOversizedAgentResponseBeforePersistence()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var response = ReviewResponseParserTests.ValidResponse.Replace(
+                "Looks sound.", new string('x', 2_000), StringComparison.Ordinal);
+            var agent = new FakeAgent(response);
+
+            await Assert.ThrowsAsync<ReviewResponseException>(() => new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root,
+                    ContentLimits: ReviewContentLimits.Default with { MaxResponseBytes = 1_024 }),
+                TestContext.Current.CancellationToken));
+
+            Assert.Equal(1, agent.RunCount);
+            Assert.Empty(Directory.EnumerateFiles(root, "*.review-meta.*.json", SearchOption.AllDirectories));
+        });
+    }
+
     [Fact]
     public async Task ReviewAsync_WritesFreshQs3Metadata()
     {
@@ -684,14 +757,18 @@ public sealed class ReviewRunnerTests
                 ["id"] = "thread-1",
                 ["anchor"] = new JsonObject
                 {
-                    ["path"] = "src/Small.cs", ["fingerprint"] = "sha256:" + new string('a', 64),
+                    ["path"] = "src/Small.cs",
+                    ["fingerprint"] = "sha256:" + new string('a', 64),
                     ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
                     ["lastKnownRange"] = new JsonObject { ["start"] = new JsonObject { ["line"] = 1, ["column"] = 1 }, ["end"] = new JsonObject { ["line"] = 1, ["column"] = 1 } },
                 },
-                ["status"] = "open", ["entries"] = new JsonArray(new JsonObject
+                ["status"] = "open",
+                ["entries"] = new JsonArray(new JsonObject
                 {
-                    ["id"] = "entry-human", ["author"] = new JsonObject { ["kind"] = "human", ["name"] = "Ada" },
-                    ["createdAt"] = "2026-07-21T10:00:00.000Z", ["body"] = "Is this intentional?",
+                    ["id"] = "entry-human",
+                    ["author"] = new JsonObject { ["kind"] = "human", ["name"] = "Ada" },
+                    ["createdAt"] = "2026-07-21T10:00:00.000Z",
+                    ["body"] = "Is this intentional?",
                 }),
             });
             await File.WriteAllTextAsync(initial.MetaPath, meta.ToJsonString(), TestContext.Current.CancellationToken);
@@ -727,18 +804,24 @@ public sealed class ReviewRunnerTests
                 ["id"] = id,
                 ["anchor"] = new JsonObject
                 {
-                    ["path"] = "a.cs", ["fingerprint"] = fingerprint, ["contextHash"] = hash,
+                    ["path"] = "a.cs",
+                    ["fingerprint"] = fingerprint,
+                    ["contextHash"] = hash,
                     ["lastKnownRange"] = new JsonObject
                     {
                         ["start"] = new JsonObject { ["line"] = line, ["column"] = 1 },
                         ["end"] = new JsonObject { ["line"] = line, ["column"] = 1 },
                     },
                 },
-                ["status"] = "open", ["entries"] = new JsonArray(),
+                ["status"] = "open",
+                ["entries"] = new JsonArray(),
             };
-            var stored = new JsonObject { ["threads"] = new JsonArray(
+            var stored = new JsonObject
+            {
+                ["threads"] = new JsonArray(
                 Thread("moving", "sha256:" + new string('a', 64), contextHash, 2),
-                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1)) };
+                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1))
+            };
             File.WriteAllText(metaPath, stored.ToJsonString());
 
             var threads = ReviewThreadManager.LoadAndHeal(metaPath, "a.cs", "added\nbefore\ntarget\nafter");

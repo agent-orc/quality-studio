@@ -13,12 +13,23 @@ public static class ReviewThreadManager
     public static SemaphoreSlim GetWriteLock(string metaPath) =>
         WriteLocks.GetOrAdd(Path.GetFullPath(metaPath), _ => new SemaphoreSlim(1, 1));
 
-    public static JsonArray LoadAndHeal(string metaPath, string relativePath, string content)
+    public static JsonArray LoadAndHeal(
+        string metaPath,
+        string relativePath,
+        string content,
+        string? repositoryRoot = null,
+        ReviewContentLimits? contentLimits = null)
     {
         if (!File.Exists(metaPath)) return [];
-        var root = JsonNode.Parse(File.ReadAllText(metaPath))?.AsObject();
+        var limits = (contentLimits ?? ReviewContentLimits.Default).Validate();
+        var json = repositoryRoot is null
+            ? File.ReadAllText(metaPath)
+            : BoundedRepositoryFile.ReadAllText(repositoryRoot, metaPath, limits.MaxSidecarBytes);
+        var root = JsonNode.Parse(json)?.AsObject();
         var stored = root?["threads"] as JsonArray;
         if (stored is null) return [];
+        if (stored.Count > limits.MaxThreads)
+            throw new ReviewContentLimitException($"Review metadata exceeds the {limits.MaxThreads}-thread limit.");
 
         var threads = (JsonArray)stored.DeepClone();
         foreach (var node in threads)
@@ -44,7 +55,8 @@ public static class ReviewThreadManager
             {
                 ["id"] = $"entry-{Guid.NewGuid():N}",
                 ["author"] = new JsonObject { ["kind"] = "agent", ["agent"] = agent, ["model"] = model },
-                ["createdAt"] = now.UtcDateTime.ToString("O"),
+                ["createdAt"] = now.ToUniversalTime().ToString(
+                    "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture),
                 ["body"] = update["body"]!.GetValue<string>().Trim(),
             };
             if (update["replyTo"] is JsonNode replyTo) entry["replyTo"] = replyTo.DeepClone();
@@ -53,10 +65,17 @@ public static class ReviewThreadManager
         }
     }
 
-    public static JsonArray MergeLatest(JsonArray promptedSnapshot, string metaPath, string relativePath, string content)
+    public static JsonArray MergeLatest(
+        JsonArray promptedSnapshot,
+        string metaPath,
+        string relativePath,
+        string content,
+        string? repositoryRoot = null,
+        ReviewContentLimits? contentLimits = null)
     {
         if (!File.Exists(metaPath)) return promptedSnapshot;
-        var latest = LoadAndHeal(metaPath, relativePath, content);
+        var limits = (contentLimits ?? ReviewContentLimits.Default).Validate();
+        var latest = LoadAndHeal(metaPath, relativePath, content, repositoryRoot, limits);
         var result = (JsonArray)promptedSnapshot.DeepClone();
         var byId = result.OfType<JsonObject>().ToDictionary(thread => thread["id"]!.GetValue<string>(), StringComparer.Ordinal);
         foreach (var latestThread in latest.OfType<JsonObject>())
@@ -78,6 +97,8 @@ public static class ReviewThreadManager
             foreach (var entry in latestThread["entries"]!.AsArray().OfType<JsonObject>())
                 if (entryIds.Add(entry["id"]!.GetValue<string>())) entries.Add(entry.DeepClone());
         }
+        if (result.Count > limits.MaxThreads)
+            throw new ReviewContentLimitException($"Review metadata exceeds the {limits.MaxThreads}-thread limit.");
         return result;
     }
 
@@ -99,7 +120,8 @@ public static class ReviewThreadManager
             anchor["lastKnownRange"] = location["range"]!.DeepClone();
             anchor["contextHash"] = ComputeContextHash(content, range);
             thread["anchorState"] = "healed";
-            thread["healedAt"] = DateTime.UtcNow.ToString("O");
+            thread["healedAt"] = DateTimeOffset.UtcNow.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 
@@ -146,7 +168,8 @@ public static class ReviewThreadManager
             ["end"] = new JsonObject { ["line"] = nearest + span - 1, ["column"] = range.End.Column },
         };
         thread["anchorState"] = "healed";
-        thread["healedAt"] = DateTime.UtcNow.ToString("O");
+        thread["healedAt"] = DateTimeOffset.UtcNow.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static bool TryRange(JsonNode? node, out FindingRange range)

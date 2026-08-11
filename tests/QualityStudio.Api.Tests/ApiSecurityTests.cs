@@ -4,10 +4,15 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -17,6 +22,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     private const string AliceToken = "alice-test-credential";
     private const string BobToken = "bob-test-credential";
     private const string AdminToken = "admin-test-credential";
+    private const string ReaderToken = "reader-test-credential";
     private readonly string testRoot = Path.Combine(Path.GetTempPath(), "quality-studio-security-tests", Guid.NewGuid().ToString("N"));
     private string RepositoryRoot => Path.Combine(testRoot, "default");
     private string ForeignRepositoryRoot => Path.Combine(testRoot, "foreign");
@@ -189,7 +195,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         using var alice = CreateClient(rateApplication, "alice", AliceToken);
         using var firstReview = await alice.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "code", cliType = "adapter-that-does-not-exist",
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "adapter-that-does-not-exist",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Accepted, firstReview.StatusCode);
         using var secondReview = await alice.PostAsJsonAsync("/api/review",
@@ -222,6 +230,106 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Hosted_routes_deny_clients_without_the_explicit_action_role()
+    {
+        using var reader = CreateClient("reader", ReaderToken);
+        using var review = await reader.PostAsJsonAsync("/api/review",
+            new { path = "Sample.cs", kind = "code" }, TestContext.Current.CancellationToken);
+        using var sensor = await reader.PostAsync("/api/sensors/boundaries/scan", null,
+            TestContext.Current.CancellationToken);
+        using var state = await reader.PostAsJsonAsync("/api/threads",
+            new { path = "Sample.cs", kind = "code", line = 1, body = "comment" },
+            TestContext.Current.CancellationToken);
+        using var handover = await reader.PostAsJsonAsync("/api/handover/preview",
+            new { filePath = "Sample.cs", reviewKind = "code", findingFingerprint = "sha256:" + new string('a', 64) },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, review.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, sensor.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, state.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, handover.StatusCode);
+    }
+
+    [Fact]
+    public async Task Every_api_route_has_one_explicit_recognized_role_and_unmapped_routes_fail_closed()
+    {
+        var endpoints = application!.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        Assert.NotEmpty(endpoints);
+        foreach (var endpoint in endpoints)
+        {
+            var policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<ApiRoleMetadata>());
+            Assert.Contains(policy.Role, ApiRoles.All);
+        }
+        Assert.Equal(ApiRoles.All.Order(StringComparer.Ordinal),
+            endpoints.Select(endpoint => endpoint.Metadata.GetMetadata<ApiRoleMetadata>()!.Role)
+                .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
+
+        using var reader = CreateClient("reader", ReaderToken);
+        using var response = await reader.GetAsync("/api/not-a-declared-route",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Hosted_authorization_audit_identifies_key_action_repository_and_result_without_credential()
+    {
+        using var reader = CreateClient("reader", ReaderToken);
+        using var response = await reader.PostAsJsonAsync("/api/review",
+            new { path = "Sample.cs", kind = "code" }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains(application!.AuditMessages, message =>
+            message.Contains("reader-key", StringComparison.Ordinal) &&
+            message.Contains("review-spend", StringComparison.Ordinal) &&
+            message.Contains("default", StringComparison.Ordinal) &&
+            message.Contains("denied", StringComparison.Ordinal) &&
+            message.Contains("403", StringComparison.Ordinal));
+        Assert.DoesNotContain(application.AuditMessages, message =>
+            message.Contains(ReaderToken, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Hosted_credentials_enforce_expiry_audience_and_live_revocation()
+    {
+        var revocations = Path.Combine(testRoot, "credential-revocations.json");
+        File.WriteAllText(revocations, "{\"schemaVersion\":1,\"revokedKeyIds\":[]}");
+        var configured = new RepositoryOptions
+        {
+            Security = new ApiSecurityOptions
+            {
+                Mode = ApiSecurityOptions.HostedMode,
+                Audience = "quality-studio-api",
+                RevocationFile = revocations,
+                Clients =
+                [
+                    Client("valid", "valid-key", "valid-token", "quality-studio-api", DateTimeOffset.UtcNow.AddHours(1)),
+                    Client("expired", "expired-key", "expired-token", "quality-studio-api", DateTimeOffset.UtcNow.AddMinutes(-1)),
+                    Client("foreign", "foreign-key", "foreign-token", "another-service", DateTimeOffset.UtcNow.AddHours(1)),
+                ],
+            },
+        };
+        var security = new ApiSecurity(Options.Create(configured));
+
+        Assert.Equal("authenticated", Authenticate(security, "valid-token").Reason);
+        Assert.Equal("expired", Authenticate(security, "expired-token").Reason);
+        Assert.Equal("wrong-audience", Authenticate(security, "foreign-token").Reason);
+
+        File.WriteAllText(revocations, "{\"schemaVersion\":1,\"revokedKeyIds\":[\"valid-key\"]}");
+        var revoked = Authenticate(security, "valid-token");
+        Assert.Equal("revoked", revoked.Reason);
+        Assert.Null(revoked.Identity);
+
+        File.WriteAllText(revocations, new string('x', 64 * 1024 + 1));
+        var unavailable = Authenticate(security, "valid-token");
+        Assert.Equal("revocation-source-unavailable", unavailable.Reason);
+        Assert.Null(unavailable.Identity);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
@@ -233,7 +341,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         using var mutation = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+            path = "Sample.cs",
+            kind = "code",
+            model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
     }
@@ -350,11 +460,38 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(0, process.ExitCode);
     }
 
+    private static ApiClientOptions Client(
+        string id, string keyId, string token, string audience, DateTimeOffset expiresAt) => new()
+        {
+            Id = id,
+            KeyId = keyId,
+            CredentialSha256 = Hash(token),
+            Audience = audience,
+            ExpiresAt = expiresAt,
+            Repositories = ["default"],
+            Roles = [ApiRoles.Read],
+        };
+
+    private static ApiAuthenticationDecision Authenticate(ApiSecurity security, string token)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Authorization = "Bearer " + token;
+        return security.AuthenticateDecision(context);
+    }
+
+    private static string Hash(string credential) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(credential)));
+
     private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute)
         : WebApplicationFactory<Program>
     {
+        public ConcurrentQueue<string> AuditMessages { get; } = new();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            var revocationFile = Path.Combine(contentRoot, "credential-revocations.json");
+            if (!File.Exists(revocationFile))
+                File.WriteAllText(revocationFile, "{\"schemaVersion\":1,\"revokedKeyIds\":[]}");
             builder.UseContentRoot(contentRoot);
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
@@ -364,17 +501,43 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:AllowedRoots:1"] = foreignRoot,
                     ["QualityStudio:Security:Mode"] = "Hosted",
                     ["QualityStudio:Security:RequireHttps"] = "true",
+                    ["QualityStudio:Security:Audience"] = "quality-studio-api",
+                    ["QualityStudio:Security:RevocationFile"] = revocationFile,
                     ["QualityStudio:Security:SpendRequestsPerMinute"] = spendRequestsPerMinute.ToString(),
                     ["QualityStudio:Security:Clients:0:Id"] = "alice",
+                    ["QualityStudio:Security:Clients:0:KeyId"] = "alice-key",
                     ["QualityStudio:Security:Clients:0:CredentialSha256"] = Hash(AliceToken),
+                    ["QualityStudio:Security:Clients:0:Audience"] = "quality-studio-api",
+                    ["QualityStudio:Security:Clients:0:ExpiresAt"] = "2030-01-01T00:00:00Z",
                     ["QualityStudio:Security:Clients:0:Repositories:0"] = "default",
+                    ["QualityStudio:Security:Clients:0:Roles:0"] = ApiRoles.Read,
+                    ["QualityStudio:Security:Clients:0:Roles:1"] = ApiRoles.ReviewSpend,
+                    ["QualityStudio:Security:Clients:0:Roles:2"] = ApiRoles.SensorExecute,
+                    ["QualityStudio:Security:Clients:0:Roles:3"] = ApiRoles.StateMutate,
+                    ["QualityStudio:Security:Clients:0:Roles:4"] = ApiRoles.Handover,
                     ["QualityStudio:Security:Clients:1:Id"] = "bob",
+                    ["QualityStudio:Security:Clients:1:KeyId"] = "bob-key",
                     ["QualityStudio:Security:Clients:1:CredentialSha256"] = Hash(BobToken),
+                    ["QualityStudio:Security:Clients:1:Audience"] = "quality-studio-api",
+                    ["QualityStudio:Security:Clients:1:ExpiresAt"] = "2030-01-01T00:00:00Z",
                     ["QualityStudio:Security:Clients:1:Repositories:0"] = "foreign",
+                    ["QualityStudio:Security:Clients:1:Roles:0"] = ApiRoles.Read,
+                    ["QualityStudio:Security:Clients:1:Roles:1"] = ApiRoles.ReviewSpend,
+                    ["QualityStudio:Security:Clients:1:Roles:2"] = ApiRoles.SensorExecute,
+                    ["QualityStudio:Security:Clients:1:Roles:3"] = ApiRoles.StateMutate,
+                    ["QualityStudio:Security:Clients:1:Roles:4"] = ApiRoles.Handover,
                     ["QualityStudio:Security:Clients:2:Id"] = "admin",
+                    ["QualityStudio:Security:Clients:2:KeyId"] = "admin-key",
                     ["QualityStudio:Security:Clients:2:CredentialSha256"] = Hash(AdminToken),
+                    ["QualityStudio:Security:Clients:2:Audience"] = "quality-studio-api",
+                    ["QualityStudio:Security:Clients:2:ExpiresAt"] = "2030-01-01T00:00:00Z",
                     ["QualityStudio:Security:Clients:2:Repositories:0"] = "*",
-                    ["QualityStudio:Security:Clients:2:CanRegisterRepositories"] = "true",
+                    ["QualityStudio:Security:Clients:2:Roles:0"] = ApiRoles.Read,
+                    ["QualityStudio:Security:Clients:2:Roles:1"] = ApiRoles.RepositoryAdmin,
+                    ["QualityStudio:Security:Clients:2:Roles:2"] = ApiRoles.ReviewSpend,
+                    ["QualityStudio:Security:Clients:2:Roles:3"] = ApiRoles.SensorExecute,
+                    ["QualityStudio:Security:Clients:2:Roles:4"] = ApiRoles.StateMutate,
+                    ["QualityStudio:Security:Clients:2:Roles:5"] = ApiRoles.Handover,
                     ["QualityStudio:AnalyzerProfiles:trusted-sarif:SensorId"] = "sarif",
                     ["QualityStudio:AnalyzerProfiles:trusted-sarif:Executable"] = "dotnet",
                     ["QualityStudio:AnalyzerProfiles:trusted-sarif:Arguments:0"] = "tool",
@@ -382,15 +545,41 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:AnalyzerProfiles:trusted-sarif:Arguments:2"] = "--output",
                     ["QualityStudio:AnalyzerProfiles:trusted-sarif:Arguments:3"] = "{reportPath}",
                     ["QualityStudio:AnalyzerProfiles:trusted-sarif:ReportPath"] = ".quality/analyzers/result.sarif",
+                    ["QualityStudio:Security:Clients:3:Id"] = "reader",
+                    ["QualityStudio:Security:Clients:3:KeyId"] = "reader-key",
+                    ["QualityStudio:Security:Clients:3:CredentialSha256"] = Hash(ReaderToken),
+                    ["QualityStudio:Security:Clients:3:Audience"] = "quality-studio-api",
+                    ["QualityStudio:Security:Clients:3:ExpiresAt"] = "2030-01-01T00:00:00Z",
+                    ["QualityStudio:Security:Clients:3:Repositories:0"] = "default",
+                    ["QualityStudio:Security:Clients:3:Roles:0"] = ApiRoles.Read,
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",
                     ["AgentStudio:DryRun"] = "true",
                 }));
+            builder.ConfigureServices(services =>
+                services.AddSingleton<ILoggerProvider>(new AuditCaptureProvider(AuditMessages)));
         }
 
-        private static string Hash(string credential) =>
-            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(credential)));
+    }
+
+    private sealed class AuditCaptureProvider(ConcurrentQueue<string> messages) : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new AuditCaptureLogger(categoryName, messages);
+        public void Dispose() { }
+
+        private sealed class AuditCaptureLogger(string categoryName, ConcurrentQueue<string> messages) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) =>
+                categoryName == "QualityStudio.Api.SecurityAudit" && logLevel >= LogLevel.Information;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                if (IsEnabled(logLevel)) messages.Enqueue(formatter(state, exception));
+            }
+        }
     }
 
     private sealed class LocalApplication(string root, string contentRoot) : WebApplicationFactory<Program>

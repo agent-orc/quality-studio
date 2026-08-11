@@ -114,6 +114,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         QualityReportException => (StatusCodes.Status422UnprocessableEntity, "Quality report failed"),
         InvalidDataException => (StatusCodes.Status422UnprocessableEntity, "Stored report is invalid"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
+        ReviewContentLimitException => (StatusCodes.Status413PayloadTooLarge, "Repository content exceeds configured limits"),
         JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
@@ -157,20 +158,34 @@ app.Use(async (context, next) =>
     var bodySizeFeature = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
     if (bodySizeFeature is { IsReadOnly: false }) bodySizeFeature.MaxRequestBodySize = apiSecurity.MaxRequestBodyBytes;
 
-    var identity = apiSecurity.Authenticate(context);
+    var authentication = apiSecurity.AuthenticateDecision(context);
+    var identity = authentication.Identity;
     if (identity is null)
     {
+        AuditAuthorization(context, authentication.KeyId, RequiredApiRole(context), null,
+            "denied", authentication.Reason, StatusCodes.Status401Unauthorized);
         context.Response.Headers.WWWAuthenticate = "Bearer";
         await Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required").ExecuteAsync(context);
         return;
     }
     apiSecurity.SetIdentity(context, identity);
+    var requiredRole = RequiredApiRole(context);
+    if (!ApiRoles.All.Contains(requiredRole))
+    {
+        AuditAuthorization(context, identity.KeyId, requiredRole, RouteRepositoryId(context),
+            "denied", "missing-route-policy", StatusCodes.Status403Forbidden);
+        await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+            title: "The API route has no authorization policy").ExecuteAsync(context);
+        return;
+    }
 
     if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
         HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
     {
         if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
         {
+            AuditAuthorization(context, identity.KeyId, requiredRole, RouteRepositoryId(context),
+                "denied", "client-id-mismatch", StatusCodes.Status401Unauthorized);
             await Results.Problem(statusCode: StatusCodes.Status401Unauthorized,
                 title: "A matching X-Client-Id is required for mutations").ExecuteAsync(context);
             return;
@@ -187,19 +202,13 @@ app.Use(async (context, next) =>
     var repositoryId = RouteRepositoryId(context);
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
-    var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-    var isRepositoryItem = segments.Length == 3 &&
-                           string.Equals(segments[0], "api", StringComparison.OrdinalIgnoreCase) &&
-                           string.Equals(segments[1], "repos", StringComparison.OrdinalIgnoreCase);
-    var isRepositoryAdministration = isImport ||
-                                     HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection ||
-                                     isRepositoryItem && (HttpMethods.IsPut(context.Request.Method) ||
-                                                          HttpMethods.IsDelete(context.Request.Method));
+    var isRepositoryAdministration = string.Equals(requiredRole, ApiRoles.RepositoryAdmin, StringComparison.Ordinal);
     if (isRepositoryAdministration)
     {
         if (!identity.CanRegisterRepositories)
         {
+            AuditAuthorization(context, identity.KeyId, ApiRoles.RepositoryAdmin, repositoryId,
+                "denied", "missing-role", StatusCodes.Status403Forbidden);
             await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Repository registration is not permitted")
                 .ExecuteAsync(context);
             return;
@@ -207,6 +216,8 @@ app.Use(async (context, next) =>
     }
     else if (repositoryId is not null && !identity.CanAccess(repositoryId))
     {
+        AuditAuthorization(context, identity.KeyId, requiredRole, repositoryId,
+            "denied", "repository-scope", StatusCodes.Status404NotFound);
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
         return;
     }
@@ -214,11 +225,29 @@ app.Use(async (context, next) =>
              !string.Equals(path, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
+        AuditAuthorization(context, identity.KeyId, requiredRole, RepositoryRegistry.DefaultRepositoryId,
+            "denied", "repository-scope", StatusCodes.Status404NotFound);
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
         return;
     }
 
+    if (!identity.HasRole(requiredRole))
+    {
+        AuditAuthorization(context, identity.KeyId, requiredRole,
+            repositoryId ?? RepositoryRegistry.DefaultRepositoryId,
+            "denied", "missing-role", StatusCodes.Status403Forbidden);
+        await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+            title: "The API client role does not permit this action").ExecuteAsync(context);
+        return;
+    }
+
+    AuditAuthorization(context, identity.KeyId, requiredRole,
+        repositoryId ?? RepositoryRegistry.DefaultRepositoryId,
+        "allowed", "authorized", null);
     await next();
+    AuditAuthorization(context, identity.KeyId, requiredRole,
+        repositoryId ?? RepositoryRegistry.DefaultRepositoryId,
+        "result", "completed", context.Response.StatusCode);
 });
 app.UseRateLimiter();
 
@@ -234,6 +263,8 @@ app.MapGet("/api/security/session", (HttpContext context, ApiSecurity security) 
         expiresAt = (DateTimeOffset?)null,
     });
     var session = security.CreateLocalAntiCsrfSession(context);
+    context.Response.Headers.CacheControl = "no-store";
+    context.Response.Headers.Vary = "Origin";
     return Results.Ok(new
     {
         required = true,
@@ -241,7 +272,7 @@ app.MapGet("/api/security/session", (HttpContext context, ApiSecurity security) 
         token = session.Token,
         expiresAt = session.ExpiresAt,
     });
-});
+}).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
@@ -257,7 +288,7 @@ app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, Repository
             ? RepositoryRegistry.DefaultRepositoryId
             : null,
     });
-});
+}).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
 
 app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
@@ -265,9 +296,10 @@ app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, Reposito
     var created = await registry.CreateAsync(request, cancellationToken);
     prewarmer.Queue(created);
     return Results.Created($"/api/repos/{created.Id}", created);
-});
+}).WithMetadata(new ApiRoleMetadata(ApiRoles.RepositoryAdmin));
 
-app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
+app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio)
+    .WithMetadata(new ApiRoleMetadata(ApiRoles.RepositoryAdmin));
 
 app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
     RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
@@ -275,91 +307,95 @@ app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRe
     var updated = await registry.UpdateAsync(repoId, request, cancellationToken);
     prewarmer.Queue(updated);
     return Results.Ok(updated);
-});
+}).WithMetadata(new ApiRoleMetadata(ApiRoles.RepositoryAdmin));
 
 app.MapDelete("/api/repos/{repoId}", async (string repoId, RepositoryRegistry registry, CancellationToken cancellationToken) =>
-    Results.Ok(await registry.ArchiveAsync(repoId, cancellationToken)));
+    Results.Ok(await registry.ArchiveAsync(repoId, cancellationToken)))
+    .WithMetadata(new ApiRoleMetadata(ApiRoles.RepositoryAdmin));
 
-app.MapGet("/api/tree", Tree);
-app.MapGet("/api/repos/{repoId}/tree", Tree);
-app.MapGet("/api/risk", Risk);
-app.MapGet("/api/repos/{repoId}/risk", Risk);
-app.MapGet("/api/project", ProjectDashboard);
-app.MapGet("/api/repos/{repoId}/project", ProjectDashboard);
-app.MapGet("/api/file", FileContent);
-app.MapGet("/api/repos/{repoId}/file", FileContent);
-app.MapGet("/api/inputs", Inputs);
-app.MapGet("/api/repos/{repoId}/inputs", Inputs);
-app.MapGet("/api/guidelines", Guidelines);
-app.MapGet("/api/repos/{repoId}/guidelines", Guidelines);
-app.MapPost("/api/guidelines", CreateGuideline);
-app.MapPost("/api/repos/{repoId}/guidelines", CreateGuideline);
-app.MapPut("/api/guidelines/{guidelineId}", UpdateGuideline);
-app.MapPut("/api/repos/{repoId}/guidelines/{guidelineId}", UpdateGuideline);
-app.MapDelete("/api/guidelines/{guidelineId}", DeleteGuideline);
-app.MapDelete("/api/repos/{repoId}/guidelines/{guidelineId}", DeleteGuideline);
-app.MapPost("/api/guidelines/catalog/{catalogueId}/install", InstallGuideline);
-app.MapPost("/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install", InstallGuideline);
-app.MapPost("/api/guidelines/impact", GuidelineImpact);
-app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
-app.MapGet("/api/scan", Scan).RequireRateLimiting("spend");
-app.MapGet("/api/repos/{repoId}/scan", Scan).RequireRateLimiting("spend");
-app.MapGet("/api/security/scan", SecurityScan).RequireRateLimiting("spend");
-app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan).RequireRateLimiting("spend");
-app.MapGet("/api/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend");
-app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend");
-app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
-app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
-app.MapGet("/api/sensors", Sensors);
-app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
-app.MapGet("/api/usage", Usage);
-app.MapGet("/api/repos/{repoId}/usage", Usage);
-app.MapGet("/api/report", Report);
-app.MapGet("/api/repos/{repoId}/report", Report);
-app.MapGet("/api/quotas", Quotas);
-app.MapGet("/api/models", (ReviewModelCatalog catalog) => Results.Ok(catalog.Snapshot));
-app.MapGet("/api/scope/rules", ScopeRules);
-app.MapGet("/api/repos/{repoId}/scope/rules", ScopeRules);
-app.MapPost("/api/scope/rules/preview", PreviewScopeRule);
-app.MapPost("/api/repos/{repoId}/scope/rules/preview", PreviewScopeRule);
-app.MapPost("/api/scope/rules", AddScopeRule);
-app.MapPost("/api/repos/{repoId}/scope/rules", AddScopeRule);
-app.MapPut("/api/scope/rules/{index:int}", UpdateScopeRule);
-app.MapPut("/api/repos/{repoId}/scope/rules/{index:int}", UpdateScopeRule);
-app.MapDelete("/api/scope/rules/{index:int}", DeleteScopeRule);
-app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule);
+app.MapGet("/api/tree", Tree).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/tree", Tree).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/risk", Risk).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/risk", Risk).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/project", ProjectDashboard).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/project", ProjectDashboard).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/file", FileContent).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/file", FileContent).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/review-meta/diagnostics", ReviewMetaDiagnostics).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/review-meta/diagnostics", ReviewMetaDiagnostics).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/inputs", Inputs).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/inputs", Inputs).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/guidelines", Guidelines).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/guidelines", Guidelines).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapPost("/api/guidelines", CreateGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/repos/{repoId}/guidelines", CreateGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPut("/api/guidelines/{guidelineId}", UpdateGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPut("/api/repos/{repoId}/guidelines/{guidelineId}", UpdateGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapDelete("/api/guidelines/{guidelineId}", DeleteGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapDelete("/api/repos/{repoId}/guidelines/{guidelineId}", DeleteGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/guidelines/catalog/{catalogueId}/install", InstallGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install", InstallGuideline).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/guidelines/impact", GuidelineImpact).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapGet("/api/scan", Scan).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapGet("/api/repos/{repoId}/scan", Scan).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapGet("/api/security/scan", SecurityScan).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapGet("/api/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapGet("/api/sensors", Sensors).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/sensors", Sensors).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.SensorExecute));
+app.MapGet("/api/usage", Usage).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/usage", Usage).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/report", Report).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/report", Report).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/quotas", Quotas).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/models", (ReviewModelCatalog catalog) => Results.Ok(catalog.Snapshot))
+    .WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/scope/rules", ScopeRules).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/scope/rules", ScopeRules).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapPost("/api/scope/rules/preview", PreviewScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/repos/{repoId}/scope/rules/preview", PreviewScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/scope/rules", AddScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/repos/{repoId}/scope/rules", AddScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPut("/api/scope/rules/{index:int}", UpdateScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPut("/api/repos/{repoId}/scope/rules/{index:int}", UpdateScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapDelete("/api/scope/rules/{index:int}", DeleteScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
 
-app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
-app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
-app.MapPost("/api/review/estimate", EstimateReview);
-app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
-app.MapGet("/api/review/runs", ReviewRuns);
-app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
-app.MapGet("/api/review/runs/trend", ReviewRunTrend);
-app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend);
-app.MapGet("/api/review/runs/{id}", ReviewRun);
-app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
-app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
-app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
-app.MapPost("/api/review/runs/{id}/pause", PauseReview);
-app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
-app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
-app.MapPost("/api/repos/{repoId}/review/runs/{id}/resume", ResumeReview);
-app.MapDelete("/api/review/runs/{id}", CancelReview);
-app.MapDelete("/api/repos/{repoId}/review/runs/{id}", CancelReview);
+app.MapPost("/api/review", StartReview).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapPost("/api/review/estimate", EstimateReview).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapGet("/api/review/runs", ReviewRuns).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/review/runs/trend", ReviewRunTrend).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/review/runs/{id}", ReviewRun).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/review/runs/{id}/report", ReviewRunReport).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapPost("/api/review/runs/{id}/pause", PauseReview).WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview).WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapPost("/api/review/runs/{id}/resume", ResumeReview).WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapPost("/api/repos/{repoId}/review/runs/{id}/resume", ResumeReview).WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapDelete("/api/review/runs/{id}", CancelReview).WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
+app.MapDelete("/api/repos/{repoId}/review/runs/{id}", CancelReview).WithMetadata(new ApiRoleMetadata(ApiRoles.ReviewSpend));
 
-app.MapGet("/api/handover", HandoverConfiguration);
-app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration);
-app.MapPost("/api/handover/preview", HandoverPreview).RequireRateLimiting("spend");
-app.MapPost("/api/repos/{repoId}/handover/preview", HandoverPreview).RequireRateLimiting("spend");
-app.MapPost("/api/handover", Handover).RequireRateLimiting("spend");
-app.MapPost("/api/repos/{repoId}/handover", Handover).RequireRateLimiting("spend");
-app.MapPost("/api/threads", MutateThread);
-app.MapPost("/api/repos/{repoId}/threads", MutateThread);
-app.MapPost("/api/findings/state", MutateFindingState);
-app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
+app.MapGet("/api/handover", HandoverConfiguration).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration).WithMetadata(new ApiRoleMetadata(ApiRoles.Read));
+app.MapPost("/api/handover/preview", HandoverPreview).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.Handover));
+app.MapPost("/api/repos/{repoId}/handover/preview", HandoverPreview).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.Handover));
+app.MapPost("/api/handover", Handover).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.Handover));
+app.MapPost("/api/repos/{repoId}/handover", Handover).RequireRateLimiting("spend").WithMetadata(new ApiRoleMetadata(ApiRoles.Handover));
+app.MapPost("/api/threads", MutateThread).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/repos/{repoId}/threads", MutateThread).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/findings/state", MutateFindingState).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
+app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState).WithMetadata(new ApiRoleMetadata(ApiRoles.StateMutate));
 
 app.Run();
 
@@ -533,13 +569,16 @@ static IResult ProjectDashboard(
 }
 
 static async Task<IResult> FileContent(HttpContext context, string? path, RepositoryRegistry registry,
-    ILogger<Program> logger, CancellationToken cancellationToken)
+    ILogger<Program> logger, Microsoft.Extensions.Options.IOptions<RepositoryOptions> options,
+    CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var relative = repository.NormalizeRelativePath(path);
     var absolute = repository.ResolveFile(relative);
-    var bytes = await File.ReadAllBytesAsync(absolute, cancellationToken);
+    var limits = options.Value.ContentLimits.Validate();
+    var bytes = await BoundedRepositoryFile.ReadAllBytesAsync(
+        repository.Root, absolute, limits.MaxFileBytes, cancellationToken);
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
     var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
@@ -553,6 +592,18 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
         relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates),
         bytes.LongLength, lineEnding, encoding, coverage));
+}
+
+static IResult ReviewMetaDiagnostics(
+    HttpContext context, RepositoryRegistry registry, ReviewMetaIndex index)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    return Results.Ok(new
+    {
+        schemaVersion = ReviewContentLimits.CurrentSchemaVersion,
+        repositoryId = registration.Id,
+        diagnostics = index.Diagnostics(repository.Root),
+    });
 }
 
 static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegistry registry,
@@ -591,22 +642,22 @@ static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegist
     }).OrderByDescending(row => row.RiskScore.HasValue).ThenByDescending(row => row.RiskScore)
         .ThenByDescending(row => row.Changes).ThenBy(row => row.Path, StringComparer.Ordinal).ToArray();
     var matrix = rows.GroupBy(row => new
+    {
+        Grade = row.GradeScore switch
         {
-            Grade = row.GradeScore switch
-            {
-                null => "unknown",
-                < 70 => "weak",
-                < 80 => "mediocre",
-                _ => "strong",
-            },
-            Coverage = row.Coverage.LinePercent switch
-            {
-                null => "unknown",
-                < 50 => "low",
-                < 80 => "medium",
-                _ => "high",
-            },
-        })
+            null => "unknown",
+            < 70 => "weak",
+            < 80 => "mediocre",
+            _ => "strong",
+        },
+        Coverage = row.Coverage.LinePercent switch
+        {
+            null => "unknown",
+            < 50 => "low",
+            < 80 => "medium",
+            _ => "high",
+        },
+    })
         .Select(group => new RiskMatrixCellResponse(group.Key.Grade, group.Key.Coverage,
             group.Count(), group.Sum(row => row.Changes)))
         .OrderBy(cell => cell.Grade, StringComparer.Ordinal).ThenBy(cell => cell.Coverage, StringComparer.Ordinal)
@@ -615,14 +666,17 @@ static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegist
 }
 
 static async Task<IResult> MutateFindingState(HttpContext context, FindingStateMutationRequest request,
-    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+    RepositoryRegistry registry, ILogger<Program> logger,
+    Microsoft.Extensions.Options.IOptions<RepositoryOptions> options, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var relative = repository.NormalizeRelativePath(request.Path);
     var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    var limits = options.Value.ContentLimits.Validate();
     FindingIdentityRecord identity;
-    using (var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken)))
+    using (var metadata = JsonDocument.Parse(await BoundedRepositoryFile.ReadAllTextAsync(
+               repository.Root, metaPath, limits.MaxSidecarBytes, cancellationToken)))
     {
         var finding = metadata.RootElement.GetProperty("findings").EnumerateArray().FirstOrDefault(candidate =>
             candidate.TryGetProperty("fingerprint", out var value) && value.GetString() == request.Fingerprint);
@@ -655,7 +709,8 @@ static async Task<IResult> MutateFindingState(HttpContext context, FindingStateM
 }
 
 static async Task<IResult> MutateThread(HttpContext context, ThreadMutationRequest request,
-    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+    RepositoryRegistry registry, ILogger<Program> logger,
+    Microsoft.Extensions.Options.IOptions<RepositoryOptions> options, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     if (string.IsNullOrWhiteSpace(request.Body) && request.Status is null)
@@ -666,70 +721,83 @@ static async Task<IResult> MutateThread(HttpContext context, ThreadMutationReque
     if (request.Status is not null && request.Status is not ("open" or "resolved"))
         throw new ArgumentException("Thread status must be open or resolved.");
     var (registration, repository) = ResolveRepository(context, registry);
+    var limits = options.Value.ContentLimits.Validate();
     var relative = repository.NormalizeRelativePath(request.Path);
     var metaPath = repository.FindMetaDocument(relative, request.Kind);
     var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
     await writeLock.WaitAsync(cancellationToken);
     try
     {
-    var root = JsonNode.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken))!.AsObject();
-    var threads = root["threads"] as JsonArray ?? [];
-    root["threads"] = threads;
-    JsonObject thread;
-    if (string.IsNullOrWhiteSpace(request.ThreadId))
-    {
-        if (request.Line is null or < 1 || string.IsNullOrWhiteSpace(request.Body))
-            throw new ArgumentException("A new thread requires a line and comment body.");
-        var content = await File.ReadAllTextAsync(repository.ResolveFile(relative), cancellationToken);
-        var lineCount = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n').Length;
-        if (request.Line > lineCount) throw new ArgumentException($"Line {request.Line} is outside the file (1-{lineCount}).");
-        var range = new FindingRange(new FindingPosition(request.Line.Value, 1), new FindingPosition(request.Line.Value, 1));
-        var fingerprint = request.FindingFingerprint;
-        if (string.IsNullOrWhiteSpace(fingerprint) || fingerprint.Length != 71 || !fingerprint.StartsWith("sha256:", StringComparison.Ordinal) ||
-            !fingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
-            fingerprint = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{relative}\0{request.Line}\0{request.Body}")));
-        thread = new JsonObject
+        var root = JsonNode.Parse(await BoundedRepositoryFile.ReadAllTextAsync(
+            repository.Root, metaPath, limits.MaxSidecarBytes, cancellationToken))!.AsObject();
+        var threads = root["threads"] as JsonArray ?? [];
+        root["threads"] = threads;
+        JsonObject thread;
+        if (string.IsNullOrWhiteSpace(request.ThreadId))
         {
-            ["id"] = $"thread-{Guid.NewGuid():N}",
-            ["anchor"] = new JsonObject
+            if (request.Line is null or < 1 || string.IsNullOrWhiteSpace(request.Body))
+                throw new ArgumentException("A new thread requires a line and comment body.");
+            if (threads.Count >= limits.MaxThreads)
+                throw new ReviewContentLimitException($"Review metadata reached the {limits.MaxThreads}-thread limit.");
+            var content = await BoundedRepositoryFile.ReadAllTextAsync(
+                repository.Root, repository.ResolveFile(relative), limits.MaxFileBytes, cancellationToken);
+            var lineCount = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n').Length;
+            if (request.Line > lineCount) throw new ArgumentException($"Line {request.Line} is outside the file (1-{lineCount}).");
+            var range = new FindingRange(new FindingPosition(request.Line.Value, 1), new FindingPosition(request.Line.Value, 1));
+            var fingerprint = request.FindingFingerprint;
+            if (string.IsNullOrWhiteSpace(fingerprint) || fingerprint.Length != 71 || !fingerprint.StartsWith("sha256:", StringComparison.Ordinal) ||
+                !fingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
+                fingerprint = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{relative}\0{request.Line}\0{request.Body}")));
+            thread = new JsonObject
             {
-                ["path"] = relative, ["fingerprint"] = fingerprint,
-                ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
-                ["lastKnownRange"] = new JsonObject
+                ["id"] = $"thread-{Guid.NewGuid():N}",
+                ["anchor"] = new JsonObject
                 {
-                    ["start"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
-                    ["end"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                    ["path"] = relative,
+                    ["fingerprint"] = fingerprint,
+                    ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
+                    ["lastKnownRange"] = new JsonObject
+                    {
+                        ["start"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                        ["end"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                    },
                 },
-            },
-            ["status"] = request.Status ?? "open", ["anchorState"] = "anchored", ["entries"] = new JsonArray(),
-        };
-        threads.Add(thread);
-    }
-    else
-    {
-        thread = threads.OfType<JsonObject>().SingleOrDefault(candidate => candidate["id"]?.GetValue<string>() == request.ThreadId)
-            ?? throw new KeyNotFoundException($"Review thread '{request.ThreadId}' was not found.");
-    }
-    if (!string.IsNullOrWhiteSpace(request.Body))
-    {
-        var entry = new JsonObject
+                ["status"] = request.Status ?? "open",
+                ["anchorState"] = "anchored",
+                ["entries"] = new JsonArray(),
+            };
+            threads.Add(thread);
+        }
+        else
         {
-            ["id"] = $"entry-{Guid.NewGuid():N}",
-            ["author"] = new JsonObject { ["kind"] = "human", ["name"] = string.IsNullOrWhiteSpace(request.HumanName) ? "Reviewer" : request.HumanName.Trim() },
-            ["createdAt"] = DateTime.UtcNow.ToString("O"), ["body"] = request.Body.Trim(),
-        };
-        if (!string.IsNullOrWhiteSpace(request.ReplyTo)) entry["replyTo"] = request.ReplyTo;
-        thread["entries"]!.AsArray().Add(entry);
-    }
-    if (request.Status is not null) thread["status"] = request.Status;
-    var temporary = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-    await File.WriteAllTextAsync(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine,
-        new UTF8Encoding(false), cancellationToken);
-    File.Move(temporary, metaPath, true);
-    logger.LogInformation(new EventId(1500, "ReviewThreadMutated"),
-        "Mutated review thread {ThreadId} for {FilePath} in repository {RepositoryId}; Status={Status}, HasEntry={HasEntry}, ElapsedMilliseconds={ElapsedMilliseconds}",
-        thread["id"]!.GetValue<string>(), relative, registration.Id, thread["status"]!.GetValue<string>(), !string.IsNullOrWhiteSpace(request.Body), stopwatch.ElapsedMilliseconds);
-    return Results.Ok(thread);
+            thread = threads.OfType<JsonObject>().SingleOrDefault(candidate => candidate["id"]?.GetValue<string>() == request.ThreadId)
+                ?? throw new KeyNotFoundException($"Review thread '{request.ThreadId}' was not found.");
+        }
+        if (!string.IsNullOrWhiteSpace(request.Body))
+        {
+            var entry = new JsonObject
+            {
+                ["id"] = $"entry-{Guid.NewGuid():N}",
+                ["author"] = new JsonObject { ["kind"] = "human", ["name"] = string.IsNullOrWhiteSpace(request.HumanName) ? "Reviewer" : request.HumanName.Trim() },
+                ["createdAt"] = DateTimeOffset.UtcNow.ToString(
+                    "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture),
+                ["body"] = request.Body.Trim(),
+            };
+            if (!string.IsNullOrWhiteSpace(request.ReplyTo)) entry["replyTo"] = request.ReplyTo;
+            thread["entries"]!.AsArray().Add(entry);
+        }
+        if (request.Status is not null) thread["status"] = request.Status;
+        var temporary = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+        var serialized = root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine;
+        if (Encoding.UTF8.GetByteCount(serialized) > limits.MaxSidecarBytes)
+            throw new ReviewContentLimitException($"Review metadata exceeds the {limits.MaxSidecarBytes}-byte sidecar limit.");
+        await File.WriteAllTextAsync(temporary, serialized,
+            new UTF8Encoding(false), cancellationToken);
+        File.Move(temporary, metaPath, true);
+        logger.LogInformation(new EventId(1500, "ReviewThreadMutated"),
+            "Mutated review thread {ThreadId} for {FilePath} in repository {RepositoryId}; Status={Status}, HasEntry={HasEntry}, ElapsedMilliseconds={ElapsedMilliseconds}",
+            thread["id"]!.GetValue<string>(), relative, registration.Id, thread["status"]!.GetValue<string>(), !string.IsNullOrWhiteSpace(request.Body), stopwatch.ElapsedMilliseconds);
+        return Results.Ok(thread);
     }
     finally
     {
@@ -786,7 +854,8 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
     return Results.Ok(new { level = "file", kinds });
 }
 
-static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)
+static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store,
+    Microsoft.Extensions.Options.IOptions<RepositoryOptions> options)
 {
     var (_, repository) = ResolveRepository(context, registry);
     var guidelines = store.List(repository.Root);
@@ -794,7 +863,8 @@ static IResult Guidelines(HttpContext context, RepositoryRegistry registry, Guid
     {
         guidelines,
         catalogue = GuidelineStore.Catalogue,
-        traces = BuildGuidelineTraces(repository.Root, guidelines.Select(value => value.Id)),
+        traces = BuildGuidelineTraces(repository.Root, guidelines.Select(value => value.Id),
+            options.Value.ContentLimits.Validate()),
     });
 }
 
@@ -841,30 +911,68 @@ static async Task<IResult> GuidelineImpact(HttpContext context, GuidelineImpactR
     return Results.Ok(await analyzer.AnalyzeAsync(repository.Root, configured, cancellationToken));
 }
 
-static IReadOnlyList<GuidelineTraceResponse> BuildGuidelineTraces(string repositoryRoot, IEnumerable<string> guidelineIds)
+static IReadOnlyList<GuidelineTraceResponse> BuildGuidelineTraces(
+    string repositoryRoot, IEnumerable<string> guidelineIds, ReviewContentLimits limits)
 {
     var ids = guidelineIds.ToHashSet(StringComparer.Ordinal);
     var findings = ids.ToDictionary(id => id, _ => new List<GuidelineTraceFindingResponse>(), StringComparer.Ordinal);
-    foreach (var path in Directory.EnumerateFiles(repositoryRoot, "*.json", SearchOption.AllDirectories)
-                 .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
+    var enumeration = new EnumerationOptions
     {
-        using var document = JsonDocument.Parse(File.ReadAllText(path));
-        var root = document.RootElement;
-        if (!root.TryGetProperty("findings", out var values) || values.ValueKind != JsonValueKind.Array) continue;
-        var kind = root.TryGetProperty("kind", out var kindValue) ? kindValue.GetString() ?? "code" : "code";
-        var unitPath = root.TryGetProperty("unit", out var unit) && unit.TryGetProperty("path", out var unitPathValue)
-            ? unitPathValue.GetString() ?? string.Empty : string.Empty;
-        foreach (var finding in values.EnumerateArray())
+        RecurseSubdirectories = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
+    };
+    long aggregateBytes = 0;
+    foreach (var path in Directory.EnumerateFiles(repositoryRoot, "*.json", enumeration)
+                 .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal))
+                 .Take(limits.MaxSidecarCount))
+    {
+        JsonDocument document;
+        try
         {
-            if (!finding.TryGetProperty("ruleId", out var ruleIdValue) || ruleIdValue.GetString() is not { } ruleId ||
-                !findings.TryGetValue(ruleId, out var target)) continue;
-            target.Add(new GuidelineTraceFindingResponse(
-                finding.GetProperty("id").GetString()!, ruleId, finding.GetProperty("title").GetString()!,
-                finding.GetProperty("severity").GetString()!, kind, unitPath,
-                Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')));
+            aggregateBytes = checked(aggregateBytes +
+                BoundedRepositoryFile.Length(repositoryRoot, path, limits.MaxSidecarBytes));
+            if (aggregateBytes > limits.MaxSidecarAggregateBytes) continue;
+            var content = BoundedRepositoryFile.ReadAllText(repositoryRoot, path, limits.MaxSidecarBytes);
+            var contract = ReviewMetaJson.Deserialize(content);
+            if (contract.Findings.Count > limits.MaxFindings || contract.Threads.Count > limits.MaxThreads) continue;
+            document = JsonDocument.Parse(content);
+            EnsureBoundedJsonText(document.RootElement, limits.MaxTextFieldCharacters);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or
+                                           ArgumentException or InvalidOperationException or
+                                           ReviewContentLimitException or OverflowException)
+        {
+            continue;
+        }
+        using (document)
+        {
+            var root = document.RootElement;
+            if (!root.TryGetProperty("findings", out var values) || values.ValueKind != JsonValueKind.Array) continue;
+            var kind = root.TryGetProperty("kind", out var kindValue) ? kindValue.GetString() ?? "code" : "code";
+            var unitPath = root.TryGetProperty("unit", out var unit) && unit.TryGetProperty("path", out var unitPathValue)
+                ? unitPathValue.GetString() ?? string.Empty : string.Empty;
+            foreach (var finding in values.EnumerateArray())
+            {
+                if (!finding.TryGetProperty("ruleId", out var ruleIdValue) || ruleIdValue.GetString() is not { } ruleId ||
+                    !findings.TryGetValue(ruleId, out var target)) continue;
+                target.Add(new GuidelineTraceFindingResponse(
+                    finding.GetProperty("id").GetString()!, ruleId, finding.GetProperty("title").GetString()!,
+                    finding.GetProperty("severity").GetString()!, kind, unitPath,
+                    Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')));
+            }
         }
     }
     return findings.Select(pair => new GuidelineTraceResponse(pair.Key, pair.Value.Count, pair.Value)).ToArray();
+}
+
+static void EnsureBoundedJsonText(JsonElement element, int maximumCharacters)
+{
+    if (element.ValueKind == JsonValueKind.String && (element.GetString()?.Length ?? 0) > maximumCharacters)
+        throw new ReviewContentLimitException($"Review metadata text exceeds {maximumCharacters} characters.");
+    if (element.ValueKind == JsonValueKind.Object)
+        foreach (var property in element.EnumerateObject()) EnsureBoundedJsonText(property.Value, maximumCharacters);
+    if (element.ValueKind == JsonValueKind.Array)
+        foreach (var item in element.EnumerateArray()) EnsureBoundedJsonText(item, maximumCharacters);
 }
 
 static async Task<IResult> Scan(HttpContext context, RepositoryRegistry registry, StalenessEvaluator evaluator,
@@ -1203,13 +1311,15 @@ static async Task<IResult> Handover(
     AgentStudioTaskClient client,
     AgentStudioTaskOptions options,
     ApiSecurity security,
+    Microsoft.Extensions.Options.IOptions<RepositoryOptions> repositoryOptions,
     ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var template = await ResolveCanonicalHandoverAsync(repository, request.FilePath, request.ReviewKind,
-        request.FindingFingerprint, security.Identity(context).Id, cancellationToken);
+        request.FindingFingerprint, security.Identity(context).Id,
+        repositoryOptions.Value.ContentLimits.Validate(), cancellationToken);
     var card = AgentStudioTaskClient.BuildCard(template,
         options.Project ?? throw new InvalidOperationException("Agent Studio project is not configured."));
     var expectedConfirmation = HandoverConfirmationHash(registration.Id, request.FindingFingerprint, card);
@@ -1229,11 +1339,13 @@ static async Task<IResult> HandoverPreview(
     RepositoryRegistry registry,
     AgentStudioTaskOptions options,
     ApiSecurity security,
+    Microsoft.Extensions.Options.IOptions<RepositoryOptions> repositoryOptions,
     CancellationToken cancellationToken)
 {
     var (registration, repository) = ResolveRepository(context, registry);
     var template = await ResolveCanonicalHandoverAsync(repository, request.FilePath, request.ReviewKind,
-        request.FindingFingerprint, security.Identity(context).Id, cancellationToken);
+        request.FindingFingerprint, security.Identity(context).Id,
+        repositoryOptions.Value.ContentLimits.Validate(), cancellationToken);
     var card = AgentStudioTaskClient.BuildCard(template,
         options.Project ?? throw new InvalidOperationException("Agent Studio project is not configured."));
     return Results.Ok(new HandoverPreviewResponse(
@@ -1246,6 +1358,7 @@ static async Task<FindingTaskTemplate> ResolveCanonicalHandoverAsync(
     string requestedKind,
     string requestedFingerprint,
     string approver,
+    ReviewContentLimits contentLimits,
     CancellationToken cancellationToken)
 {
     ArgumentException.ThrowIfNullOrWhiteSpace(requestedPath);
@@ -1261,7 +1374,8 @@ static async Task<FindingTaskTemplate> ResolveCanonicalHandoverAsync(
         throw new ArgumentException("Finding fingerprint must be a lowercase sha256 value.", nameof(requestedFingerprint));
 
     var metaPath = repository.FindMetaDocument(filePath, requestedKind);
-    var document = ReviewMetaJson.Deserialize(await File.ReadAllTextAsync(metaPath, cancellationToken));
+    var document = ReviewMetaJson.Deserialize(await BoundedRepositoryFile.ReadAllTextAsync(
+        repository.Root, metaPath, contentLimits.MaxSidecarBytes, cancellationToken));
     if (!StringComparer.Ordinal.Equals(document.Unit.Path, filePath) || document.Kind != kind ||
         document.SubjectInputs.Count == 0 ||
         !document.SubjectInputs.Any(input => StringComparer.Ordinal.Equals(input.Path, filePath)))
@@ -1271,7 +1385,8 @@ static async Task<FindingTaskTemplate> ResolveCanonicalHandoverAsync(
         if (!StringComparer.Ordinal.Equals(input.Selector, "file"))
             throw new StalenessScanException("Only current file review findings can be handed over.");
         var inputPath = repository.ResolveFile(input.Path);
-        var currentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(inputPath, cancellationToken);
+        var currentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
+            inputPath, cancellationToken, repository.Root, contentLimits.MaxFileBytes);
         if (!StringComparer.Ordinal.Equals(currentHash, input.ContentHash))
             throw new StalenessScanException("The review finding is stale because its subject changed.");
     }
@@ -1396,6 +1511,26 @@ static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRep
 
 static string? RouteRepositoryId(HttpContext context) =>
     context.Request.RouteValues.TryGetValue("repoId", out var routeId) ? routeId?.ToString() : null;
+
+static string RequiredApiRole(HttpContext context) =>
+    context.GetEndpoint()?.Metadata.GetMetadata<ApiRoleMetadata>()?.Role ?? "unmapped";
+
+static void AuditAuthorization(
+    HttpContext context,
+    string? keyId,
+    string action,
+    string? repositoryId,
+    string decision,
+    string reason,
+    int? result)
+{
+    var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("QualityStudio.Api.SecurityAudit");
+    logger.LogInformation(new EventId(1600, "ApiAuthorization"),
+        "API authorization key {CredentialKeyId} action {AuthorizationAction} repository {RepositoryId} decision {AuthorizationDecision} reason {AuthorizationReason} result {AuthorizationResult}",
+        keyId ?? "unknown", action, repositoryId ?? "none", decision, reason,
+        result?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "pending");
+}
 
 static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
 {
