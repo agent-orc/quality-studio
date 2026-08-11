@@ -381,6 +381,23 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Local_sensor_gets_require_allowed_origin_and_session_nonce()
+    {
+        var localHost = Path.Combine(testRoot, "csrf-scan-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var unprotected = ((WebApplicationFactory<Program>)local).CreateClient();
+        using var missingProtection = await unprotected.GetAsync(
+            "/api/scan", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, missingProtection.StatusCode);
+
+        using var protectedClient = local.CreateClient();
+        using var protectedScan = await protectedClient.GetAsync(
+            "/api/scan", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, protectedScan.StatusCode);
+    }
+
+    [Fact]
     public void Local_mode_rejects_non_loopback_bindings()
     {
         var options = Options.Create(new RepositoryOptions

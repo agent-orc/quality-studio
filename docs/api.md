@@ -33,7 +33,9 @@ Local mode accepts only loopback bindings. Every local mutation requires an allo
 `Origin` plus a short-lived nonce obtained from `GET /api/security/session`; the
 Angular client performs this handshake automatically. Non-browser callers must retain
 the response cookie and send the returned header name/token with the same allowed
-origin. Hosted mode continues to require a bearer credential and matching
+origin. The legacy `GET` routes for staleness, secret, and attack-coverage scans are
+also protected operations because they execute repository sensors. Hosted mode
+continues to require a bearer credential and matching
 `X-Client-Id` instead. Creating, changing, or archiving a repository registration
 requires registrar authority, including changes to roots, global inputs, and sensors.
 
