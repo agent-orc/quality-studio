@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio Review Flow - Operator Decision Dossier</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+  <style>
+    a { color: var(--develop); text-underline-offset: 3px; }
+    .decision { display: grid; grid-template-columns: 1fr auto; gap: 22px; align-items: center; }
+    .decision strong { font-size: 18px; }
+    .decision .pill { white-space: nowrap; }
+    .shot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 22px 0; }
+    .shot { margin: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+    .shot img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line); background: #f6f7f9; }
+    .shot figcaption { margin: 0; padding: 12px 14px 14px; }
+    .shot.wide { grid-column: 1 / -1; }
+    .priority { display: inline-flex; min-width: 31px; justify-content: center; }
+    .finding-table td:first-child { white-space: nowrap; }
+    .journey td:first-child { width: 18%; font-weight: 650; }
+    .source { color: var(--ink-2); font: 12px/1.5 ui-monospace, Consolas, monospace; }
+    .callout-title { display: flex; align-items: center; gap: 9px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+    .mock-ui { font-family: system-ui, sans-serif; }
+    .mock-frame { fill: var(--surface-1); stroke: var(--line); }
+    .mock-pane { fill: var(--surface-2); stroke: var(--line); }
+    .mock-panel { fill: var(--surface-1); stroke: var(--line); }
+    .mock-accent { fill: var(--accent-soft); stroke: var(--develop); }
+    .mock-warn { fill: var(--warn-soft); stroke: var(--warn); }
+    .mock-good { fill: var(--ok-soft); stroke: var(--ok); }
+    .mock-bad { fill: var(--bad-soft); stroke: var(--bad); }
+    .mock-text { fill: var(--ink-1); font-size: 12px; }
+    .mock-title { fill: var(--ink-1); font-size: 14px; font-weight: 700; }
+    .mock-small { fill: var(--ink-2); font-size: 10px; }
+    .mock-tiny { fill: var(--ink-3); font-size: 9px; }
+    .mock-code { fill: var(--ink-2); font: 10px ui-monospace, Consolas, monospace; }
+    .mock-accent-text { fill: var(--develop); font-size: 10px; font-weight: 700; }
+    .mock-good-text { fill: var(--ok); font-size: 10px; font-weight: 700; }
+    .mock-warn-text { fill: var(--warn); font-size: 10px; font-weight: 700; }
+    .slice-id { color: var(--develop); font: 700 12px ui-monospace, Consolas, monospace; }
+    .acceptance { color: var(--ink-2); font-size: 13px; }
+    .decision-list li { max-width: 90ch; }
+    .compact { font-size: 13px; }
+    footer.page-footer { margin-top: 54px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12px; }
+    @media (max-width: 760px) {
+      .shot-grid { grid-template-columns: 1fr; }
+      .shot.wide { grid-column: auto; }
+      .decision { grid-template-columns: 1fr; }
+      table { display: block; max-width: 100%; overflow-x: auto; contain: inline-size; }
+      .source { overflow-wrap: anywhere; }
+      code { overflow-wrap: anywhere; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <p class="kicker">Quality Studio · Operator decision dossier · QS-60</p>
+    <h1>Review flow: from intent to disposition</h1>
+    <p class="lede">A repository-grounded walkthrough of starting a review, watching it run, reading and locating findings, taking action, and comparing outcomes. The recommendation turns the existing three-pane engineer workspace into one continuous review session rather than adding another dashboard.</p>
+    <div class="meta">
+      <span><b>Status</b> Decision pending</span>
+      <span><b>Phase</b> Decision ready</span>
+      <span><b>Evidence date</b> 11 August 2026</span>
+      <span><b>Baseline</b> main + QS-55 + QS-56</span>
+    </div>
+  </header>
+
+  <div class="box accent decision">
+    <div>
+      <strong>Recommendation: approve the session-centered flow and Slices S0-S6 as one direction.</strong>
+      <p>Keep the three-pane workspace. Give each scope one launch point, let the active run occupy that point, make every finding a bidirectional code anchor, present lifecycle actions in operator language, add API-owned management for the existing repository scope list, and persist a compact per-run outcome snapshot for comparison.</p>
+    </div>
+    <span class="pill queued">Recommended · Option B</span>
+  </div>
+
+  <nav aria-label="Contents">
+    <h2><span class="no">00</span>Contents</h2>
+    <ol class="toc">
+      <li><a href="#basis">Evidence basis</a></li>
+      <li><a href="#walk">Operator walkthrough</a></li>
+      <li><a href="#screens">Current-state screenshots</a></li>
+      <li><a href="#findings">Findings and evidence</a></li>
+      <li><a href="#target">Recommended target flow</a></li>
+      <li><a href="#mockups">Target mockups</a></li>
+      <li><a href="#options">Options and recommendation</a></li>
+      <li><a href="#slices">Implementation slices</a></li>
+      <li><a href="#decision">Decision package</a></li>
+    </ol>
+  </nav>
+
+  <section id="basis">
+    <h2><span class="no">01</span>Evidence basis</h2>
+    <p>This dossier reviews the actual implementation and preserved acceptance evidence. QS-55 and QS-56 are not integrated into the checked-out main commit, so their preserved commits are treated as the requested visual baselines and are never represented as current main.</p>
+    <table>
+      <thead><tr><th>Source</th><th>What it establishes</th><th>Provenance</th></tr></thead>
+      <tbody>
+        <tr><td><b>Current main</b></td><td>Three-pane placement, run polling and response shape, finding selection, lifecycle API, and durable run store.</td><td class="source">3e0b6559</td></tr>
+        <tr><td><b>QS-55 findings state</b></td><td>13 px finding bodies, 14 px card titles, 16 px detail title, audited contrast, and 24 × 22 px code marker hit area.</td><td class="source">0ac0dae8 · mocked preview captures</td></tr>
+        <tr><td><b>QS-56 picker state</b></td><td>Catalog-backed model combobox, thinking levels, route annotations, model validation, and route fields on runs.</td><td class="source">2b3f31ef · live API captures</td></tr>
+        <tr><td><b>Product contracts</b></td><td>Three-pane engineer workspace, durable run semantics, lifecycle meaning, and the source-to-detail drill-down requirement.</td><td class="source">docs/concept.md · docs/review-runs.md · docs/finding-lifecycle.md</td></tr>
+        <tr><td><b>Operator design policy</b></td><td>Inline rationale beside controls, continuous progress, evidence one click away, model correctness floors, both themes, and no decorative status rail.</td><td class="source">agent-taskboard indexed prompt sources</td></tr>
+      </tbody>
+    </table>
+    <div class="box warn">
+      <h4>Evidence boundary</h4>
+      <p>The QS-56 screenshots used a live Quality Studio API. The QS-55 readability screenshots deliberately aborted API calls and exercised repository-owned preview data; their filenames say <code>--mocked</code>. The run-progress and comparison findings below are code-contract findings, not claims inferred from a staged screenshot.</p>
+    </div>
+  </section>
+
+  <section id="walk">
+    <h2><span class="no">02</span>Operator walkthrough</h2>
+    <table class="journey">
+      <thead><tr><th>Step</th><th>What the operator does today</th><th>Where confidence breaks</th></tr></thead>
+      <tbody>
+        <tr><td>1 · Choose scope</td><td>Select a repository node. The same <code>qs-review-actions</code> launcher is then visible in Explorer, the editor header, and the Review pane.</td><td>Three equal launch points make the action look global and local at the same time. The scope is encoded in component input, not stated as a single review sentence.</td></tr>
+        <tr><td>2 · Choose route</td><td>QS-56 filters catalog models by CLI, lists capability tier, suitability, thinking levels, price availability, and provisional status. Runner default is first.</td><td>The catalog explains models but does not recommend a route for this scope or show the policy floor. The operator still has to translate policy into a choice.</td></tr>
+        <tr><td>3 · Confirm</td><td><code>POST /review/estimate</code> runs and a native browser confirmation prints files, operations, tokens, cost, cap, and history samples.</td><td>The preflight replaces the workbench with an operating-system dialog. It cannot expose assumptions progressively, show the selected scope visually, or link model rationale.</td></tr>
+        <tr><td>4 · Watch</td><td>A run row at the top of the right pane shows state, file counts, a progress bar, spend, route, stop reason, first error, and pause/cancel/resume.</td><td>The list is the eight newest repository runs, not the selected scope. It does not show the current file or the supplied <code>files[]</code> transitions. Historical runs compete with findings for the same narrow scroll column.</td></tr>
+        <tr><td>5 · Read findings</td><td>QS-55 provides readable cards, stronger severity contrast, and a selected detail with evidence and recommendation.</td><td>The list has no open-only default, sort, or grouping. The detail omits location links and uses a decorative colored left rail that conflicts with the active design hard rule.</td></tr>
+        <tr><td>6 · Go to code</td><td>Clicking a code gutter marker selects its finding. Clicking a finding card selects its detail.</td><td>The reverse path stops at selection: the app does not open the location, scroll to its range, focus it, or encode the finding in the URL. Multi-location findings are invisible.</td></tr>
+        <tr><td>7 · Act</td><td>Enter author and reason, optionally an expiry, then choose Reopen, Accept, Waive, or False positive. Create task appears only when handover is configured.</td><td>Raw storage vocabulary is exposed. There is no safe operator-level Dismiss choice, action-specific rationale, undo, or repository ignore list. Accept remains active and score-affecting, but the UI does not explain that consequence.</td></tr>
+        <tr><td>8 · Compare</td><td>Read separate run rows and their estimate deviations.</td><td>There is no baseline/candidate selection and no historical finding snapshot. A prior sidecar is replaced by the next review, while current <code>result.json</code> contains counts and route data but no grades or findings.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="screens">
+    <h2><span class="no">03</span>Current-state screenshots</h2>
+    <div class="shot-grid">
+      <figure class="shot wide">
+        <a href="assets/qs-56-model-picker-light--real.png"><img src="assets/qs-56-model-picker-light--real.png" alt="Quality Studio light theme with the QS-56 model picker open in the editor launcher and duplicate launchers in the left and right panes"></a>
+        <figcaption><b>QS-56, live API, light theme.</b> The picker is materially better than free text: five eligible options, capability and suitability text, thinking levels, pricing status, and an explicit Runner default. The same capture also shows the main flow problem: three simultaneous launchers. The menu describes model classes but provides no scope-specific recommendation or correctness floor. <a href="assets/qs-56-model-picker-dark--real.png">Dark-theme evidence</a> · <a href="assets/qs-56-model-picker-evidence--real.json">option inventory</a>.</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="assets/qs-55-findings-list-light--mocked.png"><img src="assets/qs-55-findings-list-light--mocked.png" alt="QS-55 findings panel in light theme showing a readable finding card and several sections competing in one vertical rail"></a>
+        <figcaption><b>QS-55 preview data, light theme.</b> The finding is now readable, but Review runs, Token usage, summary, Findings, Discussion threads, Review inputs, and Repository scan all share one narrow, unfiltered rail. The mocked preview also displays one card next to a zero-open heading because the preview document lacks projected counts, demonstrating why displayed aggregates must be derived from the visible set. <a href="assets/qs-55-findings-list-dark--mocked.png">Dark theme</a>.</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="assets/qs-55-finding-code-context-light--mocked.png"><img src="assets/qs-55-finding-code-context-light--mocked.png" alt="QS-55 three-pane Quality Studio with a selected finding detail and matching markers in code"></a>
+        <figcaption><b>QS-55 preview data, light theme.</b> Code and detail are visible together, which validates retaining the three-pane workspace. Yet the detail shows no file/line control, the card click has no reverse navigation behavior, and four raw lifecycle buttons sit below generic author/reason fields. <a href="assets/qs-55-finding-code-context-dark--mocked.png">Dark theme</a> · <a href="assets/qs-55-findings-readability-audit--mocked.json">computed readability audit</a>.</figcaption>
+      </figure>
+    </div>
+    <div class="box ok">
+      <h4>Keep the QS-55 readability gains</h4>
+      <p>The audit records 13 px body and evidence text, 14 px card titles, 16 px detail titles, at least 5.02:1 audited body contrast, at least 6.02:1 severity contrast, and a 24 × 22 px marker hit target in both themes. The target flow changes hierarchy and behavior, not those legibility floors.</p>
+    </div>
+  </section>
+
+  <section id="findings">
+    <h2><span class="no">04</span>Findings with code and data evidence</h2>
+    <table class="finding-table">
+      <thead><tr><th>Priority</th><th>Finding</th><th>Repository evidence</th><th>Decision consequence</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill open priority">P1</span></td><td><b>One intent has three launchers.</b> The operator cannot tell which copy is canonical.</td><td class="source">explorer.html:4 · editor.html:26/127 · review-panel.html:2</td><td>Keep one contextual launcher in the center scope header. Replace the right copy with active-run state and leave Explorer with a compact context action only.</td></tr>
+        <tr><td><span class="pill open priority">P1</span></td><td><b>The picker informs but does not decide.</b> QS-56 has catalog facts, but no recommendation, score, policy floor, or reason.</td><td class="source">QS-56 review-actions.ts:38-57 · review-actions.html:24-49</td><td>Return recommendation metadata from the API. Quota may change a borderline route but must never lower a hard floor.</td></tr>
+        <tr><td><span class="pill part priority">P2</span></td><td><b>Preflight is a native confirm.</b> Good estimate data is trapped in an unstructured modal string.</td><td class="source">QS-56 review-actions.ts:140-158</td><td>Render an inline review sheet with explicit Scope, Route, Estimate, Cap, Fresh skips, and Start. Keep the API estimate as authority.</td></tr>
+        <tr><td><span class="pill open priority">P1</span></td><td><b>Progress hides the unit of work.</b> The API supplies every file transition, but the UI renders counts and only the first error.</td><td class="source">quality-api.ts:185/189-196 · review-panel.html:5-19 · polling at quality-api.ts:515-530/594-599</td><td>Show current phase and current path, expandable completed/failed/skipped files, and the exact stopping boundary. Do not invent an ETA.</td></tr>
+        <tr><td><span class="pill open priority">P1</span></td><td><b>Finding navigation is one-way.</b> Code marker to detail works; detail to code does not.</td><td class="source">review-panel.html:50 · app.ts:194 · editor.ts:58-65 and 199-206</td><td>Add a location command that opens the file, switches kind, scrolls and focuses the range, highlights it, and writes <code>finding</code>/<code>location</code> to the URL.</td></tr>
+        <tr><td><span class="pill open priority">P1</span></td><td><b>Operator actions expose persistence vocabulary without consequence text.</b></td><td class="source">review-panel.html:51 · review-panel.ts:68-94 · finding-lifecycle.md:7-9</td><td>Present Accept, Dismiss, and Ignore. Map Dismiss explicitly to Waive or False positive. Explain that Accepted remains active; Waived and False positive are excluded from effective grade.</td></tr>
+        <tr><td><span class="pill open priority">P1</span></td><td><b>The ignore engine has no maintainable operator surface.</b> The repository already reads curated include/exclude rules from <code>.quality/scope.json</code>, but there is no repository-scoped CRUD API or UI.</td><td class="source">docs/concept.md:774-811 · schemas/scope.v1.schema.json · RepositoryScope.cs:23/57-68 · Explorer only displays exclusions</td><td>Manage the existing scope list through the API. Never overload False positive as a durable path suppression or invent a parallel ignore store.</td></tr>
+        <tr><td><span class="pill open priority">P1</span></td><td><b>Run comparison lacks source data.</b> The run response has orchestration and usage, not outcome findings; the QS-56 <code>result.json</code> addition still has no grades or findings.</td><td class="source">ReviewRunResponse fields ReviewJobs.cs:43-71 · QS-56 ReviewRunResult fields ReviewRunStore.cs:75-98 · .quality/runs is ignored</td><td>Persist a compact immutable outcome per run, then compare stable fingerprints and dispositions through an API.</td></tr>
+        <tr><td><span class="pill part priority">P2</span></td><td><b>The right rail mixes live, historical, evidence, input, and scan concerns.</b></td><td class="source">review-panel.html sections at lines 5, 20, 25-64</td><td>Default the rail to Findings. Put active run in a sticky strip and historical runs in a drawer. Keep token/input/scan evidence reachable, not continuously stacked.</td></tr>
+        <tr><td><span class="pill part priority">P2</span></td><td><b>QS-55 adds a decorative colored left rail on finding detail.</b></td><td class="source">QS-55 styles.css: .review-pane .finding-detail border-left</td><td>Retain spacing and typography, replace the rail with a selected background, border, badge, or dot to comply with the design hard rule.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="target">
+    <h2><span class="no">05</span>Recommended target flow</h2>
+    <h3>A. Start from one sentence</h3>
+    <p>The center scope header owns the primary action: <b>Review 42 files for code quality</b>. Opening it shows a compact inline sheet with Scope, Kind, Route, Estimate, Cap, and Freshness. Explorer offers only a contextual “Review this scope” action that focuses the same sheet. The Review pane never repeats the launcher.</p>
+    <div class="box accent">
+      <h4>Model recommendation contract</h4>
+      <p>The server returns <code>policyVersion</code>, <code>recommendedModel</code>, <code>recommendedThinkingLevel</code>, <code>capabilityTier</code>, <code>score</code>, <code>correctnessFloor</code>, <code>reason</code>, and <code>selectionSource</code>. The QS-56 catalog remains the source for eligible choices. An operator override remains possible, but a below-floor pin is visibly warned. Cost and quota never silently lower a hard floor.</p>
+    </div>
+    <h3>B. Let launch state become run state</h3>
+    <p>After Start, the sheet collapses into a sticky active-run strip in the same center header: current phase, current path, <code>17 / 42</code>, failures/skips, spend/cap, Pause, and Cancel. The right pane defaults to findings and carries only a quiet “Run details” affordance. Completed runs move to a drawer filtered to the selected repository/scope/kind.</p>
+    <h3>C. Make findings the review queue</h3>
+    <p>The right pane defaults to active findings, ordered by severity then source position. Counts are computed from the filtered visible set. Each row shows severity, title, state, primary <code>path:line</code>, and whether the source is stale. Keyboard Next/Previous walks the same visible queue.</p>
+    <h3>D. Make every finding a code command</h3>
+    <p>Selecting a finding opens its primary location, changes the active review kind, scrolls the range to the center third of the viewport, moves focus to the marker, and highlights the whole range. A location switcher handles <code>1 of N</code>. The URL carries repository, path, kind, finding fingerprint, and location index so a handover backlink restores the same review context.</p>
+    <h3>E. Separate observation state from future suppression</h3>
+    <ul>
+      <li><b>Accept</b>: the finding is valid. It stays active and grade-affecting; offer Create task immediately after save.</li>
+      <li><b>Dismiss</b>: choose <b>Waive</b> (valid but intentionally excluded, optionally expiring) or <b>False positive</b> (invalid observation). Both require a reason and show their grade consequence before save.</li>
+      <li><b>Ignore path in future reviews</b>: add a curated <code>exclude</code> rule to the existing <code>.quality/scope.json</code> contract through the API. Default to the exact finding path. A wider pattern requires an explicit expansion step and a preview of matched files. The current v1 contract applies repository review scope, not one finding rule or one review kind, so the UI must state that breadth.</li>
+      <li><b>Undo</b>: a short-lived toast reverses the just-written state through the same API with optimistic-concurrency timestamp, never by editing repository files directly.</li>
+    </ul>
+    <h3>F. Compare outcomes, not cards</h3>
+    <p>The comparison view selects a baseline and candidate from compatible runs. It aligns findings by fingerprint and reports New, Unchanged, Resolved, and Disposition changed. The summary compares grade, active severity counts, reviewed/failed/skipped units, route, prompt-input hash, duration, tokens, and cost. “Resolved” means absent from the candidate outcome, not merely hidden by a filter.</p>
+  </section>
+
+  <section id="mockups">
+    <h2><span class="no">06</span>Target mockups</h2>
+    <figure>
+      <svg class="mock-ui" viewBox="0 0 1040 600" role="img" aria-labelledby="workspace-title workspace-desc">
+        <title id="workspace-title">Target review session in the three-pane workspace</title>
+        <desc id="workspace-desc">A repository scope on the left, code with an active finding in the center, and a findings queue with clear actions on the right. A single active review strip spans the center header.</desc>
+        <rect class="mock-frame" x="10" y="10" width="1020" height="580" rx="10"/>
+        <rect class="mock-pane" x="24" y="50" width="206" height="522" rx="6"/>
+        <rect class="mock-panel" x="242" y="50" width="496" height="522" rx="6"/>
+        <rect class="mock-pane" x="750" y="50" width="266" height="522" rx="6"/>
+        <text class="mock-title" x="24" y="34">Quality Studio · Payments</text>
+        <text class="mock-small" x="850" y="34">Run history  ⌄</text>
+
+        <text class="mock-tiny" x="40" y="76">REPOSITORY</text>
+        <text class="mock-title" x="40" y="98">Explorer</text>
+        <rect class="mock-panel" x="38" y="114" width="178" height="30" rx="5"/>
+        <text class="mock-small" x="52" y="133">Filter files…</text>
+        <text class="mock-small" x="42" y="171">▾ src</text>
+        <rect class="mock-accent" x="38" y="181" width="178" height="34" rx="5"/>
+        <text class="mock-text" x="53" y="202">▾ Billing</text>
+        <text class="mock-small" x="57" y="234">▾ Services</text>
+        <text class="mock-small" x="73" y="260">InvoiceService.cs</text>
+        <text class="mock-small" x="57" y="286">Controllers</text>
+        <circle cx="201" cy="256" r="4" fill="var(--warn)"/>
+        <text class="mock-tiny" x="42" y="330">CONTEXT ACTION</text>
+        <rect class="mock-panel" x="38" y="340" width="178" height="34" rx="5"/>
+        <text class="mock-small" x="54" y="361">Review this scope  →</text>
+
+        <rect class="mock-accent" x="254" y="62" width="472" height="70" rx="6"/>
+        <circle cx="273" cy="85" r="5" fill="var(--develop)"/>
+        <text class="mock-title" x="286" y="90">Code review running</text>
+        <text class="mock-small" x="286" y="109">17 / 42 files · InvoiceService.cs · Sol / medium · 38k / 100k tokens</text>
+        <rect x="270" y="119" width="320" height="4" rx="2" fill="var(--surface-3)"/>
+        <rect x="270" y="119" width="130" height="4" rx="2" fill="var(--develop)"/>
+        <text class="mock-accent-text" x="635" y="91">Pause</text>
+        <text class="mock-small" x="681" y="91">Cancel</text>
+
+        <text class="mock-tiny" x="262" y="159">src / Billing / Services / InvoiceService.cs</text>
+        <rect class="mock-panel" x="254" y="174" width="472" height="380" rx="4"/>
+        <g class="mock-code">
+          <text x="270" y="202">54</text><text x="302" y="202">public async Task&lt;Invoice&gt; CreateAsync(</text>
+          <text x="270" y="224">55</text><text x="302" y="224">    CreateInvoice request, CancellationToken ct)</text>
+          <text x="270" y="246">56</text><text x="302" y="246">{</text>
+          <text x="270" y="268">57</text><text x="302" y="268">    var customer = await customers.FindAsync(request.Id);</text>
+        </g>
+        <rect class="mock-warn" x="262" y="278" width="452" height="68" rx="4"/>
+        <circle cx="278" cy="300" r="6" fill="var(--warn)"/>
+        <g class="mock-code">
+          <text x="294" y="303">58  var tax = taxClient.Calculate(request.Items);</text>
+          <text x="294" y="326">59  return await invoices.SaveAsync(customer, tax);</text>
+        </g>
+        <text class="mock-warn-text" x="603" y="303">F-07 · HIGH</text>
+        <g class="mock-code">
+          <text x="270" y="372">60</text><text x="302" y="372">}</text>
+        </g>
+        <text class="mock-small" x="264" y="540">Ln 58 · finding 7 of 12 · location 1 of 1</text>
+
+        <text class="mock-tiny" x="766" y="76">FINDINGS · OPEN 12</text>
+        <text class="mock-title" x="766" y="98">Review queue</text>
+        <text class="mock-small" x="927" y="98">Severity ⌄</text>
+        <rect class="mock-warn" x="764" y="116" width="238" height="74" rx="6"/>
+        <text class="mock-warn-text" x="780" y="139">HIGH · OPEN</text>
+        <text class="mock-text" x="780" y="160">Synchronous tax call in async flow</text>
+        <text class="mock-small" x="780" y="179">InvoiceService.cs:58 · current</text>
+        <rect class="mock-panel" x="764" y="199" width="238" height="54" rx="6"/>
+        <text class="mock-small" x="780" y="221">MEDIUM · Missing cancellation</text>
+        <text class="mock-tiny" x="780" y="240">InvoiceService.cs:57</text>
+        <text class="mock-tiny" x="766" y="280">SELECTED FINDING</text>
+        <text class="mock-title" x="766" y="306">Synchronous tax call</text>
+        <rect class="mock-accent" x="764" y="321" width="238" height="36" rx="5"/>
+        <text class="mock-accent-text" x="780" y="343">↗ InvoiceService.cs:58-59 · 1 of 1</text>
+        <text class="mock-small" x="766" y="384">The sync client blocks the request thread.</text>
+        <text class="mock-small" x="766" y="405">Use CalculateAsync and pass cancellation.</text>
+        <rect class="mock-good" x="764" y="438" width="70" height="34" rx="5"/>
+        <text class="mock-good-text" x="781" y="459">Accept</text>
+        <rect class="mock-panel" x="842" y="438" width="74" height="34" rx="5"/>
+        <text class="mock-small" x="858" y="459">Dismiss</text>
+        <rect class="mock-panel" x="924" y="438" width="78" height="34" rx="5"/>
+        <text class="mock-small" x="936" y="459">Ignore…</text>
+        <rect class="mock-panel" x="764" y="483" width="238" height="38" rx="5"/>
+        <text class="mock-small" x="828" y="506">Create implementation task</text>
+        <text class="mock-tiny" x="766" y="548">Evidence · inputs · raw review  ⌄</text>
+      </svg>
+      <figcaption><b>Mockup A: one continuous review session.</b> The launcher has become active run state in the same scope header. Findings remain beside code, selection is a real location command, and actions separate lifecycle disposition from future suppression. No new top-level dashboard is introduced.</figcaption>
+    </figure>
+
+    <figure>
+      <svg class="mock-ui" viewBox="0 0 1040 500" role="img" aria-labelledby="compare-title compare-desc">
+        <title id="compare-title">Target run comparison view</title>
+        <desc id="compare-desc">A baseline and candidate selector, summary metrics, and a fingerprint-aligned finding delta list.</desc>
+        <rect class="mock-frame" x="10" y="10" width="1020" height="480" rx="10"/>
+        <text class="mock-title" x="32" y="42">Compare review outcomes</text>
+        <text class="mock-small" x="32" y="62">Billing · code · same scope and kind</text>
+        <rect class="mock-panel" x="32" y="82" width="310" height="54" rx="6"/>
+        <text class="mock-tiny" x="46" y="101">BASELINE</text>
+        <text class="mock-text" x="46" y="123">#184 · 8 Aug · Terra / medium  ⌄</text>
+        <text class="mock-small" x="362" y="113">→</text>
+        <rect class="mock-accent" x="386" y="82" width="310" height="54" rx="6"/>
+        <text class="mock-tiny" x="400" y="101">CANDIDATE</text>
+        <text class="mock-text" x="400" y="123">#191 · 11 Aug · Sol / medium  ⌄</text>
+        <rect class="mock-panel" x="714" y="82" width="292" height="54" rx="6"/>
+        <text class="mock-small" x="731" y="105">Inputs changed · policy v2026-07-24</text>
+        <text class="mock-tiny" x="731" y="123">Same 42 files · no failed units</text>
+
+        <rect class="mock-good" x="32" y="158" width="154" height="74" rx="6"/>
+        <text class="mock-tiny" x="46" y="179">ACTIVE FINDINGS</text>
+        <text class="mock-title" x="46" y="205">18 → 12</text>
+        <text class="mock-good-text" x="46" y="221">6 fewer</text>
+        <rect class="mock-panel" x="198" y="158" width="154" height="74" rx="6"/>
+        <text class="mock-tiny" x="212" y="179">GRADE</text>
+        <text class="mock-title" x="212" y="205">72 → 84</text>
+        <text class="mock-small" x="212" y="221">C → B</text>
+        <rect class="mock-panel" x="364" y="158" width="154" height="74" rx="6"/>
+        <text class="mock-tiny" x="378" y="179">TOKENS</text>
+        <text class="mock-title" x="378" y="205">+18%</text>
+        <text class="mock-small" x="378" y="221">64k → 75k</text>
+        <rect class="mock-panel" x="530" y="158" width="154" height="74" rx="6"/>
+        <text class="mock-tiny" x="544" y="179">DURATION</text>
+        <text class="mock-title" x="544" y="205">−11%</text>
+        <text class="mock-small" x="544" y="221">9m 14s → 8m 11s</text>
+        <rect class="mock-warn" x="696" y="158" width="310" height="74" rx="6"/>
+        <text class="mock-tiny" x="710" y="179">INTERPRETATION</text>
+        <text class="mock-small" x="710" y="201">Route and inputs both changed.</text>
+        <text class="mock-warn-text" x="710" y="220">Do not attribute delta to model alone.</text>
+
+        <text class="mock-tiny" x="32" y="267">FINDING DELTA · 2 NEW · 10 UNCHANGED · 6 RESOLVED · 1 DISPOSITION CHANGED</text>
+        <rect class="mock-bad" x="32" y="284" width="974" height="48" rx="5"/>
+        <text class="t-bad" x="48" y="305">NEW</text>
+        <text class="mock-text" x="110" y="305">High · tax-client.sync-call</text>
+        <text class="mock-small" x="110" y="322">InvoiceService.cs:58 · open · fingerprint sha256:9a3…</text>
+        <rect class="mock-good" x="32" y="340" width="974" height="48" rx="5"/>
+        <text class="t-ok" x="48" y="361">RESOLVED</text>
+        <text class="mock-text" x="130" y="361">Medium · cancellation.missing</text>
+        <text class="mock-small" x="130" y="378">InvoiceService.cs:57 · absent from candidate outcome</text>
+        <rect class="mock-panel" x="32" y="396" width="974" height="48" rx="5"/>
+        <text class="mock-small" x="48" y="417">UNCHANGED</text>
+        <text class="mock-text" x="130" y="417">Low · logging.duration</text>
+        <text class="mock-small" x="130" y="434">BillingController.cs:91 · accepted in both runs</text>
+        <text class="mock-tiny" x="32" y="470">Export comparison · open raw outcomes · copy link</text>
+      </svg>
+      <figcaption><b>Mockup B: compare immutable outcomes.</b> The warning prevents a causal model claim when route and inputs both changed. The primary unit is a stable finding fingerprint; operational cost and coverage remain context rather than substituting for finding delta.</figcaption>
+    </figure>
+  </section>
+
+  <section id="options">
+    <h2><span class="no">07</span>Options</h2>
+    <table>
+      <thead><tr><th>Option</th><th>Shape</th><th>Benefits</th><th>Cost / risk</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td><b>A · Polish the rail</b></td><td>Keep three launchers and the stacked right pane; add filters, location links, and clearer buttons.</td><td>Smallest frontend diff. Most work can use existing response fields.</td><td>Does not resolve duplicate intent, historical-run crowding, policy recommendation, ignore semantics, or comparison data.</td><td><span class="pill part">Insufficient</span></td></tr>
+        <tr><td><b>B · Session-centered workspace</b></td><td>One scope launcher that becomes run state; findings remain beside code; runs move to a drawer; add ignore and outcome contracts.</td><td>Matches the repository’s stated three-pane product core, preserves code visibility, and makes every condensed claim drillable.</td><td>Requires coordinated frontend and API slices plus a versioned outcome snapshot.</td><td><span class="pill done">Recommend</span></td></tr>
+        <tr><td><b>C · New Reviews dashboard</b></td><td>Add a top-level route for launch, monitoring, findings, and comparisons.</td><td>Room for many runs and portfolio reporting.</td><td>Splits code from findings, duplicates the existing project/run surfaces, and creates a navigation problem before fixing the operator loop.</td><td><span class="pill open">Reject for now</span></td></tr>
+      </tbody>
+    </table>
+    <div class="box accent">
+      <h4>Why B is the coherent choice</h4>
+      <p><code>docs/concept.md</code> already declares the primary product surface a three-pane engineer workspace and says the right pane explains the selected finding while the center retains code. Option B completes that contract. A future project-level Reviews overview can summarize many sessions after the session itself is trustworthy.</p>
+    </div>
+  </section>
+
+  <section id="slices">
+    <h2><span class="no">08</span>Implementation slice plan</h2>
+    <p>Each slice is independently reviewable. S0-S4 deliver the continuous operator loop. S5 and S6 close the known data gaps. The operator can approve this order as written.</p>
+    <table>
+      <thead><tr><th>Slice</th><th>Scope and likely ownership</th><th>Acceptance contract</th><th>Depends on</th></tr></thead>
+      <tbody>
+        <tr><td><span class="slice-id">S0</span><br><b>Baseline integration</b></td><td>Integrate QS-55 and QS-56 behavior without regressing current main performance work. Reconcile central token names. Remove the QS-55 detail accent rail while retaining typography and hit targets.</td><td class="acceptance">Model-picker and findings evidence tests pass in light/dark. No raw spacing additions where shared tokens apply. One combined screenshot proves the actual integrated baseline.</td><td>None</td></tr>
+        <tr><td><span class="slice-id">S1</span><br><b>Single launch + inline preflight</b></td><td>Move primary launch to the center scope header. Explorer focuses it; Review pane no longer duplicates it. Extend estimate response with server-owned recommendation and correctness-floor metadata.</td><td class="acceptance">Exactly one expanded launcher per selected scope. Preflight names repository, path, level, kind, files/operations, expected fresh skips, route reason, estimate method, cap, and uncertainty. A below-floor override warns and requires explicit confirmation; quota never lowers the floor.</td><td>S0</td></tr>
+        <tr><td><span class="slice-id">S2</span><br><b>Active run strip + drawer</b></td><td>Use existing run/file transition fields for sticky active state. Filter run history by repository/scope/kind and place it in a drawer. Keep pause/cancel/resume API calls unchanged.</td><td class="acceptance">Queued, running, paused, capped, failed, cancelled, and done states each have one unambiguous presentation. Current path and failed/skipped units are expandable. Terminal transition refreshes tree and open file. Reduced motion and keyboard access are tested.</td><td>S1</td></tr>
+        <tr><td><span class="slice-id">S3</span><br><b>Finding queue + code navigation</b></td><td>Add filters/sort, location control, selected-range input to Editor, focus/scroll behavior, next/previous, and URL restoration using fingerprint plus location index.</td><td class="acceptance">Finding card to code and marker to detail both work across files. Stale findings remain readable but do not claim an authoritative range. Reloading the deep link restores the same finding. Visible counts equal visible rows.</td><td>S0</td></tr>
+        <tr><td><span class="slice-id">S4</span><br><b>Disposition UX</b></td><td>Keep the existing lifecycle API and optimistic timestamp. Add Accept and Dismiss facade, consequence copy, action-specific fields, post-accept Create task, success/undo state, and concurrent-write handling.</td><td class="acceptance">Accept visibly remains active. Dismiss requires choosing Waive or False positive. Expiry is offered only where meaningful. Every mutation travels through the API and a stale timestamp produces a recoverable conflict, not a silent overwrite.</td><td>S3</td></tr>
+        <tr><td><span class="slice-id">S5</span><br><b>Maintainable scope list</b></td><td>Add repository-scoped API CRUD and match preview over the existing <code>.quality/scope.json</code> / <code>scope.v1</code> contract, then add a management view. Reuse its ordered <code>include</code>/<code>exclude</code>, pattern, and required exclude reason fields.</td><td class="acceptance">Creating “Ignore path” writes an exact-path exclude through an atomic application service and previews matched files. Wider patterns require explicit expansion. Runs continue to record exclusions in aggregate evidence. Removing the rule makes the path eligible on the next review. No direct browser filesystem writes and no parallel ignore file.</td><td>S3; may ship after S4</td></tr>
+        <tr><td><span class="slice-id">S6</span><br><b>Outcome snapshot + compare</b></td><td>Persist <code>review-run-outcome/v1</code> atomically with per-unit grade, input hash, stable finding projection, disposition, and source location. Add compatible-run compare API and comparison workbench.</td><td class="acceptance">Comparison survives a later sidecar replacement and API restart. It aligns by fingerprint, distinguishes New/Unchanged/Resolved/Disposition changed, reports missing/corrupt snapshots plainly, and never attributes quality delta to a model when route or inputs differ.</td><td>S2 and S3</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Contract details to lock before implementation</h3>
+    <div class="building-blocks">
+      <div class="building-block">
+        <h4>Ignore is scope configuration, not disposition</h4>
+        <p>Reuse <code>.quality/scope.json</code>, separately from <code>.quality/findings/state.json</code>. A finding already observed can still be dismissed; an exclude rule changes path eligibility for future reviews and is already represented in aggregate exclusions.</p>
+      </div>
+      <div class="building-block">
+        <h4>Outcome is immutable evidence</h4>
+        <p>Do not compare the mutable current sidecar to itself. Snapshot only fields required for traceability and delta, and version the projection. Define retention before presenting comparison as durable history.</p>
+      </div>
+      <div class="building-block">
+        <h4>Navigation uses fingerprint</h4>
+        <p>Finding labels are not stable identity. URLs and comparisons use the repository-assigned fingerprint, plus a location index when a finding spans several ranges.</p>
+      </div>
+      <div class="building-block">
+        <h4>Recommendation stays server-owned</h4>
+        <p>The picker consumes catalog eligibility. The API applies the model-routing policy and records recommendation, selection source, override, score, and floor with the run.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="decision">
+    <h2><span class="no">09</span>Decision package</h2>
+    <div class="box accent">
+      <h4>Approve as-is</h4>
+      <ul class="decision-list">
+        <li>Approve <b>Option B, session-centered workspace</b>, and reject a new Reviews dashboard in this wave.</li>
+        <li>Approve the sequence <b>S0 → S1/S3 → S2/S4 → S5/S6</b>, with S1 and S3 allowed to proceed in parallel after S0.</li>
+        <li>Approve <b>Accept / Dismiss / Ignore</b> as operator vocabulary, with Dismiss mapping explicitly to Waive or False positive and Ignore remaining a separate future-review rule.</li>
+        <li>Approve a versioned immutable run outcome as the prerequisite for comparison. Decide retention in S6 before calling history durable.</li>
+        <li>Approve backend-owned model recommendation metadata and the rule that cost or quota never crosses a correctness floor.</li>
+      </ul>
+    </div>
+    <div class="box warn">
+      <h4>Only remaining policy choice inside the approved direction</h4>
+      <p><b>Run outcome retention:</b> recommend retaining the newest 50 outcomes per repository plus every operator-pinned comparison baseline. This is an initial operational default, not yet grounded in repository volume data. S6 must measure typical outcome size and expose cleanup before the default becomes a durable contract.</p>
+    </div>
+    <p class="dim compact">Evidence register: <code>frontend/src/app/{explorer,editor,review-panel,review-actions}</code>, <code>frontend/src/app/quality-api.ts</code>, <code>src/QualityStudio.Api/{ReviewJobs,ReviewRunStore}.cs</code>, <code>src/AgentOrchestrator.CodeQuality/FindingStateStore.cs</code>, <code>docs/{concept,review-runs,finding-lifecycle}.md</code>, preserved commits <code>0ac0dae8</code> and <code>2b3f31ef</code>, and the local evidence files linked above.</p>
+  </section>
+
+  <footer class="page-footer">Prepared for the 12 August 2026 operator review. Repository artifacts and UI copy are English. This dossier proposes implementation slices; it does not mutate review, finding, task, or ignore state.</footer>
+</main>
+</body>
+</html>
