@@ -134,6 +134,16 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("skipped-fresh", fresh.GetProperty("aggregateState").GetString());
             Assert.Equal(0, fresh.GetProperty("usageOperations").GetInt32());
             Assert.Equal(0, fake.AgentCalls);
+            var freshArchive = new ReviewRunArchiveStore(fixture.RepositoryRoot).Load(
+                freshAccepted.GetProperty("createdAt").GetDateTimeOffset(),
+                freshAccepted.GetProperty("id").GetString()!);
+            Assert.All(freshArchive.Operations, operation =>
+            {
+                Assert.Equal("skipped-fresh", operation.State);
+                Assert.NotNull(operation.Grade);
+                Assert.NotNull(operation.ResultSidecar);
+            });
+            Assert.Equal(freshArchive.Operations.Count, freshArchive.Findings.Count);
 
             using var forcedResponse = await client.PostAsJsonAsync("/api/review", new
             {
@@ -245,6 +255,54 @@ public sealed class ReviewRunStoreTests
             Assert.Null(attempt.Quality.LowestGrade);
             Assert.Null(attempt.Quality.WorstSecurityVerdict);
             Assert.Empty(archive.Findings);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Native_archive_backfills_a_terminal_attempt_after_the_status_archive_crash_window()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var initial = fixture.CreateRun("native-terminal-gap", "done");
+            const string operationId = "operation-native-terminal-gap";
+            var status = initial.Status with
+            {
+                Attempt = 1,
+                AttemptStartedAt = initial.Manifest.CreatedAt,
+            };
+            var stored = new StoredReviewRun(initial.Manifest, status, initial.Progress);
+            var archiveStore = new ReviewRunArchiveStore(fixture.RepositoryRoot);
+            archiveStore.CreateRun(ReviewRunArchiveRecord.FromManifest(initial.Manifest));
+            archiveStore.AppendOperation(initial.Manifest.CreatedAt, new ReviewRunOperationRecord
+            {
+                RunId = initial.Manifest.RunId,
+                OperationId = operationId,
+                Ordinal = 1,
+                Attempt = 1,
+                UnitId = "file-sample",
+                Path = "Sample.cs",
+                Level = "file",
+                State = "done",
+                StartedAt = initial.Manifest.CreatedAt,
+                FinishedAt = initial.Manifest.CreatedAt.AddSeconds(1),
+            });
+
+            ReviewRunArchiveMigration.Migrate(fixture.RepositoryRoot, stored, cancellationToken);
+            ReviewRunArchiveMigration.Migrate(fixture.RepositoryRoot, stored, cancellationToken);
+
+            var archive = archiveStore.Load(initial.Manifest.CreatedAt, initial.Manifest.RunId);
+            Assert.Null(archive.Run.Provenance);
+            Assert.Equal(operationId, Assert.Single(archive.Operations).OperationId);
+            var attempt = Assert.Single(archive.Attempts);
+            Assert.Equal(1, attempt.Attempt);
+            Assert.Equal("done", attempt.Outcome);
+            Assert.Equal([operationId], attempt.OperationIds);
         }
         finally
         {
@@ -771,13 +829,49 @@ public sealed class ReviewRunStoreTests
 
         private sealed class FreshnessExecutor(FreshnessExecutorFactory owner) : IReviewExecutor
         {
-            public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+            public async Task<ReviewExecutionResult> ReviewIfNeededAsync(
                 ReviewRequest request,
                 bool force,
                 CancellationToken cancellationToken)
             {
                 if (force) Interlocked.Increment(ref owner.agentCalls);
-                return Task.FromResult(new ReviewExecutionResult(!force, null));
+                if (force) return new ReviewExecutionResult(false, null);
+                var providerRunId = $"fresh-{Guid.NewGuid():N}";
+                var metaPath = Path.Combine(request.RepositoryRoot!, ".quality", "test-results",
+                    request.OperationId! + ".review-meta.json");
+                Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
+                var reviewedHash = "sha256:" + new string('b', 64);
+                var document = new ReviewMetaDocument
+                {
+                    Unit = new ReviewUnit(request.UnitId!, ReviewAdapter.Generic, request.Level,
+                        request.FilePath, request.DisplayName ?? request.FilePath),
+                    ReviewedAt = DateTimeOffset.UtcNow,
+                    Kind = Enum.Parse<ReviewKind>(request.Kind, ignoreCase: true),
+                    Reviewer = new ReviewerIdentity("test-agent", "test-model", RunId: providerRunId),
+                    ReviewedHash = ManifestHash.Subject(reviewedHash),
+                    SubjectInputs = [new SubjectInputHash(request.FilePath, "file", reviewedHash)],
+                    ReviewInputs = new ReviewInputs(
+                        ManifestHash.ReviewInput("sha256:" + new string('c', 64)), true, [], [],
+                        new PromptReference("test", "1", "sha256:" + new string('e', 64))),
+                    Grade = new ReviewGrade(82, GradeBand.B, "Fixture grade"),
+                    Summary = "Fixture review",
+                    Aspects =
+                    [
+                        new ReviewAspect("correctness", "Correctness",
+                            new ReviewGrade(82, GradeBand.B, "Fixture grade")),
+                    ],
+                    Findings =
+                    [
+                        new ReviewFinding(
+                            "finding-1", "correctness", FindingSeverity.High, "Archived finding", "Description",
+                            "Recommendation", [new FindingLocation(request.FilePath)],
+                            "sha256:" + new string('d', 64), "test-rule"),
+                    ],
+                };
+                await using var stream = new FileStream(metaPath, FileMode.CreateNew, FileAccess.Write,
+                    FileShare.None, 4096, FileOptions.Asynchronous);
+                await ReviewMetaJson.SaveAsync(stream, document, cancellationToken);
+                return new ReviewExecutionResult(true, null, metaPath);
             }
         }
     }

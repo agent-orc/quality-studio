@@ -32,7 +32,10 @@ public sealed record ReviewSubjectFile(string UnitId, string Path);
 
 public sealed record ReviewResult(string MetaPath, string ReviewedHash, string RunId, ResolvedInputs Inputs, ReviewUsageEntry Usage);
 
-public sealed record ReviewExecutionResult(bool SkippedFresh, ReviewResult? Review);
+public sealed record ReviewExecutionResult(
+    bool SkippedFresh,
+    ReviewResult? Review,
+    string? ExistingMetaPath = null);
 
 public sealed record ReviewPromptMeasurement(int Characters, string Path, string Level);
 
@@ -89,7 +92,7 @@ public sealed class ReviewRunner
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
                 metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
-            if (freshness.IsFresh) return new ReviewExecutionResult(true, null);
+            if (freshness.IsFresh) return new ReviewExecutionResult(true, null, metaPath);
         }
         var startedAt = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();

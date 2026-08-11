@@ -50,6 +50,7 @@ public static class ReviewRunHistoryReader
             .Where(result => result.Archive is null ||
                              string.Equals(result.Archive.Run.RepositoryId, repositoryId,
                                  StringComparison.OrdinalIgnoreCase))
+            .Where(result => result.Archive is null || result.Archive.Attempts.Count > 0)
             .OrderByDescending(result => result.Archive?.Run.CreatedAt ?? MonthFallback(result.Month))
             .ThenByDescending(result => result.RunId, StringComparer.Ordinal)
             .Select(ToSummary)
@@ -214,44 +215,51 @@ public static class ReviewRunArchiveMigration
     {
         cancellationToken.ThrowIfCancellationRequested();
         var archive = new ReviewRunArchiveStore(repositoryRoot);
+        var migrateLegacyOperations = false;
         if (!archive.Exists(stored.Manifest.CreatedAt, stored.Manifest.RunId))
         {
             var commit = CoverageSensor.GitValue(repositoryRoot, "rev-parse", "--verify", "HEAD");
             var status = CoverageSensor.GitValue(repositoryRoot, "status", "--porcelain", "--untracked-files=normal");
             archive.CreateRun(ReviewRunArchiveRecord.FromManifest(stored.Manifest,
                 new ReviewRunSourceRevision(commit, status is null ? null : status.Length > 0), Provenance));
+            migrateLegacyOperations = true;
         }
         else
         {
             var existing = archive.Load(stored.Manifest.CreatedAt, stored.Manifest.RunId);
-            if (!string.Equals(existing.Run.Provenance, Provenance, StringComparison.Ordinal)) return;
+            migrateLegacyOperations = string.Equals(existing.Run.Provenance, Provenance, StringComparison.Ordinal);
         }
 
-        var targets = stored.Manifest.Targets.Select((target, index) => (target, ordinal: index + 1))
-            .ToDictionary(item => item.target.Path, StringComparer.Ordinal);
         var attemptNumber = Math.Max(1, stored.Status.Attempt);
-        foreach (var transition in stored.Progress
-                     .Where(transition => transition.State is "done" or "failed" or "cancelled" or "skipped-fresh")
-                     .GroupBy(transition => transition.Path, StringComparer.Ordinal).Select(group => group.Last()))
+        if (migrateLegacyOperations)
         {
-            if (!targets.TryGetValue(transition.Path, out var target)) continue;
-            var operationId = transition.OperationId ?? DeterministicOperationId(stored.Manifest.RunId, target.ordinal,
-                transition.Path);
-            archive.AppendOperation(stored.Manifest.CreatedAt, new ReviewRunOperationRecord
+            var targets = stored.Manifest.Targets.Select((target, index) => (target, ordinal: index + 1))
+                .ToDictionary(item => item.target.Path, StringComparer.Ordinal);
+            foreach (var transition in stored.Progress
+                         .Where(transition => transition.State is "done" or "failed" or "cancelled" or "skipped-fresh")
+                         .GroupBy(transition => transition.Path, StringComparer.Ordinal).Select(group => group.Last()))
             {
-                RunId = stored.Manifest.RunId,
-                OperationId = operationId,
-                Ordinal = transition.Ordinal ?? target.ordinal,
-                Attempt = transition.Attempt ?? attemptNumber,
-                UnitId = target.target.Id,
-                Path = transition.Path,
-                Level = "file",
-                State = transition.State,
-                StartedAt = (transition.StartedAt ?? stored.Status.StartedAt ?? stored.Manifest.CreatedAt).ToUniversalTime(),
-                FinishedAt = (transition.FinishedAt ?? stored.Status.FinishedAt ?? stored.Manifest.CreatedAt).ToUniversalTime(),
-                ErrorCode = transition.ErrorCode,
-                Error = transition.Error,
-            });
+                if (!targets.TryGetValue(transition.Path, out var target)) continue;
+                var operationId = transition.OperationId ?? DeterministicOperationId(stored.Manifest.RunId,
+                    target.ordinal, transition.Path);
+                archive.AppendOperation(stored.Manifest.CreatedAt, new ReviewRunOperationRecord
+                {
+                    RunId = stored.Manifest.RunId,
+                    OperationId = operationId,
+                    Ordinal = transition.Ordinal ?? target.ordinal,
+                    Attempt = transition.Attempt ?? attemptNumber,
+                    UnitId = target.target.Id,
+                    Path = transition.Path,
+                    Level = "file",
+                    State = transition.State,
+                    StartedAt = (transition.StartedAt ?? stored.Status.StartedAt ?? stored.Manifest.CreatedAt)
+                        .ToUniversalTime(),
+                    FinishedAt = (transition.FinishedAt ?? stored.Status.FinishedAt ?? stored.Manifest.CreatedAt)
+                        .ToUniversalTime(),
+                    ErrorCode = transition.ErrorCode,
+                    Error = transition.Error,
+                });
+            }
         }
 
         if (ReviewRunStore.IsTerminal(stored.Status.State))

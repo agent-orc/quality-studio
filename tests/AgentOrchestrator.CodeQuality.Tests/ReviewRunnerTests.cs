@@ -456,7 +456,10 @@ public sealed class ReviewRunnerTests
             await runner.ReviewAsync(second, cancellationToken);
             await runner.ReviewAsync(aggregate, cancellationToken);
 
-            Assert.True((await runner.ReviewIfNeededAsync(first, cancellationToken: cancellationToken)).SkippedFresh);
+            var firstFresh = await runner.ReviewIfNeededAsync(first, cancellationToken: cancellationToken);
+            Assert.True(firstFresh.SkippedFresh);
+            Assert.NotNull(firstFresh.ExistingMetaPath);
+            Assert.True(File.Exists(firstFresh.ExistingMetaPath));
             Assert.True((await runner.ReviewIfNeededAsync(second, cancellationToken: cancellationToken)).SkippedFresh);
             Assert.True((await runner.ReviewIfNeededAsync(aggregate, cancellationToken: cancellationToken)).SkippedFresh);
             Assert.Equal(3, agent.RunCount);

@@ -1076,12 +1076,13 @@ public sealed class ReviewJobService : BackgroundService
             if (!archiveAvailable) return;
             ReviewMetaDocument? meta = null;
             string? sidecar = null;
-            if (execution?.Review is not null)
+            var metaPath = execution?.Review?.MetaPath ?? execution?.ExistingMetaPath;
+            if (metaPath is not null)
             {
-                await using var stream = new FileStream(execution.Review.MetaPath, FileMode.Open, FileAccess.Read,
+                await using var stream = new FileStream(metaPath, FileMode.Open, FileAccess.Read,
                     FileShare.Read, 4096, FileOptions.Asynchronous);
                 meta = await ReviewMetaJson.LoadAsync(stream, CancellationToken.None).ConfigureAwait(false);
-                sidecar = Path.GetRelativePath(Repository.RootPath, execution.Review.MetaPath)
+                sidecar = Path.GetRelativePath(Repository.RootPath, metaPath)
                     .Replace(Path.DirectorySeparatorChar, '/');
             }
 
@@ -1097,7 +1098,7 @@ public sealed class ReviewJobService : BackgroundService
                 State = operationState,
                 StartedAt = operation.StartedAt.ToUniversalTime(),
                 FinishedAt = DateTimeOffset.UtcNow,
-                ProviderRunId = execution?.Review?.RunId ?? operation.Usage?.RunId,
+                ProviderRunId = execution?.Review?.RunId ?? meta?.Reviewer.RunId ?? operation.Usage?.RunId,
                 ReviewedAt = meta?.ReviewedAt,
                 ReviewedHash = meta?.ReviewedHash.Value ?? execution?.Review?.ReviewedHash,
                 ReviewInputsHash = meta?.ReviewInputs.EffectiveHash.Value,
