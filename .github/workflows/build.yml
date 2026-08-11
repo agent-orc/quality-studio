@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
@@ -37,8 +37,11 @@ jobs:
       - name: Test
         run: dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
 
-      - name: Verify supply-chain gate fixtures
-        run: npm run test:supply-chain
+      - name: Verify tracked configuration and security fixtures
+        run: |
+          npm run test:security-policy
+          npm run test:supply-chain
+          node scripts/security-policy.mjs config src/QualityStudio.Api/appsettings.json
 
       - name: Query NuGet advisories
         run: |
@@ -47,6 +50,7 @@ jobs:
           dotnet list QualityStudio.slnx package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/quality-studio-evidence/nuget-solution.json"
           dotnet list spikes/code-graph/CodeGraphSpike.csproj package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/quality-studio-evidence/nuget-code-graph-spike.json"
           node scripts/assert-no-vulnerable-packages.mjs "$RUNNER_TEMP/quality-studio-evidence/nuget-solution.json" "$RUNNER_TEMP/quality-studio-evidence/nuget-code-graph-spike.json"
+          node scripts/security-policy.mjs nuget "$RUNNER_TEMP/quality-studio-evidence/nuget-solution.json" "$RUNNER_TEMP/quality-studio-evidence/nuget-code-graph-spike.json"
 
       - name: Generate SBOM
         run: |
@@ -55,7 +59,7 @@ jobs:
           "$RUNNER_TEMP/quality-studio-tools/sbom-tool" generate -b src/QualityStudio.Api/bin/Release/net10.0 -bc . -m "$RUNNER_TEMP/quality-studio-evidence/sbom" -pn QualityStudio -pv "0.0.${GITHUB_RUN_NUMBER}" -ps "Organization: agent-orc" -nsb https://github.com/agent-orc/quality-studio -nsu "$GITHUB_SHA" -D true
 
       - name: Current-worktree secret scan
-        run: dotnet run --project src/quality-cli -- security scan .
+        run: dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
 
       - name: All-history secret scan
         run: |
@@ -77,7 +81,7 @@ jobs:
         working-directory: frontend
     steps:
       - name: Check out repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -102,7 +106,9 @@ jobs:
           npm audit --json > "$RUNNER_TEMP/quality-studio-frontend-evidence/npm-audit-full.json" || true
 
       - name: Gate production dependency audit
-        run: npm audit --omit=dev --audit-level=high --json > "$RUNNER_TEMP/quality-studio-frontend-evidence/npm-audit-production.json"
+        run: |
+          npm audit --omit=dev --audit-level=high --json > "$RUNNER_TEMP/quality-studio-frontend-evidence/npm-audit-production.json"
+          node ../scripts/security-policy.mjs npm "$RUNNER_TEMP/quality-studio-frontend-evidence/npm-audit-production.json"
 
       - name: Retain frontend evidence
         if: always()
