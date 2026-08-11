@@ -284,8 +284,25 @@ public sealed class ReviewRunStore
             manifest.Estimate?.PromptCharactersBeforeCompaction,
             manifest.Estimate?.PromptCharacters,
             status.Usage,
-            null);
+            Deviation(manifest, status));
     }
+
+    private static ReviewEstimateDeviation? Deviation(ReviewRunManifest manifest, ReviewRunStatus status)
+    {
+        if (status.State != "done" || manifest.Estimate is null ||
+            status.Usage.InputTokens is null || status.Usage.OutputTokens is null)
+            return null;
+        return new ReviewEstimateDeviation(
+            Percent(status.Usage.InputTokens.Value, manifest.Estimate.InputTokens),
+            Percent(status.Usage.OutputTokens.Value, manifest.Estimate.OutputTokens),
+            status.CostSpent.HasValue && manifest.Estimate.Cost.HasValue
+                ? Percent(status.CostSpent.Value, manifest.Estimate.Cost.Value)
+                : null,
+            "Positive means actual was above preflight; prompt tokenizer, CLI context, caching, and response length cause deviation.");
+    }
+
+    private static decimal Percent(decimal actual, decimal estimate) =>
+        estimate == 0 ? 0 : Math.Round((actual - estimate) / estimate * 100m, 2);
 
     public void WritePreflight(PreflightSnapshot snapshot)
     {
