@@ -21,6 +21,18 @@ page.on('console', message => {
 // Exercise the worst supported payload while keeping transport out of the scripting measurement.
 const payload = Array.from({ length: 6000 }, (_, i) => `${i + 1}: public static string ReviewLine${i} => "quality";`).join('\n');
 const meta = kind => ({ reviewedAt: '2026-07-11T16:20:00.000Z', kind, reviewer: { agent: 'perf-harness', model: 'deterministic' }, grade: { score: kind === 'code' ? 91 : 72, band: kind === 'code' ? 'A' : 'C', rationale: 'Harness metadata.' }, summary: 'Aspect switching stays local.', findings: [] });
+const kindState = { direct: 'fresh', descendants: 'fresh', overall: 'fresh', score: 91, band: 'A', metaPath: 'fixture.review-meta.json' };
+const kinds = { code: kindState, security: kindState, performance: kindState };
+await page.route(/\/api\/(?:repos\/[^/]+\/)?tree(?:\?|$)/, route => route.fulfill({
+  contentType: 'application/json',
+  body: JSON.stringify({ nodes: [{
+    id: 'quality-studio', name: 'Quality Studio', level: 'repository', path: '.', kinds, children: [{
+      id: 'api', name: 'QualityStudio.Api', level: 'project', path: 'src/QualityStudio.Api', kinds, children: [{
+        id: 'program', name: 'Program.cs', level: 'file', path: 'src/QualityStudio.Api/Program.cs', kinds, children: [],
+      }],
+    }],
+  }] }),
+}));
 await page.route(/\/api\/(?:repos\/[^/]+\/)?file(?:\?|$)/, route => {
   fileRequestCount++;
   resolveInitialFile();
@@ -50,7 +62,10 @@ await page.route(/\/api\/(?:repos\/[^/]+\/)?project(?:\?|$)/, route => route.ful
   body: JSON.stringify(project),
 }));
 await page.goto(process.env.QS_URL ?? 'http://127.0.0.1:4200/?theme=dark&path=src%2FQualityStudio.Api%2FProgram.cs');
-await initialFileRequested;
+await Promise.race([
+  initialFileRequested,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('The performance fixture did not request its selected file within 15 seconds.')), 15_000)),
+]);
 await page.locator('.tree-row').first().click();
 await page.locator('.tree-row').first().click();
 await page.getByRole('textbox', { name: 'Filter files' }).fill('Program.cs');
