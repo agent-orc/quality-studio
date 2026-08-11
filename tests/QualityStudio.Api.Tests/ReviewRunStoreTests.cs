@@ -639,6 +639,8 @@ public sealed class ReviewRunStoreTests
     private sealed class TestApplication(
         string repositoryRoot, string contentRoot, IReviewExecutorFactory? executorFactory) : WebApplicationFactory<Program>
     {
+        public new HttpClient CreateClient() => LocalApiClient.Create(this);
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(contentRoot);

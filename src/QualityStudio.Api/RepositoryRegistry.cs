@@ -30,18 +30,22 @@ public sealed record RepositoryRegistrationRequest(
 public sealed record RepositorySensorConfiguration(
     string Id,
     bool Enabled = true,
-    IReadOnlyDictionary<string, string>? Configuration = null);
+    IReadOnlyDictionary<string, string>? Configuration = null,
+    string? ProfileId = null);
 
 public sealed class RepositoryRegistry
 {
     public const string DefaultRepositoryId = "default";
     public const string RelativeRegistryPath = ".quality-studio/repositories.json";
     private static readonly string[] SupportedKinds = ["code", "security", "performance"];
+    private static readonly HashSet<string> CommandBackedSensors =
+        new(["sarif", "roslyn", "eslint", "tsc"], StringComparer.Ordinal);
     private readonly string registryPath;
     private readonly string contentRoot;
     private readonly RepositoryOptions legacyOptions;
     private readonly string[] allowedRoots;
     private readonly IReadOnlyList<string> supportedSensors;
+    private readonly IReadOnlyDictionary<string, AnalyzerProfile> analyzerProfiles;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -53,6 +57,7 @@ public sealed class RepositoryRegistry
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
+        analyzerProfiles = ValidateAnalyzerProfiles(legacyOptions.AnalyzerProfiles);
         this.logger = logger;
         this.metaIndex = metaIndex;
         if (legacyOptions.AllowedRoots.Length == 0)
@@ -125,7 +130,7 @@ public sealed class RepositoryRegistry
             var updated = Validate(request with
             {
                 Id = existing.Id,
-                Sensors = request.Sensors ?? existing.Sensors,
+                Sensors = request.Sensors ?? ForTrustedUpdate(existing.Sensors),
             }, existing.Id);
             entries[entries.IndexOf(existing)] = updated;
             await PersistAsync(cancellationToken);
@@ -286,6 +291,7 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException(
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
+        sensors = sensors.Select(ResolveRequestedSensor).ToArray();
 
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
@@ -371,7 +377,9 @@ public sealed class RepositoryRegistry
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
-        supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
+        supportedSensors.Select(id => new RepositorySensorConfiguration(
+            id,
+            Enabled: !CommandBackedSensors.Contains(id))).ToArray();
 
     private IReadOnlyList<RepositorySensorConfiguration> MergeSupportedSensors(
         IReadOnlyList<RepositorySensorConfiguration>? configured)
@@ -380,10 +388,124 @@ public sealed class RepositoryRegistry
             .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
         return supportedSensors
             .Select(id => existing.TryGetValue(id, out var sensor)
-                ? sensor
-                : new RepositorySensorConfiguration(id))
+                ? ResolvePersistedSensor(sensor with { Id = id })
+                : new RepositorySensorConfiguration(id, Enabled: !CommandBackedSensors.Contains(id)))
             .ToArray();
     }
+
+    private RepositorySensorConfiguration ResolveRequestedSensor(RepositorySensorConfiguration sensor)
+    {
+        if (!CommandBackedSensors.Contains(sensor.Id))
+        {
+            if (!string.IsNullOrWhiteSpace(sensor.ProfileId))
+                throw new RepositoryRegistryValidationException(
+                    $"Sensor '{sensor.Id}' does not accept an analyzer profile.");
+            return sensor;
+        }
+
+        if (sensor.Configuration is { Count: > 0 })
+            throw new RepositoryRegistryValidationException(
+                $"Sensor '{sensor.Id}' rejects repository-provided commands; select a host-owned profileId.");
+        if (string.IsNullOrWhiteSpace(sensor.ProfileId))
+        {
+            if (sensor.Enabled)
+                throw new RepositoryRegistryValidationException(
+                    $"Command-backed sensor '{sensor.Id}' is disabled unless a host-owned profileId is selected.");
+            return sensor with { Configuration = null, ProfileId = null };
+        }
+        return ApplyProfile(sensor, sensor.ProfileId);
+    }
+
+    private RepositorySensorConfiguration ResolvePersistedSensor(RepositorySensorConfiguration sensor)
+    {
+        if (!CommandBackedSensors.Contains(sensor.Id)) return sensor;
+        if (string.IsNullOrWhiteSpace(sensor.ProfileId) || !analyzerProfiles.ContainsKey(sensor.ProfileId))
+        {
+            if (sensor.Enabled || sensor.Configuration is { Count: > 0 })
+            {
+                logger.LogWarning(new EventId(1404, "UnsafeAnalyzerConfigurationDisabled"),
+                    "Disabled legacy command-backed sensor {SensorId}; select a host-owned analyzer profile", sensor.Id);
+            }
+            return sensor with { Enabled = false, Configuration = null, ProfileId = null };
+        }
+        return ApplyProfile(sensor, sensor.ProfileId);
+    }
+
+    private RepositorySensorConfiguration ApplyProfile(RepositorySensorConfiguration sensor, string profileId)
+    {
+        var normalizedProfileId = profileId.Trim().ToLowerInvariant();
+        if (!analyzerProfiles.TryGetValue(normalizedProfileId, out var profile) ||
+            !string.Equals(profile.SensorId, sensor.Id, StringComparison.Ordinal))
+            throw new RepositoryRegistryValidationException(
+                $"Analyzer profile '{normalizedProfileId}' is not available for sensor '{sensor.Id}'.");
+        return sensor with
+        {
+            ProfileId = normalizedProfileId,
+            Configuration = profile.Configuration,
+        };
+    }
+
+    private IReadOnlyDictionary<string, AnalyzerProfile> ValidateAnalyzerProfiles(
+        IReadOnlyDictionary<string, AnalyzerProfileOptions>? configured)
+    {
+        var profiles = new Dictionary<string, AnalyzerProfile>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (configuredId, options) in configured ??
+                 new Dictionary<string, AnalyzerProfileOptions>(StringComparer.OrdinalIgnoreCase))
+        {
+            var id = configuredId.Trim().ToLowerInvariant();
+            var sensorId = options.SensorId.Trim().ToLowerInvariant();
+            if (id.Length is < 1 or > 64 || id.Any(character =>
+                    !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_')))
+                throw new InvalidOperationException("Analyzer profile ids may contain only letters, numbers, '-' and '_'.");
+            if (!CommandBackedSensors.Contains(sensorId) || !supportedSensors.Contains(sensorId, StringComparer.Ordinal))
+                throw new InvalidOperationException($"Analyzer profile '{id}' names an unsupported command-backed sensor.");
+            if (string.IsNullOrWhiteSpace(options.Executable))
+                throw new InvalidOperationException($"Analyzer profile '{id}' requires an executable.");
+            if (!IsConfinedRelativePath(options.ReportPath))
+                throw new InvalidOperationException($"Analyzer profile '{id}' requires a repository-relative report path.");
+            if (!string.IsNullOrWhiteSpace(options.WorkingDirectory) &&
+                !IsConfinedRelativePath(options.WorkingDirectory))
+                throw new InvalidOperationException(
+                    $"Analyzer profile '{id}' requires a repository-relative working directory.");
+
+            var configuration = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["command"] = string.Join(' ', new[] { options.Executable }
+                    .Concat(options.Arguments ?? []).Select(QuoteCommandToken)),
+                ["reportPath"] = options.ReportPath,
+            };
+            if (!string.IsNullOrWhiteSpace(options.WorkingDirectory))
+                configuration["workingDirectory"] = options.WorkingDirectory;
+            if (!string.IsNullOrWhiteSpace(options.ProducerVersion))
+                configuration["producerVersion"] = options.ProducerVersion;
+            if (!profiles.TryAdd(id, new AnalyzerProfile(sensorId, configuration)))
+                throw new InvalidOperationException($"Analyzer profile id '{id}' is duplicated.");
+        }
+        return profiles;
+    }
+
+    private static IReadOnlyList<RepositorySensorConfiguration>? ForTrustedUpdate(
+        IReadOnlyList<RepositorySensorConfiguration>? sensors) => sensors?
+        .Select(sensor => CommandBackedSensors.Contains(sensor.Id)
+            ? sensor with { Configuration = null }
+            : sensor)
+        .ToArray();
+
+    private static string QuoteCommandToken(string value)
+    {
+        if (value.Length == 0) return "\"\"";
+        if (!value.Any(character => char.IsWhiteSpace(character) || character is '\"' or '\\')) return value;
+        return "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+    }
+
+    private static bool IsConfinedRelativePath(string? path) =>
+        !string.IsNullOrWhiteSpace(path) &&
+        !Path.IsPathRooted(path) &&
+        !path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Any(segment => segment == "..");
+
+    private sealed record AnalyzerProfile(string SensorId, IReadOnlyDictionary<string, string> Configuration);
 }
 
 public sealed class RepositoryRegistryValidationException : Exception
