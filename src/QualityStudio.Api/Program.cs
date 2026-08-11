@@ -118,6 +118,9 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
         FindingStateConflictException => (StatusCodes.Status409Conflict, "Finding state changed"),
+        FindingAssessmentConflictException => (StatusCodes.Status409Conflict, "Finding assessment changed"),
+        FindingSuppressionConflictException => (StatusCodes.Status409Conflict, "Finding suppressions changed"),
+        ReviewHistoryConflictException => (StatusCodes.Status409Conflict, "Committed review history conflict"),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected API error"),
     };
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("QualityStudio.Api.Errors");
@@ -302,6 +305,10 @@ app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
+app.MapGet("/api/review/history", ReviewHistory);
+app.MapGet("/api/repos/{repoId}/review/history", ReviewHistory);
+app.MapGet("/api/review/history/{id}", ReviewHistoryRun);
+app.MapGet("/api/repos/{repoId}/review/history/{id}", ReviewHistoryRun);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
@@ -319,6 +326,16 @@ app.MapPost("/api/threads", MutateThread);
 app.MapPost("/api/repos/{repoId}/threads", MutateThread);
 app.MapPost("/api/findings/state", MutateFindingState);
 app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
+app.MapGet("/api/findings/policy", FindingPolicy);
+app.MapGet("/api/repos/{repoId}/findings/policy", FindingPolicy);
+app.MapPost("/api/findings/assessment", MutateFindingAssessment);
+app.MapPost("/api/repos/{repoId}/findings/assessment", MutateFindingAssessment);
+app.MapPost("/api/findings/suppressions/exact", SuppressExactFinding);
+app.MapPost("/api/repos/{repoId}/findings/suppressions/exact", SuppressExactFinding);
+app.MapPost("/api/findings/suppressions/preview", PreviewFindingSuppression);
+app.MapPost("/api/repos/{repoId}/findings/suppressions/preview", PreviewFindingSuppression);
+app.MapPut("/api/findings/suppressions/{id}", SaveFindingSuppression);
+app.MapPut("/api/repos/{repoId}/findings/suppressions/{id}", SaveFindingSuppression);
 
 app.Run();
 
@@ -502,6 +519,10 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
     var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var policy = new FindingPolicySnapshot(
+        await new FindingAssessmentStore(repository.Root).ReadAsync(cancellationToken),
+        await new FindingSuppressionStore(repository.Root).ReadAsync(cancellationToken),
+        DateTimeOffset.UtcNow);
     var coverage = CoverageProjection.ForPath(
         CoverageSnapshot.Load(repository.Root),
         CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD"),
@@ -510,7 +531,7 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     logger.LogInformation(new EventId(1101, "FileLoaded"),
         "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}) in {ElapsedMilliseconds} ms",
         relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
-    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates),
+    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates, policy),
         bytes.LongLength, lineEnding, encoding, coverage));
 }
 
@@ -611,6 +632,152 @@ static async Task<IResult> MutateFindingState(HttpContext context, FindingStateM
         "Set finding {FindingFingerprint} to {FindingState} for {FilePath} in repository {RepositoryId} by {Author}; ElapsedMilliseconds={ElapsedMilliseconds}",
         updated.Fingerprint, FindingStateStore.StateName(updated.State), relative, registration.Id, updated.Author, stopwatch.ElapsedMilliseconds);
     return Results.Ok(updated);
+}
+
+static async Task<IResult> FindingPolicy(HttpContext context, RepositoryRegistry registry,
+    CancellationToken cancellationToken)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    return Results.Ok(new
+    {
+        assessments = await new FindingAssessmentStore(repository.Root).ReadAsync(cancellationToken),
+        suppressions = await new FindingSuppressionStore(repository.Root).ReadAsync(cancellationToken),
+    });
+}
+
+static async Task<IResult> MutateFindingAssessment(HttpContext context, FindingAssessmentMutationRequest request,
+    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var relative = repository.NormalizeRelativePath(request.Path);
+    var identity = await ReadFindingIdentity(repository, relative, request.Kind, request.Fingerprint, cancellationToken);
+    FindingAssessmentStatus? assessment = request.Assessment is null ? null : request.Assessment switch
+    {
+        "unassessed" => FindingAssessmentStatus.Unassessed,
+        "confirmed" => FindingAssessmentStatus.Confirmed,
+        "dismissed" => FindingAssessmentStatus.Dismissed,
+        "disputed" => FindingAssessmentStatus.Disputed,
+        _ => throw new ArgumentException("Assessment must be unassessed, confirmed, dismissed, or disputed."),
+    };
+    FindingResolutionStatus? resolution = request.Resolution is null ? null : request.Resolution switch
+    {
+        "open" => FindingResolutionStatus.Open,
+        "planned" => FindingResolutionStatus.Planned,
+        "fixed" => FindingResolutionStatus.Fixed,
+        "risk-accepted" => FindingResolutionStatus.RiskAccepted,
+        "obsolete" => FindingResolutionStatus.Obsolete,
+        "fixed-by-absence" => FindingResolutionStatus.FixedByAbsence,
+        _ => throw new ArgumentException("Resolution must be open, planned, fixed, risk-accepted, obsolete, or fixed-by-absence."),
+    };
+    var updated = await new FindingAssessmentStore(repository.Root).AppendAsync(identity, assessment, resolution,
+        request.Actor, request.Reason, request.ExpectedRevision, request.ReviewRunId, request.OperationRunId,
+        request.TaskKey, cancellationToken);
+    logger.LogInformation(new EventId(1502, "FindingAssessmentMutated"),
+        "Updated assessment axes for finding {FindingFingerprint} in repository {RepositoryId} by {Actor}; Revision={Revision}; ElapsedMilliseconds={ElapsedMilliseconds}",
+        updated.Fingerprint, registration.Id, updated.Actor, updated.Revision, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(updated);
+}
+
+static async Task<IResult> SuppressExactFinding(HttpContext context, ExactFindingSuppressionRequest request,
+    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var relative = repository.NormalizeRelativePath(request.Path);
+    await ReadFindingIdentity(repository, relative, request.Kind, request.Fingerprint, cancellationToken);
+    var rule = new FindingSuppressionRule(
+        "exact-" + request.Fingerprint[7..], true, new FindingSuppressionMatch(Fingerprint: request.Fingerprint),
+        "suppress", request.Reason, request.Author, DateTimeOffset.UtcNow, request.ExpiresAt);
+    var updated = await new FindingSuppressionStore(repository.Root).SetAsync(rule, request.ExpectedRevision, cancellationToken);
+    logger.LogInformation(new EventId(1503, "FindingSuppressed"),
+        "Created exact suppression {SuppressionId} for finding {FindingFingerprint} in repository {RepositoryId}; Revision={Revision}",
+        rule.Id, request.Fingerprint, registration.Id, updated.Revision);
+    return Results.Ok(updated);
+}
+
+static async Task<IResult> PreviewFindingSuppression(HttpContext context, FindingSuppressionPreviewRequest request,
+    RepositoryRegistry registry, CancellationToken cancellationToken)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var observations = await DiscoverFindingObservations(repository.Root, cancellationToken);
+    var matches = new FindingSuppressionStore(repository.Root).Preview(request.Rule, observations);
+    return Results.Ok(new { matchCount = matches.Count, matches });
+}
+
+static async Task<IResult> SaveFindingSuppression(HttpContext context, string id,
+    FindingSuppressionMutationRequest request, RepositoryRegistry registry, CancellationToken cancellationToken)
+{
+    if (!string.Equals(id, request.Rule.Id, StringComparison.Ordinal))
+        throw new ArgumentException("Suppression route id must match the rule id.");
+    if (request.Rule.Match.Fingerprint is not null)
+        throw new ArgumentException("Use the exact suppression endpoint for fingerprint-only rules.");
+    var (_, repository) = ResolveRepository(context, registry);
+    var observations = await DiscoverFindingObservations(repository.Root, cancellationToken);
+    var store = new FindingSuppressionStore(repository.Root);
+    var preview = store.Preview(request.Rule, observations);
+    var updated = await store.SetAsync(request.Rule, request.ExpectedRevision, cancellationToken);
+    return Results.Ok(new { document = updated, matchCount = preview.Count, matches = preview });
+}
+
+static async Task<FindingIdentityRecord> ReadFindingIdentity(RepositoryAccess repository, string relative,
+    string kind, string fingerprint, CancellationToken cancellationToken)
+{
+    var metaPath = repository.FindMetaDocument(relative, kind);
+    using var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken));
+    var finding = metadata.RootElement.GetProperty("findings").EnumerateArray().FirstOrDefault(candidate =>
+        candidate.TryGetProperty("fingerprint", out var value) && value.GetString() == fingerprint);
+    if (finding.ValueKind == JsonValueKind.Undefined)
+        throw new KeyNotFoundException($"Finding '{fingerprint}' was not found in the selected review.");
+    return new FindingIdentityRecord(
+        fingerprint,
+        finding.GetProperty("id").GetString()!,
+        finding.GetProperty("locations")[0].GetProperty("path").GetString()!,
+        finding.GetProperty("ruleId").GetString()!);
+}
+
+static async Task<IReadOnlyList<FindingObservation>> DiscoverFindingObservations(string repositoryRoot,
+    CancellationToken cancellationToken)
+{
+    var observations = new Dictionary<string, FindingObservation>(StringComparer.Ordinal);
+    var confinedEnumeration = new EnumerationOptions
+    {
+        RecurseSubdirectories = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
+        IgnoreInaccessible = true,
+    };
+    foreach (var path in Directory.EnumerateFiles(repositoryRoot, "*.review-meta.*.json", confinedEnumeration))
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        PathConfinement.RejectReparseTraversal(repositoryRoot, path);
+        try
+        {
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path, cancellationToken));
+            var root = document.RootElement;
+            var reviewKind = root.TryGetProperty("kind", out var kindValue) ? kindValue.GetString() ?? "" : "";
+            if (!root.TryGetProperty("findings", out var findings) || findings.ValueKind != JsonValueKind.Array) continue;
+            foreach (var finding in findings.EnumerateArray())
+            {
+                if (!finding.TryGetProperty("fingerprint", out var fingerprintValue) || fingerprintValue.GetString() is not { } fingerprint) continue;
+                var sourceKind = finding.TryGetProperty("origin", out var origin) &&
+                                 origin.TryGetProperty("kind", out var originKind)
+                    ? originKind.GetString() ?? "agent"
+                    : finding.TryGetProperty("source", out _) ? "deterministic" : "agent";
+                observations[fingerprint] = new FindingObservation(
+                    fingerprint,
+                    finding.TryGetProperty("ruleId", out var ruleId) ? ruleId.GetString() ?? "" : "",
+                    finding.GetProperty("locations")[0].GetProperty("path").GetString() ?? "",
+                    reviewKind,
+                    sourceKind,
+                    finding.TryGetProperty("id", out var findingId) ? findingId.GetString() ?? "" : "",
+                    finding.TryGetProperty("title", out var title) ? title.GetString() ?? "" : "");
+            }
+        }
+        catch (JsonException)
+        {
+            // Invalid sidecars are surfaced when opened; broad preview remains available for valid observations.
+        }
+    }
+    return observations.Values.OrderBy(item => item.Path, StringComparer.Ordinal).ThenBy(item => item.FindingId, StringComparer.Ordinal).ToArray();
 }
 
 static async Task<IResult> MutateThread(HttpContext context, ThreadMutationRequest request,
@@ -1082,6 +1249,18 @@ static IResult ReviewRuns(HttpContext context, RepositoryRegistry registry, Revi
 {
     var repository = registry.Get(RouteRepositoryId(context));
     return Results.Ok(new { runs = jobs.List(repository.Id) });
+}
+
+static IResult ReviewHistory(HttpContext context, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(new { runs = jobs.History(repository.Id) });
+}
+
+static IResult ReviewHistoryRun(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(jobs.History(repository.Id, id));
 }
 
 static IResult ReviewRun(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

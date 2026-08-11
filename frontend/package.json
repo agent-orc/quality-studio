@@ -10,7 +10,8 @@
     "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
-    "evidence:security": "node tests/security-evidence.mjs evidence"
+    "evidence:security": "node tests/security-evidence.mjs evidence",
+    "evidence:review-quality": "node tests/review-quality-evidence.mjs"
   },
   "prettier": {
     "printWidth": 100,

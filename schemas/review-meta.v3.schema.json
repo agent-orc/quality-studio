@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "title": "Quality Studio review metadata v3",
+  "type": "object",
+  "required": ["$schema", "schemaVersion", "unit", "reviewedAt", "kind", "reviewer", "reviewedHash", "subjectInputs", "reviewInputs", "grade", "summary", "aspects", "findings"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json" },
+    "schemaVersion": { "const": 3 },
+    "unit": { "type": "object" },
+    "reviewedAt": { "type": "string", "format": "date-time" },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "reviewer": { "$ref": "#/$defs/reviewer" },
+    "reviewedHash": { "type": "object" },
+    "subjectInputs": { "type": "array" },
+    "reviewInputs": { "type": "object" },
+    "grade": { "type": "object" },
+    "summary": { "type": "string" },
+    "aspects": { "type": "array" },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "aggregate": { "type": ["object", "null"] },
+    "threads": { "type": "array" },
+    "security": { "type": ["object", "null"] },
+    "deterministicEvidence": { "type": "array" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "route": {
+      "type": "object",
+      "required": ["model", "thinkingLevel"],
+      "properties": {
+        "model": { "type": ["string", "null"] },
+        "thinkingLevel": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "executedRoute": {
+      "type": "object",
+      "required": ["cli", "model", "thinkingLevel"],
+      "properties": {
+        "cli": { "type": "string", "minLength": 1 },
+        "model": { "type": ["string", "null"] },
+        "thinkingLevel": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "reviewer": {
+      "type": "object",
+      "required": ["agent", "model", "runId", "usage", "requested", "executed"],
+      "properties": {
+        "agent": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "usage": { "type": "object" },
+        "requested": { "$ref": "#/$defs/route" },
+        "executed": { "$ref": "#/$defs/executedRoute" },
+        "sensors": { "type": "array" }
+      },
+      "additionalProperties": false
+    },
+    "position": {
+      "type": "object",
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "range": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      },
+      "additionalProperties": false
+    },
+    "location": {
+      "type": "object",
+      "required": ["path", "range"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "range": { "$ref": "#/$defs/range" },
+        "symbolId": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "capturedExcerpt": {
+      "type": "object",
+      "required": ["text", "language", "contentHash", "excerptHash"],
+      "properties": {
+        "text": { "type": "string" },
+        "language": { "type": "string", "minLength": 1 },
+        "contentHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "excerptHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "anchor": {
+      "type": "object",
+      "required": ["id", "role", "path", "range", "capturedExcerpt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["primary", "related"] },
+        "path": { "type": "string", "minLength": 1 },
+        "range": { "$ref": "#/$defs/range" },
+        "symbolId": { "type": ["string", "null"] },
+        "capturedExcerpt": { "$ref": "#/$defs/capturedExcerpt" }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["id", "class", "status", "summary"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "class": { "enum": ["source-span", "deterministic-result", "test-result", "runtime-observation", "external-reference", "legacy-claim"] },
+        "status": { "enum": ["observed", "verified", "claimed", "blocked", "unknown"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "anchorId": { "type": ["string", "null"] },
+        "reference": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "reproduction": {
+      "type": "object",
+      "required": ["status", "steps"],
+      "properties": {
+        "status": { "enum": ["verified", "specified", "not-applicable", "blocked", "unknown"] },
+        "steps": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "expected": { "type": ["string", "null"] },
+        "observed": { "type": ["string", "null"] },
+        "reason": { "type": ["string", "null"] },
+        "attempts": { "type": "array" }
+      },
+      "additionalProperties": false
+    },
+    "origin": {
+      "type": "object",
+      "required": ["kind", "operationRunId", "requested", "executed", "prompt", "reviewInputHash", "subjectManifestHash", "sourceRevision", "observedAt"],
+      "properties": {
+        "kind": { "enum": ["agent", "deterministic", "human"] },
+        "reviewRunId": { "type": ["string", "null"] },
+        "operationRunId": { "type": "string", "minLength": 1 },
+        "requested": { "$ref": "#/$defs/route" },
+        "executed": { "$ref": "#/$defs/executedRoute" },
+        "prompt": { "type": "object" },
+        "reviewInputHash": { "type": "string", "minLength": 1 },
+        "subjectManifestHash": { "type": "string", "minLength": 1 },
+        "sourceRevision": { "type": "string", "minLength": 1 },
+        "observedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["kind", "sensorId", "producer"],
+      "properties": {
+        "kind": { "const": "deterministic" },
+        "sensorId": { "type": "string" },
+        "producer": { "type": "string" },
+        "producerVersion": { "type": ["string", "null"] },
+        "runIndex": { "type": ["integer", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "fingerprint", "ruleId", "aspect", "severity", "title", "problem", "impact", "remediation", "anchors", "evidence", "reproduction", "origin", "locations", "description", "recommendation"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "ruleId": { "type": "string", "minLength": 1 },
+        "aspect": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "title": { "type": "string", "minLength": 1 },
+        "problem": { "type": "string", "minLength": 1 },
+        "impact": { "type": "string", "minLength": 1 },
+        "remediation": { "type": "string", "minLength": 1 },
+        "anchors": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/anchor" } },
+        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
+        "reproduction": { "$ref": "#/$defs/reproduction" },
+        "origin": { "$ref": "#/$defs/origin" },
+        "locations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/location" } },
+        "description": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "source": { "$ref": "#/$defs/source" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
