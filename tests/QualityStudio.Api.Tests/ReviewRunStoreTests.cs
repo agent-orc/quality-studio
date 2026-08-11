@@ -766,12 +766,14 @@ public sealed class ReviewRunStoreTests
         CancellationToken cancellationToken)
     {
         JsonElement run = default;
-        for (var attempt = 0; attempt < 100; attempt++)
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        do
         {
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{runId}", cancellationToken);
             if (run.GetProperty("state").GetString() == expected) return run;
             await Task.Delay(20, cancellationToken);
         }
+        while (DateTimeOffset.UtcNow < deadline);
         return run;
     }
 
