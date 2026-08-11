@@ -441,7 +441,7 @@ public sealed class ReviewJobService : BackgroundService
         while (pending.TryPop(out var directory))
         {
             files.AddRange(Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-                .Where(IsPreflightInput));
+                .Where(path => IsPreflightInput(root, path)));
             foreach (var child in Directory.EnumerateDirectories(directory, "*", SearchOption.TopDirectoryOnly)
                          .OrderByDescending(path => path, StringComparer.Ordinal))
             {
@@ -449,13 +449,25 @@ public sealed class ReviewJobService : BackgroundService
                     pending.Push(child);
             }
         }
+
+        foreach (var area in new[] { "security", "static-analysis" })
+        {
+            var directory = Path.Combine(root, ".quality", area);
+            if (!Directory.Exists(directory)) continue;
+            files.AddRange(Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                .Where(path => IsPreflightInput(root, path)));
+        }
         return files.Order(StringComparer.Ordinal).ToArray();
     }
 
-    private static bool IsPreflightInput(string path)
+    private static bool IsPreflightInput(string root, string path)
     {
         var name = Path.GetFileName(path);
         var extension = Path.GetExtension(path).ToLowerInvariant();
+        var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+        if (relative.StartsWith(".quality/security/", StringComparison.Ordinal) ||
+            relative.Equals(".quality/static-analysis/style-baseline.json", StringComparison.Ordinal))
+            return true;
         return name.Equals(".editorconfig", StringComparison.OrdinalIgnoreCase) ||
                name.Equals("Directory.Build.props", StringComparison.OrdinalIgnoreCase) ||
                name.Equals("Directory.Build.targets", StringComparison.OrdinalIgnoreCase) ||
