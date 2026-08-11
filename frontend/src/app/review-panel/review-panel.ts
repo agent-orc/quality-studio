@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingAssessmentStatus, FindingEvidence, FindingResolutionStatus, FindingSeverity, FindingState, FindingSuppressionPreview, FindingSuppressionRule, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { ReviewEvidenceApi } from './review-evidence-api';
+import { ReviewDetailStyles } from './review-detail-styles';
 
 interface LastFindingMutation {
   fingerprint: string;
@@ -12,15 +14,20 @@ interface LastFindingMutation {
   appliedState: Exclude<FindingState, 'resolved'>;
 }
 
+interface CapturedExcerptView { text: string; language: string; contentHash: string; excerptHash: string; path: string; }
+type FindingPolicyFilter = 'visible' | 'all' | FindingAssessmentStatus | FindingResolutionStatus | 'suppressed';
+
 @Component({
   selector: 'qs-review-panel',
-  imports: [],
+  imports: [ReviewDetailStyles],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
+  providers: [ReviewEvidenceApi],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ReviewPanel {
   readonly api = inject(QualityApi);
+  private readonly evidenceApi = inject(ReviewEvidenceApi);
   readonly activeKind = input.required<ReviewKind>();
   readonly selectedPath = input.required<string>();
   readonly selectedNode = input<FlatNode | undefined>();
@@ -28,6 +35,7 @@ export class ReviewPanel {
   readonly findingSelect = output<ReviewFinding>();
   readonly locationSelect = output<{ finding: ReviewFinding; locationIndex: number }>();
   readonly kindSelect = output<ReviewKind>();
+  readonly findingDetail = viewChild<ElementRef<HTMLElement>>('findingDetail');
 
   readonly handoverStatus = signal<Record<string, string>>({});
   readonly stateAuthor = signal('Reviewer');
@@ -45,6 +53,10 @@ export class ReviewPanel {
   readonly scopeStatus = signal('');
   readonly scopeExpansionConfirmed = signal(false);
   readonly editingScopeRuleIndex = signal<number | null>(null);
+  readonly policyFilter = signal<FindingPolicyFilter>('visible');
+  readonly scopePathPattern = signal('');
+  readonly suppressionPreview = signal<{ rule: FindingSuppressionRule; result: FindingSuppressionPreview } | null>(null);
+  readonly suppressionScopeStatus = signal('');
   readonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');
   readonly findingFilter = signal<'active' | FindingState | 'all'>('active');
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
@@ -74,8 +86,15 @@ export class ReviewPanel {
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
+  readonly activeScopeRuns = computed(() => this.scopeRuns()
+    .filter(run => !['done', 'failed', 'cancelled'].includes(run.state)).slice(0, 8));
+  readonly reviewHistoryEntries = computed(() => typeof this.api.reviewHistory === 'function'
+    ? this.api.reviewHistory().filter(entry =>
+      entry.run.scope.path === this.selectedNode()?.path && entry.run.kind === this.activeKind())
+    : []);
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
+    const policyFilter = this.policyFilter();
     const severity = this.severityFilter();
     const rank: Record<FindingSeverity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
     const state = (finding: ReviewFinding) => finding.state ?? 'open';
@@ -85,6 +104,7 @@ export class ReviewPanel {
     };
     return [...(this.activeMeta()?.findings ?? [])]
       .filter(finding => severity === 'all' || finding.severity === severity)
+      .filter(finding => this.matchesPolicyFilter(finding, policyFilter))
       .filter(finding => {
         if (stateFilter === 'all') return true;
         if (stateFilter === 'active') return state(finding) === 'open' || state(finding) === 'accepted';
@@ -116,8 +136,41 @@ export class ReviewPanel {
     const location = finding.locations[locationIndex];
     if (!location) return 'Location unavailable';
     if (this.activeState() === 'stale' || !location.range) return `${location.path} · source changed`;
-    const end = location.range.end.line === location.range.start.line ? '' : `-${location.range.end.line}`;
-    return `${location.path}:${location.range.start.line}${end}`;
+    const end = location.range.end.line === location.range.start.line
+      ? `-${location.range.end.column}`
+      : `-${location.range.end.line}:${location.range.end.column}`;
+    return `${location.path}:${location.range.start.line}:${location.range.start.column}${end}`;
+  }
+
+  constructor() {
+    effect(() => {
+      const id = this.selectedFinding()?.id;
+      if (id) queueMicrotask(() => this.findingDetail()?.nativeElement.focus());
+    });
+  }
+
+  findingLocation(finding: ReviewFinding): string {
+    return this.locationLabel(finding);
+  }
+
+  findingEvidence(finding: ReviewFinding): FindingEvidence[] {
+    if (Array.isArray(finding.evidence)) return finding.evidence;
+    return finding.evidence ? [{ id: 'legacy', class: 'legacy-claim', status: 'claimed', summary: finding.evidence }] : [];
+  }
+
+  capturedExcerpt(finding: ReviewFinding): CapturedExcerptView | null {
+    const anchor = finding.anchors?.find(candidate => candidate.role === 'primary') ?? finding.anchors?.[0];
+    return anchor ? { ...anchor.capturedExcerpt, path: anchor.path } : null;
+  }
+
+  strongestEvidence(finding: ReviewFinding): string {
+    return this.findingEvidence(finding)[0]?.class ?? 'evidence unknown';
+  }
+
+  originLabel(finding: ReviewFinding): string {
+    const executed = finding.origin?.executed;
+    if (!executed) return `${this.activeMeta()?.reviewer.agent ?? 'unknown'} · ${this.activeMeta()?.reviewer.model ?? 'unknown model'}`;
+    return `${executed.cli} · ${executed.model} · ${executed.thinkingLevel ?? 'thinking unknown'}`;
   }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }
@@ -144,6 +197,41 @@ export class ReviewPanel {
     } catch (error) {
       this.handoverStatus.update(status => ({ ...status, [key]: 'Create failed' }));
       console.error(JSON.stringify({ event: 'qs.handover.failed', findingId: key, reason: error instanceof Error ? error.message : 'request failed' }));
+    }
+  }
+
+  async setFindingPolicy(finding: ReviewFinding, assessment: FindingAssessmentStatus | null, resolution: FindingResolutionStatus | null): Promise<void> {
+    const reason = this.stateReason().trim();
+    const author = this.stateAuthor().trim();
+    const path = this.api.file()?.path;
+    if (!reason || !author) { this.stateStatus.set('Author and reason are required.'); return; }
+    if (!path || !finding.fingerprint) { this.stateStatus.set('Finding identity is unavailable.'); return; }
+    this.stateStatus.set('Saving…');
+    try {
+      await this.evidenceApi.mutateAssessment({
+        path,
+        kind: this.activeKind(),
+        fingerprint: finding.fingerprint,
+        assessment,
+        resolution,
+        actor: author,
+        reason,
+        expectedRevision: finding.assessment?.revision ?? 0,
+        reviewRunId: finding.origin?.reviewRunId ?? null,
+        operationRunId: finding.origin?.operationRunId ?? null,
+      });
+      this.selectReloadedFinding(finding.fingerprint);
+      this.stateReason.set(''); this.stateStatus.set('Saved');
+    } catch (error) {
+      if ((error as { status?: number }).status === 409) {
+        await this.api.loadFile(path);
+        const current = this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind())?.findings
+          .find(candidate => candidate.fingerprint === finding.fingerprint);
+        if (current) this.findingSelect.emit(current);
+        this.stateStatus.set('This finding changed elsewhere. Current state was reloaded; review it and try again.');
+      } else {
+        this.stateStatus.set(this.api.errorMessage(error));
+      }
     }
   }
 
@@ -180,7 +268,10 @@ export class ReviewPanel {
       setTimeout(() => {
         if (this.lastMutation()?.fingerprint === finding.fingerprint) this.lastMutation.set(null);
       }, 8000);
-      this.stateReason.set(''); this.stateExpiry.set(''); this.dispositionMode.set(null); this.stateStatus.set('Saved');
+      this.stateReason.set('');
+      this.stateExpiry.set('');
+      this.dispositionMode.set(null);
+      this.stateStatus.set('Saved');
     } catch (error) {
       if ((error as { status?: number }).status === 409) {
         await this.api.loadFile(path);
@@ -318,6 +409,83 @@ export class ReviewPanel {
     }
   }
 
+  async suppressExact(finding: ReviewFinding): Promise<void> {
+    const reason = this.stateReason().trim();
+    const author = this.stateAuthor().trim();
+    const path = this.api.file()?.path;
+    if (!reason || !author) { this.stateStatus.set('Author and reason are required.'); return; }
+    if (!path || !finding.fingerprint) { this.stateStatus.set('Finding identity is unavailable.'); return; }
+    this.stateStatus.set('Saving exact suppression…');
+    try {
+      await this.evidenceApi.suppressExact({ path, kind: this.activeKind(), fingerprint: finding.fingerprint,
+        author, reason, expiresAt: this.stateExpiry() ? new Date(this.stateExpiry()).toISOString() : null,
+        expectedRevision: this.activeMeta()?.suppressionRevision ?? 0 });
+      this.selectReloadedFinding(finding.fingerprint);
+      this.stateReason.set(''); this.stateStatus.set('Suppressed');
+    } catch (error) { this.stateStatus.set(this.api.errorMessage(error)); }
+  }
+
+  async previewScopedSuppression(finding: ReviewFinding): Promise<void> {
+    const reason = this.stateReason().trim();
+    const author = this.stateAuthor().trim();
+    const pattern = this.scopePathPattern().trim();
+    if (!reason || !author || !pattern) { this.suppressionScopeStatus.set('Author, reason, and path pattern are required.'); return; }
+    const rule: FindingSuppressionRule = {
+      id: `scope-${Date.now().toString(36)}`, enabled: true,
+      match: { ruleId: finding.ruleId, pathPattern: pattern, reviewKinds: [this.activeKind()] },
+      effect: 'suppress', reason, author, createdAt: new Date().toISOString(),
+      expiresAt: this.stateExpiry() ? new Date(this.stateExpiry()).toISOString() : null,
+    };
+    this.suppressionScopeStatus.set('Previewing…');
+    try {
+      const result = await this.evidenceApi.previewSuppression(rule);
+      this.suppressionPreview.set({ rule, result });
+      this.suppressionScopeStatus.set(`${result.matchCount} finding${result.matchCount === 1 ? '' : 's'} matched. Confirm to save.`);
+    } catch (error) { this.suppressionScopeStatus.set(this.api.errorMessage(error)); }
+  }
+
+  async saveScopedSuppression(): Promise<void> {
+    const preview = this.suppressionPreview();
+    const path = this.api.file()?.path;
+    if (!preview || !path) return;
+    this.suppressionScopeStatus.set('Saving confirmed scope…');
+    try {
+      const result = await this.evidenceApi.saveSuppression(preview.rule, this.activeMeta()?.suppressionRevision ?? 0, path);
+      this.suppressionPreview.set(null);
+      this.suppressionScopeStatus.set(`Saved scope for ${result.matchCount} finding${result.matchCount === 1 ? '' : 's'}.`);
+    } catch (error) { this.suppressionScopeStatus.set(this.api.errorMessage(error)); }
+  }
+
+  assessmentCount(status: FindingAssessmentStatus): number {
+    return this.activeMeta()?.assessmentCounts?.[status] ?? 0;
+  }
+
+  findingFilterCount(filter: FindingPolicyFilter): number {
+    const findings = this.activeMeta()?.findings ?? [];
+    if (filter === 'all') return findings.length;
+    if (filter === 'visible') return findings.filter(finding => !finding.suppression).length;
+    if (filter === 'suppressed') return findings.filter(finding => !!finding.suppression).length;
+    if (['unassessed', 'confirmed', 'dismissed', 'disputed'].includes(filter))
+      return findings.filter(finding => (finding.assessment?.status ?? 'unassessed') === filter).length;
+    return findings.filter(finding => (finding.resolution?.status ?? 'open') === filter).length;
+  }
+
+  private matchesPolicyFilter(finding: ReviewFinding, filter: FindingPolicyFilter): boolean {
+    if (filter === 'all') return true;
+    if (filter === 'visible') return !finding.suppression;
+    if (filter === 'suppressed') return !!finding.suppression;
+    if (['unassessed', 'confirmed', 'dismissed', 'disputed'].includes(filter))
+      return (finding.assessment?.status ?? 'unassessed') === filter;
+    return (finding.resolution?.status ?? 'open') === filter;
+  }
+
+  private selectReloadedFinding(fingerprint: string): void {
+    const updated = this.api.file()?.metaDocuments
+      .find(meta => meta.kind === this.activeKind())?.findings
+      .find(candidate => candidate.fingerprint === fingerprint);
+    if (updated) this.findingSelect.emit(updated);
+  }
+
   findingCount(state: 'open' | 'accepted' | 'waived' | 'falsePositive' | 'resolved'): number {
     return this.activeMeta()?.findingCounts?.[state] ?? 0;
   }
@@ -325,6 +493,10 @@ export class ReviewPanel {
   scannedAt(value: string): string { return formatDateTime(value); }
 
   runProgress(completed: number, total: number): number { return total ? completed / total * 100 : 0; }
+
+  historyFindingCount(run: { evidence: Array<{ findingFingerprints: string[] }> }): number {
+    return new Set(run.evidence.flatMap(operation => operation.findingFingerprints)).size;
+  }
 
   formatTokens(value: number | null | undefined): string {
     if (value === null || value === undefined) return 'unavailable';

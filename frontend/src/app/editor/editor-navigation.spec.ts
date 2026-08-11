@@ -25,6 +25,7 @@ describe('Editor finding navigation', () => {
   const node = { id: 'a', name: 'A.cs', path: 'src/A.cs', level: 'file', kinds: { code: { direct: 'fresh' } }, children: [] };
 
   beforeEach(async () => {
+    api.file.update(value => ({ ...value, metaDocuments: [{ ...value.metaDocuments[0], findings: [finding] }] }));
     await TestBed.configureTestingModule({
       imports: [Editor],
       providers: [
@@ -61,5 +62,32 @@ describe('Editor finding navigation', () => {
     expect(component.selectedLocation()).toBeNull();
     expect(component.isSelectedLine(8)).toBeFalse();
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(0);
+  });
+
+  it('opens an accessible chooser for overlapping exact spans and selects one finding', async () => {
+    const overlapping: ReviewFinding = {
+      ...finding, id: 'overlap', fingerprint: `sha256:${'e'.repeat(64)}`, title: 'Overlapping range',
+      locations: [{ path: 'src/A.cs', range: { start: { line: 8, column: 2 }, end: { line: 8, column: 4 } } }],
+    };
+    api.file.update(value => ({
+      ...value, metaDocuments: [{ ...value.metaDocuments[0], findings: [finding, overlapping] }],
+    }));
+    const selected = jasmine.createSpy('selected');
+    component.findingSelect.subscribe(selected);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const segment: HTMLButtonElement = fixture.nativeElement.querySelector('.finding-segment.overlap');
+    expect(segment).toBeTruthy();
+    expect(segment.getAttribute('aria-label')).toContain('2 overlapping findings');
+    segment.click();
+    fixture.detectChanges();
+
+    const choices: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('.finding-overlap-chooser [role="menuitem"]');
+    expect(choices.length).toBe(2);
+    choices[1].click();
+    expect(selected).toHaveBeenCalledWith(overlapping);
+    expect(component.overlapChooser()).toBeNull();
   });
 });
