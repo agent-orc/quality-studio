@@ -101,7 +101,7 @@ public sealed class FindingStateStore
                     await AppendLifecycleAsync(
                         record,
                         FindingState.Open,
-                        "agent",
+                        finding.ProducerKind,
                         author,
                         record.Reason,
                         now,
