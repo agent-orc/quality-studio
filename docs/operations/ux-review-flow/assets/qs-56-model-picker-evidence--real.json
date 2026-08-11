@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-08-08T16:29:06.066Z",
+  "baseUrl": "http://127.0.0.1:4202/",
+  "evidence": [
+    {
+      "theme": "dark",
+      "optionCount": 5,
+      "firstOption": "Runner default modeldefaultNo model or thinking override; preserve Runner behavior.",
+      "options": [
+        "Runner default modeldefaultNo model or thinking override; preserve Runner behavior.",
+        "gpt-5.6-lunalightSmall, well-specified reviews with an obvious verification path.minimal · low · medium · high · xhigh · ultra · price unavailable · provisional",
+        "gpt-5.6-terrabalancedStandard reversible reviews with clear scope and test seams.minimal · low · medium · high · xhigh · ultra · price unavailable · provisional",
+        "gpt-5.6-solfrontierDemanding or correctness-critical reviews with broad context.minimal · low · medium · high · xhigh · ultra · price unavailable",
+        "gpt-5.4-minilightBounded pipeline decisions only; not qualified for core code reviews.low · medium · high · price unavailable · provisional"
+      ]
+    },
+    {
+      "theme": "light",
+      "optionCount": 5,
+      "firstOption": "Runner default modeldefaultNo model or thinking override; preserve Runner behavior.",
+      "options": [
+        "Runner default modeldefaultNo model or thinking override; preserve Runner behavior.",
+        "gpt-5.6-lunalightSmall, well-specified reviews with an obvious verification path.minimal · low · medium · high · xhigh · ultra · price unavailable · provisional",
+        "gpt-5.6-terrabalancedStandard reversible reviews with clear scope and test seams.minimal · low · medium · high · xhigh · ultra · price unavailable · provisional",
+        "gpt-5.6-solfrontierDemanding or correctness-critical reviews with broad context.minimal · low · medium · high · xhigh · ultra · price unavailable",
+        "gpt-5.4-minilightBounded pipeline decisions only; not qualified for core code reviews.low · medium · high · price unavailable · provisional"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,168 @@
+{
+  "stage": "after",
+  "capturedAt": "2026-08-10T18:16:31.219Z",
+  "audits": {
+    "light": {
+      "cardTitle": {
+        "fontSize": "14px",
+        "lineHeight": "18.9px",
+        "fontWeight": "700",
+        "color": "rgb(36, 40, 48)",
+        "backgroundColor": "rgb(228, 240, 248)",
+        "contrastRatio": 12.75
+      },
+      "cardSeverity": {
+        "fontSize": "11px",
+        "lineHeight": "12.1px",
+        "fontWeight": "700",
+        "color": "rgb(7, 89, 133)",
+        "backgroundColor": "rgb(238, 241, 245)",
+        "contrastRatio": 6.68
+      },
+      "cardDescription": {
+        "fontSize": "13px",
+        "lineHeight": "20.15px",
+        "fontWeight": "400",
+        "color": "rgb(36, 40, 48)",
+        "backgroundColor": "rgb(228, 240, 248)",
+        "contrastRatio": 12.75
+      },
+      "detailTitle": {
+        "fontSize": "16px",
+        "lineHeight": "21.6px",
+        "fontWeight": "700",
+        "color": "rgb(36, 40, 48)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "contrastRatio": 14.78
+      },
+      "detailDescription": {
+        "fontSize": "13px",
+        "lineHeight": "20.15px",
+        "fontWeight": "400",
+        "color": "rgb(102, 112, 126)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "contrastRatio": 5.02
+      },
+      "detailEvidence": {
+        "fontSize": "13px",
+        "lineHeight": "20.15px",
+        "fontWeight": "400",
+        "color": "rgb(36, 40, 48)",
+        "backgroundColor": "rgb(248, 249, 251)",
+        "contrastRatio": 14.03
+      },
+      "severityPalette": {
+        "critical": {
+          "color": "#991b1b",
+          "backgroundColor": "rgb(238, 241, 245)",
+          "contrastRatio": 7.34
+        },
+        "high": {
+          "color": "#9a3412",
+          "backgroundColor": "rgb(238, 241, 245)",
+          "contrastRatio": 6.45
+        },
+        "medium": {
+          "color": "#714f00",
+          "backgroundColor": "rgb(238, 241, 245)",
+          "contrastRatio": 6.57
+        },
+        "low": {
+          "color": "#075985",
+          "backgroundColor": "rgb(238, 241, 245)",
+          "contrastRatio": 6.68
+        },
+        "info": {
+          "color": "#4b5563",
+          "backgroundColor": "rgb(238, 241, 245)",
+          "contrastRatio": 6.67
+        }
+      },
+      "markerHitArea": {
+        "width": 24,
+        "height": 22
+      }
+    },
+    "dark": {
+      "cardTitle": {
+        "fontSize": "14px",
+        "lineHeight": "18.9px",
+        "fontWeight": "700",
+        "color": "rgb(229, 231, 235)",
+        "backgroundColor": "rgb(38, 54, 79)",
+        "contrastRatio": 9.84
+      },
+      "cardSeverity": {
+        "fontSize": "11px",
+        "lineHeight": "12.1px",
+        "fontWeight": "700",
+        "color": "rgb(134, 207, 251)",
+        "backgroundColor": "rgb(50, 54, 63)",
+        "contrastRatio": 7.11
+      },
+      "cardDescription": {
+        "fontSize": "13px",
+        "lineHeight": "20.15px",
+        "fontWeight": "400",
+        "color": "rgb(229, 231, 235)",
+        "backgroundColor": "rgb(38, 54, 79)",
+        "contrastRatio": 9.84
+      },
+      "detailTitle": {
+        "fontSize": "16px",
+        "lineHeight": "21.6px",
+        "fontWeight": "700",
+        "color": "rgb(229, 231, 235)",
+        "backgroundColor": "rgb(41, 44, 51)",
+        "contrastRatio": 11.29
+      },
+      "detailDescription": {
+        "fontSize": "13px",
+        "lineHeight": "20.15px",
+        "fontWeight": "400",
+        "color": "rgb(163, 170, 181)",
+        "backgroundColor": "rgb(41, 44, 51)",
+        "contrastRatio": 5.97
+      },
+      "detailEvidence": {
+        "fontSize": "13px",
+        "lineHeight": "20.15px",
+        "fontWeight": "400",
+        "color": "rgb(229, 231, 235)",
+        "backgroundColor": "rgb(32, 34, 40)",
+        "contrastRatio": 12.84
+      },
+      "severityPalette": {
+        "critical": {
+          "color": "#ff9b9f",
+          "backgroundColor": "rgb(50, 54, 63)",
+          "contrastRatio": 6.02
+        },
+        "high": {
+          "color": "#ff9f87",
+          "backgroundColor": "rgb(50, 54, 63)",
+          "contrastRatio": 6.09
+        },
+        "medium": {
+          "color": "#f3c969",
+          "backgroundColor": "rgb(50, 54, 63)",
+          "contrastRatio": 7.71
+        },
+        "low": {
+          "color": "#86cffb",
+          "backgroundColor": "rgb(50, 54, 63)",
+          "contrastRatio": 7.11
+        },
+        "info": {
+          "color": "#cbd1dc",
+          "backgroundColor": "rgb(50, 54, 63)",
+          "contrastRatio": 7.89
+        }
+      },
+      "markerHitArea": {
+        "width": 24,
+        "height": 22
+      }
+    }
+  }
+}
