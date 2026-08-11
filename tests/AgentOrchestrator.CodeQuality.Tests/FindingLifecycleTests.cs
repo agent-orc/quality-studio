@@ -161,7 +161,8 @@ public sealed class FindingLifecycleTests
             Assert.Equal("Issue reopened after expiry.", projected[issue].Reason);
 
             var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-                RepositoryTestContext.FindRepositoryRoot(), "schemas", "issue-lifecycle-event.v1.schema.json")));
+                RepositoryTestContext.FindRepositoryRoot(), "schemas", "issue-lifecycle-event.v1.schema.json")),
+                new BuildOptions { SchemaRegistry = new SchemaRegistry() });
             using var json = JsonDocument.Parse(JsonSerializer.Serialize(reopened, new JsonSerializerOptions(JsonSerializerDefaults.Web)
             {
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -170,6 +171,9 @@ public sealed class FindingLifecycleTests
             Assert.True(validation.IsValid, validation.ToString());
             Assert.Throws<ArgumentException>(() => IssueLifecycleStore.CreateEvent(
                 issue, occurrence, [legacy], "resolved", "human", "Ada", "Unproven resolution.", now));
+            Assert.Throws<ArgumentException>(() => IssueLifecycleStore.CreateEvent(
+                issue, occurrence, [legacy], "open", "human", "Ada", "Invalid import marker.", now,
+                legacySource: FindingStateStore.RelativePath));
         }
         finally
         {

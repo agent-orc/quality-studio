@@ -73,7 +73,6 @@ public static class QualityTaxonomyMigrator
                     var aliases = (record["fingerprintAliases"] as JsonArray)?.OfType<JsonValue>()
                         .Select(item => item.GetValue<string>()).Append(fingerprint)
                         .Distinct(StringComparer.Ordinal).ToArray() ?? [fingerprint];
-                    var resolved = lifecycle == "resolved";
                     lifecycleCandidates.Add(IssueLifecycleStore.CreateEvent(
                         issueId,
                         occurrence,
@@ -85,8 +84,7 @@ public static class QualityTaxonomyMigrator
                         occurredAt,
                         DateTimeOffset.TryParse(Text(record["expiresAt"]), out var expiry)
                             ? expiry.ToUniversalTime() : null,
-                        resolved ? [$"legacy-state:{fingerprint}"] : null,
-                        resolved ? "legacy-finding-state-snapshot@1" : null));
+                        legacySource: FindingStateStore.RelativePath));
                 }
             }
             catch (Exception exception) when (exception is IOException or JsonException or ArgumentException or FormatException)
