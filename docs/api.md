@@ -29,12 +29,21 @@ On first start it seeds the repository with id `default`; existing single-reposi
 deployments therefore need no configuration change. CORS origins are configured with
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
 
+Local mode accepts only loopback bindings. Every local mutation requires an allowed
+`Origin` plus a short-lived nonce obtained from `GET /api/security/session`; the
+Angular client performs this handshake automatically. Non-browser callers must retain
+the response cookie and send the returned header name/token with the same allowed
+origin. Hosted mode continues to require a bearer credential and matching
+`X-Client-Id` instead. Creating, changing, or archiving a repository registration
+requires registrar authority, including changes to roots, global inputs, and sensors.
+
 Repository registrations are server-owned state persisted at
 `<API content root>/.quality-studio/repositories.json`. Each entry stores its id,
 display name, normalized root path, optional global inputs directory, input character
-budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
-there are no environment-specific registry copies. Repository roots must be existing
-directories with a `.git` directory or worktree `.git` file.
+budget, enabled review kinds, sensor enablement/profile selection, and archive state.
+This is the single canonical registry; there are no environment-specific registry
+copies. Repository roots must be existing directories with a `.git` directory or
+worktree `.git` file.
 
 ## Repository registry
 
