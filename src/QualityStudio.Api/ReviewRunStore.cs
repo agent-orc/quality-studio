@@ -150,7 +150,7 @@ public sealed class ReviewRunStore
         }
         WriteStatus(status);
         WriteResult(manifest, status);
-        if (ReviewHistoryStore.IsCommittable(status.State))
+        if (ReviewHistoryStore.IsCommittable(status.State) && status.FinishedAt is not null)
             new ReviewHistoryStore(repositoryRoot).Commit(manifest, status, ReadProgress(directory, manifest.RunId), []);
     }
 
