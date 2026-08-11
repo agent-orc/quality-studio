@@ -22,6 +22,17 @@ public sealed record ReviewRunOperationEvidence(
     IReadOnlyDictionary<string, int> EvidenceClasses,
     IReadOnlyDictionary<string, int> ReproductionStatuses);
 
+public sealed record ReviewRunFindingOutcome(
+    string Fingerprint,
+    string Assessment,
+    string Resolution,
+    string Source,
+    long Revision,
+    string? Actor,
+    string? Reason,
+    DateTimeOffset? OccurredAt,
+    string? TaskKey);
+
 public sealed record ReviewHistoryPayload(
     string RunId,
     string RepositoryId,
@@ -50,6 +61,8 @@ public sealed record ReviewHistoryPayload(
     string? Currency,
     string PriceStatus,
     IReadOnlyList<ReviewRunOperationEvidence> Evidence,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<ReviewRunFindingOutcome>? FindingOutcomes,
     IReadOnlyList<string> Errors,
     string? StopReason);
 
@@ -120,6 +133,7 @@ public sealed class ReviewHistoryStore
             status.Currency,
             status.PriceStatus,
             evidence.Select(ValidateEvidence).ToArray(),
+            SnapshotFindingOutcomes(evidence, status.FinishedAt.Value),
             status.Errors.Select(error => Sanitize(error)!).ToArray(),
             Sanitize(status.StopReason));
         var payloadBytes = JsonSerializer.SerializeToUtf8Bytes(payload, CompactJson);
@@ -197,6 +211,38 @@ public sealed class ReviewHistoryStore
         MetaReference = evidence.MetaReference is null ? null : NormalizeRelative(evidence.MetaReference),
     };
 
+    private IReadOnlyList<ReviewRunFindingOutcome> SnapshotFindingOutcomes(
+        IReadOnlyList<ReviewRunOperationEvidence> evidence,
+        DateTimeOffset cutoff)
+    {
+        var fingerprints = evidence.SelectMany(item => item.FindingFingerprints)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (fingerprints.Length == 0) return [];
+        var projection = new FindingAssessmentStore(repositoryRoot)
+            .ReadAtAsync(cutoff)
+            .ConfigureAwait(false)
+            .GetAwaiter()
+            .GetResult();
+        return fingerprints.Select(fingerprint =>
+        {
+            if (!projection.Findings.TryGetValue(fingerprint, out var outcome))
+                return new ReviewRunFindingOutcome(
+                    fingerprint, "unassessed", "open", "none", 0, null, null, null, null);
+            return new ReviewRunFindingOutcome(
+                fingerprint,
+                Kebab(outcome.Assessment.ToString()),
+                Kebab(outcome.Resolution.ToString()),
+                outcome.Source,
+                outcome.Source == "compatibility" ? 0 : outcome.Revision,
+                outcome.Actor,
+                outcome.Reason,
+                outcome.OccurredAt,
+                outcome.TaskKey);
+        }).ToArray();
+    }
+
     private static ReviewEstimateDeviation? Deviation(ReviewRunEstimate? estimate, ReviewRunStatus status)
     {
         if (status.State != "done" || estimate is null || status.Usage.InputTokens is null || status.Usage.OutputTokens is null)
@@ -212,6 +258,17 @@ public sealed class ReviewHistoryStore
 
     private static decimal Percent(decimal actual, decimal estimate) =>
         estimate == 0 ? 0 : Math.Round((actual - estimate) / estimate * 100m, 2);
+
+    private static string Kebab(string value)
+    {
+        var builder = new StringBuilder();
+        foreach (var character in value)
+        {
+            if (char.IsUpper(character) && builder.Length > 0) builder.Append('-');
+            builder.Append(char.ToLowerInvariant(character));
+        }
+        return builder.ToString();
+    }
 
     private static ReviewHistoryRoute ExecutedRoute(IReadOnlyList<ReviewRunOperationEvidence> evidence) => new(
         SingleObserved(evidence.Select(item => item.Executed?.Cli)),
