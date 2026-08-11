@@ -11,16 +11,19 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
     private readonly SarifSensor sarif;
     private readonly string executable;
     private readonly string[] versionArguments;
+    private readonly string toolVersionKey;
 
     protected SarifCommandAnalyzerSensor(
         string id,
         string executable,
         string[] versionArguments,
-        ISensorCommandRunner? commandRunner)
+        ISensorCommandRunner? commandRunner,
+        string? toolVersionKey = null)
     {
         Id = id;
         this.executable = executable;
         this.versionArguments = versionArguments;
+        this.toolVersionKey = toolVersionKey ?? id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
         sarif = new SarifSensor(id, this.commandRunner);
     }
@@ -43,7 +46,7 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
                 : result.StandardOutput.Trim();
             return new SensorAvailability(true, ToolVersions: new Dictionary<string, string>
             {
-                [Id] = version,
+                [toolVersionKey] = version,
                 ["sarif"] = "2.1.0",
             });
         }
@@ -63,7 +66,7 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
 public sealed class RoslynAnalyzerSensor : SarifCommandAnalyzerSensor
 {
     public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("roslyn", "dotnet", ["--version"], commandRunner)
+        : base("roslyn", "dotnet", ["--version"], commandRunner, "dotnet")
     {
     }
 }
@@ -71,7 +74,7 @@ public sealed class RoslynAnalyzerSensor : SarifCommandAnalyzerSensor
 public sealed class EslintAnalyzerSensor : SarifCommandAnalyzerSensor
 {
     public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("eslint", "npx", ["--no-install", "eslint", "--version"], commandRunner)
+        : base("eslint", "node", ["--version"], commandRunner, "node")
     {
     }
 }
