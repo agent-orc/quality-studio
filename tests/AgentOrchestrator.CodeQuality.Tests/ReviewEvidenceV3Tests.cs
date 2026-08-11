@@ -14,6 +14,11 @@ public sealed class ReviewEvidenceV3Tests
         Directory.CreateDirectory(root);
         var path = Path.Combine(root, "Subject.cs");
         await File.WriteAllTextAsync(path, "public class Subject { }\n", TestContext.Current.CancellationToken);
+        Assert.NotNull(CoverageSensor.GitValue(root, "init", "--quiet"));
+        Assert.NotNull(CoverageSensor.GitValue(root, "add", "Subject.cs"));
+        Assert.NotNull(CoverageSensor.GitValue(root, "-c", "user.name=Quality Studio", "-c",
+            "user.email=quality@example.invalid", "commit", "--quiet", "-m", "initial subject"));
+        await File.AppendAllTextAsync(path, "// uncommitted review input\n", TestContext.Current.CancellationToken);
         try
         {
             var result = await new ReviewRunner(new EvidenceAgent()).ReviewAsync(new ReviewRequest(
@@ -38,6 +43,7 @@ public sealed class ReviewEvidenceV3Tests
             Assert.Equal("executed-model", finding.Origin.Executed.Model);
             Assert.Equal("high", finding.Origin.Executed.ThinkingLevel);
             Assert.Equal("review-parent", finding.Origin.ReviewRunId);
+            Assert.EndsWith("+uncommitted", finding.Origin.SourceRevision, StringComparison.Ordinal);
             Assert.Equal("public class Subject", Assert.Single(finding.Anchors).CapturedExcerpt.Text);
             Assert.StartsWith("sha256:", finding.Anchors[0].CapturedExcerpt.ContentHash, StringComparison.Ordinal);
             Assert.Contains(finding.Evidence, evidence => evidence.Class == "source-span" && evidence.Status == "observed");
