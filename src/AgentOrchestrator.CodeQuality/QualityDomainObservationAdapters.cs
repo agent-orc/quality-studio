@@ -320,22 +320,22 @@ public static class QualityDomainObservationAdapters
         QualityObservationLegacy legacy,
         string? change = null,
         IReadOnlyDictionary<string, JsonElement>? extensions = null) => new()
-    {
-        ObservationId = observationId,
-        ObservedAt = observedAt.ToUniversalTime(),
-        Taxonomy = QualityTaxonomyCatalogue.CoreReference,
-        Subject = subject,
-        Profile = profile,
-        Producer = producer,
-        EvidenceStatus = evidenceStatus,
-        Evidence = evidence,
-        Aspects = aspects,
-        Assessment = assessment,
-        Change = change,
-        Findings = findings,
-        Legacy = legacy,
-        Extensions = extensions ?? NoExtensions,
-    };
+        {
+            ObservationId = observationId,
+            ObservedAt = observedAt.ToUniversalTime(),
+            Taxonomy = QualityTaxonomyCatalogue.CoreReference,
+            Subject = subject,
+            Profile = profile,
+            Producer = producer,
+            EvidenceStatus = evidenceStatus,
+            Evidence = evidence,
+            Aspects = aspects,
+            Assessment = assessment,
+            Change = change,
+            Findings = findings,
+            Legacy = legacy,
+            Extensions = extensions ?? NoExtensions,
+        };
 
     private static IReadOnlyList<QualityObservationFinding> ReviewMetaFindings(
         JsonObject metadata,
@@ -380,6 +380,7 @@ public static class QualityDomainObservationAdapters
                     new QualityEvidenceLocator(Path: Text(locations.FirstOrDefault()?["path"]) ?? unitPath)));
                 references.Add(evidenceId);
             }
+            if (references.Count == 0) references.Add("legacy-sidecar");
             var source = finding["source"] as JsonObject;
             var deterministic = string.Equals(Text(source?["kind"]), "deterministic", StringComparison.Ordinal);
             var producerKind = deterministic ? "deterministic-sensor" : "unknown";

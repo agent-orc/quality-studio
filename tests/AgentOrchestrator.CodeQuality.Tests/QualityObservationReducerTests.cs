@@ -36,10 +36,14 @@ public sealed class QualityObservationReducerTests
         var modelB = Observation("b", "model-b", "medium", "sha256:inputs", 60,
             new DateTimeOffset(2026, 8, 11, 8, 1, 0, TimeSpan.Zero)) with
         {
+            ExtensionCatalogues =
+            [
+                new QualityCatalogueReference("com.acme/quality", "1.2.0", "sha256:" + new string('a', 64)),
+            ],
             Aspects =
             [
                 new QualityObservationAspect("code.correctness", "pass", "known", Grade: new QualityObservationGrade(60, "C")),
-                new QualityObservationAspect("vendor.experimental", "pass", "extension", Grade: new QualityObservationGrade(100, "A")),
+                new QualityObservationAspect("com.acme:resilience.backpressure", "pass", "extension", Grade: new QualityObservationGrade(100, "A")),
             ],
         };
 
@@ -49,7 +53,9 @@ public sealed class QualityObservationReducerTests
         Assert.All(reduction.Models, item => Assert.Equal("controlled", item.Comparability));
         Assert.Equal(60, Assert.Single(reduction.Models, item => item.EffectiveModel == "model-b").AverageScore);
         var unknown = Assert.Single(reduction.UnknownAspects);
-        Assert.Equal("vendor.experimental", unknown.AspectId);
+        Assert.Equal("com.acme:resilience.backpressure", unknown.AspectId);
+        Assert.Equal("com.acme/quality", unknown.TaxonomyId);
+        Assert.Equal("1.2.0", unknown.TaxonomyVersion);
         Assert.Equal(1, unknown.Observations);
     }
 
@@ -94,22 +100,22 @@ public sealed class QualityObservationReducerTests
         string inputsHash,
         int score,
         DateTimeOffset observedAt) => new()
-    {
-        ObservationId = id,
-        ObservedAt = observedAt,
-        Taxonomy = QualityTaxonomyCatalogue.CoreReference,
-        Subject = new QualityObservationSubject("unit:file:src/App.cs", "sha256:subject", "unit"),
-        Profile = new QualityObservationProfile(
+        {
+            ObservationId = id,
+            ObservedAt = observedAt,
+            Taxonomy = QualityTaxonomyCatalogue.CoreReference,
+            Subject = new QualityObservationSubject("unit:file:src/App.cs", "sha256:subject", "unit"),
+            Profile = new QualityObservationProfile(
             "file-code-review", "1.0.0", "sha256:prompt", inputsHash),
-        Producer = new QualityObservationProducer(
+            Producer = new QualityObservationProducer(
             "agent", "codex", "openai", model, model, thinking, "route-v1", id, id),
-        EvidenceStatus = "available",
-        Aspects =
+            EvidenceStatus = "available",
+            Aspects =
         [
             new QualityObservationAspect("code.correctness", "pass", "known",
                 Grade: new QualityObservationGrade(score, score >= 80 ? "B" : "C")),
         ],
-        Assessment = "pass",
-        Extensions = new Dictionary<string, JsonElement>(StringComparer.Ordinal),
-    };
+            Assessment = "pass",
+            Extensions = new Dictionary<string, JsonElement>(StringComparer.Ordinal),
+        };
 }
