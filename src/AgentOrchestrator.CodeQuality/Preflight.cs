@@ -45,7 +45,8 @@ public sealed record PreflightCheck(
     bool Required,
     IReadOnlyDictionary<string, string> ToolVersions,
     string ConfigurationHash,
-    string CommandId);
+    string CommandId,
+    PreflightGateDisposition GateDisposition = PreflightGateDisposition.Continue);
 
 /// <summary>
 /// Immutable v1 normalization of an existing sensor result for one exact repository snapshot.
@@ -77,7 +78,8 @@ public sealed record PreflightSnapshot(
     PreflightSubject Subject,
     string ConfigurationHash,
     string ResultHash,
-    IReadOnlyList<PreflightResult> Results)
+    IReadOnlyList<PreflightResult> Results,
+    long DurationMs = 0)
 {
     public const int CurrentSchemaVersion = 1;
 
@@ -103,14 +105,23 @@ public sealed class PreflightCollector(SensorRegistry registry)
         ArgumentNullException.ThrowIfNull(subject);
         ArgumentNullException.ThrowIfNull(configurations);
 
+        var stopwatch = Stopwatch.StartNew();
         var normalizedConfigurations = configurations
             .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
             .OrderBy(configuration => configuration.Id, StringComparer.Ordinal)
             .ToArray();
         var configurationHash = ConfigurationSetHash(normalizedConfigurations);
-        var tasks = normalizedConfigurations.Select(configuration =>
-            CollectOneAsync(repositoryRoot, subject, configuration, cancellationToken));
-        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        var results = new List<PreflightResult>(normalizedConfigurations.Length);
+        foreach (var configuration in normalizedConfigurations.Where(configuration =>
+                     IsPrerequisite(configuration.Id)))
+        {
+            results.Add(await CollectOneAsync(repositoryRoot, subject, configuration, cancellationToken)
+                .ConfigureAwait(false));
+        }
+        var tasks = normalizedConfigurations
+            .Where(configuration => !IsPrerequisite(configuration.Id))
+            .Select(configuration => CollectOneAsync(repositoryRoot, subject, configuration, cancellationToken));
+        results.AddRange(await Task.WhenAll(tasks).ConfigureAwait(false));
         var ordered = results.OrderBy(result => result.Check.Id, StringComparer.Ordinal).ToArray();
         return new PreflightSnapshot(
             PreflightSnapshot.CurrentSchemaVersion,
@@ -118,7 +129,8 @@ public sealed class PreflightCollector(SensorRegistry registry)
             subject,
             configurationHash,
             HashSnapshot(subject, configurationHash, ordered),
-            ordered);
+            ordered,
+            stopwatch.ElapsedMilliseconds);
     }
 
     public string ConfigurationSetHash(IReadOnlyList<ReviewSensorConfiguration> configurations) =>
@@ -137,6 +149,8 @@ public sealed class PreflightCollector(SensorRegistry registry)
                 ["sensorVersion"] = TryVersion(registry, configuration.Id),
                 ["required"] = configuration.Required,
                 ["commandId"] = configuration.CommandId ?? configuration.Id,
+                ["gateDisposition"] = JsonNamingPolicy.CamelCase.ConvertName(
+                    TryGateDisposition(registry, configuration.Id).ToString()),
                 ["configuration"] = DictionaryJson(configuration.Configuration),
             });
         return Hash(new JsonArray(values.Select(value => (JsonNode)value).ToArray()).ToJsonString());
@@ -170,6 +184,8 @@ public sealed class PreflightCollector(SensorRegistry registry)
             var status = !result.Available ||
                          (result.Findings.Count == 0 && !string.IsNullOrWhiteSpace(result.UnavailableReason))
                 ? PreflightStatus.Unavailable
+                : sensor is ISelectivePreflightGateSensor gate && gate.HasBlockingFindings(result)
+                    ? PreflightStatus.Blocked
                 : result.Findings.Count > 0
                     ? PreflightStatus.Findings
                     : PreflightStatus.Pass;
@@ -186,7 +202,7 @@ public sealed class PreflightCollector(SensorRegistry registry)
         }
     }
 
-    private static PreflightResult Normalize(
+    private PreflightResult Normalize(
         PreflightSubject subject,
         ReviewSensorConfiguration configuration,
         string sensorVersion,
@@ -199,8 +215,13 @@ public sealed class PreflightCollector(SensorRegistry registry)
             sensorVersion,
             configuration.Required,
             result.Provenance.ToolVersions,
-            CheckConfigurationHash(configuration, sensorVersion, result.Provenance.ToolVersions),
-            configuration.CommandId ?? configuration.Id);
+            CheckConfigurationHash(
+                configuration,
+                sensorVersion,
+                result.Provenance.ToolVersions,
+                GateDisposition(configuration.Id)),
+            configuration.CommandId ?? configuration.Id,
+            GateDisposition(configuration.Id));
         var orderedFindings = result.Findings
             .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
             .OrderBy(finding => finding.Locations.FirstOrDefault()?.Path ?? string.Empty, StringComparer.Ordinal)
@@ -220,7 +241,7 @@ public sealed class PreflightCollector(SensorRegistry registry)
         return draft with { ResultHash = HashResult(draft) };
     }
 
-    private static PreflightResult Failed(
+    private PreflightResult Failed(
         PreflightSubject subject,
         ReviewSensorConfiguration configuration,
         string sensorVersion,
@@ -254,15 +275,17 @@ public sealed class PreflightCollector(SensorRegistry registry)
     private static string CheckConfigurationHash(
         ReviewSensorConfiguration configuration,
         string sensorVersion,
-        IReadOnlyDictionary<string, string> toolVersions) => Hash(new JsonObject
-    {
-        ["id"] = configuration.Id,
-        ["sensorVersion"] = sensorVersion,
-        ["required"] = configuration.Required,
-        ["commandId"] = configuration.CommandId ?? configuration.Id,
-        ["configuration"] = DictionaryJson(configuration.Configuration),
-        ["toolVersions"] = DictionaryJson(toolVersions),
-    }.ToJsonString());
+        IReadOnlyDictionary<string, string> toolVersions,
+        PreflightGateDisposition gateDisposition) => Hash(new JsonObject
+        {
+            ["id"] = configuration.Id,
+            ["sensorVersion"] = sensorVersion,
+            ["required"] = configuration.Required,
+            ["commandId"] = configuration.CommandId ?? configuration.Id,
+            ["gateDisposition"] = JsonNamingPolicy.CamelCase.ConvertName(gateDisposition.ToString()),
+            ["configuration"] = DictionaryJson(configuration.Configuration),
+            ["toolVersions"] = DictionaryJson(toolVersions),
+        }.ToJsonString());
 
     private static string HashResult(PreflightResult result) => Hash(new JsonObject
     {
@@ -278,16 +301,16 @@ public sealed class PreflightCollector(SensorRegistry registry)
         PreflightSubject subject,
         string configurationHash,
         IReadOnlyList<PreflightResult> results) => Hash(new JsonObject
-    {
-        ["schemaVersion"] = PreflightSnapshot.CurrentSchemaVersion,
-        ["subject"] = SubjectJson(subject),
-        ["configurationHash"] = configurationHash,
-        ["results"] = new JsonArray(results.Select(result => (JsonNode)new JsonObject
         {
-            ["id"] = result.Check.Id,
-            ["resultHash"] = result.ResultHash,
-        }).ToArray()),
-    }.ToJsonString());
+            ["schemaVersion"] = PreflightSnapshot.CurrentSchemaVersion,
+            ["subject"] = SubjectJson(subject),
+            ["configurationHash"] = configurationHash,
+            ["results"] = new JsonArray(results.Select(result => (JsonNode)new JsonObject
+            {
+                ["id"] = result.Check.Id,
+                ["resultHash"] = result.ResultHash,
+            }).ToArray()),
+        }.ToJsonString());
 
     private static JsonObject SubjectJson(PreflightSubject subject) => new()
     {
@@ -304,6 +327,7 @@ public sealed class PreflightCollector(SensorRegistry registry)
         ["toolVersions"] = DictionaryJson(check.ToolVersions),
         ["configurationHash"] = check.ConfigurationHash,
         ["commandId"] = check.CommandId,
+        ["gateDisposition"] = JsonNamingPolicy.CamelCase.ConvertName(check.GateDisposition.ToString()),
     };
 
     private static JsonObject DictionaryJson(IReadOnlyDictionary<string, string>? values) => new(
@@ -323,6 +347,34 @@ public sealed class PreflightCollector(SensorRegistry registry)
         }
     }
 
+    private static PreflightGateDisposition TryGateDisposition(SensorRegistry registry, string id)
+    {
+        try
+        {
+            return registry.Get(id) is ISelectivePreflightGateSensor sensor
+                ? sensor.GateDisposition
+                : PreflightGateDisposition.Continue;
+        }
+        catch (SensorNotFoundException)
+        {
+            return PreflightGateDisposition.Continue;
+        }
+    }
+
+    private PreflightGateDisposition GateDisposition(string id) => TryGateDisposition(registry, id);
+
+    private bool IsPrerequisite(string id)
+    {
+        try
+        {
+            return registry.Get(id) is IPreflightPrerequisiteSensor;
+        }
+        catch (SensorNotFoundException)
+        {
+            return false;
+        }
+    }
+
     private static string Hash(string content) =>
         "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
 }
@@ -339,15 +391,15 @@ public static class PreflightProjection
         var subjects = subjectPaths.Select(DeterministicEvidenceProjection.NormalizePath)
             .ToHashSet(StringComparer.Ordinal);
         return results.Select(result => result with
-            {
-                Findings = result.Findings
+        {
+            Findings = result.Findings
                     .Where(finding => finding.Locations.Count == 0 || finding.Locations.Any(location =>
                         subjects.Contains(DeterministicEvidenceProjection.NormalizePath(location.Path))))
                     .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
                     .OrderBy(finding => finding.Locations.FirstOrDefault()?.Path ?? string.Empty, StringComparer.Ordinal)
                     .ThenBy(finding => finding.RuleId, StringComparer.Ordinal)
                     .ToArray(),
-            })
+        })
             .OrderBy(result => result.Check.Id, StringComparer.Ordinal)
             .ToArray();
     }

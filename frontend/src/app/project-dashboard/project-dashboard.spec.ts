@@ -29,6 +29,11 @@ describe('ProjectDashboardView', () => {
         folderSizeDistribution: [{ label: '< 1 KB', count: 20 }],
         duplicationCandidates: [],
         dependencyEdges: [],
+        complexity: {
+          thresholds: { CA1502: 25, CA1505: 20, complexity: 18 },
+          breachDistribution: [{ label: 'CA1502 · 26–37', count: 1 }],
+          topBreaches: [{ path: 'src/a.ts', line: 4, symbol: 'render', ruleId: 'CA1502', value: 27, threshold: 25, excess: 2, fingerprint: 'sha256:complexity' }],
+        },
       },
       hotspots: [{ path: 'src/a.ts', churn: 12, grade: 90, findings: 2, findingsPerKloc: 1, risk: 2 }],
     } as ProjectDashboard);
@@ -51,6 +56,8 @@ describe('ProjectDashboardView', () => {
     expect(fixture.nativeElement.textContent).toContain('5000 files');
     expect(fixture.nativeElement.querySelectorAll('.hotspot-row').length).toBe(1);
     expect(fixture.nativeElement.textContent).toContain('src/a.ts');
+    expect(fixture.nativeElement.textContent).toContain('Complexity breaches');
+    expect(fixture.nativeElement.textContent).toContain('27 / 25 threshold');
   });
 
   it('shows repository phases instead of an indeterminate spinner without a snapshot', () => {

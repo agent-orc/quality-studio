@@ -1,0 +1,1797 @@
+{
+  "schemaVersion": 1,
+  "observations": [
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+      "line": 87,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:6a3422e285cd3ff61251f6ca5878c7b4b4ac01c7f6103c3ba0fd179bdd18f3d5"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+      "line": 88,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:9261396d4abe9b99c9b71de51e96793c227ff8c69f609a69cdc89e67f0c34b07"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+      "line": 97,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:380e43fa26f474d7bc2848299181b7bf81c9d4b552254b59aef2749f5ec786c6"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 609,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8b4a36bbbe4e46617ef9cfb248ade3acc5bbd62fb9e4549da0856e685a2569ff"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 610,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:cfb94b8f9685e9749dd7b3797a621abe29e7cc72df568fee6343d9426fd9c7bd"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 611,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:c326983d454a7871efbcd82035430883f7782cda542ed0400135a4386fa78de0"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 612,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e6934e17dd878e4e09173447ec61032fb564670407d4b24eded66105c6ae4425"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 613,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:de3d492a784c41d11dc646a71d91dc412a83374f34acafb5322e53e9b82b47b1"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 614,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:648e0b070e4386302b92cd9ec5da5fedd9f4fb108556f66d0c4ec0503040b766"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 615,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:876a9f39e4342e283848a57737a66eee3022c44b4b801705d4d79dca9715cb32"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 616,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:ff0c41f66be969601a9404bb98ad5339c4afde08d538548382dd7655a6da48a7"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 617,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:b796ee51410285505c7044fb626b179a18efeabd402b058e43efb48de92caf16"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 618,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:5bca65891b0ebe5a3aca6c7bcc9932fd9433476743fb4066b1b6714f5fa7ec0c"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 619,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:c005b7b17641e5e443e4d2e2d79902fb75219272330f262dd8e58fef0ee4f816"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 620,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:cb002cb921a98625a1f74b0039b009a20b2cf58164d129ec3d6830beb3f1e1fa"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 621,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:84eba03512b0c21b00f051ad1f10e17ca8e48a6b20b931694200cfa0dfa9e29b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 622,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:2b90c44047ef8ffdea41385f36287483413dc9f8f53fd35e8df46865de6700ca"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 623,
+      "column": 25,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:eb1d7ec6d5e9c78e366e74830930de14197f9ca08eac55ac0e8722c585640423"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 624,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:30eef541bd86170ab2e15ae1922a389469037e3f4b604edfe4618b9aca2ff855"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 625,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:6782814ff9a5a2e8bb65a879b7604672b81fdff2955e9fa828c899cbbee9e9d5"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 626,
+      "column": 25,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:04833f3956cb3755bf24cd18b82953545e220959eaad1a00bbc5fffea5b3ad72"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 627,
+      "column": 29,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:b356ba80e4580673e59a28023b0ac8e4fcb5b5c1c77d26985e77aec39bbf7a0a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 628,
+      "column": 29,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:ca2902c15ff4ee9e65be8e21110d4a562949b0c51755336afc6e9491a54c7c4e"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 629,
+      "column": 25,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:7ee6c608feaa08f42de18dfbeb30af4e208b3a32c96842c2d6e8308db5a71f4b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 633,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:f870e05cbfa52262902531813fe757d2ddf3355894a73d172e8e413b54088a00"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 634,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:dfe349e5abdb78447fbf6bc9008bb041f5db90ea0e334dfcad47b49ed2ca5d88"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 635,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e778e466cf3472ce282c0c0d4165ee653260fa84a69f1f24b88499216f655799"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 636,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:22912e53965b5274ba0954673ca0dc1390316352f221298dc7874443fe954a04"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 637,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:c63070b40c2bf7b6f86c84e31c7c3d40a99ac34ae4e57b25f597ee656531668a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 638,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:6f15620627e2cf4ef7c8dca7320a616befd62c77b7c4246f410faa627cc0eb36"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 639,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:29c93a9ed1d99d7e816c4911f1ab0772a0dc6566bf0a9318e67ceb1874389516"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "line": 640,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:edb44a1cdf39455943a1f764cce18a0c14e17bc5ab5265d971b6fcc9b0cbc1d1"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+      "line": 541,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:f4cc4b040ddd3ea36ed204f12c7581b69a138ac9be3d9c11d5186ade8403592b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/quality-cli/Program.cs",
+      "line": 392,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:49d9dd39e9976f0573ecfbf87f480748a4dbe1540f300d7fa0424c4e0ffc270f"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/quality-cli/Program.cs",
+      "line": 393,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:4eb21888504449c5a6f4c5c40ecab270b17a29cbc0dcbf04f0be58a2a2e5495b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/quality-cli/Program.cs",
+      "line": 394,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:6d08c8f423f234278709073a616a47e346cb1c3d0b5eb386db18053355132b79"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/quality-cli/Program.cs",
+      "line": 395,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:b3eccd2a4d730131608095b9c1e4edd6bc8c6426b5e9e0432ba3472b157f0059"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/ApiContracts.cs",
+      "line": 60,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:5a2abb68dd00877163160f3dbfdf073e90817941b3f7603484ba1767ad52f68c"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/ApiContracts.cs",
+      "line": 61,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:47c9b23414845d5ed66fe680d1fbf56cec4b1688e8a074cf9f2f1f0f3fbb41ae"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 484,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:1084f0911813a87f4d67ca7a0e297115aa72c121f7bdde15a86da127554e20ba"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 485,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:24380ccf95a1286a4b9f9bbe8629b96e51c03d86a9c0e74ca7a0ff83d66a4b49"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 486,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e2f5dc526d2b0160c1e45b22b2e41eb8f3da3ae31887d2e3a72144d1a1985f85"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 487,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:779a85dfb213f89c6eaee5850be20a2aeaef3dac67ec2df11e5c93a9c55decfc"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 488,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:70cc5013079d34c6513266904a00f34a2a2a0458d10cbc04f276c24b23184edc"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 489,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:f81c74784e51b1ea55b4db9105a294f6cdac2f1ceca758243bc5e55ad520ee7f"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 490,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:d1981a3d4d789d79d4453b104f417318ec74339061a5fcb839edc63ddd855efd"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 491,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8f0a43b0008655a021727c23140eb0307e6bb618cdd2500ddf56242ef5b42d37"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 492,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8050d73836ebff53fdf10514c1e202d0e65b69faf8e1dab36c5748f25ea4eaf9"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 493,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:cd85f547c605cbaab87c9dedf4ed872663be3ad96d470ab178e5b232846992b9"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 494,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:44b4ffc1a22abf59c4aa021bcf6c6965fd9e7bec1e9e3922be1049300aaa76ec"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 495,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:fd2a11855a0dd014c9da9c74e1967940d971f78b9ef493dd33a1aa33d2d9ce9a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 496,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:edaaf27c1df7737dba0a66cb1c82827425e027b42a38e30a37197b86c3e44a33"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 497,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:fd6381000bc64f1100a90175ab4b0295e1393009f608cb720106146cb122350e"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 498,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:66a2784aa44e6607fe66c400d463446a16a4a33f19f4ee41788020a7878a7bda"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 499,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:0f4b95f2cd4a668394682deeba7fea7aa16991e2cc3a43c983455998436716ea"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 565,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:b404056802fee5e78dd14276bfeba6b25972798e3ce7ddd3d860ee966a3b983b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 566,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:bb4c5ade6e1837705d2703426d781c7ac5ddb8dfc2eb1bd98e513a08a40b9e6a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 567,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:a4e26b71f6e4f403e9809b1ba37b0a360ea1f5a3780a570da90e300e8590c3a8"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 568,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8c2ae929322ec5f758a2b22ce1ffe05cd0ea58452eff14cb60100c6de676f9b8"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 569,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:ae36acdcc0023a17834d4d553a53d8bb4cddcc03b775a64eb8d39828f2458ce2"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 570,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:c86595c05320fe6805efb5f46c166924dc2846b6dcbb9b6a7e7f1cba9a256b10"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 571,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:eb1c3c891f7f8bf8384ec846af04cdf42a2e7ba107c8359931c1daea73c1a45f"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 572,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:412f7aa6eb42d1c6100a68e99a9f7ae323b3ab536f5e6dd8722e84b691b65c8c"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 573,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:1e39349b8478449416cda1ec863e8a9ef5364860d3bdadcded5dcbfdf351af89"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 574,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e5ac642d8136cc6cd79ad7f3002dab2af0fa09fac752b9ba3ea785958e9d3382"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 575,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:93a0aa00decb4b107e156019da88896782474f9036899f4dfa77e06dc903ade8"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 576,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:49405099b1eaf40fc57f2f0fb14cef8b0dad47c5eb7dc63cfa6cc23f5a93906f"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 577,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:eb4f210e16b85dda208a518dc8b6348a83c80001eea56df3d5f1b2c2dcc218c5"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 578,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:9b9cc6686f8f9a542ff95204417dc4f354207783e6d115070367e4d5bbb4afdf"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 579,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:0ceb4e9edecc2845c334c9d6ce972d088a38f42b32a15e2cd642c73bc43bb10c"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 580,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:29cc3d2cb250b5b26b2ae5e9d401a67e8d4766e04b20171fd7a7157b384a5fbe"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 581,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:7c0bc172d27131cb150ef7e9ac3f19ce6fbe7b806648e6f732f71c5fd412b9f4"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 582,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:58d3dc904cb40f6c0e2c40d4bc83f898d5ff3cc71bec461966f32f54b75f8032"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 583,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:19cc68e6fab20a9313132b3033865747ffb42e4ea9c4d2813426d6d25338cb37"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 584,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8d6537a01d10dd11ceeaedc8db62b5701b9d83bd133dc1385c353602f0c58026"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 585,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:46089c2e223d7d01a60df261894f66cb8ff6a54e7ff08fc4112674e02b10b19e"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 586,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e98cc8cdd09e9f0686bda89f52c9e1e2894ea44c2478bdf8d0b6e4c612656c06"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 586,
+      "column": 37,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:9e96ded6f3c4eb2b646bfc5340e754b062aaefa36e2b677420bf0f6c1e945a99"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 587,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:2d532259aae0bcfa0bd37936a9b14d390590a9af1bcc83123d4b2f4021ffd7ce"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 588,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:219b2c9d04ae8d694e9753387b1ea1b1be6a75bf56f826f04c0c942926917a83"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 589,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:d9a5f9f60a1d15173b6fb259bb3cb09cda9ef411c1e9d89a95dd0f098cb1c451"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 590,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:39af9087afa154c7f1f3cd0f9ca36d6491809819945aedaf0227b1021ecae345"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 591,
+      "column": 21,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:5aa9fbdab193cbca2e33962063c933ab29c347649a17b91010babad83afcc727"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 592,
+      "column": 17,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:74693d056a9411f2f0fef86e01d75f092822963b5ea23c0539c0a7bd91b59c66"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 593,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:04a5104c504779aa5bc501618bdbe4080358bb1c0e3b24352dea4aa9ed83c1db"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 594,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:f13aee270ae32da5d6f6710efe34a63ad06e1e3526f6d02ce3c3dd68aa4e4b2f"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 594,
+      "column": 51,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:0e71e2ac0749b73e4350926f8136a5b29799f315b6d9fab837038145a690d8dc"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 594,
+      "column": 81,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:36aa1d13137fdeddd22b9f7ee20b5a391a11f4cd3b3c4432d5a5204412975382"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 595,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:33bfcd0304e9d7a37c8d663203d9e3cc9f56ebc8fac708bf612e60321bb5eb52"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 596,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:af49e0e7ee45cdcb91b430f79fa9fb7007d33bb786a1b0407153fdd94b8f6266"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 597,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:ce79c4b73a3b75167707f494bd55ac29489e216a50375c6853a74890dbccfeb0"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 598,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8dc900c15d4a864d95a9e5137ca1be6a43d3d6af822cb4c4b8cd8bfce85e1dcc"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 599,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:23bff17103c30fd0020066b9b90fe192f1b6fb0957079b96ff2ee0fa7f4fa61a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 600,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:52c0dd80c22d1d672c4245704288da9e75198c194170805967a8e554a761af4a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 601,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e65b5b6233f41d318fb417af670646550fe95d3893104aaefcf945453b5c2348"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 602,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:53ffc70402049060a03cae8ad799db72386b23d5d749c6b2205a5423a92a784b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 603,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:56376f309dca32159060a41469a5e26f6c2a8ae7a516b77cb6ef19b123cb7bea"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 604,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:c96c8878dca1780d91710379f0c4f65d6180e89ddc47b6da970c4023bfbc6d0f"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 605,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:852cf2369c0bba9678fb02b775672a2a9c5118b4ee86140ca78a8a9074c27f56"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 606,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8a66cb6233d998a9c16a8ad4be08c6725be5ca2e221bc47c63102f53fafed19a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 607,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:7b35e84b55c2d8db5e533c6842f33e95c96e8eedbbe085a998641236b7b0dd43"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 608,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8e876fcf9d59c4717a01bc462355682e944d37f3c3cf4105e1148b2b8863a5c6"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 609,
+      "column": 13,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:9be1886e4bbf369df9bc07f53fe9671891c31b70c6633f53b71019b99bb70ce8"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 609,
+      "column": 59,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:a15c465c2ac15decde0aea67130dca91664a7cbff4d1b1336f2ac006606d162a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 610,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:1ce9e00b3c9f477d8e7c2e19188a281ddaa5281c93426ec8989d28c0db076155"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 611,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:087d52e7417d848116a2ba220fce9e1b448a2a86c9f3c52beacf7650d0c9d419"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 612,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:52f3d1d4979d96b5e8f69884fbaa2d2d11a404f45119d7d4be200cae15c6ab33"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 613,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:793eb640bcb0e210da83035f1ec8027dce0adf050dfdaf2bc8e38b6124a2694b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 614,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:1d6d4681899f3f6034fd7d2b1c4e77af910c3eefa00f8e2b89d701222c4e88e0"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 615,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:d74ff00856f87e4fcfbc6dacbdb6e06338b7df2ccace2ed1af28c5337df113b9"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 616,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:428454f72a8abf98180b4498bf9b5d0661a97c4e2b683d413196ceacfe2aa369"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 617,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:fda8e6777650c7e2c0e5f81169adbaadcb56fdf4d65aad7c7d13c95ea2cb4476"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 618,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:26a3ad1432380aedb4822a6fa50abe3618055c843073b520a415e56335fc6503"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 619,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:8141be86711da47ab854bfc6c5c660a1fb332ec8b688a34ebf7ecb7aed65c223"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 620,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:ef1833541c5f7ae11e38c7d47051c965fbfa477192190dbe1b11bca74af1d58a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 621,
+      "column": 9,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:20c7295a09d6d81cf30ceeac90622428dea0bb799b86992d97073043c7866fbf"
+    },
+    {
+      "tool": "dotnet",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "line": 622,
+      "column": 5,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:2aad2c6443aa848e54a9045c35729cfd7a600ab5cc73d5663776821ad4b7156c"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 672,
+      "column": 47,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:d9c8736a3fdf26268449218bea39b4ef82893e86b36f243401f8490353ea87ce"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 676,
+      "column": 37,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:f06ec365d4eff25aef8f3475550461f8b87637eae70a0ef23666a3cceb023e16"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 678,
+      "column": 44,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:40da1c5162aed75f1688180c171583eecf52886bb00be58e0e6928e6bc14512c"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 679,
+      "column": 64,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:01ff13db140480c0ec486b3ccf60ccb4e7cb377a328807f4e3d9e8e79d93e9d1"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 715,
+      "column": 39,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:def8ac6e7a96d514b35b8381fec22600272c3e2abb174099a93deb1875cf8185"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 715,
+      "column": 70,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:b155dabde6f8c75ca0382d8bd311c8351176cbcdce3e9014479c8102fc9c915f"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 722,
+      "column": 37,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:453f0865f7e5bf43bdcdfe44f2bf7551f77a64f5feeb39fd5d62b9ad4eca3de5"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 724,
+      "column": 40,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:b803961e7e3625a90f97ad83a507c728268fc13fbc3f391f2d732ee1523793a5"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 724,
+      "column": 42,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:7717fbcb5c1fc0452abfcbd00fc7b72010b9d8ec9355cc87e87c36d55493acdd"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "line": 726,
+      "column": 101,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:73ab59e2f466565d730c3af5545718729c156771c64835d42bb5e9dc6af2b54a"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSecurityTests.cs",
+      "line": 138,
+      "column": 32,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:5a6a3de3af19c3757629dd9cdd4b634bf7a3c0090e887a16f316eed48bdc0dca"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSecurityTests.cs",
+      "line": 138,
+      "column": 47,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:9eca6a99a253b9a1ac63c8bacafea07d2b866bb28499884c16b7e0d4235fb516"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSecurityTests.cs",
+      "line": 174,
+      "column": 32,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:e885e7b1d307cb6490e023cdf6e3bb2e655c068b20ec5b34120b5c542d70a2f9"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSecurityTests.cs",
+      "line": 174,
+      "column": 47,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:3613ed44f7d87b3c4e6f88f44e21f2c21919383eaa5f4dfad620b708cdd53436"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs",
+      "line": 207,
+      "column": 36,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:2fc32827df9ec2fdba854e9f6f093a27ae60aef4a9728cb9af293f8d99bb1aba"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs",
+      "line": 207,
+      "column": 52,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:a743fe290192edb3e89577fbf6ce1aa4a5a31c9ca1ed6bc6585a8e2ef7637990"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs",
+      "line": 208,
+      "column": 38,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:49e9f73b8691946db04645cd1ec64a4635ae523744a9849621347c651c052c2b"
+    },
+    {
+      "tool": "dotnet",
+      "path": "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs",
+      "line": 208,
+      "column": 65,
+      "rule": "WHITESPACE",
+      "fingerprint": "sha256:f532ddd160a0cf5e3efc22c2d059576a7cd005ea5bb512f97df8b83d783666ba"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 81,
+      "column": 3,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:5e4cbaf5ab3ea29b50dc4a1ee3c670f809e9cf5953753a3e71ab1e62561d7d3c"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 81,
+      "column": 3,
+      "rule": "@angular-eslint/template/interactive-supports-focus",
+      "fingerprint": "sha256:6a938c7d46a8304deed73302ff16a0a02aa1a5fd3e88b5226880865e2b68c391"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 82,
+      "column": 5,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:295e4a999f90368a93f14176b4634abb3363d7875d9d92feadb976c260770235"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 132,
+      "column": 3,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:ef654cf691e5158d6ac23d511c41348b7433d29339ec315663c7532e636f3381"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 132,
+      "column": 3,
+      "rule": "@angular-eslint/template/interactive-supports-focus",
+      "fingerprint": "sha256:30ade48611af27be650e3700cf4143a676144ed70ea33115a2d522672b120c38"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 133,
+      "column": 5,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:eb8dcc4a2f0a15fa1096e55172c6b211fd4d2271dc2ba700ea8c561833f93b08"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 212,
+      "column": 3,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:d8120f34d2ad34e00390189249320b49f383f8877a6dbd3b85018f3466f561ba"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 212,
+      "column": 3,
+      "rule": "@angular-eslint/template/interactive-supports-focus",
+      "fingerprint": "sha256:20e10ab5da57db3e38b1a781b2c7d1669410f2ef1259737a25ce886da1f7038c"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.html",
+      "line": 213,
+      "column": 5,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:d644722e8d3ca85fe4718e75cdf271bf06109b77e72f417b28bcad3ed7d73901"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.ts",
+      "line": 232,
+      "column": 47,
+      "rule": "@typescript-eslint/no-unused-expressions",
+      "fingerprint": "sha256:a88dc0ae8460bc131a9f8b57ff64ca55dea103c7870cfc7d746511231d8622e4"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/app.ts",
+      "line": 442,
+      "column": 63,
+      "rule": "@typescript-eslint/no-unused-expressions",
+      "fingerprint": "sha256:07eb6f3f147dfb330bb8098dc30f7702cb1efaa8e84514e4233e6bb28c77b4d1"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "line": 1,
+      "column": 1,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:c1237805a654f66f005edc8bd1e49c0ed5d9e7880f0ce117dc93daf6c1ba177b"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "line": 1,
+      "column": 1,
+      "rule": "@angular-eslint/template/interactive-supports-focus",
+      "fingerprint": "sha256:834d5d86abaa2875bd4d97f4a94d7ebfa5ceeed49d93153e563ceeb851482da1"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "line": 2,
+      "column": 3,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:00f38aaa55a20a3bbb33116d847f674679514353a731ca515dd927f90234bc5c"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/attack-coverage/attack-coverage.ts",
+      "line": 12,
+      "column": 12,
+      "rule": "@angular-eslint/no-output-native",
+      "fingerprint": "sha256:3e39ca85674e4e43e96872e000a03efd92170b39e9260d441e6f9e9f49dc236a"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/editor/editor.html",
+      "line": 23,
+      "column": 74,
+      "rule": "@angular-eslint/template/eqeqeq",
+      "fingerprint": "sha256:496d664fcc9ad299f0234600595d5a9352fca4da56778e34c72e45c2e7cc9f27"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/editor/editor.html",
+      "line": 65,
+      "column": 69,
+      "rule": "@angular-eslint/template/eqeqeq",
+      "fingerprint": "sha256:d986f65ad1aa01d635b5dbfe311d06395ed63513654f0711102aee14cef60da9"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/explorer/explorer.html",
+      "line": 6,
+      "column": 3,
+      "rule": "@angular-eslint/template/interactive-supports-focus",
+      "fingerprint": "sha256:b37cdcd2c5f30c9d33027099bb6954c0e774d2a93a7bde0c648d6d0b74e08686"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/explorer/explorer.html",
+      "line": 15,
+      "column": 11,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:d19998c7fc075f35f3a2b5ae6943465f9fa3afeb462bde9811b2b877a56b47d8"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/explorer/explorer.html",
+      "line": 15,
+      "column": 11,
+      "rule": "@angular-eslint/template/interactive-supports-focus",
+      "fingerprint": "sha256:8ef0576c769d631827ef6541fe5f74dabb6ad8b76656cbd87968d6f7ab59ada8"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/explorer/explorer.ts",
+      "line": 122,
+      "column": 7,
+      "rule": "@typescript-eslint/no-unused-expressions",
+      "fingerprint": "sha256:dd21b49a79fbcdaf409dd2c18e47f2df45e3306b61493545c7ec2fe7a794ba02"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/review-actions/review-actions.ts",
+      "line": 121,
+      "column": 3,
+      "rule": "complexity",
+      "fingerprint": "sha256:e9549cb4f5102cd8ea8bd594b57220affc444832d6cd127656b7b488dbb5f14a"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/usage-history/usage-history.html",
+      "line": 1,
+      "column": 1,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:63bedeec147dba81c6f53c1f4c4f4534ea8c35c6b3285bb6993d0d610e94322e"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/usage-history/usage-history.html",
+      "line": 1,
+      "column": 1,
+      "rule": "@angular-eslint/template/interactive-supports-focus",
+      "fingerprint": "sha256:c7db5670c99d60bddcf3f707b31fbf6fa0d4efc5ece603d25c1ac64428a62fb8"
+    },
+    {
+      "tool": "eslint",
+      "path": "frontend/src/app/usage-history/usage-history.html",
+      "line": 2,
+      "column": 3,
+      "rule": "@angular-eslint/template/click-events-have-key-events",
+      "fingerprint": "sha256:2fa47a8cdf3da53283fcb015954974889edab0d64dadf38195e9ed0189992333"
+    },
+    {
+      "tool": "eslint",
+      "path": "scripts/dev-stack.mjs",
+      "line": 1,
+      "column": 10,
+      "rule": "no-unused-vars",
+      "fingerprint": "sha256:159aeff03c8069f45ae0a278bd922921cbdd67386dd906815b94d0475eda723e"
+    },
+    {
+      "tool": "eslint",
+      "path": "scripts/dev-stack.mjs",
+      "line": 1,
+      "column": 26,
+      "rule": "no-unused-vars",
+      "fingerprint": "sha256:3ce2e736a92399fee36b16f532521f8d1fcd3e1a94548440120b0b457bb380b3"
+    },
+    {
+      "tool": "eslint",
+      "path": "scripts/dev-stack.mjs",
+      "line": 1,
+      "column": 40,
+      "rule": "no-unused-vars",
+      "fingerprint": "sha256:8e6c1ac83edcbcc02f6367393edd55628d02304958d99300823c9aa7a2f17f2a"
+    },
+    {
+      "tool": "eslint",
+      "path": "scripts/dev-stack.mjs",
+      "line": 2,
+      "column": 10,
+      "rule": "no-unused-vars",
+      "fingerprint": "sha256:eb76b0c0443a22577f14a1b57dedad8edf2eaed373472d7a956ef33dd96b6da5"
+    },
+    {
+      "tool": "eslint",
+      "path": "scripts/dev-stack.mjs",
+      "line": 4,
+      "column": 10,
+      "rule": "no-unused-vars",
+      "fingerprint": "sha256:11f3b3d6622b9c6b1f26499591f71592670c39646112df10cb194b859db2de03"
+    },
+    {
+      "tool": "eslint",
+      "path": "tests/dev-stack.test.mjs",
+      "line": 8,
+      "column": 8,
+      "rule": "no-unused-vars",
+      "fingerprint": "sha256:f538232e942903f0f6ae018bc6d0b362824dec29a98a0d81e01881dbf0d19b4c"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/angular.json",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:2381e73c2c5227cd6fbd943248403debc46ea4dcd393f1692a48ac8d25072ac8"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/app.config.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:d54a285c2a7ff7a69ad9a77be3065cc3988342fe45195d077f881fbf11bffc62"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/app.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:5fb534f57dc4fbbfd5190da830e48e6f68a0ef52335f5bfc97bddc00fbfc84b4"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/app.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:4f8f516be2aef5ac5302d3cccf13501a509fb044d23f7e0f4a057d9be51ac868"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/app.routes.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:6a33b8a62fae1340a8dc3c9201ee7deebef559a45de43fae94f076feee51ddb5"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/app.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:5d84c97886ddf3f6fca7c4d1bd64bea744d1865f940b2228d2fcfbf7080003da"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:7b5d1c06851870d50bddee20173318577da3c270a7b0b0eb98b1ec860ee1dc76"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:be010d4b5811b430cd45d42cbca3d20281be58e61c44ef06ad5e8e69794e01ac"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/attack-coverage/attack-coverage.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:0e17bc828f5426f0d7dcdca2bf06aed115bcb3a2f2a246dc41e4112ed2e6d5d5"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/editor.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:db5c532a534b9e83f53abf4dd1a694b63ce86f2c7351a5a21bd48bcfbcecc936"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/editor.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:579d8b5c331797b9d67a8c3e60ab8872ae3159f0a50edcfd088f95eac3d149f5"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/editor.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:68fbbeab30911e7483c162017361aca0de40aa91a7337d874b36bad1407742bb"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/syntax-highlighting.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:da02ebd797c63e86acf18ef5a9e501c41d29663f33f2dac45a9fd99b33b8a85c"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/syntax-tokenizer.spec.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:8cd90315f5fc51743f7b5b3b79c297484784766a75136757b53fb403162ade00"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/syntax-tokenizer.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:6be0f2c7e6958abf6ab979e07fb675117e4d7e91f3483469b4e11063d82aa441"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/syntax-types.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:07da0af20784b19f1d02572804f0845afe4dd479c0ce98604c72b8aae2e01359"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/editor/syntax.worker.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:e63cbe8bb952b18e599a2b1870e0e39414eec44c636791aa5ba26fe6b89a8033"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/explorer/explorer.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:5516a4b13a23a043b68bdb3a96f474db9a7f58d1d4b39aa2901e87aa4b867385"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/explorer/explorer.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:c818fa4c4296621b1e3872fa5fdca2d4d09dec52a72a032851eb5b2cef38554c"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/explorer/explorer.spec.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:7d0e0514d897068d50dce82b8011431a09bc28608626a6818df8e2214605ae00"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/explorer/explorer.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:13f19c309827f42d2b2ac6152f3389403008b0f73f0662fc03a5fc576df92b3a"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/format.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:ec6befa97c8801246801e3680d3568b977bb8a7f464afff72ae18cf4bac2f8bf"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/language.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:569402deb4d00b9a6bba52010f3a9aff3b948b8d41925bb5a0585f244dc1987d"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/project-dashboard/project-dashboard.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:030398da746e90b5cf69d4e92ec5848f0488eaa456e67b186e717ff4ccae3f0b"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:6f1185be8d7fad8d5a13d7415b20f5269582e563390647bc2972416147966c23"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/project-dashboard/project-dashboard.spec.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:32b3e09f2fb95c6377eed404cbb4e12806f7e4fe8df2a663da69b980197ef87a"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/project-dashboard/project-dashboard.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:fac54ae1dc1a22bd25b511b8d0eeeefb174197de3a74f62c7e69bd13e8892b77"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/quality-api.spec.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:cdbaddb0769aaa8f54b96bb66379307a538557d1a45a28fdc53f0e5d25718225"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/quality-api.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:daeb7704eb3546377b875e20fc01a615843765d0166ae774196abc0e285135ed"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/review-actions/review-actions.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:1874e5e1e92e2e9f5b47062b8052ac8c7f7c01e8ac05448baaf49bc8fea89205"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/review-actions/review-actions.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:617b181fc1f130371397affe16bb5abf430ba32c430644132e762844fbc273ae"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/review-actions/review-actions.spec.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:67a9942b510777ce01a4854472131e25a055337f2e2d66f09c1967dd7575c0e0"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/review-actions/review-actions.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:d1c6b34db1cd70a1eaa2cfeeead04aa1b944b42f51f765f4b97abdb3e8cbd61e"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/review-panel/review-panel.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:d63697db76f20b237fe54b7289ad7c65216e20d033e92f4d96293e5bf59a57f6"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/review-panel/review-panel.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:46738460297b82fbfff94172a65349deee5e14f874804bd827d4212b67e0a945"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/review-panel/review-panel.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:46515d486e9edd456c292b9b697968261e28f933261e0480a8094393eb5692dc"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/tree-utils.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:3275aa5f4494b28d99b838731462504d0a21193f15a41b818eea169e8ea21799"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/usage-history/usage-history.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:36d895ea0bee5587d2856c04aadc7531f159b3fed2935ba612e97104ecdb0273"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/usage-history/usage-history.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:8ce5e63121bdb700d826e0fc7dc536217e99536457cd7d3a553e88762a9513c8"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/usage-history/usage-history.spec.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:1699c30d11f5e32c5e1b8f49dc6706038dd5560cff73cfc9f0ac3237b78ae4f4"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/app/usage-history/usage-history.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:089b71cc46195bb4008e6069077e719f89ae0200101cb3889d3256a801515bb5"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/index.html",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:40d2d02a55819dae5eb1b2c8028e7e4f4faf51154581a6ff4f52af6246310b9d"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/main.ts",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:8cab409c94451783bc239c61b8487a685b700d364c2bf71859e6f774fe41c951"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/src/styles.css",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:6d30cd5f82d826ac09852d26e2f249421b013d3ce3cf89cc3a7dcd54c67c2de9"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/evidence.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:d383b23aa6385c1d52cda955a9f9b2cd2bb0d2b9752dd452b2c27a5528d2ce57"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/findings-readability-evidence.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:d8fa59ea92bb1c03acc0ac737df29cf404fe67e08abd9787b87066a54b833b1c"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/model-picker-evidence.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:e76aaf37aa46e1bb54131b4fb637ff376123b5af56d773e1364b6516243910e5"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/perf.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:0819bd1fed9d491d35ef75652707be968278b4b23b74e129b74e4fa397ce3e22"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/project-switch-perf.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:a92289e899ac112fea4e8e6a5a032ff58661026b8e346977551e108fd9c94c67"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/quota-evidence.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:cf608f548d55c61440e13863e1ac296f802f6c852fd60f8ea49503240eb08b7a"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/run-tests.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:9e86afce69b6adcc05242bbda2fa49ccf5a9a3cdf40a827fa3b764f2731ca89f"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/security-evidence.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:89c727df7ff8e6606be7987e132c91df38404bdc5a6b3efe6bd08966848f5318"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/shot.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:d0b47e0b3ba76a1d254a0c4d873b18587ede00eef8d880c5157c2b7c5cbe5114"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/shot2.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:0a098c919a7cce58b76d0be39e3c057ff7203b15b85e79817218466e58b6b0a9"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tests/syntax-evidence.mjs",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:c1bf40e3da504d43d84805ec2c9896449e765db76f53a69eb7d2bf3d67e20c8b"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tsconfig.app.json",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:88674c0535de62875738210e3394c8fa73d3961a009b04790e8b61f191e2bea9"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tsconfig.json",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:7bc3a20ae8b1760a072e1cdf489c1d9f378403984d1db86a8b7708c9f06a5092"
+    },
+    {
+      "tool": "prettier",
+      "path": "frontend/tsconfig.spec.json",
+      "line": 1,
+      "column": 1,
+      "rule": "prettier",
+      "fingerprint": "sha256:5d58051ce5dd4f809dc3482392b1a0e03219231fd570d182db64d596058b7740"
+    }
+  ]
+}
