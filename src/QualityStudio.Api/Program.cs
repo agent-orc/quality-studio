@@ -26,6 +26,8 @@ builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<ProjectDashboardService>();
+builder.Services.AddSingleton<RepositorySnapshotStore>();
+builder.Services.AddSingleton<RepositorySensorAvailabilityCache>();
 builder.Services.AddSingleton<RepositorySnapshotPrewarmer>();
 builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<RepositorySnapshotPrewarmer>());
 builder.Services.AddSingleton<StalenessEvaluator>();
@@ -928,15 +930,19 @@ static async Task<IResult> RecordAttackJudgement(
 }
 
 static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repositories, SensorRegistry sensors,
-    CancellationToken cancellationToken)
+    RepositorySensorAvailabilityCache availabilityCache, CancellationToken cancellationToken)
 {
     var registration = repositories.Get(RouteRepositoryId(context));
     var configured = (registration.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
         .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
+    var measurement = await availabilityCache.GetAsync(registration, sensors, cancellationToken);
+    context.Response.Headers["Server-Timing"] = string.Join(", ",
+        $"repository-state;dur={measurement.RepositoryStateMilliseconds:F2}",
+        $"sensor-init;dur={measurement.InitializationMilliseconds:F2}");
     var descriptors = new List<object>();
     foreach (var sensor in sensors.List())
     {
-        var availability = await sensor.ProbeAvailabilityAsync(cancellationToken);
+        var availability = measurement.Availability[sensor.Id];
         configured.TryGetValue(sensor.Id, out var repositoryConfiguration);
         descriptors.Add(new
         {

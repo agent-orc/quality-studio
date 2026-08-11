@@ -19,6 +19,11 @@ public sealed record RepositoryHierarchyMeasurement(
     double ReviewMetaDiscoveryMilliseconds,
     double TotalMilliseconds);
 
+public sealed record RepositoryStateMeasurement(
+    string State,
+    string HeadSha,
+    double DurationMilliseconds);
+
 /// <summary>Caches one immutable hierarchy snapshot per repository and Git state.</summary>
 public sealed class RepositoryHierarchyCache
 {
@@ -40,10 +45,9 @@ public sealed class RepositoryHierarchyCache
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
         var totalStarted = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var gitStatusStarted = Stopwatch.GetTimestamp();
-        var state = ComputeGitState(root) + "\0" +
-                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
-        var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
+        var stateMeasurement = MeasureState(root, globalInputsDirectory, inputBudgetCharacters);
+        var state = stateMeasurement.State;
+        var gitStatusMilliseconds = stateMeasurement.DurationMilliseconds;
         var slot = slots.GetOrAdd(root, _ => new CacheSlot());
         var cacheWaitStarted = Stopwatch.GetTimestamp();
         lock (slot.Gate)
@@ -81,9 +85,43 @@ public sealed class RepositoryHierarchyCache
         }
     }
 
-    private static string ComputeGitState(string root)
+    /// <summary>
+    /// Computes the correctness key used by both the memory cache and API-owned
+    /// persistent snapshots. HEAD is retained separately for diagnostics while the
+    /// state also covers index, dirty/untracked content, global inputs, and budget.
+    /// </summary>
+    public RepositoryStateMeasurement MeasureState(
+        string repositoryPath,
+        string? globalInputsDirectory = null,
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        var started = Stopwatch.GetTimestamp();
+        var root = Path.GetFullPath(repositoryPath);
         var head = RunGit(root, "rev-parse", "--verify", "HEAD") ?? "unborn";
+        var state = ComputeGitState(root, head) + "\0" +
+                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
+        return new RepositoryStateMeasurement(
+            state,
+            head,
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+    }
+
+    /// <summary>Seeds a previously verified immutable snapshot for this repository.</summary>
+    public void Seed(string repositoryPath, RepositoryHierarchySnapshot snapshot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var root = Path.GetFullPath(repositoryPath);
+        var slot = slots.GetOrAdd(root, _ => new CacheSlot());
+        lock (slot.Gate)
+        {
+            slot.Snapshot = snapshot;
+        }
+    }
+
+    private static string ComputeGitState(string root, string head)
+    {
         var index = RunGit(root, "ls-files", "--stage", "-z") ?? "no-index";
         var status = RunGit(root, "status", "--porcelain=v1", "-z", "--untracked-files=all");
         if (status is null)

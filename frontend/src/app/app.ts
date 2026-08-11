@@ -13,6 +13,7 @@ import { readFindingRoute, writeFindingRoute } from './review-navigation';
 import { reportUrlPreviewNavigation } from './url-preview-embed';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
+const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 const RESIZE_HANDLE_WIDTH = 6;
 const EXPLORER_DEFAULT_WIDTH = 280;
 const EXPLORER_MIN_WIDTH = 180;
@@ -153,8 +154,10 @@ export class App implements OnDestroy {
   }
 
   private async initialize(): Promise<void> {
-    const preferredRepository = new URLSearchParams(location.search).get('repo');
+    const preferredRepository = new URLSearchParams(location.search).get('repo') ||
+      localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
     await this.api.loadRepositories(preferredRepository);
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
@@ -309,6 +312,7 @@ export class App implements OnDestroy {
     }
     const started = performance.now();
     this.repositoryMenuOpen.set(false);
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
     this.selected.set('.');
     this.selectedFinding.set(null);
     const switching = this.api.selectRepository(id);
@@ -417,6 +421,7 @@ export class App implements OnDestroy {
       await this.api.archiveRepository(repository.id);
       if (wasSelected) {
         await this.api.selectRepository(this.api.selectedRepositoryId());
+        localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
         const path = this.selectionPathOrFirst('');
         if (path) this.open(path, false);
         this.repositoryDialogOpen.set(false);
