@@ -365,6 +365,9 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+            var persistedDeviation = result.RootElement.GetProperty("economy").GetProperty("estimateDeviation");
+            Assert.Equal(JsonValueKind.Object, persistedDeviation.ValueKind);
+            Assert.True(persistedDeviation.GetProperty("inputTokensPercent").GetDecimal() < 0);
         }
         finally
         {

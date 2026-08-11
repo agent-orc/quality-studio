@@ -34,3 +34,19 @@ test('economy report derives a percentage from 30 matched actual-usage operation
     routesUnchanged: true,
   });
 });
+
+test('economy report rejects observations without explicit safety evidence', () => {
+  const incomplete = { ...match(30) };
+  delete incomplete.falseClean;
+
+  const report = buildEconomyReport([incomplete], '2026-08-11T00:00:00Z');
+
+  assert.equal(report.status, 'insufficient-evidence');
+  assert.equal(report.matchedOperations, 0);
+  assert.equal(report.rejectedMatches, 1);
+  assert.deepEqual(report.guardrails, {
+    zeroFalseCleanResults: null,
+    zeroStaleResultReuse: null,
+    routesUnchanged: null,
+  });
+});
