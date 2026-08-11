@@ -43,16 +43,21 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     private readonly string? _thinkingLevel;
     private readonly CliRunner _runner;
     private readonly Action<string, CliRunEvent>? _eventObserver;
+    private readonly long _maxResponseBytes;
 
     public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
         CliOptions? options = null,
-        Action<string, CliRunEvent>? eventObserver = null)
+        Action<string, CliRunEvent>? eventObserver = null,
+        long maxResponseBytes = 1024 * 1024)
     {
         _cliType = cliType;
         _thinkingLevel = thinkingLevel;
         Model = model;
         _runner = new CliRunner(options ?? new CliOptions());
         _eventObserver = eventObserver;
+        if (maxResponseBytes is < 1024 or > 100 * 1024 * 1024)
+            throw new ArgumentOutOfRangeException(nameof(maxResponseBytes));
+        _maxResponseBytes = maxResponseBytes;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
 
@@ -67,6 +72,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     {
         var runId = "quality-" + Guid.NewGuid().ToString("N");
         var output = new StringBuilder();
+        long responseBytes = 0;
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _runner.Get(_cliType);
@@ -87,6 +93,10 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
                 _eventObserver?.Invoke(_cliType, runEvent);
                 if (runEvent is CliRunEvent.OutputDelta delta)
                 {
+                    responseBytes = checked(responseBytes + Encoding.UTF8.GetByteCount(delta.Text));
+                    if (responseBytes > _maxResponseBytes)
+                        throw new ReviewContentLimitException(
+                            $"The agent response exceeds the {_maxResponseBytes}-byte limit.");
                     output.Append(delta.Text);
                 }
             }
