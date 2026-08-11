@@ -1,6 +1,6 @@
 # File security review v1
 
-Review `{{FILE_PATH}}` for exploitable security defects, trust-boundary mistakes, unsafe data handling, authorization flaws, secret exposure, and dependency misuse. The complete reviewed content is supplied below. Do not use tools, edit files, or run commands. Avoid speculative findings without concrete evidence.
+Review `{{FILE_PATH}}` for exploitable security defects, trust-boundary mistakes, unsafe data handling, authorization flaws, secret exposure, and dependency misuse. The complete reviewed content is supplied below. Do not use tools, edit files, or run commands. Never reproduce credentials or secret values; cite only their location and credential type. Avoid speculative findings without concrete evidence.
 
 ## Machine-produced sensor evidence
 

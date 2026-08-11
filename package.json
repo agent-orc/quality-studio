@@ -7,6 +7,7 @@
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs",
     "test:supply-chain": "node --test tests/supply-chain-gate.test.mjs",
+    "test:security-policy": "node --test tests/security-policy.test.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
     "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs"
   }

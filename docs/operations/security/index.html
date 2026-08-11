@@ -478,7 +478,6 @@
       <li>All Angular runtime and toolchain packages are pinned together at 20.3.27. The production dependency audit reports zero high or critical advisories.</li>
       <li>API and browser regression tests cover registrar enforcement, free-form shell rejection, host-profile resolution, scan limiting, loopback validation, Origin/nonce denial, and nonce attachment.</li>
     </ul>
-
     <h3>2026-08-11 · QS-68 · S6 delivered</h3>
     <ul>
       <li>CI now installs, builds, and tests the locked frontend graph; gates the production npm graph at high severity; and retains the separate full-tree audit with its query timestamp.</li>
@@ -487,9 +486,17 @@
       <li>Every GitHub Action reference is pinned to an immutable commit, and weekly test-backed Dependabot lanes cover npm, NuGet, and Actions updates.</li>
     </ul>
 
+    <h3>2026-08-11 · QS-68 · S3 delivered</h3>
+    <ul>
+      <li>All review templates now prohibit reproducing credential values, and every model-authored response string passes through a bounded, fail-closed credential redactor before finding identity, thread updates, metadata persistence, API rendering, or handover can consume it. Seeded AWS, bearer, GitHub, password-assignment, JWT, and private-key fixtures prove values are removed while content hashes remain intact.</li>
+      <li>The Gitleaks adapter now uses the valid <code>--redact=100</code> form and a temporary report file, rejects exit-code-1 invocations that do not contain a parseable redacted finding, and deletes its redacted report after parsing. This closes a false-clean path where an invocation error and an actual finding shared the same exit code.</li>
+      <li>The blanket <code>.quality/reviews</code> exclusion is removed. Current-worktree and all-ref scans run with the exact documented unit-key false positives suppressed by fingerprint only; both corrected scans pass.</li>
+      <li>A tested tracked-configuration policy rejects QS-53-style roots, tracked hosted clients or analyzer profiles, and cleartext credential fields. <code>docs/security-incident-response.md</code> documents identification, revocation, rotation, cleanup, and evidence collection without copying a secret.</li>
+    </ul>
+
     <div class="box warn">
-      <h4>Approved slices not delivered by QS-68</h4>
-      <p><b>S1</b> remains pending because a real worker boundary requires a worker runtime, snapshot broker, short-lived model credential path, egress policy, and cross-platform resource enforcement; an in-process substitute would not satisfy the decision. <b>S2–S5</b> also remain pending: versioned repository-input caps and quarantine (S2), output DLP and tracked-config policy (S3), fingerprint-only previewed handover (S4), and reloadable role-separated credential lifecycle with audit (S5). They were not skipped for approval reasons; this delivery completed the independently testable Gate A containment and continuous gate without claiming partial controls as finished slices.</p>
+      <h4>Approved slices not yet delivered by QS-68</h4>
+      <p><b>S1</b> remains pending because a real worker boundary requires a worker runtime, snapshot broker, short-lived model credential path, egress policy, and cross-platform resource enforcement; an in-process substitute would not satisfy the decision. <b>S2, S4, and S5</b> also remain pending at this implementation point. They were not skipped for approval reasons. Hosted multi-client operation, untrusted repository review, and non-dry-run handover remain locked.</p>
     </div>
   </section>
 </main>

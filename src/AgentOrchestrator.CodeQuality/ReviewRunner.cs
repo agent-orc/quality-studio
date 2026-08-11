@@ -143,6 +143,7 @@ public sealed class ReviewRunner
                 agentResult.EffectiveModel, startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
+            ReviewOutputRedactor.Redact(response);
             if (request.Level == ReviewLevel.Project &&
                 string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
                 request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&

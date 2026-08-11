@@ -1,6 +1,6 @@
 # File code review v1
 
-Review `{{FILE_PATH}}` for correctness, maintainability, clarity, error handling, and testability. The complete reviewed content is supplied below. Do not use tools, edit files, or run commands.
+Review `{{FILE_PATH}}` for correctness, maintainability, clarity, error handling, and testability. The complete reviewed content is supplied below. Do not use tools, edit files, or run commands. Never reproduce credentials or secret values; cite only their location and credential type.
 
 ## Reviewed file content
 

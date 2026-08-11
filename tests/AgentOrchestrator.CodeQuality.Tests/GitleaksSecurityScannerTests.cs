@@ -228,6 +228,34 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task ScanAsync_ReturnsUnavailableWhenExitOneHasNoRedactedReport()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-error-").FullName;
+        try
+        {
+            await InitializeGitRepositoryAsync(root, cancellationToken);
+            await WriteRepoFixtureAsync(root, "src/Example.cs", "namespace Sample;\n", cancellationToken);
+
+            SetScenario("command-error");
+            var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+                root,
+                SecurityScanMode.Repository),
+                cancellationToken);
+
+            Assert.False(result.Report.Available);
+            Assert.Equal(SecurityVerdict.Unavailable, result.Report.Verdict);
+            Assert.Contains("redacted report", result.Report.UnavailableReason ?? string.Empty,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            TryDelete(root);
+        }
+    }
+
     private static void SetScenario(string scenario, string version = Version)
     {
         Environment.SetEnvironmentVariable("FAKE_GITLEAKS_SCENARIO", scenario);
@@ -309,9 +337,23 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
                 return 0;
             }
 
+            if (!args.Contains("--redact=100", StringComparer.Ordinal))
+            {
+                Console.Error.WriteLine("redaction was not enforced");
+                return 1;
+            }
+
+            var reportIndex = Array.IndexOf(args, "--report-path");
+            var reportPath = reportIndex >= 0 && reportIndex + 1 < args.Length ? args[reportIndex + 1] : null;
+            if (scenario == "command-error" || reportPath is null)
+            {
+                Console.Error.WriteLine("simulated invocation error");
+                return 1;
+            }
+
             if (command == "dir")
             {
-                Console.WriteLine(JsonSerializer.Serialize(scenario switch
+                File.WriteAllText(reportPath, JsonSerializer.Serialize(scenario switch
                 {
                     "repository" => RepositoryFindings(),
                     "staged" => StagedFindings(),
@@ -322,7 +364,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
             if (command == "git")
             {
-                Console.WriteLine(JsonSerializer.Serialize(RangeSarif()));
+                File.WriteAllText(reportPath, JsonSerializer.Serialize(RangeSarif()));
                 return 1;
             }
 
