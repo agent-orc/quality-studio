@@ -51,9 +51,13 @@ A compatible unknown id remains accepted (`gpt-*` for Codex, `claude-*` for Clau
 next catalog sync. Such an id has no asserted capability or price. Known non-routable
 models are never reclassified as custom ids.
 
-The first picker choice is always Runner default. Choosing it sends no model or thinking
-override, preserving prior behavior. A selected thinking level is validated against the
-model policy and passed to CodingAgentRunner's first-class `ThinkingLevel` request field.
+The first picker choice is always Runner default. The API resolves that choice from the
+live `ReviewJobs:RunnerDefaults` configuration and returns the resolved route with the
+catalog, so the picker names the actual model instead of an opaque default. The review
+service uses the same resolver immediately before estimate/start; a config reload therefore
+updates both the displayed route and the model passed to CodingAgentRunner. A selected
+thinking level is validated against the model policy and passed to CodingAgentRunner's
+first-class `ThinkingLevel` request field.
 
 ## Evidence artifact
 

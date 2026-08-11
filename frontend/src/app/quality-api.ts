@@ -195,6 +195,7 @@ export interface ReviewModelOption {
 export interface ReviewModelCatalog {
   schemaVersion: number; policyVersion: string; evidenceAsOfDate: string; sourceRepository: string; sourceCommit: string;
   thinkingLevels: string[]; models: ReviewModelOption[];
+  runnerDefaults: Record<string, { model: string; thinkingLevel: string | null }>;
 }
 export interface ReviewFileProgress { path: string; state: ReviewUnitState; startedAt: string | null; finishedAt: string | null; error: string | null; }
 export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; expectedFreshSkips: number; }
@@ -426,7 +427,7 @@ export class QualityApi {
   readonly repositories = signal<RepositoryRegistration[]>([]);
   readonly selectedRepositoryId = signal('default');
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
-  readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
+  readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [], runnerDefaults: {} });
   readonly reviewRuns = signal<ReviewRun[]>([]);
   readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
   readonly usage = signal<UsageReport>(emptyUsageReport());
@@ -562,7 +563,8 @@ export class QualityApi {
 
   async loadModelCatalog(): Promise<void> {
     try {
-      this.modelCatalog.set(await firstValueFrom(this.http.get<ReviewModelCatalog>('/api/models')));
+      const catalog = await firstValueFrom(this.http.get<ReviewModelCatalog>('/api/models'));
+      this.modelCatalog.set({ ...catalog, runnerDefaults: catalog.runnerDefaults ?? {} });
     } catch (error) {
       console.warn(JSON.stringify({ event: 'qs.models.unavailable', reason: this.errorMessage(error) }));
     }
