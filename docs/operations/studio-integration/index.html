@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Studio and Agent Studio Integration</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch-Identität: develop */
+    --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+    --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+    --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+    --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+    --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG-Rollen */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Decision dossier · QS-65 · 11 August 2026</p>
+  <h1>Quality Studio and Agent Studio: one review substrate, two product decisions</h1>
+  <p class="lede">Let Quality Studio own code-quality semantics, structured findings, and reusable review evidence. Let Agent Studio keep exact task-subject authority, delivery grading, council policy, gates, and lane transitions. Converge through an evidence contract and the existing Review Plane, not through a second central review queue.</p>
+  <div class="meta">
+    <span><b>Status</b> Decision pending</span>
+    <span><b>Phase</b> Decision ready</span>
+    <span><b>Source</b> QS-65</span>
+    <span><b>QS snapshot</b> <code>3e0b655</code></span>
+    <span><b>Studio snapshot</b> <code>8daaccf</code></span>
+  </div>
+</header>
+
+<nav aria-label="Contents">
+  <ol class="toc">
+    <li><a href="#decision">Decision packet</a></li>
+    <li><a href="#current">What the repositories say today</a></li>
+    <li><a href="#duplication">Duplication and target ownership</a></li>
+    <li><a href="#alternatives">Alternatives</a></li>
+    <li><a href="#recommendation">Recommendation</a></li>
+    <li><a href="#embed">Verified preview contract</a></li>
+    <li><a href="#slices">Approval-ready slices</a></li>
+    <li><a href="#open-decisions">Open decisions</a></li>
+    <li><a href="#evidence">Evidence register</a></li>
+  </ol>
+</nav>
+
+<section id="decision">
+  <h2><span class="no">01</span>Decision packet</h2>
+  <div class="box accent">
+    <h4>Recommendation</h4>
+    <p><b>Approve Slices 1 through 3 now.</b> They establish a QS-owned finding contract, make the existing QS change-review result portable, and run it in Agent Studio as shadow evidence on the already fenced subject. Approve Slices 4 and 5 as conditional cutover work after the paired evidence cohort passes. Do not replace Agent Studio's orchestrator, Review Plane, council, or gates with the current QS API queue.</p>
+  </div>
+  <table>
+    <thead><tr><th>Decision</th><th>Approve</th><th>Reject</th></tr></thead>
+    <tbody>
+      <tr><td><b>Review ownership</b></td><td>QS owns code, security, performance review semantics and the common finding envelope.</td><td>A second Studio-native code-quality model and parser.</td></tr>
+      <tr><td><b>Pipeline ownership</b></td><td>Studio owns subject fencing, scheduling, retries, council reactions, integration gates, and lane changes.</td><td>QS moving tasks or returning an authoritative lane verdict.</td></tr>
+      <tr><td><b>Transport</b></td><td>A transport-neutral QS provider invoked by the existing Review Plane; HTTP may be added later as another adapter.</td><td>Making Studio depend on the current standalone QS process and its local repository registry.</td></tr>
+      <tr><td><b>Grades</b></td><td>Keep QS code score <code>0-100 / A-F</code>. Present Studio's current <code>A-D</code> result as <b>Delivery Grade</b>.</td><td>Mapping the two scales into one synthetic grade.</td></tr>
+      <tr><td><b>Product surface</b></td><td>QS remains the engineer room. Studio links to or previews it and receives evidence.</td><td>Rebuilding the QS browser, finding lifecycle, or review-run UI in Studio.</td></tr>
+    </tbody>
+  </table>
+  <p class="dim">This decision keeps the distinction already written into the QS repository: Agent Studio reviews a task diff snapshot; QS keeps the standing quality truth of the codebase. The change is that both products stop inventing separate code-finding shapes.</p>
+</section>
+
+<section id="current" data-document-section="evidence">
+  <h2><span class="no">02</span>What the repositories say today</h2>
+  <div class="building-blocks">
+    <article class="building-block">
+      <h4>QS has a reusable kernel, but it is not published</h4>
+      <p>The repository ships a core library, CLI, API, and browser. <code>ReviewMetaDocument</code> v2 carries subject hashes, review-input hashes, a numeric grade, aspects, structured findings, threads, deterministic evidence, and usage provenance. The README still says no NuGet package is published.</p>
+      <p class="evidence-link"><code>README.md:9-15, 40-62</code>; <code>ReviewMetaContract.cs:7-63, 135-160</code></p>
+    </article>
+    <article class="building-block">
+      <h4>QS already has change-review machinery</h4>
+      <p><code>ChangeSetReviewService</code> accepts base and head revisions, computes grade, finding, staleness, boundary, coverage, churn, and economy deltas, and can add an optional four-aspect agent judgement. The committed 20-transition sample reports 72.48% fewer evidence characters in aggregate, with savings in 17 of 20 transitions. This is a QS-local measurement, not yet a Studio pipeline benchmark.</p>
+      <p class="evidence-link"><code>ChangeSetReviewService.cs:19-113</code>; <code>docs/change-reviews.md</code>, Economy measurement</p>
+    </article>
+    <article class="building-block">
+      <h4>The current QS API is standing-review oriented</h4>
+      <p>The API exposes repository-scoped sweep, estimate, run, handover, thread, and finding-state routes. Its review queue resolves a path in a registered local repository and writes sidecars. There is no change-review API route in the current route table. Calling this queue from Studio would add another scheduler without inheriting Studio's immutable Result-SHA, lease, or fence.</p>
+      <p class="evidence-link"><code>QualityStudio.Api/Program.cs:270-309</code>; <code>ReviewJobs.cs:73-103, 143-195</code></p>
+    </article>
+    <article class="building-block">
+      <h4>Studio's local grade is delivery judgement</h4>
+      <p>The Studio grade prompt reads the task body, complete task diff, <code>results/</code> inventory, and card mode. It emits one A-D grade plus free-text finding sentences. This judges whether the delivery solved the card, not the standing quality of a hierarchy unit.</p>
+      <p class="evidence-link"><code>CodeReviewStepService.cs:320-346, 520-555</code>; <code>prompts/runtime/code-review-grade.md</code></p>
+    </article>
+    <article class="building-block">
+      <h4>Studio's council, not the grade token, controls the loop</h4>
+      <p>A Grade A with no findings is accepted. Named findings reissue within the shared budget or escalate after exhaustion. B, C, or D without a concrete finding escalates. The grade parser itself maps A/B to pass, C to concerns, and D to block, but the pipeline domain explicitly states that the grade is reporting evidence rather than a success gate.</p>
+      <p class="evidence-link"><code>CouncilReviewReaction.cs:51-120</code>; <code>CodeReviewGrade.cs:131-143</code>; Studio pipeline domain, lines 651-703</p>
+    </article>
+    <article class="building-block">
+      <h4>Studio's remote path already has the right authority</h4>
+      <p>The Review Plane materializes and proves the exact expected Result-SHA before commands run. It captures command hashes, artifacts, verdicts, host identity, fence, and authority epoch. The read projection deliberately skips local aspect and grade rows for a remote run and projects the Remote Review outcome into the decision row.</p>
+      <p class="evidence-link"><code>ReviewContracts.cs</code>; <code>RemoteReviewWorkspace.cs:130-197, 1181-1200</code>; <code>RemotePipelineExecutionProjection.cs:5-16, 71-116</code></p>
+    </article>
+    <article class="building-block">
+      <h4>The repositories already touch, but do not share runtime types</h4>
+      <p>Agent Studio <code>origin/main</code> contains 11 checked-in QS v1 sidecars. A repository search found no package reference to <code>AgentOrchestrator.CodeQuality</code> and no review-meta reader. Studio also has an additive synchronous <code>ICommitCandidateScanner</code> seam whose comments explicitly name Quality Studio, but that seam sees one file's bytes and cannot represent a task change review.</p>
+      <p class="evidence-link">Studio tree inventory at <code>8daaccf</code>; <code>CommitCandidateGate.cs:87-96, 148-166</code></p>
+    </article>
+    <article class="building-block">
+      <h4>The one-way finding handover is already implemented</h4>
+      <p>QS builds a normal Studio bug card from a selected finding and posts it through <code>POST /api/tasks</code>, with dry-run enabled by default. This boundary should stay: QS creates an ordinary task snapshot; Studio owns its later execution and archival.</p>
+      <p class="evidence-link"><code>AgentStudioTaskClient.cs:6-24, 27-40, 75-111, 130-157</code>; <code>docs/concepts/handover.md</code></p>
+    </article>
+  </div>
+</section>
+
+<section id="duplication">
+  <h2><span class="no">03</span>Duplication and target ownership</h2>
+  <table>
+    <thead><tr><th>Concern</th><th>QS today</th><th>Studio today</th><th>Target owner</th></tr></thead>
+    <tbody>
+      <tr><td><b>Subject</b></td><td>Unit paths and content/input hashes; change review accepts Git base/head.</td><td>Task body, task diff, results inventory; remote path binds RunAttempt and Result-SHA.</td><td><b>Studio</b> selects and fences task subjects. <b>QS</b> hashes the review input inside that subject.</td></tr>
+      <tr><td><b>Code judgement</b></td><td>Code/security/performance prompts, hierarchy aspects, deterministic sensors, 0-100 grade.</td><td>Code-quality aspect, overall A-D grade, remote aspect command verdicts.</td><td><b>QS</b> for code-quality evidence. <b>Studio</b> for requirement fit and delivery completeness.</td></tr>
+      <tr><td><b>Finding</b></td><td>Rule id, severity, title, description, recommendation, locations, producer, fingerprint.</td><td>Grade findings are normalized free-text sentences capped at 12; remote verdict has aspect/status/classification/summary.</td><td><b>QS</b> owns a common finding envelope. Producers retain product-specific subject fields.</td></tr>
+      <tr><td><b>Grade</b></td><td>A-F derived from 0-100 for a unit and review kind.</td><td>A-D for how well a task delivery solved its request; Remote Review uses outcome values such as Pass/ProductFailure.</td><td><b>Do not unify.</b> Rename surfaces so the semantics are explicit.</td></tr>
+      <tr><td><b>Lifecycle</b></td><td>Open, accepted, waived, false-positive, resolved; repository-owned state.</td><td>FixNextRound, Accept, Escalate; task/run-owned council reaction.</td><td><b>Do not share state.</b> Share immutable observations and references only.</td></tr>
+      <tr><td><b>Execution</b></td><td>Standalone API background queue and local durable run store.</td><td>Pipeline catalogue, Review Plane, capabilities, leases, fences, retries, orchestration stages.</td><td><b>Studio</b> for task pipelines. QS remains free to run its standalone queue for its own UI.</td></tr>
+      <tr><td><b>Gate</b></td><td>CLI exit codes for regression/report/security thresholds.</td><td>Build/test gates, council, final orchestrator decision, integration admission, lanes.</td><td><b>Studio</b> translates QS evidence through named policy. QS never moves a task.</td></tr>
+      <tr><td><b>Presentation</b></td><td>Engineer-oriented code browser, hierarchy, finding threads, long-lived quality state.</td><td>Task cockpit, pipeline timeline, result evidence, operator decisions.</td><td>Each product keeps its own surface; deep links bridge context.</td></tr>
+    </tbody>
+  </table>
+  <div class="box warn">
+    <h4>The expensive duplicate is the Studio code-quality aspect, not the delivery grade</h4>
+    <p>The overall Studio grade consumes the task brief and result artifacts that QS standing reviews do not know about. It should remain. The narrow Studio code-quality aspect overlaps QS most directly and is the candidate for replacement after paired evidence proves coverage. The requirement-fit, tests-and-evidence, and documentation-impact aspects remain Studio concerns.</p>
+  </div>
+</section>
+
+<section id="alternatives" data-document-section="alternatives">
+  <h2><span class="no">04</span>Alternatives</h2>
+  <table>
+    <thead><tr><th>Option</th><th>Product identity</th><th>Exact-subject safety</th><th>Duplicate reduction</th><th>Migration risk</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr><td><b>A. Keep both paths separate</b><br>Only retain handover and preview.</td><td>Strong</td><td>Unchanged</td><td>None</td><td>Low</td><td><span class="pill open">Reject</span><br>Free-text findings and repeated code judgement continue to drift.</td></tr>
+      <tr><td><b>B. QS review-as-a-central-service</b><br>Studio calls the existing QS API queue and accepts its verdict.</td><td>Weak</td><td>Weak today</td><td>Medium</td><td>High</td><td><span class="pill open">Reject</span><br>The current API is registry/path based and would duplicate scheduling and authority.</td></tr>
+      <tr><td><b>C. Copy the QS engine into Studio</b><br>Studio vendors prompts, parsers, and models.</td><td>Weak</td><td>Strong</td><td>Short term only</td><td>Medium</td><td><span class="pill open">Reject</span><br>It creates two owners and repeats the present drift under shared names.</td></tr>
+      <tr><td><b>D. QS evidence provider on Studio's Review Plane</b><br>Shared finding envelope and portable change-review artifact; Studio keeps policy.</td><td>Strong</td><td>Strong</td><td>High</td><td>Bounded</td><td><span class="pill done">Recommend</span><br>It uses the strongest current boundary in each repository.</td></tr>
+    </tbody>
+  </table>
+  <p class="dim">Option D is review-as-a-capability, not review-as-a-second-control-plane. A future HTTP transport can implement the same provider contract, but it must not become the owner of task scheduling or lane decisions.</p>
+</section>
+
+<section id="recommendation" data-document-section="recommendation">
+  <h2><span class="no">05</span>Recommendation: evidence provider, Studio policy</h2>
+  <figure>
+    <svg viewBox="0 0 1040 330" role="img" aria-labelledby="flow-title flow-desc">
+      <title id="flow-title">Recommended product and runtime split</title>
+      <desc id="flow-desc">Agent Studio freezes the task subject, the Review Plane invokes the Quality Studio provider, Quality Studio returns an immutable evidence artifact, and Agent Studio decides council and gates. Quality Studio separately keeps standing review truth and its engineer interface.</desc>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink-3)"/></marker>
+      </defs>
+      <rect class="s-node" x="30" y="38" width="220" height="106"/>
+      <text class="s-label" x="50" y="69">Agent Studio pipeline</text>
+      <text class="s-sub" x="50" y="94">Task brief + results inventory</text>
+      <text class="s-sub" x="50" y="114">RunAttempt + exact Result-SHA</text>
+      <text class="s-sub" x="50" y="134">Review policy hash</text>
+
+      <rect class="s-node" x="410" y="38" width="220" height="106"/>
+      <text class="s-label" x="430" y="69">QS review provider</text>
+      <text class="s-sub" x="430" y="94">Change delta + sensors</text>
+      <text class="s-sub" x="430" y="114">Structured findings</text>
+      <text class="s-sub" x="430" y="134">Provenance + usage</text>
+
+      <rect class="s-node" x="790" y="38" width="220" height="106"/>
+      <text class="s-label" x="810" y="69">Studio decision flow</text>
+      <text class="s-sub" x="810" y="94">Delivery Grade + council</text>
+      <text class="s-sub" x="810" y="114">Build/test + integration gates</text>
+      <text class="s-sub" x="810" y="134">Lane mutation</text>
+
+      <path class="s-flow" d="M250 91 H400" marker-end="url(#arrow)"/>
+      <text class="s-tiny" x="275" y="80">fenced subject</text>
+      <path class="s-flow" d="M630 91 H780" marker-end="url(#arrow)"/>
+      <text class="s-tiny" x="659" y="80">evidence only</text>
+
+      <rect class="s-node2" x="410" y="214" width="220" height="82" rx="8"/>
+      <text class="s-label" x="430" y="245">Quality Studio product</text>
+      <text class="s-sub" x="430" y="270">Standing sidecars, lifecycle, browser</text>
+      <text class="s-sub" x="430" y="290">Finding handover to normal tasks</text>
+      <path class="s-flow" d="M520 214 V154" marker-end="url(#arrow)"/>
+      <text class="s-tiny" x="536" y="190">same kernel</text>
+    </svg>
+    <figcaption><b>Authority follows the existing code.</b> Studio already proves the exact task subject and owns the decision loop. QS already owns richer code-quality evidence and standing repository truth.</figcaption>
+  </figure>
+
+  <h3>Contract boundary</h3>
+  <table>
+    <thead><tr><th>Artifact field</th><th>Source in current code</th><th>Convergence rule</th></tr></thead>
+    <tbody>
+      <tr><td><b>Subject</b></td><td>QS <code>reviewedHash</code> and <code>ChangeSetSubject</code>; Studio <code>RunAttemptId</code>, <code>ResultSha</code>, and policy hash.</td><td>Use a discriminated subject: <code>standing-unit</code> or <code>task-change</code>. A task-change requires base SHA, result SHA, repository identity, and review-policy hash.</td></tr>
+      <tr><td><b>Finding</b></td><td>QS <code>ReviewFinding</code> v2.</td><td>Keep rule id, severity, title, description, recommendation, locations, producer, and fingerprint. Allow an empty location list for task-level deficiencies and require a declared task-text fingerprint canonicalization.</td></tr>
+      <tr><td><b>Provenance</b></td><td>QS reviewer/run/model/usage and deterministic sensor source; Studio host/executor/fence/artifact digest.</td><td>Compose both. The provider signs what judged the code; Studio records where and under which fenced attempt it ran.</td></tr>
+      <tr><td><b>Disposition</b></td><td>QS finding lifecycle; Studio council assessment.</td><td>Never put mutable disposition in the shared observation. Each product references the immutable fingerprint from its own state.</td></tr>
+      <tr><td><b>Grade</b></td><td>QS A-F/score; Studio A-D; remote pass/product/infrastructure outcome.</td><td>Carry named, typed grade systems side by side. Never convert silently.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>What “review as a service” means here</h3>
+  <div class="box ok">
+    <h4>Yes: a reusable review provider</h4>
+    <p>A caller submits an immutable review subject and policy reference. The QS provider returns a schema-valid, content-addressed evidence artifact. It has no authority to alter a Studio task. The first transport is the existing Review Plane command/capability path because it already materializes and fences the exact commit.</p>
+  </div>
+  <div class="box bad">
+    <h4>No: a second task control plane</h4>
+    <p>The standalone QS API queue continues to serve QS sweeps. Studio does not delegate RunAttempt ownership, retries, ReviewAttempt leases, council, or gates to that queue. This avoids a third task review lifecycle beside Studio local post-processing and Remote Review.</p>
+  </div>
+</section>
+
+<section id="embed">
+  <h2><span class="no">06</span>Verified <code>url-preview-embed</code> contract</h2>
+  <p><span class="pill done">Verified</span> QS is the sender and Agent Studio is the receiver. The contract is implemented and covered on the Studio side.</p>
+  <table>
+    <thead><tr><th>Part</th><th>Current contract</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td><b>Sender trigger</b></td><td>QS detects any iframe with <code>window.self !== window.top</code>. Its Angular effect mirrors <code>path</code>, <code>kind</code>, and <code>repo</code> into the URL.</td><td><code>quality-studio/frontend/src/app/app.ts:49-52, 107-118, 518-524</code></td></tr>
+      <tr><td><b>Message</b></td><td><code>{ source: 'url-preview-embed', type: 'navigation', url: location.href }</code></td><td><code>app.ts:117</code></td></tr>
+      <tr><td><b>Target</b></td><td><code>window.parent</code> with <code>targetOrigin='*'</code>.</td><td><code>app.ts:117</code></td></tr>
+      <tr><td><b>Receiver checks</b></td><td>Studio requires the mounted iframe as <code>event.source</code>, exact source/type tags, a string URL, a parseable URL, and URL origin equal to <code>event.origin</code>.</td><td><code>project-url-embed-navigation.controller.ts:3-19</code></td></tr>
+      <tr><td><b>Effect</b></td><td>Studio updates session-only <code>reportedUrl</code>. It does not remount the frame and does not write the Project URL registry.</td><td><code>project-url-embed-navigation.controller.ts:22-63</code></td></tr>
+      <tr><td><b>Tests</b></td><td>The component test accepts a valid iframe message and ignores a forged source. The Playwright test proves the address bar changes while iframe <code>src</code> stays fixed.</td><td><code>project-url-preview-tab.component.spec.ts:134-163</code>; <code>project-url-preview-in-place.spec.ts:238-249</code></td></tr>
+    </tbody>
+  </table>
+  <div class="box warn">
+    <h4>Boundary judgement</h4>
+    <p>This is a presentation-only navigation report. It is not a review result, command, authentication, or mutation contract. Studio's receiver validation is appropriately narrow. QS still sends its current URL to any embedding parent because it uses <code>*</code>. Keep v1 navigation-only and document it. Before adding finding bodies, source snippets, tokens, or commands, version the message and require a configured parent origin. That hardening is not required to use the current address-bar update.</p>
+  </div>
+</section>
+
+<section id="slices">
+  <h2><span class="no">07</span>Approval-ready implementation slices</h2>
+
+  <h3>Slice 1 · Shared finding envelope and preview contract pin</h3>
+  <p><span class="pill queued">Approve now</span> <b>Owner:</b> Quality Studio. <b>Behavior risk:</b> Low.</p>
+  <ul>
+    <li>Add schema v1 and CLR types for an immutable finding envelope under the QS core package. Reuse the current v2 finding vocabulary and add discriminated <code>standing-unit</code> and <code>task-change</code> subjects.</li>
+    <li>Keep grade and mutable disposition outside the common finding. Add converters from <code>ReviewFinding</code> and <code>FindingDeltaItem</code>.</li>
+    <li>Document the exact preview sender contract and add a QS unit test that proves path/kind/repo navigation emits only the v1 navigation message while embedded.</li>
+    <li>Do not change sidecar v1/v2 readers, Studio behavior, or API routes.</li>
+  </ul>
+  <div class="stx stx-ok"><b>Acceptance:</b> schema round-trip tests cover source-located and location-free task findings; legacy sidecar tests stay green; the sender test asserts the exact payload and no mutation message.</div>
+
+  <h3>Slice 2 · Portable QS change-review artifact</h3>
+  <p><span class="pill queued">Approve now</span> <b>Owner:</b> Quality Studio. <b>Behavior risk:</b> Low.</p>
+  <ul>
+    <li>Extend <code>quality diff</code> with <code>--format json --output &lt;path&gt;</code> while preserving current exit codes and <code>--no-write</code>.</li>
+    <li>The JSON output names base/head, policy and prompt provenance, usage, deterministic delta, agent judgement status, and common finding envelopes. It must not write <code>.quality/changes/</code> when <code>--no-write</code> is selected.</li>
+    <li>Keep the provider transport-neutral. Do not add a second QS HTTP scheduler in this slice.</li>
+  </ul>
+  <div class="stx stx-ok"><b>Acceptance:</b> a real temporary Git fixture proves exact base/head binding, schema validation, unchanged worktree/index, stable exit codes 0/1/2, and explicit unavailable agent evidence rather than a false pass.</div>
+
+  <h3>Slice 3 · Agent Studio shadow provider on the Review Plane</h3>
+  <p><span class="pill queued">Approve now</span> <b>Owner:</b> Agent Studio. <b>Behavior risk:</b> Low because the result is reporting-only.</p>
+  <ul>
+    <li>Add an opt-in <code>post-quality-change-review</code> step implemented as a Review Plane capability/command against the already materialized expected Result-SHA and integration baseline.</li>
+    <li>Persist the QS JSON as normal digest-checked <code>ReviewArtifactEvidenceDto</code>. Record provider unavailable and provider failure separately from product findings.</li>
+    <li>Do not change council, lane, integration admission, the existing A-D grade, or existing aspect execution.</li>
+    <li>Run paired evidence on at least 20 completed coding tasks spanning local and remote delivery, code-only and mixed code/docs, and clean and known-finding cases.</li>
+  </ul>
+  <div class="stx stx-ok"><b>Acceptance:</b> every artifact binds the same Result-SHA as the ReviewSubject; 100% parse/schema success in the cohort; zero task state changes attributable to the shadow step; provider cost and duration are visible.</div>
+
+  <h3>Slice 4 · Structured Studio findings and unambiguous grade names</h3>
+  <p><span class="pill part">Conditional</span> <b>Owner:</b> Agent Studio with QS contract dependency. <b>Entry gate:</b> Slice 3 cohort accepted.</p>
+  <ul>
+    <li>Make the Studio grade producer persist common finding envelopes. Keep the legacy text sentinel reader during migration; council consumes the structured projection.</li>
+    <li>Feed QS change-review evidence into the delivery-grade prompt as prior evidence instead of asking the grade pass to rediscover code facts.</li>
+    <li>Rename user-facing “Quality Grade” to “Delivery Grade”. Keep existing filenames, tags, and API fields as backwards-compatible storage identifiers. Present Remote Review as “Review outcome”, not another grade scale.</li>
+    <li>Do not remove any aspect in this slice.</li>
+  </ul>
+  <div class="stx stx-part"><b>Acceptance:</b> every non-A delivery grade has at least one schema-valid actionable finding or takes the existing missing-handoff escalation; legacy review files remain readable; screenshots prove distinct labels in both themes.</div>
+
+  <h3>Slice 5 · Remove the duplicate code-quality call and adopt policy</h3>
+  <p><span class="pill part">Conditional</span> <b>Owner:</b> Agent Studio. <b>Entry gate:</b> paired operator review finds no lost blocking code issue and no subject mismatch.</p>
+  <ul>
+    <li>Replace only the narrow Studio code-quality aspect with the QS provider result. Keep requirement-fit, tests-and-evidence, documentation-impact, Delivery Grade, and council.</li>
+    <li>Route QS findings through Studio policy: deterministic critical/high regressions and configured rules can request reissue or escalation, but only the Studio orchestration stage applies that action.</li>
+    <li>Add an “Open in Quality Studio” evidence link using repository, path, kind, and fingerprint. The generic URL Preview may host the page; no QS surface is rebuilt in Studio.</li>
+    <li>Retain a per-project rollback switch to the existing Studio code-quality aspect for one release window.</li>
+  </ul>
+  <div class="stx stx-part"><b>Acceptance:</b> one code-quality model call is removed per standard task; deterministic gates and council behavior are unchanged; rollback restores the old aspect without rewriting task history; QS and Studio both remain operable alone.</div>
+</section>
+
+<section id="open-decisions" data-document-section="open-decisions">
+  <h2><span class="no">08</span>Open decisions for operator review</h2>
+  <table>
+    <thead><tr><th>Decision</th><th>Recommended default</th><th>Consequence</th></tr></thead>
+    <tbody>
+      <tr><td>Approve the target split and Slices 1-3?</td><td><b>Yes.</b></td><td>Creates evidence and comparison without changing a gate.</td></tr>
+      <tr><td>Is the first transport Review Plane or HTTP?</td><td><b>Review Plane.</b></td><td>Reuses exact-SHA materialization and avoids a new scheduler. HTTP remains a later adapter for non-Studio callers.</td></tr>
+      <tr><td>Should Studio's A-D name change?</td><td><b>Yes, presentation only: Delivery Grade.</b></td><td>Removes collision with QS code grades while preserving stored artifacts and API compatibility.</td></tr>
+      <tr><td>Should <code>targetOrigin='*'</code> block integration?</td><td><b>No for v1 navigation.</b> Require an origin-bound v2 before sensitive payloads.</td><td>Current preview keeps working; the message cannot quietly grow into a command or finding-data channel.</td></tr>
+      <tr><td>When can the Studio code-quality aspect be removed?</td><td><b>Only after Slice 3 paired review.</b></td><td>The dossier recommends the cut, but current repositories contain no cross-product outcome cohort that proves parity.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="evidence">
+  <h2><span class="no">09</span>Evidence register and limits</h2>
+  <table>
+    <thead><tr><th>Repository snapshot</th><th>Evidence inspected</th><th>Supports</th></tr></thead>
+    <tbody>
+      <tr><td><b>quality-studio</b><br><code>3e0b655</code></td><td><code>README.md</code>; review-meta schemas v1/v2; <code>ReviewRunner</code>; <code>ReviewMetaContract</code>; <code>FindingIdentity</code>; <code>FindingStateProjection</code>; <code>ChangeSetReviewService</code>; <code>ChangeDiffCommand</code>; API route table; review jobs; handover client; frontend sender; docs for change reviews, finding lifecycle, review runs, reports, and handover.</td><td>QS identity, data model, current execution/API boundary, existing change-review foundation, sender contract.</td></tr>
+      <tr><td><b>agent-studio origin/main</b><br><code>8daaccf</code>, 10 Aug 2026</td><td>Root instructions and indexed pipeline docs; local grade/parser/prompt; council reaction; Remote Review contracts, workspace, report evidence and projection; commit scanner seam; URL Preview receiver, component tests, and Playwright test; checked-in QS sidecar inventory.</td><td>Studio task-grade semantics, authority and gate path, duplication, receiver contract, existing but unintegrated QS artifacts.</td></tr>
+      <tr><td><b>Style source</b><br><code>8daaccf</code></td><td><code>docs/operations/haertung-verteilte-ausfuehrung/index.html</code></td><td>The style block in this document is copied from the requested reference.</td></tr>
+    </tbody>
+  </table>
+  <div class="box warn">
+    <h4>Limits</h4>
+    <ul>
+      <li>The QS checkout does not contain the enriched <code>AGENTS.md</code>, <code>docs/start/README.md</code>, contribution guide, model-routing policy, or style-reference path. Those sources were available and inspected in the local Agent Studio repository at the snapshot above.</li>
+      <li>No current dataset compares QS provider findings with Studio aspect findings on the same fenced task subjects. This is why the recommendation makes the first runtime adoption a shadow cohort.</li>
+      <li>The 20-transition QS economy sample establishes that diff-scoped evidence can be smaller than full-file sweeps in this repository. It does not establish review quality, Studio cost savings, or gate parity.</li>
+      <li>No model or thinking-level change is proposed. Each implementation card remains subject to Agent Studio's canonical model-routing policy and correctness floors.</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="meta">
+  <span><b>Dossier</b> <code>docs/operations/studio-integration/</code></span>
+  <span><b>Workbench status</b> <code>decision-pending</code></span>
+  <span><b>Next action</b> Operator selects slices after the ten-dossier review.</span>
+</footer>
+</main>
+</body>
+</html>
