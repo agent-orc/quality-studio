@@ -20,7 +20,8 @@ public sealed record IssueLifecycleEvent(
     DateTimeOffset OccurredAt,
     DateTimeOffset? ExpiresAt = null,
     IReadOnlyList<string>? BasisObservationIds = null,
-    string? PolicyRef = null);
+    string? PolicyRef = null,
+    string? LegacySource = null);
 
 public sealed record IssueLifecycleProjection(
     string IssueId,
@@ -64,7 +65,8 @@ public static class IssueLifecycleStore
         DateTimeOffset occurredAt,
         DateTimeOffset? expiresAt = null,
         IReadOnlyList<string>? basisObservationIds = null,
-        string? policyRef = null)
+        string? policyRef = null,
+        string? legacySource = null)
     {
         if (!States.Contains(state)) throw new ArgumentException($"Unsupported lifecycle state '{state}'.", nameof(state));
         if (!ProducerKinds.Contains(producerKind))
@@ -76,9 +78,14 @@ public static class IssueLifecycleStore
         if (occurredAt.Offset != TimeSpan.Zero) throw new ArgumentException("Lifecycle timestamps must be UTC.", nameof(occurredAt));
         if (expiresAt is not null && expiresAt.Value.Offset != TimeSpan.Zero)
             throw new ArgumentException("Lifecycle expiry must be UTC.", nameof(expiresAt));
-        if (state == "resolved" &&
-            (basisObservationIds is not { Count: > 0 } || string.IsNullOrWhiteSpace(policyRef)))
-            throw new ArgumentException("Resolution requires basis observation ids and a reconciliation policy.", nameof(state));
+        var resolutionHasBasis = basisObservationIds is { Count: > 0 } && !string.IsNullOrWhiteSpace(policyRef);
+        var importedSnapshot = producerKind == "imported" && !string.IsNullOrWhiteSpace(legacySource);
+        if (!string.IsNullOrWhiteSpace(legacySource) && producerKind != "imported")
+            throw new ArgumentException("Only imported lifecycle snapshots can declare a legacy source.", nameof(legacySource));
+        if (state == "resolved" && !resolutionHasBasis && !importedSnapshot)
+            throw new ArgumentException(
+                "Resolution requires basis observation ids and a reconciliation policy, or an explicit imported legacy snapshot.",
+                nameof(state));
 
         var aliases = fingerprintAliases.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         var basis = basisObservationIds?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
@@ -94,7 +101,8 @@ public static class IssueLifecycleStore
             occurredAt.ToString("O"),
             expiresAt?.ToString("O") ?? string.Empty,
             basis is null ? string.Empty : string.Join(',', basis),
-            policyRef ?? string.Empty);
+            policyRef ?? string.Empty,
+            legacySource ?? string.Empty);
         var eventId = "lifecycle-sha256:" +
                       Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
         return new IssueLifecycleEvent(
@@ -111,7 +119,8 @@ public static class IssueLifecycleStore
             occurredAt,
             expiresAt,
             basis,
-            policyRef);
+            policyRef,
+            legacySource);
     }
 
     public static async Task<bool> AppendAsync(
@@ -225,8 +234,14 @@ public static class IssueLifecycleStore
             string.IsNullOrWhiteSpace(lifecycleEvent.OccurrenceFingerprint) || string.IsNullOrWhiteSpace(lifecycleEvent.Author) ||
             string.IsNullOrWhiteSpace(lifecycleEvent.Reason))
             throw new JsonException("Lifecycle event is invalid.");
-        if (lifecycleEvent.State == "resolved" &&
-            (lifecycleEvent.BasisObservationIds is not { Count: > 0 } || string.IsNullOrWhiteSpace(lifecycleEvent.PolicyRef)))
-            throw new JsonException("Resolution event requires basis observation ids and a reconciliation policy.");
+        var resolutionHasBasis = lifecycleEvent.BasisObservationIds is { Count: > 0 } &&
+                                 !string.IsNullOrWhiteSpace(lifecycleEvent.PolicyRef);
+        var importedSnapshot = lifecycleEvent.ProducerKind == "imported" &&
+                               !string.IsNullOrWhiteSpace(lifecycleEvent.LegacySource);
+        if (!string.IsNullOrWhiteSpace(lifecycleEvent.LegacySource) && lifecycleEvent.ProducerKind != "imported")
+            throw new JsonException("Only imported lifecycle snapshots can declare a legacy source.");
+        if (lifecycleEvent.State == "resolved" && !resolutionHasBasis && !importedSnapshot)
+            throw new JsonException(
+                "Resolution event requires basis observation ids and a reconciliation policy, or an explicit imported legacy snapshot.");
     }
 }

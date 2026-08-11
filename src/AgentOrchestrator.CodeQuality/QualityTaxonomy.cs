@@ -227,8 +227,32 @@ public static class QualityTaxonomyCatalogue
     public static QualityCatalogueReference CoreReference => new(CoreId, CoreVersion, CoreDigest);
 
     public static bool IsInstalledAspect(string aspectId, IEnumerable<QualityTaxonomyDocument> installedCatalogues) =>
-        installedCatalogues.Any(catalogue => catalogue.Aspects.Any(aspect =>
-            string.Equals(aspect.Id, aspectId, StringComparison.Ordinal)));
+        installedCatalogues.Any(catalogue =>
+        {
+            if (string.Equals(catalogue.Id, CoreId, StringComparison.Ordinal))
+            {
+                return CoreDocument.Aspects.Any(aspect =>
+                    string.Equals(aspect.Id, aspectId, StringComparison.Ordinal));
+            }
+
+            return aspectId.StartsWith(catalogue.Prefix + ":", StringComparison.Ordinal) &&
+                   catalogue.Aspects.Any(aspect => string.Equals(aspect.Id, aspectId, StringComparison.Ordinal));
+        });
+
+    public static QualityCatalogueReference? SourceCatalogue(
+        QualityObservationDocument observation,
+        string aspectId)
+    {
+        if (CoreDocument.Aspects.Any(aspect => string.Equals(aspect.Id, aspectId, StringComparison.Ordinal)))
+            return observation.Taxonomy;
+
+        var separator = aspectId.IndexOf(':');
+        if (separator <= 0) return null;
+        var prefix = aspectId[..separator];
+        return observation.ExtensionCatalogues.FirstOrDefault(catalogue =>
+            string.Equals(catalogue.Id, prefix, StringComparison.Ordinal) ||
+            catalogue.Id.StartsWith(prefix + "/", StringComparison.Ordinal));
+    }
 
     public static IReadOnlyList<QualityObservationAspect> SelectInstalledAspects(
         QualityObservationDocument observation,
@@ -317,10 +341,27 @@ public static class QualityObservationJson
         if (observation.SchemaVersion != QualityObservationDocument.CurrentSchemaVersion ||
             !string.Equals(observation.Schema, QualityObservationDocument.SchemaId, StringComparison.Ordinal))
             throw new JsonException($"Unsupported quality observation schemaVersion '{observation.SchemaVersion}'.");
+        if (observation.Taxonomy is null || observation.Subject is null || observation.Profile is null ||
+            observation.Producer is null || observation.Evidence is null || observation.Aspects is null ||
+            observation.Findings is null || observation.ExtensionCatalogues is null || observation.Extensions is null)
+            throw new JsonException("Quality observation is missing a required object or collection.");
+        if (!string.Equals(observation.Taxonomy.Id, QualityTaxonomyCatalogue.CoreId, StringComparison.Ordinal))
+            throw new JsonException($"Unsupported core taxonomy '{observation.Taxonomy.Id}'.");
         if (!TryGetSemVerMajor(observation.Taxonomy.Version, out var major) || major != 1)
             throw new JsonException($"Unsupported taxonomy version '{observation.Taxonomy.Version}'.");
         if (observation.ObservedAt.Offset != TimeSpan.Zero)
             throw new JsonException("observedAt must be a UTC instant.");
+        var evidenceIds = observation.Evidence.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        if (evidenceIds.Count != observation.Evidence.Count)
+            throw new JsonException("Quality observation evidence ids must be unique.");
+        foreach (var finding in observation.Findings)
+        {
+            if (finding is null)
+                throw new JsonException("Quality observation findings cannot contain null entries.");
+            if (finding.EvidenceRefs is not { Count: > 0 } ||
+                finding.EvidenceRefs.Any(reference => !evidenceIds.Contains(reference)))
+                throw new JsonException($"Finding '{finding.ObservationFindingId}' has an unresolved evidence reference.");
+        }
     }
 
     private static bool TryGetSemVerMajor(string version, out int major)

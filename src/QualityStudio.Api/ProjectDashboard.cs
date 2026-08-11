@@ -89,17 +89,37 @@ public sealed class ProjectDashboardService
     private static readonly IReadOnlyDictionary<string, string> Languages =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            [".cs"] = "C#", [".fs"] = "F#", [".vb"] = "Visual Basic",
-            [".ts"] = "TypeScript", [".tsx"] = "TypeScript",
-            [".js"] = "JavaScript", [".jsx"] = "JavaScript",
-            [".py"] = "Python", [".java"] = "Java", [".kt"] = "Kotlin",
-            [".go"] = "Go", [".rs"] = "Rust", [".cpp"] = "C++", [".cc"] = "C++",
-            [".c"] = "C", [".h"] = "C/C++ header", [".hpp"] = "C/C++ header",
-            [".rb"] = "Ruby", [".php"] = "PHP", [".swift"] = "Swift",
-            [".html"] = "HTML", [".css"] = "CSS", [".scss"] = "SCSS",
-            [".sql"] = "SQL", [".sh"] = "Shell", [".ps1"] = "PowerShell",
-            [".json"] = "JSON", [".xml"] = "XML", [".yml"] = "YAML",
-            [".yaml"] = "YAML", [".md"] = "Markdown",
+            [".cs"] = "C#",
+            [".fs"] = "F#",
+            [".vb"] = "Visual Basic",
+            [".ts"] = "TypeScript",
+            [".tsx"] = "TypeScript",
+            [".js"] = "JavaScript",
+            [".jsx"] = "JavaScript",
+            [".py"] = "Python",
+            [".java"] = "Java",
+            [".kt"] = "Kotlin",
+            [".go"] = "Go",
+            [".rs"] = "Rust",
+            [".cpp"] = "C++",
+            [".cc"] = "C++",
+            [".c"] = "C",
+            [".h"] = "C/C++ header",
+            [".hpp"] = "C/C++ header",
+            [".rb"] = "Ruby",
+            [".php"] = "PHP",
+            [".swift"] = "Swift",
+            [".html"] = "HTML",
+            [".css"] = "CSS",
+            [".scss"] = "SCSS",
+            [".sql"] = "SQL",
+            [".sh"] = "Shell",
+            [".ps1"] = "PowerShell",
+            [".json"] = "JSON",
+            [".xml"] = "XML",
+            [".yml"] = "YAML",
+            [".yaml"] = "YAML",
+            [".md"] = "Markdown",
         };
 
     private static readonly HashSet<string> TextExtensions =
@@ -582,7 +602,11 @@ public sealed class ProjectDashboardService
 
     private static string Band(int score) => score switch
     {
-        >= 90 => "A", >= 80 => "B", >= 70 => "C", >= 60 => "D", _ => "F",
+        >= 90 => "A",
+        >= 80 => "B",
+        >= 70 => "C",
+        >= 60 => "D",
+        _ => "F",
     };
 
     private static int? ParseInt(string? value) =>
