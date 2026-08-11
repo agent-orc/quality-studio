@@ -4,7 +4,7 @@ title = "Quality Studio Gitleaks configuration"
 useDefault = true
 
 [allowlist]
-description = "Generated build output and repository-owned review metadata are not scanned for secret findings."
+description = "Generated build output and scanner-owned security metadata are not scanned for secret findings."
 paths = [
   '''(^|/)bin(/|$)''',
   '''(^|/)obj(/|$)''',
@@ -12,6 +12,5 @@ paths = [
   '''(^|/)coverage(/|$)''',
   '''(^|/)node_modules(/|$)''',
   '''(^|/)\.angular(/|$)''',
-  '''(^|/)\.quality/reviews(/|$)''',
   '''(^|/)\.quality/security(/|$)''',
 ]
