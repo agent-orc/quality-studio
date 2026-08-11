@@ -493,6 +493,14 @@
       <li>Current-worktree and full-history redacted secret scans run from a full-depth checkout. All workflow actions are pinned to verified immutable commits, and weekly Dependabot lanes cover Angular patches, NuGet, and workflow actions.</li>
     </ul>
     <p class="dim"><b>Remaining after this delivery:</b> S1, S2, S4, and S5 are not marked implemented. S1 remains the next architectural slice and requires a genuine isolated-worker runtime and adversarial canary environment; S2 depends on its broker and snapshot contracts. Hosted multi-client operation, untrusted repository review, and non-dry-run handover therefore remain locked. The separately documented <code>MachineBound</code> dashboard canary remains outside the deterministic PR gate and is not waived by this delivery.</p>
+
+    <h3>2026-08-11 · QS-68 · S4</h3>
+    <ul>
+      <li>Handover requests no longer accept client-authored finding summaries, prose, or metadata references. The API resolves a current, schema-versioned review sidecar by repository path, review kind, and canonical SHA-256 finding fingerprint; verifies the reviewed subject hashes against current regular files; and rejects forged, missing, malformed, or stale identities before building a card.</li>
+      <li>The browser must request a preview and presents the exact title and prompt for explicit confirmation. Delivery requires the matching SHA-256 confirmation hash over the repository, fingerprint, and complete card, so altered or unpreviewed content is rejected.</li>
+      <li>Task instructions now come only from the host-owned <code>quality-studio-handover.v2</code> template. Model prose is carried as a labeled base64 JSON data attachment, with source commit, finding fingerprint, review-meta reference, template version, and approving client identity recorded in the card; hostile prompt, HTML, Markdown, bidi, template, and terminal-control fixtures remain data and render as text.</li>
+    </ul>
+    <p class="dim"><b>Remaining after the S4 entry:</b> S1, S2, and S5 are not marked implemented. Gate B remains locked because no genuine worker sandbox or bounded snapshot/result broker is present. Hosted multi-client operation remains locked pending the S5 credential lifecycle; non-dry-run handover remains an operator-controlled deployment choice and now uses the previewed canonical-data contract.</p>
   </section>
 </main>
 </body>

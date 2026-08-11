@@ -340,6 +340,8 @@ app.MapDelete("/api/repos/{repoId}/review/runs/{id}", CancelReview);
 
 app.MapGet("/api/handover", HandoverConfiguration);
 app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration);
+app.MapPost("/api/handover/preview", HandoverPreview).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/handover/preview", HandoverPreview).RequireRateLimiting("spend");
 app.MapPost("/api/handover", Handover).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/handover", Handover).RequireRateLimiting("spend");
 app.MapPost("/api/threads", MutateThread);
@@ -1152,26 +1154,106 @@ static async Task<IResult> Handover(
     HandoverRequest request,
     RepositoryRegistry registry,
     AgentStudioTaskClient client,
+    AgentStudioTaskOptions options,
+    ApiSecurity security,
     ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
-    var filePath = repository.NormalizeRelativePath(request.FilePath);
-    repository.ResolveFile(filePath);
-    var metaReferencePath = request.MetaReference.Split('#', 2)[0];
-    if (!string.IsNullOrWhiteSpace(metaReferencePath)) repository.NormalizeRelativePath(metaReferencePath);
-    var result = await client.CreateTaskAsync(new FindingTaskTemplate(
-        request.FindingSummary,
-        filePath,
-        request.FindingText,
-        request.ReviewKind,
-        request.MetaReference), cancellationToken);
+    var template = await ResolveCanonicalHandoverAsync(repository, request.FilePath, request.ReviewKind,
+        request.FindingFingerprint, security.Identity(context).Id, cancellationToken);
+    var card = AgentStudioTaskClient.BuildCard(template,
+        options.Project ?? throw new InvalidOperationException("Agent Studio project is not configured."));
+    var expectedConfirmation = HandoverConfirmationHash(registration.Id, request.FindingFingerprint, card);
+    if (!CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expectedConfirmation),
+            Encoding.UTF8.GetBytes(request.ConfirmationHash ?? string.Empty)))
+        return Results.Conflict(new { error = "The handover preview is missing or stale. Preview the exact card and confirm it again." });
+    var result = await client.CreateTaskAsync(template, cancellationToken);
     logger.LogInformation(new EventId(1300, "FindingHandedOver"),
         "Handed over finding for {FilePath} and {ReviewKind} in repository {RepositoryId}; DryRun={DryRun}, TaskId={TaskId}, ElapsedMilliseconds={ElapsedMilliseconds}",
-        filePath, request.ReviewKind, registration.Id, result.DryRun, result.TaskId, stopwatch.ElapsedMilliseconds);
+        template.FilePath, request.ReviewKind, registration.Id, result.DryRun, result.TaskId, stopwatch.ElapsedMilliseconds);
     return Results.Ok(result);
 }
+
+static async Task<IResult> HandoverPreview(
+    HttpContext context,
+    HandoverPreviewRequest request,
+    RepositoryRegistry registry,
+    AgentStudioTaskOptions options,
+    ApiSecurity security,
+    CancellationToken cancellationToken)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var template = await ResolveCanonicalHandoverAsync(repository, request.FilePath, request.ReviewKind,
+        request.FindingFingerprint, security.Identity(context).Id, cancellationToken);
+    var card = AgentStudioTaskClient.BuildCard(template,
+        options.Project ?? throw new InvalidOperationException("Agent Studio project is not configured."));
+    return Results.Ok(new HandoverPreviewResponse(
+        HandoverConfirmationHash(registration.Id, request.FindingFingerprint, card), DateTimeOffset.UtcNow, card));
+}
+
+static async Task<FindingTaskTemplate> ResolveCanonicalHandoverAsync(
+    RepositoryAccess repository,
+    string requestedPath,
+    string requestedKind,
+    string requestedFingerprint,
+    string approver,
+    CancellationToken cancellationToken)
+{
+    ArgumentException.ThrowIfNullOrWhiteSpace(requestedPath);
+    ArgumentException.ThrowIfNullOrWhiteSpace(requestedKind);
+    ArgumentException.ThrowIfNullOrWhiteSpace(requestedFingerprint);
+    var filePath = repository.NormalizeRelativePath(requestedPath);
+    repository.ResolveFile(filePath);
+    if (!Enum.TryParse<ReviewKind>(requestedKind, true, out var kind) ||
+        !Enum.IsDefined(kind) || int.TryParse(requestedKind, out _))
+        throw new ArgumentException("Unsupported review kind.", nameof(requestedKind));
+    if (requestedFingerprint.Length != 71 || !requestedFingerprint.StartsWith("sha256:", StringComparison.Ordinal) ||
+        !requestedFingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
+        throw new ArgumentException("Finding fingerprint must be a lowercase sha256 value.", nameof(requestedFingerprint));
+
+    var metaPath = repository.FindMetaDocument(filePath, requestedKind);
+    var document = ReviewMetaJson.Deserialize(await File.ReadAllTextAsync(metaPath, cancellationToken));
+    if (!StringComparer.Ordinal.Equals(document.Unit.Path, filePath) || document.Kind != kind ||
+        document.SubjectInputs.Count == 0 ||
+        !document.SubjectInputs.Any(input => StringComparer.Ordinal.Equals(input.Path, filePath)))
+        throw new StalenessScanException("Review metadata subject does not match the requested current file and kind.");
+    foreach (var input in document.SubjectInputs)
+    {
+        if (!StringComparer.Ordinal.Equals(input.Selector, "file"))
+            throw new StalenessScanException("Only current file review findings can be handed over.");
+        var inputPath = repository.ResolveFile(input.Path);
+        var currentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(inputPath, cancellationToken);
+        if (!StringComparer.Ordinal.Equals(currentHash, input.ContentHash))
+            throw new StalenessScanException("The review finding is stale because its subject changed.");
+    }
+    var manifest = ReviewSubjectHasher.ComputeManifestHash(document.Unit.Id, document.SubjectInputs);
+    if (!StringComparer.Ordinal.Equals(document.ReviewedHash.Value, manifest))
+        throw new StalenessScanException("Review metadata has an invalid subject hash.");
+    var finding = document.Findings.SingleOrDefault(candidate =>
+        StringComparer.Ordinal.Equals(candidate.Fingerprint, requestedFingerprint))
+        ?? throw new KeyNotFoundException($"Finding '{requestedFingerprint}' was not found in canonical review metadata.");
+    var relativeMetaPath = Path.GetRelativePath(repository.Root, metaPath).Replace('\\', '/');
+    return new FindingTaskTemplate(
+        finding.Title,
+        finding.Locations.FirstOrDefault()?.Path ?? filePath,
+        $"{finding.Description}\n\nRecommendation: {finding.Recommendation}",
+        kind.ToString().ToLowerInvariant(),
+        $"{relativeMetaPath}#{finding.Id}",
+        finding.Fingerprint,
+        CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD") ?? "unborn",
+        approver);
+}
+
+static string HandoverConfirmationHash(string repositoryId, string fingerprint, AgentStudioTaskCard card) =>
+    "sha256:" + Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        domain = "quality-studio/handover-confirmation/v1",
+        repositoryId,
+        fingerprint,
+        card,
+    })));
 
 static async Task<IResult> ImportFromAgentStudio(
     RepositoryRegistry registry,
