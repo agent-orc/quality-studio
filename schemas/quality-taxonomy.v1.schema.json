@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "title": "Quality Studio taxonomy catalogue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "id", "version", "terms", "aspects"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*(?:/[a-z0-9][a-z0-9.-]*)+$" },
+    "version": { "$ref": "#/$defs/semver" },
+    "terms": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/term" }
+    },
+    "aspects": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/aspect" }
+    },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "aliases": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis", "id", "title", "description", "order", "aliases", "deprecated"],
+      "properties": {
+        "axis": {
+          "enum": [
+            "producer-kind", "evidence-status", "assessment", "change",
+            "decision", "severity", "lifecycle", "evidence-kind"
+          ]
+        },
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "aliases": { "$ref": "#/$defs/aliases" },
+        "deprecated": { "type": "boolean" },
+        "replacement": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "deprecated": { "const": true } }, "required": ["deprecated"] },
+          "then": { "required": ["replacement"] }
+        }
+      ]
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "order", "aliases", "allowedAxes", "deprecated"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "aliases": { "$ref": "#/$defs/aliases" },
+        "allowedAxes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["assessment", "change"] }
+        },
+        "deprecated": { "type": "boolean" },
+        "replacement": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "deprecated": { "const": true } }, "required": ["deprecated"] },
+          "then": { "required": ["replacement"] }
+        }
+      ]
+    }
+  }
+}

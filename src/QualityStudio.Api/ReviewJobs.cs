@@ -127,6 +127,7 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ConcurrentDictionary<string, ReviewWorkItem> runs = new(StringComparer.Ordinal);
     private readonly RepositoryRegistry repositories;
     private readonly ReviewJobsOptions options;
+    private readonly QualityTaxonomyOptions taxonomyOptions;
     private readonly ILogger<ReviewJobService> logger;
     private readonly QuotaService quotas;
     private readonly RepositoryHierarchyCache hierarchyCache;
@@ -137,12 +138,14 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ReviewModelCatalog modelCatalog;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
+        IOptions<QualityTaxonomyOptions> taxonomyOptions,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
         ReviewModelCatalog modelCatalog)
     {
         this.repositories = repositories;
         this.options = options.Value;
+        this.taxonomyOptions = taxonomyOptions.Value;
         this.logger = logger;
         this.quotas = quotas;
         this.hierarchyCache = hierarchyCache;
@@ -202,7 +205,12 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            taxonomyOptions.Provider,
+            model ?? CoreQualityTerms.ProducerKinds.Unknown,
+            CoreQualityTerms.ProducerKinds.Unknown,
+            taxonomyOptions.RoutePolicyVersion,
+            taxonomyOptions.ObservationWriteEnabled);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -595,7 +603,12 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            Provider: item.Provider,
+            RequestedModel: item.RequestedModel,
+            ThinkingLevel: item.ThinkingLevel,
+            RoutePolicyVersion: item.RoutePolicyVersion,
+            ObservationWriteEnabled: item.ObservationWriteEnabled);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -718,6 +731,10 @@ public sealed class ReviewJobService : BackgroundService
         public string Kind => manifest.Kind;
         public string? Model => manifest.Model;
         public string? ThinkingLevel => manifest.ThinkingLevel;
+        public string Provider => manifest.Provider;
+        public string RequestedModel => manifest.RequestedModel;
+        public string RoutePolicyVersion => manifest.RoutePolicyVersion;
+        public bool ObservationWriteEnabled => manifest.ObservationWriteEnabled;
         public string CliType => manifest.CliType;
         public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;

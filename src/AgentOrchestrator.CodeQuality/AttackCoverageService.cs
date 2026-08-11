@@ -368,6 +368,16 @@ public sealed class AttackCoverageService
             submission.Commit ?? await GitAsync(repositoryRoot, "rev-parse", "HEAD").ConfigureAwait(false),
             submission.CommitRange);
         await new AttackCoverageLedger(repositoryRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
+        if (observation.Verdict == AttackCoverageVerdict.Pass)
+        {
+            await ResolvePriorAttackFindingsAsync(
+                repositoryRoot,
+                boundary,
+                attack.Entry,
+                observation,
+                includeDeterministic: false,
+                cancellationToken).ConfigureAwait(false);
+        }
         return observation;
     }
 
@@ -475,6 +485,16 @@ public sealed class AttackCoverageService
                     commit,
                     null);
                 await ledger.AppendAsync(observation, cancellationToken).ConfigureAwait(false);
+                if (observation.Verdict == AttackCoverageVerdict.Pass && previousFindings.Length > 0)
+                {
+                    await ResolvePriorAttackFindingsAsync(
+                        repositoryRoot,
+                        boundary,
+                        attack.Entry,
+                        observation,
+                        includeDeterministic: true,
+                        cancellationToken).ConfigureAwait(false);
+                }
                 appended.Add(observation);
             }
         }
@@ -556,6 +576,47 @@ public sealed class AttackCoverageService
     private static bool IsSha256(string value) =>
         value is { Length: 71 } && value.StartsWith("sha256:", StringComparison.Ordinal) &&
         value[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private static async Task ResolvePriorAttackFindingsAsync(
+        string repositoryRoot,
+        BoundaryEntry boundary,
+        AttackCatalogueEntry attack,
+        AttackCoverageObservation basis,
+        bool includeDeterministic,
+        CancellationToken cancellationToken)
+    {
+        var prior = await new AttackCoverageLedger(repositoryRoot).ReadAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var fingerprints = prior.Where(observation =>
+                observation.BoundaryId == boundary.Id &&
+                observation.AttackId == attack.Id &&
+                observation.Verdict == AttackCoverageVerdict.Finding &&
+                observation.FindingFingerprint is not null &&
+                (includeDeterministic
+                    ? observation.Source == AttackCoverageSource.DeterministicSensor
+                    : observation.Source != AttackCoverageSource.DeterministicSensor))
+            .Select(observation => observation.FindingFingerprint!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (fingerprints.Length == 0) return;
+        var basisHash = AttackCoverageJson.Hash(basis);
+        var basisObservationId = "observation-sha256:" + basisHash["sha256:".Length..];
+        var store = new FindingStateStore(repositoryRoot);
+        var states = await store.ReadAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var fingerprint in fingerprints)
+        {
+            if (!states.TryGetValue(fingerprint, out var state) || state.State == FindingState.Resolved) continue;
+            await store.ResolveAsync(
+                fingerprint,
+                "policy",
+                "attack-coverage",
+                "A later attack-coverage pass resolved the linked finding under the domain reconciliation policy.",
+                "attack-coverage-reconciliation@1",
+                [basisObservationId],
+                state.Timestamp,
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     private static AttackCoverageCell ProjectCell(
         string boundaryId,

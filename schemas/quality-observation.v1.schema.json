@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "title": "Quality Studio immutable quality observation",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-[A-Za-z0-9._-]+$": true
+  },
+  "required": [
+    "$schema", "schemaVersion", "observationId", "observedAt", "taxonomy",
+    "extensionTaxonomies", "subject", "profile", "producer", "evidenceStatus",
+    "evidence", "aspects", "assessment", "findings", "completeness"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-observation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "observationId": { "type": "string", "pattern": "^observation-sha256:[a-f0-9]{64}$" },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "taxonomy": { "$ref": "#/$defs/taxonomyReference" },
+    "extensionTaxonomies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/taxonomyReference" }
+    },
+    "subject": { "$ref": "#/$defs/subject" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "evidenceStatus": { "$ref": "#/$defs/termId" },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "aspects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/aspect" }
+    },
+    "assessment": { "$ref": "#/$defs/termId" },
+    "decision": { "$ref": "#/$defs/decision" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "completeness": { "enum": ["complete", "partial"] },
+    "legacy": { "$ref": "#/$defs/legacy" },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "termId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]*$" },
+    "extensions": { "type": "object", "additionalProperties": true },
+    "taxonomyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "digest": { "$ref": "#/$defs/hash" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "scope", "manifestHash", "inputHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 },
+        "manifestHash": { "$ref": "#/$defs/hash" },
+        "inputHash": { "$ref": "#/$defs/hash" },
+        "path": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "promptHash", "reviewInputsHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "promptHash": { "$ref": "#/$defs/hash" },
+        "reviewInputsHash": { "$ref": "#/$defs/hash" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "agent", "provider", "requestedModel", "effectiveModel",
+        "thinkingLevel", "routePolicyVersion", "runId"
+      ],
+      "properties": {
+        "kind": { "$ref": "#/$defs/termId" },
+        "agent": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "requestedModel": { "type": "string", "minLength": 1 },
+        "effectiveModel": { "type": "string", "minLength": 1 },
+        "modelRevision": { "type": "string", "minLength": 1 },
+        "thinkingLevel": { "type": "string", "minLength": 1 },
+        "routePolicyVersion": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "reviewRunId": { "type": "string", "minLength": 1 },
+        "usageRunId": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "symbolId": { "type": "string", "minLength": 1 },
+        "uri": { "type": "string", "format": "uri-reference" },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startColumn": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "anyOf": [
+        { "required": ["path"] },
+        { "required": ["uri"] },
+        { "required": ["symbolId"] }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/termId" },
+        "locator": { "$ref": "#/$defs/locator" },
+        "artifactReference": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "contentHash": { "$ref": "#/$defs/hash" },
+        "mediaType": { "type": "string", "minLength": 1 },
+        "raw": true,
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "anyOf": [
+        { "required": ["locator"] },
+        { "required": ["artifactReference"] },
+        { "required": ["raw"] }
+      ]
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectId", "axis", "assessment", "rationale"],
+      "properties": {
+        "aspectId": { "$ref": "#/$defs/termId" },
+        "axis": { "enum": ["assessment", "change"] },
+        "assessment": { "$ref": "#/$defs/termId" },
+        "rationale": { "type": "string", "minLength": 1 },
+        "grade": { "$ref": "#/$defs/grade" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "producerRef"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/termId" },
+        "producerRef": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observationFindingId", "occurrenceFingerprint", "fingerprintAlgorithm",
+        "legacyFingerprints", "ruleRef", "aspectId", "severity", "title",
+        "description", "recommendation", "evidenceRefs", "source"
+      ],
+      "properties": {
+        "observationFindingId": { "type": "string", "minLength": 1 },
+        "issueId": { "type": "string", "minLength": 1 },
+        "occurrenceFingerprint": { "type": "string", "minLength": 1 },
+        "fingerprintAlgorithm": { "type": "string", "minLength": 1 },
+        "legacyFingerprints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "ruleRef": { "type": "string", "minLength": 1 },
+        "aspectId": { "$ref": "#/$defs/termId" },
+        "severity": { "$ref": "#/$defs/termId" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "recommendation": { "type": "string", "minLength": 1 },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "policyRef"],
+      "properties": {
+        "value": { "$ref": "#/$defs/termId" },
+        "policyRef": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "sourcePath", "completeness"],
+      "properties": {
+        "schema": { "type": "string", "minLength": 1 },
+        "value": true,
+        "sourcePath": { "type": "string", "minLength": 1 },
+        "completeness": { "enum": ["complete", "partial"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    }
+  }
+}

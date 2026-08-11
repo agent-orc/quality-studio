@@ -159,11 +159,11 @@ public sealed record ReviewFinding(
 
 public enum FindingSeverity { Critical, High, Medium, Low, Info }
 
-public enum FindingSourceKind { Deterministic }
+public enum FindingSourceKind { Agent, Deterministic, Human, Imported, Unknown }
 
 public sealed record FindingSource(
     [property: JsonPropertyOrder(0)] FindingSourceKind Kind,
-    [property: JsonPropertyOrder(1)] string SensorId,
+    [property: JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SensorId,
     [property: JsonPropertyOrder(2)] string Producer,
     [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ProducerVersion = null,
     [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? RunIndex = null);

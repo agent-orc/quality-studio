@@ -700,6 +700,23 @@
           "minLength": 1,
           "maxLength": 200
         },
+        "issueId": {
+          "type": "string",
+          "pattern": "^issue-sha256:[a-f0-9]{64}$"
+        },
+        "occurrenceFingerprint": {
+          "$ref": "#/$defs/sha256String"
+        },
+        "fingerprintAlgorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "legacyFingerprints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256String" }
+        },
         "title": {
           "type": "string",
           "minLength": 1,
@@ -734,14 +751,20 @@
     "findingSource": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "sensorId", "producer"],
+      "required": ["kind", "producer"],
       "properties": {
-        "kind": { "const": "deterministic" },
+        "kind": { "enum": ["agent", "deterministic", "human", "imported", "unknown"] },
         "sensorId": { "type": "string", "minLength": 1, "maxLength": 200 },
         "producer": { "type": "string", "minLength": 1, "maxLength": 300 },
         "producerVersion": { "type": "string", "minLength": 1, "maxLength": 200 },
         "runIndex": { "type": "integer", "minimum": 0 }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "deterministic" } }, "required": ["kind"] },
+          "then": { "required": ["sensorId"] }
+        }
+      ]
     },
     "thread": {
       "type": "object",

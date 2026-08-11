@@ -12,6 +12,8 @@ namespace AgentOrchestrator.CodeQuality;
 public static partial class FindingIdentity
 {
     public const string Canonicalization = "quality-studio-finding-v1";
+    public const string OccurrenceCanonicalization = "quality-studio-occurrence-v2";
+    public const string IssueCanonicalization = "quality-studio-issue-v1";
 
     public static IReadOnlyList<FindingIdentityRecord> Assign(
         JsonObject response,
@@ -55,7 +57,19 @@ public static partial class FindingIdentity
             finding["id"] = id;
             finding["ruleId"] = ruleId;
             finding["fingerprint"] = fingerprint;
-            result.Add(new FindingIdentityRecord(fingerprint, id, primaryPath!, ruleId));
+            var identity = UpgradeLegacy(
+                fingerprint,
+                id,
+                primaryPath!,
+                ruleId,
+                finding["aspect"]!.GetValue<string>(),
+                finding["title"]!.GetValue<string>());
+            finding["issueId"] = identity.IssueId;
+            finding["occurrenceFingerprint"] = identity.OccurrenceFingerprint;
+            finding["fingerprintAlgorithm"] = identity.FingerprintAlgorithm;
+            finding["legacyFingerprints"] = new JsonArray(identity.LegacyFingerprints!
+                .Select(value => (JsonNode)value).ToArray());
+            result.Add(identity);
         }
 
         return result;
@@ -65,6 +79,38 @@ public static partial class FindingIdentity
     {
         var canonical = $"{Canonicalization}\0{NormalizePath(path)}\0{normalizedSnippet}\0{ruleId.Trim()}";
         return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+
+    public static FindingIdentityRecord UpgradeLegacy(
+        string fingerprint,
+        string id,
+        string path,
+        string ruleId,
+        string aspect,
+        string title)
+    {
+        var canonicalAspect = LegacyTaxonomyMapping.MapAspectId(aspect);
+        var canonical = string.Join('\0',
+            OccurrenceCanonicalization,
+            NormalizePath(path),
+            canonicalAspect,
+            NormalizeSnippet(title));
+        var occurrence = "sha256:" + Convert.ToHexStringLower(
+            SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        var issueCanonical = $"{IssueCanonicalization}\0{occurrence}";
+        var issueId = "issue-sha256:" + Convert.ToHexStringLower(
+            SHA256.HashData(Encoding.UTF8.GetBytes(issueCanonical)));
+        return new FindingIdentityRecord(
+            fingerprint,
+            id,
+            NormalizePath(path),
+            ruleId,
+            issueId,
+            occurrence,
+            OccurrenceCanonicalization,
+            [fingerprint],
+            canonicalAspect,
+            title);
     }
 
     public static string NormalizeSnippet(string snippet) =>
@@ -113,4 +159,20 @@ public static partial class FindingIdentity
     private static partial Regex Whitespace();
 }
 
-public sealed record FindingIdentityRecord(string Fingerprint, string Id, string Path, string RuleId);
+public sealed record FindingIdentityRecord(
+    string Fingerprint,
+    string Id,
+    string Path,
+    string RuleId,
+    string? IssueId = null,
+    string? OccurrenceFingerprint = null,
+    string FingerprintAlgorithm = FindingIdentity.Canonicalization,
+    IReadOnlyList<string>? LegacyFingerprints = null,
+    string? Aspect = null,
+    string? Title = null)
+{
+    public FindingIdentityRecord WithV2Identity() => IssueId is not null && OccurrenceFingerprint is not null
+        ? this
+        : FindingIdentity.UpgradeLegacy(
+            Fingerprint, Id, Path, RuleId, Aspect ?? "unknown.unknown", Title ?? Id);
+}

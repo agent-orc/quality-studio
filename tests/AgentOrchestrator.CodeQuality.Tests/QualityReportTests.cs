@@ -79,6 +79,28 @@ public sealed class QualityReportTests
     }
 
     [Fact]
+    public async Task TopLevelSecuritySensorFindingKeepsDeterministicSourceInReportAndSarif()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(59);
+        await fixture.MarkTopLevelFindingAsSensorAsync();
+
+        var report = await new QualityReportBuilder().BuildAsync(
+            [fixture.Request], TestContext.Current.CancellationToken);
+
+        var finding = Assert.Single(Assert.Single(report.Repositories).Findings);
+        Assert.Equal("deterministic", finding.Source);
+        Assert.Equal("gitleaks", finding.SensorId);
+        Assert.Equal("Gitleaks", finding.Producer);
+        using var sarif = JsonDocument.Parse(QualityReportRenderer.Render(report, QualityReportFormat.Sarif));
+        var result = Assert.Single(Assert.Single(sarif.RootElement.GetProperty("runs").EnumerateArray())
+            .GetProperty("results").EnumerateArray());
+        var properties = result.GetProperty("properties");
+        Assert.Equal("deterministic", properties.GetProperty("source").GetString());
+        Assert.Equal("gitleaks", properties.GetProperty("sensorId").GetString());
+        Assert.Equal("Gitleaks", properties.GetProperty("producer").GetString());
+    }
+
+    [Fact]
     public async Task Cli_exit_codes_cover_passing_failing_and_invalid_gates()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(68);
@@ -205,6 +227,21 @@ public sealed class QualityReportTests
                     }),
                 }),
             });
+            await File.WriteAllTextAsync(
+                sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        }
+
+        public async Task MarkTopLevelFindingAsSensorAsync()
+        {
+            var metadata = JsonNode.Parse(await File.ReadAllTextAsync(
+                sidecarPath, TestContext.Current.CancellationToken))!.AsObject();
+            metadata["findings"]![0]!["source"] = new JsonObject
+            {
+                ["kind"] = "deterministic",
+                ["sensorId"] = "gitleaks",
+                ["producer"] = "Gitleaks",
+                ["producerVersion"] = "8.24.2",
+            };
             await File.WriteAllTextAsync(
                 sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
         }

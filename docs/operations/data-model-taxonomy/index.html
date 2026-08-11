@@ -141,8 +141,8 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
-      <span><b>Phase</b> decision-ready</span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
+      <span><b>Phase</b> implementation</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -552,6 +553,36 @@
       <tr><td>Current platform route policy treats model plus thinking level as the route and warns that history is observational</td><td><code>agent-taskboard/docs/system/domains/model-routing-policy.md</code>, version 2026-07-24</td></tr>
     </tbody>
   </table>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p>This section is append-only. It records implementation cards against the approved slice boundaries without changing the decisions above.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>11 August 2026</td>
+        <td><code>QS-76</code></td>
+        <td><code>T1</code> Contract and catalogue foundation</td>
+        <td>Added the <code>quality-studio/core@1.0.0</code> embedded catalogue; taxonomy and observation v1 JSON Schemas; extensible C# contracts with raw quarantine for unsupported majors; deterministic legacy mappings for every section 8 value; and positive, negative, alias, unknown-term, and extension round-trip tests.</td>
+      </tr>
+      <tr>
+        <td>11 August 2026</td>
+        <td><code>QS-76</code></td>
+        <td><code>T2</code> Immutable observation dual-write and route provenance</td>
+        <td>Added the write-through, idempotent monthly observation ledger and append-before-sidecar dual-write behind <code>QualityTaxonomy:ObservationWriteEnabled</code>. General review observations now retain requested and effective model, provider, thinking level, route-policy version, profile/input/subject hashes, and usage-run links. Usage ledger v3 and review-run manifests carry the same explicit route fields while v1/v2 remain readable. Tests cover two-model retention, replay, malformed lines, usage joins, and recovery when projection fails after append.</td>
+      </tr>
+      <tr>
+        <td>11 August 2026</td>
+        <td><code>QS-76</code></td>
+        <td><code>T3</code> Typed evidence, producer provenance, and issue lifecycle v2</td>
+        <td>Converted review locations and preserved legacy payloads into typed evidence references; added explicit agent, deterministic-sensor, and human producer round-trips; introduced v2 occurrence fingerprints, model-independent issue IDs, and retained v1 aliases; and made the lifecycle ledger append-only with the v1 state file as a derived compatibility projection. Omission no longer resolves findings. Human resolution is explicit, policy resolution requires a versioned policy and basis observation IDs, expiry/reopen/replay are covered, and security-sensor provenance survives report and SARIF projection.</td>
+      </tr>
+    </tbody>
+  </table>
+  <section class="box warn">
+    <h4>Approved slices not delivered by QS-76</h4>
+    <p><code>T4</code> and <code>T5</code> remain decided and queued. T4 is the next authority cutover: one reducer must replace report, dashboard, and current-sidecar reads together while retaining current totals. T5 depends on that completed reducer. Neither slice was started partially in this card.</p>
+  </section>
 
   <section class="box accent">
     <h4>Final recommendation</h4>

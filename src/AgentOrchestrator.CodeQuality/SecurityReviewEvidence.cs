@@ -66,6 +66,13 @@ public sealed record SecurityEvidenceBundle(
     internal static JsonObject FindingJson(ReviewFinding finding, SecuritySensorEvidence sensor)
     {
         var originalEvidence = ParseEvidence(finding.Evidence);
+        var identity = FindingIdentity.UpgradeLegacy(
+            finding.Fingerprint,
+            finding.Id,
+            finding.Locations.FirstOrDefault()?.Path ?? ".",
+            finding.RuleId,
+            finding.Aspect,
+            finding.Title);
         return new JsonObject
         {
             ["id"] = finding.Id,
@@ -77,6 +84,18 @@ public sealed record SecurityEvidenceBundle(
             ["locations"] = new JsonArray(finding.Locations.Select(location => (JsonNode)LocationJson(location)).ToArray()),
             ["fingerprint"] = finding.Fingerprint,
             ["ruleId"] = finding.RuleId,
+            ["issueId"] = identity.IssueId,
+            ["occurrenceFingerprint"] = identity.OccurrenceFingerprint,
+            ["fingerprintAlgorithm"] = identity.FingerprintAlgorithm,
+            ["legacyFingerprints"] = new JsonArray(identity.LegacyFingerprints!
+                .Select(value => (JsonNode)value).ToArray()),
+            ["source"] = new JsonObject
+            {
+                ["kind"] = "deterministic",
+                ["sensorId"] = sensor.SensorId,
+                ["producer"] = sensor.SensorId,
+                ["producerVersion"] = sensor.SensorVersion,
+            },
             ["evidence"] = new JsonObject
             {
                 ["source"] = "machine-sensor",
@@ -349,7 +368,13 @@ public static class SecurityReviewCombiner
             {
                 findings.Add(SecurityEvidenceBundle.FindingJson(finding, sensor));
                 var path = SecurityEvidenceBundle.NormalizePath(finding.Locations.FirstOrDefault()?.Path ?? ".");
-                identities.Add(new FindingIdentityRecord(finding.Fingerprint, finding.Id, path, finding.RuleId));
+                identities.Add(FindingIdentity.UpgradeLegacy(
+                    finding.Fingerprint,
+                    finding.Id,
+                    path,
+                    finding.RuleId,
+                    finding.Aspect,
+                    finding.Title));
             }
         }
         return identities;

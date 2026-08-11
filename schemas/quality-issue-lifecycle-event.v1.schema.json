@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-issue-lifecycle-event.v1.schema.json",
+  "title": "Quality Studio issue lifecycle event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "eventId", "issueId", "occurrenceFingerprint",
+    "fingerprintAlgorithm", "legacyFingerprints", "findingId", "path", "ruleId",
+    "state", "actorKind", "actor", "reason", "timestamp", "basisObservationIds"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-issue-lifecycle-event.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "eventId": { "type": "string", "pattern": "^lifecycle-sha256:[a-f0-9]{64}$" },
+    "issueId": { "type": "string", "pattern": "^issue-sha256:[a-f0-9]{64}$" },
+    "occurrenceFingerprint": { "$ref": "#/$defs/sha256" },
+    "fingerprintAlgorithm": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "legacyFingerprints": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "findingId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "path": { "type": "string", "minLength": 1 },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "state": { "enum": ["open", "accepted-risk", "waived", "false-positive", "resolved"] },
+    "actorKind": { "enum": ["agent", "human", "policy", "imported", "system", "unknown"] },
+    "actor": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "policyRef": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "basisObservationIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^observation-sha256:[a-f0-9]{64}$" }
+    },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": { "const": "resolved" },
+          "actorKind": { "const": "policy" }
+        },
+        "required": ["state", "actorKind"]
+      },
+      "then": {
+        "required": ["policyRef"],
+        "properties": { "basisObservationIds": { "minItems": 1 } }
+      }
+    }
+  ]
+}

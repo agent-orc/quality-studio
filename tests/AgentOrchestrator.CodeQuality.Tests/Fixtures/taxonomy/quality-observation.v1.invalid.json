@@ -1,0 +1,41 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "not-a-content-addressed-id",
+  "observedAt": "2026-08-11T09:00:00Z",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "extensionTaxonomies": [],
+  "subject": {
+    "unitId": "fixture",
+    "scope": "file",
+    "manifestHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "inputHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "reviewInputsHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "producer": {
+    "kind": "agent",
+    "agent": "codex",
+    "provider": "openai",
+    "requestedModel": "gpt-fixture",
+    "effectiveModel": "gpt-fixture",
+    "thinkingLevel": "high",
+    "routePolicyVersion": "2026-07-24",
+    "runId": "quality-fixture"
+  },
+  "evidenceStatus": "available",
+  "evidence": [],
+  "aspects": [],
+  "assessment": "pass",
+  "decision": { "value": "allow" },
+  "findings": [],
+  "completeness": "complete"
+}

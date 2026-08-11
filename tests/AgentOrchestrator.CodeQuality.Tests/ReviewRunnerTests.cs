@@ -285,6 +285,12 @@ public sealed class ReviewRunnerTests
             var finding = Assert.Single(metadata.GetProperty("findings").EnumerateArray());
             Assert.Equal("gitleaks-planted-secret", finding.GetProperty("id").GetString());
             Assert.Equal("secrets", finding.GetProperty("aspect").GetString());
+            Assert.Equal("deterministic",
+                finding.GetProperty("source").GetProperty("kind").GetString());
+            Assert.Equal("gitleaks",
+                finding.GetProperty("source").GetProperty("sensorId").GetString());
+            Assert.StartsWith("issue-sha256:", finding.GetProperty("issueId").GetString(),
+                StringComparison.Ordinal);
             Assert.Contains("\"source\": \"machine-sensor\"", finding.GetProperty("evidence").GetString(), StringComparison.Ordinal);
             var sensorReference = Assert.Single(metadata.GetProperty("reviewer").GetProperty("sensors").EnumerateArray());
             Assert.Equal("gitleaks", sensorReference.GetProperty("id").GetString());
@@ -660,7 +666,12 @@ public sealed class ReviewRunnerTests
 
             Assert.Equal("run-test", Assert.Single(recorded).RunId);
             Assert.Equal("review-sweep-test", recorded[0].ReviewRunId);
-            Assert.Equal(2, recorded[0].SchemaVersion);
+            Assert.Equal(3, recorded[0].SchemaVersion);
+            Assert.Equal("unknown", recorded[0].Provider);
+            Assert.Equal("deterministic", recorded[0].RequestedModel);
+            Assert.Equal("deterministic", recorded[0].EffectiveModel);
+            Assert.Equal("unknown", recorded[0].ThinkingLevel);
+            Assert.Equal("unknown", recorded[0].RoutePolicyVersion);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal("run-test", Assert.Single(report.Recent).RunId);
