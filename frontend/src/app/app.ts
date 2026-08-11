@@ -77,7 +77,8 @@ export class App implements OnDestroy {
   readonly usageHistoryOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
   readonly selectedNode = computed(() => {
-    const nodes = flattenTree(this.api.tree(), new Set(), true);
+    const nodes = [...flattenTree(this.api.tree(), new Set(), true),
+      ...flattenTree(this.api.treeSearchResults(), new Set(), true)];
     return nodes.find(node => node.path === this.selected())
       ?? (this.selected() === '.' ? nodes.find(node => node.level === 'project') : undefined);
   });
@@ -154,10 +155,13 @@ export class App implements OnDestroy {
 
   private async initialize(): Promise<void> {
     const preferredRepository = new URLSearchParams(location.search).get('repo');
+    const preferredPath = this.selected();
     await this.api.loadRepositories(preferredRepository);
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
+    if (preferredPath !== '.' && !flattenTree(this.api.tree(), new Set(), true)
+      .some(node => node.path === preferredPath)) await this.api.searchTree(preferredPath);
     void dashboardLoading;
     await this.api.loadReviewRuns();
     await Promise.all([this.api.loadUsage(), this.api.loadQuotas()]);
@@ -190,7 +194,9 @@ export class App implements OnDestroy {
   open(path: string, track = true, expandContainer = false, preserveFinding = false): void {
     const start = performance.now();
     this.selected.set(path);
-    const node = flattenTree(this.api.tree(), new Set(), true).find(candidate => candidate.path === path);
+    const node = [...flattenTree(this.api.tree(), new Set(), true),
+      ...flattenTree(this.api.treeSearchResults(), new Set(), true)]
+      .find(candidate => candidate.path === path);
     if (node?.level !== 'file') {
       this.api.clearFile();
       if (!preserveFinding) this.clearFindingSelection();
@@ -544,7 +550,8 @@ export class App implements OnDestroy {
   }
 
   private selectionPathOrFirst(preferred: string): string | null {
-    const nodes = flattenTree(this.api.tree(), new Set(), true);
+    const nodes = [...flattenTree(this.api.tree(), new Set(), true),
+      ...flattenTree(this.api.treeSearchResults(), new Set(), true)];
     if (!preferred || preferred === '.') return '.';
     const preferredNode = nodes.find(node => node.path === preferred);
     return preferredNode?.path ?? '.';

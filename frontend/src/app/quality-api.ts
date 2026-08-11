@@ -36,7 +36,20 @@ export interface TreeNode {
   lineCount?: number | null;
   coverage?: CoverageFact;
   excluded?: ScopeExclusion[];
+  parentId?: string | null;
+  hasChildren?: boolean;
+  childCount?: number;
+  childrenLoaded?: boolean;
   children: TreeNode[];
+}
+interface TreeLevelResponse {
+  schemaVersion: 2;
+  parentId: string | null;
+  path: string;
+  offset: number;
+  limit: number;
+  nextCursor: string | null;
+  nodes: TreeNode[];
 }
 export type ReviewKind = 'code' | 'security' | 'performance';
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -433,10 +446,14 @@ export class QualityApi {
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
   readonly focusedThreadId = signal<string | null>(null);
+  readonly treeChildrenLoading = signal(new Set<string>());
+  readonly treeSearchResults = signal<TreeNode[]>([]);
   private readonly treeSnapshots = new Map<string, TreeNode[]>();
   private readonly projectSnapshots = new Map<string, ProjectDashboard>();
   private repositorySelectionSequence = 0;
+  private treeSearchSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly treeChildrenRequests = new Map<string, Promise<void>>();
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
@@ -465,6 +482,7 @@ export class QualityApi {
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
+    this.treeSearchResults.set([]);
     const treeSnapshot = this.treeSnapshots.get(id);
     const projectSnapshot = this.projectSnapshots.get(id);
     this.tree.set(treeSnapshot ?? []);
@@ -515,18 +533,117 @@ export class QualityApi {
     const base = this.repositoryApiBase(repositoryId);
     const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
     try {
-      const tree = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`));
-      this.treeSnapshots.set(repositoryId, tree.nodes);
+      const nodes = await this.loadTreeLevel(base, null);
+      this.treeSnapshots.set(repositoryId, nodes);
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.tree.set(tree.nodes); this.connectionState.set('live');
-      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
+      this.tree.set(nodes); this.connectionState.set('live');
+      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', schemaVersion: 2, nodeCount: nodes.length, source: 'api' }));
     } catch (error) {
-      if (repositoryId === this.selectedRepositoryId()) {
-        this.connectionState.set('preview');
-        console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
+      if (error instanceof HttpErrorResponse && error.status === 404) {
+        try {
+          const legacy = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`));
+          const nodes = legacy.nodes.map(node => this.normalizeTreeNode(node, true));
+          this.treeSnapshots.set(repositoryId, nodes);
+          if (repositoryId === this.selectedRepositoryId()) {
+            this.tree.set(nodes); this.connectionState.set('live');
+            console.info(JSON.stringify({ event: 'qs.data.tree-loaded', schemaVersion: 1, nodeCount: nodes.length, source: 'legacy-api' }));
+          }
+        } catch (legacyError) {
+          this.useTreeFallback(repositoryId, legacyError);
+        }
+      } else {
+        this.useTreeFallback(repositoryId, error);
       }
     }
     if (detailsLoading) await detailsLoading;
+  }
+
+  async loadTreeChildren(node: TreeNode, repositoryId = this.selectedRepositoryId()): Promise<void> {
+    if (!(node.hasChildren ?? node.children.length > 0) || node.childrenLoaded || node.children.length > 0) return;
+    const key = `${repositoryId}\0${node.id}`;
+    const existing = this.treeChildrenRequests.get(key);
+    if (existing) return existing;
+    this.treeChildrenLoading.update(current => new Set([...current, node.id]));
+    const request = (async () => {
+      try {
+        const children = await this.loadTreeLevel(this.repositoryApiBase(repositoryId), node.id);
+        const current = repositoryId === this.selectedRepositoryId()
+          ? this.tree()
+          : this.treeSnapshots.get(repositoryId) ?? [];
+        const updated = this.replaceTreeChildren(current, node.id, children);
+        this.treeSnapshots.set(repositoryId, updated);
+        if (repositoryId === this.selectedRepositoryId()) this.tree.set(updated);
+        console.info(JSON.stringify({ event: 'qs.data.tree-children-loaded', parentId: node.id, nodeCount: children.length, source: 'api' }));
+      } catch (error) {
+        console.warn(JSON.stringify({ event: 'qs.data.tree-children-failed', parentId: node.id, reason: this.errorMessage(error) }));
+      } finally {
+        this.treeChildrenLoading.update(current => {
+          const next = new Set(current); next.delete(node.id); return next;
+        });
+        this.treeChildrenRequests.delete(key);
+      }
+    })();
+    this.treeChildrenRequests.set(key, request);
+    return request;
+  }
+
+  async searchTree(query: string, repositoryId = this.selectedRepositoryId()): Promise<void> {
+    const normalized = query.trim();
+    const sequence = ++this.treeSearchSequence;
+    if (!normalized) return;
+    try {
+      const page = await firstValueFrom(this.http.get<TreeLevelResponse>(
+        `${this.repositoryApiBase(repositoryId)}/tree/v2/search`,
+        { params: { query: normalized, limit: '200' } }));
+      if (sequence !== this.treeSearchSequence || repositoryId !== this.selectedRepositoryId()) return;
+      this.treeSearchResults.set(page.nodes.map(node => this.normalizeTreeNode(node, false)));
+    } catch (error) {
+      if (sequence !== this.treeSearchSequence || repositoryId !== this.selectedRepositoryId()) return;
+      this.treeSearchResults.set([]);
+      console.warn(JSON.stringify({ event: 'qs.data.tree-search-failed', reason: this.errorMessage(error) }));
+    }
+  }
+
+  private async loadTreeLevel(base: string, parentId: string | null): Promise<TreeNode[]> {
+    const nodes: TreeNode[] = [];
+    let cursor: string | null = null;
+    do {
+      const params: Record<string, string> = { limit: '500' };
+      if (parentId) params['parentId'] = parentId;
+      if (cursor) params['cursor'] = cursor;
+      const page = await firstValueFrom(this.http.get<TreeLevelResponse>(`${base}/tree/v2`, { params }));
+      if (page.schemaVersion !== 2 || !Array.isArray(page.nodes)) throw new Error('Unsupported tree response.');
+      nodes.push(...page.nodes.map(node => this.normalizeTreeNode(node, false)));
+      cursor = page.nextCursor;
+    } while (cursor);
+    return nodes;
+  }
+
+  private normalizeTreeNode(node: TreeNode, legacy: boolean): TreeNode {
+    const children = (node.children ?? []).map(child => this.normalizeTreeNode(child, legacy));
+    const hasChildren = node.hasChildren ?? children.length > 0;
+    return {
+      ...node,
+      hasChildren,
+      childCount: node.childCount ?? children.length,
+      childrenLoaded: legacy || children.length > 0 || !hasChildren,
+      children,
+    };
+  }
+
+  private replaceTreeChildren(nodes: TreeNode[], parentId: string, children: TreeNode[]): TreeNode[] {
+    return nodes.map(node => {
+      if (node.id === parentId) return { ...node, children, childrenLoaded: true, childCount: children.length };
+      if (!node.children.length) return node;
+      const updated = this.replaceTreeChildren(node.children, parentId, children);
+      return updated.some((child, index) => child !== node.children[index]) ? { ...node, children: updated } : node;
+    });
+  }
+
+  private useTreeFallback(repositoryId: string, error: unknown): void {
+    if (repositoryId !== this.selectedRepositoryId()) return;
+    this.connectionState.set('preview');
+    console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: this.errorMessage(error) }));
   }
 
   async loadAttackCoverage(scope = 'src/QualityStudio.Api'): Promise<AttackCoverageMatrix> {

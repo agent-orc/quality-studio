@@ -55,6 +55,59 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Tree_v2_returns_one_level_with_aggregate_facts_timing_and_conditional_cache()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/tree/v2?limit=1", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(response.Headers.ETag);
+        Assert.NotNull(response.Content.Headers.ContentLength);
+        Assert.True(response.Headers.TryGetValues("Server-Timing", out var timingValues));
+        var timing = Assert.Single(timingValues);
+        Assert.Contains("tree-snapshot;dur=", timing, StringComparison.Ordinal);
+        Assert.Contains("tree-projection;dur=", timing, StringComparison.Ordinal);
+        Assert.Contains("tree-serialization;dur=", timing, StringComparison.Ordinal);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(2, json.GetProperty("schemaVersion").GetInt32());
+        var project = Assert.Single(json.GetProperty("nodes").EnumerateArray());
+        Assert.True(project.GetProperty("hasChildren").GetBoolean());
+        Assert.True(project.GetProperty("childCount").GetInt32() > 0);
+        Assert.Empty(project.GetProperty("children").EnumerateArray());
+        Assert.True(project.GetProperty("kinds").TryGetProperty("code", out _));
+        Assert.True(project.TryGetProperty("findingCounts", out _));
+        Assert.True(project.TryGetProperty("coverage", out _));
+
+        var projectId = Uri.EscapeDataString(project.GetProperty("id").GetString()!);
+        using var childrenResponse = await client.GetAsync(
+            $"/api/tree/v2?parentId={projectId}&limit=100", TestContext.Current.CancellationToken);
+        var children = await childrenResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.NotEmpty(children.GetProperty("nodes").EnumerateArray());
+        Assert.All(children.GetProperty("nodes").EnumerateArray(), child =>
+            Assert.Equal(project.GetProperty("id").GetString(), child.GetProperty("parentId").GetString()));
+
+        using var cachedRequest = new HttpRequestMessage(HttpMethod.Get, "/api/tree/v2?limit=1");
+        cachedRequest.Headers.TryAddWithoutValidation("If-None-Match", response.Headers.ETag.Tag);
+        using var cached = await client.SendAsync(cachedRequest, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotModified, cached.StatusCode);
+    }
+
+    [Fact]
+    public async Task Tree_v2_search_finds_unloaded_files_without_returning_descendants()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync(
+            "/api/tree/v2/search?query=Sample.cs&limit=20", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var file = Assert.Single(json.GetProperty("nodes").EnumerateArray(), node =>
+            node.GetProperty("path").GetString() == "Sample.cs" && node.GetProperty("level").GetString() == "file");
+        Assert.False(file.GetProperty("hasChildren").GetBoolean());
+        Assert.Empty(file.GetProperty("children").EnumerateArray());
+    }
+
+    [Fact]
     public async Task Project_returns_repository_dashboard_and_honours_conditional_request()
     {
         using var client = application!.CreateClient();

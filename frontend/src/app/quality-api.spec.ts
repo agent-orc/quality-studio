@@ -38,7 +38,8 @@ describe('QualityApi', () => {
     };
 
     const loading = api.loadTree();
-    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
     http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
@@ -57,7 +58,8 @@ describe('QualityApi', () => {
 
   it('keeps a live API connection when a file lookup falls back to preview content', async () => {
     const loading = api.loadTree();
-    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: {
       code: { kind: 'code', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
@@ -78,6 +80,50 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('loads and merges paged children only when a lazy container expands', async () => {
+    const root: TreeNode = {
+      id: 'project', name: 'Project', level: 'project', path: 'Project.slnx', kinds: {},
+      hasChildren: true, childCount: 2, childrenLoaded: false, children: [],
+    };
+    api.tree.set([root]);
+
+    const loading = api.loadTreeChildren(root);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('limit') === '500'
+      && request.params.get('parentId') === 'project'
+      && request.params.get('cursor') === null).flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 0, limit: 500,
+      nextCursor: 'tree-v2:1', nodes: [{ id: 'one', parentId: 'project', name: 'One', level: 'module',
+          path: 'one', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('cursor') === 'tree-v2:1').flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 1, limit: 500,
+        nextCursor: null, nodes: [{ id: 'two', parentId: 'project', name: 'Two', level: 'module',
+          path: 'two', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await loading;
+
+    expect(api.tree()[0].childrenLoaded).toBeTrue();
+    expect(api.tree()[0].children.map(child => child.id)).toEqual(['one', 'two']);
+    expect(api.treeChildrenLoading().size).toBe(0);
+  });
+
+  it('searches unloaded tree nodes through the bounded v2 search route', async () => {
+    const searching = api.searchTree('Program.cs');
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search'
+      && request.params.get('query') === 'Program.cs'
+      && request.params.get('limit') === '200').flush({
+        schemaVersion: 2, parentId: null, path: 'search:Program.cs', offset: 0, limit: 200,
+        nextCursor: null, nodes: [{ id: 'program', parentId: 'api', name: 'Program.cs', level: 'file',
+          path: 'src/QualityStudio.Api/Program.cs', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await searching;
+
+    expect(api.treeSearchResults().map(node => node.path)).toEqual(['src/QualityStudio.Api/Program.cs']);
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
