@@ -673,6 +673,17 @@
         <li>The generated S5 result remains <code>insufficient-evidence</code> with zero of 30 required matched operations and <code>savingsPercent: null</code>; the integration did not change any model or thinking-level route.</li>
       </ul>
     </article>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · Decision-metadata integration reconciliation</h3><span class="pill done">landed</span></header>
+      <p>The approved S1-S5 implementation was replayed onto integration snapshot <code>59941d8e9373</code>. The remote still has no <code>develop</code> branch, so the requested fresh integration replay used the repository's advertised integration head, <code>origin/main</code>. The newly recorded blanket decisions, including this dossier's <code>decided</code> workbench state, remain intact.</p>
+      <ul>
+        <li>The Release build and portable solution suite pass with 219 tests passed, one explicitly skipped live integration test, and zero failures. The isolated 5,000-file dashboard canary and all 39 browser tests pass.</li>
+        <li>Both Angular compilers and the production build pass with the two known NG8102 warnings and advisory budget/style/CommonJS observations. The static baseline remains stable at 250 current, 250 existing, zero new, and zero resolved observations.</li>
+        <li>NuGet audit reports no vulnerable packages. npm audit reports 19 standalone advisories (13 high and six moderate) while the configured critical-severity CI gate passes; Gitleaks reports zero new or accepted findings across 345 files.</li>
+        <li>The regenerated S5 artifact remains <code>insufficient-evidence</code> with zero of 30 required matched operations and <code>savingsPercent: null</code>. No percentage claim, gate rollout conclusion, model change, or thinking-level change was made.</li>
+      </ul>
+    </article>
   </section>
 
   <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 11 August 2026</footer>
