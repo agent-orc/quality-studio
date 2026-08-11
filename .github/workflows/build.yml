@@ -14,12 +14,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Prepare security evidence
+        run: mkdir -p "$RUNNER_TEMP/security-evidence" "$RUNNER_TEMP/sbom"
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
@@ -31,7 +45,62 @@ jobs:
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test QualityStudio.slnx --configuration Release --no-build
+        run: dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
 
-      - name: Security scan
-        run: dotnet run --project src/quality-cli -- security scan .
+      - name: Test tracked security policy
+        run: |
+          npm run test:security-policy
+          node scripts/security-policy.mjs config src/QualityStudio.Api/appsettings.json
+
+      - name: Install frontend
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build 2>&1 | tee "$RUNNER_TEMP/security-evidence/frontend-build.txt"
+        working-directory: frontend
+
+      - name: Test frontend
+        run: npm test 2>&1 | tee "$RUNNER_TEMP/security-evidence/frontend-test.txt"
+        working-directory: frontend
+
+      - name: Gate production dependencies
+        run: |
+          npm audit --omit=dev --json > "$RUNNER_TEMP/security-evidence/npm-audit-production.json" || true
+          node ../scripts/security-policy.mjs npm "$RUNNER_TEMP/security-evidence/npm-audit-production.json"
+        working-directory: frontend
+
+      - name: Record full frontend dependency audit
+        continue-on-error: true
+        run: npm audit --json > "$RUNNER_TEMP/security-evidence/npm-audit-full.json"
+        working-directory: frontend
+
+      - name: Gate NuGet dependencies
+        run: |
+          dotnet list QualityStudio.slnx package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/security-evidence/nuget-solution.json"
+          dotnet list spikes/code-graph/CodeGraphSpike.csproj package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/security-evidence/nuget-code-graph-spike.json"
+          node scripts/security-policy.mjs nuget "$RUNNER_TEMP/security-evidence/nuget-solution.json" "$RUNNER_TEMP/security-evidence/nuget-code-graph-spike.json"
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/security-evidence/advisory-query-timestamp.txt"
+
+      - name: Generate SBOM
+        run: |
+          dotnet tool install Microsoft.Sbom.DotNetTool --tool-path "$RUNNER_TEMP/tools" --version 4.1.5
+          "$RUNNER_TEMP/tools/sbom-tool" generate -b "$RUNNER_TEMP/sbom" -bc "$GITHUB_WORKSPACE" -pn QualityStudio -pv "$GITHUB_SHA" -ps AgentOrchestrator -nsb "https://agent-orchestrator.dev/quality/$GITHUB_SHA"
+          node scripts/security-policy.mjs sbom "$RUNNER_TEMP/sbom/_manifest/spdx_2.2/manifest.spdx.json"
+
+      - name: Current-worktree secret scan
+        run: dotnet run --project src/quality-cli --configuration Release --no-build -- security scan . | tee "$RUNNER_TEMP/security-evidence/gitleaks-worktree.txt"
+
+      - name: History secret scan
+        run: dotnet run --project src/quality-cli --configuration Release --no-build -- security scan . --mode range --range --all | tee "$RUNNER_TEMP/security-evidence/gitleaks-history.txt"
+
+      - name: Retain supply-chain evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: supply-chain-evidence
+          path: |
+            ${{ runner.temp }}/security-evidence
+            ${{ runner.temp }}/sbom/_manifest
+          if-no-files-found: warn
+          retention-days: 30

@@ -406,6 +406,7 @@ public class GitleaksSecurityScanner : IReviewSensor
         CancellationToken cancellationToken,
         int? filesScannedOverride = null)
     {
+        var reportPath = Path.Combine(Path.GetTempPath(), $"quality-studio-gitleaks-{Guid.NewGuid():N}.json");
         var scannedFiles = filesScannedOverride ?? request.Mode switch
         {
             SecurityScanMode.Repository => await CountRepositoryFilesAsync(root, cancellationToken).ConfigureAwait(false),
@@ -427,10 +428,11 @@ public class GitleaksSecurityScanner : IReviewSensor
         };
         process.StartInfo.ArgumentList.Add("--no-banner");
         process.StartInfo.ArgumentList.Add("--no-color");
-        process.StartInfo.ArgumentList.Add("--redact");
-        process.StartInfo.ArgumentList.Add("100");
+        process.StartInfo.ArgumentList.Add("--redact=100");
         process.StartInfo.ArgumentList.Add("--report-format");
         process.StartInfo.ArgumentList.Add("json");
+        process.StartInfo.ArgumentList.Add("--report-path");
+        process.StartInfo.ArgumentList.Add(reportPath);
         process.StartInfo.ArgumentList.Add("--exit-code");
         process.StartInfo.ArgumentList.Add("1");
         if (!string.IsNullOrWhiteSpace(configPath))
@@ -448,7 +450,7 @@ public class GitleaksSecurityScanner : IReviewSensor
         {
             case SecurityScanMode.Repository:
                 process.StartInfo.ArgumentList.Add("dir");
-                process.StartInfo.ArgumentList.Add(root);
+                process.StartInfo.ArgumentList.Add(".");
                 break;
             case SecurityScanMode.Range:
                 process.StartInfo.ArgumentList.Add("git");
@@ -475,15 +477,46 @@ public class GitleaksSecurityScanner : IReviewSensor
             throw new SecurityScannerUnavailableException("Gitleaks could not be launched.", exception);
         }
 
-        var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        if (process.ExitCode is not (0 or 1))
+        try
         {
-            throw new SecurityScannerUnavailableException($"Gitleaks exited with code {process.ExitCode}.");
-        }
+            await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            if (process.ExitCode is not (0 or 1))
+            {
+                throw new SecurityScannerUnavailableException($"Gitleaks exited with code {process.ExitCode}.");
+            }
 
-        return ParseOutput(stdout) with { FilesScanned = scannedFiles };
+            if (!File.Exists(reportPath))
+            {
+                throw new SecurityScannerUnavailableException("Gitleaks did not produce its redacted report.");
+            }
+
+            var report = await File.ReadAllTextAsync(reportPath, cancellationToken).ConfigureAwait(false);
+            var parsed = ParseOutput(report);
+            if (process.ExitCode == 1 && parsed.Findings.Count == 0)
+            {
+                throw new SecurityScannerUnavailableException(
+                    "Gitleaks reported findings or an invocation error without a parseable redacted finding.");
+            }
+
+            return parsed with { FilesScanned = scannedFiles };
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(reportPath);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup of a fully redacted temporary report.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Best-effort cleanup of a fully redacted temporary report.
+            }
+        }
     }
 
     private async Task<SecurityScanOutput> ScanStagedAsync(
