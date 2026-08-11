@@ -286,6 +286,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
+                    ["QualityStudio:AllowedRoots:1"] = root,
                     ["QualityStudio:Security:Mode"] = "Local",
                 }));
         }
