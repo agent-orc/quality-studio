@@ -130,6 +130,7 @@ app.UseCors("dev-frontend");
 app.UseRouting();
 
 var apiSecurity = app.Services.GetRequiredService<ApiSecurity>();
+apiSecurity.ValidateLocalBindings(app.Configuration);
 if (apiSecurity.RequireHttps)
 {
     app.UseHsts();
@@ -174,6 +175,12 @@ app.Use(async (context, next) =>
                 title: "A matching X-Client-Id is required for mutations").ExecuteAsync(context);
             return;
         }
+        if (!apiSecurity.IsLocalMutationValid(context))
+        {
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "Local mutations require an allowed Origin and anti-CSRF nonce").ExecuteAsync(context);
+            return;
+        }
     }
 
     var path = context.Request.Path.Value ?? string.Empty;
@@ -181,7 +188,15 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+    var isRepositoryItem = segments.Length == 3 &&
+                           string.Equals(segments[0], "api", StringComparison.OrdinalIgnoreCase) &&
+                           string.Equals(segments[1], "repos", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryAdministration = isImport ||
+                                     HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection ||
+                                     isRepositoryItem && (HttpMethods.IsPut(context.Request.Method) ||
+                                                          HttpMethods.IsDelete(context.Request.Method));
+    if (isRepositoryAdministration)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -208,6 +223,25 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
+
+app.MapGet("/api/security/session", (HttpContext context, ApiSecurity security) =>
+{
+    if (!security.IsLocal) return Results.Ok(new
+    {
+        required = false,
+        headerName = (string?)null,
+        token = (string?)null,
+        expiresAt = (DateTimeOffset?)null,
+    });
+    var session = security.CreateLocalAntiCsrfSession(context);
+    return Results.Ok(new
+    {
+        required = true,
+        headerName = session.HeaderName,
+        token = session.Token,
+        expiresAt = session.ExpiresAt,
+    });
+});
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
@@ -268,18 +302,18 @@ app.MapPost("/api/guidelines/catalog/{catalogueId}/install", InstallGuideline);
 app.MapPost("/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install", InstallGuideline);
 app.MapPost("/api/guidelines/impact", GuidelineImpact);
 app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
-app.MapGet("/api/scan", Scan);
-app.MapGet("/api/repos/{repoId}/scan", Scan);
-app.MapGet("/api/security/scan", SecurityScan);
-app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
-app.MapGet("/api/security/attack-coverage", AttackCoverage);
-app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage);
+app.MapGet("/api/scan", Scan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/scan", Scan).RequireRateLimiting("spend");
+app.MapGet("/api/security/scan", SecurityScan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan).RequireRateLimiting("spend");
+app.MapGet("/api/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage).RequireRateLimiting("spend");
 app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);

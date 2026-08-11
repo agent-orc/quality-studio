@@ -14,12 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
@@ -31,7 +35,79 @@ jobs:
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test QualityStudio.slnx --configuration Release --no-build
+        run: dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
 
-      - name: Security scan
+      - name: Verify supply-chain gate fixtures
+        run: npm run test:supply-chain
+
+      - name: Query NuGet advisories
+        run: |
+          mkdir -p "$RUNNER_TEMP/quality-studio-evidence"
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/quality-studio-evidence/advisory-queried-at.txt"
+          dotnet list QualityStudio.slnx package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/quality-studio-evidence/nuget-solution.json"
+          dotnet list spikes/code-graph/CodeGraphSpike.csproj package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/quality-studio-evidence/nuget-code-graph-spike.json"
+          node scripts/assert-no-vulnerable-packages.mjs "$RUNNER_TEMP/quality-studio-evidence/nuget-solution.json" "$RUNNER_TEMP/quality-studio-evidence/nuget-code-graph-spike.json"
+
+      - name: Generate SBOM
+        run: |
+          mkdir -p "$RUNNER_TEMP/quality-studio-evidence/sbom"
+          dotnet tool install --tool-path "$RUNNER_TEMP/quality-studio-tools" Microsoft.Sbom.DotNetTool --version 4.1.5
+          "$RUNNER_TEMP/quality-studio-tools/sbom-tool" generate -b src/QualityStudio.Api/bin/Release/net10.0 -bc . -m "$RUNNER_TEMP/quality-studio-evidence/sbom" -pn QualityStudio -pv "0.0.${GITHUB_RUN_NUMBER}" -ps "Organization: agent-orc" -nsb https://github.com/agent-orc/quality-studio -nsu "$GITHUB_SHA" -D true
+
+      - name: Current-worktree secret scan
         run: dotnet run --project src/quality-cli -- security scan .
+
+      - name: All-history secret scan
+        run: |
+          gitleaks_bin="$HOME/.local/share/QualityStudio/gitleaks/8.24.2/linux-x64/gitleaks"
+          "$gitleaks_bin" git --no-banner --no-color --redact=100 --report-format json --report-path "$RUNNER_TEMP/quality-studio-evidence/gitleaks-all-history.json" --config .quality/security/gitleaks.toml --log-opts=--all --exit-code 1 .
+
+      - name: Retain backend security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-security-evidence
+          path: ${{ runner.temp }}/quality-studio-evidence
+          if-no-files-found: error
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install locked frontend graph
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Test frontend
+        run: npm test
+
+      - name: Record full dependency audit
+        run: |
+          mkdir -p "$RUNNER_TEMP/quality-studio-frontend-evidence"
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/quality-studio-frontend-evidence/advisory-queried-at.txt"
+          npm audit --json > "$RUNNER_TEMP/quality-studio-frontend-evidence/npm-audit-full.json" || true
+
+      - name: Gate production dependency audit
+        run: npm audit --omit=dev --audit-level=high --json > "$RUNNER_TEMP/quality-studio-frontend-evidence/npm-audit-production.json"
+
+      - name: Retain frontend evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-security-evidence
+          path: ${{ runner.temp }}/quality-studio-frontend-evidence
+          if-no-files-found: error
