@@ -11,6 +11,7 @@ using QualityStudio.Api;
 using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
+builder.Services.Configure<QualityTaxonomyOptions>(builder.Configuration.GetSection(QualityTaxonomyOptions.SectionName));
 builder.Services.AddSingleton<ApiSecurity>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
@@ -994,7 +996,8 @@ static async Task<IResult> Usage(HttpContext context, DateTimeOffset? since, str
 
 static async Task<IResult> Report(HttpContext context, string? format,
     RepositoryRegistry registry, SensorRegistry sensorRegistry, ApiSecurity security,
-    QualityReportBuilder builder, ILogger<Program> logger, CancellationToken cancellationToken)
+    QualityReportBuilder builder, IOptions<QualityTaxonomyOptions> taxonomyOptions,
+    ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var requestedId = RouteRepositoryId(context);
@@ -1014,7 +1017,8 @@ static async Task<IResult> Report(HttpContext context, string? format,
             return new QualityReportSensor(sensor.Id, sensor.Version, configuration.Enabled);
         }).ToArray(),
         registration.GlobalInputsDirectory,
-        registration.InputBudgetCharacters)).ToArray();
+        registration.InputBudgetCharacters,
+        taxonomyOptions.Value.ObservationReadEnabled)).ToArray();
     var report = await builder.BuildAsync(repositories, cancellationToken);
     var selectedFormat = string.IsNullOrWhiteSpace(format)
         ? QualityReportFormat.Json
