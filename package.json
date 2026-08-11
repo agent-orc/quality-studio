@@ -11,6 +11,7 @@
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs",
     "test:coverage-contract": "node --test tests/check-coverage.test.mjs",
+    "test:repository-contracts": "node --test tests/check-coverage.test.mjs tests/release-canary-workflow.test.mjs",
     "coverage:check": "node scripts/check-coverage.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
     "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs"
