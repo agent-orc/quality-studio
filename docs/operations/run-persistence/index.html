@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Studio run persistence</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;      /* Branch identity: develop */
+    --taskbr: #4a3aa7;       /* Branch identity: task/<slug> */
+    --salvage: #eb6834;      /* Branch identity: runner/<id>/<key> (salvage) */
+    --rescue: #b58500;       /* Branch identity: rescue/WIP */
+    --ok: #008300;           /* Good status, always with icon and text */
+    --bad: #c93736;          /* Problem status, always with icon and text */
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  /* SVG roles */
+  .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+  .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+  .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+  .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+  .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block figure { margin: 12px 0 0; }
+  .building-block figure svg { min-height: 170px; }
+  .building-block figcaption { margin-bottom: 0; }
+  .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Quality Studio · QS-62 · Decision dossier</p>
+  <h1>Persist the run, not just the latest review</h1>
+  <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
+  <div class="meta">
+    <span><b>Status</b> decision pending</span>
+    <span><b>Phase</b> decision ready</span>
+    <span><b>Evidence cut</b> 11 August 2026</span>
+    <span><b>Source</b> QS-62</span>
+  </div>
+</header>
+
+<div class="box accent">
+  <h4>Recommendation for approval</h4>
+  <p>Keep <code>.quality/runs/&lt;runId&gt;/</code> as the ignored, mutable crash-recovery journal. On every stopped attempt, materialize a tracked archive at <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/</code>. Store one immutable run manifest, append-only operation and finding observations, and one create-only record per attempt. Extend the existing usage ledger with <code>operationId</code>; do not duplicate detailed token entries or introduce a database.</p>
+  <p><b>Approval effect:</b> one backend-owned storage contract, one deterministic diff contract, five implementation slices, and no Quality Studio CLI Git ownership.</p>
+</div>
+
+<ul class="toc">
+  <li><a href="#decision">Decision and boundary</a></li>
+  <li><a href="#evidence">Repository evidence</a></li>
+  <li><a href="#durability">What must be durable</a></li>
+  <li><a href="#options">Storage options</a></li>
+  <li><a href="#contract">Recommended file contract</a></li>
+  <li><a href="#verdicts">Outcome, verdicts, and time</a></li>
+  <li><a href="#diff">Run history and diff</a></li>
+  <li><a href="#migration">Migration and legacy truth</a></li>
+  <li><a href="#slices">Approvable slices</a></li>
+  <li><a href="#acceptance">Acceptance and decision</a></li>
+</ul>
+
+<h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
+<p>The product currently has three different meanings of persistence. They should remain separate and be connected by stable identifiers.</p>
+
+<table>
+  <thead><tr><th>Layer</th><th>Purpose</th><th>Current owner</th><th>Decision</th></tr></thead>
+  <tbody>
+    <tr><td><b>Working recovery</b></td><td>Resume queued, running, paused, or capped work after process failure.</td><td><code>.quality/runs/</code></td><td>Keep mutable and ignored. It is a cache, not history.</td></tr>
+    <tr><td><b>Standing quality truth</b></td><td>Latest grade, findings, reviewer, hashes, and threads for one unit and review kind.</td><td>Review-meta sidecars plus <code>.quality/findings/state.json</code></td><td>Keep as the current projection. Do not turn it into a run log.</td></tr>
+    <tr><td><b>Historical run truth</b></td><td>Why a sweep ran, what each operation produced, its spend, its typed verdict, and how it differs from another run.</td><td>Missing as a tracked product contract.</td><td>Add <code>.quality/run-history/</code> and history/diff APIs.</td></tr>
+  </tbody>
+</table>
+
+<div class="box ok">
+  <h4>Explicit ownership boundary</h4>
+  <p>The API/backend writes and reads archive files. It never commits, pushes, merges, or manages worktrees. In a managed workspace, the platform-owned post-run path makes repository artifacts durable in Git. In an ordinary checkout, they follow the repository's normal commit workflow, matching the existing token-ledger policy.</p>
+</div>
+
+<h2 id="evidence"><span class="no">02</span>Repository evidence</h2>
+
+<h3>The reported loss is real, but narrower than an API restart</h3>
+<table>
+  <thead><tr><th>Boundary</th><th>Observed behavior</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>Close and reopen the browser against the same API</td><td><span class="pill done">survives</span> Initialization reloads runs from the API. The panel is not the owner.</td><td><a href="../../../frontend/src/app/app.ts">frontend/src/app/app.ts</a>, lines 134-144</td></tr>
+    <tr><td>Restart the API in the same checkout</td><td><span class="pill done">survives</span> Startup scans registered repositories, restores progress, and requeues non-terminal work.</td><td><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>, lines 355-411 and 694-705</td></tr>
+    <tr><td>Lose <code>.quality/runs/</code>, clean the worktree, clone again, or move to another checkout</td><td><span class="pill open">lost</span> The complete orchestration folder is ignored by Git.</td><td><a href="../../../.gitignore">.gitignore</a>, lines 9-24; <a href="../../../docs/review-runs.md">review-runs.md</a>, lines 27-37</td></tr>
+    <tr><td>Open older terminal history</td><td><span class="pill part">bounded</span> The API lists only in-memory/recovered runs, defaults to 30, and the panel renders eight.</td><td><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>, lines 102-108 and 318-320; <a href="../../../frontend/src/app/review-panel/review-panel.html">review-panel.html</a>, lines 5-18</td></tr>
+  </tbody>
+</table>
+
+<h3>The current store is a sound recovery journal</h3>
+<div class="building-blocks">
+  <div class="building-block">
+    <h4>Create-only plan</h4>
+    <p><code>manifest.json</code> records node, kind, model, CLI, targets and enqueue-time subject hashes. It is written with <code>FileMode.CreateNew</code> and flushed to disk.</p>
+    <p class="evidence-link"><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 23-38 and 92-107</p>
+  </div>
+  <div class="building-block">
+    <h4>Append-only transitions</h4>
+    <p><code>progress.jsonl</code> writes queued/running/done/failed/skipped transitions through a write-through stream. A malformed line does not hide readable records.</p>
+    <p class="evidence-link"><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 109-129 and 190-211</p>
+  </div>
+  <div class="building-block">
+    <h4>Atomic current status</h4>
+    <p><code>status.json</code> is replaced from a same-directory temporary file and carries counters, caps, usage totals, costs, timestamps and stop reason.</p>
+    <p class="evidence-link"><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 48-68 and 131-153</p>
+  </div>
+  <div class="building-block">
+    <h4>Crash behavior is tested</h4>
+    <p>Tests cover non-terminal restart, in-flight file requeue, paused recovery, terminal no-resume, incomplete JSONL, and atomic status replacement.</p>
+    <p class="evidence-link"><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">ReviewRunStoreTests.cs</a>, lines 127-378</p>
+  </div>
+</div>
+
+<h3>What cannot be reconstructed today</h3>
+<ul>
+  <li><b>The run-level quality result.</b> <code>ReviewRunStatus</code> has an operational state but no typed verdict or per-operation grade/finding snapshot.</li>
+  <li><b>Per-operation identity.</b> The status accumulates token counts. The detailed ledger has provider <code>runId</code> and sweep <code>reviewRunId</code>, but no operation ID or attempt number.</li>
+  <li><b>Prior observations without a matching Git commit.</b> A successful review atomically replaces its unit sidecar. Finding lifecycle mutations replace the current record for a fingerprint. Git can preserve either only after a commit boundary.</li>
+  <li><b>A deterministic run-to-run comparison.</b> Existing change reviews already compare grade snapshots and stable finding fingerprints across commits, but review-run APIs expose no equivalent.</li>
+  <li><b>A portable history index.</b> <code>ReviewJobService.List</code> reads the in-memory dictionary, not a tracked archive.</li>
+</ul>
+
+<div class="box warn">
+  <h4>Data reality in this checkout</h4>
+  <p>The evidence cut contains 20 tracked <code>.quality/changes/*.json</code> records and 12 tracked files matching review-meta or <code>*.meta.json</code> naming, but no tracked monthly usage JSONL and no live run files. The contracts exist; past review runs must not be fabricated from the absence of run data.</p>
+</div>
+
+<h2 id="durability"><span class="no">03</span>What must be durable</h2>
+
+<table>
+  <thead><tr><th>Fact</th><th>Required durable form</th><th>Canonical owner</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td>Run identity and intent</td><td>Run ID, repository ID, unit ID/path/level, kind, target manifest, force, requested model/CLI, cap, estimate, source commit if available.</td><td>Archived <code>run.json</code></td><td>Explains what was approved and makes scope changes visible.</td></tr>
+    <tr><td>Attempt outcome</td><td>Attempt number, done/failed/cancelled/capped, counts, stop/error codes, start/finish time, aggregate state.</td><td><code>attempts/NNNN.json</code></td><td>Capped runs can resume; one run can therefore have more than one stopped attempt.</td></tr>
+    <tr><td>Operation result</td><td>Stable operation ID, target, state, provider run ID, hashes, sidecar path, typed verdict, grade, timestamps.</td><td><code>operations.jsonl</code></td><td>Connects plan, output, token usage and findings without relying on the latest sidecar.</td></tr>
+    <tr><td>Finding observation</td><td>Fingerprint, ID, rule, severity, title, locations and lifecycle state at observation time.</td><td><code>findings.jsonl</code></td><td>Stable fingerprint sets enable new/resolved/persisting diff even after sidecar replacement.</td></tr>
+    <tr><td>Detailed tokens</td><td>Existing model/CLI/token/duration row plus operation and attempt IDs.</td><td><code>.quality/usage/YYYY-MM.jsonl</code> v3</td><td>Builds on the append-only ledger and keeps one detailed spend source.</td></tr>
+    <tr><td>Current finding disposition</td><td>Open/accepted/waived/false-positive/resolved, author, reason, timestamp and expiry.</td><td><code>.quality/findings/state.json</code></td><td>Remains the current lifecycle projection; archive captures state-at-run, not a competing current state.</td></tr>
+    <tr><td>Standing latest review</td><td>Latest grade, summary, aspects, findings, reviewer, subject and input hashes.</td><td>Review-meta sidecar</td><td>Preserves the product's existing current-truth model.</td></tr>
+  </tbody>
+</table>
+
+<p>Raw prompts, raw agent transcripts, provider credentials and full source copies are intentionally outside the archive. Hashes, selected configuration and result snapshots are enough for provenance and diffing without storing sensitive or high-volume execution material.</p>
+
+<h2 id="options"><span class="no">04</span>Storage options</h2>
+
+<table>
+  <thead><tr><th>Option</th><th>Fit</th><th>Main advantage</th><th>Failure mode</th><th>Decision</th></tr></thead>
+  <tbody>
+    <tr><td><b>A. Track the existing <code>.quality/runs</code> folder</b></td><td>Low</td><td>Smallest code change.</td><td>Commits mutable status churn, crash debris and resumable intent as if they were historical truth. Capped resume rewrites the same status. Merge and retention behavior are unclear.</td><td><span class="pill open">reject</span></td></tr>
+    <tr><td><b>B. Append every run event to one monthly JSONL</b></td><td>Medium</td><td>Matches the token-ledger pattern and is easy to stream.</td><td>Large shared files are awkward for per-run review, partial migrations and Git conflict inspection. A full run requires replay, and finding snapshots make lines large.</td><td><span class="pill part">not primary</span></td></tr>
+    <tr><td><b>C. SQLite run database</b></td><td>Low</td><td>Transactions and flexible queries.</td><td>Binary diffs, merge conflicts and two sources of quality truth conflict with the repository-owned file model. A database migration becomes mandatory to inspect history.</td><td><span class="pill open">reject</span></td></tr>
+    <tr><td><b>D. Working journal plus one tracked folder per run</b></td><td>High</td><td>Retains tested recovery behavior, gives each run a reviewable folder, supports append/create-only attempt history, and scales discovery by month.</td><td>Requires a projection writer, schemas and a history reader. These are bounded backend changes.</td><td><span class="pill done">recommend</span></td></tr>
+  </tbody>
+</table>
+
+<p>Option D is closest to the repository's existing patterns: current unit truth beside code, immutable change records under <code>.quality/changes/</code>, and a monthly append-only spend ledger. It also mirrors the Studio task model's folder-per-entity shape without importing the task server or its workflow semantics.</p>
+
+<h2 id="contract"><span class="no">05</span>Recommended file contract</h2>
+
+<pre><code>.quality/
+  runs/                                  # existing mutable recovery journal, ignored
+    &lt;runId&gt;/
+      manifest.json
+      progress.jsonl
+      status.json
+
+  run-history/                           # tracked product history
+    2026-08/
+      &lt;runId&gt;/
+        run.json                         # immutable identity, plan and configuration
+        operations.jsonl                 # append-only completed/failed operation records
+        findings.jsonl                   # append-only finding observations
+        attempts/
+          0001.json                      # create-only capped/failed/cancelled/done snapshot
+          0002.json                      # created only if the capped run resumes
+
+  usage/
+    2026-08.jsonl                        # existing detailed token ledger, schema v1/v2/v3
+  findings/state.json                    # current lifecycle projection
+</code></pre>
+
+<h3>Contract invariants</h3>
+<ul>
+  <li>Every archive document has <code>$schema</code> and <code>schemaVersion</code>. The current run-store records have neither; migration must not silently call them v1.</li>
+  <li><code>run.json</code> is create-only. It includes enqueue-time target hashes, prompt identifiers/hashes when known, effective review-input hashes, and the current Git commit plus dirty-state flag when available. Per-target hashes remain authoritative for dirty worktrees.</li>
+  <li><code>operationId</code> is generated by the backend before agent execution and is stable across recovery of that operation. It is carried into operation, finding and usage records.</li>
+  <li>An operation record is appended only after the sidecar result is atomically written, or after a terminal operation error is known. A running marker remains only in the ignored journal.</li>
+  <li>Each stopped attempt gets the next create-only number. <code>capped</code> is a stopped attempt, not an immutable end of the logical run. A later resume adds another attempt and never rewrites the earlier one.</li>
+  <li>Detailed token fields live in the usage ledger. Attempt records contain reconciled totals and references to ledger month(s), review run ID and operation IDs.</li>
+  <li>History readers use the highest valid attempt number as the latest run state. A malformed newest artifact is surfaced as <code>history-corrupt</code>; it is not silently omitted.</li>
+  <li>The application never auto-deletes tracked history. Cleanup of ignored recovery folders is allowed only after the corresponding archive attempt has been flushed successfully.</li>
+</ul>
+
+<h3>Minimum schema set</h3>
+<table>
+  <thead><tr><th>Schema</th><th>Required core fields</th></tr></thead>
+  <tbody>
+    <tr><td><code>run-record.v1</code></td><td><code>runId</code>, <code>repositoryId</code>, <code>createdAt</code>, subject identity, kind, targets and hashes, configuration, cap/estimate, source revision.</td></tr>
+    <tr><td><code>run-operation.v1</code></td><td><code>operationId</code>, ordinal, attempt, unit/path/level, state, start/finish, provider run ID, reviewed/input hashes, result sidecar, typed verdict and grade.</td></tr>
+    <tr><td><code>run-finding.v1</code></td><td><code>operationId</code>, fingerprint, finding ID, rule ID, severity, title, locations, state at observation.</td></tr>
+    <tr><td><code>run-attempt.v1</code></td><td>Attempt number, outcome, completeness, timestamps, per-attempt and cumulative counters/spend, error codes, cap, estimate deviation, ledger references, quality summary.</td></tr>
+    <tr><td><code>usage-ledger.v3</code></td><td>All v2 fields plus <code>operationId</code> and <code>attempt</code>. Existing v1/v2 lines remain valid and are never rewritten.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="verdicts"><span class="no">06</span>Outcome, verdicts, findings, and time</h2>
+
+<h3>Do not collapse execution outcome into a quality verdict</h3>
+<p>A completed run is not automatically a passing run. Store two independent facts:</p>
+<ul>
+  <li><b>Operational outcome:</b> <code>done</code>, <code>failed</code>, <code>cancelled</code>, or <code>capped</code>, with completeness and file/aggregate counters. These values already exist in the run service.</li>
+  <li><b>Typed quality verdict:</b> preserve the producer's semantics. Code and performance operations store grade score/band. Security stores <code>pass</code>/<code>warn</code>/<code>block</code>/<code>unavailable</code> and its combination rule. Future flow or change verdicts use their own named type rather than being coerced into a universal pass/fail.</li>
+</ul>
+
+<p>The attempt summary may contain deterministic rollups such as lowest grade, worst security verdict, active finding counts and highest active severity. It must not invent a repository-wide pass threshold. Existing report gates remain explicit through <code>--fail-under</code> and <code>--fail-on</code>.</p>
+
+<h3>Finding roles remain distinct</h3>
+<table>
+  <thead><tr><th>Artifact</th><th>Meaning</th><th>Change behavior</th></tr></thead>
+  <tbody>
+    <tr><td>Review sidecar <code>findings[]</code></td><td>Latest observation for one unit and kind.</td><td>Atomically replaced by a later successful review.</td></tr>
+    <tr><td><code>findings/state.json</code></td><td>Current lifecycle decision for a stable fingerprint.</td><td>Replaced atomically; revision and optimistic timestamp protect mutation.</td></tr>
+    <tr><td>Run archive <code>findings.jsonl</code></td><td>What one operation observed, including lifecycle state at that time.</td><td>Append-only. Never becomes the current lifecycle owner.</td></tr>
+  </tbody>
+</table>
+
+<h3>Timestamp vocabulary</h3>
+<p>Persist UTC ISO 8601 values from the backend clock. Do not infer chronology from file modification time or Git author time.</p>
+<ul>
+  <li><code>createdAt</code>: accepted/enqueued.</li>
+  <li><code>startedAt</code> and <code>finishedAt</code>: each attempt and operation.</li>
+  <li><code>reviewedAt</code>: result observation written to its sidecar.</li>
+  <li><code>usageRecordedAt</code>: existing ledger <code>timestamp</code>, explicitly retained as the operation usage event time.</li>
+  <li><code>archivedAt</code>: archive attempt flushed. This is durability time, not review time.</li>
+</ul>
+
+<h2 id="diff"><span class="no">07</span>Run history and diff</h2>
+
+<h3>History API</h3>
+<ul>
+  <li><code>GET /api/repos/{repoId}/review/history?cursor=&amp;limit=&amp;kind=&amp;path=&amp;outcome=</code> reads tracked archives, newest attempt first, with cursor pagination. It is not constrained by <code>RecentRunLimit</code>.</li>
+  <li><code>GET /api/repos/{repoId}/review/history/{runId}?attempt=</code> returns manifest, selected attempt, operations and findings.</li>
+  <li><code>GET /api/repos/{repoId}/review/history/{runId}/diff?against={otherRunId}</code> returns a deterministic comparison. An optional attempt selects a capped snapshot; the default is the latest valid attempt.</li>
+  <li>Existing <code>/review/runs</code> stays the active/recent operational endpoint during migration, then composes active rows with archived summaries without changing pause/resume behavior.</li>
+</ul>
+
+<h3>Comparison rules</h3>
+<p>Default comparison requires the same repository, review kind and root unit identity. Target-set changes inside that scope are valid and shown. Different root units require an explicit override and are labelled scope-changed.</p>
+
+<table>
+  <thead><tr><th>Dimension</th><th>Deterministic result</th><th>Existing basis to reuse</th></tr></thead>
+  <tbody>
+    <tr><td>Comparability</td><td><code>exact</code>, <code>scope-changed</code>, <code>policy-changed</code>, <code>model-changed</code>, or <code>incomplete</code>. Multiple labels may apply.</td><td>Subject and review-input hashes already separate code drift from policy drift in review metadata.</td></tr>
+    <tr><td>Scope and inputs</td><td>Added/removed/persisting targets; changed subject hashes, prompt hashes and effective input hashes.</td><td><code>ReviewRunManifest.Targets</code> and review-meta <code>subjectInputs</code>/<code>reviewInputs</code>.</td></tr>
+    <tr><td>Execution</td><td>Outcome, completeness, failed/skipped operations, duration, cap, spend and estimate-deviation delta.</td><td><code>ReviewRunStatus</code>, <code>ReviewEstimateDeviation</code> and the usage ledger.</td></tr>
+    <tr><td>Grades and typed verdicts</td><td>Before/after per unit and kind, numeric score change, band change, worst security verdict change.</td><td>Existing <code>UnitGradeDelta</code>/<code>GradeSnapshot</code> vocabulary in change reviews.</td></tr>
+    <tr><td>Findings</td><td>New, resolved and persisting sets keyed by fingerprint; severity and lifecycle changes on persisting items.</td><td>Existing <code>FindingDelta</code> and stable fingerprint identity.</td></tr>
+    <tr><td>Economy</td><td>Input/output/cache/reasoning tokens, duration and priced cost changes, with unavailable values preserved.</td><td><code>UsageAggregate</code> and recorded price status.</td></tr>
+  </tbody>
+</table>
+
+<p>Finding fingerprints include path, normalized primary snippet and rule ID. If both runs name Git commits, the diff service should reuse the existing rename-map technique for pure moves. Without a usable revision pair, it must show the direct new/resolved result and label rename correlation unavailable.</p>
+
+<div class="box accent">
+  <h4>UI slice</h4>
+  <p>Add a History entry beside the live runs panel. The history view supports filters, run detail, and selection of exactly two comparable runs. The diff first shows comparability warnings, then scope, quality, findings and economy. Live polling remains limited to queued/running rows; archived history is fetched on demand.</p>
+</div>
+
+<h2 id="migration"><span class="no">08</span>Migration and legacy truth</h2>
+
+<ol>
+  <li><b>Dual-read first.</b> Add versioned archive schemas and readers. No current file is renamed or reinterpreted.</li>
+  <li><b>Dual-write stopped attempts.</b> Continue writing the current recovery journal. At done/failed/cancelled/capped, the backend creates or extends the tracked archive and reconciles its attempt total against the ledger.</li>
+  <li><b>Backfill only complete local evidence.</b> For every still-present <code>.quality/runs/&lt;id&gt;</code>, create an archive with provenance <code>migrated-from-run-store-v0</code>. Preserve unknowns; do not infer a verdict from <code>done</code>.</li>
+  <li><b>Keep ledger history honest.</b> Read v1, v2 and v3. V2 groups already identify a sweep through <code>reviewRunId</code>; they can enrich a migrated archive. V1 remains a provider-run singleton. No historical line is rewritten.</li>
+  <li><b>Expose usage-only legacy groups.</b> When a ledger group has no run store, show it as <code>legacy-usage-only</code> with spend and known path/kind/model. Do not synthesize plan, outcome, findings, verdict or timestamps that are not present.</li>
+  <li><b>Start cleanup after proof.</b> After two releases of dual-read and a test that rebuilds history from a clean clone, ignored terminal journals may be deleted after successful archive flush. Non-terminal journals remain recovery state.</li>
+</ol>
+
+<p>Review sidecar Git history and the 20 existing change-review records stay valid. They may be linked to a run when identifiers prove the relationship, but they are not mass-converted into fictional run records.</p>
+
+<h2 id="slices"><span class="no">09</span>Implementation slices to approve as-is</h2>
+
+<table>
+  <thead><tr><th>Slice</th><th>Scope</th><th>Acceptance</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>RP-1 · Contracts and archive core</b></td>
+      <td>Add the four v1 schemas, typed records and <code>ReviewRunArchiveStore</code>. Add operation IDs/attempt ordinals to in-memory work items. Keep current routes and UI unchanged.</td>
+      <td>Schema fixtures validate; create-only files reject overwrite; two stopped attempts under one capped/resumed run remain readable; repository paths are confined.</td>
+    </tr>
+    <tr>
+      <td><b>RP-2 · Dual-write and ledger v3</b></td>
+      <td>Capture <code>ReviewExecutionResult</code> instead of discarding it, append operation/finding observations after result persistence, add <code>operationId</code>/<code>attempt</code> to new usage rows, and write an attempt record on each stopped boundary.</td>
+      <td>Every agent call has one operation row and one v3 usage row, including cancellation/failure usage; attempt totals reconcile; v1/v2 query tests remain unchanged.</td>
+    </tr>
+    <tr>
+      <td><b>RP-3 · Recovery migration and history API</b></td>
+      <td>Add idempotent backend migration for present v0 run folders, archived history reader, cursor/filter routes, detail route and active-plus-history composition. No CLI Git operations.</td>
+      <td>A clean clone with only tracked archive files shows terminal history; restart resumes active work; repeated migration creates no duplicate operation/finding/attempt rows; corrupt archives are visible as typed errors.</td>
+    </tr>
+    <tr>
+      <td><b>RP-4 · Deterministic run diff</b></td>
+      <td>Add comparability classification and scope/input/execution/grade/verdict/finding/economy deltas. Reuse <code>GradeSnapshot</code>, <code>FindingDelta</code> and rename translation where applicable.</td>
+      <td>Golden tests cover exact rerun, changed policy, changed model, target addition/removal, capped-versus-done, new/resolved/persisting findings and unavailable token/cost values.</td>
+    </tr>
+    <tr>
+      <td><b>RP-5 · History and compare UI</b></td>
+      <td>Add a paged History surface, filters, detail drawer and two-run compare. Keep live controls on the operational endpoint and history reads on demand.</td>
+      <td>Close/reopen browser preserves selection through URL state; clean-clone history renders; only comparable runs are selected by default; both themes, keyboard flow and responsive layout are covered.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Likely code touch points</h3>
+<ul>
+  <li><code>src/QualityStudio.Api/ReviewRunStore.cs</code>: retain recovery responsibilities; add a separate archive store rather than mixing mutable and tracked files.</li>
+  <li><code>src/QualityStudio.Api/ReviewJobs.cs</code>: allocate operation/attempt IDs, capture results, finalize attempts and compose active/history reads.</li>
+  <li><code>src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs</code> and <code>schemas/usage-ledger.v3.schema.json</code>: additive ledger version.</li>
+  <li><code>src/QualityStudio.Api/Program.cs</code>: history/detail/diff routes with the existing repository-scoped pattern.</li>
+  <li><code>frontend/src/app/quality-api.ts</code> and a dedicated history component: typed history and diff presentation.</li>
+  <li><code>tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</code>: extend restart tests with archive, clean-clone, migration and attempt cases.</li>
+</ul>
+
+<h2 id="acceptance"><span class="no">10</span>Acceptance and operator decision</h2>
+
+<h3>End-to-end acceptance matrix</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Required result</th></tr></thead>
+  <tbody>
+    <tr><td>Browser tab closes during a run</td><td>Reopening loads the same active run ID and continues polling; no browser storage owns execution truth.</td></tr>
+    <tr><td>API stops between operation completion and the next operation</td><td>The completed operation is not repeated; recovery continues from the journal and archive rows remain idempotent.</td></tr>
+    <tr><td>Run caps, then resumes with a higher cap</td><td>Attempt 0001 remains capped; attempt 0002 records the later outcome; completed operations and spend are not duplicated.</td></tr>
+    <tr><td>Terminal recovery folder is deleted</td><td>History detail and diff remain complete from the tracked archive.</td></tr>
+    <tr><td>Repository is freshly cloned</td><td>Terminal history, findings, verdicts, timestamps and usage joins load without a database or prior local cache.</td></tr>
+    <tr><td>Two runs differ by policy or model</td><td>The diff remains available but clearly labels non-exact comparability before quality deltas.</td></tr>
+    <tr><td>Old v1/v2 token entries exist</td><td>They remain queryable and unmodified; missing run facts stay unknown.</td></tr>
+  </tbody>
+</table>
+
+<div class="box ok">
+  <h4>Approve these defaults</h4>
+  <ul>
+    <li>Tracked archive root: <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/</code>.</li>
+    <li>Existing <code>.quality/runs/</code> remains the ignored recovery cache.</li>
+    <li>One logical run may have multiple immutable attempt records.</li>
+    <li>Usage ledger advances additively to v3; old rows are never rewritten.</li>
+    <li>Verdicts remain typed by review producer; operational <code>done</code> never means quality pass.</li>
+    <li>No automatic deletion of tracked history and no Quality Studio Git mutation.</li>
+    <li>Implement RP-1 through RP-5 in order.</li>
+  </ul>
+</div>
+
+<div class="box warn">
+  <h4>Deliberately deferred</h4>
+  <p>Cross-repository analytics, raw transcript retention, remote object storage, a database index, retention compaction and universal pass/fail policy are not required for run durability or two-run diffing. Add them only after archive size and query measurements show a concrete need.</p>
+</div>
+
+<h3>Evidence register</h3>
+<table>
+  <thead><tr><th>Claim</th><th>Repository source</th></tr></thead>
+  <tbody>
+    <tr><td>Run plan/progress/status files and flush behavior</td><td><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">src/QualityStudio.Api/ReviewRunStore.cs</a></td></tr>
+    <tr><td>Recovery, caps, usage aggregation, terminal states and list bound</td><td><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">src/QualityStudio.Api/ReviewJobs.cs</a></td></tr>
+    <tr><td>Run folder intentionally ignored</td><td><a href="../../../.gitignore">.gitignore</a> and <a href="../../../docs/review-runs.md">docs/review-runs.md</a></td></tr>
+    <tr><td>Usage v2 groups operations by review run and remains append-only</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs">UsageTelemetry.cs</a>, <a href="../../../schemas/usage-ledger.v2.schema.json">usage-ledger.v2.schema.json</a>, and <a href="../../../docs/usage-telemetry.md">usage-telemetry.md</a></td></tr>
+    <tr><td>Sidecar replacement and finding lifecycle merge</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs</a>, lines 146-191; <a href="../../../src/AgentOrchestrator.CodeQuality/FindingStateStore.cs">FindingStateStore.cs</a></td></tr>
+    <tr><td>Stable finding/grade diff precedent</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs">ChangeSetReviewService.cs</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetModels.cs">ChangeSetModels.cs</a></td></tr>
+    <tr><td>Git-backed trend requires committed sidecars</td><td><a href="../../../docs/quality-reports.md">docs/quality-reports.md</a>, Git-backed trend section</td></tr>
+    <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
+  </tbody>
+</table>
+
+<p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
+</main>
+</body>
+</html>
