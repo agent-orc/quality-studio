@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-import { formatDateTime } from '../format';
+import { formatDateTime, formatTokenCount, parseTokenCount } from '../format';
 import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
@@ -328,7 +328,7 @@ export class ReviewPanel {
 
   formatTokens(value: number | null | undefined): string {
     if (value === null || value === undefined) return 'unavailable';
-    return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}m tok` : value >= 1_000 ? `${(value / 1_000).toFixed(1)}k tok` : `${value} tok`;
+    return `${formatTokenCount(value)} tok`;
   }
 
   formatDuration(value: number): string { return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`; }
@@ -396,11 +396,12 @@ export class ReviewPanel {
 
   async resumeCapped(run: ReviewRun): Promise<void> {
     const current = run.tokenCap ?? run.costCap;
-    const entered = prompt(`Raise the ${run.tokenCap !== null ? 'token' : 'cost'} cap to resume ${run.skippedFiles} skipped file(s):`, current === null ? '' : String(current * 2));
+    const tokenCap = run.tokenCap !== null;
+    const entered = prompt(`Raise the ${tokenCap ? 'token' : 'cost'} cap to resume ${run.skippedFiles} skipped file(s)${tokenCap ? ' (tokens; k/M accepted)' : ''}:`, current === null ? '' : tokenCap ? formatTokenCount(current * 2) : String(current * 2));
     if (entered === null) return;
-    const cap = Number(entered);
-    if (!Number.isFinite(cap) || cap <= 0) return;
-    await this.api.resumeReview(run.id, run.tokenCap !== null ? { tokenCap: cap } : { costCap: cap });
+    const cap = tokenCap ? parseTokenCount(entered) : Number(entered);
+    if (cap === null || !Number.isFinite(cap) || cap <= 0) return;
+    await this.api.resumeReview(run.id, tokenCap ? { tokenCap: cap } : { costCap: cap });
   }
 
   private formatCost(value: number | null, currency: string | null): string {
