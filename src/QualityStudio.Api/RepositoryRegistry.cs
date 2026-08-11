@@ -183,7 +183,7 @@ public sealed class RepositoryRegistry
                 {
                     var migrated = loaded.Select(entry => entry with
                     {
-                        Sensors = MergeSupportedSensors(entry.Sensors),
+                        Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
                     }).ToList();
                     foreach (var entry in migrated) ValidatePersistedEntry(entry);
                     return migrated;
@@ -205,7 +205,7 @@ public sealed class RepositoryRegistry
             ValidateOptionalDirectory(legacyOptions.GlobalInputsDirectory, root),
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
-            DefaultSensors(),
+            DefaultSensors(root),
             DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
@@ -264,20 +264,20 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException("Select at least one supported review kind: code, security, or performance.");
         }
 
-        var requestedSensors = request.Sensors ?? DefaultSensors();
+        var requestedSensors = request.Sensors ?? DefaultSensors(root);
         if (requestedSensors.Any(sensor => string.IsNullOrWhiteSpace(sensor.Id)))
         {
             throw new RepositoryRegistryValidationException("Every sensor configuration requires an id.");
         }
 
         var sensors = requestedSensors
-            .Select(sensor => sensor with
+            .Select(sensor => ApplyDefaultConfiguration(sensor with
             {
                 Id = sensor.Id.Trim().ToLowerInvariant(),
                 Configuration = sensor.Configuration is null
                     ? null
                     : new Dictionary<string, string>(sensor.Configuration, StringComparer.Ordinal),
-            })
+            }, root))
             .ToArray();
         if (sensors.Length == 0 ||
             sensors.Any(sensor => !supportedSensors.Contains(sensor.Id, StringComparer.Ordinal)) ||
@@ -370,20 +370,65 @@ public sealed class RepositoryRegistry
     private static StringComparer PathComparer =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
-    private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
-        supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
+    private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors(string repositoryRoot) =>
+        supportedSensors.Select(id => DefaultSensor(id, repositoryRoot)).ToArray();
 
     private IReadOnlyList<RepositorySensorConfiguration> MergeSupportedSensors(
-        IReadOnlyList<RepositorySensorConfiguration>? configured)
+        IReadOnlyList<RepositorySensorConfiguration>? configured,
+        string repositoryRoot)
     {
         var existing = (configured ?? Array.Empty<RepositorySensorConfiguration>())
             .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
         return supportedSensors
             .Select(id => existing.TryGetValue(id, out var sensor)
-                ? sensor
-                : new RepositorySensorConfiguration(id))
+                ? ApplyDefaultConfiguration(sensor, repositoryRoot)
+                : DefaultSensor(id, repositoryRoot))
             .ToArray();
     }
+
+    private static RepositorySensorConfiguration ApplyDefaultConfiguration(
+        RepositorySensorConfiguration sensor,
+        string repositoryRoot)
+    {
+        if (sensor.Configuration is not null) return sensor;
+        var defaults = DefaultSensor(sensor.Id, repositoryRoot);
+        return defaults.Configuration is null
+            ? sensor
+            : sensor with { Configuration = defaults.Configuration };
+    }
+
+    private static RepositorySensorConfiguration DefaultSensor(string id, string repositoryRoot) => id switch
+    {
+        "roslyn" => new RepositorySensorConfiguration(
+            id,
+            Enabled: HasRootDotNetTarget(repositoryRoot),
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["format"] = "dotnet-build",
+                ["command"] = "dotnet build {repositoryRoot} --configuration Release --nologo -p:GenerateFullPaths=true",
+                ["reportPath"] = ".quality/analyzers/dotnet-build.txt",
+            }),
+        "tsc" => new RepositorySensorConfiguration(
+            id,
+            Enabled: HasFrontendTypeScriptTarget(repositoryRoot),
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["command"] = "node node_modules/typescript/bin/tsc -p tsconfig.app.json --noEmit --pretty false",
+                ["reportPath"] = ".quality/analyzers/tsc.txt",
+                ["workingDirectory"] = "frontend",
+            }),
+        "sarif" or "eslint" => new RepositorySensorConfiguration(id, Enabled: false),
+        _ => new RepositorySensorConfiguration(id),
+    };
+
+    private static bool HasRootDotNetTarget(string repositoryRoot) =>
+        Directory.EnumerateFiles(repositoryRoot, "*.sln", SearchOption.TopDirectoryOnly).Any() ||
+        Directory.EnumerateFiles(repositoryRoot, "*.slnx", SearchOption.TopDirectoryOnly).Any() ||
+        Directory.EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.TopDirectoryOnly).Any();
+
+    private static bool HasFrontendTypeScriptTarget(string repositoryRoot) =>
+        File.Exists(Path.Combine(repositoryRoot, "frontend", "tsconfig.app.json")) &&
+        File.Exists(Path.Combine(repositoryRoot, "frontend", "package-lock.json"));
 }
 
 public sealed class RepositoryRegistryValidationException : Exception

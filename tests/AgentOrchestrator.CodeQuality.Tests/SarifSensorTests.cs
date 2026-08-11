@@ -113,6 +113,107 @@ public sealed class SarifSensorTests
     }
 
     [Fact]
+    public void RoslynBuildOutput_MapsCompilerAndAnalyzerDiagnosticsWithDeterministicSource()
+    {
+        var root = CreateRepository("src/Calculator.cs");
+        try
+        {
+            var output = $"""
+                {Path.Combine(root, "src", "Calculator.cs")}(12,7): warning CA1822: Member does not access instance data [Calculator.csproj]
+                {Path.Combine(root, "src", "Calculator.cs")}(18,5): error CS1002: ; expected [Calculator.csproj]
+                CSC : error CS2008: No inputs specified
+                """;
+
+            var findings = RoslynAnalyzerSensor.ParseBuildOutput(output, root, "10.0.301");
+
+            Assert.Equal(3, findings.Count);
+            Assert.Contains(findings, finding => finding.RuleId == "CA1822" &&
+                finding.Severity == FindingSeverity.Medium);
+            var compiler = Assert.Single(findings, finding => finding.RuleId == "CS1002");
+            Assert.Equal("src/Calculator.cs", Assert.Single(compiler.Locations).Path);
+            Assert.Equal(FindingSourceKind.Deterministic, compiler.Source!.Kind);
+            Assert.Equal("roslyn", compiler.Source.SensorId);
+            Assert.Equal(".NET build", compiler.Source.Producer);
+            Assert.Contains(findings, finding => finding.RuleId == "CS2008" &&
+                Assert.Single(finding.Locations).Path == ".");
+            Assert.Equal(
+                findings.Select(finding => finding.Fingerprint),
+                RoslynAnalyzerSensor.ParseBuildOutput(output, root, "10.0.301")
+                    .Select(finding => finding.Fingerprint));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task RoslynSensor_CapturesConfiguredBuildOutputWithoutShellExecution()
+    {
+        var root = CreateRepository("src/Broken.cs");
+        try
+        {
+            var runner = new QueuedRunner(
+                new SensorCommandResult(0, "10.0.301", string.Empty),
+                new SensorCommandResult(
+                    1,
+                    $"{Path.Combine(root, "src", "Broken.cs")}(4,2): error CS1002: ; expected [Broken.csproj]",
+                    string.Empty));
+            var sensor = new RoslynAnalyzerSensor(runner);
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["format"] = "dotnet-build",
+                    ["command"] = "dotnet build {repositoryRoot} --configuration Release --nologo -p:GenerateFullPaths=true",
+                    ["reportPath"] = ".quality/analyzers/dotnet-build.txt",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Available);
+            Assert.Equal("CS1002", Assert.Single(result.Findings).RuleId);
+            Assert.Equal("10.0.301", result.Provenance.ToolVersions["dotnet"]);
+            Assert.Equal("dotnet", runner.Calls[0].Executable);
+            Assert.Equal(["--version"], runner.Calls[0].Arguments);
+            Assert.Equal("dotnet", runner.Calls[1].Executable);
+            Assert.DoesNotContain(runner.Calls[1].Arguments, argument => argument.Contains("&&", StringComparison.Ordinal));
+            Assert.True(File.Exists(Path.Combine(root, ".quality", "analyzers", "dotnet-build.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task RoslynSensor_DoesNotReportFailedBuildWithoutDiagnosticsAsClean()
+    {
+        var root = CreateRepository("src/Broken.cs");
+        try
+        {
+            var sensor = new RoslynAnalyzerSensor(new QueuedRunner(
+                new SensorCommandResult(0, "10.0.301", string.Empty),
+                new SensorCommandResult(1, string.Empty, "Restore failed.")));
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["format"] = "dotnet-build",
+                    ["command"] = "dotnet build {repositoryRoot}",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Empty(result.Findings);
+            Assert.Contains("without parseable diagnostics", result.UnavailableReason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void TypeScriptOutput_MapsOneDiagnosticWithRuleAndSource()
     {
         var root = CreateRepository("frontend/src/app.ts");
@@ -201,4 +302,27 @@ public sealed class SarifSensorTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new SensorCommandResult(exitCode, output, string.Empty));
     }
+
+    private sealed class QueuedRunner(params SensorCommandResult[] results) : ISensorCommandRunner
+    {
+        private readonly Queue<SensorCommandResult> results = new(results);
+        private readonly List<RecordedCall> calls = [];
+
+        public IReadOnlyList<RecordedCall> Calls => calls;
+
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default)
+        {
+            calls.Add(new RecordedCall(executable, arguments.ToArray(), workingDirectory));
+            return Task.FromResult(results.Dequeue());
+        }
+    }
+
+    private sealed record RecordedCall(
+        string Executable,
+        IReadOnlyList<string> Arguments,
+        string WorkingDirectory);
 }
