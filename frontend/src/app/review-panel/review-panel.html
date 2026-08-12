@@ -31,6 +31,7 @@
               <div class="run-report-state"><span class="status" [class.fresh]="report.run.completeness === 'complete'" [class.stale]="report.run.completeness === 'partial'"></span><b>{{ report.run.completeness }} snapshot</b><small>revision {{ report.run.revision }}</small></div>
               @if (report.summary.partialReason) { <p class="run-partial">{{ report.summary.partialReason }}</p> }
               <div class="run-summary-grid"><span><b>{{ report.summary.score ?? '—' }}</b><small>Score {{ report.summary.grade ?? 'unavailable' }}</small></span><span><b>{{ report.summary.findings.total }}</b><small>Active findings</small></span><span><b>{{ report.execution.reviewed }}</b><small>Reviewed</small></span><span><b>{{ report.execution.reusedFresh }}</b><small>Reused fresh</small></span></div>
+              @if (report.run.state === 'done' && report.run.completeness === 'complete') { <div class="commit-trend-note run-report-open"><div><b>Portable run dossier</b><span>Stored beside the canonical run record.</span></div><a [href]="reportUrl(report.run.id, 'html')" target="_blank" rel="noopener">Open HTML report ↗</a></div> }
               <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
 
               <div class="section-title"><span>Run trend</span><small>Same kind, scope, and level</small></div>

@@ -55,7 +55,8 @@ that severity or higher.
 ## Run-scoped reports
 
 Every terminal UI review run writes a strict canonical document to
-`.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
+`.quality/reports/runs/<runId>.json`. A complete `done` run also materializes the
+self-contained `.quality/reports/runs/<runId>.html` projection beside it. The snapshot contains its immutable subject
 manifest, routing provenance, usage and cap outcome, one explicit outcome per
 planned unit, the exact sidecar bytes captured by the run, finding lifecycle
 state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
@@ -70,7 +71,8 @@ same-directory replacement ensures readers see either the previous complete
 document or the next one, never an incomplete temporary write.
 
 HTML, bounded Markdown, JSON, and run-scoped SARIF are projections of this one
-document. HTML is self-contained and uses a restrictive content security policy.
+document. HTML is self-contained, uses a restrictive content security policy, and
+includes the repository Git SHA, unit verdicts, findings, and token ledger.
 Markdown includes at most 20 active findings and states the omitted count. SARIF
 uses relative paths, stable automation and fingerprint identities, and only emits
 baseline state when the run has a comprehensive comparable predecessor. Exported
@@ -88,7 +90,9 @@ or `sarif` to select an export representation. The response media types are
 For one review run, use
 `GET /api/review/runs/{id}/report?format=...` or
 `GET /api/repos/{repoId}/review/runs/{id}/report?format=...`. The response carries
-an attachment filename appropriate to the requested format. Repository access is
+an attachment filename appropriate to the requested format. Completed-run HTML is
+served inline from the materialized adjacent artifact; the other formats remain
+downloads. Repository access is
 resolved through the same registration boundary as the existing run routes.
 
 `GET /api/review/runs/trend?kind=code&scopeUnitId=<id>&level=file` and its

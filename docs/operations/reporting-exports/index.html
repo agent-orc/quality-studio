@@ -735,6 +735,16 @@ in the app, and R4 adds run comparison. Each slice has a bounded proof and no ta
   <b>Commit trend</b>.</p>
 </div>
 
+<div class="box ok">
+  <h4>12 August 2026 · QS-87 · Materialized dossier report</h4>
+  <p>Delivered the next report slice after QS-73: every complete <code>done</code> run now writes a self-contained
+  <code>.quality/reports/runs/&lt;runId&gt;.html</code> beside its canonical JSON snapshot. The calm document adds
+  repository and Git SHA provenance, per-unit verdicts, findings, and a complete token ledger. The report endpoint
+  serves this stored artifact inline, while the run detail exposes a keyboard-accessible <b>Open HTML report</b>
+  action and retains the four download exports. QS-73 remains the delivery receipt for R1 through R4; QS-87 does
+  not duplicate those slices.</p>
+</div>
+
 <p class="dim">Method note: documentation-only dossier. The reference CSS declarations were copied from
 <code>agent-taskboard/docs/operations/haertung-verteilte-ausfuehrung/index.html</code>. Repository evidence was
 read from Quality Studio source, schemas, tests, docs, committed sidecars, and the live CLI report output listed

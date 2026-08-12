@@ -45,6 +45,10 @@ operations. Renderers, API downloads, CLI gates, and run trends all consume this
 snapshot rather than mutable current sidecars. See
 [`quality-reports.md`](quality-reports.md) for formats and trend semantics.
 
+A complete `done` run also materializes `<runId>.html` beside the JSON snapshot.
+The HTML is a replaceable projection of the canonical JSON, not a second source of
+truth, and the UI opens it through the repository-authorized report route.
+
 Model options come from the governed Token Economy snapshot described in
 [`model-catalog-integration.md`](model-catalog-integration.md). The model and optional
 thinking-level override are persisted in the manifest before enqueue and passed to the

@@ -207,8 +207,11 @@ describe('ReviewPanel session flow', () => {
     expect(api.loadRunReport).toHaveBeenCalledWith('terminal');
     expect(api.loadRunTrend).toHaveBeenCalledWith('code', 'a', 'file');
     expect(fixture.nativeElement.querySelector('.run-detail-surface').textContent).toContain('complete snapshot');
+    const openReport = fixture.nativeElement.querySelector('.run-report-open a') as HTMLAnchorElement;
+    expect(openReport.textContent).toContain('Open HTML report');
+    expect(openReport.target).toBe('_blank');
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
-    expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
+    expect(fixture.nativeElement.querySelector('.commit-trend-note:not(.run-report-open)').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
   });
 });

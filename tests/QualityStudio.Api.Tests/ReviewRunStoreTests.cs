@@ -81,6 +81,7 @@ public sealed class ReviewRunStoreTests
             Assert.All(completedReport.Observations, observation => Assert.True(observation.ProducedByRun));
             Assert.DoesNotContain(fixture.RepositoryRoot, QualityRunReportJson.Serialize(completedReport),
                 StringComparison.OrdinalIgnoreCase);
+            Assert.True(File.Exists(reportStore.HtmlPathFor(completedReport.Run.Id)));
             var canonicalBeforeOverwrite = await File.ReadAllBytesAsync(
                 reportStore.PathFor(completedReport.Run.Id), cancellationToken);
             var mutableSidecar = Path.Combine(fixture.RepositoryRoot,
@@ -99,6 +100,16 @@ public sealed class ReviewRunStoreTests
             var exported = await jsonResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
             Assert.Equal(completedReport.Run.Id, exported.GetProperty("run").GetProperty("id").GetString());
             Assert.Equal(3, exported.GetProperty("observations").GetArrayLength());
+
+            using var htmlResponse = await client.GetAsync(
+                $"/api/review/runs/{completedReport.Run.Id}/report?format=html", cancellationToken);
+            htmlResponse.EnsureSuccessStatusCode();
+            Assert.Equal("text/html", htmlResponse.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("inline", htmlResponse.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.Equal(await File.ReadAllTextAsync(reportStore.HtmlPathFor(completedReport.Run.Id), cancellationToken),
+                await htmlResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.Contains("<h2>Token ledger</h2>", await htmlResponse.Content.ReadAsStringAsync(cancellationToken),
+                StringComparison.Ordinal);
 
             using var sarifResponse = await client.GetAsync(
                 $"/api/review/runs/{completedReport.Run.Id}/report?format=sarif", cancellationToken);

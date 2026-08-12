@@ -46,7 +46,11 @@
         "model": { "type": "string", "minLength": 1, "maxLength": 200 },
         "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
         "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
-        "force": { "type": "boolean" }
+        "force": { "type": "boolean" },
+        "repositorySha": {
+          "type": ["string", "null"],
+          "pattern": "^[a-fA-F0-9]{40,64}$"
+        }
       }
     },
     "subject": {

@@ -33,7 +33,8 @@ public sealed record QualityRunIdentity(
     string Model,
     string ThinkingLevel,
     string CliType,
-    bool Force);
+    bool Force,
+    string? RepositorySha = null);
 
 public sealed record QualityRunSubject(
     string ManifestHash,
@@ -207,27 +208,15 @@ public sealed class QualityRunReportStore
 
     public string PathFor(string runId) => Path.Combine(reportsPath, SafeFileName(runId) + ".json");
 
+    public string HtmlPathFor(string runId) => Path.Combine(reportsPath, SafeFileName(runId) + ".html");
+
     public void Save(QualityRunReportDocument report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        var destination = PathFor(report.Run.Id);
         Directory.CreateDirectory(reportsPath);
-        var temporary = Path.Combine(reportsPath, $".{report.Run.Id}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(QualityRunReportJson.Serialize(report));
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, destination, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        if (report.Run.State == "done" && report.Run.Completeness == "complete")
+            WriteAtomically(HtmlPathFor(report.Run.Id), QualityRunReportRenderer.Render(report, QualityReportFormat.Html));
+        WriteAtomically(PathFor(report.Run.Id), QualityRunReportJson.Serialize(report));
     }
 
     public QualityRunReportDocument Load(string runId)
@@ -252,6 +241,18 @@ public sealed class QualityRunReportStore
             report = null;
             return false;
         }
+    }
+
+    public string LoadHtml(string runId)
+    {
+        var path = HtmlPathFor(runId);
+        if (File.Exists(path)) return File.ReadAllText(path, Utf8);
+        var report = Load(runId);
+        if (report.Run.State != "done" || report.Run.Completeness != "complete")
+            throw new FileNotFoundException($"Completed review run HTML report '{runId}' was not found.", path);
+        var content = QualityRunReportRenderer.Render(report, QualityReportFormat.Html);
+        WriteAtomically(path, content);
+        return content;
     }
 
     public IReadOnlyList<QualityRunReportDocument> LoadAll(Action<string, Exception>? loadFailed = null)
@@ -294,6 +295,27 @@ public sealed class QualityRunReportStore
                 character is not (>= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '.' or '_' or '-')))
             throw new ArgumentException("A review run id may contain only letters, digits, dots, underscores, and hyphens.", nameof(runId));
         return runId;
+    }
+
+    private static void WriteAtomically(string destination, string content)
+    {
+        var temporary = Path.Combine(Path.GetDirectoryName(destination)!,
+            $".{Path.GetFileName(destination)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            var bytes = Utf8.GetBytes(content);
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       4096, FileOptions.WriteThrough))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 }
 
