@@ -11,7 +11,8 @@
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence",
-    "evidence:run-report": "node tests/run-report-evidence.mjs"
+    "evidence:run-report": "node tests/run-report-evidence.mjs",
+    "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs"
   },
   "prettier": {
     "printWidth": 100,

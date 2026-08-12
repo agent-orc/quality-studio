@@ -83,6 +83,7 @@
   .box p:last-child, .box ul:last-child { margin-bottom: 0; }
   figure { margin: 26px 0; }
   figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
   figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
   figcaption b { color: var(--ink-1); }
   table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
@@ -460,16 +461,40 @@
     <li>No API route or HTTP scheduler was added.</li>
   </ul>
 
+  <h3>12 August 2026 · QS-88 · Contract reverified without duplicating wave 1</h3>
+  <ul>
+    <li>Audited <code>origin/main</code> and confirmed that QS-74 commit <code>d7404cd</code> is an ancestor. The production sender, shared finding envelope, and portable change-review artifact were retained rather than reimplemented.</li>
+    <li>Added a deterministic real-browser evidence harness that mounts the compiled Quality Studio shell in an iframe, applies the documented receiver checks, and asserts that the sender emits exactly <code>source</code>, <code>type</code>, and <code>url</code>.</li>
+    <li>The live code-to-security navigation reported the updated <code>repo</code>, <code>path</code>, and <code>kind</code> URL while the iframe <code>src</code> and load count stayed fixed. This proves the sender supports Studio's session-only address update without remounting the QS application.</li>
+    <li>A live <code>quality diff</code> no-write run emitted <code>change-review-evidence.v1</code> for base <code>71cf044</code> and result <code>59941d8</code>, retained the caller policy hash, represented the unrequested agent as unavailable, and left the worktree, index, and existing change-history manifest unchanged.</li>
+  </ul>
+  <div class="building-blocks">
+    <article class="building-block">
+      <h4>Before navigation</h4>
+      <figure>
+        <a href="assets/qs-88-url-preview-before-dark--real.png"><img src="assets/qs-88-url-preview-before-dark--real.png" alt="Embedded Quality Studio reporting the initial code review URL to a display-only receiver probe"></a>
+        <figcaption>The real API-connected embedded shell initially reports <code>kind=code</code>. The receiver accepts one exact navigation message.</figcaption>
+      </figure>
+    </article>
+    <article class="building-block">
+      <h4>After live navigation</h4>
+      <figure>
+        <a href="assets/qs-88-url-preview-after-dark--real.png"><img src="assets/qs-88-url-preview-after-dark--real.png" alt="Embedded Quality Studio after changing to security review while its parent displays the newly reported URL"></a>
+        <figcaption>The review kind changes to <code>security</code> and the parent receives the new live URL. The original iframe remains mounted.</figcaption>
+      </figure>
+    </article>
+  </div>
+
   <div class="box warn">
-    <h4>Approved cross-repository remainder</h4>
-    <p>Slices 3 through 5 are approved but did not land under QS-74 because this checkout contains Quality Studio only. Their implementation targets Agent Studio's Review Plane, delivery-grade producer, council policy, rollback switch, and task UI, none of which exist in this repository. They are no longer decision-gated; Slice 3 still has to run the specified paired cohort in Agent Studio before the cutover work can produce its required evidence.</p>
+    <h4>Next unshipped slice belongs to Agent Studio</h4>
+    <p>QS-88 does not claim Slice 3. The dossier requires an opt-in <code>post-quality-change-review</code> step, <code>ReviewArtifactEvidenceDto</code> persistence, fenced Result-SHA checks, reporting-only projection, and cohort telemetry in Agent Studio. Those types and orchestration surfaces are absent from this Quality Studio checkout. The QS sender and portable provider boundary are ready for that consumer.</p>
   </div>
 </section>
 
 <footer class="meta">
   <span><b>Dossier</b> <code>docs/operations/studio-integration/</code></span>
-  <span><b>Workbench status</b> <code>decided</code></span>
-  <span><b>Next action</b> Agent Studio implements the approved Slices 3 through 5 and records the paired cohort.</span>
+  <span><b>Workbench status</b> <code>documented</code></span>
+  <span><b>Next action</b> Agent Studio implements Slice 3 and records the paired cohort before Slices 4 and 5 cut over behavior.</span>
 </footer>
 </main>
 </body>
