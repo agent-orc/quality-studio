@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -343,10 +344,37 @@ public static class QualityObservationJson
                 $"Unsupported taxonomy major '{taxonomyMajor}'.");
         }
 
-        var observation = JsonSerializer.Deserialize<QualityObservationDocument>(raw, Options)
+        var normalized = NormalizeLegacyRootExtensions(raw);
+        var observation = JsonSerializer.Deserialize<QualityObservationDocument>(normalized, Options)
             ?? throw new JsonException("Quality observation must be a JSON object.");
         ValidateSupported(observation);
         return new QualityObservationReadResult(QualityObservationSupport.Supported, raw, observation, null);
+    }
+
+    private static JsonElement NormalizeLegacyRootExtensions(JsonElement raw)
+    {
+        var legacyExtensions = raw.EnumerateObject()
+            .Where(property => property.Name.StartsWith("x-", StringComparison.Ordinal))
+            .ToArray();
+        if (legacyExtensions.Length == 0) return raw;
+
+        var root = JsonNode.Parse(raw.GetRawText())?.AsObject()
+            ?? throw new JsonException("Quality observation must be a JSON object.");
+        var extensions = root["extensions"]?.AsObject()
+            ?? throw new JsonException("Quality observation requires an extensions object.");
+        foreach (var legacyExtension in legacyExtensions)
+        {
+            if (extensions.ContainsKey(legacyExtension.Name))
+            {
+                throw new JsonException(
+                    $"Legacy root extension '{legacyExtension.Name}' conflicts with extensions.{legacyExtension.Name}.");
+            }
+
+            extensions[legacyExtension.Name] = JsonNode.Parse(legacyExtension.Value.GetRawText());
+            root.Remove(legacyExtension.Name);
+        }
+
+        return JsonSerializer.SerializeToElement(root, Options);
     }
 
     public static string HashContent(string content) =>
