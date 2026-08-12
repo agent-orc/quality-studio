@@ -166,12 +166,12 @@
               @if (row.expanded) {
                 <div class="thread-body">
                   @for (entry of row.thread.entries; track entry.id) { <div class="thread-entry"><b>{{ threadAuthor(entry) }}</b><time>{{ reviewed(entry.createdAt) }}</time><p>{{ entry.body }}</p></div> }
-                  <div class="thread-reply"><input [value]="drafts()[row.thread.id] ?? ''" (input)="setDraft(row.thread.id, $any($event.target).value)" placeholder="Reply to this thread" (keydown.enter)="reply(row.thread)"><button type="button" (click)="reply(row.thread)">Reply</button><button type="button" class="status-action" (click)="setThreadStatus(row.thread)">{{ row.thread.status === 'open' ? 'Resolve' : 'Reopen' }}</button></div>
+                  <div class="thread-reply"><input [value]="drafts()[row.thread.id]" (input)="setDraft(row.thread.id, $any($event.target).value)" placeholder="Reply to this thread" (keydown.enter)="reply(row.thread)"><button type="button" (click)="reply(row.thread)">Reply</button><button type="button" class="status-action" (click)="setThreadStatus(row.thread)">{{ row.thread.status === 'open' ? 'Resolve' : 'Reopen' }}</button></div>
                 </div>
               }
             </article>
           } @else {
-            <div class="inline-composer" [style.top.px]="row.top"><textarea [value]="drafts()['line:' + row.line] ?? ''" (input)="setDraft('line:' + row.line, $any($event.target).value)" [placeholder]="'Comment on line ' + row.line"></textarea><div><button type="button" (click)="composingLine.set(null)">Cancel</button><button type="button" (click)="addThread(row.line)">Comment</button></div></div>
+            <div class="inline-composer" [style.top.px]="row.top"><textarea [value]="drafts()['line:' + row.line]" (input)="setDraft('line:' + row.line, $any($event.target).value)" [placeholder]="'Comment on line ' + row.line"></textarea><div><button type="button" (click)="composingLine.set(null)">Cancel</button><button type="button" (click)="addThread(row.line)">Comment</button></div></div>
           }
         }
       </div>

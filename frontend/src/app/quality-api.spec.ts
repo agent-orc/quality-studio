@@ -9,6 +9,7 @@ describe('QualityApi', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.removeItem('qs-last-repository');
     TestBed.configureTestingModule({
       providers: [QualityApi, provideHttpClient(), provideHttpClientTesting()],
     });
@@ -17,6 +18,36 @@ describe('QualityApi', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('selects the preferred repository restored by the application session', async () => {
+    const loading = api.loadRepositories('agent-studio');
+    http.expectOne('/api/repos').flush({
+      repositories: [
+        { id: 'default', displayName: 'Quality Studio', rootPath: '/work/quality-studio', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null },
+        { id: 'agent-studio', displayName: 'Agent Studio', rootPath: 'C:\\Projects\\agent-taskboard-devspace\\agent-taskboard', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null },
+      ],
+      defaultRepositoryId: 'default',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('agent-studio');
+    expect(api.selectedRepository()?.displayName).toBe('Agent Studio');
+  });
+
+  it('shows API-down state and clears it after a successful retry request', async () => {
+    const repositories = api.loadRepositories();
+    http.expectOne('/api/repos').error(new ProgressEvent('error'));
+    await repositories;
+
+    expect(api.connectionState()).toBe('offline');
+
+    const retry = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
+    await retry;
+
+    expect(api.connectionState()).toBe('live');
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
@@ -38,7 +69,8 @@ describe('QualityApi', () => {
     };
 
     const loading = api.loadTree();
-    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
     http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
@@ -57,7 +89,8 @@ describe('QualityApi', () => {
 
   it('keeps a live API connection when a file lookup falls back to preview content', async () => {
     const loading = api.loadTree();
-    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: {
       code: { kind: 'code', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
@@ -78,6 +111,76 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('loads and merges paged children only when a lazy container expands', async () => {
+    const root: TreeNode = {
+      id: 'project', name: 'Project', level: 'project', path: 'Project.slnx', kinds: {},
+      hasChildren: true, childCount: 2, childrenLoaded: false, children: [],
+    };
+    api.tree.set([root]);
+
+    const loading = api.loadTreeChildren(root);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('limit') === '500'
+      && request.params.get('parentId') === 'project'
+      && request.params.get('cursor') === null).flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 0, limit: 500,
+      nextCursor: 'tree-v2:1', nodes: [{ id: 'one', parentId: 'project', name: 'One', level: 'module',
+          path: 'one', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('cursor') === 'tree-v2:1').flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 1, limit: 500,
+        nextCursor: null, nodes: [{ id: 'two', parentId: 'project', name: 'Two', level: 'module',
+          path: 'two', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await loading;
+
+    expect(api.tree()[0].childrenLoaded).toBeTrue();
+    expect(api.tree()[0].children.map(child => child.id)).toEqual(['one', 'two']);
+    expect(api.treeChildrenLoading().size).toBe(0);
+  });
+
+  it('pins lazy children to the immutable root snapshot', async () => {
+    const root: TreeNode = {
+      id: 'project', name: 'Project', level: 'project', path: 'Project.slnx', kinds: {},
+      hasChildren: true, childCount: 1, childrenLoaded: false, children: [],
+    };
+    const rootLoading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({
+      schemaVersion: 2, parentId: null, path: '.', snapshotEtag: '"snapshot-1"',
+      offset: 0, limit: 500, nextCursor: null, nodes: [root],
+    });
+    await rootLoading;
+
+    const childLoading = api.loadTreeChildren(api.tree()[0]);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('parentId') === 'project'
+      && request.params.get('snapshot') === '"snapshot-1"').flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', snapshotEtag: '"snapshot-1"',
+        offset: 0, limit: 500, nextCursor: null, nodes: [{ id: 'child', parentId: 'project',
+          name: 'Child', level: 'module', path: 'child', kinds: {}, hasChildren: false,
+          childCount: 0, children: [] }],
+      });
+    await childLoading;
+
+    expect(api.tree()[0].children.map(child => child.id)).toEqual(['child']);
+  });
+
+  it('searches unloaded tree nodes through the bounded v2 search route', async () => {
+    const searching = api.searchTree('Program.cs');
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search'
+      && request.params.get('query') === 'Program.cs'
+      && request.params.get('limit') === '200').flush({
+        schemaVersion: 2, parentId: null, path: 'search:Program.cs', offset: 0, limit: 200,
+        nextCursor: null, nodes: [{ id: 'program', parentId: 'api', name: 'Program.cs', level: 'file',
+          path: 'src/QualityStudio.Api/Program.cs', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await searching;
+
+    expect(api.treeSearchResults().map(node => node.path)).toEqual(['src/QualityStudio.Api/Program.cs']);
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {

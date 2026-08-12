@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "performance",
+  "title": "Quality Studio performance",
+  "summary": "Tracks measured startup, repository switching, tree transport, review-run latency, rendering, and long-session memory. QS-82 implements the lazy tree transport slice and integrates QS-78 snapshot restoration without duplicating QS-54 cache work.",
+  "entrypoint": "index.html",
+  "status": "documented",
+  "phase": "verified",
+  "updatedAt": "2026-08-12T06:40:00+02:00",
+  "sourceTaskKeys": ["QS-59", "QS-54", "QS-78", "QS-82"]
+}

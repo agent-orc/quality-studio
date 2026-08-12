@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Studio performance — living dossier</title>
+<style>
+  :root { color-scheme: light dark; --surface: light-dark(#fcfcfb,#1a1a19); --panel: light-dark(#f2f1ee,#232322); --ink: light-dark(#111,#fff); --muted: light-dark(#5b5a56,#c3c2b7); --line: light-dark(#d8d6cf,#3d3d3a); --accent: light-dark(#2166ad,#62a8ef); --ok: light-dark(#087a34,#58bf78); --warn: light-dark(#8a5c00,#e1ad43); --open: light-dark(#b52f2f,#ed7272); }
+  * { box-sizing: border-box; } body { margin: 0; background: var(--surface); color: var(--ink); font: 16px/1.55 system-ui,sans-serif; }
+  main { max-width: 1120px; margin: auto; padding: 40px 28px 80px; } header { border-bottom: 1px solid var(--line); padding-bottom: 24px; }
+  .kicker { color: var(--muted); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; } h1 { margin: 6px 0; font-size: 34px; }
+  h2 { margin: 48px 0 8px; font-size: 24px; } h3 { margin: 28px 0 6px; font-size: 18px; } p,li { max-width: 80ch; }
+  .lede,.muted { color: var(--muted); } .meta,.grid { display: grid; gap: 14px; } .meta { grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); margin-top: 20px; }
+  .grid { grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); } .card,.callout { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 16px 18px; }
+  .callout { margin: 24px 0; border-color: color-mix(in srgb,var(--accent) 45%,var(--line)); } .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .done { color: var(--ok); background: color-mix(in srgb,var(--ok) 12%,transparent); } .pending { color: var(--open); background: color-mix(in srgb,var(--open) 12%,transparent); }
+  .delivered { color: var(--warn); background: color-mix(in srgb,var(--warn) 12%,transparent); } table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14px; }
+  th,td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; } th { color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+  code { background: color-mix(in srgb,var(--muted) 14%,transparent); border-radius: 4px; padding: 1px 5px; } figure { margin: 20px 0; } figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 10px; }
+  figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; } .good { color: var(--ok); } @media (max-width:720px) { main { padding: 24px 16px 60px; } h1 { font-size: 28px; } }
+</style>
+</head>
+<body><main>
+<header>
+  <div class="kicker">Quality Studio · performance · living dossier</div>
+  <h1>Large-repository transport after QS-82</h1>
+  <p class="lede">QS-59 found that a warm project switch still transferred a recursively repeated 29.1 MB tree. QS-82 delivers the next slice cleanly on top of QS-54 and QS-78: one-level tree transport, lazy expansion, snapshot-pinned child pages, complete timing, and production bundle headroom.</p>
+  <div class="meta"><div><b>Status</b><br><span class="pill done">documented</span></div><div><b>Implemented</b><br>12 August 2026</div><div><b>Card</b><br><code>QS-82</code></div><div><b>Integration base</b><br><code>origin/main 59941d8</code></div><div><b>Target</b><br>3,927 tracked files</div></div>
+</header>
+
+<section class="callout"><b>Outcome.</b> The root response is 15,391 bytes instead of 29,119,333 bytes (99.95% smaller). Ten same-build project-plus-root samples measured 30.45 ms median / 49.98 ms p95 with v2. Five live Angular switches measured 23.4 / 54.4 ms and first lazy expansion measured 50.3 ms.</section>
+
+<h2>1. Delivery state before this card</h2>
+<p>A fresh fetch confirms that the configured remote exposes <code>origin/main</code> as its default/integration branch and has no <code>origin/develop</code> ref. The task branch and <code>origin/main</code> both resolve to <code>59941d8e9373</code>, so there is no outstanding textual rebase conflict. Backend orchestration, not this worker, owns commits, pushes, merges, and worktree history.</p>
+<div class="grid">
+  <article class="card"><span class="pill done">wave 1 landed</span><h3>QS-54</h3><p>The one-slot hierarchy cache, background prewarmer, dashboard projection cache, stale-while-revalidate browser snapshots, phase timing, tests, and real switch harness are patch-equivalent on main at <code>3e0b655</code>. QS-82 reuses them.</p></article>
+  <article class="card"><span class="pill delivered">integrated here</span><h3>QS-78</h3><p>Result commit <code>3606acb</code> delivered persisted, verified hierarchy/dashboard snapshots plus sensor-state caching: 118.7 ms restored prewarm and a 38.7 ms warm browser switch in its evidence. QS-82 integrates that delivery and resolves overlap without creating a parallel hierarchy cache.</p></article>
+</div>
+<p class="muted">The prompt-referenced <code>AGENTS.md</code>, <code>docs/start/README.md</code>, contribution guide, design-principles document, and routing-policy document are absent from this integration tree and current <code>origin/main</code>. This card makes no model or thinking-level selection.</p>
+
+<h2>2. QS-59 cost blocks and selection</h2>
+<table><thead><tr><th>Rank</th><th>Measured cost</th><th>State after QS-82</th></tr></thead><tbody>
+  <tr><td>#1 Model execution then range rejection</td><td>112.623 s model p50; 0/3 usable</td><td><span class="pill pending">open</span> Review anchoring/recovery remains a separate governed slice.</td></tr>
+  <tr><td>#2 Repeated hierarchy derivation</td><td>7.167 s scan; 6.38 file-node occurrences per unique path</td><td><span class="pill delivered">QS-78 relief integrated</span> Verified restart snapshots avoid unchanged rebuilds; canonical graph derivation remains open.</td></tr>
+  <tr><td>#3 Full eager hierarchy transport</td><td>29.12 MB; 1,012.4 / 1,425.2 ms browser switch</td><td><span class="pill done">built · QS-82</span> This is the selected next slice and the focus of the re-measurement below.</td></tr>
+</tbody></table>
+
+<h2>3. Implementation state</h2>
+<table><thead><tr><th>Slice</th><th>State</th><th>What exists now</th></tr></thead><tbody>
+  <tr><td>Lazy tree API</td><td><span class="pill done">built · QS-82</span></td><td><code>/api/tree/v2</code> returns one level with aggregate facts, <code>hasChildren</code>, paging, conditional ETag, and a verified immutable <code>snapshotEtag</code>. The legacy recursive endpoint remains compatible.</td></tr>
+  <tr><td>Snapshot integration</td><td><span class="pill done">built · QS-78/QS-82</span></td><td>QS-78 hierarchy/dashboard restoration is retained. The existing QS-54 prewarmer now fills the bounded one-slot aggregate projection; child pages pin the root snapshot and avoid another Git-state scan.</td></tr>
+  <tr><td>Explorer migration</td><td><span class="pill done">built · QS-82</span></td><td>Children load on expansion, pages remain in the per-repository browser snapshot, server search preserves unloaded deep links, and keyboard/virtualized-row behavior remains.</td></tr>
+  <tr><td>Honest timing</td><td><span class="pill done">built · QS-82</span></td><td><code>Server-Timing</code> includes snapshot, projection, and JSON serialization. <code>qs.tree.transport</code> records bytes and response completion.</td></tr>
+  <tr><td>Bundle headroom</td><td><span class="pill done">built · QS-82</span></td><td>The editor is deferred through the established Angular component boundary. The final initial production bundle is 438.02 kB versus the 480 kB error ceiling.</td></tr>
+  <tr><td>Review completion and bounded retention</td><td><span class="pill pending">not built</span></td><td>Push completion, output recovery, canonical hierarchy derivation, and bounded dashboard state retention remain next-wave work.</td></tr>
+</tbody></table>
+
+<h2>4. Before / after re-measurement</h2>
+<table><thead><tr><th>Metric</th><th>Before</th><th>After QS-82</th><th>Result</th></tr></thead><tbody>
+  <tr><td>Root payload</td><td>29,119,333 bytes</td><td><b>15,391 bytes</b></td><td class="good">99.95% smaller</td></tr>
+  <tr><td>Same-build root, n=10</td><td>328.59 ms median / 756.18 ms p95 (legacy v1)</td><td><b>33.76 / 50.35 ms</b></td><td class="good">89.73% median reduction</td></tr>
+  <tr><td>Same-build project + root, n=10</td><td>365.97 ms median / 911.72 ms p95</td><td><b>30.45 / 49.98 ms</b></td><td class="good">91.68% median reduction</td></tr>
+  <tr><td>Live browser switch, n=5</td><td>QS-59: 1,012.4 / 1,425.2 ms; 0/5 pass</td><td><b>23.4 / 54.4 ms; 5/5 pass</b></td><td class="good">Both 250/500 ms targets pass</td></tr>
+  <tr><td>First lazy expansion</td><td>Not applicable; descendants were eager</td><td><b>50.3 ms</b></td><td class="good">100 ms target passes</td></tr>
+  <tr><td>Cached toggles, n=6</td><td>QS-59 fixture: 4.9–25.1 ms</td><td><b>2.4 / 6.1 ms</b></td><td class="good">50 ms contract passes</td></tr>
+  <tr><td>Initial production bundle</td><td>478.30 kB</td><td><b>438.02 kB</b></td><td class="good">40.28 kB / 8.42% smaller; ≤450 kB target passes</td></tr>
+</tbody></table>
+<p class="muted">Subject: Agent Studio <code>9af1a848e3be</code>, 3,927 tracked files; .NET 10.0.301; Node 22.23.1; Chromium 149.0.7827.55. The v1/v2 backend comparison uses one warmed API process. The browser comparison retains the QS-59 baseline and runs the real API plus real Angular app.</p>
+
+<h2>5. App evidence</h2>
+<div class="grid">
+  <figure><img src="../../../../../../tasks/QS-82/results/tree-transport-before.png" alt="Agent Studio wave-1 switch UI before lazy tree transport"><figcaption><b>Before.</b> QS-78 real-app capture on the same 3,927-file repository. The explorer depended on a complete recursive tree response.</figcaption></figure>
+  <figure><img src="../../../../../../tasks/QS-82/results/tree-transport-after.png" alt="Agent Studio after QS-82 with a lazily expanded project"><figcaption><b>After.</b> QS-82 real API and Angular UI. The small root becomes usable first; the selected solution's ten children are visible after a 50.3 ms pinned lazy expansion.</figcaption></figure>
+</div>
+
+<h2>6. Verification and evidence</h2>
+<ul><li>Release solution build: zero warnings, zero errors.</li><li>Routine .NET tests: 207 passed; one explicitly gated live-provider test skipped.</li><li>Angular tests: 44 passed in Chromium 149 with the repository no-sandbox launcher.</li><li>Production Angular build: passed at 438.02 kB initial; existing budget/style/CommonJS warnings remain.</li><li>Real path: all five large switches, first lazy expansion, and all six cached toggles pass their budgets.</li></ul>
+<p>Raw artifacts: <code>tree-transport-benchmark.json</code>, <code>lazy-tree-browser.json</code>, before/after light and dark screenshots, plus <code>report.md</code>, <code>deliverables.md</code>, and <code>status.md</code> in <code>/home/agent/runner-work/tasks/QS-82/results</code>.</p>
+</main></body></html>
