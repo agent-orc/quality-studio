@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "Quality Studio in-process analysis core package",
+  "summary": "Implementation dossier for the AgentOrchestrator.CodeQuality NuGet boundary. It inventories the existing core, API, two CLI hosts, and Angular client; implements a named in-process analysis facade and real quality-cli caller; moves Agent Studio HTTP handover and starter rule content out of the core; answers that the core is useful without the UI; and recommends keeping it in this repository until release-cadence, zero-PR versioning, public-source, and operational ownership criteria justify extraction.",
+  "entrypoint": "index.html",
+  "status": "implemented",
+  "phase": "first-slice",
+  "updatedAt": "2026-08-12T08:17:35Z",
+  "sourceTaskKeys": [
+    "QS-91",
+    "AGT-2655",
+    "QS-90"
+  ],
+  "decisions": [
+    {
+      "question": "Is the analysis core useful without the Quality Studio UI?",
+      "answer": "Yes. Agent Studio pipeline step AGT-2655, quality-cli, and CI are standalone in-process consumers."
+    },
+    {
+      "question": "Should the core be extracted into its own repository now?",
+      "answer": "No. Keep the NuGet boundary in this repository until independent release cadence, zero-PR package promotion, public-repository policy, consumer pressure, and operational ownership criteria are met."
+    }
+  ],
+  "implementation": {
+    "packageId": "AgentOrchestrator.CodeQuality",
+    "version": "0.1.0",
+    "consumer": "quality-cli boundaries scan",
+    "transport": "in-process DLL",
+    "published": false
+  },
+  "evidence": [
+    "src/AgentOrchestrator.CodeQuality/QualityAnalysisCore.cs",
+    "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+    "src/AgentOrchestrator.CodeQuality/README.md",
+    "src/quality-cli/Program.cs",
+    "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+    "tests/AgentOrchestrator.CodeQuality.Tests/QualityAnalysisCoreTests.cs",
+    ".github/workflows/build.yml",
+    "$JOB_RESULTS_DIR/package/AgentOrchestrator.CodeQuality.0.1.0.nupkg"
+  ]
+}

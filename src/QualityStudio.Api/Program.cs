@@ -757,7 +757,7 @@ static IResult Guidelines(HttpContext context, RepositoryRegistry registry, Guid
     return Results.Ok(new
     {
         guidelines,
-        catalogue = GuidelineStore.Catalogue,
+        catalogue = GuidelineRuleCatalogue.Entries,
         traces = BuildGuidelineTraces(repository.Root, guidelines.Select(value => value.Id)),
     });
 }
@@ -786,7 +786,7 @@ static IResult DeleteGuideline(HttpContext context, string guidelineId, Reposito
 static IResult InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry, GuidelineStore store)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var installed = store.Install(repository.Root, catalogueId);
+    var installed = GuidelineRuleCatalogue.Install(store, repository.Root, catalogueId);
     return Results.Created($"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}", installed);
 }
 
