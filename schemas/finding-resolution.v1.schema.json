@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/finding-resolution.v1.schema.json",
+  "title": "Finding resolution event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "eventId", "fingerprint", "status", "actor", "reason", "resolvedAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "eventId": { "type": "string", "minLength": 1 },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "status": { "enum": ["open", "planned", "fixed", "risk-accepted", "obsolete"] },
+    "actor": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "resolvedAt": { "type": "string", "format": "date-time" },
+    "taskKey": { "type": ["string", "null"] },
+    "compatibilityProjection": { "type": "boolean" }
+  }
+}

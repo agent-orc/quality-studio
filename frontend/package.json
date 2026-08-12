@@ -9,7 +9,9 @@
     "test": "node ./tests/run-tests.mjs",
     "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
+    "evidence:finding-ignore": "node tests/finding-ignore-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
+    "evidence:finding-spans": "node tests/finding-span-evidence.mjs",
     "evidence:security": "node tests/security-evidence.mjs evidence",
     "evidence:run-report": "node tests/run-report-evidence.mjs"
   },

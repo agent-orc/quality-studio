@@ -39,7 +39,10 @@ public sealed record ReviewRunManifest(
     bool Force = false,
     string? ThinkingLevel = null,
     ReviewModelRecommendation? Recommendation = null,
-    bool RouteOverride = false);
+    bool RouteOverride = false,
+    string? RequestedModel = null,
+    string? RequestedCliType = null,
+    string? RequestedThinkingLevel = null);
 
 public sealed record ReviewRunFileTransition(
     string Path,
@@ -100,7 +103,10 @@ public sealed record ReviewRunResult(
     string PriceStatus,
     string? StopReason,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    string? RequestedModel = null,
+    string? RequestedCli = null,
+    string? RequestedThinkingLevel = null);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
@@ -222,7 +228,10 @@ public sealed class ReviewRunStore
             status.PriceStatus,
             status.StopReason,
             manifest.Recommendation,
-            manifest.RouteOverride);
+            manifest.RouteOverride,
+            manifest.RequestedModel,
+            manifest.RequestedCliType,
+            manifest.RequestedThinkingLevel);
         WriteAtomic(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }

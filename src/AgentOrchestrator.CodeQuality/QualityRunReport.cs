@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -293,6 +294,117 @@ public sealed class QualityRunReportStore
         if (runId.Length > 200 || runId.Any(character =>
                 character is not (>= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '.' or '_' or '-')))
             throw new ArgumentException("A review run id may contain only letters, digits, dots, underscores, and hyphens.", nameof(runId));
+        return runId;
+    }
+}
+
+/// <summary>
+/// Create-only terminal history. Canonical reports may advance to a new revision when a capped
+/// run resumes; every terminal revision is retained here as an immutable repository artifact.
+/// </summary>
+public sealed class ImmutableQualityRunHistoryStore
+{
+    public const string RelativeHistoryPath = ".quality/review-history/runs";
+    private static readonly UTF8Encoding Utf8 = new(false);
+    private static readonly ConcurrentDictionary<string, object> Gates =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly string historyPath;
+
+    public ImmutableQualityRunHistoryStore(string repositoryRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        historyPath = Path.Combine(Path.GetFullPath(repositoryRoot),
+            RelativeHistoryPath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    public string HistoryPath => historyPath;
+
+    public string Save(QualityRunReportDocument report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        var bytes = Utf8.GetBytes(QualityRunReportJson.Serialize(report));
+        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var runDirectory = Path.Combine(historyPath, SafeFileName(report.Run.Id));
+        var prefix = $"revision-{report.Run.Revision:D8}-";
+        var destination = Path.Combine(runDirectory, prefix + hash + ".json");
+        lock (Gates.GetOrAdd(runDirectory, _ => new object()))
+        {
+            Directory.CreateDirectory(runDirectory);
+            var existingRevisions = Directory.EnumerateFiles(runDirectory, prefix + "*.json").ToArray();
+            if (existingRevisions.Length > 1)
+                throw new InvalidDataException(
+                    $"Review run history '{report.Run.Id}' revision {report.Run.Revision} has multiple retained artifacts.");
+            if (existingRevisions is [var existingRevision])
+            {
+                if (string.Equals(existingRevision, destination, StringComparison.Ordinal) &&
+                    File.ReadAllBytes(existingRevision).SequenceEqual(bytes))
+                    return destination;
+                throw new InvalidDataException(
+                    $"Review run history '{report.Run.Id}' revision {report.Run.Revision} conflicts with retained content.");
+            }
+
+            var temporary = Path.Combine(runDirectory, $".{prefix}{Guid.NewGuid():N}.tmp");
+            try
+            {
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                           4096, FileOptions.WriteThrough))
+                {
+                    stream.Write(bytes);
+                    stream.Flush(flushToDisk: true);
+                }
+                File.Move(temporary, destination);
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+        }
+        return destination;
+    }
+
+    public IReadOnlyList<QualityRunReportDocument> LoadAll()
+    {
+        if (!Directory.Exists(historyPath)) return [];
+        return LoadPaths(Directory.EnumerateFiles(historyPath, "*.json", SearchOption.AllDirectories));
+    }
+
+    public IReadOnlyList<QualityRunReportDocument> Load(string runId)
+    {
+        var runDirectory = Path.Combine(historyPath, SafeFileName(runId));
+        return Directory.Exists(runDirectory)
+            ? LoadPaths(Directory.EnumerateFiles(runDirectory, "*.json", SearchOption.TopDirectoryOnly))
+            : [];
+    }
+
+    private static IReadOnlyList<QualityRunReportDocument> LoadPaths(IEnumerable<string> paths)
+    {
+        var reports = new List<QualityRunReportDocument>();
+        foreach (var path in paths.Order(StringComparer.Ordinal))
+        {
+            var report = QualityRunReportJson.Deserialize(File.ReadAllText(path));
+            var runDirectory = Path.GetFileName(Path.GetDirectoryName(path));
+            if (!string.Equals(runDirectory, report.Run.Id, StringComparison.Ordinal))
+                throw new InvalidDataException($"Review run history '{path}' has a mismatched run id.");
+            var bytes = File.ReadAllBytes(path);
+            var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+            var expectedName = $"revision-{report.Run.Revision:D8}-{hash}.json";
+            if (!string.Equals(Path.GetFileName(path), expectedName, StringComparison.Ordinal))
+                throw new InvalidDataException($"Review run history '{path}' has a mismatched content hash or revision.");
+            reports.Add(report);
+        }
+        if (reports.GroupBy(report => (report.Run.Id, report.Run.Revision))
+            .Any(group => group.Count() > 1))
+            throw new InvalidDataException("Review run history contains multiple artifacts for one run revision.");
+        return reports;
+    }
+
+    private static string SafeFileName(string runId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
+        if (runId.Length > 200 || runId.Any(character =>
+                character is not (>= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '.' or '_' or '-')))
+            throw new ArgumentException(
+                "A review run id may contain only letters, digits, dots, underscores, and hyphens.", nameof(runId));
         return runId;
     }
 }

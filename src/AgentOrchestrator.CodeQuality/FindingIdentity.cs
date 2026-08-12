@@ -39,7 +39,7 @@ public static partial class FindingIdentity
                 }
 
                 var range = location["range"]!.AsObject();
-                var snippet = ExtractSnippet(content, path, range);
+                var snippet = ExtractValidatedSnippet(content, path, range);
                 location["path"] = path;
                 primaryPath ??= path;
                 primarySnippet ??= NormalizeSnippet(snippet);
@@ -70,14 +70,27 @@ public static partial class FindingIdentity
     public static string NormalizeSnippet(string snippet) =>
         Whitespace().Replace(NormalizeLineEndings(snippet).Trim(), " ");
 
-    private static string ExtractSnippet(string content, string path, JsonObject range)
+    internal static string ExtractValidatedSnippet(string content, string path, JsonObject range)
     {
         var start = range["start"]!.AsObject();
         var end = range["end"]!.AsObject();
-        var startLine = start["line"]!.GetValue<int>();
-        var startColumn = start["column"]!.GetValue<int>();
-        var endLine = end["line"]!.GetValue<int>();
-        var endColumn = end["column"]!.GetValue<int>();
+        return ExtractValidatedSnippet(content, path,
+            start["line"]!.GetValue<int>(), start["column"]!.GetValue<int>(),
+            end["line"]!.GetValue<int>(), end["column"]!.GetValue<int>());
+    }
+
+    internal static string ExtractValidatedSnippet(string content, string path, FindingRange range) =>
+        ExtractValidatedSnippet(content, path,
+            range.Start.Line, range.Start.Column, range.End.Line, range.End.Column);
+
+    private static string ExtractValidatedSnippet(
+        string content,
+        string path,
+        int startLine,
+        int startColumn,
+        int endLine,
+        int endColumn)
+    {
         var lines = content.Split('\n');
         if (startLine > lines.Length || endLine > lines.Length || endLine < startLine ||
             startColumn > lines[startLine - 1].Length + 1 || endColumn > lines[endLine - 1].Length + 1 ||

@@ -177,7 +177,7 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-61</span>
@@ -631,8 +631,25 @@
     </table>
   </section>
 
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <p class="dim">Append-only delivery ledger. The operator approved Option C and all five slices on 11 August 2026; the decision status is <b>decided</b>.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+      <tbody>
+        <tr><td>2026-08-11</td><td><code>QS-70</code></td><td><b>S1 · Exact-span highlight</b></td><td>Split syntax tokens at one-based inclusive finding boundaries while preserving source text and UTF-16 column alignment. Added multi-line, Unicode, end-of-line, and overlap behavior, keyboard-accessible exact span controls and chooser, weaker whole-line context, centralized semantic tokens, component tests, and retained light/dark Playwright evidence.</td></tr>
+        <tr><td>2026-08-11</td><td><code>QS-70</code></td><td><b>S2 · Evidence and provenance</b></td><td>Added strict review-meta v3 and usage-ledger v3 contracts while retaining v1/v2 readers. The runner now captures exact excerpts and hashes, typed source-span and explicitly unverified legacy evidence, reproduction status, source revision, prompt/input/subject hashes, operation and review run ids, and requested versus executed CLI/model/thinking route. Prompts cannot claim executed verification, and the finding detail exposes evidence, reproduction, captured code, and execution origin.</td></tr>
+        <tr><td>2026-08-11</td><td><code>QS-70</code></td><td><b>S3 · Independent decisions and ignore policy</b></td><td>Added append-only, independently concurrent human assessment and remediation ledgers plus a revisioned repository suppression policy. Exact fingerprint suppression is the default; broader rule/path/review/source matches require preview and explicit confirmation and support expiry. Legacy lifecycle values project compatibly without rewrites. API, combined read projection, effective scoring, filters, forms, schemas, restart, concurrency, compatibility, expiry, and observability tests landed.</td></tr>
+        <tr><td>2026-08-11</td><td><code>QS-70</code></td><td><b>S4 · Immutable terminal history</b></td><td>Completed the existing canonical terminal-report delivery with a history endpoint that reads committed <code>.quality/reports/runs/&lt;runId&gt;.json</code> independently of disposable active state. The Review panel now separates Active polling from History and shows actual route, terminal time, result, finding count, assessment coverage, canonical detail, and exports. Restart proof deletes the active run directory and retains the same history record.</td></tr>
+        <tr><td>2026-08-11</td><td><code>QS-70</code></td><td><b>S5 · TE-38 v2 bridge</b></td><td><span class="pill open">Dependency pending</span> Approved but not delivered in this repository. Token Economy <code>main</code> at <code>01ac26b2c66a</code> still exposes <code>quality-studio-review-run</code> schema version 1; the required v2 receiver/schema is owned by that separate repository and is not present in this checkout. The prescribed receiver-first ordering therefore prevents a Quality Studio exporter from guessing that external contract; no routing behavior was changed.</td></tr>
+        <tr><td>2026-08-12</td><td><code>QS-70</code></td><td><b>S1/S4 integration hardening</b></td><td>Kept the unchanged production bundle gate green by deferring the editor only for file views; the exact-span editor now ships as a dedicated lazy chunk without changing project-view behavior. Added create-only, content-addressed terminal revisions under <code>.quality/review-history/runs/</code>, retained the canonical latest-report projection for exporters, taught recovery to restore either side, and made the history API prefer the newest immutable revision while surfacing content conflicts. Used the approved QS-75 stable-gate classification for the retained host-timing canary instead of treating its concurrent-load variance as a product failure.</td></tr>
+        <tr><td>2026-08-12</td><td><code>QS-84</code></td><td><b>S1/S3 delivery reconciliation</b></td><td><span class="pill done">Documented</span> Reconciled the completed QS-70 S1 through S4 implementation with the current <code>origin/main</code> base at <code>59941d8</code>, after a fresh remote fetch confirmed that <code>origin/develop</code> is not published. Verified exact multi-line, Unicode, overlap, and end-of-line source-span highlighting in both themes. Added a visible repository-backed Ignore list that loads revisioned rules, shows exact or scoped match criteria and audit metadata, survives a page reload and subsequent review runs, and removes rules with optimistic revision checks without deleting observations. Component, stable .NET, production build, and deterministic Playwright evidence are retained with the QS-84 result.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
   <footer>
-    Decision dossier for QS-61. Repository claims were checked against Quality Studio commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. TE-38 claims were checked against Token Economy commit <code>2b368472cd1af0a5e5385a87f2da718c778191d5</code>, its committed aggregate, schema, generated model view, and retained integration report.
+    Decision dossier for QS-61, with implementation receipts for QS-70 and QS-84. QS-84 delivery was reconciled against Quality Studio <code>origin/main</code> commit <code>59941d8</code> on 12 August 2026. TE-38 claims were checked against Token Economy commit <code>2b368472cd1af0a5e5385a87f2da718c778191d5</code>, its committed aggregate, schema, generated model view, and retained integration report.
   </footer>
 </main>
 </body>

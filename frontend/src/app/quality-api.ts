@@ -43,9 +43,30 @@ export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type FindingState = 'open' | 'accepted' | 'waived' | 'false-positive' | 'resolved';
 export interface FindingStateCounts { open: number; accepted: number; waived: number; falsePositive: number; resolved: number; }
 export interface FindingPosition { line: number; column: number; }
-export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
+export interface CapturedExcerpt { text: string; language: string; contentHash: string; excerptHash: string; }
+export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; symbolId?: string; role?: 'primary' | 'related'; capturedExcerpt?: CapturedExcerpt; }
 export interface FindingSource { kind: 'deterministic'; sensorId: string; producer: string; producerVersion?: string; runIndex?: number; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+export type FindingEvidenceClass = 'source-span' | 'deterministic-result' | 'test-result' | 'runtime-observation' | 'external-reference' | 'legacy-claim';
+export interface FindingEvidenceItem { id: string; class: FindingEvidenceClass; status: 'observed' | 'verified' | 'specified' | 'unverified'; summary: string; anchorIndex?: number; producer?: string; reference?: string; resultHash?: string; }
+export type FindingReproductionStatus = 'verified' | 'specified' | 'not-applicable' | 'blocked' | 'unknown';
+export interface FindingReproductionAttempt { executedAt: string; executor: string; result: string; artifactReference?: string; }
+export interface FindingReproduction { status: FindingReproductionStatus; steps: string[]; expected?: string; observed?: string; reason?: string; attempts?: FindingReproductionAttempt[]; }
+export interface ReviewRoute { cli?: string | null; model?: string | null; thinkingLevel?: string | null; }
+export interface ReviewOrigin { kind: string; reviewRunId?: string; operationRunId: string; requested: ReviewRoute; executed: ReviewRoute; prompt: { id: string; version: string; contentHash: string }; reviewInputHash: string; subjectManifestHash: string; sourceRevision: string; observedAt: string; }
+export type FindingAssessmentStatus = 'unassessed' | 'confirmed' | 'dismissed' | 'disputed';
+export type FindingResolutionStatus = 'open' | 'planned' | 'fixed' | 'risk-accepted' | 'obsolete';
+export interface FindingAssessment { schemaVersion: number; eventId: string; fingerprint: string; status: FindingAssessmentStatus; actor: string; reason: string; assessedAt: string; reviewRunId?: string; operationRunId?: string; compatibilityProjection?: boolean; }
+export interface FindingResolution { schemaVersion: number; eventId: string; fingerprint: string; status: FindingResolutionStatus; actor: string; reason: string; resolvedAt: string; taskKey?: string; compatibilityProjection?: boolean; }
+export interface FindingDecisionCounts { unassessed: number; confirmed: number; dismissed: number; disputed: number; open: number; planned: number; fixed: number; riskAccepted: number; obsolete: number; suppressed: number; }
+export interface FindingSuppressionMatch { fingerprint?: string | null; ruleId?: string | null; pathPattern?: string | null; reviewKinds?: string[]; sourceKinds?: string[]; }
+export interface FindingSuppressionRule { id: string; enabled: boolean; match: FindingSuppressionMatch; effect: 'suppress'; reason: string; author: string; createdAt: string; expiresAt?: string | null; }
+export interface FindingSuppressionDocument { schemaVersion: number; revision: number; rules: FindingSuppressionRule[]; }
+export interface FindingSuppressionCandidate { fingerprint: string; ruleId: string; path: string; reviewKind: ReviewKind; sourceKind: 'agent' | 'deterministic'; title: string; }
+export interface FindingSuppressionPreview { rule: FindingSuppressionRule; matches: FindingSuppressionCandidate[]; broad: boolean; }
+export interface FindingSuppressionMutation { id?: string | null; enabled: boolean; match: FindingSuppressionMatch; reason: string; author: string; expiresAt?: string | null; expectedRevision: number; confirmBroad?: boolean; }
+export interface FindingAssessmentMutationRequest { path: string; kind: ReviewKind; fingerprint: string; status: FindingAssessmentStatus; actor: string; reason: string; expectedAssessedAt?: string | null; }
+export interface FindingResolutionMutationRequest { path: string; kind: ReviewKind; fingerprint: string; status: FindingResolutionStatus; actor: string; reason: string; taskKey?: string | null; expectedResolvedAt?: string | null; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; evidenceItems?: FindingEvidenceItem[]; impact?: string; reproduction?: FindingReproduction; fingerprint?: string; ruleId: string; source?: FindingSource; assessment?: FindingAssessment; resolution?: FindingResolution; suppressed?: boolean; suppression?: FindingSuppressionRule; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
@@ -59,7 +80,7 @@ export interface SecuritySensorMetadata extends ReviewSensorReference { availabl
 export interface SecurityReviewMetadata { verdict: SecurityVerdict; combinationRule: string; sensors: SecuritySensorMetadata[]; }
 export interface SensorProvenance { sensorId: string; sensorVersion: string; scope: string; target: string; scannedAt: string; toolVersions: Record<string, string>; }
 export interface DeterministicSensorResult { available: boolean; unavailableReason: string | null; findings: ReviewFinding[]; provenance: SensorProvenance; }
-export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
+export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; thinkingLevel?: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; origin?: ReviewOrigin; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; decisionCounts?: FindingDecisionCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
 export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
 export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
@@ -215,6 +236,13 @@ export interface ReviewRun {
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
+}
+export interface ReviewRunHistory {
+  id: string; repositoryId: string; path: string; level: string; kind: ReviewKind;
+  model: string; thinkingLevel: string; cliType: string; state: ReviewRunState;
+  completeness: 'complete' | 'partial'; createdAt: string; finishedAt: string | null;
+  findingCount: number; assessedFindings: number;
+  assessmentCounts: Record<FindingAssessmentStatus, number>;
 }
 export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
 export interface QualityRunFinding {
@@ -428,6 +456,7 @@ export class QualityApi {
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
+  readonly reviewHistory = signal<ReviewRunHistory[]>([]);
   readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
@@ -582,9 +611,13 @@ export class QualityApi {
     if (!this.connected() || repositoryId !== this.selectedRepositoryId()) return;
     try {
       const before = new Map(this.reviewRuns().map(run => [run.id, run.state]));
-      const result = await firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`));
+      const [result, history] = await Promise.all([
+        firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`)),
+        firstValueFrom(this.http.get<{ runs: ReviewRunHistory[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs/history`)),
+      ]);
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.reviewRuns.set(result.runs);
+      this.reviewHistory.set(history.runs);
       const completed = result.runs.some(run => ['done', 'failed', 'cancelled', 'capped'].includes(run.state) && ['queued', 'running'].includes(before.get(run.id) ?? ''));
       if (completed) {
         const openPath = this.file()?.path;
@@ -750,6 +783,41 @@ export class QualityApi {
     console.info(JSON.stringify({ event: 'qs.finding.state-mutated', fingerprint: request.fingerprint, path: request.path, state: request.state }));
     return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
       .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  async mutateFindingAssessment(request: FindingAssessmentMutationRequest): Promise<ReviewFinding | null> {
+    await firstValueFrom(this.http.post(`${this.repositoryApiBase()}/findings/assessment`, request));
+    await Promise.all([this.loadFile(request.path), this.loadTree()]);
+    return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
+      .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  async mutateFindingResolution(request: FindingResolutionMutationRequest): Promise<ReviewFinding | null> {
+    await firstValueFrom(this.http.post(`${this.repositoryApiBase()}/findings/resolution`, request));
+    await Promise.all([this.loadFile(request.path), this.loadTree()]);
+    return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
+      .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  loadFindingSuppressions(): Promise<FindingSuppressionDocument> {
+    return firstValueFrom(this.http.get<FindingSuppressionDocument>(`${this.repositoryApiBase()}/findings/suppressions`));
+  }
+
+  previewFindingSuppression(request: FindingSuppressionMutation): Promise<FindingSuppressionPreview> {
+    return firstValueFrom(this.http.post<FindingSuppressionPreview>(`${this.repositoryApiBase()}/findings/suppressions/preview`, request));
+  }
+
+  async addFindingSuppression(request: FindingSuppressionMutation): Promise<FindingSuppressionDocument> {
+    const result = await firstValueFrom(this.http.post<FindingSuppressionDocument>(`${this.repositoryApiBase()}/findings/suppressions`, request));
+    await Promise.all([this.loadFile(this.file()?.path ?? '.'), this.loadTree()]);
+    return result;
+  }
+
+  async removeFindingSuppression(id: string, expectedRevision: number): Promise<FindingSuppressionDocument> {
+    const result = await firstValueFrom(this.http.delete<FindingSuppressionDocument>(
+      `${this.repositoryApiBase()}/findings/suppressions/${encodeURIComponent(id)}?expectedRevision=${expectedRevision}`));
+    if (this.file()?.path) await Promise.all([this.loadFile(this.file()!.path), this.loadTree()]);
+    return result;
   }
 
   async loadScopeRules(): Promise<ScopeRulesResponse> {

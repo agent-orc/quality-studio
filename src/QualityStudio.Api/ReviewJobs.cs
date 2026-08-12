@@ -202,7 +202,10 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            request.Model,
+            request.CliType,
+            request.ThinkingLevel);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -595,7 +598,10 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            RequestedModel: item.RequestedModel,
+            RequestedCliType: item.RequestedCliType,
+            RequestedThinkingLevel: item.RequestedThinkingLevel);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -624,6 +630,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly Dictionary<string, MutableFileProgress> progress;
         private readonly Dictionary<string, ReviewObservationSnapshot> observations;
         private readonly QualityRunReportStore reportStore;
+        private readonly ImmutableQualityRunHistoryStore historyStore;
         private readonly List<string> errors;
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
@@ -652,11 +659,17 @@ public sealed class ReviewJobService : BackgroundService
             this.store = store;
             Repository = repository;
             reportStore = new QualityRunReportStore(repository.RootPath);
+            historyStore = new ImmutableQualityRunHistoryStore(repository.RootPath);
             observations = storedObservations?.ToDictionary(pair => pair.Key, pair => pair.Value,
                 StringComparer.Ordinal) ?? new Dictionary<string, ReviewObservationSnapshot>(StringComparer.Ordinal);
-            reportRevision = reportStore.TryLoad(manifest.RunId, out var existingReport)
+            var canonicalRevision = reportStore.TryLoad(manifest.RunId, out var existingReport)
                 ? existingReport!.Run.Revision
                 : 0;
+            var archivedRevision = historyStore.Load(manifest.RunId)
+                .Select(report => report.Run.Revision)
+                .DefaultIfEmpty(0)
+                .Max();
+            reportRevision = Math.Max(canonicalRevision, archivedRevision);
             if (!Enum.TryParse<ReviewLevel>(manifest.Level, ignoreCase: true, out var level) || level == ReviewLevel.Function)
                 throw new ArgumentException($"Review manifest has unsupported level '{manifest.Level}'.");
             Node = new HierarchyNode(manifest.Node.Id, manifest.Node.Name, level, manifest.Node.Path);
@@ -719,6 +732,9 @@ public sealed class ReviewJobService : BackgroundService
         public string? Model => manifest.Model;
         public string? ThinkingLevel => manifest.ThinkingLevel;
         public string CliType => manifest.CliType;
+        public string? RequestedModel => manifest.RequestedModel;
+        public string? RequestedCliType => manifest.RequestedCliType;
+        public string? RequestedThinkingLevel => manifest.RequestedThinkingLevel;
         public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
         public DateTimeOffset? StartedAt { get; private set; }
@@ -1057,7 +1073,18 @@ public sealed class ReviewJobService : BackgroundService
         {
             lock (gate)
             {
-                if (!ReviewRunStore.IsTerminal(state) || reportStore.TryLoad(Id, out _)) return;
+                if (!ReviewRunStore.IsTerminal(state)) return;
+                if (reportStore.TryLoad(Id, out var report))
+                {
+                    historyStore.Save(report!);
+                    return;
+                }
+                var archived = historyStore.Load(Id).OrderByDescending(item => item.Run.Revision).FirstOrDefault();
+                if (archived is not null)
+                {
+                    reportStore.Save(archived);
+                    return;
+                }
                 PublishReport();
             }
         }
@@ -1110,6 +1137,7 @@ public sealed class ReviewJobService : BackgroundService
                 Repository.DisplayName,
                 reportRevision + 1,
                 reportStore.LoadAll());
+            historyStore.Save(report);
             reportStore.Save(report);
             reportRevision = report.Run.Revision;
         }

@@ -45,6 +45,15 @@ operations. Renderers, API downloads, CLI gates, and run trends all consume this
 snapshot rather than mutable current sidecars. See
 [`quality-reports.md`](quality-reports.md) for formats and trend semantics.
 
+Every terminal revision is also written create-only to
+`.quality/review-history/runs/<runId>/revision-<revision>-<contentHash>.json`. The
+canonical report remains the latest export projection, while this per-run layout never
+rewrites an earlier capped, failed, cancelled, or completed terminal observation. A
+repeat write with identical content is idempotent; different content for an existing
+run revision is reported as corruption. Startup can rebuild a missing canonical report
+from the immutable archive or archive a canonical report produced before this layout
+was introduced.
+
 Model options come from the governed Token Economy snapshot described in
 [`model-catalog-integration.md`](model-catalog-integration.md). The model and optional
 thinking-level override are persisted in the manifest before enqueue and passed to the
@@ -53,6 +62,14 @@ same CodingAgentRunner request used for every file and aggregate operation.
 At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed.
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
+
+The Review panel presents active orchestration separately from committed history.
+`GET /api/review/runs/history` reads the newest immutable revision, with canonical
+reports as a compatibility fallback, so deleting disposable `.quality/runs/` state or
+opening a fresh clone does not remove the terminal view. History rows
+show terminal time, actual CLI/model/thinking level, result, finding count, and current human
+assessment coverage. That coverage is a live projection from the independent assessment ledger;
+it does not mutate the canonical run report.
 
 `.quality/runs/` is ignored by Git because it is disposable orchestration working
 data. Review sidecars remain the committed current-state truth, while canonical
