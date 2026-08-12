@@ -170,20 +170,20 @@
 <body>
 <main>
   <header class="page">
-    <p class="kicker">Decision dossier · QS-63 · Source snapshot 3e0b6559faa7</p>
+    <p class="kicker">Decision dossier · QS-63 · implementation receipts QS-72 and QS-86</p>
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
-      <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
-      <span><b>Evidence cut</b> 11 August 2026</span>
-      <span><b>Source card</b> QS-63</span>
+      <span><b>Status</b> Documented implementation</span>
+      <span><b>Recommendation</b> Option C approved; deliver in ranked slices</span>
+      <span><b>Evidence cut</b> 12 August 2026</span>
+      <span><b>Current card</b> QS-86</span>
     </div>
   </header>
 
   <section class="box accent" aria-labelledby="approval-title">
-    <h4 id="approval-title">Approval requested</h4>
-    <p><b>Approve a selective, snapshot-bound preflight in the API/backend before every review sweep.</b> Run configured checks once, persist their facts separately, skip only the model operation whose subject is invalid, and send compact context only when judgement is still useful. Keep the selected model and thinking-level correctness floor unchanged. Add Node CI coverage, changed-line style baselines, explicit complexity thresholds, and matched token measurements.</p>
+    <h4 id="approval-title">Approved direction</h4>
+    <p><b>Build a selective, snapshot-bound preflight in the API/backend before every review sweep.</b> QS-72 prepared the deterministic evidence plane. QS-86 wires the first repository-owned .NET compiler/analyzer and ESLint checks into that plane with independent enable flags. Later slices still own selective model blocking, cache invalidation, additional Angular gates, baselines, complexity thresholds, and matched economy evidence.</p>
   </section>
 
   <div class="decision-grid" aria-label="Decision summary">
@@ -203,6 +203,7 @@
       <li><a href="#contract">Output contract</a></li>
       <li><a href="#economy">Cost, benefit, and token economy</a></li>
       <li><a href="#slices">Implementation slices</a></li>
+      <li><a href="#implementation-state">Implementation state</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
     </ol>
@@ -419,7 +420,7 @@
         <tr><td><b>Angular production budget</b></td><td>Low / 9.56 s</td><td>Exact checked-in performance budget; currently finds a blocking regression.</td><td><span class="pill done">S2</span> Required for project performance review and CI.</td></tr>
         <tr><td><b>NuGet/npm advisories</b></td><td>Low / 4.44 s solution NuGet; 1.41 s npm sensor</td><td>Authoritative package/advisory facts; current npm result is material.</td><td><span class="pill done">S2</span> Run once per ecosystem/snapshot. Preserve existing security caps.</td></tr>
         <tr><td><b>Gitleaks</b></td><td>Already delivered / 1.55 s</td><td>Secret detection with redaction and repository baseline.</td><td><span class="pill done">preserve</span> Move collection to once-per-sweep shared preflight.</td></tr>
-        <tr><td><b>ESLint + Angular rules</b></td><td>Medium / unmeasured; project setup absent</td><td>Deterministic correctness, async, template, and accessibility rules.</td><td><span class="pill queued">S3</span> Pin first, shadow against a baseline, then gate new high-confidence rules.</td></tr>
+        <tr><td><b>ESLint + Angular rules</b></td><td>Medium / 4.523 s live API scan</td><td>Deterministic correctness, async, template, and accessibility rules.</td><td><span class="pill done">QS-86</span> Pinned and running in warning-only shadow mode; baseline and new-debt gates remain queued.</td></tr>
         <tr><td><b>.NET whitespace + Prettier</b></td><td>Low / 6.81 s .NET; Node unmeasured</td><td>Removes style work from model judgement.</td><td><span class="pill queued">S3</span> Changed-line gate only. Current .NET zero-baseline would fail 10 files.</td></tr>
         <tr><td><b>Complexity thresholds</b></td><td>Low–medium / shares Roslyn and ESLint processes</td><td>Stable hotspot signal and enforceable maintainability limit.</td><td><span class="pill queued">S4</span> CA1502/CA1505 plus ESLint complexity; warning until repository distributions are reviewed.</td></tr>
       </tbody>
@@ -533,6 +534,31 @@
     </table>
   </section>
 
+  <section id="implementation-state">
+    <h2><span class="no">08.1</span>Implementation state</h2>
+
+    <article class="slice">
+      <header><h3>2026-08-12 · QS-72 · deterministic evidence foundation</h3><span class="pill done">landed foundation</span></header>
+      <p>The QS-72 result refs and current integration state were reviewed before implementation. The reusable foundation available on <code>origin/main</code> registers <code>IDeterministicEvidenceSensor</code> implementations, collects enabled deterministic sensors once before file scheduling in <code>ReviewJobService</code>, projects findings by subject before the model executor is called, persists them separately under <code>deterministicEvidence</code>, and renders that machine provenance in reports and the existing review panel. Broader S1-S5 prototypes recorded on QS-72 result refs are not ancestors of <code>origin/main</code>, so they were treated as historical evidence rather than integrated product behavior.</p>
+    </article>
+
+    <article class="slice">
+      <header><h3>2026-08-12 · QS-86 · first real compiler and lint checks</h3><span class="pill done">documented</span></header>
+      <ul>
+        <li><b>.NET build and Roslyn:</b> the new <code>dotnet-build</code> deterministic sensor restores and performs a Release build with full paths, normalizes <code>CS*</code> compiler errors and Roslyn analyzer diagnostics into stable findings, and reports a failed command without parseable diagnostics as unavailable rather than clean.</li>
+        <li><b>ESLint:</b> ESLint 9.39.5, Angular ESLint 20.7.0, TypeScript ESLint 8.67.0, and the SARIF formatter 3.1.0 are lockfile-pinned. The flat configuration covers Angular TypeScript/templates plus repository-owned JavaScript modules. All initial rules are warnings during burn-in.</li>
+        <li><b>Independent flags:</b> <code>RepositorySensorConfiguration.Enabled</code> remains the per-repository, per-check switch. <code>dotnet-build</code> is enabled only when a .NET target exists; ESLint is enabled only when its repository config and manifest exist. Unconfigured generic <code>roslyn</code>, <code>sarif</code>, and <code>tsc</code> adapters now default disabled instead of emitting repeated unavailable payloads.</li>
+        <li><b>Before model review:</b> an API integration test records execution order as deterministic check then model, verifies the normalized finding is present on the model request, disables the check through the repository API, and verifies the next model request contains no evidence from that check.</li>
+        <li><b>Runtime evidence:</b> the final live API verification reported <code>dotnet-build</code> available with zero findings in 4.401 seconds and ESLint available with 30 medium findings in 4.523 seconds. The standalone frontend lint command reported 24 warnings and zero errors; the six additional API-scan findings come from repository-owned root scripts/tests included by the pre-review command.</li>
+      </ul>
+    </article>
+
+    <div class="box warn">
+      <h4>Delivery boundary after QS-86</h4>
+      <p>This slice publishes deterministic facts before model review but does not yet suppress a model operation. The next ranked work remains TypeScript/Angular compiler diagnostics and the production budget gate, followed by lint new-debt baselines, explicit complexity thresholds, snapshot-bound caching and invalidation, compact estimate parity, and matched economy evidence. Model selection and thinking-level floors are unchanged.</p>
+    </div>
+  </section>
+
   <section id="guardrails">
     <h2><span class="no">09</span>Approval guardrails</h2>
     <ol>
@@ -558,6 +584,7 @@
         <li><a href="../../../.github/workflows/build.yml">.github/workflows/build.yml</a> and <a href="../../../frontend/angular.json">frontend/angular.json</a>: current CI and production budgets.</li>
         <li><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>: once-per-sweep deterministic collection, per-file security collection handoff, exact prompt estimate, token caps, and request construction.</li>
         <li><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs">ReviewPromptBuilder.cs</a>, and <a href="../../../src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs">AnalyzerEvidence.cs</a>: collection, subject projection, and full prompt serialization.</li>
+        <li><a href="../../../src/AgentOrchestrator.CodeQuality/DotNetBuildSensor.cs">DotNetBuildSensor.cs</a> and <a href="../../../frontend/eslint.config.mjs">frontend/eslint.config.mjs</a>: QS-86 compiler/analyzer execution, diagnostic normalization, and the informational Angular/TypeScript lint policy.</li>
         <li><a href="../../../src/AgentOrchestrator.CodeQuality/SecurityReviewEvidence.cs">SecurityReviewEvidence.cs</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/DependencyVulnerabilitySensor.cs">DependencyVulnerabilitySensor.cs</a>: repeated repository execution path, filtering, advisories, and grade combination.</li>
         <li><a href="../../../src/QualityStudio.Api/ProjectDashboard.cs">ProjectDashboard.cs</a>: existing structural metrics, duplicate candidates, dependencies, churn, and hotspots.</li>
         <li><a href="../../deterministic-analyzer-evidence.md">Deterministic analyzer evidence</a>, <a href="../../dependency-vulnerability-sensor.md">dependency vulnerability sensor</a>, <a href="../../security-review-combination.md">security combination</a>, <a href="../../review-runs.md">review runs</a>, and <a href="../../usage-telemetry.md">usage telemetry</a>: current intended contracts.</li>
@@ -577,7 +604,7 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <footer>Decision dossier for QS-63 · status: documented · phase: implementation · updated 12 August 2026 · current receipt QS-86</footer>
 </main>
 </body>
 </html>

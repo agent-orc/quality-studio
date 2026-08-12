@@ -2,13 +2,14 @@
   "schemaVersion": 1,
   "id": "static-analysis",
   "title": "Deterministic Analysis Before Model Review",
-  "summary": "Decision dossier for a selective, snapshot-bound static preflight in Quality Studio. It maps the repository\u0027s actual .NET 10 and Angular 20 checks, separates standalone machine findings from compact model context, preserves model-routing correctness floors, measures current compiler, vulnerability, style, budget, and prompt-cost evidence, and recommends five approval-ready implementation slices.",
+  "summary": "Documented implementation of deterministic analysis before model review. QS-72 prepared the evidence collection and projection plane; QS-86 wires repository-owned .NET compiler/Roslyn and ESLint checks into it with independent per-repository enable flags and live API evidence.",
   "entrypoint": "index.html",
-  "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:23Z",
+  "status": "documented",
+  "phase": "implementation",
+  "updatedAt": "2026-08-12T15:24:37Z",
   "sourceTaskKeys": [
-    "QS-63"
+    "QS-63",
+    "QS-86"
   ],
   "key": "QS-W7",
   "decision": {
@@ -48,7 +49,8 @@
     }
   },
   "relatedTaskKeys": [
-    "QS-72"
+    "QS-72",
+    "QS-86"
   ],
-  "editedBy": "Operator, recorded by AGT-2621"
+  "editedBy": "QS-86"
 }
