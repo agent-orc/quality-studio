@@ -339,7 +339,7 @@ public sealed class ReviewRunStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         if (!string.Equals(runId, Path.GetFileName(runId), StringComparison.Ordinal) ||
-            runId.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0)
+            runId.IndexOfAny(['/', '\\']) >= 0)
             throw new ArgumentException("A review run id cannot contain path separators.", nameof(runId));
         return Path.Combine(runsPath, runId);
     }
