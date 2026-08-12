@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio Performance Baseline and Improvement Decision</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --surface-1: #fcfcfb;
+      --surface-2: #f2f1ee;
+      --surface-3: #e9e8e3;
+      --ink-1: #0b0b0b;
+      --ink-2: #52514e;
+      --ink-3: #8a8983;
+      --line: #d8d6cf;
+      --develop: #2a78d6;      /* Branch-Identität: develop */
+      --taskbr: #4a3aa7;       /* Branch-Identität: task/<slug> */
+      --salvage: #eb6834;      /* Branch-Identität: runner/<id>/<key> (Salvage) */
+      --rescue: #b58500;       /* Branch-Identität: rescue/WIP */
+      --ok: #008300;           /* Status gut (immer mit Icon+Text) */
+      --bad: #c93736;          /* Status Problem (immer mit Icon+Text) */
+      --warn: #9a6b00;
+      --accent-soft: #eaf1fb;
+      --bad-soft: #fbecec;
+      --ok-soft: #eaf4ea;
+      --warn-soft: #f8f0dd;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --surface-1: #1a1a19;
+        --surface-2: #232322;
+        --surface-3: #2c2c2a;
+        --ink-1: #ffffff;
+        --ink-2: #c3c2b7;
+        --ink-3: #8a8983;
+        --line: #3d3d3a;
+        --develop: #3987e5;
+        --taskbr: #9085e9;
+        --salvage: #e5723f;
+        --rescue: #d0a02a;
+        --ok: #4eae4e;
+        --bad: #e66767;
+        --warn: #d9a63f;
+        --accent-soft: #1e2a3a;
+        --bad-soft: #382222;
+        --ok-soft: #1f2f1f;
+        --warn-soft: #33301e;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0 0 80px;
+      background: var(--surface-1);
+      color: var(--ink-1);
+      font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+    }
+    main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+    header.page {
+      border-bottom: 1px solid var(--line);
+      padding: 44px 0 26px; margin-bottom: 8px;
+    }
+    .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+    h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+    .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+    .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+    .meta b { color: var(--ink-2); font-weight: 600; }
+    h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+    h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+    h3 { font-size: 18px; margin: 34px 0 4px; }
+    p  { max-width: 76ch; }
+    p.dim { color: var(--ink-2); }
+    .box {
+      border: 1px solid var(--line); border-radius: 10px;
+      background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+    }
+    .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+    .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+    .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+    .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+    .box h4 { margin: 0 0 8px; font-size: 15px; }
+    .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+    figure { margin: 26px 0; }
+    figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+    figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+    figcaption b { color: var(--ink-1); }
+    table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+    td b { font-weight: 600; }
+    code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+    .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+    .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+    .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+    .pill.done { background: var(--ok-soft); color: var(--ok); }
+    .pill.queued { background: var(--accent-soft); color: var(--develop); }
+    .pill.new { background: var(--warn-soft); color: var(--warn); }
+    .pill.part { background: var(--warn-soft); color: var(--warn); }
+    .pill.open { background: var(--bad-soft); color: var(--bad); }
+    ul { padding-left: 22px; }
+    li { margin: 5px 0; max-width: 76ch; }
+    .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+    .toc a { color: var(--ink-2); text-decoration: none; }
+    .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+    .toc li { break-inside: avoid; }
+    /* SVG-Rollen */
+    .s-node   { fill: var(--surface-2); stroke: var(--line); rx: 8; }
+    .s-node2  { fill: var(--surface-3); stroke: var(--line); }
+    .s-label  { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+    .s-sub    { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+    .s-tiny   { fill: var(--ink-3); font: 11px system-ui, sans-serif; }
+    .s-flow   { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+    .s-commit { stroke-width: 2.5; fill: var(--surface-1); }
+    .s-lane   { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+    .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+    .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+    .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+    .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+    .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+    .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+    @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+    .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+    .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+    .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+    .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+    .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+    .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+    .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+    .building-block figure { margin: 12px 0 0; }
+    .building-block figure svg { min-height: 170px; }
+    .building-block figcaption { margin-bottom: 0; }
+    .evidence-link { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+    @media (max-width: 760px) { .building-blocks { grid-template-columns: 1fr; } }
+  </style>
+  <style>
+    a { color: var(--develop); text-underline-offset: 3px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+    .metric { border: 1px solid var(--line); border-radius: 10px; padding: 15px; background: var(--surface-2); }
+    .metric .value { display: block; font-size: 25px; line-height: 1.2; font-weight: 650; }
+    .metric .label { display: block; color: var(--ink-2); font-size: 13px; margin-top: 6px; }
+    .rank { color: var(--ink-3); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+    .option { border-top: 1px solid var(--line); padding: 18px 0 8px; }
+    .option:first-of-type { border-top: 0; }
+    .slice { border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; margin: 16px 0; }
+    .slice h3 { margin: 0 0 6px; }
+    .slice p { margin: 8px 0; }
+    .nowrap { white-space: nowrap; }
+    .small { color: var(--ink-2); font-size: 13.5px; }
+    .decision { font-size: 18px; }
+    footer { border-top: 1px solid var(--line); color: var(--ink-3); font-size: 13px; margin-top: 58px; padding-top: 18px; }
+    @media (max-width: 900px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { .metric-grid { grid-template-columns: 1fr; } main { padding: 0 18px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <p class="kicker">Quality Studio · Performance dossier · QS-59</p>
+    <h1>Performance baseline and improvement decision</h1>
+    <p class="lede">Real startup, project-switch, review-run, memory, and large-repository measurements. The evidence points to three concentrated cost blocks, not a general rendering problem.</p>
+    <div class="meta">
+      <span><b>Status</b> Decision pending</span>
+      <span><b>Phase</b> Decision ready</span>
+      <span><b>Measured</b> 2026-08-11; repeated 2026-08-12</span>
+      <span><b>Subject</b> <span class="mono">59941d8e9373</span></span>
+    </div>
+  </header>
+
+  <div class="box accent">
+    <h4>Decision requested</h4>
+    <p class="decision"><b>Approve Option C and slices P0-P4 as written.</b> Keep the policy-selected review route at <code>gpt-5.6-terra</code> with medium thinking. Remove duplicated hierarchy work and eager tree transfer, make model output recoverable, and preserve the measurements as release gates.</p>
+  </div>
+
+  <div class="metric-grid" aria-label="Performance headline metrics">
+    <div class="metric"><span class="value">112.6 s</span><span class="label">review model CLI, p50</span></div>
+    <div class="metric"><span class="value">8.795 s</span><span class="label">large-repo cold snapshot</span></div>
+    <div class="metric"><span class="value">29.12 MB</span><span class="label">large hierarchy response</span></div>
+    <div class="metric"><span class="value">1.012 s</span><span class="label">large-repo UI switch, p50</span></div>
+  </div>
+
+  <h2 id="contents"><span class="no">00</span>Contents</h2>
+  <ol class="toc">
+    <li><a href="#method">Method and delivery state</a></li>
+    <li><a href="#baseline">Measured baseline</a></li>
+    <li><a href="#qs54">What QS-54 delivered</a></li>
+    <li><a href="#review">Review-run breakdown</a></li>
+    <li><a href="#cost-blocks">Top three cost blocks</a></li>
+    <li><a href="#memory">Long-session memory</a></li>
+    <li><a href="#options">Options and recommendation</a></li>
+    <li><a href="#slices">Implementation slices</a></li>
+    <li><a href="#gates">Acceptance gates</a></li>
+    <li><a href="#evidence">Evidence and limitations</a></li>
+  </ol>
+
+  <h2 id="method"><span class="no">01</span>Method and delivery state</h2>
+  <p>This dossier measures the checked-out Quality Studio application through its real .NET API and Angular UI. Browser tests use Chromium 149. Review tests invoke the real Codex-backed review path. Endpoint tests use loopback HTTP. Builds and package restore are excluded from startup timing.</p>
+
+  <table>
+    <thead><tr><th>Area</th><th>Subject and sample</th><th>Measurement boundary</th></tr></thead>
+    <tbody>
+      <tr><td>Startup</td><td>Quality Studio, 327 tracked files, n=15 fresh processes</td><td>Release API process spawn to first successful <code>/health</code></td></tr>
+      <tr><td>Project switch</td><td>QS-54 fixture, 1,600 TypeScript files; actual Agent Studio, 3,927 tracked files</td><td>Browser selection to project-switch usable event</td></tr>
+      <tr><td>Review</td><td>Actual <code>ProjectDashboard.cs</code>, 28,919 bytes, n=3 forced file reviews</td><td>HTTP review request, model CLI, server non-model envelope, report endpoint</td></tr>
+      <tr><td>Memory</td><td>500 alternating API requests; 100 real UI switches</td><td>Process RSS and forced-GC Chromium heap/DOM counters</td></tr>
+      <tr><td>Large repo</td><td>Agent Studio at <code>9af1a848e3be</code></td><td>Cold prewarm, warm API, actual hierarchy payload, and real UI switches</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box ok">
+    <h4>✓ Fresh integration state</h4>
+    <p>The remote does not expose <code>origin/develop</code>; its integration/default branch is <code>origin/main</code>. A fresh fetch and rebase onto <code>origin/main</code> completed without conflict. The measured checkout and <code>origin/main</code> both resolve to <code>59941d8e93734a4840a63c407597f3925bbbb1d6</code>.</p>
+  </div>
+
+  <p><b>QS-54 is delivered.</b> Its original salvage commit <code>26fd785</code> is not itself an ancestor of main, but the rebased equivalent <code>3e0b655</code> is an ancestor. The current tree contains the snapshot prewarmer, phase instrumentation, deferred ancillary fan-out, and the project-switch browser harness.</p>
+
+  <h2 id="baseline"><span class="no">02</span>Measured baseline</h2>
+  <table>
+    <thead><tr><th>Journey</th><th>Before value</th><th>Result</th><th>Interpretation</th></tr></thead>
+    <tbody>
+      <tr><td>API startup</td><td>p50 <b>845.43 ms</b>, p95 <b>1,755.11 ms</b>, min 708.25 ms, n=15</td><td><span class="pill part">Variable</span></td><td>Readiness is not blocked on repository prewarm, but the p95 is 2.08× p50.</td></tr>
+      <tr><td>QS-54 synthetic UI switch</td><td>usable <b>365.4 / 76.0 / 148.4 ms</b>; transition <b>25.8 / 13.4 / 40.4 ms</b></td><td><span class="pill done">3/3 pass</span></td><td>The delivered switch budget remains green for the 1,600-file TypeScript fixture.</td></tr>
+      <tr><td>Actual large-repo UI switch</td><td>p50 <b>1,012.4 ms</b>, p95 <b>1,425.2 ms</b>, range 827.8-1,425.2 ms</td><td><span class="pill open">0/5 pass</span></td><td>The synthetic fixture does not exercise the multi-solution .NET duplication found in Agent Studio.</td></tr>
+      <tr><td>Default-repo UI switch</td><td>p50 <b>70.5 ms</b>, p95 <b>92.8 ms</b></td><td><span class="pill done">5/5 pass</span></td><td>The regression is size/shape dependent, not a universal switch failure.</td></tr>
+      <tr><td>Existing 5,000-file dashboard gate</td><td>median <b>194 ms</b>, range <b>184-291 ms</b>, five fresh test processes</td><td><span class="pill open">0/5 pass</span></td><td>The repository's 150 ms initial-projection budget fails consistently on this host.</td></tr>
+      <tr><td>Large cold snapshot</td><td><b>8,794.83 ms</b></td><td><span class="pill open">Dominant cold cost</span></td><td>Scan is 7,167.23 ms; projection is 1,541.79 ms.</td></tr>
+      <tr><td>Large warm project API</td><td>p50 <b>67.06 ms</b>, p95 <b>93.24 ms</b>, 11.4 KB</td><td><span class="pill done">Fast</span></td><td>Git-state computation dominates most warm samples.</td></tr>
+      <tr><td>Large warm tree API</td><td>p50 <b>403.08 ms</b>, p95 <b>1,078.37 ms</b>, 29.12 MB</td><td><span class="pill open">Over budget</span></td><td>Whole-tree serialization, transfer, parse, and mapping remain on the usable path.</td></tr>
+      <tr><td>Forced review</td><td>server p50 <b>112,797 ms</b>; model p50 <b>112,623 ms</b></td><td><span class="pill open">0/3 usable</span></td><td>All calls returned output, then failed finding-range validation.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Cold snapshot phases</h3>
+  <table>
+    <thead><tr><th>Repository</th><th>Git state</th><th>Hierarchy scan</th><th>Review metadata</th><th>Projection</th><th>Total</th></tr></thead>
+    <tbody>
+      <tr><td>Quality Studio, 301 dashboard files</td><td>27.20 ms</td><td>1,867.77 ms</td><td>48.40 ms</td><td>339.69 ms</td><td><b>2,284.72 ms</b></td></tr>
+      <tr><td>Agent Studio, 3,927 files</td><td>26.91 ms</td><td><b>7,167.23 ms</b></td><td>58.80 ms</td><td><b>1,541.79 ms</b></td><td><b>8,794.83 ms</b></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Percentages for the large repository: hierarchy scan 81.49%, projection 17.53%, all other phases 0.98%. Scan plus projection account for 99.02% of the cold work.</p>
+
+  <div class="box ok">
+    <h4>✓ Fresh-rebase repeat run, 12 August</h4>
+    <p>A second Release-build run on the same product and Agent Studio commits preserved the diagnosis. API readiness was <b>645.90 ms median / 690.40 ms p95</b> across ten fresh processes. The 1,603-file QS-54 browser fixture produced usable switches of <b>209.3 / 47.0 / 94.0 ms</b>, all within 500 ms. The 3,927-file cold prewarm was <b>5,807.39 ms</b>: 4,874.84 ms scan, 843.19 ms projection, 60.40 ms metadata, and 28.88 ms Git state. The recursive tree remained exactly <b>29,119,333 bytes</b>; ten warm responses measured 349.62 ms median / 751.95 ms p95, and client JSON parse alone measured 159.22 ms median. Absolute times moved with host load, but scan, projection, and eager tree transport remained the same dominant blocks.</p>
+  </div>
+
+  <h2 id="qs54"><span class="no">03</span>What QS-54 delivered</h2>
+  <p>QS-54 correctly removed cold repository work from the request-critical path by queueing repository snapshots in <code>RepositorySnapshotPrewarmer</code>. It also exposed phase timings and deferred guideline/trace fan-out. This changes when the work happens; it does not reduce the underlying work or the tree returned to the browser.</p>
+
+  <table>
+    <thead><tr><th>QS-54 evidence</th><th>Earlier value</th><th>QS-59 verification</th></tr></thead>
+    <tbody>
+      <tr><td>Large synthetic cold request</td><td>9,781.93 ms, including 8,272.84 ms hierarchy scan and 1,418.01 ms projection</td><td>Prewarm now holds the cold work; actual Agent Studio cold snapshot is 8,794.83 ms.</td></tr>
+      <tr><td>Warm large request</td><td>17.60 ms</td><td>Warm actual large project endpoint is 67.06 ms p50, mostly Git state; shape and repository differ.</td></tr>
+      <tr><td>Browser fixture first usable</td><td>131.3 ms; return 73.3 ms</td><td>Current switch events remain within budget: 365.4 / 76.0 / 148.4 ms. Realistic project-interactive events pass at 111.1 and 147.6 ms; one initial default event is 154.6 ms against 150 ms. The actual multi-solution repository is 1,012.4 ms p50.</td></tr>
+      <tr><td>Ancillary fan-out</td><td>3,169.8 ms, identified as non-critical</td><td>Still deferred and not present in the measured usable boundary.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <h4>△ Delivery conclusion</h4>
+    <p>QS-54 delivered the correct scheduling and observability foundation. Its fixture establishes a useful regression floor, but it is not a sufficient large-repository gate. QS-59 must add an actual multi-solution subject or an equivalent duplicate-membership fixture.</p>
+  </div>
+
+  <h2 id="review"><span class="no">04</span>Review-run latency breakdown</h2>
+  <p>The authoritative routing policy scores this single-file performance review at 34 and selects <code>gpt-5.6-terra</code> with medium thinking. The correctness floor is Luna-medium. This dossier does not recommend a latency-driven route downgrade.</p>
+
+  <table>
+    <thead><tr><th>Run</th><th>Observed HTTP</th><th>Server run</th><th>Model CLI</th><th>Non-model envelope</th><th>Outcome</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>87,032.38 ms</td><td>86,177 ms</td><td>85,212 ms</td><td>616 ms</td><td>Invalid finding range</td></tr>
+      <tr><td>2</td><td>113,494.92 ms</td><td>112,797 ms</td><td>112,623 ms</td><td>149 ms</td><td>Invalid finding range</td></tr>
+      <tr><td>3</td><td>139,765.24 ms</td><td>139,287 ms</td><td>139,066 ms</td><td>130 ms</td><td>Invalid finding range</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>Model share is 99.87% at the p50.</b> The non-model envelope is an upper bound around prompt preparation, response parsing, subject reread, identity/range validation, and persistence because production does not yet time those phases separately. A focused 5,000-iteration .NET microbenchmark bounds the local work:</p>
+
+  <table>
+    <thead><tr><th>Operation</th><th>p50</th><th>p95</th><th>Production endpoint</th></tr></thead>
+    <tbody>
+      <tr><td>Agent response JSON parse</td><td>0.0215 ms</td><td>0.0514 ms</td><td>Not isolated today</td></tr>
+      <tr><td>Canonical report deserialize</td><td>0.0471 ms</td><td>0.1179 ms</td><td>Included in report request</td></tr>
+      <tr><td>Render JSON / HTML / Markdown / SARIF</td><td>0.0296 / 0.0069 / 0.0080 / 0.0629 ms</td><td>0.0954 / 0.0122 / 0.0214 / 0.1724 ms</td><td>HTTP p50 2.10-4.12 ms</td></tr>
+    </tbody>
+  </table>
+
+  <p>The real report endpoints are small: JSON p50/p95 4.12/10.79 ms, HTML 2.10/3.33 ms, Markdown 2.16/4.92 ms, and SARIF 2.41/5.29 ms. Rendering is not a review-run cost block.</p>
+
+  <p class="small">The 12 August repeat microbenchmark used a 21-finding canonical report. Response parsing measured 0.0080 ms p50, while JSON, HTML, Markdown, and SARIF rendering measured 0.1365, 0.0362, 0.0266, and 0.2350 ms p50. A complete single-file review with a deterministic zero-latency agent measured 38.77 ms p50 / 68.23 ms p95 for prompt, hashing, parse, identity, ledger, and persistence work. This independently preserves the conclusion that local parsing and rendering do not explain the 112.623-second real model median.</p>
+
+  <div class="box bad">
+    <h4>! Paid work is discarded after the model returns</h4>
+    <p>All three runs recorded usage and then rejected the response because a finding range lay outside the 28,919-byte reviewed file. The resulting canonical report has one failed file and no usable finding. In <code>ReviewRunner.cs:126-166</code>, the model call and usage record precede parsing and identity validation; <code>FindingIdentity.cs:73-87</code> rejects the range. A failed run therefore spends the full 85-139 seconds before discovering a recoverable output-contract error.</p>
+  </div>
+
+  <p>The preflight estimated 7,933 input tokens and 1,587 output tokens. Actual median input was 20,027 tokens, 152.5% above the estimate, and median output was 4,311 tokens. Price status was <code>unknownModel</code>, so the recorded cost is null. These are observability defects, not evidence for relaxing the governed model route.</p>
+
+  <h2 id="cost-blocks"><span class="no">05</span>Top three cost blocks</h2>
+
+  <h3><span class="rank">#1</span> Model execution followed by range rejection</h3>
+  <p><b>Evidence:</b> 112.623 seconds model p50, 99.87% of server time, with zero usable results from three returned responses. Parser and render measurements are orders of magnitude smaller.</p>
+  <p><b>Root:</b> the output contract depends on model-authored numeric ranges. Validation occurs only after the expensive response is complete and usage is recorded. Production does not retain enough phase/outcome detail to distinguish parsing, re-anchoring, and persistence.</p>
+  <p><b>Fix:</b> add explicit review phase telemetry; send a stable line-numbered subject and exact evidence-anchor contract; resolve exact anchors deterministically to ranges; and allow one bounded location-only repair when the anchor cannot be resolved. The repair must retain the original finding text, record provenance, validate again, and never trigger an automatic full Terra rerun. A bounded structured repair may use the policy's <code>gpt-5.4-mini</code> high-thinking role exception; the primary review remains Terra-medium.</p>
+  <p><b>Expected gain:</b> recover failed output without repeating a 112.623-second median primary call. Acceptance target is at least 9 usable reports in 10 forced reviews, repair p95 at or below 10 seconds, and no silent range clamping. This improves failed-review time-to-usable; it does not claim to remove the base primary-model latency.</p>
+
+  <h3><span class="rank">#2</span> Repeated multi-solution hierarchy construction</h3>
+  <p><b>Evidence:</b> the large cold scan is 7.167 seconds, 81.49% of the 8.795-second snapshot. The returned hierarchy has 13 project roots, 22 module nodes, 13,581 file nodes, and only 2,130 unique file paths. That is 6.38 file-node occurrences per unique path. Agent Studio has 3,927 tracked files. The existing 5,000-file initial-dashboard test also failed its 150 ms budget in five of five fresh processes, with a 194 ms median and 184-291 ms range.</p>
+  <p><b>Root:</b> <code>RepositoryHierarchyBuilder.BuildDotNet</code> builds a root for every top-level solution. <code>BuildModule</code> recursively enumerates and reads a project directory for each solution membership; namespace extraction reads source content before the source reader processes it again. Legitimate solution membership is represented by duplicating full descendant trees.</p>
+  <p><b>Fix:</b> create one canonical project/source graph per Git state, parse each project and source file once, and represent solution membership as references. Cache file-derived namespace, function, metric, and finding projections by content identity.</p>
+  <p><b>Expected gain:</b> at least 70% lower large-repo scan time, from 7.167 seconds to at most 2.15 seconds. Removing duplicate paths alone reduces the measured response shape by 53.27%; the scan target is conservative relative to the observed 6.38× file-node repetition.</p>
+
+  <h3><span class="rank">#3</span> Full eager hierarchy on the usable path</h3>
+  <p><b>Evidence:</b> the actual tree response is 29,119,333 bytes and 28,563 nodes. Warm tree HTTP is 403.08 ms p50 and 1,078.37 ms p95. Browser switching is 1,012.4 ms p50 and 1,425.2 ms p95, with zero of five large switches meeting the 500 ms budget. The default repository passes five of five at 70.5 ms p50.</p>
+  <p><b>Root:</b> <code>TreeNodeResponse.From</code> recursively materializes every descendant, while <code>QualityApi.selectProject</code> waits for both project and tree responses before announcing usable state and stores the complete snapshot. Functions that are not visible in a collapsed tree still cross the API boundary and are parsed on the UI thread.</p>
+  <p><b>Fix:</b> return a canonical shallow tree for switch readiness, load function children on file expansion, enable Brotli response compression, and use a Git-state ETag for unchanged snapshots. Structural reduction is required because compression alone does not avoid JSON parse and object allocation.</p>
+  <p><b>Expected gain:</b> filtering the actual response to unique paths without function nodes yields 2,559,616 raw bytes and 147,228 Brotli bytes, reductions of 91.21% and 89.61% respectively. Set the release target to 3 MB raw, 200 KB Brotli, and large-switch p95 below 500 ms.</p>
+
+  <h2 id="memory"><span class="no">06</span>Long-session memory</h2>
+  <table>
+    <thead><tr><th>Probe</th><th>Start / warm checkpoint</th><th>End</th><th>Finding</th></tr></thead>
+    <tbody>
+      <tr><td>API, 500 alternating project/tree requests</td><td>480.46 MiB after the initial endpoint series; 316.25 MiB at operation 100</td><td>337.65 MiB at 500; 337.75 MiB after settle</td><td>No monotonic leak signal. The 100-to-500 increase is 21.5 MiB and plateaus.</td></tr>
+      <tr><td>Browser, 100 UI switches with forced GC</td><td>13.76 MiB at 0; 30.82 MiB at 25 after both snapshots are retained</td><td>31.24 MiB at 100</td><td>25-to-100 growth is 0.42 MiB, or 1.36%.</td></tr>
+      <tr><td>Browser DOM and listeners</td><td>1,449 nodes / 193 listeners at 25</td><td>1,172 nodes / 175 listeners at 100</td><td>No detached-DOM or listener-growth signal in the static-state soak.</td></tr>
+    </tbody>
+  </table>
+
+  <p>The current static-repository session is stable. The initial browser increase of 17.06 MiB corresponds to retaining both repository snapshots. There is still a design risk under changing Git states: dashboard cache keys include the full Git state and have no explicit eviction. The soak did not mutate commits or working-tree content, so it cannot prove that state churn is bounded.</p>
+
+  <p class="small">The shorter 12 August API repeat sent 100 additional unconditioned large project/tree responses after prewarm. RSS was non-monotonic at 298.82, 292.86, 361.58, 368.57, and 322.13 MiB at operations 20-100, then 322.16 MiB after settling. It corroborates plateau behavior but does not replace the longer 500-request baseline or the need for a Git-state churn test.</p>
+
+  <h2 id="options"><span class="no">07</span>Options and recommendation</h2>
+  <div class="option">
+    <h3>Option A: observability only</h3>
+    <p>Add startup and review phase timings, keep the current hierarchy and output contracts.</p>
+    <p><b>Trade-off:</b> lowest implementation risk, but it leaves the measured 8.8-second cold work, 29.12 MB payload, 1.0-second UI switch, and discarded model results unchanged.</p>
+  </div>
+  <div class="option">
+    <h3>Option B: tree transport relief</h3>
+    <p>Add compression and lazy function loading without changing the hierarchy builder.</p>
+    <p><b>Trade-off:</b> improves network and browser work quickly. It does not remove repeated source reads, duplicated project membership, projection cost, or failed review output.</p>
+  </div>
+  <div class="option">
+    <h3>Option C: remove duplicated work end to end <span class="pill queued">Recommended</span></h3>
+    <p>Land phase telemetry and output recovery, canonicalize repository derivation, move details behind lazy boundaries, persist snapshots by Git state, and bound caches.</p>
+    <p><b>Trade-off:</b> broader contract work, with migrations needed for tree consumers and canonical report provenance. It is the only option that addresses all three measured cost blocks while preserving the routing policy.</p>
+  </div>
+
+  <div class="box accent">
+    <h4>Recommendation</h4>
+    <p>Approve Option C. Sequence observability and replay fixtures first, then land review recovery and hierarchy/tree changes behind compatible API fields. Do not accept compression as the large-repo fix by itself, and do not lower the primary model route to meet a latency target.</p>
+  </div>
+
+  <h2 id="slices"><span class="no">08</span>Implementation slices for approval</h2>
+
+  <section class="slice">
+    <h3>P0 · Measurement contract and CI subjects</h3>
+    <p><b>Scope:</b> promote the QS-59 probes into deterministic harnesses; add an actual multi-solution fixture with shared project membership; emit startup, review prompt/model/parse/identity/persist, tree serialization, response-byte, browser parse/map, and outcome phases. Persist phase data in the canonical report and structured server events.</p>
+    <p><b>Acceptance:</b> one command produces the five baseline families; every forced review has phase totals and outcome; tree events include raw bytes and node counts; CI retains JSON artifacts. Timing overhead stays below 1% in the 5,000-iteration parser/render microbench.</p>
+    <p><b>Gain:</b> no direct latency claim. It closes the current non-model envelope and cost-catalog blind spots before optimizations land.</p>
+  </section>
+
+  <section class="slice">
+    <h3>P1 · Review output anchoring and bounded repair</h3>
+    <p><b>Scope:</b> render stable line-numbered subjects, require exact evidence anchors, deterministically map unique anchors to ranges, and add one provenance-recorded location-only repair for missing or ambiguous anchors. Reject ambiguous repair rather than clamp. Keep the primary route at Terra-medium; use only the governed Mini-high bounded structured-decision exception for repair.</p>
+    <p><b>Acceptance:</b> at least 9 of 10 forced reviews produce a range-valid report; repair p95 is at most 10 seconds; no full primary rerun is automatic; primary and repair model/thinking provenance are in the report; below-floor override remains false.</p>
+    <p><b>Expected gain:</b> avoids repeating a 112.623-second median primary call when only location identity is invalid. It converts the measured zero-of-three usable-result failure mode into a bounded recovery path.</p>
+  </section>
+
+  <section class="slice">
+    <h3>P2 · Canonical hierarchy graph and one-read derivation</h3>
+    <p><b>Scope:</b> parse each solution, project, and source file once per Git state; retain solution membership as references to canonical module/file identities; share namespace, symbol, metric, finding, and coverage derivations; preserve all current logical solution views.</p>
+    <p><b>Acceptance:</b> the pinned Agent Studio subject preserves 13 solution memberships and 11 unique modules without descendant duplication; hierarchy scan is at most 2.15 seconds; cold projection is at most 800 ms; regression tests cover a project included in multiple solutions.</p>
+    <p><b>Expected gain:</b> at least 70% hierarchy-scan reduction and at least 48% projection reduction on the pinned subject. The raw canonical tree is at least 53% smaller before lazy loading.</p>
+  </section>
+
+  <section class="slice">
+    <h3>P3 · Shallow switch payload, lazy symbols, compression, and ETag</h3>
+    <p><b>Scope:</b> make switch readiness depend on project plus shallow canonical tree; fetch function/symbol children on expansion; enable Brotli; return a Git-state ETag and honor conditional requests; cap browser snapshot retention without changing the visible selection model.</p>
+    <p><b>Acceptance:</b> pinned large tree is at most 3 MB raw and 200 KB Brotli; five of five large switches meet 500 ms, p50 is at most 250 ms, and five of five transition events meet 100 ms; default-repo switch p95 does not regress beyond 110 ms; expanded file symbols match the former eager response.</p>
+    <p><b>Expected gain:</b> approximately 91% structural payload reduction based on filtering the measured response, plus conditional zero-body reuse for unchanged Git states.</p>
+  </section>
+
+  <section class="slice">
+    <h3>P4 · Persisted snapshots, bounded caches, and startup scheduling</h3>
+    <p><b>Scope:</b> persist versioned canonical hierarchy/dashboard snapshots keyed by repository identity, commit/index state, and schema; derive changed files incrementally; add size/age bounds for API Git-state caches and browser snapshots; schedule background prewarm after readiness with cancellation and concurrency limits.</p>
+    <p><b>Acceptance:</b> unchanged large-repo restart snapshot is at most 750 ms; startup p50 is at most 650 ms and p95 at most 1,000 ms; API RSS growth from operation 100 to 500 is at most 10%; browser heap growth from switch 25 to 100 is at most 5%; cache eviction tests cover Git-state churn.</p>
+    <p><b>Expected gain:</b> removes more than 90% of the measured 8.795-second unchanged cold snapshot and makes the currently stable memory result an enforced bound.</p>
+  </section>
+
+  <h2 id="gates"><span class="no">09</span>Acceptance gates and rollout</h2>
+  <table>
+    <thead><tr><th>Gate</th><th>Before</th><th>Approved target</th><th>Stop condition</th></tr></thead>
+    <tbody>
+      <tr><td>Startup health</td><td>845 ms p50 / 1,755 ms p95</td><td>≤650 ms p50 / ≤1,000 ms p95</td><td>Rollback scheduling change if readiness errors or p95 grows.</td></tr>
+      <tr><td>Large hierarchy scan</td><td>7,167 ms</td><td>≤2,150 ms</td><td>Do not ship if logical solution membership changes.</td></tr>
+      <tr><td>5,000-file initial dashboard test</td><td>194 ms median; 184-291 ms; 0/5 pass</td><td>≤150 ms; 5/5 pass</td><td>Keep the budget; optimize the implementation rather than relaxing the assertion.</td></tr>
+      <tr><td>Large tree payload</td><td>29.12 MB raw</td><td>≤3 MB raw / ≤200 KB Brotli</td><td>Do not count compression alone as structural success.</td></tr>
+      <tr><td>Large UI switch</td><td>1,012 ms p50 / 1,425 ms p95; 0/5 pass</td><td>≤250 ms p50 / &lt;500 ms p95; 5/5 pass</td><td>Hold rollout on any symbol-count or selection mismatch.</td></tr>
+      <tr><td>Review validity</td><td>0/3 usable; 112.6 s model p50</td><td>≥9/10 usable; repair p95 ≤10 s</td><td>No silent clamp, full auto-rerun, or below-policy primary route.</td></tr>
+      <tr><td>Memory</td><td>API +21.5 MiB from op 100-500; browser +1.36% from 25-100</td><td>API ≤10%; browser ≤5%; stable DOM/listeners</td><td>Block on monotonic three-checkpoint growth.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Roll out the tree contract with additive fields and dual-read compatibility for one release. Compare canonical node/path counts and expanded symbol counts in shadow mode before switching the UI usable boundary. Persisted snapshots must be schema-versioned and disposable; cache loss must fall back to live derivation without changing results.</p>
+
+  <h2 id="evidence"><span class="no">10</span>Evidence and limitations</h2>
+  <h3>Repository evidence</h3>
+  <ul>
+    <li><code>src/AgentOrchestrator.CodeQuality/ReviewRunner.cs:126-166</code>: model call, usage record, parse, subject reread, and identity validation order.</li>
+    <li><code>src/AgentOrchestrator.CodeQuality/FindingIdentity.cs:73-87</code>: out-of-range rejection.</li>
+    <li><code>src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs:21-120,167</code>: per-solution hierarchy construction, recursive source enumeration, and namespace read.</li>
+    <li><code>src/QualityStudio.Api/ApiContracts.cs:11-85</code> and <code>Program.cs:440</code>: recursive tree response materialization.</li>
+    <li><code>frontend/src/app/quality-api.ts:436-480,518-522</code>: project plus full-tree wait and in-memory snapshot cache.</li>
+    <li><code>src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs</code>: delivered QS-54 background prewarm and phase events.</li>
+  </ul>
+
+  <h3>Raw measurement artifacts</h3>
+  <p>The retained 11 August evidence is summarized in this dossier at result commit <code>c9423f6</code>. The current collected task bundle adds <code>runtime-and-memory-rerun.json</code>, <code>microbench-rerun.json</code>, <code>project-switch-perf.json</code>, two real-backend transition screenshots, and the probe sources. Together they preserve the original actual model sample and provide a fresh independent rerun of startup, QS-54 switching, large-repository phases, transport, parsing, and memory behavior.</p>
+
+  <h3>Limits on interpretation</h3>
+  <ul>
+    <li>Measurements are from one Linux host: Intel Core i7-8700, 12 logical CPUs, 62 GiB RAM, .NET SDK 10.0.301, Node 22.23.1. Use changes and budget gates, not cross-host absolute comparisons.</li>
+    <li>All HTTP measurements are loopback. Remote network latency is absent.</li>
+    <li>The review sample is n=3 and intentionally forced; it establishes cost dominance and a repeatable failure mode, not a distribution for all files or review kinds.</li>
+    <li>Parser/render microbenchmarks use a valid one-finding sample and the actual partial canonical report. Production phase telemetry is still required before attributing the complete 149 ms non-model envelope.</li>
+    <li>The 91.21% payload estimate filters the actual response in memory. It predicts the structural opportunity; P3 must prove the production result and semantic equivalence.</li>
+    <li>The memory soak uses static Git states. P4 adds a churn-specific bound because current cache keying can retain successive states.</li>
+  </ul>
+
+  <footer>
+    Quality Studio performance dossier · Source task QS-59 · Decision-pending / decision-ready · Updated 2026-08-12
+  </footer>
+</main>
+</body>
+</html>
