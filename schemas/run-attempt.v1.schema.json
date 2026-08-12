@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived run attempt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "attempt", "outcome", "complete", "startedAt", "finishedAt", "archivedAt", "counters", "spend", "cumulativeCounters", "cumulativeSpend", "errorCodes", "ledgerMonths", "operationIds", "quality"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/id" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 9999 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "complete": { "type": "boolean" },
+    "startedAt": { "$ref": "#/$defs/timestamp" },
+    "finishedAt": { "$ref": "#/$defs/timestamp" },
+    "archivedAt": { "$ref": "#/$defs/timestamp" },
+    "counters": { "$ref": "#/$defs/counters" },
+    "spend": { "$ref": "#/$defs/spend" },
+    "cumulativeCounters": { "$ref": "#/$defs/counters" },
+    "cumulativeSpend": { "$ref": "#/$defs/spend" },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "ledgerMonths": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" }, "uniqueItems": true },
+    "operationIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+    "estimate": { "type": "object" },
+    "estimateDeviation": { "$ref": "#/$defs/deviation" },
+    "quality": { "$ref": "#/$defs/quality" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "nullableTokens": { "type": ["integer", "null"], "minimum": 0 },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "$ref": "#/$defs/nullableTokens" },
+        "outputTokens": { "$ref": "#/$defs/nullableTokens" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableTokens" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableTokens" },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalFiles", "completedFiles", "failedFiles", "skippedFiles", "usageOperations"],
+      "properties": {
+        "totalFiles": { "type": "integer", "minimum": 0 },
+        "completedFiles": { "type": "integer", "minimum": 0 },
+        "failedFiles": { "type": "integer", "minimum": 0 },
+        "skippedFiles": { "type": "integer", "minimum": 0 },
+        "usageOperations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "spend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokens", "cost", "currency", "priceStatus"],
+      "properties": {
+        "tokens": { "$ref": "#/$defs/tokens" },
+        "cost": { "type": ["number", "null"], "minimum": 0 },
+        "currency": { "type": ["string", "null"] },
+        "priceStatus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokensPercent", "outputTokensPercent", "costPercent", "note"],
+      "properties": {
+        "inputTokensPercent": { "type": "number" },
+        "outputTokensPercent": { "type": "number" },
+        "costPercent": { "type": ["number", "null"] },
+        "note": { "type": "string", "minLength": 1 }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowestGrade", "lowestBand", "worstSecurityVerdict", "activeFindings", "highestActiveSeverity"],
+      "properties": {
+        "lowestGrade": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "lowestBand": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "worstSecurityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindings": { "type": "integer", "minimum": 0 },
+        "highestActiveSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  }
+}
