@@ -4,11 +4,13 @@
   "title": "Quality Studio run persistence",
   "summary": "Decision-ready storage design for durable Quality Studio review runs. The recommendation keeps the tested, Git-ignored .quality/runs recovery journal and adds a tracked folder-per-run archive under .quality/run-history. It preserves run plans, immutable stopped attempts, operation results, finding observations, typed verdicts and timestamps; extends the existing token ledger with operation IDs; defines deterministic history and two-run diff APIs; and supplies five implementation slices with acceptance criteria and a non-fabricating migration path.",
   "entrypoint": "index.html",
-  "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:14Z",
+  "status": "documented",
+  "phase": "implementation",
+  "updatedAt": "2026-08-12T10:11:34Z",
   "sourceTaskKeys": [
-    "QS-62"
+    "QS-62",
+    "QS-71",
+    "QS-85"
   ],
   "key": "QS-W3",
   "decision": {
@@ -48,7 +50,37 @@
     }
   },
   "relatedTaskKeys": [
-    "QS-71"
+    "QS-71",
+    "QS-85"
   ],
-  "editedBy": "Operator, recorded by AGT-2621"
+  "implementationState": {
+    "verifiedAt": "2026-08-12T10:11:34Z",
+    "verifiedByTask": "QS-85",
+    "status": "documented",
+    "integrationBase": "origin/main@59941d8e93734a4840a63c407597f3925bbbb1d6",
+    "wave1": {
+      "taskKey": "QS-71",
+      "sourceCommits": [
+        "3a7bcb55ee577c406cc10e8fb2906286e473e6bf",
+        "35d6394d4b6098101f6eb3f48503669ef69a1343"
+      ],
+      "deliveredSlices": [
+        "RP-1",
+        "RP-2",
+        "RP-3",
+        "RP-4",
+        "RP-5"
+      ]
+    },
+    "wave2": {
+      "taskKey": "QS-85",
+      "status": "verified",
+      "evidence": "The production frontend build, 223 .NET tests, 46 browser tests, five launcher tests, catalogue integrity check, before/after screenshots, and a controlled production API restart passed. Persistence-specific tests cover archived attempts, findings, operation identity, and usage-ledger v3 across restart."
+    },
+    "nextSlice": {
+      "status": "none",
+      "reason": "All five approved run-persistence dossier slices are delivered and documented."
+    }
+  },
+  "editedBy": "QS-85 implementation verification"
 }
