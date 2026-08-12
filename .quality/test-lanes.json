@@ -1,0 +1,30 @@
+{
+  "$schema": "quality-studio/test-lanes.v1",
+  "schemaVersion": 1,
+  "portable": {
+    "excludedCategories": [
+      "MachineBound",
+      "ExternalLive"
+    ],
+    "dotnetProjects": [
+      {
+        "id": "core",
+        "path": "tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj"
+      },
+      {
+        "id": "api",
+        "path": "tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj"
+      }
+    ]
+  },
+  "machineBound": {
+    "category": "MachineBound",
+    "owner": "release-canary",
+    "minimumSamples": 3
+  },
+  "externalLive": {
+    "category": "ExternalLive",
+    "owner": "release-canary",
+    "requiredEnvironment": "QUALITY_RUN_LIVE_REVIEW"
+  }
+}

@@ -7,7 +7,7 @@ Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 (converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
 > Working state, 2026-08-04: the core library, the `quality` CLI, the review API
-> and the Angular browser all ship from this repository and are covered by CI;
+> and the Angular browser all ship from this repository and are covered by the required CI gate;
 > cards through QS-52 are delivered. No package is published to NuGet yet.
 > Product URL will be `agent-orchestrator.dev/quality`; the proposed final
 > core package ID and root namespace are `AgentOrchestrator.CodeQuality` (subject
@@ -212,6 +212,78 @@ endpoint formats, and documented exit codes.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 
+## Required test baseline
+
+The pull-request gate pins .NET 10.0.301 and Node 22.23.1, restores the committed
+lock files, keeps machine-bound timing and external-live checks out of routine test
+runs, builds the production Angular bundle under its unchanged 480 kB budget, provisions the
+Playwright Chromium version declared by the frontend lock file, and runs Angular,
+dev-stack, coverage, and pinned Gitleaks checks. The equivalent local commands are:
+
+```shell
+export COVERAGE_ROOT="${TMPDIR:-/tmp}/quality-studio-coverage"
+dotnet restore QualityStudio.slnx --locked-mode
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound&Category!=ExternalLive" --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/core"
+dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound&Category!=ExternalLive" --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/api"
+npm run test:repository-contracts
+npm run test:dev-stack
+cd frontend
+npm ci
+npm run browser:install
+npm run test:browser-resolver
+npm run build
+COVERAGE_DIR="$COVERAGE_ROOT/frontend" npm run test:coverage
+cd ..
+npm run coverage:check -- --cobertura core="$COVERAGE_ROOT/core" --cobertura api="$COVERAGE_ROOT/api" --lcov frontend="$COVERAGE_ROOT/frontend/lcov.info"
+dotnet run --project src/quality-cli --configuration Release --no-build -- security provision
+dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+```
+
+Set `CHROME_NO_SANDBOX=1` only on a controlled Linux runner that cannot use the
+Chromium sandbox. Coverage is generated as Cobertura for the two .NET test projects
+and lcov for Angular. `.quality/coverage-baseline.json` records the first measured
+project and feature-area line rates; `npm run coverage:check -- ...` rejects missing,
+unreadable, or regressed reports.
+
+Tests carrying `Category=ToolBound` intentionally exercise Git, .NET, or a pinned
+native tool on a provisioned PR host. Tests carrying `Category=MachineBound` contain
+host timing or performance assertions and run only in the labeled release canary.
+That canary retains three samples, host metadata, JSON, screenshots, and TRX output;
+tests carrying `Category=ExternalLive` run there only when the live-agent input is
+explicitly enabled for review-execution changes.
+
+### Fast pre-review loop and honesty rules
+
+After the one-time `npm --prefix frontend ci` and
+`npm --prefix frontend run browser:install` setup, run:
+
+```shell
+npm run test:pre-review
+```
+
+This target runs the repository gate contracts, a locked .NET restore, both .NET
+test projects under the portable category filter, the browser resolver, and all
+Angular specs. It is fail-fast, uses no retries, reads the category split from
+`.quality/test-lanes.json`, and rejects a selected .NET test if its TRX record says
+that it did not execute.
+
+On a controlled Linux runner that cannot use the Chromium sandbox, invoke the same
+target as `CHROME_NO_SANDBOX=1 npm run test:pre-review`. Do not set that variable on
+an ordinary developer machine; browser launch fails visibly when neither the sandbox
+nor the explicit controlled-runner opt-in is available.
+
+The fast target is deliberately not called the required gate. It does not produce
+the production bundle, coverage ratchet, security scan, Linux/Windows dev-stack
+proof, or release-canary evidence. Those remain mandatory in
+`.github/workflows/build.yml` and `.github/workflows/release-canary.yml`. The
+repository contract suite keeps that distinction honest by checking the workflow
+filters against the lane manifest, rejecting focused/disabled JavaScript specs and
+`Assert.Skip`, and requiring temporary Git setup and OS-neutral process fixtures to
+stay centralized. A category change therefore updates the manifest, workflows,
+tests, and this documentation together; a local pre-review pass never substitutes
+for a required-workflow result.
+
 ## Minimal API
 
 The ASP.NET Core host provides repository tree, file/meta overlay, staleness scan,
@@ -234,7 +306,9 @@ ports are API `5127` and product `4200`, and both can be overridden with
 `--api-port` / `--web-port` or `QUALITY_STUDIO_API_PORT` /
 `QUALITY_STUDIO_PRODUCT_PORT` when the launcher is invoked from another host.
 For alternate checkout layouts and automation, the launcher also accepts
-`--repo-root`, `--frontend-root`, and `QUALITY_STUDIO_NPM_COMMAND`.
+`--repo-root`, `--frontend-root`, and `QUALITY_STUDIO_NPM_COMMAND`. Test harnesses
+that invoke npm through a platform-neutral Node stub can provide its leading
+arguments as a JSON string array in `QUALITY_STUDIO_NPM_COMMAND_ARGUMENTS`.
 
 The shell distinguishes `Repository connected`, `API offline · preview data`,
 and `API offline` states so embedded review flows do not pretend the API is live

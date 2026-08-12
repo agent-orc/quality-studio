@@ -143,13 +143,20 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> implemented</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
 
+  <div class="box ok">
+    <h4>Implementation state — documented on 12 August 2026</h4>
+    <p><b>QS-75 (wave 1)</b> delivered all five approved slices: the pinned and locked required gate, OS-neutral host fixtures, the tool/machine taxonomy, measured coverage ratchet, and retained-evidence release canary. <b>QS-89 (wave 2)</b> adds the keep-green developer loop: one manifest owns the portable, machine-bound, and external-live selections; <code>npm run test:pre-review</code> provides fast portable feedback; and executable repository contracts prevent workflow-filter drift, silent skips, focused tests, and ad hoc process fixtures.</p>
+    <p>The fast target does not claim production-build, coverage, security, cross-platform host, or canary proof. Those checks remain required in their named workflows, so a fast local pass cannot be presented as full-gate green.</p>
+    <p>QS-89 verification passed 156 core/CLI, 49 API, 41 Angular, 9 repository-contract, and 5 Linux host-integration tests with zero selected skips. The fail-fast pre-review target completed in 71.1 seconds. The measured coverage ratchet, 478.30 kB production bundle, Gitleaks scan of 346 files, and real-stack API and browser readiness also passed. Three retained local machine samples passed 3/3 for both core and API; these controlled local observations remain canary evidence and are not folded into the portable result.</p>
+  </div>
+
   <div class="box bad">
-    <h4>Current gate: fail, and the failure is reproducible</h4>
+    <h4>Historical QS-66 baseline: fail, and the failure was reproducible</h4>
     <ul>
       <li>The production Angular build exits 1: the initial bundle is <b>494.94 kB</b> against the existing <b>480 kB</b> error budget.</li>
       <li>An unfiltered Release .NET run exits 1 under host load: the dashboard projection took <b>354 ms</b> against a <b>150 ms</b> timing assertion.</li>
@@ -180,6 +187,7 @@
     <li><a href="#slices">Implementation slices</a></li>
     <li><a href="#green">Definition of green</a></li>
     <li><a href="#evidence">Evidence ledger</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 
   <h2 id="decision"><span class="no">01</span>Decision requested</h2>
@@ -545,8 +553,50 @@
 
   <div class="box">
     <h4>Evidence limits</h4>
-    <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
+    <p>QS-89 generated Cobertura and lcov reports and checked their committed project and feature-area floors. Live external systems and the optional live-review canary were not invoked. The Windows host-integration job and labeled-host browser performance canary are defined and contract-tested but cannot be executed on this Linux task host. Local verification used .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 149.</p>
   </div>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <p class="dim">Append-only delivery ledger. The operator approved Option B and all five slices on 11 August 2026. Wave 1 delivered them in QS-75; the QS-89 keep-green follow-up is documented below.</p>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>1. Truthful required gate</b></td>
+        <td>Pinned .NET 10.0.301, Node 22.23.1, npm 10, NuGet lock files, and Playwright Chromium provisioning. The required workflow now restores locked dependencies, builds the production Angular bundle under the unchanged 480 kB limit, resolves Chromium from Playwright, filters machine-bound .NET tests, provisions pinned Gitleaks in its own step, scans, and retains coverage evidence. README commands now match the gate.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>2. Host and fixture repair</b></td>
+        <td>Replaced the Windows-only <code>npm.cmd</code> test fixture with a platform-neutral Node stub, allocated free ports per launcher case, retained child stdout/stderr in startup failures, and added required Linux and Windows host-integration jobs. Temporary Git setup now shares one diagnostic helper with fixed identity, timestamps, line endings, command capture, and cleanup.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>3. Honest portability taxonomy</b></td>
+        <td>Audited process-spawning xUnit fixtures, centralized incidental Git processes, marked controlled Git/.NET/native-tool suites <code>ToolBound</code>, and kept host timing checks <code>MachineBound</code>. Routine coverage excludes machine timing; the release workflow selects the machine list explicitly and retains TRX evidence.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>4. Coverage generation and priority gaps</b></td>
+        <td>Added Coverlet Cobertura and Angular lcov generation, schema/readability checks, artifact publishing, and the first measured line-rate ratchet by project and feature area. Added positive and failure-path API proof for repository, risk, guideline, estimate, pause/cancel/resume, handover configuration, thread, and attack-judgement lifecycles; added attack-coverage component attention/error tests. Existing editor and review session component tests and the real-API project-switch browser journey are now part of the declared gate/canary contract.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>5. Release canary and upkeep</b></td>
+        <td>Added a scheduled and manual canary for the labeled <code>quality-studio-canary</code> Linux host. It records host metadata, runs three machine-bound .NET and browser-performance samples, exercises real repository switching, retains JSON/screenshots/TRX/logs for 30 days, and exposes the live review check only as an explicit manual option for review-execution changes.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>Integration refresh</b></td>
+        <td>Replayed the approved wave onto the current integration tip after the requested refresh. The first API aggregate baseline was remeasured at 41.60% because newly integrated shared-library code is included in that Cobertura document; the API package floor remains 89.18%, and every other project and feature-area floor remains at or above the delivered measurement. No approved slice was skipped.</td>
+      </tr>
+      <tr>
+        <td>2026-08-11</td><td><code>QS-75</code></td><td><b>5. Release canary follow-up</b></td>
+        <td>Hardened the canary after local verification reproduced host timing variance: all three .NET and browser samples now run even when an earlier sample fails, evidence is still published, and a final step fails the workflow with machine, product, or external-dependency classification. A required repository contract test protects that collection-before-enforcement behavior.</td>
+      </tr>
+      <tr>
+        <td>2026-08-12</td><td><code>QS-89</code></td><td><b>Keep-green mechanics</b></td>
+        <td>Added <code>.quality/test-lanes.json</code> as the category source of truth; the required gate now excludes only <code>MachineBound</code> and <code>ExternalLive</code>, while the canary explicitly selects both non-portable lanes. Added the fail-fast <code>npm run test:pre-review</code> target with locked restore, portable .NET tests, TRX zero-skip enforcement, browser resolution, and Angular tests. Repository contracts reject lane drift, runtime and attribute-based xUnit skips, focused or disabled JavaScript tests, ad hoc Git process fixtures, non-zero Karma retries, and regression to the Windows-only launcher fixture. The full target exposed an order-dependent Gitleaks fake; its scenario/version environment is now initialized and restored per test. README documents exactly which slower proofs remain outside the fast target.</td>
+      </tr>
+    </tbody>
+  </table>
 </main>
 </body>
 </html>

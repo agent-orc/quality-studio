@@ -1,7 +1,15 @@
 module.exports = function configureKarma(config) {
   config.set({
     frameworks: ['jasmine'],
-    plugins: [require('karma-jasmine'), require('karma-chrome-launcher')],
+    retryLimit: 0,
+    plugins: [require('karma-jasmine'), require('karma-chrome-launcher'), require('karma-coverage')],
+    coverageReporter: {
+      dir: process.env.COVERAGE_DIR || 'coverage',
+      reporters: [
+        { type: 'lcovonly', subdir: '.' },
+        { type: 'text-summary' },
+      ],
+    },
     customLaunchers: {
       ChromeHeadlessNoSandbox: {
         base: 'ChromeHeadless',
