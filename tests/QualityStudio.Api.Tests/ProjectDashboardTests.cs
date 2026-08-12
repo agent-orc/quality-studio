@@ -134,6 +134,8 @@ public sealed class ProjectDashboardTests
 
             stopwatch.Stop();
             Assert.Equal(5_000, dashboard.Metrics.FileCount);
+            Assert.Equal(Enum.GetValues<ReviewKind>().Length, dashboard.Grades.Count);
+            Assert.All(dashboard.Grades, grade => Assert.Equal("missing", grade.State));
             Assert.True(firstStopwatch.ElapsedMilliseconds < 150,
                 $"Initial dashboard projection took {firstStopwatch.ElapsedMilliseconds} ms; QS-8 first-visible budget is 150 ms.");
             Assert.Same(dashboard, cached);

@@ -213,11 +213,14 @@ public sealed class ProjectDashboardService
                 hierarchyFiles.ToDictionary(node => node.Path, StringComparer.Ordinal));
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
-        var grades = BuildGrades(roots, projectPath);
+        var hasReviewDocuments = hierarchy.Any(node => node.Documents.Count > 0);
+        var grades = hasReviewDocuments
+            ? BuildGrades(roots, projectPath)
+            : BuildMissingGrades(projectPath);
         ProjectFindingsResponse findings;
         ProjectStalenessResponse staleness;
         ProjectReviewCoverageResponse reviewCoverage;
-        if (hierarchy.All(node => node.Documents.Count == 0))
+        if (!hasReviewDocuments)
         {
             var firstPath = hierarchyFiles.FirstOrDefault()?.Path ?? projectPath;
             findings = new ProjectFindingsResponse(
@@ -254,6 +257,16 @@ public sealed class ProjectDashboardService
             metrics,
             hotspots);
     }
+
+    private static IReadOnlyList<ProjectGradeResponse> BuildMissingGrades(string projectPath) =>
+        Enum.GetValues<ReviewKind>()
+            .Select(kind => new ProjectGradeResponse(
+                kind.ToString().ToLowerInvariant(),
+                "missing",
+                null,
+                null,
+                projectPath))
+            .ToArray();
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(
         IReadOnlyList<HierarchyNode> roots, string fallbackPath)

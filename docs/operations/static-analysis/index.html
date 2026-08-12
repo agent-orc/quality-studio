@@ -693,6 +693,16 @@
         <li>The S5 artifact was regenerated under the operator-provided results directory with status <code>insufficient-evidence</code>, zero of 30 required matched operations, and <code>savingsPercent: null</code>. The evidence threshold—not operator approval—is the only pending rollout condition.</li>
       </ul>
     </article>
+
+    <article class="slice">
+      <header><h3>2026-08-12 · QS-72 · Fresh integration re-verification</h3><span class="pill done">landed</span></header>
+      <p>The decided S1–S5 delivery was restored onto the current <code>origin/main</code> integration snapshot because this remote has no <code>develop</code> ref. Fresh verification found one remaining redundant dashboard traversal: grade aggregation walked all 5,000 hierarchy files even when the snapshot already proved that no review documents existed. The empty-review fast path now returns the same missing-grade projection without recomputing recursive aggregate state.</p>
+      <ul>
+        <li>The 5,000-file, 150 ms first-visible canary passes five consecutive fresh-process repetitions after the repair. The Release build and portable solution suite pass with 219 tests passed, one explicitly skipped live integration test, and zero failures.</li>
+        <li>Both Angular compilers, the 478.30 kB production build, 39 browser tests, seven static-analysis contract tests, the 250-observation new-debt baseline, NuGet audit, npm critical gate, and Gitleaks scan pass. The npm high/moderate advisories, NG8102 diagnostics, bundle/style warnings, and complexity breaches remain visible standalone evidence.</li>
+        <li>The regenerated S5 artifact still reports <code>insufficient-evidence</code>, zero of 30 required matched operations, and <code>savingsPercent: null</code>. No recommendation, gate-retention conclusion, model route, or thinking level was changed.</li>
+      </ul>
+    </article>
   </section>
 
   <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 12 August 2026</footer>
