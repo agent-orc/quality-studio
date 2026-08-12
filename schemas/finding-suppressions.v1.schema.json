@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/finding-suppressions.v1.schema.json",
+  "title": "Quality Studio exact-finding suppression policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "revision", "rules"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "enabled", "match", "effect", "reason", "author", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^exact-[0-9a-f]{64}$" },
+          "enabled": { "type": "boolean" },
+          "match": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fingerprint"],
+            "properties": {
+              "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+            }
+          },
+          "effect": { "const": "suppress" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "author": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+          "path": { "type": ["string", "null"] },
+          "ruleId": { "type": ["string", "null"] },
+          "title": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

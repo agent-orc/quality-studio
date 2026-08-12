@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Json.Schema;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -142,6 +143,67 @@ public sealed class FindingLifecycleTests
         Assert.Single(projected["findings"]!.AsArray());
         Assert.Equal("false-positive", projected["findings"]![0]!["state"]!.GetValue<string>());
         Assert.Equal(1, projected["findingCounts"]!["falsePositive"]!.GetValue<int>());
+        Assert.Equal(100, projected["grade"]!["score"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task ExactSuppression_PersistsAcrossRuns_ExpiresAndUsesOptimisticRevision()
+    {
+        var root = Directory.CreateTempSubdirectory("finding-suppression-");
+        var now = new DateTimeOffset(2026, 8, 12, 20, 0, 0, TimeSpan.Zero);
+        var finding = Identity('d');
+        try
+        {
+            var store = new FindingSuppressionStore(root.FullName, () => now);
+            var initial = await store.ReadAsync(TestContext.Current.CancellationToken);
+            var saved = await store.AddExactAsync(finding, "Persistent finding", "Ada", "Accepted generated-code debt.",
+                now.AddDays(1), initial.Revision, TestContext.Current.CancellationToken);
+
+            var afterRestart = await new FindingSuppressionStore(root.FullName, () => now)
+                .ReadAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(saved.SchemaVersion, afterRestart.SchemaVersion);
+            Assert.Equal(saved.Revision, afterRestart.Revision);
+            Assert.Equal(saved.Rules, afterRestart.Rules);
+            Assert.Contains(finding.Fingerprint, FindingSuppressionStore.ActiveByFingerprint(afterRestart, now));
+            Assert.Empty(FindingSuppressionStore.ActiveByFingerprint(afterRestart, now.AddDays(2)));
+            Assert.True(File.Exists(Path.Combine(root.FullName,
+                FindingSuppressionStore.RelativePath.Replace('/', Path.DirectorySeparatorChar))));
+            var schema = JsonSchema.FromText(await File.ReadAllTextAsync(Path.Combine(
+                RepositoryTestContext.FindRepositoryRoot(), "schemas", "finding-suppressions.v1.schema.json"),
+                TestContext.Current.CancellationToken));
+            using var persisted = JsonDocument.Parse(await File.ReadAllTextAsync(store.SuppressionPath,
+                TestContext.Current.CancellationToken));
+            var validation = schema.Evaluate(persisted.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+            Assert.True(validation.IsValid, validation.ToString());
+
+            await Assert.ThrowsAsync<FindingSuppressionConflictException>(() =>
+                store.DeleteAsync(saved.Rules[0].Id, initial.Revision, TestContext.Current.CancellationToken));
+            var removed = await store.DeleteAsync(saved.Rules[0].Id, saved.Revision, TestContext.Current.CancellationToken);
+            Assert.Empty(removed.Rules);
+            Assert.Equal(2, removed.Revision);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public void Projection_AnnotatesSuppressedObservationWithoutChangingLifecycleAssessment()
+    {
+        var metadata = JsonNode.Parse(ReviewResponseParserTests.ValidResponse.Replace(
+            "\"findings\": []", "\"findings\": [" + ReviewResponseParserTests.ValidFinding + "]", StringComparison.Ordinal))!.AsObject();
+        FindingIdentity.Assign(metadata, new Dictionary<string, string> { ["src/Small.cs"] = "internal static class Small { }\n" });
+        var fingerprint = metadata["findings"]![0]!["fingerprint"]!.GetValue<string>();
+        var suppression = new FindingSuppressionRule("exact-test", true, new(fingerprint), "suppress", "Known debt.", "Ada",
+            DateTimeOffset.Parse("2026-08-12T20:00:00Z"));
+
+        var projected = FindingStateProjection.Apply(metadata, new Dictionary<string, FindingStateRecord>(),
+            new Dictionary<string, FindingSuppressionRule> { [fingerprint] = suppression });
+
+        Assert.Equal("open", projected["findings"]![0]!["state"]!.GetValue<string>());
+        Assert.Equal("exact-test", projected["findings"]![0]!["suppression"]!["id"]!.GetValue<string>());
+        Assert.Equal(1, projected["suppressedFindingCount"]!.GetValue<int>());
         Assert.Equal(100, projected["grade"]!["score"]!.GetValue<int>());
     }
 

@@ -43,7 +43,7 @@ describe('Editor finding navigation', () => {
     fixture.detectChanges();
   });
 
-  it('centres and highlights the authoritative range with a focusable fingerprint marker', async () => {
+  it('centres and highlights the authoritative range with a focusable exact span', async () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(component.isSelectedLine(7)).toBeFalse();
@@ -52,7 +52,26 @@ describe('Editor finding navigation', () => {
     expect(component.isSelectedLine(11)).toBeFalse();
     expect(component.codeScrollTop()).toBeGreaterThan(0);
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(3);
+    expect(fixture.nativeElement.querySelectorAll('.finding-span.selected').length).toBe(3);
+    expect(fixture.nativeElement.querySelector('.finding-span.selected')?.getAttribute('data-finding-columns')).toBe('1-6');
     expect(fixture.nativeElement.querySelector('[data-finding-fingerprint]')?.getAttribute('data-finding-fingerprint')).toBe(finding.fingerprint);
+  });
+
+  it('opens the overlap chooser and emits the explicitly chosen finding', () => {
+    const other = { ...finding, id: 'overlap', fingerprint: `sha256:${'e'.repeat(64)}`, title: 'Overlapping range' };
+    const segment = {
+      text: 'line', kind: 'plain' as const, startColumn: 1, endColumn: 4,
+      findings: [finding, other], selected: true, overlap: true, endOfLine: false,
+    };
+    const selected: ReviewFinding[] = [];
+    component.findingSelect.subscribe(value => selected.push(value));
+
+    component.selectSpan(8, segment);
+    expect(component.isChooserOpen(8, segment)).toBeTrue();
+    component.chooseOverlappingFinding(other);
+
+    expect(component.overlapChooser()).toBeNull();
+    expect(selected).toEqual([other]);
   });
 
   it('does not claim an authoritative range when the review is stale', () => {

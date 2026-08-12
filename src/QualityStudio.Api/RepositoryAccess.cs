@@ -64,7 +64,8 @@ public sealed class RepositoryAccess
 
     public IReadOnlyList<JsonElement> ReadMetaDocuments(
         string relativePath,
-        IReadOnlyDictionary<string, FindingStateRecord>? states = null)
+        IReadOnlyDictionary<string, FindingStateRecord>? states = null,
+        IReadOnlyDictionary<string, FindingSuppressionRule>? suppressions = null)
     {
         var normalized = NormalizeRelativePath(relativePath);
         var documents = (metaIndex ?? throw new InvalidOperationException("Review metadata indexing is unavailable."))
@@ -77,7 +78,7 @@ public sealed class RepositoryAccess
         return documents.Select(document =>
         {
             var metadata = JsonNode.Parse(document.GetRawText())!.AsObject();
-            using var projected = JsonDocument.Parse(FindingStateProjection.Apply(metadata, states).ToJsonString());
+            using var projected = JsonDocument.Parse(FindingStateProjection.Apply(metadata, states, suppressions).ToJsonString());
             return projected.RootElement.Clone();
         }).ToArray();
     }

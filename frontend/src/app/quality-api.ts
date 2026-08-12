@@ -45,7 +45,11 @@ export interface FindingStateCounts { open: number; accepted: number; waived: nu
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
 export interface FindingSource { kind: 'deterministic'; sensorId: string; producer: string; producerVersion?: string; runIndex?: number; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+export interface FindingSuppression { id: string; reason: string; author: string; createdAt: string; expiresAt: string | null; }
+export interface FindingSuppressionRule extends FindingSuppression { enabled: boolean; match: { fingerprint: string }; effect: 'suppress'; path: string | null; ruleId: string | null; title: string | null; }
+export interface FindingSuppressionsResponse { schemaVersion: 1; revision: number; rules: FindingSuppressionRule[]; }
+export interface FindingSuppressionMutation { path: string; kind: ReviewKind; fingerprint: string; author: string; reason: string; expiresAt?: string | null; expectedRevision?: number | null; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; suppression?: FindingSuppression | null; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
@@ -429,6 +433,7 @@ export class QualityApi {
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
   readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
+  readonly findingSuppressions = signal<FindingSuppressionsResponse>({ schemaVersion: 1, revision: 0, rules: [] });
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
@@ -752,6 +757,32 @@ export class QualityApi {
       .find(finding => finding.fingerprint === request.fingerprint) ?? null;
   }
 
+  async loadFindingSuppressions(): Promise<FindingSuppressionsResponse> {
+    const response = await firstValueFrom(this.http.get<FindingSuppressionsResponse>(`${this.repositoryApiBase()}/findings/suppressions`));
+    this.findingSuppressions.set(response);
+    return response;
+  }
+
+  async addFindingSuppression(request: FindingSuppressionMutation): Promise<ReviewFinding | null> {
+    const response = await firstValueFrom(this.http.post<FindingSuppressionsResponse>(
+      `${this.repositoryApiBase()}/findings/suppressions`, request));
+    this.findingSuppressions.set(response);
+    await Promise.all([this.loadFile(request.path), this.loadTree()]);
+    console.info(JSON.stringify({ event: 'qs.finding.suppressed', fingerprint: request.fingerprint, revision: response.revision }));
+    return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
+      .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  async deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> {
+    const response = await firstValueFrom(this.http.delete<FindingSuppressionsResponse>(
+      `${this.repositoryApiBase()}/findings/suppressions/${encodeURIComponent(id)}`,
+      { params: { expectedRevision } }));
+    this.findingSuppressions.set(response);
+    const path = this.file()?.path;
+    await Promise.all([path ? this.loadFile(path) : Promise.resolve(), this.loadTree()]);
+    console.info(JSON.stringify({ event: 'qs.finding.unsuppressed', suppressionId: id, revision: response.revision }));
+  }
+
   async loadScopeRules(): Promise<ScopeRulesResponse> {
     const response = await firstValueFrom(this.http.get<ScopeRulesResponse>(`${this.repositoryApiBase()}/scope/rules`));
     this.scopeRules.set(response);
@@ -814,16 +845,18 @@ export class QualityApi {
   private async loadRepositoryDetails(repositoryId: string): Promise<void> {
     const base = this.repositoryApiBase(repositoryId);
     try {
-      const [scan, inputs, guidelines, risk] = await Promise.all([
+      const [scan, inputs, guidelines, risk, suppressions] = await Promise.all([
         firstValueFrom(this.http.get<ScanReport>(`${base}/scan`)),
         firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${base}/inputs`)),
         firstValueFrom(this.http.get<{ guidelines: Guideline[]; catalogue: GuidelineCatalogueEntry[]; traces: GuidelineTrace[] }>(`${base}/guidelines`)),
         firstValueFrom(this.http.get<RiskReport>(`${base}/risk?days=90`)),
+        firstValueFrom(this.http.get<FindingSuppressionsResponse>(`${base}/findings/suppressions`)),
       ]);
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.scan.set(scan); this.inputs.set(inputs.kinds);
       this.guidelines.set(guidelines.guidelines); this.guidelineCatalogue.set(guidelines.catalogue); this.guidelineTraces.set(guidelines.traces);
       this.risk.set(risk);
+      this.findingSuppressions.set(suppressions);
       await this.loadHandoverConfiguration();
     } catch (error) {
       if (repositoryId === this.selectedRepositoryId()) {

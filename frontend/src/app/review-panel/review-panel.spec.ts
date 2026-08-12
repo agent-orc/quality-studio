@@ -39,11 +39,15 @@ describe('ReviewPanel session flow', () => {
     scan: signal({ freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 }),
     handoverConfigured: signal(false), handoverDryRun: signal(true), focusedThreadId: signal(null),
     scopeRules: signal({ schema: 'scope.v1', rules: [] }),
+    findingSuppressions: signal({ schemaVersion: 1 as const, revision: 0, rules: [] as any[] }),
     mutateFindingState: jasmine.createSpy('mutateFindingState'),
     loadFile: jasmine.createSpy('loadFile'), loadTree: jasmine.createSpy('loadTree'),
     loadScopeRules: jasmine.createSpy('loadScopeRules'), previewScopeRule: jasmine.createSpy('previewScopeRule'),
     addScopeRule: jasmine.createSpy('addScopeRule'), updateScopeRule: jasmine.createSpy('updateScopeRule'),
     deleteScopeRule: jasmine.createSpy('deleteScopeRule'),
+    loadFindingSuppressions: jasmine.createSpy('loadFindingSuppressions'),
+    addFindingSuppression: jasmine.createSpy('addFindingSuppression'),
+    deleteFindingSuppression: jasmine.createSpy('deleteFindingSuppression'),
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
@@ -58,7 +62,8 @@ describe('ReviewPanel session flow', () => {
     file.update(value => ({ ...value, metaDocuments: [meta] }));
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
-      api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
+      api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.loadFindingSuppressions,
+      api.addFindingSuppression, api.deleteFindingSuppression, api.createTask, api.pauseReview, api.cancelReview,
       api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
@@ -67,6 +72,11 @@ describe('ReviewPanel session flow', () => {
     api.previewScopeRule.and.resolveTo({ index: -1, action: 'exclude', pattern: 'src/A.cs', reason: 'Ignore path', matchedFiles: ['src/A.cs'], widerPattern: false });
     api.addScopeRule.and.resolveTo(api.scopeRules()); api.updateScopeRule.and.resolveTo(api.scopeRules());
     api.deleteScopeRule.and.resolveTo(api.scopeRules());
+    api.loadFindingSuppressions.and.resolveTo(api.findingSuppressions());
+    api.addFindingSuppression.and.callFake(async () => ({ ...openFinding, suppression: {
+      id: 'exact-a', reason: 'Known debt.', author: 'Reviewer', createdAt: '2026-08-12T20:00:00Z', expiresAt: null,
+    } }));
+    api.deleteFindingSuppression.and.resolveTo();
 
     await TestBed.configureTestingModule({
       imports: [ReviewPanel],
@@ -163,6 +173,31 @@ describe('ReviewPanel session flow', () => {
       pattern: 'src/A.cs', action: 'exclude', confirmExpansion: false,
     }));
     expect(component.scopeStatus()).toContain('future reviews');
+  });
+
+  it('adds an exact finding to the persistent Ignore list without changing its disposition', async () => {
+    component.openIgnoreFinding(openFinding);
+    component.ignoreReason.set('Known debt.');
+    await component.saveFindingSuppression();
+
+    expect(api.addFindingSuppression).toHaveBeenCalledWith(jasmine.objectContaining({
+      path: 'src/A.cs', kind: 'code', fingerprint: openFinding.fingerprint,
+      author: 'Reviewer', reason: 'Known debt.', expectedRevision: 0,
+    }));
+    expect(component.ignoreManagerOpen()).toBeTrue();
+    expect(component.ignoreStatus()).toContain('observation remains');
+  });
+
+  it('hides suppressed observations by default and keeps them queryable', () => {
+    const suppressed = { ...openFinding, suppression: {
+      id: 'exact-a', reason: 'Known debt.', author: 'Reviewer', createdAt: '2026-08-12T20:00:00Z', expiresAt: null,
+    } };
+    file.update(value => ({ ...value, metaDocuments: [{ ...meta, findings: [suppressed, acceptedFinding] }] }));
+    fixture.detectChanges();
+
+    expect(component.visibleFindings().map(finding => finding.id)).toEqual(['medium-accepted']);
+    component.findingFilter.set('suppressed');
+    expect(component.visibleFindings().map(finding => finding.id)).toEqual(['high-open']);
   });
 
   it('edits an existing scope rule through the repository API', async () => {
