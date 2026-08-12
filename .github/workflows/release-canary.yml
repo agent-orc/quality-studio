@@ -1,0 +1,124 @@
+name: Release canary
+
+on:
+  schedule:
+    - cron: "17 3 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      run_live_review:
+        description: Run only after review-execution behavior changes
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  machine-bound-dotnet:
+    name: Machine-bound .NET canary
+    runs-on: [self-hosted, linux, quality-studio-canary]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.301
+      - name: Build Release
+        run: dotnet build QualityStudio.slnx --configuration Release
+      - name: Capture host metadata and three samples
+        shell: bash
+        run: |
+          mkdir -p "${{ runner.temp }}/quality-studio-canary"
+          {
+            date --iso-8601=seconds
+            uname -a
+            dotnet --info
+          } > "${{ runner.temp }}/quality-studio-canary/host.txt"
+          for sample in 1 2 3; do
+            dotnet test QualityStudio.slnx --configuration Release --no-build \
+              --filter "Category=MachineBound" \
+              --logger "trx;LogFileName=machine-bound-${sample}.trx" \
+              --results-directory "${{ runner.temp }}/quality-studio-canary/sample-${sample}"
+          done
+      - name: Upload machine-bound evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-bound-canary
+          if-no-files-found: error
+          path: ${{ runner.temp }}/quality-studio-canary
+
+  frontend-performance:
+    name: Browser and repository-switch canary
+    runs-on: [self-hosted, linux, quality-studio-canary]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.301
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+      - name: Build API and install browser harness
+        run: |
+          dotnet build src/QualityStudio.Api/QualityStudio.Api.csproj
+          cd frontend
+          npm ci
+          npx playwright-core install chromium
+      - name: Run three samples of both performance stages
+        shell: bash
+        run: |
+          evidence="${{ runner.temp }}/quality-studio-performance"
+          mkdir -p "$evidence"
+          {
+            date --iso-8601=seconds
+            uname -a
+            dotnet --info
+            node --version
+            npm --version
+          } > "$evidence/host.txt"
+          api_port=$(node -e "const s=require('node:net').createServer();s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close()})")
+          web_port=$(node -e "const s=require('node:net').createServer();s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close()})")
+          node scripts/dev-stack.mjs --api-port "$api_port" --web-port "$web_port" > "$evidence/dev-stack.log" 2>&1 &
+          stack_pid=$!
+          trap 'kill -INT "$stack_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 120); do
+            curl --fail --silent "http://127.0.0.1:${web_port}" >/dev/null && break
+            sleep 1
+          done
+          curl --fail --silent "http://127.0.0.1:${web_port}" >/dev/null
+          for sample in 1 2 3; do
+            JOB_RESULTS_DIR="$evidence/browser-${sample}" QS_URL="http://127.0.0.1:${web_port}" node frontend/tests/perf.mjs
+          done
+          kill -INT "$stack_pid"
+          wait "$stack_pid" || true
+          trap - EXIT
+          for sample in 1 2 3; do
+            JOB_RESULTS_DIR="$evidence/project-switch-${sample}" node frontend/tests/project-switch-perf.mjs
+          done
+      - name: Upload frontend performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-performance-canary
+          if-no-files-found: error
+          path: ${{ runner.temp }}/quality-studio-performance
+
+  live-review:
+    name: Explicit live review canary
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review }}
+    runs-on: [self-hosted, linux, quality-studio-canary]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.301
+      - name: Run live-agent integration after review-execution changes
+        env:
+          QUALITY_RUN_LIVE_REVIEW: "1"
+        run: >-
+          dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj
+          --filter "FullyQualifiedName~LiveReviewIntegrationTests"

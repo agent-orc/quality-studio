@@ -1,7 +1,17 @@
+const path = require('node:path');
+
 module.exports = function configureKarma(config) {
   config.set({
     frameworks: ['jasmine'],
-    plugins: [require('karma-jasmine'), require('karma-chrome-launcher')],
+    plugins: [require('karma-jasmine'), require('karma-chrome-launcher'), require('karma-coverage')],
+    coverageReporter: {
+      dir: path.join(__dirname, 'coverage', 'frontend'),
+      reporters: [
+        { type: 'lcovonly', subdir: '.', file: 'lcov.info' },
+        { type: 'cobertura', subdir: '.', file: 'cobertura-coverage.xml' },
+        { type: 'text-summary' },
+      ],
+    },
     customLaunchers: {
       ChromeHeadlessNoSandbox: {
         base: 'ChromeHeadless',

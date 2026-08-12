@@ -7,10 +7,12 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class ApiSecurityTests : IAsyncLifetime
 {
     private const string AliceToken = "alice-test-credential";
@@ -231,13 +233,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     private static async Task RunGitAsync(string directory)
     {
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-        {
-            WorkingDirectory = directory,
-            UseShellExecute = false,
-        })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
+        await GitFixture.InitializeAsync(directory, TestContext.Current.CancellationToken);
     }
 
     private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute)

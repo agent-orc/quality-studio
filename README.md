@@ -210,7 +210,31 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` runs the required portable and Linux/Windows host-integration gates for pushes and pull requests to `main`.
+
+## Test baseline
+
+The required gate pins .NET 10.0.301 and Node 22.23.1. It builds the production
+Angular bundle against the existing 480 kB ceiling, excludes `MachineBound`
+timing checks from routine .NET tests, provisions the lock-file Playwright
+Chromium, runs all Angular and launcher tests, verifies pinned Gitleaks, and
+publishes Cobertura and lcov reports. The measured per-project coverage floor is
+stored in [`coverage-baseline.json`](coverage-baseline.json); decreases fail CI.
+
+Representative local commands are:
+
+```shell
+dotnet build QualityStudio.slnx --configuration Release
+dotnet test QualityStudio.slnx --configuration Release --filter "Category!=MachineBound"
+npm run test:dev-stack
+cd frontend && npm ci && npx playwright-core install chromium && npm run build
+CHROME_NO_SANDBOX=1 npm run test:coverage
+```
+
+Machine timing, real browser/backend switching, and opt-in live-agent checks are
+kept in the separately scheduled release canary. Release candidates that touch
+those surfaces require a recent green canary rather than folding host timing
+noise into the portable pull-request gate.
 
 ## Minimal API
 

@@ -1,8 +1,10 @@
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class ProjectDashboardTests
 {
     [Fact]
@@ -116,32 +118,11 @@ public sealed class ProjectDashboardTests
 
     private static string TemporaryRepository()
     {
-        var root = Path.Combine(Path.GetTempPath(), "quality-studio-dashboard-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-            ArgumentList = { "init", "--quiet" },
-        })!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
-        return root;
+        return GitFixture.Create("quality-studio-dashboard-tests");
     }
 
     private static void RunGit(string root, params string[] arguments)
     {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        process.Start();
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        GitFixture.Run(root, arguments);
     }
 }

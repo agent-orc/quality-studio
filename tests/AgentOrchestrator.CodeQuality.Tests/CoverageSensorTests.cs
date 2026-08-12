@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class CoverageSensorTests
 {
     [Fact]
@@ -124,9 +126,7 @@ public sealed class CoverageSensorTests
         {
             Root = Directory.CreateTempSubdirectory("quality-studio-churn-").FullName;
             Directory.CreateDirectory(Path.Combine(Root, "src"));
-            Run("init", "--quiet");
-            Run("config", "user.email", "fixture@example.test");
-            Run("config", "user.name", "Fixture");
+            GitFixture.Initialize(Root);
         }
 
         public string Root { get; }

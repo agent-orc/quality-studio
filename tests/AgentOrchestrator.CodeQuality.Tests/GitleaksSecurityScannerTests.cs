@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -11,6 +12,7 @@ public sealed class GitleaksSecurityScannerCollection
 }
 
 [Collection("GitleaksSecurityScanner")]
+[Trait("Boundary", "GitAndProcess")]
 public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 {
     private const string Version = "8.24.2";
@@ -243,7 +245,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
     private static async Task InitializeGitRepositoryAsync(string root, CancellationToken cancellationToken)
     {
-        await RunGitAsync(root, cancellationToken, "init", "--quiet");
+        await GitFixture.InitializeAsync(root, cancellationToken);
     }
 
     private static async Task CommitAsync(string root, string message, CancellationToken cancellationToken)
@@ -254,32 +256,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
     private static async Task RunGitAsync(string root, CancellationToken cancellationToken, params string[] arguments)
     {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException("Git did not start.");
-        }
-
-        await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        await process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        Assert.Equal(0, process.ExitCode);
+        await GitFixture.RunAsync(root, cancellationToken, arguments);
     }
 
     private static async Task<string> BuildFakeGitleaksAsync(string root, CancellationToken cancellationToken)

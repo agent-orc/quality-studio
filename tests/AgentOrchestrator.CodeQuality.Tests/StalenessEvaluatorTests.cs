@@ -2,10 +2,12 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class StalenessEvaluatorTests
 {
     [Fact]
@@ -220,13 +222,12 @@ public sealed class StalenessEvaluatorTests
 
         private static async Task RunGitAsync(string root, params string[] arguments)
         {
-            using var process = Process.Start(new ProcessStartInfo("git", arguments)
+            if (arguments is ["init", "--quiet"])
             {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            })!;
-            await process.WaitForExitAsync();
-            Assert.Equal(0, process.ExitCode);
+                await GitFixture.InitializeAsync(root, TestContext.Current.CancellationToken);
+                return;
+            }
+            await GitFixture.RunAsync(root, TestContext.Current.CancellationToken, arguments);
         }
     }
 }
