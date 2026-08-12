@@ -936,8 +936,13 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
     var descriptors = new List<object>();
     foreach (var sensor in sensors.List())
     {
-        var availability = await sensor.ProbeAvailabilityAsync(cancellationToken);
         configured.TryGetValue(sensor.Id, out var repositoryConfiguration);
+        var availability = sensor is IRepositoryAwareSensorAvailability repositoryAware
+            ? await repositoryAware.ProbeAvailabilityAsync(new SensorScanRequest(
+                registration.RootPath,
+                Configuration: repositoryConfiguration?.Configuration,
+                PersistMetadata: false), cancellationToken)
+            : await sensor.ProbeAvailabilityAsync(cancellationToken);
         descriptors.Add(new
         {
             sensor.Id,

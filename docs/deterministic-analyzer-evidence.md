@@ -31,6 +31,28 @@ The importer maps every run independently, resolves driver and extension rule me
 
 ### Roslyn analyzers from `dotnet build`
 
+For repositories with a root solution or project, the built-in `roslyn`
+profile is enabled by default and uses direct build-output parsing. This captures
+the complete multi-project build without making projects race to overwrite one
+shared SARIF file:
+
+```json
+{
+  "id": "roslyn",
+  "enabled": true,
+  "configuration": {
+    "format": "dotnet-build",
+    "command": "dotnet build {repositoryRoot} --configuration Release --nologo -p:GenerateFullPaths=true",
+    "reportPath": ".quality/analyzers/dotnet-build.txt"
+  }
+}
+```
+
+The command runs directly without a shell. Compiler errors are high-severity
+deterministic findings; warnings and analyzer diagnostics are medium severity.
+A failed build with no parseable diagnostic is unavailable rather than clean.
+The prior SARIF form remains supported for repositories that configure it:
+
 ```json
 {
   "id": "roslyn",
@@ -66,15 +88,22 @@ ESLint needs a SARIF formatter already installed in that repository:
 
 TypeScript does not emit SARIF itself. The `tsc` sensor captures non-pretty compiler output, stores it at the configured report path and maps `TS####` diagnostics to the same deterministic finding contract.
 
+When `frontend/tsconfig.app.json` and `frontend/package-lock.json` exist, the
+built-in profile is enabled and executes the declared local compiler through
+`node`. It does not use `npx` and cannot download a tool as a
+scan side effect. Repository-aware availability reports the version from the
+installed package lock result. ESLint and generic SARIF stay disabled by default
+until their project configuration is complete. Every check can be enabled or
+disabled independently through its repository sensor entry.
+
 ```json
 {
   "id": "tsc",
   "enabled": true,
   "configuration": {
-    "command": "npx --no-install tsc --noEmit --pretty false",
+    "command": "node node_modules/typescript/bin/tsc -p tsconfig.app.json --noEmit --pretty false",
     "reportPath": ".quality/analyzers/tsc.txt",
-    "workingDirectory": "frontend",
-    "producerVersion": "5.9.2"
+    "workingDirectory": "frontend"
   }
 }
 ```

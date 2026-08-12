@@ -55,6 +55,14 @@ public interface IReviewSensor
 /// </summary>
 public interface IDeterministicEvidenceSensor : IReviewSensor;
 
+/// <summary>Provides an availability result against one repository's resolved check configuration.</summary>
+public interface IRepositoryAwareSensorAvailability
+{
+    Task<SensorAvailability> ProbeAvailabilityAsync(
+        SensorScanRequest request,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class SensorRegistry
 {
     private readonly IReadOnlyDictionary<string, IReviewSensor> sensors;

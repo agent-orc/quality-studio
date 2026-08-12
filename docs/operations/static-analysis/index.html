@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Implementation documented</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -533,6 +533,28 @@
     </table>
   </section>
 
+  <section id="implementation-state">
+    <h2><span class="no">08.1</span>Implementation state</h2>
+
+    <article class="slice">
+      <header><h3>2026-08-11 · QS-72 · Wave 1 delivery receipt</h3><span class="pill done">delivered result</span></header>
+      <p>QS-72's final result/salvage chain prepared the broad selective-preflight layer: snapshot-bound collection and persistence, selective dispositions, compiler/package/budget adapters, lint/style and complexity configuration, dashboard projection, CI coverage, and economy-report instrumentation. Its final evidence reported 219 passing portable tests, 39 browser tests, stable baseline counts, and an <code>insufficient-evidence</code> economy result with zero of 30 required matched operations.</p>
+      <p class="dim">At the start of QS-86, that result chain was a descendant of integration snapshot <code>59941d8e9373</code> but was not an ancestor of <code>origin/main</code>. QS-86 inspected the result commits and task artifact and did not replay the broad QS-72 diff into this card.</p>
+    </article>
+
+    <article class="slice">
+      <header><h3>2026-08-12 · QS-86 · First configured compiler checks</h3><span class="pill done">documented</span></header>
+      <p>The current integration's existing once-before-review deterministic collector now receives two repository-resolved, real compiler configurations instead of unconfigured analyzer placeholders.</p>
+      <ul>
+        <li><b>.NET compiler and Roslyn analyzers:</b> the <code>roslyn</code> check runs one direct <code>dotnet build</code> with full paths, parses compiler and analyzer diagnostics from the complete multi-project output, normalizes them as deterministic findings, records the .NET SDK version, and retains the previous configured-SARIF mode for compatibility. A non-zero build with no parseable diagnostic is <code>unavailable</code>, never clean.</li>
+        <li><b>TypeScript compiler:</b> the <code>tsc</code> check runs the lock-installed local compiler through <code>node</code>, without <code>npx</code> or download side effects. Repository-aware availability reports the exact local TypeScript version.</li>
+        <li><b>Independent enablement:</b> <code>roslyn</code> is enabled only when a root solution/project target exists; <code>tsc</code> is enabled only when the checked-in frontend config and lock exist. <code>eslint</code> and generic <code>sarif</code> remain disabled until repository configuration is complete. Each flag remains independently editable in the canonical repository sensor registration.</li>
+        <li><b>Execution evidence:</b> the API integration fixture proves the enabled compiler findings are collected before the review executor receives its request and that a disabled ESLint check cannot be scanned. The live Quality Studio API resolved .NET 10.0.301 and TypeScript 5.9.3, and both real scans completed as available and clean on this snapshot. The Release build completed with zero warnings and errors; the portable suites completed with 206 passing tests, one explicitly skipped live integration, and zero failures.</li>
+      </ul>
+      <p class="dim">This is a backend/API slice; it changes no UI, so before/after screenshots are not applicable. Angular template compiler diagnostics remain the next compiler increment. ESLint remains behind its own flag because this integration snapshot still has no pinned project ESLint configuration.</p>
+    </article>
+  </section>
+
   <section id="guardrails">
     <h2><span class="no">09</span>Approval guardrails</h2>
     <ol>
@@ -577,7 +599,7 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <footer>Decision dossier for QS-63 · implementation receipt: QS-72 and QS-86 · status: documented · updated 12 August 2026</footer>
 </main>
 </body>
 </html>
