@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -11,6 +12,7 @@ public sealed class GitleaksSecurityScannerCollection
 }
 
 [Collection("GitleaksSecurityScanner")]
+[Trait("Category", "ToolBound")]
 public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 {
     private const string Version = "8.24.2";
@@ -19,24 +21,40 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
     private string? _fakeGitleaksRoot;
     private string? _fakeGitleaksPath;
     private string? _previousGitleaksPath;
+    private string? _previousScenario;
+    private string? _previousVersion;
 
     public async ValueTask InitializeAsync()
     {
         _fakeGitleaksRoot = Directory.CreateTempSubdirectory("quality-studio-fake-gitleaks-").FullName;
         _fakeGitleaksPath = await BuildFakeGitleaksAsync(_fakeGitleaksRoot, TestContext.Current.CancellationToken);
         _previousGitleaksPath = Environment.GetEnvironmentVariable("QUALITY_GITLEAKS_PATH");
+        _previousScenario = Environment.GetEnvironmentVariable("FAKE_GITLEAKS_SCENARIO");
+        _previousVersion = Environment.GetEnvironmentVariable("FAKE_GITLEAKS_VERSION");
         Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", _fakeGitleaksPath);
+        SetScenario("repository");
     }
 
     public ValueTask DisposeAsync()
     {
         Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", _previousGitleaksPath);
+        Environment.SetEnvironmentVariable("FAKE_GITLEAKS_SCENARIO", _previousScenario);
+        Environment.SetEnvironmentVariable("FAKE_GITLEAKS_VERSION", _previousVersion);
         if (_fakeGitleaksRoot is not null)
         {
             TryDelete(_fakeGitleaksRoot);
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Security_provision_command_verifies_the_pinned_binary_before_the_scan_lane()
+    {
+        var exitCode = await global::QualityCli.RunAsync(["security", "provision"]);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(2, await global::QualityCli.RunAsync(["security", "provision", "unexpected"]));
     }
 
     [Fact]
@@ -243,44 +261,17 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
     private static async Task InitializeGitRepositoryAsync(string root, CancellationToken cancellationToken)
     {
-        await RunGitAsync(root, cancellationToken, "init", "--quiet");
+        await GitTestRepository.InitializeAsync(root, cancellationToken);
     }
 
     private static async Task CommitAsync(string root, string message, CancellationToken cancellationToken)
     {
-        await RunGitAsync(root, cancellationToken, "add", "-A");
-        await RunGitAsync(root, cancellationToken, "-c", "user.name=Quality Studio", "-c", "user.email=quality@example.com", "commit", "--quiet", "-m", message);
+        await GitTestRepository.RunAsync(root, cancellationToken, "add", "-A");
+        await GitTestRepository.RunAsync(root, cancellationToken, "commit", "--quiet", "-m", message);
     }
 
     private static async Task RunGitAsync(string root, CancellationToken cancellationToken, params string[] arguments)
-    {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException("Git did not start.");
-        }
-
-        await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        await process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        Assert.Equal(0, process.ExitCode);
-    }
+        => await GitTestRepository.RunAsync(root, cancellationToken, arguments);
 
     private static async Task<string> BuildFakeGitleaksAsync(string root, CancellationToken cancellationToken)
     {
