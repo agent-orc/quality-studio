@@ -1249,8 +1249,24 @@ static async Task<IResult> ReviewRunHistory(
     var legacyStates = await new FindingStateStore(repository.RootPath).ReadAsync(cancellationToken);
     var decisions = await new FindingDecisionStore(repository.RootPath)
         .ReadAsync(legacyStates, cancellationToken);
-    var runs = new QualityRunReportStore(repository.RootPath).LoadAll()
+    var immutable = new ImmutableQualityRunHistoryStore(repository.RootPath).LoadAll();
+    var canonical = new QualityRunReportStore(repository.RootPath).LoadAll();
+    foreach (var current in canonical)
+    {
+        var retained = immutable.FirstOrDefault(report =>
+            string.Equals(report.Run.Id, current.Run.Id, StringComparison.Ordinal) &&
+            report.Run.Revision == current.Run.Revision);
+        if (retained is not null && !string.Equals(
+                QualityRunReportJson.Serialize(retained), QualityRunReportJson.Serialize(current),
+                StringComparison.Ordinal))
+            throw new InvalidDataException(
+                $"Canonical review run '{current.Run.Id}' revision {current.Run.Revision} conflicts with immutable history.");
+    }
+    var archivedKeys = immutable.Select(report => (report.Run.Id, report.Run.Revision)).ToHashSet();
+    var runs = immutable.Concat(canonical.Where(report => !archivedKeys.Contains((report.Run.Id, report.Run.Revision))))
         .Where(report => string.Equals(report.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
+        .GroupBy(report => report.Run.Id, StringComparer.Ordinal)
+        .Select(group => group.OrderByDescending(report => report.Run.Revision).First())
         .OrderByDescending(report => report.Run.FinishedAt ?? report.Run.CreatedAt)
         .ThenByDescending(report => report.Run.Id, StringComparer.Ordinal)
         .Take(selectedLimit)

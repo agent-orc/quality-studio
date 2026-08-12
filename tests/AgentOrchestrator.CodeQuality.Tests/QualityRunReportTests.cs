@@ -86,6 +86,39 @@ public sealed class QualityRunReportTests
     }
 
     [Fact]
+    public void Immutable_history_retains_every_terminal_revision_and_rejects_conflicting_content()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-run-history-store-").FullName;
+        try
+        {
+            var store = new ImmutableQualityRunHistoryStore(root);
+            var first = CreateReport("review-history", findingCount: 1);
+            var firstPath = store.Save(first);
+
+            Assert.Equal(firstPath, store.Save(first));
+            var second = first with
+            {
+                Run = first.Run with { Revision = 2 },
+                Summary = first.Summary with { Score = 91, Grade = "A" },
+            };
+            store.Save(second);
+
+            Assert.Equal([1, 2], store.Load(first.Run.Id).Select(report => report.Run.Revision));
+            Assert.Equal(2, Directory.EnumerateFiles(
+                Path.Combine(store.HistoryPath, first.Run.Id), "*.json").Count());
+            var conflictingFirst = first with
+            {
+                Summary = first.Summary with { Score = 60, Grade = "D" },
+            };
+            Assert.Throws<InvalidDataException>(() => store.Save(conflictingFirst));
+        }
+        finally
+        {
+            TestDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
     public async Task Cli_writes_run_artifact_before_returning_a_gate_failure()
     {
         var root = Directory.CreateTempSubdirectory("quality-run-report-cli-").FullName;
