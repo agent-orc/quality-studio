@@ -564,6 +564,54 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Review_run_comparison_endpoint_aligns_snapshots_and_reports_missing_evidence_plainly()
+    {
+        var shared = ComparisonFinding("shared", "Shared finding", "open");
+        var resolved = ComparisonFinding("resolved", "Resolved finding", "open");
+        var added = ComparisonFinding("added", "Added finding", "open");
+        var baseline = ComparisonReport(
+            "review-baseline", new DateTimeOffset(2026, 8, 10, 8, 0, 0, TimeSpan.Zero), 72,
+            [shared, resolved]);
+        var candidate = ComparisonReport(
+            "review-candidate", new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero), 84,
+            [shared with { State = "waived" }, added]);
+        var store = new QualityRunReportStore(repositoryRoot);
+        store.Save(baseline);
+        store.Save(candidate);
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync(
+            "/api/review/runs/compare?baselineId=review-baseline&candidateId=review-candidate",
+            TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        var comparison = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(1, comparison.GetProperty("findingCounts").GetProperty("new").GetInt32());
+        Assert.Equal(1, comparison.GetProperty("findingCounts").GetProperty("resolved").GetInt32());
+        Assert.Equal(1, comparison.GetProperty("findingCounts").GetProperty("dispositionChanged").GetInt32());
+        Assert.Contains("do not attribute", comparison.GetProperty("provenance").GetProperty("interpretation").GetString(),
+            StringComparison.Ordinal);
+
+        using var missing = await client.GetAsync(
+            "/api/review/runs/compare?baselineId=review-missing&candidateId=review-candidate",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        var problem = await missing.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains("missing", problem.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+
+        await File.WriteAllTextAsync(
+            store.PathFor("review-corrupt"),
+            "{ not-json",
+            TestContext.Current.CancellationToken);
+        using var corrupt = await client.GetAsync(
+            "/api/review/runs/compare?baselineId=review-corrupt&candidateId=review-candidate",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, corrupt.StatusCode);
+        var corruptProblem = await corrupt.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains("corrupt", corruptProblem.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Review_endpoint_queues_and_reports_per_file_failure_without_blocking()
     {
         using var client = application!.CreateClient();
@@ -740,6 +788,71 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             yield return node;
             foreach (var child in FlattenTree(node.GetProperty("children"))) yield return child;
         }
+    }
+
+    private static QualityRunFinding ComparisonFinding(string key, string title, string state) => new(
+        $"finding-{key}",
+        $"quality.{key}",
+        "correctness",
+        "high",
+        state,
+        title,
+        $"{title} description.",
+        $"{title} recommendation.",
+        null,
+        "sha256:" + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(key))),
+        [new QualityFindingLocation("Sample.cs", 1, 1, 1, 8)],
+        "agent",
+        null,
+        null);
+
+    private static QualityRunReportDocument ComparisonReport(
+        string id,
+        DateTimeOffset finishedAt,
+        int score,
+        IReadOnlyList<QualityRunFinding> findings)
+    {
+        var target = new QualityRunSubjectTarget(
+            "sample", "Sample.cs", "Sample.cs", "sha256:" + new string('a', 64));
+        var active = findings.Count(finding => finding.State is "open" or "accepted");
+        return new QualityRunReportDocument(
+            QualityRunReportJson.SchemaId,
+            1,
+            new QualityRunIdentity(
+                id, 1, "default", "Test repository", "code", "sample", "file", "Sample.cs", "done", "complete",
+                finishedAt.AddMinutes(-2), finishedAt.AddMinutes(-1), finishedAt,
+                id.Contains("baseline", StringComparison.Ordinal) ? "gpt-5.6-terra" : "gpt-5.6-sol",
+                "high", "codex", false),
+            new QualityRunSubject(QualityRunReportJson.SubjectManifestHash([target]), [target]),
+            new QualityRunExecution(
+                1, 0, 0, 0, 0, null, [],
+                new QualityRunUsage(1, 100, 20, 0, 0, 1000, null, null, "unavailable", null, null, null),
+                new QualityRunCap(null, null, "not-configured", null),
+                null),
+            [new QualityRunObservation(
+                "sample", "file", "Sample.cs", "done", true, "Sample.cs.review-meta.code.json",
+                "sha256:" + new string('b', 64), finishedAt, "sha256:" + new string('a', 64),
+                $"provider-{id}", new QualityRunGrade(score, "B", "Comparison fixture."),
+                "Comparison fixture.", findings)],
+            new QualityRunDelta("unavailable", null, "Fixture.", [], [], [], []),
+            new QualityRunSummary(
+                score, "B", new QualityRunFindingCounts(
+                    active,
+                    new Dictionary<string, int>
+                    {
+                        ["critical"] = 0, ["high"] = active, ["medium"] = 0, ["low"] = 0, ["info"] = 0,
+                    },
+                    new Dictionary<string, int>
+                    {
+                        ["open"] = findings.Count(finding => finding.State == "open"),
+                        ["accepted"] = findings.Count(finding => finding.State == "accepted"),
+                        ["waived"] = findings.Count(finding => finding.State == "waived"),
+                        ["false-positive"] = findings.Count(finding => finding.State == "false-positive"),
+                        ["resolved"] = 0,
+                    }),
+                active > 0 ? "high" : null,
+                null));
     }
 
     private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)

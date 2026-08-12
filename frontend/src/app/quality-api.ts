@@ -250,6 +250,22 @@ export interface QualityRunTrendPoint {
   cost: number | null; currency: string | null;
 }
 export interface QualityRunTrendPage { points: QualityRunTrendPoint[]; nextCursor: string | null; }
+export type QualityRunFindingDeltaCategory = 'new' | 'unchanged' | 'resolved' | 'dispositionChanged';
+export interface QualityRunComparisonSnapshot {
+  runId: string; revision: number; finishedAt: string; model: string; thinkingLevel: string; cliType: string; force: boolean;
+  subjectManifestHash: string; score: number | null; grade: string | null; activeFindings: number;
+  findingsBySeverity: Record<FindingSeverity, number>; reviewed: number; reusedFresh: number; failed: number; skipped: number;
+  inputTokens: number | null; outputTokens: number | null; durationMs: number; cost: number | null; currency: string | null;
+}
+export interface QualityRunFindingDelta {
+  category: QualityRunFindingDeltaCategory; fingerprint: string; baselineState: FindingState | null;
+  candidateState: FindingState | null; finding: QualityRunFinding;
+}
+export interface QualityRunComparison {
+  baseline: QualityRunComparisonSnapshot; candidate: QualityRunComparisonSnapshot;
+  provenance: { routeChanged: boolean; subjectChanged: boolean; forceChanged: boolean; interpretation: string; evidenceLimit: string };
+  findingCounts: Record<QualityRunFindingDeltaCategory, number>; findings: QualityRunFindingDelta[];
+}
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
@@ -610,6 +626,11 @@ export class QualityApi {
     if (cursor) params['cursor'] = cursor;
     return await firstValueFrom(this.http.get<QualityRunTrendPage>(
       `${this.repositoryApiBase()}/review/runs/trend`, { params }));
+  }
+
+  async compareRuns(baselineId: string, candidateId: string): Promise<QualityRunComparison> {
+    return await firstValueFrom(this.http.get<QualityRunComparison>(
+      `${this.repositoryApiBase()}/review/runs/compare`, { params: { baselineId, candidateId } }));
   }
 
   runReportUrl(id: string, format: RunReportFormat): string {

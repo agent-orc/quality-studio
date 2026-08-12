@@ -33,6 +33,8 @@
               <div class="run-summary-grid"><span><b>{{ report.summary.score ?? '—' }}</b><small>Score {{ report.summary.grade ?? 'unavailable' }}</small></span><span><b>{{ report.summary.findings.total }}</b><small>Active findings</small></span><span><b>{{ report.execution.reviewed }}</b><small>Reviewed</small></span><span><b>{{ report.execution.reusedFresh }}</b><small>Reused fresh</small></span></div>
               <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
 
+              <qs-run-comparison [points]="runTrend()" [selectedRunId]="selectedRunId()" />
+
               <div class="section-title"><span>Run trend</span><small>Same kind, scope, and level</small></div>
               <div class="run-trend" role="list" aria-label="Comparable run trend">
                 @for (point of runTrend(); track point.runId) {

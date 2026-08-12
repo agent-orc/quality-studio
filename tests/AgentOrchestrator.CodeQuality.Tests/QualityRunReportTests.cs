@@ -156,6 +156,76 @@ public sealed class QualityRunReportTests
         Assert.DoesNotContain(first.Points.Concat(second.Points), point => point.RunId == "other-scope");
     }
 
+    [Fact]
+    public void Comparison_aligns_immutable_findings_and_warns_when_provenance_changes()
+    {
+        var baseline = CreateReport("review-baseline", findingCount: 3);
+        var candidateSource = CreateReport("review-candidate", findingCount: 3);
+        var sourceFindings = candidateSource.Observations[0].Findings;
+        var newFinding = sourceFindings[1] with
+        {
+            Id = "finding-new",
+            Fingerprint = "sha256:" + new string('f', 64),
+            Title = "New candidate finding",
+        };
+        var candidate = candidateSource with
+        {
+            Run = candidateSource.Run with
+            {
+                FinishedAt = baseline.Run.FinishedAt!.Value.AddMinutes(10),
+                Model = "gpt-5.6-terra",
+            },
+            Subject = candidateSource.Subject with { ManifestHash = "sha256:" + new string('d', 64) },
+            Observations = [candidateSource.Observations[0] with
+            {
+                Findings = [sourceFindings[0] with { State = "waived" }, sourceFindings[2], newFinding],
+            }],
+        };
+
+        var comparison = QualityRunComparisonBuilder.Build(baseline, candidate);
+
+        Assert.Equal(1, comparison.FindingCounts["new"]);
+        Assert.Equal(1, comparison.FindingCounts["resolved"]);
+        Assert.Equal(1, comparison.FindingCounts["dispositionChanged"]);
+        Assert.Equal(1, comparison.FindingCounts["unchanged"]);
+        Assert.True(comparison.Provenance.RouteChanged);
+        Assert.True(comparison.Provenance.SubjectChanged);
+        Assert.Contains("do not attribute", comparison.Provenance.Interpretation, StringComparison.Ordinal);
+        Assert.Equal("waived", Assert.Single(comparison.Findings,
+            finding => finding.Category == "dispositionChanged").CandidateState);
+        Assert.Equal(sourceFindings[1].Fingerprint, Assert.Single(comparison.Findings,
+            finding => finding.Category == "resolved").Fingerprint);
+    }
+
+    [Fact]
+    public void Comparison_rejects_partial_mismatched_and_reversed_runs()
+    {
+        var baseline = CreateReport("review-baseline", findingCount: 0);
+        var partial = CreateReport("review-partial", findingCount: 0, complete: false);
+        var wrongScope = CreateReport("review-other-scope", findingCount: 0) with
+        {
+            Run = CreateReport("review-other-scope", findingCount: 0).Run with
+            {
+                ScopeUnitId = "other-unit",
+                FinishedAt = baseline.Run.FinishedAt!.Value.AddMinutes(5),
+            },
+        };
+        var earlierCandidate = CreateReport("review-earlier", findingCount: 0) with
+        {
+            Run = CreateReport("review-earlier", findingCount: 0).Run with
+            {
+                FinishedAt = baseline.Run.FinishedAt!.Value.AddMinutes(-5),
+            },
+        };
+
+        Assert.Contains("complete", Assert.Throws<ArgumentException>(() =>
+            QualityRunComparisonBuilder.Build(baseline, partial)).Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("same repository", Assert.Throws<ArgumentException>(() =>
+            QualityRunComparisonBuilder.Build(baseline, wrongScope)).Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("baseline", Assert.Throws<ArgumentException>(() =>
+            QualityRunComparisonBuilder.Build(baseline, earlierCandidate)).Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static QualityRunReportDocument CreateReport(
         string id,
         int findingCount,

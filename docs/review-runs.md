@@ -54,6 +54,22 @@ At startup the API scans the registered repositories for durable runs. `queued` 
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
+## Run comparison
+
+The run drawer can compare a baseline and candidate from the same repository,
+review kind, scope unit, and hierarchy level. Both snapshots must be successful,
+complete canonical reports, and the baseline must finish no later than the candidate.
+`GET /api/review/runs/compare?baselineId=<id>&candidateId=<id>` (and the
+repository-scoped equivalent) aligns recorded findings by fingerprint into `new`,
+`unchanged`, `resolved`, and `dispositionChanged`. Missing, corrupt, partial, or
+incompatible snapshots return explicit problem responses instead of empty deltas.
+
+The response compares grades, active findings, unit coverage, route, token usage,
+duration, and cost. It also states whether the route, reviewed-subject manifest, or
+force mode changed. These are outcome correlations, never causal model claims.
+Canonical report v1 does not contain a complete prompt-input hash, so the API and UI
+surface that evidence limit even when the recorded route and subject match.
+
 `.quality/runs/` is ignored by Git because it is disposable orchestration working
 data. Review sidecars remain the committed current-state truth, while canonical
 run reports preserve the historical truth of each terminal execution.

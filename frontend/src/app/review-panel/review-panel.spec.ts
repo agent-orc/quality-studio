@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { QualityApi, ReviewFinding, ReviewMetaDocument } from '../quality-api';
+import { RunComparison } from '../run-comparison/run-comparison';
 import { ReviewPanel } from './review-panel';
 
 describe('ReviewPanel session flow', () => {
@@ -47,6 +49,7 @@ describe('ReviewPanel session flow', () => {
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
+    compareRuns: jasmine.createSpy('compareRuns'),
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
@@ -59,7 +62,7 @@ describe('ReviewPanel session flow', () => {
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
+      api.resumeReview, api.loadRunReport, api.loadRunTrend, api.compareRuns]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -198,7 +201,17 @@ describe('ReviewPanel session flow', () => {
       observations: [{ unitId: 'a', path: 'src/A.cs', level: 'file', outcome: 'done', producedByRun: true,
         grade: { score: 91, band: 'A', rationale: 'Good.' }, findings: [{ fingerprint: 'sha256:f', severity: 'high', state: 'open', ruleId: 'rule', title: 'Captured', description: 'Evidence.' }] }],
     } as any);
-    api.loadRunTrend.and.resolveTo({ points: [{ runId: 'terminal', revision: 1, finishedAt: '2026-08-11T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 91, grade: 'A', activeFindings: 1, newFindings: 1, persistingFindings: 0, resolvedFindings: 0, stateChangedFindings: 0, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 100, outputTokens: 20, cost: null, currency: null }], nextCursor: null });
+    api.loadRunTrend.and.resolveTo({ points: [
+      { runId: 'terminal', revision: 1, finishedAt: '2026-08-11T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 91, grade: 'A', activeFindings: 1, newFindings: 1, persistingFindings: 0, resolvedFindings: 0, stateChangedFindings: 0, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 100, outputTokens: 20, cost: null, currency: null },
+      { runId: 'baseline', revision: 1, finishedAt: '2026-08-10T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 80, grade: 'B', activeFindings: 2, newFindings: 0, persistingFindings: 2, resolvedFindings: 0, stateChangedFindings: 0, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 90, outputTokens: 10, cost: null, currency: null },
+    ], nextCursor: null });
+    api.compareRuns.and.resolveTo({
+      baseline: { runId: 'baseline', revision: 1, finishedAt: '2026-08-10T08:00:00Z', model: 'gpt-old', thinkingLevel: 'high', cliType: 'codex', force: false, subjectManifestHash: 'sha256:old', score: 80, grade: 'B', activeFindings: 2, findingsBySeverity: {}, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 90, outputTokens: 10, durationMs: 900, cost: null, currency: null },
+      candidate: { runId: 'terminal', revision: 1, finishedAt: '2026-08-11T08:00:00Z', model: 'gpt-test', thinkingLevel: 'high', cliType: 'codex', force: false, subjectManifestHash: 'sha256:new', score: 91, grade: 'A', activeFindings: 1, findingsBySeverity: {}, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 100, outputTokens: 20, durationMs: 1000, cost: null, currency: null },
+      provenance: { routeChanged: true, subjectChanged: true, forceChanged: false, interpretation: 'Do not attribute the delta to the model.', evidenceLimit: 'Prompt-input hash unavailable.' },
+      findingCounts: { new: 1, dispositionChanged: 0, resolved: 1, unchanged: 0 },
+      findings: [{ category: 'new', fingerprint: 'sha256:f', baselineState: null, candidateState: 'open', finding: { fingerprint: 'sha256:f', severity: 'high', state: 'open', ruleId: 'rule', title: 'Captured', description: 'Evidence.', locations: [{ path: 'src/A.cs', startLine: 8, startColumn: 1, endLine: 8, endColumn: 5 }] } }],
+    } as any);
 
     component.runDrawerOpen.set(true);
     await component.openRun(run);
@@ -210,5 +223,12 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+
+    const comparison = fixture.debugElement.query(By.directive(RunComparison)).componentInstance as RunComparison;
+    await comparison.openComparison();
+    fixture.detectChanges();
+    expect(api.compareRuns).toHaveBeenCalledWith('baseline', 'terminal');
+    expect(fixture.nativeElement.querySelector('.comparison-workbench').textContent).toContain('Provenance changed');
+    expect(fixture.nativeElement.querySelector('.comparison-findings').textContent).toContain('Captured');
   });
 });

@@ -160,6 +160,15 @@ describe('QualityApi', () => {
       && request.params.get('limit') === '30').flush({ points: [], nextCursor: null });
     expect((await trendLoading).points).toEqual([]);
 
+    const comparisonLoading = api.compareRuns('run baseline', 'run candidate');
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/compare'
+      && request.params.get('baselineId') === 'run baseline'
+      && request.params.get('candidateId') === 'run candidate').flush({
+        baseline: { runId: 'run baseline' }, candidate: { runId: 'run candidate' },
+        provenance: {}, findingCounts: {}, findings: [],
+      });
+    expect((await comparisonLoading).candidate.runId).toBe('run candidate');
+
     expect(api.runReportUrl('run / 1', 'sarif')).toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=sarif');
     expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
   });

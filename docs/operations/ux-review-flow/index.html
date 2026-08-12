@@ -187,10 +187,10 @@
     <h1>Review flow: from intent to disposition</h1>
     <p class="lede">A repository-grounded walkthrough of starting a review, watching it run, reading and locating findings, taking action, and comparing outcomes. The recommendation turns the existing three-pane engineer workspace into one continuous review session rather than adding another dashboard.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
-      <span><b>Phase</b> Decision ready</span>
-      <span><b>Evidence date</b> 11 August 2026</span>
-      <span><b>Baseline</b> main + QS-55 + QS-56</span>
+      <span><b>Status</b> Documented</span>
+      <span><b>Phase</b> Implementation</span>
+      <span><b>Evidence date</b> 12 August 2026</span>
+      <span><b>Baseline</b> origin/main · QS-69 + canonical run reports</span>
     </div>
   </header>
 
@@ -199,7 +199,7 @@
       <strong>Recommendation: approve the session-centered flow and Slices S0-S6 as one direction.</strong>
       <p>Keep the three-pane workspace. Give each scope one launch point, let the active run occupy that point, make every finding a bidirectional code anchor, present lifecycle actions in operator language, add API-owned management for the existing repository scope list, and persist a compact per-run outcome snapshot for comparison.</p>
     </div>
-    <span class="pill queued">Recommended · Option B</span>
+    <span class="pill done">Approved · Option B</span>
   </div>
 
   <nav aria-label="Contents">
@@ -547,15 +547,16 @@
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S3</span></td><td>Added an active-by-default finding queue with state/severity filters, severity/location/title sorting, real visible counts, previous/next controls, multi-location commands, and bidirectional finding/code focus. The editor centers and highlights the selected range; fingerprint plus location index is restored from the URL, including cross-file locations, while stale findings remain readable with non-authoritative navigation disabled.</td></tr>
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S4</span></td><td>Introduced the Accept, Dismiss, and Reopen operator facade over the lifecycle API. Consequence copy preserves Accepted as active and grade-affecting; Dismiss requires Waive or False positive and exposes expiry only for Waive. Mutations retain optimistic concurrency, recover from conflicts by reloading current state, offer a short-lived Undo, and expose task creation after acceptance when handover is configured.</td></tr>
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S5</span></td><td>Added repository-scoped CRUD and match preview for the existing <code>.quality/scope.json</code> <code>scope.v1</code> contract. The application service validates ordered include/exclude rules and required reasons, blocks traversal, writes atomically, and requires explicit confirmation for wider patterns. “Ignore path…” defaults to an exact-path exclusion and the management surface clearly separates future review eligibility from finding disposition.</td></tr>
+        <tr><td>12 Aug 2026</td><td><code>QS-83</code></td><td><span class="slice-id">S6</span><br>comparison entry</td><td>Added a repository-scoped baseline/candidate comparison API and an in-context “Compare outcomes” entry in the existing run drawer. Only complete runs with the same repository, kind, scope, and level are selectable. The API aligns immutable canonical findings by fingerprint into New, Unchanged, Resolved, and Disposition changed; the workbench compares score, active findings, reviewed/failed/skipped units, route, tokens, duration, and cost. Missing or corrupt snapshots and incompatible selections have explicit problem responses. Route, reviewed-subject, or force-mode changes produce a visible non-causal warning.</td></tr>
       </tbody>
     </table>
     <div class="box warn">
-      <h4>Skipped operator-decision-gated slice</h4>
-      <p><span class="slice-id">S6</span> was not implemented. Its immutable outcome retention contract remains the dossier’s only open policy choice: the proposed newest 50 outcomes plus pinned baselines is explicitly described as an ungrounded initial default that must be decided and measured before durable comparison history ships.</p>
+      <h4>Recorded evidence boundary after QS-83</h4>
+      <p>The comparison entry consumes the repository-owned canonical run reports already present on <code>origin/main</code>; QS-83 does not create a second outcome store. Canonical report v1 records the reviewed-subject manifest, route, force mode, grades, and finding projections, but not a complete prompt-input hash. The UI states that limitation and never attributes an outcome delta to a model. Automatic “newest 50 plus pinned baselines” retention also remains an undecided policy; the current report store retains snapshots until repository owners remove them.</p>
     </div>
   </section>
 
-  <footer class="page-footer">Prepared for the 12 August 2026 operator review. Repository artifacts and UI copy are English. This dossier proposes implementation slices; it does not mutate review, finding, task, or ignore state.</footer>
+  <footer class="page-footer">Updated on 12 August 2026 through QS-83. Repository artifacts and UI copy are English. The implementation log distinguishes shipped behavior from remaining data-policy boundaries.</footer>
 </main>
 </body>
 </html>

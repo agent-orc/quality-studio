@@ -1,6 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import {
+  FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint,
+  ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView,
+} from '../quality-api';
+import { RunComparison } from '../run-comparison/run-comparison';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -14,7 +18,7 @@ interface LastFindingMutation {
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [],
+  imports: [RunComparison],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

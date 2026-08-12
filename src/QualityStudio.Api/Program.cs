@@ -305,6 +305,8 @@ app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
 app.MapGet("/api/review/runs/trend", ReviewRunTrend);
 app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend);
+app.MapGet("/api/review/runs/compare", CompareReviewRuns);
+app.MapGet("/api/repos/{repoId}/review/runs/compare", CompareReviewRuns);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
@@ -1133,6 +1135,70 @@ static IResult ReviewRunTrend(
     var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
     return Results.Ok(QualityRunTrendBuilder.Build(
         reports, kind, scopeUnitId, level, cursor, limit ?? 30));
+}
+
+static IResult CompareReviewRuns(
+    HttpContext context,
+    string? baselineId,
+    string? candidateId,
+    RepositoryRegistry registry)
+{
+    if (string.IsNullOrWhiteSpace(baselineId) || string.IsNullOrWhiteSpace(candidateId))
+        return Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Two review runs are required",
+            detail: "Choose one baseline run and one candidate run.");
+
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new QualityRunReportStore(repository.RootPath);
+    QualityRunReportDocument baseline;
+    QualityRunReportDocument candidate;
+    try
+    {
+        baseline = store.Load(baselineId);
+        candidate = store.Load(candidateId);
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Comparison snapshot not found",
+            detail: "One of the selected immutable run snapshots is missing.");
+    }
+    catch (Exception exception) when (exception is JsonException or InvalidDataException or IOException or
+                                          UnauthorizedAccessException)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status422UnprocessableEntity,
+            title: "Comparison snapshot is unavailable",
+            detail: "One of the selected immutable run snapshots is corrupt or unreadable.");
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Invalid comparison run",
+            detail: exception.Message);
+    }
+
+    if (!string.Equals(baseline.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase) ||
+        !string.Equals(candidate.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
+        return Results.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Comparison snapshot not found",
+            detail: "Both comparison runs must belong to the selected repository.");
+
+    try
+    {
+        return Results.Ok(QualityRunComparisonBuilder.Build(baseline, candidate));
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Review runs are not compatible",
+            detail: exception.Message);
+    }
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

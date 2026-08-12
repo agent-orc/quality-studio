@@ -1,0 +1,29 @@
+<button class="comparison-entry" type="button" (click)="open() ? close() : openComparison()" [attr.aria-expanded]="open()"><span><b>Compare outcomes</b><small>Baseline and candidate · {{ comparableRuns().length }} complete snapshots</small></span><span>{{ open() ? 'Close' : 'Open' }} →</span></button>
+@if (open()) {
+  <section class="comparison-workbench" aria-label="Compare review outcomes">
+    <header><div><span class="eyebrow">Outcome comparison</span><b>Same scope and review kind</b></div><button type="button" aria-label="Close comparison" (click)="close()">×</button></header>
+    <div class="comparison-selectors">
+      <label><span>Baseline</span><select aria-label="Comparison baseline" [value]="baselineId()" (change)="changeBaseline($any($event.target).value)">@for (point of baselineOptions(); track point.runId) { <option [value]="point.runId">{{ scannedAt(point.finishedAt) }} · {{ point.score ?? '—' }} {{ point.grade ?? '' }}</option> }</select></label>
+      <span aria-hidden="true">→</span>
+      <label><span>Candidate</span><select aria-label="Comparison candidate" [value]="candidateId()" (change)="changeCandidate($any($event.target).value)">@for (point of comparableRuns(); track point.runId) { <option [value]="point.runId">{{ scannedAt(point.finishedAt) }} · {{ point.score ?? '—' }} {{ point.grade ?? '' }}</option> }</select></label>
+      <button type="button" (click)="compare()" [disabled]="loading() || !baselineId() || !candidateId()">{{ loading() ? 'Comparing…' : 'Compare' }}</button>
+    </div>
+    @if (error()) { <p class="run-error" role="alert">{{ error() }}</p> }
+    @if (comparison(); as result) {
+      <div class="comparison-provenance" [class.changed]="result.provenance.routeChanged || result.provenance.subjectChanged || result.provenance.forceChanged"><b>{{ result.provenance.routeChanged || result.provenance.subjectChanged || result.provenance.forceChanged ? 'Provenance changed' : 'Comparable provenance' }}</b><p>{{ result.provenance.interpretation }}</p><small>{{ result.provenance.evidenceLimit }}</small></div>
+      <div class="comparison-metrics">
+        <article><small>Active findings</small><b>{{ result.baseline.activeFindings }} → {{ result.candidate.activeFindings }}</b><span>{{ delta(result.baseline.activeFindings, result.candidate.activeFindings) }}</span></article>
+        <article><small>Score</small><b>{{ result.baseline.score ?? '—' }} → {{ result.candidate.score ?? '—' }}</b><span>{{ delta(result.baseline.score, result.candidate.score) }}</span></article>
+        <article><small>Tokens</small><b>{{ tokens(result.baseline) }} → {{ tokens(result.candidate) }}</b></article>
+        <article><small>Duration</small><b>{{ duration(result.baseline.durationMs) }} → {{ duration(result.candidate.durationMs) }}</b></article>
+        <article><small>Cost</small><b>{{ cost(result.baseline) }} → {{ cost(result.candidate) }}</b></article>
+        <article><small>Coverage</small><b>{{ result.baseline.reviewed }} → {{ result.candidate.reviewed }} reviewed</b><span>{{ result.candidate.failed }} failed · {{ result.candidate.skipped }} skipped</span></article>
+      </div>
+      <div class="comparison-routes"><code>{{ result.baseline.cliType }} · {{ result.baseline.model }} · {{ result.baseline.thinkingLevel }}</code><span>→</span><code>{{ result.candidate.cliType }} · {{ result.candidate.model }} · {{ result.candidate.thinkingLevel }}</code></div>
+      <div class="comparison-counts" aria-label="Finding delta counts">@for (category of categories; track category) { <span [class]="'comparison-count ' + category"><b>{{ result.findingCounts[category] }}</b>{{ categoryLabel(category) }}</span> }</div>
+      <div class="comparison-findings" role="list" aria-label="Fingerprint-aligned finding delta">
+        @for (item of result.findings; track item.fingerprint) { <article role="listitem" [class]="'comparison-finding ' + item.category"><span>{{ categoryLabel(item.category) }}</span><div><b>{{ item.finding.title }}</b><small>{{ item.finding.severity }} · {{ findingLocation(item.finding) }} · {{ item.baselineState ?? 'absent' }} → {{ item.candidateState ?? 'absent' }}</small></div></article> } @empty { <p class="run-detail-message">Neither snapshot contains findings.</p> }
+      </div>
+    }
+  </section>
+}
