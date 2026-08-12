@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "implemented",
   "phase": "first-slice",
-  "updatedAt": "2026-08-12T08:17:35Z",
+  "updatedAt": "2026-08-12T16:48:00Z",
   "sourceTaskKeys": [
     "QS-91",
     "AGT-2655",
@@ -37,6 +37,8 @@
     "src/QualityStudio.Api/AgentStudioTaskClient.cs",
     "tests/AgentOrchestrator.CodeQuality.Tests/QualityAnalysisCoreTests.cs",
     ".github/workflows/build.yml",
-    "$JOB_RESULTS_DIR/package/AgentOrchestrator.CodeQuality.0.1.0.nupkg"
+    "$JOB_RESULTS_DIR/package/AgentOrchestrator.CodeQuality.0.1.0.nupkg",
+    "$JOB_RESULTS_DIR/summary.json",
+    "$JOB_RESULTS_DIR/test-results/quality-studio-api.trx"
   ]
 }

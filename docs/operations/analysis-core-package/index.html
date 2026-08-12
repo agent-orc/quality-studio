@@ -205,11 +205,12 @@ foreach (ReviewFinding finding in result.Findings)
     <ul>
       <li>Release build: succeeded with zero warnings and zero errors.</li>
       <li>Core tests: 156 passed; one live-agent integration test skipped by its explicit opt-in guard.</li>
-      <li>API/handover/dashboard focused tests: 31 passed.</li>
+      <li>API stable suite: 51 passed when the machine-bound timing assertion was excluded.</li>
+      <li>Angular production build: succeeded; the package split makes no frontend source change.</li>
       <li>Package: <code>AgentOrchestrator.CodeQuality.0.1.0.nupkg</code> and symbols package created; archive contains the DLL and README, with the expected NuGet dependency.</li>
       <li>CLI proof: in-process boundary analysis produced findings and a repository-owned inventory in a temporary fixture.</li>
     </ul>
-    <p class="note"><b>Observed test noise:</b> one full-suite run exceeded the existing 150 ms dashboard timing assertion (255 ms) while running both test assemblies concurrently. The same dashboard suite passed in the focused rerun. This is recorded as an environmental performance fluctuation, not hidden as a clean first attempt.</p>
+    <p class="note"><b>Observed baseline verification limits:</b> the existing machine-bound 5,000-file dashboard assertion exceeded its 150 ms first-projection budget both while the assemblies ran concurrently (329 ms) and in an isolated API rerun (157 ms). The other 51 API tests passed. Browser tests could not start because this runner has no Chrome-compatible binary; two pre-existing dev-stack bootstrap cases also exited early in their Linux test harness. The package split changes neither dashboard nor frontend/dev-stack source, and these results remain visible rather than being represented as a clean full-suite run.</p>
     <h3>Next slices, not required for this proof</h3>
     <ol>
       <li>Add AGT-2655 as a package consumer and persist its transport-neutral result artifact; keep Studio gate/lane policy outside this DLL.</li>
