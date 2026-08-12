@@ -320,6 +320,53 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Native_archive_backfills_a_terminal_attempt_after_the_status_archive_crash_window()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var initial = fixture.CreateRun("native-terminal-gap", "done");
+            const string operationId = "operation-native-terminal-gap";
+            var stored = new StoredReviewRun(initial.Manifest, initial.Status with
+            {
+                Attempt = 1,
+                AttemptStartedAt = initial.Manifest.CreatedAt,
+            }, initial.Progress);
+            var archiveStore = new ReviewRunArchiveStore(fixture.RepositoryRoot);
+            archiveStore.CreateRun(ReviewRunArchiveRecord.FromManifest(initial.Manifest));
+            archiveStore.AppendOperation(initial.Manifest.CreatedAt, new ReviewRunOperationRecord
+            {
+                RunId = initial.Manifest.RunId,
+                OperationId = operationId,
+                Ordinal = 1,
+                Attempt = 1,
+                UnitId = "file-sample",
+                Path = "Sample.cs",
+                Level = "file",
+                State = "done",
+                StartedAt = initial.Manifest.CreatedAt,
+                FinishedAt = initial.Manifest.CreatedAt.AddSeconds(1),
+            });
+
+            ReviewRunArchiveMigration.Migrate(fixture.RepositoryRoot, stored, cancellationToken);
+            ReviewRunArchiveMigration.Migrate(fixture.RepositoryRoot, stored, cancellationToken);
+
+            var archive = archiveStore.Load(initial.Manifest.CreatedAt, initial.Manifest.RunId);
+            Assert.Null(archive.Run.Provenance);
+            Assert.Equal(operationId, Assert.Single(archive.Operations).OperationId);
+            var attempt = Assert.Single(archive.Attempts);
+            Assert.Equal(1, attempt.Attempt);
+            Assert.Equal("done", attempt.Outcome);
+            Assert.Equal([operationId], attempt.OperationIds);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task V0_run_migration_preserves_captured_quality_evidence()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
