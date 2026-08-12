@@ -280,7 +280,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Guideline_authoring_endpoint_writes_a_resolver_compatible_repository_file()
+    public async Task Guideline_routes_cover_authoring_catalogue_update_and_delete_lifecycle()
     {
         using var client = application!.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/guidelines", new
@@ -297,6 +297,33 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var inputs = await inputsResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Contains(inputs.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
             input => input.GetProperty("id").GetString() == "ui-created-rule");
+
+        using var updated = await client.PutAsJsonAsync("/api/guidelines/ui-created-rule", new
+        {
+            id = "ui-created-rule", enabled = true, priority = 95,
+            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Prefer immutable values and explicit names.",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var updatedGuideline = await updated.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(95, updatedGuideline.GetProperty("priority").GetInt32());
+        Assert.Contains("explicit names", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+
+        using var installed = await client.PostAsync(
+            "/api/guidelines/catalog/dotnet-api-safety/install", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, installed.StatusCode);
+        Assert.True(File.Exists(Path.Combine(repositoryRoot, ".quality", "inputs", "dotnet-api-safety.md")));
+
+        using var missingCatalogue = await client.PostAsync(
+            "/api/guidelines/catalog/missing-guideline/install", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, missingCatalogue.StatusCode);
+
+        using var deleted = await client.DeleteAsync(
+            "/api/guidelines/ui-created-rule", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        Assert.False(File.Exists(path));
+        using var missingDelete = await client.DeleteAsync(
+            "/api/guidelines/ui-created-rule", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, missingDelete.StatusCode);
     }
 
     [Fact]
@@ -663,6 +690,42 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             var persisted = await File.ReadAllTextAsync(Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken);
             Assert.Contains("Second repository", persisted);
             Assert.Contains("ecosystems", persisted);
+
+            using var updated = await client.PutAsJsonAsync("/api/repos/second", new
+            {
+                displayName = "Renamed repository",
+                rootPath = secondRoot,
+                globalInputsDirectory = (string?)null,
+                inputBudgetCharacters = 9000,
+                enabledReviewKinds = new[] { "code", "security", "performance" },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+            var updatedRepository = await updated.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal("Renamed repository", updatedRepository.GetProperty("displayName").GetString());
+            Assert.Equal(9000, updatedRepository.GetProperty("inputBudgetCharacters").GetInt32());
+
+            using var risk = await client.GetAsync(
+                "/api/repos/second/risk?days=30", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, risk.StatusCode);
+            var riskReport = await risk.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal(30, riskReport.GetProperty("days").GetInt32());
+
+            using var archived = await client.DeleteAsync("/api/repos/second", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, archived.StatusCode);
+            Assert.True((await archived.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken))
+                .GetProperty("archived").GetBoolean());
+            using var archivedFile = await client.GetAsync(
+                "/api/repos/second/file?path=Second.cs", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NotFound, archivedFile.StatusCode);
+            using var archivedUpdate = await client.PutAsJsonAsync("/api/repos/second", new
+            {
+                displayName = "Cannot update archived",
+                rootPath = secondRoot,
+                globalInputsDirectory = (string?)null,
+                inputBudgetCharacters = 9000,
+                enabledReviewKinds = new[] { "code" },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, archivedUpdate.StatusCode);
         }
         finally
         {

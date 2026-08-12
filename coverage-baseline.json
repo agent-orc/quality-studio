@@ -16,7 +16,7 @@
       "format": "cobertura",
       "reportRoot": "artifacts/coverage/api",
       "reportFile": "coverage.cobertura.xml",
-      "minimumLineRate": 0.4193
+      "minimumLineRate": 0.4261
     },
     {
       "id": "frontend",
@@ -24,7 +24,7 @@
       "format": "lcov",
       "reportRoot": "frontend/coverage/frontend",
       "reportFile": "lcov.info",
-      "minimumLineRate": 0.5730706075533662
+      "minimumLineRate": 0.5744167337087691
     }
   ]
 }

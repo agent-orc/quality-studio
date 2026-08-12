@@ -134,7 +134,12 @@ await appendFile(process.env.QUALITY_STUDIO_MARKER_FILE, 'ci\\n');
 }
 
 async function allocatePorts() {
-  return [await allocatePort(), await allocatePort()];
+  const apiPort = await allocatePort();
+  let webPort;
+  do {
+    webPort = await allocatePort();
+  } while (webPort === apiPort);
+  return [apiPort, webPort];
 }
 
 async function allocatePort() {
