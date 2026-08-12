@@ -63,6 +63,7 @@ public sealed class ReviewRunArchiveStoreTests
 
     [Theory]
     [InlineData("../escape")]
+    [InlineData("..\\escape")]
     [InlineData("nested/run")]
     [InlineData(".")]
     [InlineData("..")]
@@ -143,6 +144,9 @@ public sealed class ReviewRunArchiveStoreTests
         fixture.Store.CreateRun(newer);
         fixture.Store.CreateAttempt(newer.CreatedAt, CreateAttempt(newer.RunId, 1, "done", true, []));
 
+        var active = CreateRun("review-active", CreatedAt.AddDays(2), "code", "src");
+        fixture.Store.CreateRun(active);
+
         var corruptDirectory = Path.Combine(fixture.Store.HistoryPath, "2026-08", "review-corrupt");
         Directory.CreateDirectory(corruptDirectory);
         File.WriteAllText(Path.Combine(corruptDirectory, "run.json"), "{\"schemaVersion\":");
@@ -157,6 +161,8 @@ public sealed class ReviewRunArchiveStoreTests
         Assert.Contains(filtered.Runs, row => row.RunId == "review-newer");
         Assert.Contains(filtered.Runs, row => row.RunId == "review-corrupt" && row.ErrorCode == "history-corrupt");
         Assert.DoesNotContain(filtered.Runs, row => row.RunId == "review-older");
+        Assert.DoesNotContain(ReviewRunHistoryReader.List(
+            fixture.Store, "default", null, 20, null, null, null).Runs, row => row.RunId == "review-active");
 
         var detail = ReviewRunHistoryReader.Get(fixture.Store, "default", older.RunId, attempt: 1);
         Assert.Equal(1, detail.Attempt.Attempt);

@@ -471,7 +471,7 @@ public sealed class ReviewRunArchiveStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         if (runId.Length > 200 || !string.Equals(runId, Path.GetFileName(runId), StringComparison.Ordinal) ||
-            runId.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0 ||
+            runId.IndexOfAny(['/', '\\']) >= 0 ||
             runId is "." or "..")
             throw new ArgumentException("A review run id must be one safe path component.", nameof(runId));
     }

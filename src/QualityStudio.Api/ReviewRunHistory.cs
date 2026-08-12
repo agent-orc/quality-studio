@@ -56,6 +56,7 @@ public static class ReviewRunHistoryReader
             .Where(result => result.Archive is null ||
                              string.Equals(result.Archive.Run.RepositoryId, repositoryId,
                                  StringComparison.OrdinalIgnoreCase))
+            .Where(result => result.Archive is null || result.Archive.Attempts.Count > 0)
             .Select(ToSummary)
             .Concat(LegacyUsageSummaries(repositoryId, usageEntries, archivedRunIds))
             .Where(summary => summary.ErrorCode is not null ||
@@ -274,84 +275,99 @@ public static class ReviewRunArchiveMigration
     {
         cancellationToken.ThrowIfCancellationRequested();
         var archive = new ReviewRunArchiveStore(repositoryRoot);
+        var migrateLegacyOperations = false;
         if (!archive.Exists(stored.Manifest.CreatedAt, stored.Manifest.RunId))
         {
             var commit = CoverageSensor.GitValue(repositoryRoot, "rev-parse", "--verify", "HEAD");
             var status = CoverageSensor.GitValue(repositoryRoot, "status", "--porcelain", "--untracked-files=normal");
             archive.CreateRun(ReviewRunArchiveRecord.FromManifest(stored.Manifest,
                 new ReviewRunSourceRevision(commit, status is null ? null : status.Length > 0), Provenance));
+            migrateLegacyOperations = true;
         }
         else
         {
             var existing = archive.Load(stored.Manifest.CreatedAt, stored.Manifest.RunId);
-            if (!string.Equals(existing.Run.Provenance, Provenance, StringComparison.Ordinal)) return;
+            migrateLegacyOperations = string.Equals(existing.Run.Provenance, Provenance, StringComparison.Ordinal);
         }
 
-        var targets = stored.Manifest.Targets.Select((target, index) => (target, ordinal: index + 1))
-            .ToDictionary(item => item.target.Path, StringComparer.Ordinal);
         var attemptNumber = Math.Max(1, stored.Status.Attempt);
-        foreach (var transition in stored.Progress
-                     .Where(transition => transition.State is "done" or "failed" or "cancelled" or "skipped-fresh")
-                     .GroupBy(transition => transition.Path, StringComparer.Ordinal).Select(group => group.Last()))
+        if (migrateLegacyOperations)
         {
-            if (!targets.TryGetValue(transition.Path, out var target)) continue;
-            var operationId = transition.OperationId ?? DeterministicOperationId(stored.Manifest.RunId, target.ordinal,
-                transition.Path);
-            var observation = Observation(stored, transition.Path, operationId);
-            var meta = Metadata(observation);
-            AppendOperation(archive, stored.Manifest.CreatedAt, new ReviewRunOperationRecord
+            var targets = stored.Manifest.Targets.Select((target, index) => (target, ordinal: index + 1))
+                .ToDictionary(item => item.target.Path, StringComparer.Ordinal);
+            foreach (var transition in stored.Progress
+                         .Where(transition => transition.State is "done" or "failed" or "cancelled" or "skipped-fresh")
+                         .GroupBy(transition => transition.Path, StringComparer.Ordinal).Select(group => group.Last()))
             {
-                RunId = stored.Manifest.RunId,
-                OperationId = operationId,
-                Ordinal = transition.Ordinal ?? target.ordinal,
-                Attempt = transition.Attempt ?? attemptNumber,
-                UnitId = target.target.Id,
-                Path = transition.Path,
-                Level = "file",
-                State = transition.State,
-                StartedAt = (transition.StartedAt ?? stored.Status.StartedAt ?? stored.Manifest.CreatedAt).ToUniversalTime(),
-                FinishedAt = (transition.FinishedAt ?? stored.Status.FinishedAt ?? stored.Manifest.CreatedAt).ToUniversalTime(),
-                ProviderRunId = meta?.Reviewer.RunId,
-                ReviewedAt = meta?.ReviewedAt,
-                ReviewedHash = meta?.ReviewedHash.Value,
-                ReviewInputsHash = meta?.ReviewInputs.EffectiveHash.Value,
-                ResultSidecar = observation?.SidecarPath,
-                Verdict = meta?.Security is null ? null : new ReviewRunTypedVerdict("security", meta.Security.Verdict),
-                Grade = meta is null ? null : new ReviewRunArchivedGrade(meta.Grade.Score, meta.Grade.Band.ToString()),
-                ErrorCode = transition.ErrorCode,
-                Error = transition.Error,
-            }, meta, observation);
-        }
+                if (!targets.TryGetValue(transition.Path, out var target)) continue;
+                var operationId = transition.OperationId ?? DeterministicOperationId(stored.Manifest.RunId,
+                    target.ordinal, transition.Path);
+                var observation = Observation(stored, transition.Path, operationId);
+                var meta = Metadata(observation);
+                AppendOperation(archive, stored.Manifest.CreatedAt, new ReviewRunOperationRecord
+                {
+                    RunId = stored.Manifest.RunId,
+                    OperationId = operationId,
+                    Ordinal = transition.Ordinal ?? target.ordinal,
+                    Attempt = transition.Attempt ?? attemptNumber,
+                    UnitId = target.target.Id,
+                    Path = transition.Path,
+                    Level = "file",
+                    State = transition.State,
+                    StartedAt = (transition.StartedAt ?? stored.Status.StartedAt ?? stored.Manifest.CreatedAt)
+                        .ToUniversalTime(),
+                    FinishedAt = (transition.FinishedAt ?? stored.Status.FinishedAt ?? stored.Manifest.CreatedAt)
+                        .ToUniversalTime(),
+                    ProviderRunId = meta?.Reviewer.RunId,
+                    ReviewedAt = meta?.ReviewedAt,
+                    ReviewedHash = meta?.ReviewedHash.Value,
+                    ReviewInputsHash = meta?.ReviewInputs.EffectiveHash.Value,
+                    ResultSidecar = observation?.SidecarPath,
+                    Verdict = meta?.Security is null
+                        ? null
+                        : new ReviewRunTypedVerdict("security", meta.Security.Verdict),
+                    Grade = meta is null
+                        ? null
+                        : new ReviewRunArchivedGrade(meta.Grade.Score, meta.Grade.Band.ToString()),
+                    ErrorCode = transition.ErrorCode,
+                    Error = transition.Error,
+                }, meta, observation);
+            }
 
-        if (stored.Status.AggregateState is "done" or "failed" or "cancelled" or "skipped-fresh")
-        {
-            var ordinal = stored.Status.AggregateOrdinal ?? stored.Manifest.Targets.Count + 1;
-            var operationId = stored.Status.AggregateOperationId ?? DeterministicOperationId(
-                stored.Manifest.RunId, ordinal, QualityRunReportFactory.AggregateOperationId);
-            var observation = Observation(stored, QualityRunReportFactory.AggregateOperationId, operationId);
-            var meta = Metadata(observation);
-            AppendOperation(archive, stored.Manifest.CreatedAt, new ReviewRunOperationRecord
+            if (stored.Status.AggregateState is "done" or "failed" or "cancelled" or "skipped-fresh")
             {
-                RunId = stored.Manifest.RunId,
-                OperationId = operationId,
-                Ordinal = ordinal,
-                Attempt = stored.Status.AggregateAttempt ?? attemptNumber,
-                UnitId = stored.Manifest.Node.Id,
-                Path = stored.Manifest.Node.Path,
-                Level = stored.Manifest.Level,
-                State = stored.Status.AggregateState,
-                StartedAt = (stored.Status.AggregateStartedAt ?? stored.Status.StartedAt ?? stored.Manifest.CreatedAt)
-                    .ToUniversalTime(),
-                FinishedAt = (stored.Status.FinishedAt ?? stored.Manifest.CreatedAt).ToUniversalTime(),
-                ProviderRunId = meta?.Reviewer.RunId,
-                ReviewedAt = meta?.ReviewedAt,
-                ReviewedHash = meta?.ReviewedHash.Value,
-                ReviewInputsHash = meta?.ReviewInputs.EffectiveHash.Value,
-                ResultSidecar = observation?.SidecarPath,
-                Verdict = meta?.Security is null ? null : new ReviewRunTypedVerdict("security", meta.Security.Verdict),
-                Grade = meta is null ? null : new ReviewRunArchivedGrade(meta.Grade.Score, meta.Grade.Band.ToString()),
-                ErrorCode = stored.Status.AggregateErrorCode,
-            }, meta, observation);
+                var ordinal = stored.Status.AggregateOrdinal ?? stored.Manifest.Targets.Count + 1;
+                var operationId = stored.Status.AggregateOperationId ?? DeterministicOperationId(
+                    stored.Manifest.RunId, ordinal, QualityRunReportFactory.AggregateOperationId);
+                var observation = Observation(stored, QualityRunReportFactory.AggregateOperationId, operationId);
+                var meta = Metadata(observation);
+                AppendOperation(archive, stored.Manifest.CreatedAt, new ReviewRunOperationRecord
+                {
+                    RunId = stored.Manifest.RunId,
+                    OperationId = operationId,
+                    Ordinal = ordinal,
+                    Attempt = stored.Status.AggregateAttempt ?? attemptNumber,
+                    UnitId = stored.Manifest.Node.Id,
+                    Path = stored.Manifest.Node.Path,
+                    Level = stored.Manifest.Level,
+                    State = stored.Status.AggregateState,
+                    StartedAt = (stored.Status.AggregateStartedAt ?? stored.Status.StartedAt ?? stored.Manifest.CreatedAt)
+                        .ToUniversalTime(),
+                    FinishedAt = (stored.Status.FinishedAt ?? stored.Manifest.CreatedAt).ToUniversalTime(),
+                    ProviderRunId = meta?.Reviewer.RunId,
+                    ReviewedAt = meta?.ReviewedAt,
+                    ReviewedHash = meta?.ReviewedHash.Value,
+                    ReviewInputsHash = meta?.ReviewInputs.EffectiveHash.Value,
+                    ResultSidecar = observation?.SidecarPath,
+                    Verdict = meta?.Security is null
+                        ? null
+                        : new ReviewRunTypedVerdict("security", meta.Security.Verdict),
+                    Grade = meta is null
+                        ? null
+                        : new ReviewRunArchivedGrade(meta.Grade.Score, meta.Grade.Band.ToString()),
+                    ErrorCode = stored.Status.AggregateErrorCode,
+                }, meta, observation);
+            }
         }
 
         if (ReviewRunStore.IsTerminal(stored.Status.State))

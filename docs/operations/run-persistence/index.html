@@ -505,6 +505,9 @@
 
 <h3>11 August 2026 · QS-71 · RP-2/RP-3 verification addendum</h3>
 <p><b>Observation and legacy migration edges landed.</b> Fresh-skip operations now archive grade, finding state, provider identity, and sidecar linkage from the immutable captured observation. V0 migration preserves complete captured operation/finding evidence and derives its attempt quality summary without turning missing evidence into a verdict. History also exposes unmatched v1/v2/v3 ledger groups as non-comparable <code>legacy-usage-only</code> summaries containing only known model, path, kind, level, and token spend.</p>
+
+<h3>12 August 2026 · QS-71 · RP-1/RP-3 hardening</h3>
+<p><b>Portable confinement and terminal crash-window recovery landed.</b> Run IDs now reject both separator forms on every platform, history omits native manifests until a stopped attempt exists, and startup idempotently completes a missing terminal attempt without relabelling a native archive or duplicating its operation evidence. Regression tests cover each boundary.</p>
 </main>
 </body>
 </html>
