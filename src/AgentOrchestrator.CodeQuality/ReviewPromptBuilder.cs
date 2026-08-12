@@ -8,7 +8,7 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class ReviewPromptBuilder
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
-    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v3-deterministic-evidence";
+    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v4-named-rules";
 
     public string Build(
         string filePath,
@@ -20,7 +20,8 @@ public sealed class ReviewPromptBuilder
         string? securitySensorEvidence = null,
         ReviewLevel level = ReviewLevel.File,
         string? coverageEvidence = null,
-        string? deterministicEvidence = null)
+        string? deterministicEvidence = null,
+        string? namedRules = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -41,6 +42,18 @@ public sealed class ReviewPromptBuilder
                 string.IsNullOrWhiteSpace(securitySensorEvidence) ? "{\"verdict\":\"pass\",\"sensors\":[]}" : securitySensorEvidence,
                 StringComparison.Ordinal)
             .Replace("{{SECURITY_SCOPE_EXPECTATIONS}}", SecurityScopeExpectations(level), StringComparison.Ordinal);
+        prompt += """
+
+
+## Quality Studio named rules
+
+The applicable rules below come from Quality Studio's versioned, language-specific rule library. Treat each
+bracketed `QS-*` id as the stable identity of that rule. When a finding reports a violation of one of these
+rules, set `ruleId` to that exact `QS-*` id. Do not substitute a guideline id or `built-in:<kind>` for it.
+
+""" + (string.IsNullOrWhiteSpace(namedRules)
+            ? "(no named rules apply to this subject)"
+            : namedRules.Trim());
         prompt += """
 
 

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/rule-config.v1.schema.json",
+  "title": "Quality Studio repository rule overrides v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "rules"],
+  "properties": {
+    "$schema": {
+      "const": "https://quality.studio/schemas/rule-config.v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "rules": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^QS-[A-Z][A-Z0-9]{1,7}-[0-9]{3}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/ruleOverride"
+      }
+    }
+  },
+  "$defs": {
+    "ruleOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "severity": {
+          "enum": ["critical", "high", "medium", "low", "info"]
+        }
+      }
+    }
+  }
+}

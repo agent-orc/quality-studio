@@ -303,7 +303,7 @@ public sealed class ReviewRunner
 
         var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
         var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+            request.GlobalInputsDirectory, request.InputBudgetCharacters, subjectPaths);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
         var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
@@ -328,7 +328,8 @@ public sealed class ReviewRunner
             request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
             request.Level,
             coverageEvidence,
-            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
+            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence),
+            inputs.NamedRules());
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
             prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
@@ -455,7 +456,7 @@ public sealed class ReviewRunner
                 {
                     ["id"] = input.Id,
                     ["scope"] = input.Scope,
-                    ["version"] = "unversioned",
+                    ["version"] = input.Version,
                     ["contentHash"] = "sha256:" + Sha256(input.Content),
                 }).ToArray()),
                 ["omitted"] = new JsonArray(inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).Select(id => (JsonNode)id).ToArray()),

@@ -59,9 +59,6 @@ public class GuidelineImpactAnalyzer
         if (request.SamplePaths is null || request.SamplePaths.Count is < 1 or > 10)
             throw new ArgumentException("Dry-run impact requires between one and ten sample files.");
         var root = Path.GetFullPath(repositoryRoot);
-        var current = resolver.Resolve(root, request.Kind, ReviewLevel.File,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
-        var draft = ApplyDraft(current, request.Guideline);
         var results = new List<FileGuidelineImpact>();
         foreach (var requestedPath in request.SamplePaths.Distinct(StringComparer.Ordinal))
         {
@@ -71,6 +68,9 @@ public class GuidelineImpactAnalyzer
             if (!absolute.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || !File.Exists(absolute))
                 throw new FileNotFoundException($"Dry-run sample '{relative}' is not a repository file.", relative);
             var content = await File.ReadAllTextAsync(absolute, cancellationToken).ConfigureAwait(false);
+            var current = resolver.Resolve(root, request.Kind, ReviewLevel.File,
+                request.GlobalInputsDirectory, request.InputBudgetCharacters, [relative]);
+            var draft = ApplyDraft(current, request.Guideline);
             var before = await RunAsync(root, relative, content, request.Kind, current, cancellationToken).ConfigureAwait(false);
             var after = await RunAsync(root, relative, content, request.Kind, draft, cancellationToken).ConfigureAwait(false);
             var beforeKeys = before.ToDictionary(Key, StringComparer.Ordinal);
@@ -87,7 +87,8 @@ public class GuidelineImpactAnalyzer
     private async Task<IReadOnlyList<ImpactFinding>> RunAsync(string root, string path, string content, string kind,
         ResolvedInputs inputs, CancellationToken cancellationToken)
     {
-        var prompt = promptBuilder.Build(path, kind, inputs.Guidelines("global"), inputs.Guidelines("project"), content);
+        var prompt = promptBuilder.Build(path, kind, inputs.Guidelines("global"), inputs.Guidelines("project"), content,
+            namedRules: inputs.NamedRules());
         var response = parser.Parse((await agent.RunAsync(prompt, root, cancellationToken).ConfigureAwait(false)).Response);
         return response["findings"]!.AsArray().Select(node => Map(node!.AsObject())).ToArray();
     }
@@ -115,7 +116,12 @@ public class GuidelineImpactAnalyzer
             raw.Add(new ReviewInput(draft.Id, $"draft:{draft.Id}", "project", draft.Priority,
                 draft.Kinds, draft.Levels, true, draft.Content.Trim(), string.Empty, false));
         }
-        var ordered = raw.OrderBy(value => value.Scope == "global" ? 0 : 1)
+        var ordered = raw.OrderBy(value => value.Scope switch
+            {
+                "built-in" => 0,
+                "global" => 1,
+                _ => 2,
+            })
             .ThenByDescending(value => value.Priority).ThenBy(value => value.Id, StringComparer.Ordinal).ToArray();
         var remaining = current.BudgetCharacters;
         var included = new List<ReviewInput>();

@@ -26,6 +26,19 @@ public sealed class ReviewPromptBuilderTests
     }
 
     [Fact]
+    public void Build_Labels_named_rules_and_requires_their_stable_ids()
+    {
+        var prompt = new ReviewPromptBuilder().Build(
+            "frontend/src/card.css",
+            "code",
+            namedRules: "### [QS-NG-002] Use tokens\nStatement: Use central tokens.");
+
+        Assert.Contains("Quality Studio named rules", prompt, StringComparison.Ordinal);
+        Assert.Contains("[QS-NG-002]", prompt, StringComparison.Ordinal);
+        Assert.Contains("set `ruleId` to that exact `QS-*` id", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build_UsesExplicitDefaultsForGuidelineInsertionPoints()
     {
         var prompt = new ReviewPromptBuilder().Build("Thing.cs", "code");
@@ -248,9 +261,16 @@ public sealed class ReviewRunnerTests
             Assert.Contains("Global rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Project rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Treat external data as untrusted.", agent.Prompt, StringComparison.Ordinal);
-            var standard = Assert.Single(json.GetProperty("reviewInputs").GetProperty("standards").EnumerateArray());
+            var standards = json.GetProperty("reviewInputs").GetProperty("standards").EnumerateArray().ToArray();
+            var standard = Assert.Single(standards,
+                candidate => candidate.GetProperty("id").GetString() == "secure-boundaries");
             Assert.Equal("secure-boundaries", standard.GetProperty("id").GetString());
             Assert.Equal("project", standard.GetProperty("scope").GetString());
+            var namedRule = Assert.Single(standards,
+                candidate => candidate.GetProperty("id").GetString() == "QS-CS-001");
+            Assert.Equal("built-in", namedRule.GetProperty("scope").GetString());
+            Assert.Equal("1.0.0", namedRule.GetProperty("version").GetString());
+            Assert.Contains("[QS-CS-001]", agent.Prompt, StringComparison.Ordinal);
             Assert.Equal(root, agent.WorkingDirectory);
         });
     }
