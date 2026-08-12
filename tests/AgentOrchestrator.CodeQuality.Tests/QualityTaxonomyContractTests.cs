@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 using Json.Schema;
 
@@ -99,6 +100,33 @@ public sealed class QualityTaxonomyContractTests
         var installed = QualityTaxonomyCatalogue.SelectInstalledAspects(
             loaded.Observation, [QualityTaxonomyCatalogue.CoreDocument]);
         Assert.Equal("code.correctness", Assert.Single(installed).AspectId);
+    }
+
+    [Fact]
+    public void LegacyRootExtensionsMoveIntoExplicitExtensionBagWithoutDataLoss()
+    {
+        var legacy = JsonNode.Parse(QualityObservationJson.Serialize(CreateObservation()))!.AsObject();
+        legacy["x-legacy-producer"] = new JsonObject { ["revision"] = 7 };
+
+        var loaded = QualityObservationJson.ReadPreservingUnsupported(legacy.ToJsonString());
+        var observation = Assert.IsType<QualityObservationDocument>(loaded.Observation);
+        Assert.Equal(7, observation.Extensions["x-legacy-producer"].GetProperty("revision").GetInt32());
+        Assert.True(loaded.Raw.TryGetProperty("x-legacy-producer", out _));
+
+        using var roundTripped = JsonDocument.Parse(QualityObservationJson.Serialize(observation));
+        Assert.False(roundTripped.RootElement.TryGetProperty("x-legacy-producer", out _));
+        Assert.Equal(7, roundTripped.RootElement.GetProperty("extensions")
+            .GetProperty("x-legacy-producer").GetProperty("revision").GetInt32());
+    }
+
+    [Fact]
+    public void ConflictingLegacyAndExplicitExtensionsAreRejectedRatherThanSilentlyDiscarded()
+    {
+        var conflict = JsonNode.Parse(QualityObservationJson.Serialize(CreateObservation()))!.AsObject();
+        conflict["x-conflict"] = 1;
+        conflict["extensions"]!["x-conflict"] = 2;
+
+        Assert.Throws<JsonException>(() => QualityObservationJson.ReadPreservingUnsupported(conflict.ToJsonString()));
     }
 
     [Fact]
