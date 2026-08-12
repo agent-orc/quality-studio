@@ -187,19 +187,28 @@ public sealed class ProjectDashboardService
             .Where(node => node.Level == ReviewLevel.File)
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
-        var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
-        var hierarchyMetrics = hierarchyFiles
-            .Where(node => node.SizeBytes is not null)
-            .ToDictionary(node => node.Path, StringComparer.Ordinal);
-        var repositoryFiles = (IsGenericHierarchy(roots)
-                ? hierarchyFiles.Select(node =>
-                    ReadFileMetric(root, node.Path, node.SizeBytes, node.LineCount))
-                : EnumerateRepositoryFiles(root).Select(path =>
-                    hierarchyMetrics.TryGetValue(path, out var node)
-                        ? ReadFileMetric(root, path, node.SizeBytes, node.LineCount)
-                        : ReadFileMetric(root, path)))
+        IEnumerable<FileMetric?> fileMetrics;
+        if (IsGenericHierarchy(roots))
+        {
+            fileMetrics = hierarchyFiles.Select(node =>
+                ReadFileMetric(root, node.Path, node.SizeBytes, node.LineCount));
+        }
+        else
+        {
+            var hierarchyMetrics = hierarchyFiles
+                .Where(node => node.SizeBytes is not null)
+                .ToDictionary(node => node.Path, StringComparer.Ordinal);
+            fileMetrics = EnumerateRepositoryFiles(root).Select(path =>
+                hierarchyMetrics.TryGetValue(path, out var node)
+                    ? ReadFileMetric(root, path, node.SizeBytes, node.LineCount)
+                    : ReadFileMetric(root, path));
+        }
+        var repositoryFiles = fileMetrics
             .OfType<FileMetric>()
             .ToArray();
+        var navigationPaths = repositoryFiles.Any(file => file.Language is not null)
+            ? hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
         var grades = BuildGrades(roots, projectPath);
@@ -252,10 +261,11 @@ public sealed class ProjectDashboardService
         IReadOnlyList<HierarchyNode> roots, string fallbackPath)
     {
         var result = new List<ProjectGradeResponse>();
+        var aggregatedStates = roots.Select(root => root.AggregatedStates).ToArray();
         foreach (var kind in Enum.GetValues<ReviewKind>())
         {
-            var states = roots.Select(root =>
-                root.AggregatedStates.TryGetValue(kind, out var state) ? state.Overall : ReviewState.NotReviewed).ToArray();
+            var states = aggregatedStates.Select(item =>
+                item.TryGetValue(kind, out var state) ? state.Overall : ReviewState.NotReviewed).ToArray();
             var state = states.Any(candidate => candidate == ReviewState.Stale) ? "stale"
                 : states.Any(candidate => candidate == ReviewState.Current) ? "fresh" : "missing";
             var direct = roots
@@ -449,6 +459,14 @@ public sealed class ProjectDashboardService
     private static IReadOnlyList<ProjectHotspotResponse> BuildHotspots(
         IReadOnlyList<HierarchyNode> files, IReadOnlyDictionary<string, int> churn)
     {
+        if (churn.Count == 0 && files.All(file => file.Documents.Count == 0))
+        {
+            return files.OrderBy(file => file.Path, StringComparer.Ordinal)
+                .Take(30)
+                .Select(file => new ProjectHotspotResponse(file.Path, 0, null, 0, 0, 0))
+                .ToArray();
+        }
+
         var result = new List<ProjectHotspotResponse>();
         foreach (var file in files)
         {
