@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output, si
 import { formatDateTime } from '../format';
 import { FindingAssessmentStatus, FindingResolutionStatus, FindingSeverity, FindingState, FindingSuppressionDocument, FindingSuppressionMutation, FindingSuppressionPreview, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewMetaDocument, ReviewRun, ReviewRunHistory, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { ReviewDetailStyles } from './review-detail-styles';
+import { ReviewPolicyStyles } from './review-policy-styles';
 
 interface LastFindingMutation {
   fingerprint: string;
@@ -14,7 +16,7 @@ interface LastFindingMutation {
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [],
+  imports: [ReviewDetailStyles, ReviewPolicyStyles],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

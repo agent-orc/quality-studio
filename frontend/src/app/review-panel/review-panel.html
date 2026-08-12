@@ -1,4 +1,6 @@
 <aside class="pane review-pane">
+  <qs-review-detail-styles />
+  <qs-review-policy-styles />
   <div class="pane-header"><div><span class="eyebrow">Review</span><strong>{{ activeKind() }} findings</strong></div><span class="score" [class.stale-score]="activeState() === 'stale'">{{ activeMeta()?.grade?.band ?? '—' }}</span></div>
   <div class="review-content">
     <button type="button" class="run-history-trigger" (click)="runDrawerOpen.set(!runDrawerOpen())" [attr.aria-expanded]="runDrawerOpen()"><span><b>Run details</b><small>{{ activeScopeRuns().length }} active · {{ historyScopeRuns().length }} historical</small></span><span>{{ runDrawerOpen() ? 'Close' : 'Open' }} →</span></button>
