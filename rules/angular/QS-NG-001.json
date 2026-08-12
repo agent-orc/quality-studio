@@ -1,0 +1,18 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-001",
+  "version": "1.0.0",
+  "name": "Keep Angular components focused and colocated",
+  "language": "angular",
+  "category": "component-structure",
+  "statement": "Keep a component focused on one UI responsibility, colocate its template, styles, and tests, and move reusable state or integration behavior into an injected service.",
+  "rationale": "Focused components are easier to review, test, and render efficiently. Quality Studio follows feature folders with sibling component, template, style, and specification files instead of page-wide grab bags.",
+  "badExample": { "language": "typescript", "code": "export class Dashboard {\n  loadRepos() { /* HTTP */ }\n  formatGrade() { /* presentation */ }\n  saveSettings() { /* unrelated mutation */ }\n}" },
+  "goodExample": { "language": "typescript", "code": "@Component({\n  selector: 'app-project-dashboard',\n  templateUrl: './project-dashboard.html',\n  styleUrl: './project-dashboard.css'\n})\nexport class ProjectDashboard {\n  private readonly api = inject(QualityApi);\n}" },
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": false,
+  "appliesTo": { "reviewKinds": ["code"], "fileExtensions": [".ts"] },
+  "history": [{ "date": "2026-08-12", "change": "Initial Angular component-structure rule grounded in the Quality Studio feature-folder layout." }]
+}

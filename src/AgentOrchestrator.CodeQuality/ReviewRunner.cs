@@ -34,7 +34,8 @@ public sealed record ReviewResult(
     string RunId,
     ResolvedInputs Inputs,
     ReviewUsageEntry Usage,
-    ReviewObservationSnapshot? Observation = null);
+    ReviewObservationSnapshot? Observation = null,
+    ResolvedRuleSet? Rules = null);
 
 /// <summary>
 /// Immutable copy of the review metadata and lifecycle states observed by one sweep operation.
@@ -65,6 +66,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly RuleLibrary _ruleLibrary;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -73,7 +75,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        RuleLibrary? ruleLibrary = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -82,6 +85,7 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _ruleLibrary = ruleLibrary ?? new RuleLibrary();
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -97,13 +101,14 @@ public sealed class ReviewRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
+        var (root, relativePath, subjectPaths, files, fileContent, inputs, rules, prompt, unitId, metaPath, threads,
             sensorEvidence, deterministicEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
-        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
+        var reviewInputsHash = inputs.EffectiveHash(
+            ReviewPromptBuilder.TemplateHash(request.Kind) + "\0" + rules.EffectiveHash);
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
@@ -143,6 +148,7 @@ public sealed class ReviewRunner
                 agentResult.EffectiveModel, startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
+            ValidateNamedRuleReferences(response, rules);
             if (request.Level == ReviewLevel.Project &&
                 string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
                 request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
@@ -193,6 +199,7 @@ public sealed class ReviewRunner
                     reviewedHash,
                     agentResult.RunId,
                     inputs,
+                    rules,
                     request.Level,
                     request.DisplayName,
                     usage,
@@ -217,7 +224,7 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation, rules),
                 observation);
         }
         catch (Exception exception)
@@ -304,6 +311,7 @@ public sealed class ReviewRunner
         var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
         var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
             request.GlobalInputsDirectory, request.InputBudgetCharacters);
+        var rules = _ruleLibrary.Resolve(root, request.Kind, subjectPaths);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
         var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
@@ -328,8 +336,9 @@ public sealed class ReviewRunner
             request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
             request.Level,
             coverageEvidence,
-            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
-        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
+            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence),
+            rules.PromptContext());
+        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs, rules,
             prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
 
@@ -390,6 +399,7 @@ public sealed class ReviewRunner
         string reviewedHash,
         string runId,
         ResolvedInputs inputs,
+        ResolvedRuleSet rules,
         ReviewLevel level,
         string? displayName,
         ReviewUsageEntry usage,
@@ -398,7 +408,7 @@ public sealed class ReviewRunner
         IReadOnlyList<SensorScanResult> deterministicEvidence)
     {
         var promptHash = ReviewPromptBuilder.TemplateHash(kind);
-        var effectiveHash = inputs.EffectiveHash(promptHash);
+        var effectiveHash = inputs.EffectiveHash(promptHash + "\0" + rules.EffectiveHash);
         var reviewer = new JsonObject
         {
             ["agent"] = _agent.AgentName,
@@ -457,6 +467,16 @@ public sealed class ReviewRunner
                     ["scope"] = input.Scope,
                     ["version"] = "unversioned",
                     ["contentHash"] = "sha256:" + Sha256(input.Content),
+                }).ToArray()),
+                ["rules"] = new JsonArray(rules.Rules.Select(rule => (JsonNode)new JsonObject
+                {
+                    ["id"] = rule.Definition.Id,
+                    ["version"] = rule.Definition.Version,
+                    ["severity"] = rule.Severity.ToString().ToLowerInvariant(),
+                    ["autofixable"] = rule.Definition.Autofixable,
+                    ["defaultOn"] = rule.Definition.DefaultOn,
+                    ["overridden"] = rule.Overridden,
+                    ["contentHash"] = rule.ContentHash,
                 }).ToArray()),
                 ["omitted"] = new JsonArray(inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).Select(id => (JsonNode)id).ToArray()),
                 ["prompt"] = new JsonObject
@@ -647,6 +667,18 @@ public sealed class ReviewRunner
             ? resolved
             : resolved == "(none supplied)" ? supplied.Trim() : resolved + "\n\n" + supplied.Trim();
 
+    private static void ValidateNamedRuleReferences(JsonObject response, ResolvedRuleSet rules)
+    {
+        var enabled = rules.Rules.Select(rule => rule.Definition.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var finding in response["findings"]!.AsArray().OfType<JsonObject>())
+        {
+            var ruleId = finding["ruleId"]?.GetValue<string>();
+            if (ruleId?.StartsWith("QS-", StringComparison.Ordinal) == true && !enabled.Contains(ruleId))
+                throw new ReviewResponseException(
+                    $"Finding '{finding["id"]}' references named rule '{ruleId}', but that rule is not enabled for this subject.");
+        }
+    }
+
     private static void EnsureContained(string root, string file, bool allowRoot = false)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -680,6 +712,7 @@ public sealed class ReviewRunner
         string[] Files,
         string FileContent,
         ResolvedInputs Inputs,
+        ResolvedRuleSet Rules,
         string Prompt,
         string UnitId,
         string MetaPath,

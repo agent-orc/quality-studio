@@ -542,6 +542,23 @@
             "$ref": "#/$defs/standardReference"
           }
         },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version", "severity", "autofixable", "defaultOn", "overridden", "contentHash"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^QS-[A-Z]{2}-[0-9]{3}$" },
+              "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+              "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+              "autofixable": { "type": "boolean" },
+              "defaultOn": { "type": "boolean" },
+              "overridden": { "type": "boolean" },
+              "contentHash": { "$ref": "#/$defs/sha256String" }
+            }
+          }
+        },
         "omitted": {
           "type": "array",
           "items": {

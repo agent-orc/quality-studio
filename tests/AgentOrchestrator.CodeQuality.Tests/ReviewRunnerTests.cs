@@ -186,6 +186,8 @@ public sealed class ReviewRunnerTests
             Assert.Equal("file", json.GetProperty("unit").GetProperty("level").GetString());
             Assert.Equal("src/Small.cs", json.GetProperty("unit").GetProperty("path").GetString());
             Assert.Equal(result.ReviewedHash, json.GetProperty("reviewedHash").GetProperty("value").GetString());
+            Assert.Contains(json.GetProperty("reviewInputs").GetProperty("rules").EnumerateArray(),
+                rule => rule.GetProperty("id").GetString() == "QS-CS-003");
             Assert.StartsWith(Path.Combine(root, "src", ".quality", "reviews", "files"), result.MetaPath, StringComparison.Ordinal);
             Assert.NotNull(result.Observation);
             Assert.StartsWith("src/.quality/reviews/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);

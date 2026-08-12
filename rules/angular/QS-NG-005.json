@@ -1,0 +1,18 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-005",
+  "version": "1.0.0",
+  "name": "Make change detection inputs explicit",
+  "language": "angular",
+  "category": "change-detection",
+  "statement": "Represent component state with signals, inputs, computed values, or observable bindings and avoid mutation patterns that require manual or broad change-detection workarounds.",
+  "rationale": "Explicit reactive state keeps updates predictable and supports efficient rendering. Quality Studio derives filtered and selected review state with signals rather than forcing change detection.",
+  "badExample": { "language": "typescript", "code": "this.rows.push(row);\nthis.changeDetector.detectChanges();" },
+  "goodExample": { "language": "typescript", "code": "readonly rows = signal<Row[]>([]);\nreadonly visibleRows = computed(() => this.rows().filter(row => row.visible));" },
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "appliesTo": { "reviewKinds": ["code", "performance"], "fileExtensions": [".ts"] },
+  "history": [{ "date": "2026-08-12", "change": "Initial change-detection rule grounded in Quality Studio's signal-based state." }]
+}

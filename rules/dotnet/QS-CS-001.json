@@ -1,0 +1,18 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-001",
+  "version": "1.0.0",
+  "name": "Keep API contracts explicit and transport-safe",
+  "language": "dotnet",
+  "category": "api-shape",
+  "statement": "Expose explicit request and response contracts, validate caller-controlled values at the boundary, and avoid leaking persistence, process, or framework-internal types through the API.",
+  "rationale": "Stable transport contracts allow Quality Studio's API, Angular client, and external integrations to evolve independently while keeping trust-boundary validation visible.",
+  "badExample": { "language": "csharp", "code": "app.MapPost(\"/runs\", (DatabaseReview entity) => db.Save(entity));" },
+  "goodExample": { "language": "csharp", "code": "app.MapPost(\"/runs\", (StartReviewRequest request, ReviewJobService jobs, CancellationToken ct) =>\n    jobs.EnqueueAsync(request.RepositoryId, request, ct));" },
+  "severity": "high",
+  "autofixable": false,
+  "defaultOn": true,
+  "appliesTo": { "reviewKinds": ["code", "security"], "fileExtensions": [".cs"] },
+  "history": [{ "date": "2026-08-12", "change": "Initial API-shape rule grounded in Quality Studio's request/response records and boundary validation." }]
+}

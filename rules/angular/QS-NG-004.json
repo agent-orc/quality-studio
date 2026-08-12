@@ -1,0 +1,19 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-004",
+  "version": "1.0.0",
+  "name": "Keep templates declarative and free of ad-hoc presentation",
+  "language": "angular",
+  "category": "template-hygiene",
+  "statement": "Keep templates declarative: use Angular control flow and bindings, expose prepared view state, avoid complex expressions, and keep presentation in component styles rather than inline style attributes.",
+  "rationale": "Small declarative templates keep rendering behavior legible, testable, and compatible with shared styling. Quality Studio templates bind prepared signals and use modern control-flow blocks.",
+  "badExample": { "language": "html", "code": "<div style=\"margin: 12px\">{{ rows.filter(isVisible).sort(sorter).length }}</div>" },
+  "goodExample": { "language": "html", "code": "<div class=\"result-count\">{{ visibleRows().length }}</div>" },
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "appliesTo": { "reviewKinds": ["code"], "fileExtensions": [".html"] },
+  "deterministicCheck": { "id": "angular-no-inline-style-attributes" },
+  "history": [{ "date": "2026-08-12", "change": "Initial template-hygiene rule based on Quality Studio signal-backed templates." }]
+}

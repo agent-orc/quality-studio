@@ -1,0 +1,18 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-003",
+  "version": "1.0.0",
+  "name": "Reuse standard components before creating local UI primitives",
+  "language": "angular",
+  "category": "component-reuse",
+  "statement": "Search for and reuse the central component family for buttons, tabs, panels, status indicators, badges, conversations, and other established primitives before building a feature-local substitute.",
+  "rationale": "Standard-component reuse carries accessibility, interaction, and visual decisions across the product family. A local look-alike duplicates behavior and is likely to drift.",
+  "badExample": { "language": "html", "code": "<span class=\"local-status-dot\"></span>\n<div class=\"homegrown-tab\" (click)=\"select()\">Review</div>" },
+  "goodExample": { "language": "html", "code": "<app-status-indicator [state]=\"review.state\" />\n<app-tabs [items]=\"reviewTabs\" />" },
+  "severity": "high",
+  "autofixable": false,
+  "defaultOn": true,
+  "appliesTo": { "reviewKinds": ["code"], "fileExtensions": [".ts", ".html"] },
+  "history": [{ "date": "2026-08-12", "change": "Initial rule covering the operator-observed missing component-reuse defect class." }]
+}

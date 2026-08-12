@@ -46,6 +46,11 @@ public static class QualityCli
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
         }
 
+        if (string.Equals(args[0], "rules", StringComparison.Ordinal))
+        {
+            return await RunRulesAsync(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -150,15 +155,19 @@ public static class QualityCli
             }
 
             var stopwatch = Stopwatch.StartNew();
+            var ruleSensor = new RulePrecheckSensor();
             var sensors = options.Kind == "security"
-                ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()])
-                : null;
+                ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor(), ruleSensor])
+                : new SensorRegistry([ruleSensor]);
             var result = await new ReviewRunner(sensorRegistry: sensors).ReviewAsync(new ReviewRequest(
                 options.File, options.Kind, GlobalInputsDirectory: globalInputs,
                 InputBudgetCharacters: options.BudgetCharacters,
                 Sensors: options.Kind == "security"
                     ? [new ReviewSensorConfiguration("gitleaks"), new ReviewSensorConfiguration("dependencies")]
-                    : null));
+                    : null,
+                DeterministicSensors: [new ReviewSensorConfiguration(
+                    RulePrecheckSensor.SensorId,
+                    new Dictionary<string, string> { ["reviewKind"] = options.Kind })]));
             Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;
         }
@@ -217,6 +226,39 @@ public static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or SecurityScannerUnavailableException)
         {
             Console.Error.WriteLine($"quality security scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunRulesAsync(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help")
+        {
+            PrintRulesUsage();
+            return args.Length == 0 ? 2 : 0;
+        }
+        if (!string.Equals(args[0], "check", StringComparison.Ordinal) || args.Length > 2)
+        {
+            Console.Error.WriteLine("The rules command accepts 'check' and one optional repository path.");
+            PrintRulesUsage();
+            return 2;
+        }
+        try
+        {
+            var root = Path.GetFullPath(args.Length == 2 ? args[1] : ".");
+            var result = await new RulePrecheckSensor().RunAsync(new SensorScanRequest(root));
+            Console.WriteLine($"quality rules check: {result.Findings.Count} finding(s) | sensor {result.Provenance.SensorId} {result.Provenance.SensorVersion}");
+            foreach (var finding in result.Findings)
+            {
+                var location = finding.Locations[0];
+                Console.WriteLine($"{finding.Severity.ToString().ToLowerInvariant(),-8} {location.Path}:{location.Range?.Start.Line} {finding.RuleId} {finding.Title}");
+            }
+            return result.Findings.Count == 0 ? 0 : 1;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
+                                               FileNotFoundException or InvalidDataException or JsonException)
+        {
+            Console.Error.WriteLine($"quality rules check failed: {exception.Message}");
             return 2;
         }
     }
@@ -512,13 +554,16 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality rules check [path]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private static void PrintBoundariesUsage() => Console.WriteLine(
         "Usage:\n  quality boundaries scan [path]");
+
+    private static void PrintRulesUsage() => Console.WriteLine(
+        "Usage:\n  quality rules check [path]");
 
     private static void PrintFlowUsage() => Console.WriteLine(
         "Usage:\n  quality flow review <request.json>");

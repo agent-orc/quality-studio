@@ -1,0 +1,18 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-002",
+  "version": "1.0.0",
+  "name": "Use constructor injection and explicit service lifetimes",
+  "language": "dotnet",
+  "category": "dependency-injection",
+  "statement": "Register infrastructure at the composition root and inject required collaborators through constructors; do not use service location or instantiate stateful infrastructure inside domain and orchestration services.",
+  "rationale": "Explicit dependencies make lifetime, ownership, and test substitution reviewable. Quality Studio composes sensors and review services in the API host and passes them through constructors.",
+  "badExample": { "language": "csharp", "code": "public Task RunAsync() {\n    var sensor = new GitleaksSecurityScanner();\n    return sensor.ScanAsync(...);\n}" },
+  "goodExample": { "language": "csharp", "code": "public sealed class ReviewJobService(SensorRegistry sensors)\n{\n    public Task RunAsync(...) => new DeterministicEvidenceCollector(sensors).CollectAsync(...);\n}" },
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "appliesTo": { "reviewKinds": ["code"], "fileExtensions": [".cs"] },
+  "history": [{ "date": "2026-08-12", "change": "Initial DI rule grounded in the Quality Studio API composition root and constructor-injected services." }]
+}

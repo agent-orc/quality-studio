@@ -1,0 +1,12 @@
+{
+  "$schema": "https://quality.studio/schemas/rule-configuration.v1.schema.json",
+  "schemaVersion": 1,
+  "rules": {
+    "QS-NG-001": {
+      "enabled": true
+    },
+    "QS-CS-004": {
+      "enabled": true
+    }
+  }
+}

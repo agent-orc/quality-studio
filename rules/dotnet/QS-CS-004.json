@@ -1,0 +1,18 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-004",
+  "version": "1.0.0",
+  "name": "Structure tests around one observable contract",
+  "language": "dotnet",
+  "category": "test-structure",
+  "statement": "Name each test for one observable behavior, arrange only the state needed for that behavior, exercise the public contract, and assert both the result and material persisted or emitted effects.",
+  "rationale": "Contract-focused tests diagnose regressions better than implementation-coupled tests. Quality Studio tests use isolated repository fixtures and independently verify persisted metadata and hashes.",
+  "badExample": { "language": "csharp", "code": "[Fact]\npublic async Task EverythingWorks() { /* many unrelated actions and assertions */ }" },
+  "goodExample": { "language": "csharp", "code": "[Fact]\npublic async Task ReviewAsync_WritesFreshMetadata()\n{\n    var result = await runner.ReviewAsync(request, cancellationToken);\n    Assert.True(File.Exists(result.MetaPath));\n}" },
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": false,
+  "appliesTo": { "reviewKinds": ["code"], "fileExtensions": [".cs"] },
+  "history": [{ "date": "2026-08-12", "change": "Initial test-structure rule grounded in Quality Studio's isolated xUnit contract tests." }]
+}

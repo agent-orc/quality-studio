@@ -1,0 +1,19 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-002",
+  "version": "1.0.0",
+  "name": "Use design tokens instead of ad-hoc style values",
+  "language": "angular",
+  "category": "design-tokens",
+  "statement": "Use the central design-token scale for spacing, color, radius, typography, and shared geometry; do not introduce raw pixel values, local colors, or one-off badge dimensions when a token covers the intent.",
+  "rationale": "Token use preserves visual kinship between Agent Studio and Quality Studio, makes themes consistent, and prevents small local choices from becoming an unmaintainable parallel design system.",
+  "badExample": { "language": "css", "code": ".finding-badge {\n  padding: 3px 7px;\n  color: #d83a52;\n  border-radius: 9px;\n}" },
+  "goodExample": { "language": "css", "code": ".finding-badge {\n  padding: var(--space-1) var(--space-2);\n  color: var(--danger);\n  border-radius: var(--radius-pill);\n}" },
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "appliesTo": { "reviewKinds": ["code"], "fileExtensions": [".css", ".scss"] },
+  "deterministicCheck": { "id": "angular-no-ad-hoc-style-values" },
+  "history": [{ "date": "2026-08-12", "change": "Initial rule covering the operator-observed ad-hoc styling defect class." }]
+}

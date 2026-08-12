@@ -31,6 +31,8 @@ Use `quality review <file> --kind code --explain-inputs` to inspect the exact se
 Every generated finding requires a `ruleId`. Supplied guidelines use their
 frontmatter `id`; base prompt rules use `built-in:<kind>`. The UI uses that stable
 identity to show findings per guideline and the producing guideline on each finding.
+The separate named best-practice library uses stable `QS-*` ids and repository-owned
+overrides as documented in [Named rule library](rule-library.md).
 
 The effective input hash covers the versioned prompt template and only the guideline
 content actually included after precedence and budgeting. It never includes source

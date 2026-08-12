@@ -1,0 +1,19 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-003",
+  "version": "1.0.0",
+  "name": "Keep asynchronous flows cancellation-aware and non-blocking",
+  "language": "dotnet",
+  "category": "async-hygiene",
+  "statement": "Use Task-returning asynchronous APIs end to end, propagate CancellationToken through I/O and orchestration boundaries, and do not block on tasks with Result, Wait, or GetAwaiter().GetResult().",
+  "rationale": "Non-blocking, cancellation-aware flows avoid thread starvation and allow review runs to stop cleanly. Quality Studio passes cancellation through sensors, agents, file I/O, and job execution.",
+  "badExample": { "language": "csharp", "code": "public Review Run() => client.LoadAsync().Result;" },
+  "goodExample": { "language": "csharp", "code": "public async Task<Review> RunAsync(CancellationToken cancellationToken) =>\n    await client.LoadAsync(cancellationToken).ConfigureAwait(false);" },
+  "severity": "high",
+  "autofixable": false,
+  "defaultOn": true,
+  "appliesTo": { "reviewKinds": ["code", "performance"], "fileExtensions": [".cs"] },
+  "deterministicCheck": { "id": "dotnet-no-sync-over-async" },
+  "history": [{ "date": "2026-08-12", "change": "Initial async-hygiene rule grounded in Quality Studio's cancellation-aware review pipeline." }]
+}

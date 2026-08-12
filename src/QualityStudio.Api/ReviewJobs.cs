@@ -458,7 +458,8 @@ public sealed class ReviewJobService : BackgroundService
                     item.Repository.RootPath,
                     (item.Repository.Sensors ?? [])
                         .Where(sensor => sensor.Enabled)
-                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+                        .Select(sensor => new ReviewSensorConfiguration(
+                            sensor.Id, DeterministicConfiguration(sensor, item.Kind)))
                         .ToArray(),
                     linked.Token)
                 .ConfigureAwait(false);
@@ -596,6 +597,19 @@ public sealed class ReviewJobService : BackgroundService
                     .ToArray()
                 : null,
             DeterministicEvidence: item.DeterministicEvidence);
+    }
+
+    private static IReadOnlyDictionary<string, string>? DeterministicConfiguration(
+        RepositorySensorConfiguration sensor,
+        string reviewKind)
+    {
+        if (!string.Equals(sensor.Id, RulePrecheckSensor.SensorId, StringComparison.Ordinal))
+            return sensor.Configuration;
+        var configuration = sensor.Configuration is null
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : new Dictionary<string, string>(sensor.Configuration, StringComparer.Ordinal);
+        configuration["reviewKind"] = reviewKind;
+        return configuration;
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch

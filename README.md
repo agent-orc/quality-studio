@@ -173,6 +173,16 @@ SARIF 2.1.0, are supplied to the review agent as prior facts while staying separ
 from its findings and grade. Configuration and unavailable behavior are documented in
 [`docs/deterministic-analyzer-evidence.md`](docs/deterministic-analyzer-evidence.md).
 
+## Named best-practice rules
+
+Quality Studio's language-specific, versioned rule library lives in [`rules/`](rules/).
+Default-on Angular and C#/.NET rules are resolved into review prompts, findings cite
+their stable `QS-*` ids, and a deterministic subset can be checked with
+`quality rules check .`. Projects override individual rules only through the
+versioned `.quality/rules.json` file in their own repository. See
+[`docs/rule-library.md`](docs/rule-library.md) for the format, seed catalogue,
+configuration schema, versioning policy, and unfixed-security-finding policy.
+
 ## Review inputs
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.

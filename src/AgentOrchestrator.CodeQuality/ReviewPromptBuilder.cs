@@ -8,7 +8,7 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class ReviewPromptBuilder
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
-    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v3-deterministic-evidence";
+    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v4-named-rules";
 
     public string Build(
         string filePath,
@@ -20,7 +20,8 @@ public sealed class ReviewPromptBuilder
         string? securitySensorEvidence = null,
         ReviewLevel level = ReviewLevel.File,
         string? coverageEvidence = null,
-        string? deterministicEvidence = null)
+        string? deterministicEvidence = null,
+        string? namedRules = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -49,6 +50,14 @@ public sealed class ReviewPromptBuilder
 """ + (string.IsNullOrWhiteSpace(coverageEvidence)
             ? "No coverage data is available. Treat coverage as unknown; do not infer 0% coverage."
             : coverageEvidence.Trim());
+        prompt += """
+
+
+## Named Quality Studio rules
+
+""" + (string.IsNullOrWhiteSpace(namedRules)
+            ? "No named Quality Studio rules apply to this subject."
+            : namedRules.Trim());
         prompt += """
 
 
