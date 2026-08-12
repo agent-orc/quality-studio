@@ -152,6 +152,34 @@ export interface ImpactFinding { id: string; ruleId: string; severity: FindingSe
 export interface FileGuidelineImpact { path: string; before: ImpactFinding[]; after: ImpactFinding[]; added: ImpactFinding[]; removed: ImpactFinding[]; }
 export interface GuidelineImpact { guidelineId: string; kind: ReviewKind; files: FileGuidelineImpact[]; addedCount: number; removedCount: number; changed: boolean; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
+export type RepositoryTrustLevel = 'operator-controlled' | 'untrusted';
+export type RepositoryOnboardingStatus = 'pass' | 'warn' | 'block' | 'unavailable' | 'skipped';
+export interface RepositoryOnboardingCheck {
+  status: RepositoryOnboardingStatus;
+  available: boolean;
+  findingCount: number;
+  summary: string;
+  toolVersions: Record<string, string>;
+}
+export interface RepositoryOnboardingSecretFinding {
+  ruleId: string; severity: FindingSeverity; title: string; path: string; line: number | null;
+}
+export interface RepositoryDependencyAdvisory {
+  advisoryId: string; severity: FindingSeverity; package: string; version: string;
+  fixedVersion: string | null; path: string; advisoryUrl: string | null;
+}
+export interface RepositoryOnboardingAssessment {
+  schemaVersion: number;
+  assessedAt: string;
+  rootPath: string;
+  trustLevel: RepositoryTrustLevel;
+  reviewAllowed: boolean;
+  reviewBoundary: string;
+  secrets: RepositoryOnboardingCheck;
+  dependencies: RepositoryOnboardingCheck;
+  secretFindings: RepositoryOnboardingSecretFinding[];
+  advisories: RepositoryDependencyAdvisory[];
+}
 export interface RepositoryRegistration {
   id: string;
   displayName: string;
@@ -162,6 +190,10 @@ export interface RepositoryRegistration {
   archived: boolean;
   defaultReviewTokenCap: number | null;
   defaultReviewCostCap: number | null;
+  trustLevel: RepositoryTrustLevel;
+  onboardingAssessment: RepositoryOnboardingAssessment | null;
+  reviewAllowed: boolean;
+  reviewBlockReason: string | null;
 }
 export interface RepositoryRegistrationRequest {
   id?: string;
@@ -172,6 +204,7 @@ export interface RepositoryRegistrationRequest {
   enabledReviewKinds: ReviewKind[];
   defaultReviewTokenCap?: number | null;
   defaultReviewCostCap?: number | null;
+  trustLevel: RepositoryTrustLevel;
 }
 export type AgentStudioImportStatus = 'imported' | 'skipped' | 'failed';
 export interface AgentStudioImportResult {
@@ -452,7 +485,7 @@ export class QualityApi {
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
-      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
+      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null, trustLevel: 'operator-controlled', onboardingAssessment: null, reviewAllowed: true, reviewBlockReason: null }]);
       this.selectedRepositoryId.set('default');
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }
@@ -491,6 +524,10 @@ export class QualityApi {
     const created = await firstValueFrom(this.http.post<RepositoryRegistration>('/api/repos', request));
     await this.loadRepositories(created.id);
     return created;
+  }
+
+  async preflightRepository(request: RepositoryRegistrationRequest): Promise<RepositoryOnboardingAssessment> {
+    return await firstValueFrom(this.http.post<RepositoryOnboardingAssessment>('/api/repos/preflight', request));
   }
 
   async updateRepository(id: string, request: RepositoryRegistrationRequest): Promise<RepositoryRegistration> {

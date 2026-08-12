@@ -421,6 +421,34 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Onboarding_preflight_surfaces_redacted_secrets_and_dependency_advisories()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/repos/preflight", new
+        {
+            id = "preflight-candidate",
+            displayName = "Preflight candidate",
+            rootPath = repositoryRoot,
+            inputBudgetCharacters = 12000,
+            enabledReviewKinds = new[] { "code", "security" },
+            trustLevel = "operator-controlled",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var assessment = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.False(assessment.GetProperty("reviewAllowed").GetBoolean());
+        Assert.Equal("block", assessment.GetProperty("secrets").GetProperty("status").GetString());
+        Assert.Equal("warn", assessment.GetProperty("dependencies").GetProperty("status").GetString());
+        var secret = Assert.Single(assessment.GetProperty("secretFindings").EnumerateArray());
+        Assert.Equal("test-rule", secret.GetProperty("ruleId").GetString());
+        Assert.False(secret.TryGetProperty("description", out _));
+        var advisory = Assert.Single(assessment.GetProperty("advisories").EnumerateArray());
+        Assert.Equal("GHSA-test-advisory", advisory.GetProperty("advisoryId").GetString());
+        Assert.Equal("sample", advisory.GetProperty("package").GetString());
+        Assert.Equal("1.0.1", advisory.GetProperty("fixedVersion").GetString());
+    }
+
+    [Fact]
     public async Task Health_returns_ok_for_the_dev_launcher()
     {
         using var client = application!.CreateClient();
@@ -643,10 +671,29 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             }, TestContext.Current.CancellationToken);
 
             Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+            var created = await create.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal("untrusted", created.GetProperty("trustLevel").GetString());
+            Assert.False(created.GetProperty("reviewAllowed").GetBoolean());
+            Assert.Equal("skipped", created.GetProperty("onboardingAssessment").GetProperty("dependencies")
+                .GetProperty("status").GetString());
             using var scopedFile = await client.GetAsync("/api/repos/second/file?path=Second.cs", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, scopedFile.StatusCode);
             var file = await scopedFile.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
             Assert.Contains("namespace Second", file.GetProperty("content").GetString());
+
+            using var review = await client.PostAsJsonAsync("/api/repos/second/review/estimate", new
+            {
+                path = "Second.cs",
+                kind = "code",
+                cliType = "codex",
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Conflict, review.StatusCode);
+            var problem = await review.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Contains("untrusted repository content", problem.GetProperty("title").GetString(),
+                StringComparison.OrdinalIgnoreCase);
+            using var dependencyScan = await client.PostAsync("/api/repos/second/sensors/dependencies/scan", null,
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Conflict, dependencyScan.StatusCode);
 
             using var sensors = await client.GetAsync("/api/repos/second/sensors", TestContext.Current.CancellationToken);
             var sensorsJson = await sensors.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);

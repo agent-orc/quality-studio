@@ -23,6 +23,8 @@ public sealed record StartReviewRequest(
 
 public sealed record ResumeReviewRequest(long? TokenCap = null, decimal? CostCap = null);
 
+public sealed class RepositoryReviewBlockedException(string message) : Exception(message);
+
 public sealed record ReviewPreflightResponse(
     string RepositoryId,
     string Path,
@@ -241,7 +243,7 @@ public sealed class ReviewJobService : BackgroundService
     {
         if (string.IsNullOrWhiteSpace(request.Path)) throw new ArgumentException("A hierarchy path is required.");
         if (!Kinds.Contains(request.Kind)) throw new ArgumentException("Kind must be code, security, or performance.");
-        var registration = repositories.Get(repositoryId);
+        var registration = EnsureReviewAllowed(repositoryId);
         if (!registration.EnabledReviewKinds.Contains(request.Kind, StringComparer.Ordinal))
             throw new ArgumentException($"Review kind '{request.Kind}' is not enabled for this repository.");
 
@@ -372,6 +374,7 @@ public sealed class ReviewJobService : BackgroundService
 
     public ReviewRunResponse Resume(string repositoryId, string id, ResumeReviewRequest? request = null)
     {
+        EnsureReviewAllowed(repositoryId);
         var run = Find(repositoryId, id);
         if (run.Resume(request?.TokenCap, request?.CostCap) && !queue.Writer.TryWrite(run))
         {
@@ -446,6 +449,18 @@ public sealed class ReviewJobService : BackgroundService
     private async Task RunAsync(ReviewWorkItem item, CancellationToken stoppingToken)
     {
         var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            EnsureReviewAllowed(item.Repository.Id);
+        }
+        catch (RepositoryReviewBlockedException exception)
+        {
+            item.Fail(exception.Message);
+            logger.LogWarning(new EventId(1513, "ReviewQuarantined"),
+                "Review {ReviewRunId} was stopped by the current repository onboarding policy: {Reason}",
+                item.Id, exception.Message);
+            return;
+        }
         var attemptToken = item.Start();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, attemptToken);
         logger.LogInformation(new EventId(1501, "ReviewStarted"),
@@ -556,6 +571,28 @@ public sealed class ReviewJobService : BackgroundService
             !string.Equals(run.Repository.Id, repositoryId, StringComparison.OrdinalIgnoreCase))
             throw new KeyNotFoundException($"Review run '{id}' was not found.");
         return run;
+    }
+
+    private RepositoryRegistration EnsureReviewAllowed(string repositoryId)
+    {
+        RepositoryRegistration registration;
+        try
+        {
+            registration = repositories.Get(repositoryId);
+        }
+        catch (KeyNotFoundException)
+        {
+            throw new RepositoryReviewBlockedException(
+                $"Repository '{repositoryId}' is not active, so its reviews are quarantined.");
+        }
+
+        if (!registration.ReviewAllowed)
+        {
+            throw new RepositoryReviewBlockedException(
+                registration.ReviewBlockReason ?? "Repository review is blocked by onboarding policy.");
+        }
+
+        return registration;
     }
 
     private IReviewExecutor CreateRunner(ReviewWorkItem item) => executors.Create(

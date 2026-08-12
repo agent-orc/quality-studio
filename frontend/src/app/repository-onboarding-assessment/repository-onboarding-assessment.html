@@ -1,0 +1,33 @@
+<section class="onboarding-assessment" aria-label="Onboarding security checks" aria-live="polite">
+  <header>
+    <div><span class="eyebrow">Onboarding security checks</span><b>{{ assessment().reviewAllowed ? 'Review allowed' : 'Review quarantined' }}</b></div>
+    <span class="assessment-state" [class.pass]="assessment().reviewAllowed" [class.block]="!assessment().reviewAllowed">{{ assessment().reviewAllowed ? 'pass' : 'blocked' }}</span>
+  </header>
+  <p>{{ assessment().reviewBoundary }}</p>
+  <div class="assessment-grid">
+    <article>
+      <span class="status" [class.fresh]="assessment().secrets.status === 'pass'" [class.stale]="assessment().secrets.status === 'block'" [class.missing]="assessment().secrets.status === 'unavailable'"></span>
+      <div><b>Redacted secret scan</b><small>{{ assessment().secrets.summary }}</small></div>
+      <strong>{{ assessment().secrets.findingCount }}</strong>
+    </article>
+    <article>
+      <span class="status" [class.fresh]="assessment().dependencies.status === 'pass'" [class.stale]="assessment().dependencies.status === 'warn'" [class.missing]="assessment().dependencies.status === 'unavailable' || assessment().dependencies.status === 'skipped'"></span>
+      <div><b>Dependency advisories</b><small>{{ assessment().dependencies.summary }}</small></div>
+      <strong>{{ assessment().dependencies.findingCount }}</strong>
+    </article>
+  </div>
+  @if (assessment().secretFindings.length) {
+    <ul class="assessment-findings">
+      @for (finding of assessment().secretFindings; track finding.ruleId + finding.path + finding.line) {
+        <li><span>{{ finding.severity }}</span><b>{{ finding.title }}</b><code>{{ finding.path }}@if (finding.line) { :{{ finding.line }} }</code></li>
+      }
+    </ul>
+  }
+  @if (assessment().advisories.length) {
+    <ul class="assessment-findings">
+      @for (advisory of assessment().advisories; track advisory.advisoryId + advisory.package + advisory.version + advisory.path) {
+        <li><span>{{ advisory.severity }}</span><b>{{ advisory.package }} {{ advisory.version }}</b><code>{{ advisory.advisoryId }}@if (advisory.fixedVersion) { · fix {{ advisory.fixedVersion }} } · {{ advisory.path }}</code>@if (advisory.advisoryUrl) { <a [href]="advisory.advisoryUrl" target="_blank" rel="noopener noreferrer">Advisory details</a> }</li>
+      }
+    </ul>
+  }
+</section>

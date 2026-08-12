@@ -24,6 +24,7 @@ builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(R
 builder.Services.AddSingleton<ApiSecurity>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
+builder.Services.AddSingleton<RepositoryOnboardingAssessmentService>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<ProjectDashboardService>();
 builder.Services.AddSingleton<RepositorySnapshotPrewarmer>();
@@ -114,6 +115,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         QualityReportException => (StatusCodes.Status422UnprocessableEntity, "Quality report failed"),
         InvalidDataException => (StatusCodes.Status422UnprocessableEntity, "Stored report is invalid"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
+        RepositoryReviewBlockedException blocked => (StatusCodes.Status409Conflict, blocked.Message),
         JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
@@ -179,9 +181,10 @@ app.Use(async (context, next) =>
     var path = context.Request.Path.Value ?? string.Empty;
     var repositoryId = RouteRepositoryId(context);
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryPreflight = string.Equals(path, "/api/repos/preflight", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    if ((HttpMethods.IsPost(context.Request.Method) && (isRepositoryCollection || isRepositoryPreflight)) || isImport)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -226,19 +229,27 @@ app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, Repository
 });
 
 app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry,
-    RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
+    RepositoryOnboardingAssessmentService onboarding, RepositorySnapshotPrewarmer prewarmer,
+    CancellationToken cancellationToken) =>
 {
-    var created = await registry.CreateAsync(request, cancellationToken);
+    var assessment = await onboarding.AssessAsync(request, null, cancellationToken);
+    var created = await registry.CreateAsync(request, assessment, cancellationToken);
     prewarmer.Queue(created);
     return Results.Created($"/api/repos/{created.Id}", created);
 });
 
+app.MapPost("/api/repos/preflight", async (RepositoryRegistrationRequest request,
+    RepositoryOnboardingAssessmentService onboarding, CancellationToken cancellationToken) =>
+    Results.Ok(await onboarding.AssessAsync(request, null, cancellationToken)));
+
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
 
 app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
-    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
+    RepositoryRegistry registry, RepositoryOnboardingAssessmentService onboarding,
+    RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
 {
-    var updated = await registry.UpdateAsync(repoId, request, cancellationToken);
+    var assessment = await onboarding.AssessAsync(request, repoId, cancellationToken);
+    var updated = await registry.UpdateAsync(repoId, request, assessment, cancellationToken);
     prewarmer.Queue(updated);
     return Results.Ok(updated);
 });
@@ -960,6 +971,12 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
 {
     var stopwatch = Stopwatch.StartNew();
     var registration = repositories.Get(RouteRepositoryId(context));
+    if (string.Equals(registration.TrustLevel, RepositoryTrustLevels.Untrusted, StringComparison.Ordinal) &&
+        !string.Equals(id, "gitleaks", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new RepositoryReviewBlockedException(
+            "Executable sensors are blocked for untrusted repository content until an isolated worker boundary is available.");
+    }
     var sensor = sensors.Get(id);
     var repositoryConfiguration = (registration.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
         .FirstOrDefault(configuration => string.Equals(configuration.Id, id, StringComparison.OrdinalIgnoreCase));
@@ -1188,6 +1205,7 @@ static async Task<IResult> Handover(
 
 static async Task<IResult> ImportFromAgentStudio(
     RepositoryRegistry registry,
+    RepositoryOnboardingAssessmentService onboarding,
     AgentStudioTaskClient client,
     ILogger<Program> logger,
     CancellationToken cancellationToken)
@@ -1243,13 +1261,16 @@ static async Task<IResult> ImportFromAgentStudio(
 
         try
         {
-            var created = await registry.CreateAsync(new RepositoryRegistrationRequest(
+            var request = new RepositoryRegistrationRequest(
                 string.IsNullOrWhiteSpace(project.ShortCode) ? null : project.ShortCode,
                 project.DisplayName,
                 normalizedPath,
                 null,
                 null,
-                null), cancellationToken);
+                null,
+                TrustLevel: RepositoryTrustLevels.Untrusted);
+            var assessment = await onboarding.AssessAsync(request, null, cancellationToken);
+            var created = await registry.CreateAsync(request, assessment, cancellationToken);
             knownPaths.Add(created.RootPath);
             results.Add(new AgentStudioImportResultResponse(
                 project.Id, project.DisplayName, created.RootPath, "imported", created.Id, null));

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { QualityApi, RepositoryRegistrationRequest, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -100,6 +100,27 @@ describe('QualityApi', () => {
     expect(result.skipped).toBe(1);
     expect(result.results[0].status).toBe('imported');
     expect(result.results[1].reason).toBe('Already registered.');
+  });
+
+  it('requests the mandatory onboarding assessment before repository creation', async () => {
+    const request: RepositoryRegistrationRequest = {
+      displayName: 'Candidate', rootPath: '/repos/candidate', globalInputsDirectory: null,
+      inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security'],
+      defaultReviewTokenCap: 100000, defaultReviewCostCap: null, trustLevel: 'untrusted' as const,
+    };
+    const preflight = api.preflightRepository(request);
+    http.expectOne('/api/repos/preflight').flush({
+      schemaVersion: 1, assessedAt: '2026-08-12T00:00:00Z', rootPath: '/repos/candidate',
+      trustLevel: 'untrusted', reviewAllowed: false,
+      reviewBoundary: 'Untrusted content is quarantined.',
+      secrets: { status: 'pass', available: true, findingCount: 0, summary: 'Clean.', toolVersions: { gitleaks: '8.24.2' } },
+      dependencies: { status: 'skipped', available: false, findingCount: 0, summary: 'Skipped.', toolVersions: {} },
+      secretFindings: [], advisories: [],
+    });
+
+    const assessment = await preflight;
+    expect(assessment.reviewAllowed).toBeFalse();
+    expect(assessment.dependencies.status).toBe('skipped');
   });
 
   it('loads repository usage and global provider quotas', async () => {

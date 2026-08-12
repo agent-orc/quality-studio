@@ -14,7 +14,27 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    string TrustLevel = RepositoryTrustLevels.OperatorControlled,
+    RepositoryOnboardingAssessment? OnboardingAssessment = null)
+{
+    public bool ReviewAllowed =>
+        string.Equals(TrustLevel, RepositoryTrustLevels.OperatorControlled, StringComparison.Ordinal) &&
+        (OnboardingAssessment is null ||
+         (OnboardingAssessment.ReviewAllowed &&
+          string.Equals(OnboardingAssessment.TrustLevel, TrustLevel, StringComparison.Ordinal) &&
+          string.Equals(OnboardingAssessment.RootPath, RootPath, StringComparison.Ordinal) &&
+          string.Equals(OnboardingAssessment.Secrets.Status, RepositoryOnboardingStatuses.Pass,
+              StringComparison.Ordinal)));
+
+    public string? ReviewBlockReason => ReviewAllowed
+        ? null
+        : string.Equals(TrustLevel, RepositoryTrustLevels.Untrusted, StringComparison.Ordinal)
+            ? "Model review is blocked for untrusted repository content until an isolated worker boundary is available."
+            : OnboardingAssessment?.Secrets.Status == RepositoryOnboardingStatuses.Block
+                ? "Model review is blocked because the onboarding secret scan found active credentials. Remove and rotate them, then rerun onboarding checks."
+                : "Model review is blocked because the onboarding secret scan did not complete successfully.";
+}
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -25,7 +45,16 @@ public sealed record RepositoryRegistrationRequest(
     IReadOnlyList<string>? EnabledReviewKinds,
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    string? TrustLevel = null);
+
+public static class RepositoryTrustLevels
+{
+    public const string OperatorControlled = "operator-controlled";
+    public const string Untrusted = "untrusted";
+
+    public static bool IsSupported(string value) => value is OperatorControlled or Untrusted;
+}
 
 public sealed record RepositorySensorConfiguration(
     string Id,
@@ -88,12 +117,16 @@ public sealed class RepositoryRegistry
 
     public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
 
-    public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
+    public RepositoryRegistration Preview(RepositoryRegistrationRequest request, string? existingId = null) =>
+        Validate(request, existingId);
+
+    public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request,
+        RepositoryOnboardingAssessment? onboardingAssessment, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var entry = Validate(request, null);
+            var entry = Validate(request, null) with { OnboardingAssessment = onboardingAssessment };
             if (entries.Any(existing => string.Equals(existing.Id, entry.Id, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new RepositoryRegistryValidationException($"A repository with id '{entry.Id}' already exists.");
@@ -111,7 +144,8 @@ public sealed class RepositoryRegistry
         }
     }
 
-    public async Task<RepositoryRegistration> UpdateAsync(string id, RepositoryRegistrationRequest request, CancellationToken cancellationToken)
+    public async Task<RepositoryRegistration> UpdateAsync(string id, RepositoryRegistrationRequest request,
+        RepositoryOnboardingAssessment? onboardingAssessment, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
@@ -126,7 +160,11 @@ public sealed class RepositoryRegistry
             {
                 Id = existing.Id,
                 Sensors = request.Sensors ?? existing.Sensors,
-            }, existing.Id);
+                TrustLevel = request.TrustLevel ?? existing.TrustLevel,
+            }, existing.Id) with
+            {
+                OnboardingAssessment = onboardingAssessment ?? existing.OnboardingAssessment,
+            };
             entries[entries.IndexOf(existing)] = updated;
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1401, "RepositoryUpdated"),
@@ -206,7 +244,8 @@ public sealed class RepositoryRegistry
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
             DefaultSensors(),
-            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
+            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap,
+            TrustLevel: RepositoryTrustLevels.OperatorControlled);
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
@@ -294,10 +333,20 @@ public sealed class RepositoryRegistry
         if (request.DefaultReviewCostCap is <= 0 or > 1_000_000)
             throw new RepositoryRegistryValidationException("Default review cost cap must be between 0 and 1,000,000.");
 
+        var trustLevel = string.IsNullOrWhiteSpace(request.TrustLevel)
+            ? RepositoryTrustLevels.Untrusted
+            : request.TrustLevel.Trim().ToLowerInvariant();
+        if (!RepositoryTrustLevels.IsSupported(trustLevel))
+        {
+            throw new RepositoryRegistryValidationException(
+                "Repository trust level must be operator-controlled or untrusted.");
+        }
+
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
             ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors,
             DefaultReviewTokenCap: request.DefaultReviewTokenCap,
-            DefaultReviewCostCap: request.DefaultReviewCostCap);
+            DefaultReviewCostCap: request.DefaultReviewCostCap,
+            TrustLevel: trustLevel);
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken)
