@@ -202,7 +202,10 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)))
+        {
+            CommitSha = CoverageSensor.GitValue(registration.RootPath, "rev-parse", "--verify", "HEAD"),
+        };
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -1057,7 +1060,19 @@ public sealed class ReviewJobService : BackgroundService
         {
             lock (gate)
             {
-                if (!ReviewRunStore.IsTerminal(state) || reportStore.TryLoad(Id, out _)) return;
+                if (!ReviewRunStore.IsTerminal(state)) return;
+                if (reportStore.TryLoad(Id, out var existingReport))
+                {
+                    try
+                    {
+                        reportStore.LoadHtml(Id);
+                    }
+                    catch (Exception exception) when (exception is FileNotFoundException or InvalidDataException)
+                    {
+                        reportStore.Save(existingReport!);
+                    }
+                    return;
+                }
                 PublishReport();
             }
         }

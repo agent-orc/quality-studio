@@ -48,6 +48,13 @@ public sealed class QualityRunReportTests
         Assert.DoesNotContain("<script>alert", html, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(WebUtility.HtmlEncode("<script>alert(\"x\")</script>"), html, StringComparison.Ordinal);
         Assert.DoesNotContain("/tmp/secret-repository", html, StringComparison.Ordinal);
+        Assert.Contains("Fixture repository", html, StringComparison.Ordinal);
+        Assert.Contains(new string('d', 40), html, StringComparison.Ordinal);
+        Assert.Contains("<h2>Verdicts</h2>", html, StringComparison.Ordinal);
+        Assert.Contains("Fixture grade.", html, StringComparison.Ordinal);
+        Assert.Contains("<h2>Token ledger</h2>", html, StringComparison.Ordinal);
+        Assert.Contains("Cached input tokens", html, StringComparison.Ordinal);
+        Assert.Contains("Reasoning output tokens", html, StringComparison.Ordinal);
 
         var markdown = QualityRunReportRenderer.Render(report, QualityReportFormat.Markdown);
         Assert.Contains("1 additional active finding(s) omitted", markdown, StringComparison.Ordinal);
@@ -75,6 +82,14 @@ public sealed class QualityRunReportTests
 
             Assert.Equal(2, store.Load(first.Run.Id).Run.Revision);
             Assert.Equal(91, store.Load(first.Run.Id).Summary.Score);
+            Assert.True(File.Exists(store.HtmlPathFor(first.Run.Id)));
+            Assert.Contains("data-run-id=\"review-atomic\"", store.LoadHtml(first.Run.Id), StringComparison.Ordinal);
+            Assert.Contains("data-run-revision=\"2\"", store.LoadHtml(first.Run.Id), StringComparison.Ordinal);
+            Assert.Contains("Token ledger", store.LoadHtml(first.Run.Id), StringComparison.Ordinal);
+            File.AppendAllText(store.HtmlPathFor(first.Run.Id), "<!-- stale projection -->");
+            Assert.Throws<InvalidDataException>(() => store.LoadHtml(first.Run.Id));
+            store.Save(second);
+            Assert.DoesNotContain("stale projection", store.LoadHtml(first.Run.Id), StringComparison.Ordinal);
             Assert.Single(store.LoadAll());
             Assert.DoesNotContain(Directory.EnumerateFiles(store.ReportsPath, "*.tmp", SearchOption.TopDirectoryOnly),
                 path => !Path.GetFileName(path).StartsWith(".review-crash", StringComparison.Ordinal));
@@ -190,7 +205,10 @@ public sealed class QualityRunReportTests
             new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 8, 11, 8, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 8, 11, 8, 2, 0, TimeSpan.Zero),
-            "gpt-5.6-sol", "xhigh", "codex", false);
+            "gpt-5.6-sol", "xhigh", "codex", false)
+        {
+            CommitSha = new string('d', 40),
+        };
         var target = new QualityRunSubjectTarget(
             "unit-file", "App.cs", "src/App.cs", "sha256:" + new string('a', 64));
         return new QualityRunReportDocument(

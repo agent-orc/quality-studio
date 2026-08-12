@@ -27,7 +27,7 @@ const finding = {
 };
 const report = {
   $schema: 'https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json', schemaVersion: 1,
-  run: { ...run, revision: 1, repositoryName: 'Quality Studio', scopeUnitId: 'program', completeness: 'complete', force: false },
+  run: { id: run.id, revision: 1, repositoryId: run.repositoryId, repositoryName: 'Quality Studio', commitSha: '59941d8f07b85ca2fd24a9ae32e491740e3bbf00', kind: run.kind, scopeUnitId: 'program', level: run.level, path: run.path, state: run.state, completeness: 'complete', createdAt: run.createdAt, startedAt: run.startedAt, finishedAt: run.finishedAt, model: run.model, thinkingLevel: run.thinkingLevel, cliType: run.cliType, force: false },
   subject: { manifestHash: hash('a'), targets: [{ unitId: 'program', name: 'Program.cs', path: run.path, subjectHash: hash('c') }] },
   execution: { reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, cancelled: 0, aggregateOutcome: null, errors: [],
     usage: { ...run.usage, operations: 1, cost: null, currency: null, priceStatus: 'unavailable', inputEstimateDeviationPercent: null, outputEstimateDeviationPercent: null, costEstimateDeviationPercent: null },
@@ -91,12 +91,19 @@ for (const capture of [
   await page.keyboard.press('Enter');
   await page.locator('.run-detail-surface').waitFor();
   await page.locator('.commit-trend-note').waitFor();
-  const fileName = `qs-73-run-report-${capture.name}.png`;
+  const fileName = `qs-87-run-dossier-${capture.name}.png`;
   await page.screenshot({ path: join(output, fileName), fullPage: true });
-  evidence.push({ ...capture, fileName, exportActions: await page.locator('.run-exports a').count(), keyboardOpened: await page.locator('.run-detail-surface').isVisible() });
+  evidence.push({
+    ...capture,
+    fileName,
+    reportActions: await page.locator('.run-exports a').count(),
+    openReportVisible: await page.getByRole('link', { name: 'Open HTML report' }).isVisible(),
+    keyboardOpened: await page.locator('.run-detail-surface').isVisible(),
+  });
   await page.close();
 }
 
 await browser.close();
-await writeFile(join(output, 'qs-73-run-report-evidence.json'), `${JSON.stringify({ capturedAt: new Date().toISOString(), baseUrl, evidence }, null, 2)}\n`);
+await writeFile(join(output, 'qs-87-completed-run.json'), `${JSON.stringify(report, null, 2)}\n`);
+await writeFile(join(output, 'qs-87-run-dossier-evidence.json'), `${JSON.stringify({ capturedAt: new Date().toISOString(), baseUrl, evidence }, null, 2)}\n`);
 console.log(JSON.stringify({ output, evidence }, null, 2));

@@ -309,6 +309,8 @@ app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/review/runs/{id}/report/view", ReviewRunReportView);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/report/view", ReviewRunReportView);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1115,6 +1117,32 @@ static IResult ReviewRunReport(
         QualityRunReportRenderer.Render(report, selectedFormat),
         QualityReportRenderer.ContentType(selectedFormat),
         Encoding.UTF8);
+}
+
+static IResult ReviewRunReportView(
+    HttpContext context,
+    string id,
+    RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new QualityRunReportStore(repository.RootPath);
+    var report = store.Load(id);
+    if (!string.Equals(report.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
+        throw new FileNotFoundException($"Review run report '{id}' was not found.");
+    string html;
+    try
+    {
+        html = store.LoadHtml(id);
+    }
+    catch (Exception exception) when (exception is FileNotFoundException or InvalidDataException)
+    {
+        store.Save(report);
+        html = store.LoadHtml(id);
+    }
+    context.Response.Headers.ContentDisposition =
+        $"inline; filename=\"quality-run-{report.Run.Id}.html\"";
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    return Results.Text(html, "text/html", Encoding.UTF8);
 }
 
 static IResult ReviewRunTrend(

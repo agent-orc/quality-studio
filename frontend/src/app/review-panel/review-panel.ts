@@ -390,6 +390,8 @@ export class ReviewPanel {
 
   reportUrl(runId: string, format: RunReportFormat): string { return this.api.runReportUrl(runId, format); }
 
+  reportViewUrl(runId: string): string { return this.api.runReportViewUrl(runId); }
+
   reportFileName(runId: string, format: RunReportFormat): string { return this.api.runReportFileName(runId, format); }
 
   trendScoreWidth(point: QualityRunTrendPoint): number { return point.score ?? 0; }

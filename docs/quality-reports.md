@@ -55,12 +55,14 @@ that severity or higher.
 ## Run-scoped reports
 
 Every terminal UI review run writes a strict canonical document to
-`.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
-manifest, routing provenance, usage and cap outcome, one explicit outcome per
-planned unit, the exact sidecar bytes captured by the run, finding lifecycle
-state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
-`capped` runs are all reportable. Incomplete outcomes are visibly marked
-`partial` and do not invent a score or baseline state.
+`.quality/reports/runs/<runId>.json` and atomically materializes its self-contained
+HTML projection beside it as `<runId>.html`. The snapshot contains its immutable
+subject manifest, repository commit captured before enqueue, routing provenance,
+usage and cap outcome, one explicit outcome per planned unit, the exact sidecar
+bytes captured by the run, finding lifecycle state, and a comparable-fingerprint
+delta. `done`, `failed`, `cancelled`, and `capped` runs are all reportable.
+Incomplete outcomes are visibly marked `partial` and do not invent a score or
+baseline state.
 
 A fresh skip is represented as `skipped-fresh` with `producedByRun: false`; it is
 counted as reused evidence, not as a model operation. A capped run writes its
@@ -70,7 +72,12 @@ same-directory replacement ensures readers see either the previous complete
 document or the next one, never an incomplete temporary write.
 
 HTML, bounded Markdown, JSON, and run-scoped SARIF are projections of this one
-document. HTML is self-contained and uses a restrictive content security policy.
+document. HTML is self-contained, uses a restrictive content security policy,
+and presents the repository and captured SHA, unit verdicts, findings, and a
+complete token ledger in a quiet document layout. Each terminal revision replaces
+the stored HTML projection beside its JSON source; the UI opens those bytes in a
+new browser tab. Startup recovery and the inline route backfill legacy JSON-only
+snapshots beside their canonical record.
 Markdown includes at most 20 active findings and states the omitted count. SARIF
 uses relative paths, stable automation and fingerprint identities, and only emits
 baseline state when the run has a comprehensive comparable predecessor. Exported
@@ -90,6 +97,9 @@ For one review run, use
 `GET /api/repos/{repoId}/review/runs/{id}/report?format=...`. The response carries
 an attachment filename appropriate to the requested format. Repository access is
 resolved through the same registration boundary as the existing run routes.
+`GET /api/review/runs/{id}/report/view` and its repository-scoped form serve the
+materialized HTML with inline disposition for the run detail's **Open HTML report**
+action.
 
 `GET /api/review/runs/trend?kind=code&scopeUnitId=<id>&level=file` and its
 repository-scoped form return paged run history. A series is keyed by repository,

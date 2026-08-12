@@ -34,6 +34,7 @@
         "revision": { "type": "integer", "minimum": 1 },
         "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
         "repositoryName": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "commitSha": { "type": ["string", "null"], "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$" },
         "kind": { "enum": ["code", "security", "performance"] },
         "scopeUnitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
         "level": { "enum": ["project", "module", "namespace", "file"] },

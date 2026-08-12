@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -33,7 +34,11 @@ public sealed record QualityRunIdentity(
     string Model,
     string ThinkingLevel,
     string CliType,
-    bool Force);
+    bool Force)
+{
+    /// <summary>The repository commit captured when the review subject was planned.</summary>
+    public string? CommitSha { get; init; }
+}
 
 public sealed record QualityRunSubject(
     string ManifestHash,
@@ -179,6 +184,10 @@ public static class QualityRunReportJson
         if (report.Run.Revision < 1) throw new JsonException("A quality run report revision must be positive.");
         if (report.Run.Completeness is not ("complete" or "partial"))
             throw new JsonException("A quality run report completeness must be complete or partial.");
+        if (report.Run.CommitSha is not null &&
+            (report.Run.CommitSha.Length is not (40 or 64) || report.Run.CommitSha.Any(character =>
+                character is not (>= '0' and <= '9' or >= 'a' and <= 'f'))))
+            throw new JsonException("A quality run report commit SHA must be a lowercase Git object id.");
     }
 
     private static JsonSerializerOptions CreateOptions() => new(JsonSerializerDefaults.Web)
@@ -207,15 +216,39 @@ public sealed class QualityRunReportStore
 
     public string PathFor(string runId) => Path.Combine(reportsPath, SafeFileName(runId) + ".json");
 
+    public string HtmlPathFor(string runId) => Path.Combine(reportsPath, SafeFileName(runId) + ".html");
+
     public void Save(QualityRunReportDocument report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        var destination = PathFor(report.Run.Id);
         Directory.CreateDirectory(reportsPath);
-        var temporary = Path.Combine(reportsPath, $".{report.Run.Id}.{Guid.NewGuid():N}.tmp");
+        WriteAtomic(PathFor(report.Run.Id), QualityRunReportJson.Serialize(report));
+        WriteAtomic(HtmlPathFor(report.Run.Id),
+            QualityRunReportRenderer.Render(report, QualityReportFormat.Html));
+    }
+
+    public string LoadHtml(string runId)
+    {
+        var report = Load(runId);
+        var path = HtmlPathFor(runId);
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"Materialized HTML report '{runId}' was not found.", path);
+        var html = File.ReadAllText(path);
+        var expected = QualityRunReportRenderer.Render(report, QualityReportFormat.Html);
+        if (!html.Contains($"data-run-id=\"{WebUtility.HtmlEncode(report.Run.Id)}\"", StringComparison.Ordinal) ||
+            !html.Contains($"data-run-revision=\"{report.Run.Revision}\"", StringComparison.Ordinal) ||
+            !string.Equals(html, expected, StringComparison.Ordinal))
+            throw new InvalidDataException($"Materialized HTML report '{path}' does not match its canonical run revision.");
+        return html;
+    }
+
+    private void WriteAtomic(string destination, string contents)
+    {
+        var fileName = Path.GetFileName(destination);
+        var temporary = Path.Combine(reportsPath, $".{fileName}.{Guid.NewGuid():N}.tmp");
         try
         {
-            var bytes = Utf8.GetBytes(QualityRunReportJson.Serialize(report));
+            var bytes = Utf8.GetBytes(contents);
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
                        4096, FileOptions.WriteThrough))
             {
