@@ -460,6 +460,16 @@
     <li>No API route or HTTP scheduler was added.</li>
   </ul>
 
+  <h3>12 August 2026 · QS-88 · Wave 2 contract verification and handoff</h3>
+  <ul>
+    <li>Confirmed that wave 1 already delivered the QS-owned implementation under QS-74: the shared finding envelope, the extracted and unit-tested <code>url-preview-embed</code> sender, and portable no-write change-review evidence. QS-88 does not duplicate those changes.</li>
+    <li>Re-ran the complete Angular test suite and production build. All 39 browser tests passed, including the exact navigation-only sender payload contract; the production bundle completed with the repository's existing budget and compiler warnings.</li>
+    <li>Ran the app inside a real Chromium iframe. The sender reported both the requested deep link and the app's subsequent live fallback URL; every payload contained exactly <code>source</code>, <code>type</code>, and <code>url</code>, originated from the mounted frame, and matched the iframe's current URL and origin. The task results include the runtime JSON trace and screenshot.</li>
+    <li>No before/after UI pair is applicable because QS-88 changes no product UI. Its screenshot is runtime contract evidence, not a visual-change claim.</li>
+    <li>The requested <code>origin/develop</code> rebase could not run because that remote ref does not exist. The checkout and refreshed <code>origin/main</code>, the integration branch named by the card, both resolved to <code>59941d8</code> before this documentation update.</li>
+    <li>The next approved integration seam remains Slice 3 in Agent Studio's fenced Review Plane. This Quality Studio checkout contains none of that scheduler, evidence DTO, council, or lane code, so no substitute QS scheduler or task mutation was added.</li>
+  </ul>
+
   <div class="box warn">
     <h4>Approved cross-repository remainder</h4>
     <p>Slices 3 through 5 are approved but did not land under QS-74 because this checkout contains Quality Studio only. Their implementation targets Agent Studio's Review Plane, delivery-grade producer, council policy, rollback switch, and task UI, none of which exist in this repository. They are no longer decision-gated; Slice 3 still has to run the specified paired cohort in Agent Studio before the cutover work can produce its required evidence.</p>
@@ -468,7 +478,7 @@
 
 <footer class="meta">
   <span><b>Dossier</b> <code>docs/operations/studio-integration/</code></span>
-  <span><b>Workbench status</b> <code>decided</code></span>
+  <span><b>Workbench status</b> <code>documented</code></span>
   <span><b>Next action</b> Agent Studio implements the approved Slices 3 through 5 and records the paired cohort.</span>
 </footer>
 </main>
