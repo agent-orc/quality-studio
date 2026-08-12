@@ -21,10 +21,13 @@ dotnet run --project src/QualityStudio.Api
 ```
 
 `QualityStudio:RepositoryRoot` defaults to `../..` relative to the API content root.
-The same repository is the only allowed root by default. Deployments that register
-repositories below another neutral host root must supply it through configuration,
-for example `QualityStudio__AllowedRoots__0=/srv/source` in the host environment;
-machine-specific paths do not belong in `appsettings.json`.
+Local development allows both that repository and the relative `../../..` development
+workspace root so sibling checkouts such as Agent Studio can be reviewed and imported.
+This is an operator-controlled dev-machine posture, not a hosted default. Deployments
+must override both configured array slots with their neutral host root, for example
+`QualityStudio__AllowedRoots__0=/srv/source` and
+`QualityStudio__AllowedRoots__1=/srv/source`; machine-specific absolute paths do not
+belong in `appsettings.json`.
 On first start it seeds the repository with id `default`; existing single-repository
 deployments therefore need no configuration change. CORS origins are configured with
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
@@ -35,6 +38,12 @@ display name, normalized root path, optional global inputs directory, input char
 budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
 there are no environment-specific registry copies. Repository roots must be existing
 directories with a `.git` directory or worktree `.git` file.
+
+Every persisted entry is revalidated at startup. An unavailable or out-of-policy entry
+is quarantined instead of preventing the API from booting: `GET /api/repos` returns it
+with `blocked: true` and a `blockedReason`, while operational repository routes exclude
+it. Correcting the entry through the repository configuration UI revalidates and
+restores access.
 
 ## Repository registry
 
