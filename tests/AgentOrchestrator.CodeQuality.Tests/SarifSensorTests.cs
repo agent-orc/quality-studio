@@ -113,6 +113,36 @@ public sealed class SarifSensorTests
     }
 
     [Fact]
+    public async Task EslintSensor_runs_configured_local_command_and_maps_its_report()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var sensor = new EslintAnalyzerSensor(new SarifWritingRunner(Fixture("eslint.sarif.json")));
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . " +
+                                  "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
+                                  "--output-file {reportPath}",
+                    ["reportPath"] = ".quality/preflight/eslint.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Available);
+            var finding = Assert.Single(result.Findings);
+            Assert.Equal("@typescript-eslint/no-floating-promises", finding.RuleId);
+            Assert.Equal("eslint", finding.Source!.SensorId);
+            Assert.Equal(FindingSourceKind.Deterministic, finding.Source.Kind);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void TypeScriptOutput_MapsOneDiagnosticWithRuleAndSource()
     {
         var root = CreateRepository("frontend/src/app.ts");
@@ -200,5 +230,22 @@ public sealed class SarifSensorTests
             string workingDirectory,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new SensorCommandResult(exitCode, output, string.Empty));
+    }
+
+    private sealed class SarifWritingRunner(string fixturePath) : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default)
+        {
+            var outputIndex = arguments.ToList().IndexOf("--output-file");
+            Assert.True(outputIndex >= 0);
+            var reportPath = arguments[outputIndex + 1];
+            Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+            File.Copy(fixturePath, reportPath, overwrite: true);
+            return Task.FromResult(new SensorCommandResult(1, string.Empty, string.Empty));
+        }
     }
 }

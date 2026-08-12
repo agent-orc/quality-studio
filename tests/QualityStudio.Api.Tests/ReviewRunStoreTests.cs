@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -17,6 +18,67 @@ namespace QualityStudio.Api.Tests;
 
 public sealed class ReviewRunStoreTests
 {
+    [Fact]
+    public async Task Enabled_deterministic_check_runs_before_model_and_can_be_disabled_per_repository()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var events = new ConcurrentQueue<string>();
+        var sensor = new OrderingSensor(events);
+        var executor = new OrderingExecutorFactory(events);
+        try
+        {
+            await using var application = fixture.CreateApplication(executor, sensor);
+            using var client = application.CreateClient();
+            using var enabledResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            enabledResponse.EnsureSuccessStatusCode();
+            var enabled = await enabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            await WaitForStateAsync(client, enabled.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(["check", "model"], events.ToArray());
+            var firstRequest = Assert.Single(executor.Requests);
+            var evidence = Assert.Single(firstRequest.DeterministicEvidence!);
+            Assert.Equal("ordering-check", evidence.Provenance.SensorId);
+            Assert.Equal("TEST1001", Assert.Single(evidence.Findings).RuleId);
+
+            Directory.CreateDirectory(Path.Combine(fixture.RepositoryRoot, ".git"));
+            using var update = await client.PutAsJsonAsync("/api/repos/default", new
+            {
+                displayName = new DirectoryInfo(fixture.RepositoryRoot).Name,
+                rootPath = fixture.RepositoryRoot,
+                globalInputsDirectory = (string?)null,
+                inputBudgetCharacters = 12000,
+                enabledReviewKinds = new[] { "code", "security", "performance" },
+                sensors = new[] { new { id = "ordering-check", enabled = false } },
+            }, cancellationToken);
+            update.EnsureSuccessStatusCode();
+
+            using var disabledResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            disabledResponse.EnsureSuccessStatusCode();
+            var disabled = await disabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            await WaitForStateAsync(client, disabled.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(["check", "model", "model"], events.ToArray());
+            Assert.Empty(executor.Requests[1].DeterministicEvidence!);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Fact]
     public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
     {
@@ -621,8 +683,10 @@ public sealed class ReviewRunStoreTests
 
         public string ProgressPath(string runId) => Path.Combine(Store.RunsPath, runId, "progress.jsonl");
 
-        public TestApplication CreateApplication(IReviewExecutorFactory? executorFactory = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory);
+        public TestApplication CreateApplication(
+            IReviewExecutorFactory? executorFactory = null,
+            IReviewSensor? deterministicSensor = null) =>
+            new(RepositoryRoot, HostRoot, executorFactory, deterministicSensor);
 
         public void Dispose()
         {
@@ -637,7 +701,10 @@ public sealed class ReviewRunStoreTests
     }
 
     private sealed class TestApplication(
-        string repositoryRoot, string contentRoot, IReviewExecutorFactory? executorFactory) : WebApplicationFactory<Program>
+        string repositoryRoot,
+        string contentRoot,
+        IReviewExecutorFactory? executorFactory,
+        IReviewSensor? deterministicSensor) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -657,7 +724,82 @@ public sealed class ReviewRunStoreTests
                     services.RemoveAll<IReviewExecutorFactory>();
                     services.AddSingleton(executorFactory);
                 }
+                if (deterministicSensor is not null)
+                {
+                    services.RemoveAll<IReviewSensor>();
+                    services.AddSingleton(deterministicSensor);
+                }
             });
+        }
+    }
+
+    private sealed class OrderingSensor(ConcurrentQueue<string> events) : IDeterministicEvidenceSensor
+    {
+        public string Id => "ordering-check";
+        public string Version => "1.0.0";
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(true));
+
+        public Task<SensorScanResult> RunAsync(
+            SensorScanRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            events.Enqueue("check");
+            var finding = new ReviewFinding(
+                "ordering-test-finding",
+                "analyzer",
+                FindingSeverity.Medium,
+                "Deterministic test finding",
+                "The configured deterministic check ran before review.",
+                "Keep deterministic checks ahead of model review.",
+                [new FindingLocation("Sample.cs")],
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "TEST1001",
+                Source: new FindingSource(
+                    FindingSourceKind.Deterministic, Id, "Ordering check", Version));
+            return Task.FromResult(new SensorScanResult(
+                true,
+                null,
+                [finding],
+                new SensorProvenance(
+                    Id, Version, "repository", ".", DateTimeOffset.UtcNow.ToString("O"),
+                    new Dictionary<string, string>())));
+        }
+    }
+
+    private sealed class OrderingExecutorFactory(ConcurrentQueue<string> events) : IReviewExecutorFactory
+    {
+        private readonly List<ReviewRequest> requests = [];
+        public IReadOnlyList<ReviewRequest> Requests
+        {
+            get
+            {
+                lock (requests) return requests.ToArray();
+            }
+        }
+
+        public IReviewExecutor Create(
+            string cliType,
+            string? model,
+            string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver,
+            Action<ReviewUsageEntry> usageRecorded) => new OrderingExecutor(events, requests);
+
+        private sealed class OrderingExecutor(
+            ConcurrentQueue<string> events,
+            List<ReviewRequest> requests) : IReviewExecutor
+        {
+            public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                events.Enqueue("model");
+                lock (requests) requests.Add(request);
+                return Task.FromResult(CapturedExecution(request, skippedFresh: false));
+            }
         }
     }
 
