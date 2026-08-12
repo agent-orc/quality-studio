@@ -4,12 +4,16 @@
   "title": "Quality Studio and Agent Studio Integration",
   "summary": "Decision dossier for converging Quality Studio review semantics with Agent Studio pipelines without merging product identities. It recommends a QS-owned finding envelope and portable change-review provider executed on Studio\u0027s existing fenced Review Plane, while Studio retains delivery grading, council policy, deterministic gates, integration, and lane authority. It verifies the current url-preview-embed navigation contract with QS as sender and Studio as the display-only receiver.",
   "entrypoint": "index.html",
-  "status": "decided",
+  "status": "documented",
   "phase": "implementation",
   "pattern": "concept",
-  "updatedAt": "2026-08-11T04:26:45Z",
+  "updatedAt": "2026-08-12T03:48:45Z",
   "sourceTaskKeys": [
     "QS-65"
+  ],
+  "relatedTaskKeys": [
+    "QS-74",
+    "QS-88"
   ],
   "implementationTasks": [
     {
@@ -33,5 +37,34 @@
       "promptMarkdown": "After paired operator review finds no lost blocking code issue or subject mismatch, implement Slice 5 from docs/operations/studio-integration/index.html. Replace only the narrow Studio code-quality aspect with the QS provider result. Retain requirement-fit, tests-and-evidence, documentation-impact, Delivery Grade, council, build/test gates, and integration policy. Route QS findings through Studio orchestration policy so QS never mutates a task directly. Add Open in Quality Studio evidence links using repository/path/kind/fingerprint and a per-project rollback switch for one release window. Prove one code-quality model call is removed and rollback does not rewrite history."
     }
   ],
+  "implementationState": {
+    "verifiedAt": "2026-08-12T03:48:45Z",
+    "verifiedByTask": "QS-88",
+    "qualityStudioSlices": [
+      {
+        "slice": 1,
+        "status": "delivered",
+        "taskKey": "QS-74",
+        "commit": "d7404cdf1e2a434bfcb3fcf5ab51d888c0c5d277"
+      },
+      {
+        "slice": 2,
+        "status": "delivered",
+        "taskKey": "QS-74",
+        "commit": "d7404cdf1e2a434bfcb3fcf5ab51d888c0c5d277"
+      }
+    ],
+    "verificationTask": {
+      "taskKey": "QS-88",
+      "status": "documented",
+      "evidence": "Real-browser embedded navigation and live no-write CLI artifact verified against the v1 contracts."
+    },
+    "nextSlice": {
+      "slice": 3,
+      "status": "external-dependency",
+      "targetProject": "Agent Studio",
+      "reason": "The Review Plane, ReviewArtifactEvidenceDto, task state, and cohort telemetry do not exist in the Quality Studio repository."
+    }
+  },
   "key": "QS-W6"
 }
