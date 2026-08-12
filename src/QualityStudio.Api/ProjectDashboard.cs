@@ -199,22 +199,19 @@ public sealed class ProjectDashboardService
             .ToArray();
         var hierarchyFilesByPath = hierarchyFiles.ToDictionary(node => node.Path, StringComparer.Ordinal);
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
+        var repositoryPaths = roots.Count == 1 &&
+                              roots[0].Id.StartsWith("qs-v1/generic/", StringComparison.Ordinal)
+            ? hierarchyFiles.Select(node => node.Path).Order(StringComparer.Ordinal).ToArray()
+            : EnumerateRepositoryFiles(root);
         var repositoryFiles = ReadRepositoryFileMetrics(
             root,
-            EnumerateRepositoryFiles(root),
+            repositoryPaths,
             hierarchyFilesByPath);
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
         var grades = BuildGrades(roots, projectPath);
         var findings = BuildFindings(hierarchy, projectPath);
-        var staleness = BuildStaleness(hierarchyFiles);
-        var reviewCoverage = new ProjectReviewCoverageResponse(
-            hierarchyFiles.Count(node => node.Documents.Count > 0),
-            hierarchyFiles.Length,
-            hierarchyFiles.Length == 0 ? 0 : Math.Round(
-                hierarchyFiles.Count(node => node.Documents.Count > 0) * 100d / hierarchyFiles.Length, 1),
-            hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
-            hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
+        var (staleness, reviewCoverage) = BuildReviewStatus(hierarchyFiles, projectPath);
         var dependencies = BuildDependencyEdges(root, hierarchy);
         var metrics = BuildStructuralMetrics(root, repositoryFiles, dependencies, navigationPaths, projectPath);
         var churn = hierarchyFiles.Length == 0
@@ -329,15 +326,44 @@ public sealed class ProjectDashboardService
                first.TryGetProperty("path", out var path) ? path.GetString() : null;
     }
 
-    private static ProjectStalenessResponse BuildStaleness(IReadOnlyList<HierarchyNode> files)
+    private static (ProjectStalenessResponse Staleness, ProjectReviewCoverageResponse ReviewCoverage)
+        BuildReviewStatus(IReadOnlyList<HierarchyNode> files, string fallbackPath)
     {
-        var fresh = files.Count(node => NodeReviewState(node) == "fresh");
-        var stale = files.Count(node => NodeReviewState(node) == "stale");
-        var missing = files.Count - fresh - stale;
-        var path = files.FirstOrDefault(node => NodeReviewState(node) == "stale")?.Path ??
-                   files.FirstOrDefault(node => NodeReviewState(node) == "missing")?.Path ??
-                   files.FirstOrDefault()?.Path ?? ".";
-        return new ProjectStalenessResponse(fresh, stale, missing, files.Count, path);
+        var fresh = 0;
+        var stale = 0;
+        var missing = 0;
+        var reviewed = 0;
+        string? firstFile = null;
+        string? firstStale = null;
+        string? firstMissing = null;
+        foreach (var file in files)
+        {
+            firstFile ??= file.Path;
+            if (file.Documents.Count > 0) reviewed++;
+            switch (NodeReviewState(file))
+            {
+                case "fresh":
+                    fresh++;
+                    break;
+                case "stale":
+                    stale++;
+                    firstStale ??= file.Path;
+                    break;
+                default:
+                    missing++;
+                    firstMissing ??= file.Path;
+                    break;
+            }
+        }
+
+        return (
+            new ProjectStalenessResponse(
+                fresh, stale, missing, files.Count, firstStale ?? firstMissing ?? firstFile ?? "."),
+            new ProjectReviewCoverageResponse(
+                reviewed,
+                files.Count,
+                files.Count == 0 ? 0 : Math.Round(reviewed * 100d / files.Count, 1),
+                firstMissing ?? firstFile ?? fallbackPath));
     }
 
     private static string NodeReviewState(HierarchyNode node) =>
@@ -598,7 +624,7 @@ public sealed class ProjectDashboardService
         IReadOnlyList<HierarchyNode> files, IReadOnlyDictionary<string, int> churn)
     {
         var result = new List<ProjectHotspotResponse>();
-        foreach (var file in files)
+        foreach (var file in files.Where(file => file.Documents.Count > 0 || churn.ContainsKey(file.Path)))
         {
             var findings = 0;
             int? grade = null;
@@ -693,16 +719,12 @@ public sealed class ProjectDashboardService
         string path,
         IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles)
     {
-        var absolute = Path.Combine(root, Native(path));
         var extension = Path.GetExtension(path);
         var language = Languages.GetValueOrDefault(extension);
-        if (!TextExtensions.Contains(extension) &&
-            hierarchyFiles.TryGetValue(path, out var hierarchyFile) &&
-            hierarchyFile.SizeBytes is { } knownSize)
-        {
-            return new FileMetric(path, knownSize, 0, language, null);
-        }
+        if (TryReadHierarchyMetric(path, extension, language, hierarchyFiles, out var knownMetric))
+            return knownMetric;
 
+        var absolute = Path.Combine(root, Native(path));
         var info = new FileInfo(absolute);
         if (!info.Exists) return null;
         var lines = 0;
@@ -737,11 +759,42 @@ public sealed class ProjectDashboardService
                 .ToArray();
 
         var metrics = new FileMetric?[paths.Count];
-        Parallel.For(0, paths.Count, new ParallelOptions
+        var deferred = new List<int>();
+        for (var index = 0; index < paths.Count; index++)
+        {
+            var path = paths[index];
+            var extension = Path.GetExtension(path);
+            if (TryReadHierarchyMetric(path, extension, Languages.GetValueOrDefault(extension), hierarchyFiles,
+                    out var knownMetric))
+                metrics[index] = knownMetric;
+            else
+                deferred.Add(index);
+        }
+
+        Parallel.ForEach(deferred, new ParallelOptions
         {
             MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 1, 32),
         }, index => metrics[index] = ReadFileMetric(root, paths[index], hierarchyFiles));
         return metrics.OfType<FileMetric>().ToArray();
+    }
+
+    private static bool TryReadHierarchyMetric(
+        string path,
+        string extension,
+        string? language,
+        IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles,
+        out FileMetric? metric)
+    {
+        if (!TextExtensions.Contains(extension) &&
+            hierarchyFiles.TryGetValue(path, out var hierarchyFile) &&
+            hierarchyFile.SizeBytes is { } knownSize)
+        {
+            metric = new FileMetric(path, knownSize, 0, language, null);
+            return true;
+        }
+
+        metric = null;
+        return false;
     }
 
     private static IReadOnlyList<string> EnumerateRepositoryFiles(string root)
