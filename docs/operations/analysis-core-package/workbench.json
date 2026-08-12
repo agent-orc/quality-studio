@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "Quality Studio Analysis Core Package",
+  "summary": "Implemented QS-91 dossier for an in-process QualityStudio.Analysis NuGet package, a stable named-analysis surface returning canonical Quality Studio findings, a real quality-cli caller, and relocation of Agent Studio HTTP handover into the API host. It answers that the core is useful without the UI and recommends keeping it in this repository until cadence, cross-repository automation, or public-policy criteria justify extraction.",
+  "entrypoint": "index.html",
+  "status": "decided",
+  "phase": "implementation",
+  "updatedAt": "2026-08-12T13:37:29Z",
+  "sourceTaskKeys": [
+    "QS-91",
+    "AGT-2655",
+    "QS-90"
+  ],
+  "relatedTaskKeys": [
+    "AGT-2655",
+    "QS-90"
+  ],
+  "decision": {
+    "coreUsefulWithoutUi": true,
+    "standaloneConsumers": [
+      "Agent Studio pipeline step AGT-2655",
+      "quality-cli",
+      "CI"
+    ],
+    "extractRepositoryNow": false,
+    "recommendation": "Keep the source in the Quality Studio repository while publishing and validating the NuGet boundary; revisit only when independent release cadence, automated cross-repository versioning compatible with the 0-PR pipeline, or public-repository policy requires extraction."
+  },
+  "evidence": [
+    "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+    "src/AgentOrchestrator.CodeQuality/AnalysisRunner.cs",
+    "src/AgentOrchestrator.CodeQuality/README.md",
+    "src/quality-cli/Program.cs",
+    "results:architecture-inventory.md",
+    "results:verification.json",
+    "results:package/QualityStudio.Analysis.0.1.0.nupkg"
+  ]
+}
