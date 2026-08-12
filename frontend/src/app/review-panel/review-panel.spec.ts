@@ -48,6 +48,7 @@ describe('ReviewPanel session flow', () => {
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
+    runReportViewUrl: (id: string) => `/api/repos/default/review/runs/${id}/report/view`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
     errorMessage: (error: unknown) => error instanceof Error ? error.message : 'request failed',
@@ -207,7 +208,11 @@ describe('ReviewPanel session flow', () => {
     expect(api.loadRunReport).toHaveBeenCalledWith('terminal');
     expect(api.loadRunTrend).toHaveBeenCalledWith('code', 'a', 'file');
     expect(fixture.nativeElement.querySelector('.run-detail-surface').textContent).toContain('complete snapshot');
-    expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
+    expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(5);
+    const openReport = fixture.nativeElement.querySelector('.run-report-open') as HTMLAnchorElement;
+    expect(openReport.textContent).toContain('Open HTML report');
+    expect(openReport.target).toBe('_blank');
+    expect(openReport.getAttribute('href')).toBe('/api/repos/default/review/runs/terminal/report/view');
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
   });

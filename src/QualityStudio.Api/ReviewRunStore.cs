@@ -39,7 +39,11 @@ public sealed record ReviewRunManifest(
     bool Force = false,
     string? ThinkingLevel = null,
     ReviewModelRecommendation? Recommendation = null,
-    bool RouteOverride = false);
+    bool RouteOverride = false)
+{
+    /// <summary>The Git commit captured before review work was enqueued.</summary>
+    public string? CommitSha { get; init; }
+}
 
 public sealed record ReviewRunFileTransition(
     string Path,

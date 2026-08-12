@@ -38,11 +38,14 @@ Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
   transition is appended, allowing recovery to publish the same captured evidence.
 
 At every terminal transition the API projects these immutable inputs into
-`.quality/reports/runs/<runId>.json`. This canonical, strict-schema snapshot is
-repository-owned durable history. A capped run publishes revision 1; resuming and
-finishing that run publishes a higher revision without repeating already completed
-operations. Renderers, API downloads, CLI gates, and run trends all consume this
-snapshot rather than mutable current sidecars. See
+`.quality/reports/runs/<runId>.json` and writes the self-contained calm-document
+projection to the adjacent `<runId>.html`. This canonical JSON plus its materialized
+human receipt is repository-owned durable history. The manifest captures the Git
+commit before enqueue so the HTML repository header identifies the reviewed SHA.
+A capped run publishes revision 1; resuming and finishing that run publishes a
+higher JSON and HTML revision without repeating already completed operations.
+Renderers, API downloads, CLI gates, and run trends all consume this snapshot
+rather than mutable current sidecars. See
 [`quality-reports.md`](quality-reports.md) for formats and trend semantics.
 
 Model options come from the governed Token Economy snapshot described in

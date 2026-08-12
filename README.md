@@ -201,7 +201,9 @@ dotnet run --project src/quality-cli -- report . --run <run-id> --format html --
 ```
 
 Run-scoped exports render the exact terminal snapshot captured under
-`.quality/reports/runs/`; they do not re-read mutable review sidecars. CI gates
+`.quality/reports/runs/`; every terminal revision keeps its self-contained HTML
+dossier beside the canonical JSON record. They do not re-read mutable review
+sidecars. The run detail can open that stored dossier directly, while CI gates
 use `--fail-under <score>` and `--fail-on <severity>`. See
 [`docs/quality-reports.md`](docs/quality-reports.md) for report semantics,
 endpoint formats, and documented exit codes.

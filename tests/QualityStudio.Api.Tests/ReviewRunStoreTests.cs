@@ -81,6 +81,11 @@ public sealed class ReviewRunStoreTests
             Assert.All(completedReport.Observations, observation => Assert.True(observation.ProducedByRun));
             Assert.DoesNotContain(fixture.RepositoryRoot, QualityRunReportJson.Serialize(completedReport),
                 StringComparison.OrdinalIgnoreCase);
+            Assert.True(File.Exists(reportStore.HtmlPathFor(completedReport.Run.Id)));
+            var materializedHtml = await File.ReadAllTextAsync(
+                reportStore.HtmlPathFor(completedReport.Run.Id), cancellationToken);
+            Assert.Contains("<h2>Verdicts</h2>", materializedHtml, StringComparison.Ordinal);
+            Assert.Contains("<h2>Token ledger</h2>", materializedHtml, StringComparison.Ordinal);
             var canonicalBeforeOverwrite = await File.ReadAllBytesAsync(
                 reportStore.PathFor(completedReport.Run.Id), cancellationToken);
             var mutableSidecar = Path.Combine(fixture.RepositoryRoot,
@@ -99,6 +104,13 @@ public sealed class ReviewRunStoreTests
             var exported = await jsonResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
             Assert.Equal(completedReport.Run.Id, exported.GetProperty("run").GetProperty("id").GetString());
             Assert.Equal(3, exported.GetProperty("observations").GetArrayLength());
+
+            using var viewResponse = await client.GetAsync(
+                $"/api/review/runs/{completedReport.Run.Id}/report/view", cancellationToken);
+            viewResponse.EnsureSuccessStatusCode();
+            Assert.Equal("text/html", viewResponse.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("inline", viewResponse.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.Equal(materializedHtml, await viewResponse.Content.ReadAsStringAsync(cancellationToken));
 
             using var sarifResponse = await client.GetAsync(
                 $"/api/review/runs/{completedReport.Run.Id}/report?format=sarif", cancellationToken);
@@ -381,6 +393,42 @@ public sealed class ReviewRunStoreTests
 
             Assert.Equal("done", run.GetProperty("state").GetString());
             Assert.Equal(progressBefore, await File.ReadAllTextAsync(progressPath, cancellationToken));
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Recovered_terminal_json_backfills_its_adjacent_html_receipt()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateRun("terminal-html-backfill", "failed");
+            var reportStore = new QualityRunReportStore(fixture.RepositoryRoot);
+
+            await using (var firstApplication = fixture.CreateApplication())
+            {
+                using var firstClient = firstApplication.CreateClient();
+                await firstClient.GetFromJsonAsync<JsonElement>(
+                    $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
+                Assert.True(File.Exists(reportStore.PathFor(stored.Manifest.RunId)));
+            }
+
+            File.Delete(reportStore.HtmlPathFor(stored.Manifest.RunId));
+            Assert.False(File.Exists(reportStore.HtmlPathFor(stored.Manifest.RunId)));
+
+            await using var recoveredApplication = fixture.CreateApplication();
+            using var recoveredClient = recoveredApplication.CreateClient();
+            await recoveredClient.GetFromJsonAsync<JsonElement>(
+                $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
+
+            Assert.True(File.Exists(reportStore.HtmlPathFor(stored.Manifest.RunId)));
+            Assert.Contains("data-run-revision=\"1\"", reportStore.LoadHtml(stored.Manifest.RunId),
+                StringComparison.Ordinal);
         }
         finally
         {

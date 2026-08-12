@@ -31,7 +31,7 @@
               <div class="run-report-state"><span class="status" [class.fresh]="report.run.completeness === 'complete'" [class.stale]="report.run.completeness === 'partial'"></span><b>{{ report.run.completeness }} snapshot</b><small>revision {{ report.run.revision }}</small></div>
               @if (report.summary.partialReason) { <p class="run-partial">{{ report.summary.partialReason }}</p> }
               <div class="run-summary-grid"><span><b>{{ report.summary.score ?? '—' }}</b><small>Score {{ report.summary.grade ?? 'unavailable' }}</small></span><span><b>{{ report.summary.findings.total }}</b><small>Active findings</small></span><span><b>{{ report.execution.reviewed }}</b><small>Reviewed</small></span><span><b>{{ report.execution.reusedFresh }}</b><small>Reused fresh</small></span></div>
-              <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
+              <nav class="run-exports" aria-label="Open or export run report"><a class="run-report-open" [href]="reportViewUrl(report.run.id)" target="_blank" rel="noopener">Open HTML report</a>@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
 
               <div class="section-title"><span>Run trend</span><small>Same kind, scope, and level</small></div>
               <div class="run-trend" role="list" aria-label="Comparable run trend">
