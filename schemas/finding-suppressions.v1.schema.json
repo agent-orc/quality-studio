@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality-studio.local/schemas/finding-suppressions.v1.schema.json",
+  "title": "Quality Studio exact-finding ignore list",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "revision", "rules"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "fingerprint", "reason", "author", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "author": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    }
+  }
+}

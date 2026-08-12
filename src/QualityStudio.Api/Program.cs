@@ -119,6 +119,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
         FindingStateConflictException => (StatusCodes.Status409Conflict, "Finding state changed"),
+        FindingSuppressionConflictException => (StatusCodes.Status409Conflict, "Finding ignore list changed"),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected API error"),
     };
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("QualityStudio.Api.Errors");
@@ -324,6 +325,12 @@ app.MapPost("/api/threads", MutateThread);
 app.MapPost("/api/repos/{repoId}/threads", MutateThread);
 app.MapPost("/api/findings/state", MutateFindingState);
 app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
+app.MapGet("/api/findings/suppressions", FindingSuppressions);
+app.MapGet("/api/repos/{repoId}/findings/suppressions", FindingSuppressions);
+app.MapPost("/api/findings/suppressions", AddFindingSuppression);
+app.MapPost("/api/repos/{repoId}/findings/suppressions", AddFindingSuppression);
+app.MapDelete("/api/findings/suppressions/{id}", RemoveFindingSuppression);
+app.MapDelete("/api/repos/{repoId}/findings/suppressions/{id}", RemoveFindingSuppression);
 
 app.Run();
 
@@ -507,6 +514,7 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
     var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var suppressions = new FindingSuppressionStore(repository.Root).Read();
     var coverage = CoverageProjection.ForPath(
         CoverageSnapshot.Load(repository.Root),
         CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD"),
@@ -515,7 +523,7 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     logger.LogInformation(new EventId(1101, "FileLoaded"),
         "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}) in {ElapsedMilliseconds} ms",
         relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
-    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates),
+    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates, suppressions),
         bytes.LongLength, lineEnding, encoding, coverage));
 }
 
@@ -615,6 +623,55 @@ static async Task<IResult> MutateFindingState(HttpContext context, FindingStateM
     logger.LogInformation(new EventId(1501, "FindingStateMutated"),
         "Set finding {FindingFingerprint} to {FindingState} for {FilePath} in repository {RepositoryId} by {Author}; ElapsedMilliseconds={ElapsedMilliseconds}",
         updated.Fingerprint, FindingStateStore.StateName(updated.State), relative, registration.Id, updated.Author, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(updated);
+}
+
+static IResult FindingSuppressions(HttpContext context, RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(new FindingSuppressionStore(repository.RootPath).Read());
+}
+
+static async Task<IResult> AddFindingSuppression(
+    HttpContext context,
+    FindingSuppressionMutationRequest request,
+    RepositoryRegistry registry,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var relative = repository.NormalizeRelativePath(request.Path);
+    var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    using (var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken)))
+    {
+        var found = metadata.RootElement.GetProperty("findings").EnumerateArray().Any(candidate =>
+            candidate.TryGetProperty("fingerprint", out var value) && value.GetString() == request.Fingerprint);
+        if (!found)
+            throw new KeyNotFoundException($"Finding '{request.Fingerprint}' was not found in the selected review.");
+    }
+
+    var updated = new FindingSuppressionStore(repository.Root).AddExact(
+        request.Fingerprint, request.Author, request.Reason, request.ExpiresAt, request.ExpectedRevision);
+    logger.LogInformation(new EventId(1502, "FindingIgnored"),
+        "Ignored finding {FindingFingerprint} for {FilePath} in repository {RepositoryId} by {Author}; Revision={Revision}; ElapsedMilliseconds={ElapsedMilliseconds}",
+        request.Fingerprint, relative, registration.Id, request.Author, updated.Revision, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(updated);
+}
+
+static IResult RemoveFindingSuppression(
+    HttpContext context,
+    string id,
+    long expectedRevision,
+    RepositoryRegistry registry,
+    ILogger<Program> logger)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var updated = new FindingSuppressionStore(repository.Root).Remove(id, expectedRevision);
+    logger.LogInformation(new EventId(1503, "FindingRestored"),
+        "Restored finding ignore rule {FindingSuppressionId} in repository {RepositoryId}; Revision={Revision}; ElapsedMilliseconds={ElapsedMilliseconds}",
+        id, registration.Id, updated.Revision, stopwatch.ElapsedMilliseconds);
     return Results.Ok(updated);
 }
 

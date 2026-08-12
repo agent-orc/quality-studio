@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, FindingSuppressionDocument, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -36,6 +36,11 @@ export class ReviewPanel {
   readonly stateStatus = signal('');
   readonly dispositionMode = signal<'accept' | 'dismiss' | 'reopen' | null>(null);
   readonly dismissState = signal<'waived' | 'false-positive'>('waived');
+  readonly ignoreFormOpen = signal(false);
+  readonly ignoreReason = signal('');
+  readonly ignoreExpiry = signal('');
+  readonly ignoreStatus = signal('');
+  readonly ignoreDocument = signal<FindingSuppressionDocument>({ schemaVersion: 1, revision: 0, rules: [] });
   readonly lastMutation = signal<LastFindingMutation | null>(null);
   readonly scopeManagerOpen = signal(false);
   readonly scopeAction = signal<'include' | 'exclude'>('exclude');
@@ -46,7 +51,7 @@ export class ReviewPanel {
   readonly scopeExpansionConfirmed = signal(false);
   readonly editingScopeRuleIndex = signal<number | null>(null);
   readonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');
-  readonly findingFilter = signal<'active' | FindingState | 'all'>('active');
+  readonly findingFilter = signal<'active' | FindingState | 'ignored' | 'all'>('active');
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
   readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
   readonly runDrawerOpen = signal(false);
@@ -74,6 +79,8 @@ export class ReviewPanel {
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
+  readonly ignoredFindingCount = computed(() => (this.activeMeta()?.findings ?? [])
+    .filter(finding => finding.suppressed).length);
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const severity = this.severityFilter();
@@ -86,7 +93,9 @@ export class ReviewPanel {
     return [...(this.activeMeta()?.findings ?? [])]
       .filter(finding => severity === 'all' || finding.severity === severity)
       .filter(finding => {
+        if (stateFilter === 'ignored') return !!finding.suppressed;
         if (stateFilter === 'all') return true;
+        if (finding.suppressed) return false;
         if (stateFilter === 'active') return state(finding) === 'open' || state(finding) === 'accepted';
         return state(finding) === stateFilter;
       })
@@ -116,8 +125,67 @@ export class ReviewPanel {
     const location = finding.locations[locationIndex];
     if (!location) return 'Location unavailable';
     if (this.activeState() === 'stale' || !location.range) return `${location.path} · source changed`;
-    const end = location.range.end.line === location.range.start.line ? '' : `-${location.range.end.line}`;
-    return `${location.path}:${location.range.start.line}${end}`;
+    const start = `${location.range.start.line}:${location.range.start.column}`;
+    const end = location.range.end.line === location.range.start.line && location.range.end.column === location.range.start.column
+      ? ''
+      : `-${location.range.end.line}:${location.range.end.column}`;
+    return `${location.path}:${start}${end}`;
+  }
+
+  openIgnoreForm(): void {
+    this.ignoreFormOpen.set(true);
+    this.ignoreReason.set('');
+    this.ignoreExpiry.set('');
+    this.ignoreStatus.set('');
+  }
+
+  async ignoreFinding(finding: ReviewFinding): Promise<void> {
+    const path = this.api.file()?.path;
+    const author = this.stateAuthor().trim();
+    const reason = this.ignoreReason().trim();
+    if (!path || !finding.fingerprint) { this.ignoreStatus.set('Finding identity is unavailable.'); return; }
+    if (!author || !reason) { this.ignoreStatus.set('Author and reason are required.'); return; }
+    this.ignoreStatus.set('Saving ignore list…');
+    try {
+      const current = await this.api.loadFindingSuppressions();
+      const updated = await this.api.ignoreFinding({
+        path, kind: this.activeKind(), fingerprint: finding.fingerprint, author, reason,
+        expiresAt: this.ignoreExpiry() ? new Date(this.ignoreExpiry()).toISOString() : null,
+        expectedRevision: current.revision,
+      });
+      this.ignoreDocument.set(updated);
+      const projected = this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind())?.findings
+        .find(candidate => candidate.fingerprint === finding.fingerprint);
+      if (projected) this.findingSelect.emit(projected);
+      this.ignoreFormOpen.set(false);
+      this.findingFilter.set('ignored');
+      this.ignoreStatus.set('Finding ignored. The observation remains in the ignore list.');
+    } catch (error) {
+      this.ignoreStatus.set((error as { status?: number }).status === 409
+        ? 'The ignore list changed elsewhere. Review the current list and try again.'
+        : this.api.errorMessage(error));
+    }
+  }
+
+  async restoreFinding(finding: ReviewFinding): Promise<void> {
+    const path = this.api.file()?.path;
+    const suppressionId = finding.suppression?.id;
+    if (!path || !suppressionId) return;
+    this.ignoreStatus.set('Restoring finding…');
+    try {
+      const current = await this.api.loadFindingSuppressions();
+      const updated = await this.api.restoreFinding(path, suppressionId, current.revision);
+      this.ignoreDocument.set(updated);
+      const projected = this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind())?.findings
+        .find(candidate => candidate.fingerprint === finding.fingerprint);
+      if (projected) this.findingSelect.emit(projected);
+      this.findingFilter.set('active');
+      this.ignoreStatus.set('Finding restored to the active queue.');
+    } catch (error) {
+      this.ignoreStatus.set((error as { status?: number }).status === 409
+        ? 'The ignore list changed elsewhere. Reload and try again.'
+        : this.api.errorMessage(error));
+    }
   }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }

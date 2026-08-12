@@ -511,6 +511,74 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Finding_ignore_list_persists_exact_observation_and_can_restore_it()
+    {
+        var fingerprint = "sha256:" + new string('e', 64);
+        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        Directory.CreateDirectory(metadataDirectory);
+        var metadataPath = Path.Combine(metadataDirectory, "file.ignore.review-meta.code.json");
+        var metadata = new JsonObject
+        {
+            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
+            ["reviewedAt"] = "2026-08-12T20:00:00.000Z",
+            ["kind"] = "code",
+            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
+            ["grade"] = new JsonObject { ["score"] = 70, ["band"] = "C", ["rationale"] = "One finding." },
+            ["summary"] = "One finding.",
+            ["findings"] = new JsonArray(new JsonObject
+            {
+                ["id"] = "finding-" + new string('e', 64),
+                ["fingerprint"] = fingerprint,
+                ["ruleId"] = "correctness.ignore-test",
+                ["aspect"] = "correctness",
+                ["severity"] = "medium",
+                ["title"] = "Persistent ignore fixture",
+                ["description"] = "The observation must remain projected.",
+                ["recommendation"] = "Retain it while muting by default.",
+                ["locations"] = new JsonArray(new JsonObject { ["path"] = "Sample.cs" }),
+            }),
+        };
+        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+
+        try
+        {
+            using var client = application!.CreateClient();
+            using var ignoredResponse = await client.PostAsJsonAsync("/api/findings/suppressions", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                author = "Ada",
+                reason = "Known generated-code behavior.",
+                expectedRevision = 0,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, ignoredResponse.StatusCode);
+            var ignoredDocument = await ignoredResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            var rule = Assert.Single(ignoredDocument.GetProperty("rules").EnumerateArray());
+
+            var after = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var finding = Assert.Single(Assert.Single(after.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.True(finding.GetProperty("suppressed").GetBoolean());
+            Assert.Equal("Known generated-code behavior.", finding.GetProperty("suppression").GetProperty("reason").GetString());
+            Assert.True(File.Exists(Path.Combine(repositoryRoot, FindingSuppressionStore.RelativePath)));
+
+            using var restoredResponse = await client.DeleteAsync(
+                $"/api/findings/suppressions/{rule.GetProperty("id").GetString()}?expectedRevision=1",
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, restoredResponse.StatusCode);
+            var restored = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var restoredFinding = Assert.Single(Assert.Single(restored.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.False(restoredFinding.GetProperty("suppressed").GetBoolean());
+        }
+        finally
+        {
+            File.Delete(metadataPath);
+        }
+    }
+
+    [Fact]
     public async Task Usage_returns_filtered_ledger_aggregates_and_recent_entries()
     {
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);

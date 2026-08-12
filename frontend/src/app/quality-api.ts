@@ -45,7 +45,9 @@ export interface FindingStateCounts { open: number; accepted: number; waived: nu
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
 export interface FindingSource { kind: 'deterministic'; sensorId: string; producer: string; producerVersion?: string; runIndex?: number; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+export interface FindingSuppressionRule { id: string; fingerprint: string; reason: string; author: string; createdAt: string; expiresAt?: string | null; }
+export interface FindingSuppressionDocument { schemaVersion: 1; revision: number; rules: FindingSuppressionRule[]; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; suppressed?: boolean; suppression?: FindingSuppressionRule; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
@@ -62,6 +64,7 @@ export interface DeterministicSensorResult { available: boolean; unavailableReas
 export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
 export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
+export interface FindingSuppressionMutationRequest { path: string; kind: ReviewKind; fingerprint: string; author: string; reason: string; expiresAt?: string | null; expectedRevision: number; }
 export type SecurityVerdict = 'pass' | 'warn' | 'block' | 'unavailable';
 export interface SecurityScanProvenance { scanner: string; version: string; mode: string; range: string | null; configPath: string | null; baselinePath: string | null; scannedAt: string; }
 export interface SecurityScanCounts { filesScanned: number; newFindings: number; acceptedFindings: number; blockFindings: number; warnFindings: number; cleanFiles: number; }
@@ -750,6 +753,26 @@ export class QualityApi {
     console.info(JSON.stringify({ event: 'qs.finding.state-mutated', fingerprint: request.fingerprint, path: request.path, state: request.state }));
     return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
       .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  loadFindingSuppressions(): Promise<FindingSuppressionDocument> {
+    return firstValueFrom(this.http.get<FindingSuppressionDocument>(`${this.repositoryApiBase()}/findings/suppressions`));
+  }
+
+  async ignoreFinding(request: FindingSuppressionMutationRequest): Promise<FindingSuppressionDocument> {
+    const response = await firstValueFrom(this.http.post<FindingSuppressionDocument>(
+      `${this.repositoryApiBase()}/findings/suppressions`, request));
+    await this.loadFile(request.path);
+    console.info(JSON.stringify({ event: 'qs.finding.ignored', fingerprint: request.fingerprint, path: request.path, revision: response.revision }));
+    return response;
+  }
+
+  async restoreFinding(path: string, id: string, expectedRevision: number): Promise<FindingSuppressionDocument> {
+    const response = await firstValueFrom(this.http.delete<FindingSuppressionDocument>(
+      `${this.repositoryApiBase()}/findings/suppressions/${encodeURIComponent(id)}?expectedRevision=${expectedRevision}`));
+    await this.loadFile(path);
+    console.info(JSON.stringify({ event: 'qs.finding.restored', suppressionId: id, path, revision: response.revision }));
+    return response;
   }
 
   async loadScopeRules(): Promise<ScopeRulesResponse> {

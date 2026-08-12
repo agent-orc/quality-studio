@@ -177,9 +177,9 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Implementation documented</span>
       <span><b>Recommendation</b> Approve option C</span>
-      <span><b>Evidence cut</b> 11 August 2026</span>
+      <span><b>Evidence cut</b> 12 August 2026</span>
       <span><b>Source card</b> QS-61</span>
     </div>
   </header>
@@ -627,6 +627,18 @@
         <tr><td><b>Model policy remains conservative</b></td><td>Actual model/level/CLI are captured. TE observational precision cannot cross the model-routing policy's correctness floors or claim controlled validation.</td></tr>
         <tr><td><b>Storage has clear ownership</b></td><td>Active run mutation remains behind <code>ReviewJobService</code>/<code>ReviewRunStore</code>; finding assessment and suppression use API services; terminal history is create-only.</td></tr>
         <tr><td><b>Both themes and keyboard paths work</b></td><td>Exact-span, overlap chooser, finding detail, assessment, and suppression preview have automated UI coverage and retained light/dark evidence.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation state</h2>
+    <p class="dim">Delivery ledger for the approved evidence-plane slices. Entries describe repository state precisely; a result/salvage reference is not presented as integrated mainline work.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card</th><th>State</th><th>What landed</th></tr></thead>
+      <tbody>
+        <tr><td>2026-08-11</td><td><code>QS-70</code></td><td><span class="pill part">Wave 1 result refs</span></td><td>Wave 1 implemented S1 exact-span rendering, S2 review-meta v3 evidence and route provenance, S3 independent assessment/resolution plus scoped suppression policy, and S4 immutable terminal history. The feature receipt is <code>cc9f6a4</code> with terminal-history hardening at <code>12d9891</code>. Those commits remain on task result/salvage refs and are not ancestors of <code>origin/main</code> at the QS-84 delivery cut.</td></tr>
+        <tr><td>2026-08-12</td><td><code>QS-84</code></td><td><span class="pill done">Documented</span></td><td>Delivered the two operator-confirmed product gaps on current <code>origin/main</code>: source ranges now split syntax tokens into exact, selected, overlapping, multi-line, Unicode-safe, and end-of-line finding spans with a keyboard-accessible overlap chooser; findings now have an API-owned, optimistic-concurrency exact-fingerprint Ignore list at <code>.quality/findings/suppressions.json</code>. Active views mute ignored findings, the Ignore list retains their observations and reasons, optional expiry re-exposes them, and Restore removes the policy entry. Production build, Angular component tests, .NET store/API tests, live route health, and retained before/after light/dark screenshots are recorded in the QS-84 result packet.</td></tr>
       </tbody>
     </table>
   </section>

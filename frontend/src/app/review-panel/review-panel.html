@@ -84,22 +84,23 @@
           }
         </section>
       }
-      <div class="section-title findings-heading"><span>Review queue</span><small>{{ visibleFindings().length }} visible</small></div>
+      <div class="section-title findings-heading"><span>Review queue</span><small>{{ visibleFindings().length }} visible · {{ ignoredFindingCount() }} ignored</small></div>
       <div class="finding-controls" aria-label="Finding filters">
-        <select aria-label="Finding state" [value]="findingFilter()" (change)="findingFilter.set($any($event.target).value)"><option value="active">Active</option><option value="open">Open</option><option value="accepted">Accepted</option><option value="waived">Waived</option><option value="false-positive">False positive</option><option value="all">All</option></select>
+        <select aria-label="Finding state" [value]="findingFilter()" (change)="findingFilter.set($any($event.target).value)"><option value="active">Active</option><option value="ignored">Ignore list ({{ ignoredFindingCount() }})</option><option value="open">Open</option><option value="accepted">Accepted</option><option value="waived">Waived</option><option value="false-positive">False positive</option><option value="all">All</option></select>
         <select aria-label="Finding severity" [value]="severityFilter()" (change)="severityFilter.set($any($event.target).value)"><option value="all">All severities</option>@for (severity of ['critical', 'high', 'medium', 'low', 'info']; track severity) { <option [value]="severity">{{ severity }}</option> }</select>
         <select aria-label="Finding sort" [value]="findingSort()" (change)="findingSort.set($any($event.target).value)"><option value="severity">Severity</option><option value="location">Location</option><option value="title">Title</option></select>
         <button type="button" aria-label="Previous finding" (click)="moveFinding(-1)">↑</button><button type="button" aria-label="Next finding" (click)="moveFinding(1)">↓</button>
       </div>
-      @for (finding of visibleFindings(); track finding.fingerprint ?? finding.id) { <button class="finding-card" [class.selected]="(selectedFinding()?.fingerprint ?? selectedFinding()?.id) === (finding.fingerprint ?? finding.id)" (click)="selectFindingLocation(finding)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><b>{{ finding.title }}</b><span class="finding-state">{{ finding.state ?? 'open' }}</span><small class="finding-location">{{ locationLabel(finding) }}</small><p>{{ finding.description }}</p></button> } @empty { <div class="empty-findings">No findings match these filters.</div> }
+      @for (finding of visibleFindings(); track finding.fingerprint ?? finding.id) { <button class="finding-card" [class.selected]="(selectedFinding()?.fingerprint ?? selectedFinding()?.id) === (finding.fingerprint ?? finding.id)" [class.ignored]="finding.suppressed" (click)="selectFindingLocation(finding)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><b>{{ finding.title }}</b><span class="finding-state">{{ finding.suppressed ? 'ignored' : (finding.state ?? 'open') }}</span><small class="finding-location">{{ locationLabel(finding) }}</small><p>{{ finding.description }}</p></button> } @empty { <div class="empty-findings">No findings match these filters.</div> }
       @if (selectedFinding(); as finding) {
         <section class="finding-detail" aria-live="polite">
           <span class="eyebrow">Selected finding</span><h3>{{ finding.title }}</h3>
           <div class="finding-location-list" aria-label="Finding locations">@for (location of finding.locations; track $index) { <button type="button" [disabled]="activeState() === 'stale' || !location.range" (click)="selectFindingLocation(finding, $index)">↗ {{ locationLabel(finding, $index) }} · {{ $index + 1 }} of {{ finding.locations.length }}</button> }</div>
           <b>Guideline</b><p>{{ finding.ruleId }}</p><div class="finding-state-summary"><b>{{ finding.state ?? 'open' }}</b>@if (finding.stateAuthor) { <span>{{ finding.stateAuthor }} · {{ finding.stateReason }}</span> }@if (finding.stateExpiresAt) { <span>Expires {{ scannedAt(finding.stateExpiresAt) }}</span> }</div>
+          @if (finding.suppression; as suppression) { <div class="finding-ignore-summary"><b>On ignore list</b><span>{{ suppression.author }} · {{ suppression.reason }}</span>@if (suppression.expiresAt) { <span>Expires {{ scannedAt(suppression.expiresAt) }}</span> }</div> }
           <p>{{ finding.description }}</p>@if (finding.evidence) { <b>Evidence and provenance</b><pre class="finding-evidence">{{ finding.evidence }}</pre> }<b>Recommendation</b><p>{{ finding.recommendation }}</p>
           <div class="finding-queue-nav"><button type="button" (click)="moveFinding(-1)">Previous</button><button type="button" (click)="moveFinding(1)">Next</button></div>
-          <div class="disposition-actions"><button type="button" (click)="openDisposition('accept')">Accept</button><button type="button" (click)="openDisposition('dismiss')">Dismiss</button><button type="button" (click)="openScopeManager(finding)">Ignore path…</button>@if ((finding.state ?? 'open') !== 'open') { <button type="button" (click)="openDisposition('reopen')">Reopen</button> }</div>
+          <div class="disposition-actions"><button type="button" (click)="openDisposition('accept')">Accept</button><button type="button" (click)="openDisposition('dismiss')">Dismiss</button>@if (finding.suppressed) { <button type="button" (click)="restoreFinding(finding)">Restore finding</button> } @else { <button type="button" (click)="openIgnoreForm()">Ignore finding…</button> }<button type="button" (click)="openScopeManager(finding)">Exclude path…</button>@if ((finding.state ?? 'open') !== 'open') { <button type="button" (click)="openDisposition('reopen')">Reopen</button> }</div>
           @if (dispositionMode(); as mode) {
             <div class="finding-state-form">
               @if (mode === 'accept') { <p class="disposition-consequence"><b>Accept as valid</b><span>The finding remains active and grade-affecting. You can create an implementation task after save.</span></p> }
@@ -111,8 +112,18 @@
               <div><button type="button" (click)="dispositionMode.set(null)">Cancel</button><button type="button" (click)="saveDisposition(finding)">Save {{ mode === 'dismiss' ? dismissState() : mode }}</button></div>
             </div>
           }
+          @if (ignoreFormOpen() && !finding.suppressed) {
+            <div class="finding-state-form finding-ignore-form">
+              <p class="disposition-consequence"><b>Ignore this exact finding</b><span>The finding fingerprint is muted across future runs. The observation stays stored and can be restored from the Ignore list.</span></p>
+              <input aria-label="Ignore author" [value]="stateAuthor()" (input)="stateAuthor.set($any($event.target).value)" placeholder="Author">
+              <textarea aria-label="Ignore reason" [value]="ignoreReason()" (input)="ignoreReason.set($any($event.target).value)" placeholder="Why should this exact finding be ignored?"></textarea>
+              <label>Optional expiry<input aria-label="Optional ignore expiry" type="datetime-local" [value]="ignoreExpiry()" (input)="ignoreExpiry.set($any($event.target).value)"></label>
+              <div><button type="button" (click)="ignoreFormOpen.set(false)">Cancel</button><button type="button" (click)="ignoreFinding(finding)">Add to Ignore list</button></div>
+            </div>
+          }
           @if (lastMutation(); as mutation) { <div class="disposition-toast" role="status"><span>Saved {{ mutation.appliedState }}.</span><button type="button" (click)="undoFindingState(finding)">Undo</button></div> }
           @if (stateStatus()) { <small class="state-status">{{ stateStatus() }}</small> }
+          @if (ignoreStatus()) { <small class="state-status" role="status">{{ ignoreStatus() }}</small> }
           @if (api.handoverConfigured() && ((finding.state ?? 'open') === 'accepted' || lastMutation()?.appliedState === 'accepted')) { <button class="create-task-button" (click)="createTask(finding)" [disabled]="handoverStatus()[activeKind() + ':' + finding.id] === 'Creating…'">{{ handoverStatus()[activeKind() + ':' + finding.id] || (api.handoverDryRun() ? 'Create implementation task · dry run' : 'Create implementation task') }}</button> }
         </section>
       }
