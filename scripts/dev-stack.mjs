@@ -14,6 +14,9 @@ const defaultWebPort = Number(process.env.QUALITY_STUDIO_PRODUCT_PORT ?? 4200);
 const defaultHost = process.env.QUALITY_STUDIO_HOST ?? '127.0.0.1';
 const defaultTimeoutMs = Number(process.env.QUALITY_STUDIO_START_TIMEOUT_MS ?? 120000);
 const npmCommand = process.env.QUALITY_STUDIO_NPM_COMMAND ?? (process.platform === 'win32' ? 'npm.cmd' : 'npm');
+const npmCommandPrefix = process.env.QUALITY_STUDIO_NPM_SCRIPT
+  ? [process.execPath, resolvePath(process.env.QUALITY_STUDIO_NPM_SCRIPT)]
+  : [npmCommand];
 
 const args = parseArgs(process.argv.slice(2));
 const state = {
@@ -114,7 +117,7 @@ async function ensureInstall(parsedArgs, repoRoot, frontendRoot, apiPort, webPor
   if (installState.ready) return;
 
   console.log(formatLog('install', installState.reason));
-  await runCommand('install', npmCommand, ['ci'], { cwd: frontendRoot });
+  await runCommand('install', npmCommandPrefix[0], [...npmCommandPrefix.slice(1), 'ci'], { cwd: frontendRoot });
 }
 
 function frontendInstallState(frontendRoot) {
@@ -153,7 +156,7 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
   }
 
   return [
-    npmCommand,
+    ...npmCommandPrefix,
     'start',
     '--',
     '--host',

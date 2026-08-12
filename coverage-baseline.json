@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "measuredAt": "2026-08-12",
+  "projects": [
+    {
+      "id": "AgentOrchestrator.CodeQuality",
+      "featureArea": "Core, CLI, sensors, and review execution",
+      "format": "cobertura",
+      "reportRoot": "artifacts/coverage/core",
+      "reportFile": "coverage.cobertura.xml",
+      "minimumLineRate": 0.7968
+    },
+    {
+      "id": "QualityStudio.Api",
+      "featureArea": "API, registry, lifecycle, and persistence",
+      "format": "cobertura",
+      "reportRoot": "artifacts/coverage/api",
+      "reportFile": "coverage.cobertura.xml",
+      "minimumLineRate": 0.4193
+    },
+    {
+      "id": "frontend",
+      "featureArea": "Angular product surfaces",
+      "format": "lcov",
+      "reportRoot": "frontend/coverage/frontend",
+      "reportFile": "lcov.info",
+      "minimumLineRate": 0.5730706075533662
+    }
+  ]
+}

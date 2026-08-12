@@ -8,11 +8,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using AgentOrchestrator.CodeQuality;
 using CodingAgentRunner.Quota;
+using QualityStudio.Testing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class ApiSmokeTests : IAsyncLifetime
 {
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-tests", Guid.NewGuid().ToString("N"));
@@ -744,22 +746,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
     private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
     {
-        using var process = new System.Diagnostics.Process
+        if (arguments is ["init", "--quiet"])
         {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = workingDirectory,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
+            await GitFixture.InitializeAsync(workingDirectory, TestContext.Current.CancellationToken);
+            return;
         }
-
-        process.Start();
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
+        await GitFixture.RunAsync(workingDirectory, TestContext.Current.CancellationToken, arguments);
     }
 
     private sealed class TestApplication(string root, string contentRoot) : WebApplicationFactory<Program>

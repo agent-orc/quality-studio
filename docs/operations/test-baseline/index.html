@@ -143,7 +143,7 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> decided</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
@@ -547,6 +547,24 @@
     <h4>Evidence limits</h4>
     <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
   </div>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <p class="dim">Append-only delivery receipts. The operator approved Option B and all five slices on 11 August 2026; the dossier status is decided.</p>
+
+  <h3>12 August 2026 · QS-75 · Slice 1 — delivered</h3>
+  <p>The required workflow now pins .NET 10.0.301 and Node 22.23.1; restores and builds Release; filters <code>MachineBound</code> tests; installs the locked frontend; explicitly provisions the Playwright Chromium pinned by that lock; runs the production Angular build, all Angular specs, the coverage contract, and pinned Gitleaks; and publishes coverage artifacts. Browser discovery now resolves the provisioned Playwright binary and has direct Node tests. The unchanged 480 kB production ceiling passes at 478.30 kB on this delivery. README commands and CI claims now describe the same gate.</p>
+
+  <h3>12 August 2026 · QS-75 · Slice 2 — delivered</h3>
+  <p>The launcher fixture uses an operating-system-neutral Node stub, all test ports are dynamically allocated, and early API/web exits assert that captured child output remains diagnostic. The five launcher cases pass on Linux and run as a separate required Linux/Windows matrix. Temporary Git repositories now share one builder for initialization, identity, fixed timestamps, line endings, process diagnostics, and asynchronous execution.</p>
+
+  <h3>12 August 2026 · QS-75 · Slice 3 — delivered</h3>
+  <p>The ten process-spawning xUnit classes were audited and declare their Git or Git-and-process boundary as traits. Incidental Git setup was moved to the shared deterministic fixture; the two intentional host-timing assertions retain <code>MachineBound</code>. The portable workflow excludes that category, while the release canary selects it explicitly and retains three TRX samples plus host metadata.</p>
+
+  <h3>12 August 2026 · QS-75 · Slice 4 — partially delivered</h3>
+  <p>Both .NET assemblies now generate Cobertura through pinned Coverlet 10.0.1, Angular generates lcov and Cobertura, CI rejects missing or unreadable reports, and <code>coverage-baseline.json</code> ratchets the first measured project/feature-area line baselines: core and CLI 79.68%, API 41.93%, and Angular 57.31%. Parser and regression behavior have direct Node tests. The current 39-case Angular suite includes editor navigation and review panel/action coverage added before this card and now runs in the required lane. This card does not claim the remaining direct positive/failure HTTP tests for every mutation route or a separate real-API browser journey; those feature-test additions were left out to keep this delivery coherent.</p>
+
+  <h3>12 August 2026 · QS-75 · Slice 5 — automation delivered; runner activation required</h3>
+  <p>A scheduled and manually dispatchable release-canary workflow targets the <code>quality-studio-canary</code> self-hosted Linux label. It retains host metadata, three samples of both machine-bound xUnit checks, three samples of both frontend performance stages, JSON, screenshots, logs, and TRX. The live-agent test is an explicit opt-in intended only after review-execution changes. Repository automation is complete; an operator-managed runner with that label and the corresponding release rule must exist before a recent green canary can be enforced outside this repository.</p>
 </main>
 </body>
 </html>

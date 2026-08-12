@@ -1,8 +1,10 @@
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 using System.Diagnostics;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class RepositoryHierarchyBuilderTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), $"quality-studio-{Guid.NewGuid():N}");
@@ -179,15 +181,12 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
 
     private void RunGit(params string[] arguments)
     {
-        var startInfo = new ProcessStartInfo("git")
+        if (arguments is ["init", "--quiet"])
         {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+            GitFixture.Initialize(root);
+            return;
+        }
+        GitFixture.Run(root, arguments);
     }
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)

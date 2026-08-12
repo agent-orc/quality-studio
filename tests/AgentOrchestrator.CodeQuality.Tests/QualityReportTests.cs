@@ -1,9 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class QualityReportTests
 {
     [Fact]
@@ -261,20 +263,12 @@ public sealed class QualityReportTests
 
         private static async Task RunGitAsync(string root, params string[] arguments)
         {
-            using var process = new System.Diagnostics.Process
+            if (arguments is ["init", "--quiet"])
             {
-                StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-                {
-                    WorkingDirectory = root,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            var error = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, error);
+                await GitFixture.InitializeAsync(root, TestContext.Current.CancellationToken);
+                return;
+            }
+            await GitFixture.RunAsync(root, TestContext.Current.CancellationToken, arguments);
         }
 
         public void Dispose()

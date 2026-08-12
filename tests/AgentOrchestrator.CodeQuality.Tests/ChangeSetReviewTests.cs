@@ -4,9 +4,11 @@ using System.Text;
 using System.Text.Json;
 using AgentOrchestrator.CodeQuality;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Boundary", "Git")]
 public sealed class ChangeSetReviewTests
 {
     [Fact]
@@ -309,11 +311,8 @@ public sealed class ChangeSetReviewTests
         public static async Task<TestRepository> CreateAsync()
         {
             var root = Path.Combine(Path.GetTempPath(), "quality-change-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(root);
+            await GitFixture.InitializeAsync(root, TestContext.Current.CancellationToken);
             var repository = new TestRepository(root);
-            await repository.GitAsync("init", "--quiet");
-            await repository.GitAsync("config", "user.email", "quality-tests@example.test");
-            await repository.GitAsync("config", "user.name", "Quality Tests");
             return repository;
         }
 
@@ -373,23 +372,7 @@ public sealed class ChangeSetReviewTests
 
         private async Task<string> GitAsync(params string[] arguments)
         {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo("git")
-                {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-            var error = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
-            return output;
+            return await GitFixture.RunAsync(Root, TestContext.Current.CancellationToken, arguments);
         }
 
         public void Dispose()
