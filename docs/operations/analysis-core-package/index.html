@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>In-process analysis core package | QS-91</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --surface: #fbfbfa;
+      --surface-subtle: #f2f1ee;
+      --ink: #171716;
+      --muted: #64625e;
+      --line: #d8d5ce;
+      --accent: #315f9d;
+      --accent-soft: #eaf0f8;
+      --ok: #286a3d;
+      --ok-soft: #e9f3eb;
+      --warn: #805f18;
+      --warn-soft: #f6efdc;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #1b1b1a;
+        --surface-subtle: #252523;
+        --ink: #f4f3ef;
+        --muted: #bbb8af;
+        --line: #41403c;
+        --accent: #8eb7ee;
+        --accent-soft: #202d40;
+        --ok: #83c895;
+        --ok-soft: #203126;
+        --warn: #dfbe70;
+        --warn-soft: #342f20;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--surface); color: var(--ink); font: 16px/1.58 system-ui, sans-serif; }
+    main { max-width: 1040px; margin: 0 auto; padding: 42px 28px 72px; }
+    header { border-bottom: 1px solid var(--line); padding-bottom: 26px; }
+    .kicker { margin: 0 0 8px; color: var(--muted); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(30px, 5vw, 44px); line-height: 1.12; }
+    .lede { max-width: 70ch; margin: 14px 0 0; color: var(--muted); font-size: 18px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 18px; color: var(--muted); font-size: 14px; }
+    h2 { margin: 48px 0 10px; font-size: 25px; }
+    h3 { margin: 30px 0 8px; font-size: 18px; }
+    p, li { max-width: 78ch; }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    code { padding: 1px 5px; border-radius: 4px; background: var(--surface-subtle); font: 13px/1.5 ui-monospace, monospace; }
+    pre { overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-subtle); }
+    pre code { padding: 0; background: transparent; }
+    .decision { margin: 26px 0; padding: 18px 20px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 9px; background: var(--accent-soft); }
+    .decision strong { display: block; margin-bottom: 5px; }
+    .note { padding: 15px 18px; border-left: 4px solid var(--warn); background: var(--warn-soft); }
+    .done { padding: 15px 18px; border-left: 4px solid var(--ok); background: var(--ok-soft); }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0 28px; font-size: 14px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 5px 0; }
+    .flow { display: grid; grid-template-columns: 1fr auto 1.2fr auto 1fr; gap: 10px; align-items: center; margin: 22px 0; }
+    .node { min-height: 110px; padding: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-subtle); }
+    .node b { display: block; margin-bottom: 5px; }
+    .node small { color: var(--muted); }
+    .arrow { color: var(--muted); font-size: 22px; }
+    footer { margin-top: 54px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    @media (max-width: 760px) {
+      main { padding-inline: 18px; }
+      .flow { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); justify-self: center; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="kicker">Architecture and implementation dossier · QS-91</p>
+    <h1>Quality analysis is an in-process library</h1>
+    <p class="lede">The first package slice turns the existing Quality Studio kernel into a publishable NuGet boundary with a named-analysis facade. Agent Studio pipelines, the CLI, and CI can call the DLL directly. The Quality Studio API remains an adapter and the Angular UI remains a client of that API.</p>
+    <div class="meta">
+      <span><b>Status:</b> first slice implemented</span>
+      <span><b>Evidence cut:</b> 12 August 2026</span>
+      <span><b>Source baseline:</b> 59941d8</span>
+      <span><b>Publication:</b> not performed</span>
+    </div>
+  </header>
+
+  <section class="decision">
+    <strong>Decision</strong>
+    Use <code>AgentOrchestrator.CodeQuality</code> as the in-process analysis package. Do not route repository analysis through the Quality Studio HTTP API. Keep the package in this repository for now; reconsider repository extraction only when the release, compatibility, and public-source criteria in section 07 are met.
+  </section>
+
+  <section id="inventory">
+    <h2>01 · Current-state inventory</h2>
+    <p>The solution already had the right dependency direction: three .NET hosts referenced one core project and the Angular application called the API. It lacked a single programmatic entry point, complete package metadata, retained package artifacts, and a strict host-integration boundary.</p>
+    <table>
+      <thead><tr><th>Area</th><th>Role and dependency</th><th>Boundary finding</th></tr></thead>
+      <tbody>
+        <tr><td><b>AgentOrchestrator.CodeQuality</b></td><td>Class library containing the finding/review contracts, hierarchy, hashing, staleness, sensors, agent reviewers, change review, reporting, and repository input resolution. Its only NuGet dependency is <code>CodingAgentRunner 0.7.0</code> plus two transitive abstractions packages.</td><td>It already was the analysis kernel, but callers assembled individual sensors and services directly. Before this slice it also contained the concrete Agent Studio HTTP task client and the Guidelines UI starter content.</td></tr>
+        <tr><td><b>QualityStudio.Api</b></td><td>ASP.NET Core host. It references the core project and now declares its own direct <code>CodingAgentRunner</code> dependency for quota hosting. It owns repository registration, confinement, authentication, rate limiting, background review jobs, API DTOs, and response translation.</td><td>This is the correct home for outbound Agent Studio HTTP handover/import and the current UI compatibility rule catalogue.</td></tr>
+        <tr><td><b>quality-cli</b></td><td>The feature-complete command host for scan, review, security, boundaries, flow, reports, and change review. It references the core project.</td><td><code>boundaries scan</code> is the first real caller of the new named-analysis facade. Other commands still call lower-level core services and can migrate incrementally.</td></tr>
+        <tr><td><b>quality</b></td><td>A second, smaller executable with hierarchy scan, security, and diff commands. It also references the core project and emits the same <code>quality</code> assembly/tool name from a separate output path.</td><td>No deprecation is declared. Consolidating the two command hosts is a later packaging decision, not part of QS-91.</td></tr>
+        <tr><td><b>Angular frontend</b></td><td>Independent Angular 20 application. Its <code>QualityApi</code> uses relative <code>/api</code> routes; it has no .NET project dependency.</td><td>It remains a presentation client. No frontend code changed in this slice.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Where HTTP concerns leaked</h3>
+    <p>The actionable leak was <code>AgentStudioTaskClient</code>: it used <code>HttpClient</code>, knew Agent Studio URLs and headers, serialized task API payloads, and performed project discovery from inside the package. It now lives in <a href="../../../src/QualityStudio.Api/AgentStudioTaskClient.cs">QualityStudio.Api</a>, with its tests alongside the API tests.</p>
+    <p>The core still uses <code>HttpClient</code> only for analysis-owned Gitleaks tool provisioning, and <code>System.Net.WebUtility</code> only for report encoding. Those are library implementation details, not an API-host dependency. An assembly-boundary test proves that the core has no <code>Microsoft.AspNetCore*</code> reference and no Agent Studio HTTP client type.</p>
+  </section>
+
+  <section id="target">
+    <h2>02 · Target split</h2>
+    <div class="flow" role="img" aria-label="Pipeline, CLI, API and CI call the in-process core; only the Quality Studio UI calls the API">
+      <div class="node"><b>Server-side consumers</b><small>AGT-2655 pipeline step<br>quality-cli<br>CI runner</small></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>AgentOrchestrator.CodeQuality.dll</b><small>named analyses · config · findings · provenance<br>no ASP.NET or UI dependency</small></div>
+      <div class="arrow">←</div>
+      <div class="node"><b>QualityStudio.Api</b><small>HTTP adapter · jobs · auth · repository registry<br>Angular UI calls this host</small></div>
+    </div>
+    <table>
+      <thead><tr><th>Layer</th><th>Owns</th><th>Must not own</th></tr></thead>
+      <tbody>
+        <tr><td><b>Analysis core package</b></td><td>Stable request/result contracts, QS findings, named analysis registry, built-in sensors/reviewers, parsing, hashing, provenance, cancellation, repository scope, optional artifact writes.</td><td>HTTP routes, auth, rate limits, UI DTOs, repository registration, task lanes, Git/worktree mutation, Agent Studio HTTP calls.</td></tr>
+        <tr><td><b>API host</b></td><td>Transport, tenant/repository access, background jobs, host configuration, handover, UI compatibility adapters, delayed persistence/ingestion.</td><td>A second implementation of analysis semantics or findings.</td></tr>
+        <tr><td><b>Angular UI</b></td><td>Browsing, interaction, and later display of persisted/ingested findings.</td><td>Analysis execution or direct repository access.</td></tr>
+      </tbody>
+    </table>
+    <p class="note"><b>Finding delivery is asynchronous by design.</b> An Agent Studio pipeline step receives findings immediately in memory. Quality Studio UI visibility may follow through a later artifact ingestion or repository-owned metadata path; no live HTTP callback is required.</p>
+  </section>
+
+  <section id="contract">
+    <h2>03 · Stable programmatic surface</h2>
+    <p><a href="../../../src/AgentOrchestrator.CodeQuality/QualityAnalysisCore.cs"><code>QualityAnalysisCore</code></a> is the public facade. A caller supplies an absolute or relative repository path, one or more stable analysis names, per-analysis string configuration, optional repository/path scope, and an explicit write policy. The result contains one named result per request plus a flattened <code>ReviewFinding</code> list.</p>
+    <pre><code>var result = await QualityAnalysisCore.CreateDefault().RunAsync(
+    new QualityAnalysisRequest(
+        repositoryPath,
+        [new NamedQualityAnalysis(QualityAnalysisNames.Boundaries)]));
+
+foreach (ReviewFinding finding in result.Findings)
+    Consume(finding);</code></pre>
+    <p><code>PersistArtifacts</code> defaults to <code>false</code>. This keeps pipeline and CI calls read-only unless the hosting backend intentionally requests repository-owned <code>.quality</code> output. The package never performs Git commits, pushes, merges, or worktree management.</p>
+    <p>The default registry exposes <code>boundaries</code>, <code>coverage</code>, <code>dependencies</code>, <code>eslint</code>, <code>gitleaks</code>, <code>roslyn</code>, <code>sarif</code>, and <code>tsc</code>. Tool absence is returned as availability/provenance rather than translated to an HTTP status.</p>
+  </section>
+
+  <section id="standalone">
+    <h2>04 · Operator question 1: useful without the UI?</h2>
+    <div class="done"><b>Yes.</b> The UI is not required to select analyses, inspect availability, receive findings, apply a gate, or retain evidence.</div>
+    <table>
+      <thead><tr><th>Standalone consumer</th><th>Concrete use</th><th>Package capability required</th></tr></thead>
+      <tbody>
+        <tr><td><b>Agent Studio pipeline step AGT-2655</b></td><td>At the exact server-side repository snapshot, run the policy-selected named analyses in process and attach QS findings/provenance to the existing pipeline evidence. Agent Studio remains responsible for fences, retry, gate policy, lanes, and artifact retention.</td><td>No-write default, cancellation, deterministic names, configuration, QS finding/envelope contracts, explicit unavailable results, built-in analyzers and reviewers.</td></tr>
+        <tr><td><b>quality-cli</b></td><td>Local engineering and automation. The implemented proof routes <code>quality boundaries scan</code> through the facade and intentionally enables repository artifact persistence.</td><td>Same DLL surface plus human/CI exit-code translation in the CLI host.</td></tr>
+        <tr><td><b>CI</b></td><td>A small .NET runner or the CLI can run selected checks, publish JSON/SARIF, and fail according to CI-owned severity policy without deploying Quality Studio.</td><td>Serializable findings, provenance, stable package version, documented external-tool requirements, and zero implicit Git operations.</td></tr>
+      </tbody>
+    </table>
+    <p>The package must therefore include contracts, the facade/registry, built-in analysis implementations, repository path/scope handling, input resolution, hashing, provenance, cancellation, and the agent-runner integration needed by agent-backed reviews. API hosting, UI assets, and Agent Studio task APIs are expressly excluded.</p>
+  </section>
+
+  <section id="rules">
+    <h2>05 · QS-90 rule-library boundary</h2>
+    <p>QS-90 is content, not the execution engine. The desired dependency is one way: a host selects and version-pins an immutable rule-library snapshot, then supplies its resolved content/configuration to the core. The core records rule identity and provenance while remaining agnostic to catalogue discovery, marketplace installation, or UI editing.</p>
+    <ul>
+      <li>The first-slice package has no QS-90 package reference.</li>
+      <li>Repository and global review inputs remain caller-supplied content; named deterministic analyses accept per-analysis configuration.</li>
+      <li>The existing four-entry Guidelines UI starter catalogue moved from the core into the API as a compatibility adapter, so it is not shipped as analysis-core policy.</li>
+      <li>Versioned execution prompts and the attack/model protocol snapshots remain in the core because they define current executor behavior. They should not become a general-purpose rules marketplace.</li>
+    </ul>
+  </section>
+
+  <section id="package">
+    <h2>06 · First-slice implementation receipt</h2>
+    <table>
+      <thead><tr><th>Change</th><th>Receipt</th></tr></thead>
+      <tbody>
+        <tr><td>Publishable package</td><td>Package ID/assembly/root namespace <code>AgentOrchestrator.CodeQuality</code>, version <code>0.1.0</code>, Apache-2.0, repository metadata, English package README, symbols package, and .NET 10 target.</td></tr>
+        <tr><td>Stable facade</td><td>Named multi-analysis request, per-analysis configuration and scope, no-write default, QS findings, availability and provenance, discovery, cancellation, and clear unknown-name errors.</td></tr>
+        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. A temporary fixture produced 15 structured findings and the expected repository artifact.</td></tr>
+        <tr><td>Host separation</td><td>Agent Studio HTTP client/tests and starter rule content moved to the API boundary. API routes and Angular source are unchanged.</td></tr>
+        <tr><td>Release rail</td><td>CI now packs <code>.nupkg</code>/<code>.snupkg</code> and retains them as a workflow artifact. It does not publish.</td></tr>
+      </tbody>
+    </table>
+    <p>Package usage is documented in the <a href="../../../src/AgentOrchestrator.CodeQuality/README.md">English NuGet README</a>. Collected artifacts and machine-readable test evidence are under the task server's <code>QS-91/results</code> directory.</p>
+  </section>
+
+  <section id="extraction">
+    <h2>07 · Operator question 2: extract the core repository?</h2>
+    <div class="decision"><strong>Recommendation: do not extract now.</strong>The package boundary creates the necessary decoupling without immediately adding a repository, feed, release, and coordinated-version boundary. Extraction remains an operator decision after the criteria below are observable.</div>
+    <table>
+      <thead><tr><th>Criterion</th><th>Keep in this repository now</th><th>Evidence that would support extraction</th></tr></thead>
+      <tbody>
+        <tr><td><b>Release cadence coupling</b></td><td>The facade, finding contracts, sensors, API adapters, and CLI are still stabilizing together. One repository gives atomic contract/refactor tests.</td><td>Core releases on a materially different cadence for at least two release cycles, and most core changes no longer require API/CLI changes.</td></tr>
+        <tr><td><b>Cross-repo versioning versus the 0-PR pipeline</b></td><td>A separate repository would require publish-before-consume ordering, feed/bootstrap availability, dependency update PRs or an exception to the 0-PR flow, and cross-repository compatibility tests.</td><td>Agent Studio can consume pinned packages without adding PR/manual coordination, supports rollback and compatibility matrices, and has an accepted pre-release promotion path.</td></tr>
+        <tr><td><b>Public-repository policy</b></td><td>The current repository is Apache-2.0 and already contains prompts, sensors, and contracts, but package namespace ownership and the policy for future QS-90 content have not been reconfirmed for extraction.</td><td>The operator approves what code/rule content may be public, NuGet organization and ID-prefix ownership are confirmed, maintainers and disclosure/security handling are assigned.</td></tr>
+        <tr><td><b>Consumer pressure</b></td><td>Known consumers are first-party and can use a package built from this repository.</td><td>Two or more independently released consumers need a supported SemVer contract and cannot reasonably track this repository.</td></tr>
+        <tr><td><b>Operational ownership</b></td><td>One CI can test core, CLI, and API together and retain the package without publishing it.</td><td>A separate owner accepts release automation, vulnerability response, deprecation policy, compatibility CI, documentation, and feed availability.</td></tr>
+      </tbody>
+    </table>
+    <p>If the criteria are met, extraction should preserve history, begin from a tagged package contract, and leave package-based consumers in this repository. Until then, a physical repository split would create coordination cost without improving the runtime or security boundary.</p>
+  </section>
+
+  <section id="verification">
+    <h2>08 · Verification and remaining work</h2>
+    <ul>
+      <li>Release build: succeeded with zero warnings and zero errors.</li>
+      <li>Core tests: 156 passed; one live-agent integration test skipped by its explicit opt-in guard.</li>
+      <li>API/handover/dashboard focused tests: 31 passed.</li>
+      <li>Package: <code>AgentOrchestrator.CodeQuality.0.1.0.nupkg</code> and symbols package created; archive contains the DLL and README, with the expected NuGet dependency.</li>
+      <li>CLI proof: in-process boundary analysis produced findings and a repository-owned inventory in a temporary fixture.</li>
+    </ul>
+    <p class="note"><b>Observed test noise:</b> one full-suite run exceeded the existing 150 ms dashboard timing assertion (255 ms) while running both test assemblies concurrently. The same dashboard suite passed in the focused rerun. This is recorded as an environmental performance fluctuation, not hidden as a clean first attempt.</p>
+    <h3>Next slices, not required for this proof</h3>
+    <ol>
+      <li>Add AGT-2655 as a package consumer and persist its transport-neutral result artifact; keep Studio gate/lane policy outside this DLL.</li>
+      <li>Migrate the remaining CLI commands from direct service construction to the facade where the generic result is sufficient.</li>
+      <li>Define the immutable QS-90 rule snapshot/adapter after QS-90's content contract lands.</li>
+      <li>Before any public publish, reconfirm NuGet ID ownership, public-repository policy, signing/provenance, and release approval.</li>
+    </ol>
+  </section>
+
+  <footer>Quality Studio · QS-91 · calm architecture record · generated from repository evidence on 12 August 2026</footer>
+</main>
+</body>
+</html>

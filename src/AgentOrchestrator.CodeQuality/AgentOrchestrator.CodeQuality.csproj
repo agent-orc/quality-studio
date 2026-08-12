@@ -1,10 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
+    <AssemblyName>AgentOrchestrator.CodeQuality</AssemblyName>
+    <PackageId>AgentOrchestrator.CodeQuality</PackageId>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <Title>Agent Orchestrator Code Quality</Title>
+    <Description>In-process Quality Studio analysis, finding contracts, repository sensors, and review primitives for pipelines, CLIs, and CI.</Description>
+    <PackageTags>agent-orchestrator;quality;analysis;code-review;static-analysis</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>

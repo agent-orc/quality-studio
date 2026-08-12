@@ -244,15 +244,19 @@ public static class QualityCli
         {
             var path = args.Length == 2 ? args[1] : ".";
             var stopwatch = Stopwatch.StartNew();
-            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
+            var result = await QualityAnalysisCore.CreateDefault().RunAsync(new QualityAnalysisRequest(
+                path,
+                [new NamedQualityAnalysis(QualityAnalysisNames.Boundaries)],
+                PersistArtifacts: true));
+            var analysis = AssertSingleAnalysis(result);
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
-            foreach (var finding in inventory.Findings)
+                $"quality boundaries scan: {analysis.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+            foreach (var finding in analysis.Findings)
             {
                 Console.WriteLine(
                     $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Locations[0].Path}:{finding.Locations[0].Range?.Start.Line} {finding.RuleId}");
             }
-            return inventory.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
+            return analysis.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
         }
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
         {
@@ -260,6 +264,11 @@ public static class QualityCli
             return 2;
         }
     }
+
+    private static NamedQualityAnalysisResult AssertSingleAnalysis(QualityAnalysisResult result) =>
+        result.Analyses.Count == 1
+            ? result.Analyses[0]
+            : throw new InvalidOperationException("A single named analysis was expected.");
 
     private static async Task<int> RunFlowAsync(string[] args)
     {
