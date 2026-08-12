@@ -94,13 +94,26 @@ public interface IReviewExecutorFactory
 
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
-    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
+    StalenessEvaluator stalenessEvaluator,
+    ReviewModelCatalog modelCatalog,
+    IOptions<QualityTaxonomyOptions> taxonomyOptions) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
-                cliType, model, thinkingLevel, eventObserver: eventObserver),
-            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
+                cliType, model, thinkingLevel, eventObserver: eventObserver,
+                provider: ProviderForCli(cliType),
+                routePolicyVersion: modelCatalog.Snapshot.PolicyVersion),
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
+            taxonomyOptions: taxonomyOptions.Value));
+
+    internal static string ProviderForCli(string cliType) => cliType.ToLowerInvariant() switch
+    {
+        "codex" => "openai",
+        "claude" or "claude-code" => "anthropic",
+        "gemini" or "antigravity" => "google",
+        _ => "unknown",
+    };
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -202,7 +215,9 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            ReviewExecutorFactory.ProviderForCli(cliType),
+            modelCatalog.Snapshot.PolicyVersion);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -595,7 +610,11 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            RequestedModel: item.Model,
+            Provider: item.Provider,
+            ThinkingLevel: item.ThinkingLevel,
+            RoutePolicyVersion: item.RoutePolicyVersion);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -719,6 +738,8 @@ public sealed class ReviewJobService : BackgroundService
         public string? Model => manifest.Model;
         public string? ThinkingLevel => manifest.ThinkingLevel;
         public string CliType => manifest.CliType;
+        public string? Provider => manifest.Provider;
+        public string? RoutePolicyVersion => manifest.RoutePolicyVersion;
         public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
         public DateTimeOffset? StartedAt { get; private set; }

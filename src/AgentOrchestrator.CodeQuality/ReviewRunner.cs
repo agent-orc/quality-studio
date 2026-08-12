@@ -24,7 +24,11 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? RequestedModel = null,
+    string? Provider = null,
+    string? ThinkingLevel = null,
+    string? RoutePolicyVersion = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -34,7 +38,9 @@ public sealed record ReviewResult(
     string RunId,
     ResolvedInputs Inputs,
     ReviewUsageEntry Usage,
-    ReviewObservationSnapshot? Observation = null);
+    ReviewObservationSnapshot? Observation = null,
+    QualityObservation? QualityObservation = null,
+    bool QualityObservationAppended = false);
 
 /// <summary>
 /// Immutable copy of the review metadata and lifecycle states observed by one sweep operation.
@@ -65,6 +71,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly QualityTaxonomyOptions _taxonomyOptions;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -73,7 +80,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        QualityTaxonomyOptions? taxonomyOptions = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -82,6 +90,7 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _taxonomyOptions = taxonomyOptions ?? new QualityTaxonomyOptions();
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -171,6 +180,8 @@ public sealed class ReviewRunner
 
             var adapter = AdapterFromUnitId(unitId);
             ReviewObservationSnapshot observation;
+            QualityObservation? qualityObservation = null;
+            var qualityObservationAppended = false;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -200,8 +211,23 @@ public sealed class ReviewRunner
                     sensorEvidence,
                     deterministicEvidence);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
-                var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
+                if (_taxonomyOptions.ObservationWriteEnabled)
+                {
+                    qualityObservation = ReviewQualityObservationBuilder.Build(
+                        meta,
+                        request,
+                        usage,
+                        agentResult,
+                        inputs,
+                        NormalizeRelativePath(root, metaPath),
+                        _agent.Model);
+                    var append = await QualityObservationStore.AppendAsync(
+                        root, qualityObservation, CancellationToken.None).ConfigureAwait(false);
+                    qualityObservationAppended = append == QualityObservationAppendResult.Appended;
+                }
+
+                var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 await File.WriteAllTextAsync(
                     temporaryPath,
                     metadataJson,
@@ -217,7 +243,8 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation,
+                    qualityObservation, qualityObservationAppended),
                 observation);
         }
         catch (Exception exception)

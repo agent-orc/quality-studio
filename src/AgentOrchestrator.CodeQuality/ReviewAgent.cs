@@ -13,10 +13,24 @@ public interface IReviewAgent
 
     string? Model { get; }
 
+    string? Provider => null;
+
+    string? ThinkingLevel => null;
+
+    string? RoutePolicyVersion => null;
+
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
-public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null);
+public sealed record ReviewAgentResult(
+    string RunId,
+    string Response,
+    TokenUsage? Usage = null,
+    string? EffectiveModel = null,
+    string? Provider = null,
+    string? ThinkingLevel = null,
+    string? ModelRevision = null,
+    string? RoutePolicyVersion = null);
 
 public sealed class ReviewAgentRunException(
     string runId, TokenUsage usage, string? effectiveModel, Exception innerException)
@@ -44,12 +58,19 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     private readonly CliRunner _runner;
     private readonly Action<string, CliRunEvent>? _eventObserver;
 
+    private readonly string? _provider;
+    private readonly string? _routePolicyVersion;
+
     public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
         CliOptions? options = null,
-        Action<string, CliRunEvent>? eventObserver = null)
+        Action<string, CliRunEvent>? eventObserver = null,
+        string? provider = null,
+        string? routePolicyVersion = null)
     {
         _cliType = cliType;
         _thinkingLevel = thinkingLevel;
+        _provider = provider;
+        _routePolicyVersion = routePolicyVersion;
         Model = model;
         _runner = new CliRunner(options ?? new CliOptions());
         _eventObserver = eventObserver;
@@ -59,6 +80,12 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     public string AgentName => _cliType;
 
     public string? Model { get; }
+
+    public string? Provider => _provider;
+
+    public string? ThinkingLevel => _thinkingLevel;
+
+    public string? RoutePolicyVersion => _routePolicyVersion;
 
     public async Task<ReviewAgentResult> RunAsync(
         string prompt,
@@ -103,7 +130,8 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
 
         var completed = BuildUsage(metrics, stopwatch);
-        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model,
+            _provider, _thinkingLevel, RoutePolicyVersion: _routePolicyVersion);
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,

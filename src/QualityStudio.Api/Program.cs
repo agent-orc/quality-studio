@@ -61,6 +61,7 @@ builder.Services.AddSingleton(serviceProvider =>
 builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton<AgentStudioTaskClient>();
 builder.Services.Configure<ReviewJobsOptions>(builder.Configuration.GetSection(ReviewJobsOptions.SectionName));
+builder.Services.Configure<QualityTaxonomyOptions>(builder.Configuration.GetSection(QualityTaxonomyOptions.SectionName));
 builder.Services.AddSingleton<IReviewExecutorFactory, ReviewExecutorFactory>();
 builder.Services.AddSingleton<ReviewJobService>();
 builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<ReviewJobService>());

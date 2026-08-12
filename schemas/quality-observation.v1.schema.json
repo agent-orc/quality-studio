@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "title": "Quality Studio immutable observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": { "^x-[a-z0-9][a-z0-9.-]*$": true },
+  "required": ["$schema", "schemaVersion", "observationId", "observedAt", "taxonomy", "subject", "profile", "producer", "evidenceStatus", "evidence", "aspects", "assessment", "findings", "completeness"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-observation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "observationId": { "type": "string", "pattern": "^observation-sha256:[0-9a-f]{64}$" },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "taxonomy": { "$ref": "#/$defs/catalogueRef" },
+    "extensionCatalogues": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/catalogueRef" } },
+    "subject": { "$ref": "#/$defs/subject" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "evidenceStatus": { "$ref": "#/$defs/termId" },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+    "aspects": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/aspect" } },
+    "assessment": { "$ref": "#/$defs/termId" },
+    "decision": { "$ref": "#/$defs/decision" },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "completeness": { "enum": ["complete", "partial"] },
+    "legacy": { "$ref": "#/$defs/legacy" },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "termId": { "type": "string", "pattern": "^(?:[a-z0-9][a-z0-9.-]*|[a-z0-9.-]+:[a-z0-9][a-z0-9.-]*)$" },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "semver": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+    "extensions": { "type": "object", "additionalProperties": true },
+    "catalogueRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "digest": { "$ref": "#/$defs/sha256" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "manifestHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "manifestHash": { "$ref": "#/$defs/sha256" },
+        "scope": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "promptHash", "reviewInputsHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "promptHash": { "$ref": "#/$defs/sha256" },
+        "reviewInputsHash": { "$ref": "#/$defs/sha256" },
+        "kind": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "agent", "provider", "requestedModel", "effectiveModel", "thinkingLevel", "routePolicyVersion", "runId"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/termId" },
+        "agent": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "requestedModel": { "type": "string", "minLength": 1 },
+        "effectiveModel": { "type": "string", "minLength": 1 },
+        "modelRevision": { "type": "string", "minLength": 1 },
+        "thinkingLevel": { "type": "string", "minLength": 1 },
+        "routePolicyVersion": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "reviewRunId": { "type": "string", "minLength": 1 },
+        "usageRunId": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "symbolId": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "artifactRef": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "anyOf": [
+        { "required": ["path"] },
+        { "required": ["artifactRef"] }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/termId" },
+        "locator": { "$ref": "#/$defs/locator" },
+        "summary": { "type": "string", "minLength": 1 },
+        "contentHash": { "$ref": "#/$defs/sha256" },
+        "mediaType": { "type": "string", "minLength": 1 },
+        "raw": {},
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "anyOf": [
+        { "required": ["locator"] },
+        { "required": ["raw"] }
+      ]
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectId", "assessment"],
+      "properties": {
+        "aspectId": { "$ref": "#/$defs/termId" },
+        "assessment": { "$ref": "#/$defs/termId" },
+        "change": { "$ref": "#/$defs/termId" },
+        "rationale": { "type": "string" },
+        "grade": { "$ref": "#/$defs/grade" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "policyRef"],
+      "properties": {
+        "value": { "$ref": "#/$defs/termId" },
+        "policyRef": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "producerRef"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/termId" },
+        "producerRef": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationFindingId", "issueId", "occurrenceFingerprint", "fingerprintAlgorithm", "ruleRef", "aspectId", "severity", "evidenceRefs", "source"],
+      "properties": {
+        "observationFindingId": { "type": "string", "minLength": 1 },
+        "issueId": { "type": "string", "minLength": 1 },
+        "occurrenceFingerprint": { "type": "string", "minLength": 1 },
+        "fingerprintAlgorithm": { "type": "string", "minLength": 1 },
+        "fingerprintAliases": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "ruleRef": { "type": "string", "minLength": 1 },
+        "aspectId": { "$ref": "#/$defs/termId" },
+        "severity": { "$ref": "#/$defs/termId" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "evidenceRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "source": { "$ref": "#/$defs/source" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "sourcePath", "importCompleteness"],
+      "properties": {
+        "schema": { "type": "string", "minLength": 1 },
+        "value": {},
+        "sourcePath": { "type": "string", "minLength": 1 },
+        "importCompleteness": { "enum": ["complete", "partial"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    }
+  }
+}

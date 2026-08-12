@@ -141,8 +141,8 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
-      <span><b>Phase</b> decision-ready</span>
+      <span><b>Status</b> <span class="pill queued">decided</span></span>
+      <span><b>Phase</b> implementation</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -552,6 +553,16 @@
       <tr><td>Current platform route policy treats model plus thinking level as the route and warns that history is observational</td><td><code>agent-taskboard/docs/system/domains/model-routing-policy.md</code>, version 2026-07-24</td></tr>
     </tbody>
   </table>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+
+  <h3>12 August 2026 · <code>QS-76</code> · T1 contract and catalogue foundation</h3>
+  <p>Added the <code>quality-taxonomy.v1</code> and <code>quality-observation.v1</code> JSON Schemas, the embedded <code>quality-studio/core@1.0.0</code> catalogue, C# taxonomy and observation contracts, explicit extension dictionaries, raw preservation for unsupported majors, deterministic observation identity, and pure compatibility mappings for every row in section 8. Conformance tests validate positive and negative schema vectors, all legacy spellings, evidence preservation, extension round-trips, core-aspect aliases, and structured quarantine of an unknown major. Existing writers remain unchanged when the observation feature flag is disabled.</p>
+
+  <h3>12 August 2026 · <code>QS-76</code> · T2 immutable observation dual-write and route provenance</h3>
+  <p>Added an idempotent, malformed-line-tolerant, write-through ledger at <code>.quality/observations/YYYY-MM.jsonl</code>. Successful general reviews can append an immutable observation before replacing the existing <code>review-meta.v2</code> sidecar through <code>QualityTaxonomy:ObservationWriteEnabled</code>; the read flag is independently present and remains disabled for the later T4 cutover. Review requests, run manifests, agent results, and observations now retain provider, requested and effective model, thinking level, routing-policy version, review-run ID, and exact usage-run ID, using <code>unknown</code> rather than inference when unavailable. Tests cover two model runs beside one current sidecar, exact usage joins, replay idempotency, malformed history, schema validity, disabled compatibility behavior, and append failure leaving the prior sidecar byte-identical.</p>
+
+  <p><b>Remaining approved work:</b> T3 through T5 remain pending. They were not partially implemented in this delivery because each is a dependency-ordered L slice: lifecycle v2 must land atomically before observation-backed selection, and that reducer must be accepted before domain migration can safely write common observations. No slice is operator-decision-gated after the blanket approval recorded on 11 August 2026.</p>
 
   <section class="box accent">
     <h4>Final recommendation</h4>
