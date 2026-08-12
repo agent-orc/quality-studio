@@ -141,17 +141,17 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
-      <span><b>Source</b> QS-58</span>
-      <span><b>Assessed</b> 2026-08-11</span>
-      <span><b>Commit</b> <code>3e0b6559faa7</code></span>
+      <span><b>Status</b> documented</span>
+      <span><b>Phase</b> implementation in progress</span>
+      <span><b>Source</b> QS-58 · QS-68 · QS-81</span>
+      <span><b>Updated</b> 2026-08-12</span>
+      <span><b>Delivery base</b> <code>59941d8e9373</code></span>
     </div>
   </header>
 
-  <section class="box bad" aria-labelledby="decision">
-    <h4 id="decision">Decision requested</h4>
-    <p><b>Approve Option C and slices S0–S6.</b> Until S0 is accepted, do not enable hosted multi-client operation. Until S1 and S2 are accepted, restrict reviews to repositories controlled by the same operator who owns the Studio host. Prompt wording and “read-only” agent permission are not a security boundary.</p>
+  <section class="box warn" aria-labelledby="decision">
+    <h4 id="decision">Approved implementation posture</h4>
+    <p><b>Option C and slices S0–S6 were approved on 2026-08-11.</b> S0 and S2–S6 are delivered. Until S1 provides an enforceable isolated worker, untrusted repository content remains quarantined from model review and executable sensors; prompt wording and “read-only” agent permission are not a security boundary.</p>
     <p>The recommended design runs review agents and executable sensors in separate, short-lived workers with a read-only source snapshot, clean service identity, restricted egress, bounded resources, and a brokered, schema-validated result write. The API—not a repository-scoped client—owns repository roots and executable analyzer profiles.</p>
   </section>
 
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -283,15 +284,15 @@
     <table>
       <thead><tr><th>ID</th><th>Risk</th><th>L × I</th><th>Class</th><th>Mitigation slice</th></tr></thead>
       <tbody>
-        <tr><td><b>R-01</b></td><td>Repo-scoped API client configures and triggers a host-executed analyzer command.</td><td>4 × 5 = 20</td><td><span class="pill open">Critical</span></td><td>S0, then S1</td></tr>
-        <tr><td><b>R-02</b></td><td>Prompt-injected repository content reaches a tool-capable agent with shared operator CLI context and repository-root working directory.</td><td>4 × 5 = 20</td><td><span class="pill open">Critical</span></td><td>S1</td></tr>
-        <tr><td><b>R-03</b></td><td>Unbounded files, aggregates, sidecars, and individual model operations exhaust memory, time, or spend.</td><td>4 × 4 = 16</td><td><span class="pill open">High</span></td><td>S2</td></tr>
-        <tr><td><b>R-04</b></td><td>Source secrets are quoted into review metadata or handover prompts that the configured Gitleaks policy excludes.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S3</td></tr>
-        <tr><td><b>R-05</b></td><td>Model-authored finding text becomes an instruction-bearing downstream Agent Studio task prompt after one UI action.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S4</td></tr>
-        <tr><td><b>R-06</b></td><td>Static hosted bearer credentials lack expiry, live revocation, and auditable key identity.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S5</td></tr>
-        <tr><td><b>R-07</b></td><td>Unchecked, repository-owned review sidecars cause memory/availability pressure or misleading UI state.</td><td>4 × 3 = 12</td><td><span class="pill open">High</span></td><td>S2, S4</td></tr>
-        <tr><td><b>R-08</b></td><td>Known Angular advisories remain in the production lock, while dependency and frontend gates are absent from CI.</td><td>2 × 4 = 8</td><td><span class="pill new">Medium</span></td><td>S0, S6</td></tr>
-        <tr><td><b>R-09</b></td><td>A maintainer-specific AllowedRoots entry is shipped again, exposing host topology and widening selectable repositories.</td><td>2 × 3 = 6</td><td><span class="pill new">Medium</span></td><td>S0, S3</td></tr>
+        <tr><td><b>R-01</b></td><td>Repo-scoped API client configures and triggers a host-executed analyzer command.</td><td>4 × 5 = 20</td><td><span class="pill part">Contained</span></td><td>S0 delivered; S1 pending</td></tr>
+        <tr><td><b>R-02</b></td><td>Prompt-injected repository content reaches a tool-capable agent with shared operator CLI context and repository-root working directory.</td><td>4 × 5 = 20</td><td><span class="pill part">Quarantined</span></td><td>QS-81 quarantine delivered; S1 pending</td></tr>
+        <tr><td><b>R-03</b></td><td>Unbounded files, aggregates, sidecars, and individual model operations exhaust memory, time, or spend.</td><td>4 × 4 = 16</td><td><span class="pill done">Mitigated</span></td><td>S2 delivered</td></tr>
+        <tr><td><b>R-04</b></td><td>Source secrets are quoted into review metadata or handover prompts that the configured Gitleaks policy excludes.</td><td>3 × 4 = 12</td><td><span class="pill done">Mitigated</span></td><td>S3 + QS-81 onboarding delivered</td></tr>
+        <tr><td><b>R-05</b></td><td>Model-authored finding text becomes an instruction-bearing downstream Agent Studio task prompt after one UI action.</td><td>3 × 4 = 12</td><td><span class="pill done">Mitigated</span></td><td>S4 delivered</td></tr>
+        <tr><td><b>R-06</b></td><td>Static hosted bearer credentials lack expiry, live revocation, and auditable key identity.</td><td>3 × 4 = 12</td><td><span class="pill done">Mitigated</span></td><td>S5 delivered</td></tr>
+        <tr><td><b>R-07</b></td><td>Unchecked, repository-owned review sidecars cause memory/availability pressure or misleading UI state.</td><td>4 × 3 = 12</td><td><span class="pill done">Mitigated</span></td><td>S2 and S4 delivered</td></tr>
+        <tr><td><b>R-08</b></td><td>Known Angular advisories remain in the production lock, while dependency and frontend gates are absent from CI.</td><td>2 × 4 = 8</td><td><span class="pill done">Mitigated</span></td><td>S0, S6, and QS-81 surfacing delivered</td></tr>
+        <tr><td><b>R-09</b></td><td>A maintainer-specific AllowedRoots entry is shipped again, exposing host topology and widening selectable repositories.</td><td>2 × 3 = 6</td><td><span class="pill done">Mitigated</span></td><td>S0 and S3 delivered</td></tr>
       </tbody>
     </table>
   </section>
@@ -462,6 +463,94 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <p>This section is append-only. The operator approved Option C and all slices S0–S6 on 2026-08-11; previously decision-gated work is therefore recorded as <b>decided</b>, whether delivered or still pending. The preserved QS-68 delivery head at commit <code>1f0afdb</code> is the functional wave-1 baseline here; backend integration owns branch lineage.</p>
+
+    <h3>2026-08-11 · QS-68 · S0 delivered</h3>
+    <ul>
+      <li>Repository creation, import, update, and archive administration now requires registrar authority. A repository-scoped hosted client can no longer change its root, global inputs directory, sensor selection, or archive state.</li>
+      <li>Command-backed sensors are disabled by default. Repository-provided analyzer commands are rejected; an enabled command-backed sensor must select an immutable host-owned analyzer profile id. Legacy command configuration without a valid profile is disabled during registry migration.</li>
+      <li>Local mode now rejects non-loopback configured bindings. Local mutations require an allowed Origin and a signed, expiring anti-CSRF session nonce; the Angular client obtains and attaches it automatically.</li>
+      <li>Staleness, security, attack-coverage, and sensor scans use the per-client spend limiter.</li>
+      <li>All Angular runtime and toolchain packages are pinned together at 20.3.27. The production dependency audit reports zero high or critical advisories.</li>
+      <li>API and browser regression tests cover registrar enforcement, free-form shell rejection, host-profile resolution, scan limiting, loopback validation, Origin/nonce denial, and nonce attachment.</li>
+    </ul>
+    <h3>2026-08-11 · QS-68 · S6 delivered</h3>
+    <ul>
+      <li>CI now installs, builds, and tests the locked frontend graph; gates the production npm graph at high severity; and retains the separate full-tree audit with its query timestamp.</li>
+      <li>CI queries NuGet advisories for the solution and out-of-solution code-graph spike, fails through a tested JSON gate, generates a pinned-tool SBOM, and retains the resulting evidence.</li>
+      <li>The generated SBOM is schema-checked for detected dependency packages before retention; an empty manifest now fails the CI gate instead of becoming misleading green evidence.</li>
+      <li>The secret gate scans both the current worktree and all Git history. The documented historical unit-key false positive is suppressed by its exact Gitleaks fingerprint.</li>
+      <li>Every GitHub Action reference is pinned to an immutable commit, and weekly test-backed Dependabot lanes cover npm, NuGet, and Actions updates.</li>
+    </ul>
+
+    <h3>2026-08-11 · QS-68 · S3 delivered</h3>
+    <ul>
+      <li>All review templates now prohibit reproducing credential values, and every model-authored response string passes through a bounded, fail-closed credential redactor before finding identity, thread updates, metadata persistence, API rendering, or handover can consume it. Seeded AWS, bearer, GitHub, password-assignment, JWT, and private-key fixtures prove values are removed while content hashes remain intact.</li>
+      <li>The Gitleaks adapter now uses the valid <code>--redact=100</code> form and a temporary report file, rejects exit-code-1 invocations that do not contain a parseable redacted finding, and deletes its redacted report after parsing. This closes a false-clean path where an invocation error and an actual finding shared the same exit code.</li>
+      <li>The blanket <code>.quality/reviews</code> exclusion is removed. Current-worktree and all-ref scans run with the exact documented unit-key false positives suppressed by fingerprint only; both corrected scans pass.</li>
+      <li>A tested tracked-configuration policy rejects QS-53-style roots, tracked hosted clients or analyzer profiles, and cleartext credential fields. <code>docs/security-incident-response.md</code> documents identification, revocation, rotation, cleanup, and evidence collection without copying a secret.</li>
+    </ul>
+
+    <h3>2026-08-11 · QS-68 · S4 delivered</h3>
+    <ul>
+      <li>Handover requests no longer accept client-authored finding summaries, prose, or metadata references. The API resolves a current, schema-versioned review sidecar by repository path, review kind, and canonical SHA-256 finding fingerprint; verifies the reviewed subject hashes against current regular files; and rejects forged, missing, malformed, or stale identities before building a card.</li>
+      <li>The browser must request a preview and presents the exact title and prompt for explicit confirmation. Delivery requires the matching SHA-256 confirmation hash over the repository, fingerprint, and complete card, so altered or unpreviewed content is rejected.</li>
+      <li>Task instructions now come only from the host-owned <code>quality-studio-handover.v2</code> template. Model prose is carried as a labeled base64 JSON data attachment, with source commit, finding fingerprint, review-meta reference, template version, and approving client identity recorded in the card; hostile prompt, HTML, Markdown, bidi, template, and terminal-control fixtures remain data and render as text.</li>
+    </ul>
+    <h3>2026-08-11 · QS-68 · S2 delivered</h3>
+    <ul>
+      <li>A versioned <code>ContentLimits</code> contract now bounds individual file bytes, aggregate file count and bytes, rendered prompt bytes and estimated tokens, streamed response bytes, individual and aggregate sidecar bytes/count, finding count, thread count, and individual response/sidecar text fields. Startup rejects unsupported or unsafe limit configurations.</li>
+      <li>The file API, hierarchy parsers, review inputs and hashing, staleness/report/guideline projections, review-thread mutations, canonical handover, and review-sidecar indexing use the shared confined regular-file opener. Size is checked before allocation, reparse traversal is rejected, and a file that grows while being read still trips the byte ceiling.</li>
+      <li>File and aggregate preflight rejects oversized operations with a stable 413 before an agent is launched. Review estimates now retain the largest single-operation token/cost requirement; a run cannot start below it, and queued work is capped before the next operation whenever the remaining budget is smaller than that requirement.</li>
+      <li>Review responses are bounded while CLI deltas stream and again at the parser boundary. Excess findings, thread updates, or text fields are rejected before identity or persistence. Serialized metadata is capped before its atomic move.</li>
+      <li>The metadata index accepts only supported versioned review-meta documents within the configured count/size/structure limits. Invalid or oversized repository-owned sidecars stay unindexed and appear only as bounded, payload-free quarantine diagnostics at <code>/api/review-meta/diagnostics</code>.</li>
+    </ul>
+    <p class="dim"><b>Gate note:</b> S2 is implemented and tested independently, but Gate B remains locked because S1 is still required to place the now-bounded snapshot and result contracts behind a genuine process boundary.</p>
+
+    <h3>2026-08-11 · QS-68 · S5 delivered</h3>
+    <ul>
+      <li>Hosted bearer-hash entries now require a unique key ID, explicit audience, expiry, repository scope, and explicit roles. Authentication keeps fixed-time hash comparison and rejects expired, wrong-audience, revoked, unknown, and malformed credentials.</li>
+      <li>A bounded host-owned JSON revocation source is read on every authenticated request, so revocation is immediate without API restart. Missing, linked, oversized, unreadable, or invalid revocation state fails closed.</li>
+      <li>Every API endpoint carries explicit authorization metadata for one of six roles: read, repository administration, review spending, sensor execution, state mutation, or handover. Missing endpoint policy fails closed, the complete route inventory is tested, and repository scope plus mutation client-ID binding remain additional independent checks.</li>
+      <li>Structured authorization audit events record key ID, action role, repository, decision/reason, and result status. Tests capture the events and prove bearer material is absent.</li>
+    </ul>
+
+    <h3>2026-08-11 · QS-68 · S1 not delivered</h3>
+    <div class="box warn">
+      <h4>Approved and decided; blocked on an enforceable worker runtime</h4>
+      <p>The delivery host has the Docker client but denies its daemon socket, has no Podman or bubblewrap runtime, and denies unprivileged user-namespace creation. S1 requires a snapshot broker, isolated mounts and identity, egress policy, cross-platform resource enforcement, short-lived model credentials, and adversarial canary evidence. A wrapper around the existing host process would not satisfy the approved decision, so no worker-isolation claim is made. Command-backed analyzers remain disabled by default and untrusted-repository Gate B remains locked. This is a missing enforcement dependency, not an operator-decision gate.</p>
+    </div>
+
+    <h3>2026-08-12 · QS-68 · S0 follow-up delivered</h3>
+    <ul>
+      <li>Legacy scan operations that retain <code>GET</code> routes now receive the same client-ID and local Origin/anti-CSRF enforcement as explicit mutations based on their <code>sensor-execute</code> authorization policy. The Angular client secures only those known scan reads, while ordinary reads remain free of session bootstrap overhead.</li>
+      <li>API and browser regression tests prove an unprotected local scan is denied, a protected scan succeeds, and ordinary API reads do not receive the nonce header.</li>
+    </ul>
+
+    <h3>2026-08-12 · QS-81 · untrusted-content quarantine delivered</h3>
+    <ul>
+      <li>Repository onboarding now records an explicit <code>operator-controlled</code> or <code>untrusted</code> trust level. New registrations and Agent Studio imports default to <code>untrusted</code>; choosing <code>operator-controlled</code> is an operator assertion, not an automated provenance claim.</li>
+      <li>Because S1 is still unavailable, untrusted content is fail-closed: model preflight and start are rejected, executable sensors other than the bounded Gitleaks assessment are rejected, and dependency package-manager commands are skipped. The API rechecks the current registry assessment before start and resume and again when queued or recovered work reaches execution, preventing a stale run from bypassing a later quarantine.</li>
+      <li>The repository selector and review action UI surface the quarantine reason and disable review rather than relying on prompt wording. The one-click launcher now supplies the API with its exact loopback web origin, including custom ports, so the secured onboarding mutation path works at the URL it reports. This is interim containment; it does not claim process isolation or complete S1.</li>
+    </ul>
+
+    <h3>2026-08-12 · QS-81 · mandatory secret onboarding delivered</h3>
+    <ul>
+      <li>Create, update, preflight, and Agent Studio import run the pinned, fully redacted Gitleaks assessment. Active findings or scanner unavailability quarantine model review; a clean assessment is required before an operator-controlled repository may run a model review.</li>
+      <li>Persisted and rendered secret results contain bounded metadata only: rule, title, severity, repository-relative path, and line. Descriptions and evidence are deliberately excluded, surfaced findings are capped at 50, and the total finding count remains visible.</li>
+    </ul>
+
+    <h3>2026-08-12 · QS-81 · dependency advisory surfacing delivered</h3>
+    <ul>
+      <li>Operator-controlled onboarding runs the existing normalized dependency sensor and presents advisory id, severity, package, installed version, fixed version, path, and advisory link. Advisory presence is a visible warning rather than a hidden console result; scanner unavailability is also explicit.</li>
+      <li>Only npm lockfiles with a sibling package manifest are audited, so fixture and generated orphan lockfiles do not turn the whole repository assessment into a false unavailable state.</li>
+      <li>The live 2026-08-12 verification surfaced 22 normalized advisory findings for the complete development graph. The independent npm audit reports 15 vulnerable packages in dev/build tooling (2 low, 4 moderate, 9 high) and zero production vulnerabilities; the solution NuGet query reports no vulnerable packages. These scopes remain separate in the UI evidence and result report.</li>
+    </ul>
+    <p class="dim"><b>UI evidence:</b> the card result bundle contains <code>onboarding-before.png</code>, <code>onboarding-after.png</code>, and <code>onboarding-after-advisories.png</code>. Backend, sensor, and Angular builds and tests are recorded in the QS-81 result report.</p>
   </section>
 </main>
 </body>

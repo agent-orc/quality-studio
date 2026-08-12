@@ -48,6 +48,7 @@ async function main() {
       QUALITY_STUDIO_API_PORT: String(apiPort),
       QUALITY_STUDIO_PRODUCT_PORT: String(webPort),
       QUALITY_STUDIO_HOST: host,
+      QualityStudio__AllowedOrigins__0: webBaseUrl,
     },
   });
   const web = await startChild('web', buildWebCommand(args, webPort, host, proxyConfig), {

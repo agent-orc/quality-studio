@@ -130,12 +130,14 @@ export class ReviewPanel {
   async createTask(finding: ReviewFinding): Promise<void> {
     const key = `${this.activeKind()}:${finding.id}`;
     this.handoverStatus.update(status => ({ ...status, [key]: 'Creating…' }));
+    if (!finding.fingerprint) {
+      this.handoverStatus.update(status => ({ ...status, [key]: 'Finding identity unavailable' }));
+      return;
+    }
     const request: HandoverRequest = {
-      findingSummary: finding.title,
-      filePath: finding.locations[0]?.path ?? this.api.file()?.path ?? this.selectedPath(),
-      findingText: `${finding.description}\n\nRecommendation: ${finding.recommendation}`,
+      filePath: this.api.file()?.path ?? this.selectedPath(),
       reviewKind: this.activeKind(),
-      metaReference: `${this.metaPath() ?? 'review-meta'}#${finding.id}`,
+      findingFingerprint: finding.fingerprint,
     };
     try {
       const result = await this.api.createTask(request);

@@ -1,0 +1,11 @@
+<fieldset class="trust-options">
+  <legend>Repository content trust</legend>
+  <label class="trust-option">
+    <input type="radio" name="trustLevel" [(ngModel)]="trustLevel" value="untrusted">
+    <span><b>Untrusted content</b><small>Browse and scan for secrets; model review and executable dependency checks stay quarantined.</small></span>
+  </label>
+  <label class="trust-option">
+    <input type="radio" name="trustLevel" [(ngModel)]="trustLevel" value="operator-controlled">
+    <span><b>Operator-controlled</b><small>Only choose this for content controlled by the same operator as this Studio host.</small></span>
+  </label>
+</fieldset>

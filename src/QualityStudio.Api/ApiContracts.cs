@@ -277,12 +277,21 @@ public sealed record SecurityFindingRangeResponse(
 
 public sealed record SecurityFindingPositionResponse(int Line, int Column);
 
-public sealed record HandoverRequest(
-    string FindingSummary,
+public sealed record HandoverPreviewRequest(
     string FilePath,
-    string FindingText,
     string ReviewKind,
-    string MetaReference);
+    string FindingFingerprint);
+
+public sealed record HandoverRequest(
+    string FilePath,
+    string ReviewKind,
+    string FindingFingerprint,
+    string ConfirmationHash);
+
+public sealed record HandoverPreviewResponse(
+    string ConfirmationHash,
+    DateTimeOffset GeneratedAt,
+    AgentStudioTaskCard Card);
 
 public sealed record ThreadMutationRequest(
     string Path,

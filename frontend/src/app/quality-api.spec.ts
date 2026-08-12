@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { QualityApi, RepositoryRegistrationRequest, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -17,6 +17,26 @@ describe('QualityApi', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('previews the exact canonical handover card before sending confirmation', async () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    const request = { filePath: 'src/A.cs', reviewKind: 'code', findingFingerprint: `sha256:${'a'.repeat(64)}` };
+
+    const creating = api.createTask(request);
+    const preview = http.expectOne('/api/repos/default/handover/preview');
+    expect(preview.request.body).toEqual(request);
+    preview.flush({
+      confirmationHash: `sha256:${'b'.repeat(64)}`, generatedAt: '2026-08-11T08:00:00Z',
+      card: { title: 'Fix canonical finding', promptMarkdown: 'Exact host-owned prompt' },
+    });
+    await new Promise(resolve => setTimeout(resolve));
+    expect(window.confirm).toHaveBeenCalledWith('Fix canonical finding\n\nExact host-owned prompt');
+    const delivery = http.expectOne('/api/repos/default/handover');
+    expect(delivery.request.body).toEqual({ ...request, confirmationHash: `sha256:${'b'.repeat(64)}` });
+    delivery.flush({ dryRun: true, taskId: null, card: { title: 'Fix canonical finding', promptMarkdown: 'Exact host-owned prompt' } });
+
+    expect((await creating).dryRun).toBeTrue();
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
@@ -100,6 +120,27 @@ describe('QualityApi', () => {
     expect(result.skipped).toBe(1);
     expect(result.results[0].status).toBe('imported');
     expect(result.results[1].reason).toBe('Already registered.');
+  });
+
+  it('requests the mandatory onboarding assessment before repository creation', async () => {
+    const request: RepositoryRegistrationRequest = {
+      displayName: 'Candidate', rootPath: '/repos/candidate', globalInputsDirectory: null,
+      inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security'],
+      defaultReviewTokenCap: 100000, defaultReviewCostCap: null, trustLevel: 'untrusted' as const,
+    };
+    const preflight = api.preflightRepository(request);
+    http.expectOne('/api/repos/preflight').flush({
+      schemaVersion: 1, assessedAt: '2026-08-12T00:00:00Z', rootPath: '/repos/candidate',
+      trustLevel: 'untrusted', reviewAllowed: false,
+      reviewBoundary: 'Untrusted content is quarantined.',
+      secrets: { status: 'pass', available: true, findingCount: 0, summary: 'Clean.', toolVersions: { gitleaks: '8.24.2' } },
+      dependencies: { status: 'skipped', available: false, findingCount: 0, summary: 'Skipped.', toolVersions: {} },
+      secretFindings: [], advisories: [],
+    });
+
+    const assessment = await preflight;
+    expect(assessment.reviewAllowed).toBeFalse();
+    expect(assessment.dependencies.status).toBe('skipped');
   });
 
   it('loads repository usage and global provider quotas', async () => {

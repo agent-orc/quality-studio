@@ -168,6 +168,9 @@
             <input name="rootPath" [(ngModel)]="repositoryForm.rootPath" required placeholder="C:\Projects\payments">
             <small>Must be an existing Git repository. Relative paths resolve from the API directory.</small>
           </label>
+          @defer (when repositoryDialogOpen()) {
+            <qs-repository-trust-selector [(trustLevel)]="repositoryForm.trustLevel" />
+          }
           <label>
             <span>Global inputs directory <small>optional</small></span>
             <input name="globalInputsDirectory" [(ngModel)]="repositoryForm.globalInputsDirectory" placeholder="C:\Quality\inputs">
@@ -194,6 +197,11 @@
               </label>
             }
           </fieldset>
+          @defer (when repositoryAssessment()) {
+            @if (repositoryAssessment(); as assessment) {
+              <qs-repository-onboarding-assessment [assessment]="assessment" />
+            }
+          }
           @if (repositoryError()) { <div class="form-error" role="alert">{{ repositoryError() }}</div> }
           <footer>
             @if (editingRepository(); as repository) {
@@ -204,7 +212,7 @@
             <span class="footer-spacer"></span>
             <button class="secondary-button" type="button" (click)="repositoryDialogOpen.set(false)">Cancel</button>
             <button class="primary-button" type="submit" [disabled]="repositorySaving() || !repositoryForm.displayName || !repositoryForm.rootPath || repositoryForm.enabledReviewKinds.length === 0">
-              {{ repositorySaving() ? 'Saving…' : editingRepositoryId() ? 'Save changes' : 'Onboard repository' }}
+              {{ repositorySaving() ? 'Running checks…' : !repositoryAssessmentCurrent() ? 'Run onboarding checks' : repositoryAssessment()?.reviewAllowed ? (editingRepositoryId() ? 'Save with these controls' : 'Onboard repository') : (editingRepositoryId() ? 'Save quarantined' : 'Onboard quarantined') }}
             </button>
           </footer>
         </form>
