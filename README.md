@@ -6,9 +6,10 @@ Part of the [Agent Orchestrator](https://agent-orchestrator.dev) universe — al
 Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 (converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
-> Working state, 2026-08-04: the core library, the `quality` CLI, the review API
+> Working state, 2026-08-12: the core library, the `quality` CLI, the review API
 > and the Angular browser all ship from this repository and are covered by CI;
-> cards through QS-52 are delivered. No package is published to NuGet yet.
+> the core now packs as `AgentOrchestrator.CodeQuality` and is consumed through an
+> in-process analysis facade. No package is published to NuGet yet.
 > Product URL will be `agent-orchestrator.dev/quality`; the proposed final
 > core package ID and root namespace are `AgentOrchestrator.CodeQuality` (subject
 > to a release-time ownership/availability recheck); formal long name: Agent
@@ -106,8 +107,8 @@ and want to see the quality characteristics of what was built.
       review inputs, website outline, and honest QS-2…QS-13 slice plan
       ([`docs/concept.md`](docs/concept.md))
 - [x] Scaffold (package, CI, release rails — Token Economy pattern)
-- [x] Core library, `quality` CLI, review API, and Angular browser shipping
-      from this repository (cards through QS-52); nothing published to NuGet yet
+- [x] Publishable core library, `quality` CLI, review API, and Angular browser
+      shipping from this repository; nothing published to NuGet yet
 
 ## Staleness scan
 
@@ -208,9 +209,12 @@ endpoint formats, and documented exit codes.
 
 ## Repository layout
 
-- `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
+- `src/AgentOrchestrator.CodeQuality/` contains the publishable in-process analysis
+  core; its [package README](src/AgentOrchestrator.CodeQuality/README.md) documents
+  the stable caller surface.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` builds and tests the solution, packs the core, and
+  retains the NuGet artifacts for pushes and pull requests to `main`.
 
 ## Minimal API
 
