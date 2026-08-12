@@ -61,3 +61,26 @@ The browser contract is `< 100 ms` to a visible transition and `< 500 ms` to a
 usable dashboard and tree. The 500 ms bound gives measured headroom above the
 295.8 ms real large-repository run while remaining far below the previous
 multi-second path. See `frontend/PERF.md` for the reproducible browser harness.
+
+## QS-82 lazy tree transport
+
+Measured 2026-08-12 on the same 3,927-file Agent Studio repository used by the
+QS-59 dossier. The versioned `/api/tree/v2` contract returns one level with
+aggregate facts, `hasChildren`, cursor/limit paging, and ETag support. The
+legacy recursive endpoint remains available during migration.
+
+| Measurement | Recursive v1 | Lazy v2 | Change |
+| --- | ---: | ---: | ---: |
+| Root payload | 29,119,333 bytes | 15,391 bytes | -99.95% |
+| Root request, 10 warm samples | 825.30 ms median / 1,735.26 ms p95 | 68.70 ms / 106.37 ms | -91.68% median |
+| Project plus root, 10 warm samples | 899.66 ms median / 1,498.21 ms p95 | 72.14 ms / 182.29 ms | -91.98% median |
+| Real-browser large-repository switch, 5 samples | no equivalent retained QS-59 series | 26.9 ms / 71.3 ms | all v2 samples pass 500 ms |
+
+Tree transport now emits `Server-Timing` phases for snapshot lookup, aggregate
+projection, and JSON serialization. The structured `qs.tree.transport` event
+adds response bytes and total response-completion time. A one-slot derived
+projection per repository reuses the immutable QS-54 hierarchy snapshot, is
+populated by that prewarmer, and pins lazy pages to the root snapshot ETag. It
+does not duplicate the QS-54 or QS-78 hierarchy caches. Reproduce the backend
+distribution with `node scripts/measure-tree-transport.mjs` and the live browser
+path with `node scripts/measure-lazy-tree-browser.mjs`.
