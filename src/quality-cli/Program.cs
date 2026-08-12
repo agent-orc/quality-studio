@@ -144,20 +144,25 @@ public static class QualityCli
             if (options.ExplainInputs)
             {
                 var resolved = new InputResolver().Resolve(Directory.GetCurrentDirectory(), options.Kind,
-                    ReviewLevel.File, globalInputs, options.BudgetCharacters);
+                    ReviewLevel.File, globalInputs, options.BudgetCharacters, [options.File]);
                 PrintInputExplanation(resolved);
                 return 0;
             }
 
             var stopwatch = Stopwatch.StartNew();
-            var sensors = options.Kind == "security"
-                ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()])
-                : null;
+            var sensors = new SensorRegistry([
+                new GitleaksSecurityScanner(),
+                new DependencyVulnerabilitySensor(),
+                new RulePrecheckSensor(),
+            ]);
             var result = await new ReviewRunner(sensorRegistry: sensors).ReviewAsync(new ReviewRequest(
                 options.File, options.Kind, GlobalInputsDirectory: globalInputs,
                 InputBudgetCharacters: options.BudgetCharacters,
                 Sensors: options.Kind == "security"
                     ? [new ReviewSensorConfiguration("gitleaks"), new ReviewSensorConfiguration("dependencies")]
+                    : null,
+                DeterministicSensors: options.Kind == "code"
+                    ? [new ReviewSensorConfiguration(RulePrecheckSensor.SensorId)]
                     : null));
             Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;

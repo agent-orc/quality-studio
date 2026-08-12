@@ -13,7 +13,8 @@ public sealed record ReviewInput(
     bool Enabled,
     string Content,
     string IncludedContent,
-    bool Truncated);
+    bool Truncated,
+    string Version = "unversioned");
 
 public sealed record InputOmission(string Id, string Source, string Reason, int OmittedCharacters);
 
@@ -33,6 +34,14 @@ public sealed record ResolvedInputs(
         return selected.Length == 0
             ? "(none supplied)"
             : string.Join("\n\n", selected.Select(input => $"## {input.Id}\n{input.IncludedContent}"));
+    }
+
+    public string NamedRules()
+    {
+        var selected = Inputs.Where(input => input.Scope == "built-in" && input.IncludedContent.Length > 0).ToArray();
+        return selected.Length == 0
+            ? "(no named rules apply to this subject)"
+            : string.Join("\n\n", selected.Select(input => input.IncludedContent));
     }
 
     public string EffectiveHash(string promptTemplateHash)
@@ -57,13 +66,18 @@ public sealed record ResolvedInputs(
 public sealed class InputResolver
 {
     public const int DefaultBudgetCharacters = 12_000;
+    private readonly RuleLibrary ruleLibrary;
+
+    public InputResolver(RuleLibrary? ruleLibrary = null) =>
+        this.ruleLibrary = ruleLibrary ?? new RuleLibrary();
 
     public ResolvedInputs Resolve(
         string repositoryRoot,
         string kind,
         ReviewLevel level,
         string? globalInputsDirectory = null,
-        int budgetCharacters = DefaultBudgetCharacters)
+        int budgetCharacters = DefaultBudgetCharacters,
+        IReadOnlyList<string>? subjectPaths = null)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) throw new ArgumentException("A repository root is required.", nameof(repositoryRoot));
         if (!Enum.TryParse<ReviewKind>(kind, true, out _)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
@@ -81,7 +95,26 @@ public sealed class InputResolver
             .Where(input => projectIds.Contains(input.Id))
             .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0))
             .ToList();
-        var effective = global.Where(input => !projectIds.Contains(input.Id)).Concat(project).ToArray();
+        var namedRules = subjectPaths is null
+            ? []
+            : ruleLibrary.Resolve(subjectPaths, normalizedKind, level)
+                .Select(rule => new ReviewInput(
+                    rule.Id,
+                    rule.Source,
+                    "built-in",
+                    100_000,
+                    rule.Kinds,
+                    rule.Levels,
+                    true,
+                    rule.PromptContent(),
+                    string.Empty,
+                    false,
+                    rule.Version))
+                .ToArray();
+        var effective = namedRules
+            .Concat(global.Where(input => !projectIds.Contains(input.Id)))
+            .Concat(project)
+            .ToArray();
 
         var remaining = budgetCharacters;
         var included = new List<ReviewInput>();

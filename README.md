@@ -177,6 +177,13 @@ from its findings and grade. Configuration and unavailable behavior are document
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.
 
+Quality Studio also ships its own versioned language-specific rule catalogue
+from [`rules/`](rules/README.md). Applicable named rules enter review prompts as
+built-in context, and deterministic checks enforce the mechanically decidable
+subset with the same rule ids. See the
+[`rule-library dossier`](docs/rule-library.md) for the format, Angular and .NET
+seed sets, versioning, and enforcement contract.
+
 ## Review usage telemetry
 
 Agent-backed reviews persist their model, CLI, token counts, duration, and run

@@ -6,5 +6,6 @@
     <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
+    <EmbeddedResource Include="../../rules/**/*.md" Link="rules/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

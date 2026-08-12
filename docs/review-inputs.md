@@ -2,6 +2,12 @@
 
 Quality Studio reads project review guidance from `.quality/inputs/*.md` in the reviewed repository. A separate global directory can be configured with `QualityStudio:GlobalInputsDirectory`, the `QUALITY_GLOBAL_INPUTS` environment variable, or the CLI's `--global-inputs` option.
 
+Before those editable guidelines, Quality Studio resolves applicable built-in
+rules from its versioned [`rules/`](../rules/README.md) catalogue by subject file
+extension, review kind, and level. Named rules use stable `QS-*` ids and consume
+the same explicit input budget. See [`rule-library.md`](rule-library.md) for the
+rule format and versioning contract.
+
 Each Markdown file starts with small frontmatter:
 
 ```markdown
@@ -28,9 +34,10 @@ The default 12,000-character budget is configurable as `QualityStudio:InputBudge
 
 Use `quality review <file> --kind code --explain-inputs` to inspect the exact selection without running an agent review.
 
-Every generated finding requires a `ruleId`. Supplied guidelines use their
-frontmatter `id`; base prompt rules use `built-in:<kind>`. The UI uses that stable
-identity to show findings per guideline and the producing guideline on each finding.
+Every generated finding requires a `ruleId`. Named-rule findings use their exact
+`QS-*` id, supplied guidelines use their frontmatter `id`, and base prompt rules
+use `built-in:<kind>`. The UI uses that stable identity to show findings per
+guideline or rule and the producing standard on each finding.
 
 The effective input hash covers the versioned prompt template and only the guideline
 content actually included after precedence and budgeting. It never includes source

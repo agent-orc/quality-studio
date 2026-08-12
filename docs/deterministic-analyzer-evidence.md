@@ -12,6 +12,12 @@ The prompt asks the agent to judge applicability, deduplicate and prioritise the
 
 Analyzer commands are repository-specific entries in the existing `sensors` array. Commands are launched directly, without a shell. The placeholders `{repositoryRoot}`, `{target}` and `{reportPath}` are expanded inside individual arguments. `reportPath` and an optional `workingDirectory` must remain inside the repository.
 
+The built-in `quality-rules` sensor requires no external command. It enforces the
+mechanically decidable subset of the named rule catalogue and emits the catalogue
+id, such as `QS-NG-002`, as `ruleId`. Its initial checks cover raw design-style
+literals and inline Angular presentation metadata. The full contract and limits
+are documented in [`rule-library.md`](rule-library.md).
+
 ### Generic SARIF 2.1.0
 
 The `sarif` sensor accepts a report from any producer. `command` is optional when another process has already created the report.
