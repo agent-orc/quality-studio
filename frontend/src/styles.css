@@ -27,6 +27,7 @@
   --studio-model-picker-width: 174px; --studio-model-menu-width: 390px; --studio-model-menu-height: 360px;
   --studio-cap-input-width: 74px; --studio-compact-control-width: 88px; --studio-compact-model-width: 112px;
   --studio-textarea-min-height: 72px;
+  --studio-repository-menu-width: 440px;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -62,6 +63,7 @@ button { color: inherit; }
 .icon-button, .quiet { border: 1px solid var(--studio-border); background: var(--studio-bg-surface); width: 29px; height: 29px; border-radius: 6px; cursor: pointer; }
 .status { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 14%, transparent); } .status.fresh { background: var(--status-fresh); color: var(--status-fresh); } .status.stale { background: var(--status-stale); color: var(--status-stale); } .status.policy-drift { border-radius:2px;background: var(--status-policy); color: var(--status-policy); transform:rotate(45deg); } .status.missing { background: var(--status-missing); color: var(--status-missing); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.api-notice{display:flex;align-items:center;gap:var(--studio-space-2);padding:var(--studio-space-2) var(--studio-space-3);background:var(--studio-bg-elevated)}.api-notice button{margin-left:auto}
 
 /* Finding detail stays global so the shared reading treatment does not consume
    the review panel's component-style performance budget. */
