@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -17,27 +17,35 @@ test('launcher bootstraps a clean checkout, starts both services, and can restar
   const marker = join(sandbox, 'install-count.txt');
   const apiScript = join(sandbox, 'api.mjs');
   const webScript = join(sandbox, 'web.mjs');
-  const npmStub = join(sandbox, 'npm.cmd');
+  const npmStub = join(sandbox, process.platform === 'win32' ? 'npm.cmd' : 'npm-stub');
   await mkdir(frontendRoot, { recursive: true });
   await writeFile(apiScript, serviceScript('api-ready'));
   await writeFile(webScript, serviceScript('web-ready'));
-  await writeFile(npmStub, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+  await writeNpmStub(npmStub);
+  const firstApiPort = await freePort();
+  const firstWebPort = await freePort();
 
   const first = await runLauncher({
-    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51271', '--web-port', '42071'],
+    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', String(firstApiPort), '--web-port', String(firstWebPort)],
     env: { ...process.env, QUALITY_STUDIO_MARKER_FILE: marker, QUALITY_STUDIO_NPM_COMMAND: npmStub },
+    expectReadyOnly: true,
   });
-  assert.match(first.stdout, /ready: api=http:\/\/127\.0\.0\.1:51271 web=http:\/\/127\.0\.0\.1:42071/);
+  const allowedOrigin = await fetchText(`http://127.0.0.1:${firstApiPort}/allowed-origin`);
+  await terminate(first.child);
+  assert.ok(first.stdout.includes(`ready: api=http://127.0.0.1:${firstApiPort} web=http://127.0.0.1:${firstWebPort}`));
+  assert.equal(allowedOrigin, `http://127.0.0.1:${firstWebPort}`);
   assert.match(await readFile(marker, 'utf8'), /^ci\r?\n?$/);
 
   await mkdir(join(frontendRoot, 'node_modules', '.bin'), { recursive: true });
   await writeFile(join(frontendRoot, 'node_modules', '.bin', 'ng'), '');
+  const secondApiPort = await freePort();
+  const secondWebPort = await freePort();
 
   const second = await runLauncher({
-    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51272', '--web-port', '42072'],
+    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', String(secondApiPort), '--web-port', String(secondWebPort)],
     env: { ...process.env, QUALITY_STUDIO_MARKER_FILE: marker, QUALITY_STUDIO_NPM_COMMAND: npmStub },
   });
-  assert.match(second.stdout, /ready: api=http:\/\/127\.0\.0\.1:51272 web=http:\/\/127\.0\.0\.1:42072/);
+  assert.ok(second.stdout.includes(`ready: api=http://127.0.0.1:${secondApiPort} web=http://127.0.0.1:${secondWebPort}`));
   assert.match(await readFile(marker, 'utf8'), /^ci\r?\n?$/);
 });
 
@@ -48,15 +56,17 @@ test('launcher reinstalls when node_modules is present but incomplete', async ()
   const marker = join(sandbox, 'install-count.txt');
   const apiScript = join(sandbox, 'api.mjs');
   const webScript = join(sandbox, 'web.mjs');
-  const npmStub = join(sandbox, 'npm.cmd');
+  const npmStub = join(sandbox, process.platform === 'win32' ? 'npm.cmd' : 'npm-stub');
   await mkdir(frontendRoot, { recursive: true });
   await mkdir(join(frontendRoot, 'node_modules'), { recursive: true });
   await writeFile(apiScript, serviceScript('api-ready'));
   await writeFile(webScript, serviceScript('web-ready'));
-  await writeFile(npmStub, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+  await writeNpmStub(npmStub);
+  const apiPort = await freePort();
+  const webPort = await freePort();
 
   const result = await runLauncher({
-    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51276', '--web-port', '42076'],
+    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', String(apiPort), '--web-port', String(webPort)],
     env: { ...process.env, QUALITY_STUDIO_MARKER_FILE: marker, QUALITY_STUDIO_NPM_COMMAND: npmStub },
   });
 
@@ -72,9 +82,11 @@ test('launcher fails if API never becomes ready', async () => {
   await writeFile(apiScript, `process.exit(1);`);
   await writeFile(webScript, serviceScript('web-ready'));
   await writeFile(installScript, `process.exit(0);`);
+  const apiPort = await freePort();
+  const webPort = await freePort();
 
   const result = await runLauncher({
-    args: ['--api-script', apiScript, '--web-script', webScript, '--install-script', installScript, '--api-port', '51273', '--web-port', '42073', '--timeout-ms', '3000'],
+    args: ['--api-script', apiScript, '--web-script', webScript, '--install-script', installScript, '--api-port', String(apiPort), '--web-port', String(webPort), '--timeout-ms', '3000'],
     expectFailure: true,
   });
   assert.match(result.stderr, /exited unexpectedly|did not become ready|process exited during startup/);
@@ -88,9 +100,11 @@ test('launcher fails if frontend exits before ready', async () => {
   await writeFile(apiScript, serviceScript('api-ready'));
   await writeFile(webScript, `process.exit(1);`);
   await writeFile(installScript, `process.exit(0);`);
+  const apiPort = await freePort();
+  const webPort = await freePort();
 
   const result = await runLauncher({
-    args: ['--api-script', apiScript, '--web-script', webScript, '--install-script', installScript, '--api-port', '51274', '--web-port', '42074', '--timeout-ms', '3000'],
+    args: ['--api-script', apiScript, '--web-script', webScript, '--install-script', installScript, '--api-port', String(apiPort), '--web-port', String(webPort), '--timeout-ms', '3000'],
     expectFailure: true,
   });
   assert.match(result.stderr, /exited unexpectedly|did not become ready|process exited during startup/);
@@ -104,16 +118,18 @@ test('embedded shell loads in an iframe and shows the live connection badge', as
   await writeFile(apiScript, liveApiScript());
   await writeFile(webScript, embeddedWebScript());
   await writeFile(installScript, `process.exit(0);`);
+  const apiPort = await freePort();
+  const webPort = await freePort();
 
   const started = await runLauncher({
-    args: ['--api-script', apiScript, '--web-script', webScript, '--install-script', installScript, '--api-port', '51275', '--web-port', '42075', '--timeout-ms', '3000'],
+    args: ['--api-script', apiScript, '--web-script', webScript, '--install-script', installScript, '--api-port', String(apiPort), '--web-port', String(webPort), '--timeout-ms', '3000'],
     expectReadyOnly: true,
   });
-  const dump = await fetchText('http://127.0.0.1:42075/embedded-test');
+  const dump = await fetchText(`http://127.0.0.1:${webPort}/embedded-test`);
   await terminate(started.child);
   assert.match(dump, /<iframe/);
   assert.match(dump, /Embedded/);
-  assert.match(started.stdout, /ready: api=http:\/\/127\.0\.0\.1:51275 web=http:\/\/127\.0\.0\.1:42075/);
+  assert.ok(started.stdout.includes(`ready: api=http://127.0.0.1:${apiPort} web=http://127.0.0.1:${webPort}`));
 });
 
 function serviceScript(label) {
@@ -121,7 +137,13 @@ function serviceScript(label) {
 import http from 'node:http';
 const port = Number(process.env.QUALITY_STUDIO_${label.startsWith('api') ? 'API' : 'PRODUCT'}_PORT);
 const server = http.createServer((request, response) => {
-  if (${JSON.stringify(label)} === 'api-ready' && request.url === '/health') {
+  const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
+  if (${JSON.stringify(label)} === 'api-ready' && pathname === '/allowed-origin') {
+    response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end(process.env.QualityStudio__AllowedOrigins__0 ?? 'missing');
+    return;
+  }
+  if (${JSON.stringify(label)} === 'api-ready' && pathname === '/health') {
     response.writeHead(200, { 'content-type': 'application/json' });
     response.end(JSON.stringify({ status: 'ok', service: 'mock-api' }));
     return;
@@ -132,6 +154,15 @@ const server = http.createServer((request, response) => {
 server.listen(port, '127.0.0.1', () => console.log('${label} listening on ' + port));
 setTimeout(() => {}, 30000);
 `;
+}
+
+async function writeNpmStub(path) {
+  if (process.platform === 'win32') {
+    await writeFile(path, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+    return;
+  }
+  await writeFile(path, '#!/bin/sh\nprintf "ci\\n" >> "$QUALITY_STUDIO_MARKER_FILE"\n');
+  await chmod(path, 0o755);
 }
 
 function liveApiScript() {
@@ -241,4 +272,17 @@ async function fetchText(url) {
   const response = await fetch(url);
   assert.equal(response.status, 200);
   return await response.text();
+}
+
+async function freePort() {
+  const server = http.createServer();
+  await new Promise((resolvePromise, rejectPromise) => {
+    server.once('error', rejectPromise);
+    server.listen(0, '127.0.0.1', resolvePromise);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Unable to allocate a loopback port.');
+  await new Promise((resolvePromise, rejectPromise) =>
+    server.close(error => error ? rejectPromise(error) : resolvePromise()));
+  return address.port;
 }

@@ -63,7 +63,8 @@ public sealed class InputResolver
         string kind,
         ReviewLevel level,
         string? globalInputsDirectory = null,
-        int budgetCharacters = DefaultBudgetCharacters)
+        int budgetCharacters = DefaultBudgetCharacters,
+        ReviewContentLimits? contentLimits = null)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) throw new ArgumentException("A repository root is required.", nameof(repositoryRoot));
         if (!Enum.TryParse<ReviewKind>(kind, true, out _)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
@@ -71,11 +72,12 @@ public sealed class InputResolver
 
         var normalizedKind = kind.ToLowerInvariant();
         var normalizedLevel = level.ToString().ToLowerInvariant();
+        var limits = (contentLimits ?? ReviewContentLimits.Default).Validate();
         var global = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
-            globalInputsDirectory);
+            globalInputsDirectory, limits);
         var projectRoot = Path.GetFullPath(repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
-        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
+        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot, limits);
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var omissions = global
             .Where(input => projectIds.Contains(input.Id))
@@ -104,13 +106,28 @@ public sealed class InputResolver
     }
 
     private static IReadOnlyList<ReviewInput> ReadDirectory(
-        string? directory, string scope, string kind, string level, string? confinementRoot)
+        string? directory, string scope, string kind, string level, string? confinementRoot,
+        ReviewContentLimits limits)
     {
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory)) return [];
-        RejectReparseTraversal(Path.GetFullPath(confinementRoot ?? directory), Path.GetFullPath(directory));
-        return Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
+        var root = Path.GetFullPath(confinementRoot ?? directory);
+        RejectReparseTraversal(root, Path.GetFullPath(directory));
+        var paths = Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
             .Where(path => !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
-            .Select(path => Parse(path, scope))
+            .Take(limits.MaxAggregateFiles + 1)
+            .ToArray();
+        if (paths.Length > limits.MaxAggregateFiles)
+            throw new ReviewContentLimitException(
+                $"Review inputs exceed the {limits.MaxAggregateFiles}-file limit.");
+        long aggregateBytes = 0;
+        foreach (var path in paths)
+        {
+            aggregateBytes = checked(aggregateBytes + BoundedRepositoryFile.Length(root, path, limits.MaxFileBytes));
+            if (aggregateBytes > limits.MaxAggregateBytes)
+                throw new ReviewContentLimitException(
+                    $"Review inputs exceed the {limits.MaxAggregateBytes}-byte aggregate limit.");
+        }
+        return paths.Select(path => Parse(root, path, scope, limits))
             .Where(input => input.Enabled && Applies(input.Kinds, kind) && Applies(input.Levels, level))
             .OrderByDescending(input => input.Priority)
             .ThenBy(input => input.Id, StringComparer.Ordinal)
@@ -118,7 +135,11 @@ public sealed class InputResolver
             .ToArray();
     }
 
-    public static ReviewInput ParseFile(string path, string scope = "project") => Parse(path, scope);
+    public static ReviewInput ParseFile(string path, string scope = "project")
+    {
+        var absolute = Path.GetFullPath(path);
+        return Parse(Path.GetDirectoryName(absolute)!, absolute, scope, ReviewContentLimits.Default);
+    }
 
     private static void RejectReparseTraversal(string root, string path)
     {
@@ -140,9 +161,11 @@ public sealed class InputResolver
         }
     }
 
-    private static ReviewInput Parse(string path, string scope)
+    private static ReviewInput Parse(
+        string root, string path, string scope, ReviewContentLimits limits)
     {
-        var text = File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal);
+        var text = BoundedRepositoryFile.ReadAllText(root, path, limits.MaxFileBytes)
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
         if (!text.StartsWith("---\n", StringComparison.Ordinal))
             throw new InputFormatException($"Input '{path}' must start with YAML frontmatter.");
         var end = text.IndexOf("\n---\n", 4, StringComparison.Ordinal);

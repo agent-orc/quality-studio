@@ -28,22 +28,41 @@ machine-specific paths do not belong in `appsettings.json`.
 On first start it seeds the repository with id `default`; existing single-repository
 deployments therefore need no configuration change. CORS origins are configured with
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
+The repository-owned one-click launcher replaces the first configured origin with its
+exact `QUALITY_STUDIO_HOST` and product port, so a custom loopback host or port remains
+usable without widening the origin policy.
+
+Local mode accepts only loopback bindings. Every local mutation requires an allowed
+`Origin` plus a short-lived nonce obtained from `GET /api/security/session`; the
+Angular client performs this handshake automatically. Non-browser callers must retain
+the response cookie and send the returned header name/token with the same allowed
+origin. The legacy `GET` routes for staleness, secret, and attack-coverage scans are
+also protected operations because they execute repository sensors. Hosted mode
+continues to require a bearer credential and matching
+`X-Client-Id` instead. Creating, changing, or archiving a repository registration
+requires registrar authority, including changes to roots, global inputs, and sensors.
 
 Repository registrations are server-owned state persisted at
 `<API content root>/.quality-studio/repositories.json`. Each entry stores its id,
 display name, normalized root path, optional global inputs directory, input character
-budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
-there are no environment-specific registry copies. Repository roots must be existing
-directories with a `.git` directory or worktree `.git` file.
+budget, enabled review kinds, sensor enablement/profile selection, content trust level,
+latest onboarding assessment, and archive state.
+This is the single canonical registry; there are no environment-specific registry
+copies. Repository roots must be existing directories with a `.git` directory or
+worktree `.git` file.
 
 ## Repository registry
 
 ```shell
 curl "http://127.0.0.1:5127/api/repos"
 
+curl -X POST "http://127.0.0.1:5127/api/repos/preflight" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"payments","displayName":"Payments","rootPath":"C:\\Projects\\payments","globalInputsDirectory":null,"inputBudgetCharacters":12000,"enabledReviewKinds":["code","security","performance"],"trustLevel":"operator-controlled"}'
+
 curl -X POST "http://127.0.0.1:5127/api/repos" \
   -H "Content-Type: application/json" \
-  -d '{"id":"payments","displayName":"Payments","rootPath":"C:\\Projects\\payments","globalInputsDirectory":null,"inputBudgetCharacters":12000,"enabledReviewKinds":["code","security","performance"]}'
+  -d '{"id":"payments","displayName":"Payments","rootPath":"C:\\Projects\\payments","globalInputsDirectory":null,"inputBudgetCharacters":12000,"enabledReviewKinds":["code","security","performance"],"trustLevel":"operator-controlled"}'
 
 curl -X PUT "http://127.0.0.1:5127/api/repos/payments" \
   -H "Content-Type: application/json" \
@@ -55,6 +74,17 @@ curl -X DELETE "http://127.0.0.1:5127/api/repos/payments"
 `DELETE` archives a registration and never changes repository files. The last active
 registration and the legacy-compatible `default` registration cannot be archived.
 
+New registrations default to `untrusted`; `operator-controlled` is an explicit
+operator assertion that the repository is controlled by the same operator as the
+Studio host. Preflight, create, update, and Agent Studio import always run the pinned,
+redacted Gitleaks assessment. A secret finding or scanner failure quarantines model
+review. Untrusted registrations remain browseable and receive the secret assessment,
+but model review and dependency package-manager commands fail closed until the S1
+isolated-worker boundary exists. Operator-controlled onboarding also runs the
+dependency sensor and returns normalized advisories in `advisories`; advisories warn
+without hiding the repository, while scanner unavailability remains explicit. Review
+estimate/start/resume calls for a quarantined registration return `409 Conflict`.
+
 ### One-click import from Agent Studio
 
 ```shell
@@ -65,7 +95,8 @@ curl -X POST "http://127.0.0.1:5127/api/repos/import-from-agent-studio"
 Fetches Agent Studio's project list (`GET {AgentStudio:BaseUrl}/api/projects`, see
 [concepts/handover.md](concepts/handover.md#project-discovery-contract)) and onboards
 every non-archived project as a repository registration: `displayName` becomes the
-registration's display name, `shortCode` seeds its id. The full project list is read
+registration's display name, `shortCode` seeds its id, and the imported content starts
+as `untrusted`. The full project list is read
 before any registry write, so a failure leaves the registry untouched: an offline or
 unreachable Agent Studio returns `502 Bad Gateway`, and a missing/incomplete
 `AgentStudio:BaseUrl` configuration returns `503 Service Unavailable`, both as
