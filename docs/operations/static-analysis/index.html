@@ -673,9 +673,19 @@
         <li>The generated S5 result remains <code>insufficient-evidence</code> with zero of 30 required matched operations and <code>savingsPercent: null</code>; the integration did not change any model or thinking-level route.</li>
       </ul>
     </article>
+
+    <article class="slice">
+      <header><h3>2026-08-12 · QS-72 · Current integration delivery</h3><span class="pill done">landed</span></header>
+      <p>The decided S1–S5 lineage was restored onto integration snapshot <code>59941d8e9373</code>. The remote still exposes <code>main</code> as its sole integration head and no <code>develop</code> ref, so the requested fresh integration replay used the exact current <code>origin/main</code> commit. The full snapshot preflight, selective gates, baselines, complexity projection, and economy instrumentation remain intact.</p>
+      <ul>
+        <li>The 5,000-file dashboard canary exposed a current-host first-projection regression during verification. Generic repositories now reuse their matching hierarchy paths and size metadata, review and staleness counts share one traversal, and files without churn or review evidence no longer enter hotspot sorting. Files with either signal retain the existing risk projection. The unchanged 150 ms canary passed five consecutive isolated repetitions and the final gate invocation.</li>
+        <li>The Release build, 219 portable .NET tests with one explicit live-test skip, 39 frontend browser tests, seven static-analysis contract tests, both Angular compilers, the 478.30 kB production build, dependency gates, and Gitleaks pass. The new-debt gate reports 250 current observations, all existing, with zero new and zero resolved.</li>
+        <li>The S5 artifact was regenerated in the operator-provided results directory. It remains <code>insufficient-evidence</code> with zero of 30 required matched operations and <code>savingsPercent: null</code>; no gate-retention conclusion, model change, or thinking-level change is claimed.</li>
+      </ul>
+    </article>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 11 August 2026</footer>
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 12 August 2026</footer>
 </main>
 </body>
 </html>

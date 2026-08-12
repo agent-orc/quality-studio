@@ -44,6 +44,7 @@ public sealed class ProjectDashboardTests
             Assert.Equal("project-reference", edge.Kind);
             Assert.Equal("reported", dashboard.TestCoverage.Status);
             Assert.Equal(70, dashboard.TestCoverage.LinePercent);
+            Assert.Empty(dashboard.Hotspots);
         }
         finally
         {
