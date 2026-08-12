@@ -43,6 +43,7 @@ describe('QualityApi', () => {
     http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
     http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
     http.expectOne('/api/repos/default/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+    http.expectOne('/api/repos/default/findings/suppressions').flush({ schemaVersion: 1, revision: 0, rules: [] });
 
     await new Promise(resolve => setTimeout(resolve));
     http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
@@ -66,6 +67,7 @@ describe('QualityApi', () => {
     } });
     http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
     http.expectOne('/api/repos/default/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+    http.expectOne('/api/repos/default/findings/suppressions').flush({ schemaVersion: 1, revision: 0, rules: [] });
     await new Promise(resolve => setTimeout(resolve));
     http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
     await loading;

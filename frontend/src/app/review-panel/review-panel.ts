@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, FindingSuppressionRule, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -16,7 +16,7 @@ interface LastFindingMutation {
   selector: 'qs-review-panel',
   imports: [],
   templateUrl: './review-panel.html',
-  styleUrl: './review-panel.css',
+  styleUrls: ['./review-panel.css', './ignore-list.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ReviewPanel {
@@ -38,6 +38,11 @@ export class ReviewPanel {
   readonly dismissState = signal<'waived' | 'false-positive'>('waived');
   readonly lastMutation = signal<LastFindingMutation | null>(null);
   readonly scopeManagerOpen = signal(false);
+  readonly ignoreManagerOpen = signal(false);
+  readonly ignoreFinding = signal<ReviewFinding | null>(null);
+  readonly ignoreReason = signal('');
+  readonly ignoreExpiry = signal('');
+  readonly ignoreStatus = signal('');
   readonly scopeAction = signal<'include' | 'exclude'>('exclude');
   readonly scopePattern = signal('');
   readonly scopeReason = signal('');
@@ -46,7 +51,7 @@ export class ReviewPanel {
   readonly scopeExpansionConfirmed = signal(false);
   readonly editingScopeRuleIndex = signal<number | null>(null);
   readonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');
-  readonly findingFilter = signal<'active' | FindingState | 'all'>('active');
+  readonly findingFilter = signal<'active' | FindingState | 'suppressed' | 'all'>('active');
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
   readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
   readonly runDrawerOpen = signal(false);
@@ -86,6 +91,8 @@ export class ReviewPanel {
     return [...(this.activeMeta()?.findings ?? [])]
       .filter(finding => severity === 'all' || finding.severity === severity)
       .filter(finding => {
+        if (stateFilter === 'suppressed') return !!finding.suppression;
+        if (stateFilter !== 'all' && finding.suppression) return false;
         if (stateFilter === 'all') return true;
         if (stateFilter === 'active') return state(finding) === 'open' || state(finding) === 'accepted';
         return state(finding) === stateFilter;
@@ -116,8 +123,67 @@ export class ReviewPanel {
     const location = finding.locations[locationIndex];
     if (!location) return 'Location unavailable';
     if (this.activeState() === 'stale' || !location.range) return `${location.path} · source changed`;
-    const end = location.range.end.line === location.range.start.line ? '' : `-${location.range.end.line}`;
-    return `${location.path}:${location.range.start.line}${end}`;
+    const end = location.range.end.line === location.range.start.line
+      ? `-${location.range.end.column}`
+      : `-${location.range.end.line}:${location.range.end.column}`;
+    return `${location.path}:${location.range.start.line}:${location.range.start.column}${end}`;
+  }
+
+  openIgnoreFinding(finding: ReviewFinding): void {
+    this.ignoreFinding.set(finding);
+    this.ignoreReason.set('');
+    this.ignoreExpiry.set('');
+    this.ignoreStatus.set('');
+  }
+
+  async saveFindingSuppression(): Promise<void> {
+    const finding = this.ignoreFinding();
+    const path = this.api.file()?.path;
+    const reason = this.ignoreReason().trim();
+    const author = this.stateAuthor().trim();
+    if (!finding?.fingerprint || !path) { this.ignoreStatus.set('Finding identity is unavailable.'); return; }
+    if (!author || !reason) { this.ignoreStatus.set('Author and reason are required.'); return; }
+    this.ignoreStatus.set('Adding to Ignore list…');
+    try {
+      const updated = await this.api.addFindingSuppression({
+        path, kind: this.activeKind(), fingerprint: finding.fingerprint, author, reason,
+        expiresAt: this.ignoreExpiry() ? new Date(this.ignoreExpiry()).toISOString() : null,
+        expectedRevision: this.api.findingSuppressions().revision,
+      });
+      if (updated) this.findingSelect.emit(updated);
+      this.ignoreFinding.set(null);
+      this.ignoreManagerOpen.set(true);
+      this.ignoreStatus.set('Finding ignored. The observation remains available under Suppressed.');
+    } catch (error) {
+      if ((error as { status?: number }).status === 409) await this.api.loadFindingSuppressions();
+      this.ignoreStatus.set((error as { status?: number }).status === 409
+        ? 'The Ignore list changed elsewhere. It was reloaded; review it and try again.'
+        : this.api.errorMessage(error));
+    }
+  }
+
+  async openIgnoreManager(): Promise<void> {
+    this.ignoreManagerOpen.set(true);
+    this.ignoreStatus.set('Loading Ignore list…');
+    try { await this.api.loadFindingSuppressions(); this.ignoreStatus.set(''); }
+    catch (error) { this.ignoreStatus.set(this.api.errorMessage(error)); }
+  }
+
+  async removeFindingSuppression(rule: Pick<FindingSuppressionRule, 'id'>): Promise<void> {
+    this.ignoreStatus.set('Removing from Ignore list…');
+    try {
+      await this.api.deleteFindingSuppression(rule.id, this.api.findingSuppressions().revision);
+      this.ignoreStatus.set('Finding restored to the review queue.');
+    } catch (error) {
+      if ((error as { status?: number }).status === 409) await this.api.loadFindingSuppressions();
+      this.ignoreStatus.set((error as { status?: number }).status === 409
+        ? 'The Ignore list changed elsewhere. It was reloaded; review it and try again.'
+        : this.api.errorMessage(error));
+    }
+  }
+
+  suppressionExpired(rule: FindingSuppressionRule): boolean {
+    return !!rule.expiresAt && Date.parse(rule.expiresAt) <= Date.now();
   }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }

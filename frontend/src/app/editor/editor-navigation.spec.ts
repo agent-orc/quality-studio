@@ -52,6 +52,8 @@ describe('Editor finding navigation', () => {
     expect(component.isSelectedLine(11)).toBeFalse();
     expect(component.codeScrollTop()).toBeGreaterThan(0);
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(3);
+    expect(fixture.nativeElement.querySelectorAll('.finding-span.selected').length).toBe(3);
+    expect(fixture.nativeElement.querySelector('.finding-span.selected')?.getAttribute('data-finding-columns')).toBe('1-6');
     expect(fixture.nativeElement.querySelector('[data-finding-fingerprint]')?.getAttribute('data-finding-fingerprint')).toBe(finding.fingerprint);
   });
 

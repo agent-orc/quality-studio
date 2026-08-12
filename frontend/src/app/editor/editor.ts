@@ -6,6 +6,7 @@ import { FlatNode } from '../tree-utils';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
+import { FindingSpanSegment, segmentFindingSpans } from './finding-span-segments';
 
 const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mixed: 'Mixed' };
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
@@ -238,6 +239,23 @@ export class Editor {
     return file && cache.path === file.path && cache.lines[line - 1]
       ? cache.lines[line - 1]!
       : [{ text, kind: 'plain' } satisfies TokenSpan];
+  }
+
+  segmentsForLine(line: number, text: string, findings: ReviewFinding[]): FindingSpanSegment[] {
+    return segmentFindingSpans(
+      this.tokensForLine(line, text), line, this.api.file()?.path ?? '', findings,
+      this.selectedFinding()?.fingerprint ?? this.selectedFinding()?.id);
+  }
+
+  spanTitle(segment: FindingSpanSegment): string {
+    return segment.findings.map(finding =>
+      `${finding.severity.toUpperCase()}: ${finding.title} · columns ${segment.startColumn}-${segment.endColumn}`).join('\n');
+  }
+
+  selectSpan(segment: FindingSpanSegment): void {
+    if (!segment.findings.length) return;
+    const selected = this.selectedFinding()?.fingerprint ?? this.selectedFinding()?.id;
+    this.findingSelect.emit(segment.findings.find(finding => (finding.fingerprint ?? finding.id) === selected) ?? segment.findings[0]);
   }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }

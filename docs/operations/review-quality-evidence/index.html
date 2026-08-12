@@ -177,7 +177,7 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Implementation in progress · QS-84 documented</span>
       <span><b>Recommendation</b> Approve option C</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-61</span>
@@ -207,6 +207,7 @@
       <li><a href="#runs">Run state and durable history</a></li>
       <li><a href="#models">Per-model review-quality evidence</a></li>
       <li><a href="#slices">Implementation slices</a></li>
+      <li><a href="#implementation">Implementation state</a></li>
       <li><a href="#acceptance">Decision guardrails</a></li>
     </ol>
   </nav>
@@ -555,7 +556,7 @@
     <p>Each slice has a reviewable boundary and acceptance proof. The sequence avoids a flag day and produces value after S1.</p>
 
     <article class="slice">
-      <header><span class="pill queued">S1 · Quality Studio</span><h3>Exact-span finding highlight on review-meta v2</h3></header>
+      <header><span class="pill done">S1 · Quality Studio · QS-84</span><h3>Exact-span finding highlight on review-meta v2</h3></header>
       <p><b>Scope:</b> Segment each syntax-token line at finding range boundaries, add selected/overlap state, scroll card selection to the primary anchor, show <code>path:line:column</code> on cards, and keep whole-line treatment secondary.</p>
       <ul>
         <li>Use current <code>ReviewFinding.locations</code>; no backend or schema change.</li>
@@ -577,7 +578,7 @@
     </article>
 
     <article class="slice">
-      <header><span class="pill queued">S3 · Quality Studio</span><h3>Human assessment, resolution, and scoped ignore policy</h3></header>
+      <header><span class="pill open">S3 · Quality Studio · partial QS-84</span><h3>Human assessment, resolution, and scoped ignore policy</h3></header>
       <p><b>Scope:</b> Introduce append-only assessment events, an independent resolution projection, and <code>.quality/findings/suppressions.json</code> with exact-first UI and match preview.</p>
       <ul>
         <li>Mutations remain API/service-owned with optimistic concurrency; the browser never edits state files directly.</li>
@@ -615,8 +616,28 @@
     </div>
   </section>
 
+  <section id="implementation">
+    <h2><span class="no">10</span>Implementation state</h2>
+    <p class="dim">This is a living record of delivered slices. A slice is marked complete only when its stated boundary is complete; narrower receipts remain explicit.</p>
+    <table>
+      <thead><tr><th>Date / card</th><th>State</th><th>Delivered evidence</th><th>Remaining dossier work</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>12 August 2026</b><br><code>QS-84</code></td>
+          <td><span class="pill done">S1 complete</span><br><span class="pill open">S3 exact-first foundation</span></td>
+          <td>Finding ranges are segmented through syntax tokens and exposed as keyboard-focusable exact spans, including multi-line, Unicode, end-of-line, and overlap cases. Finding cards expose full line/column ranges. A repository-owned <code>.quality/findings/suppressions.json</code> store now supports exact fingerprint rules with optimistic concurrency, atomic persistence, expiry, API-owned create/remove mutations, default-hidden suppressed findings, and an Ignore list manager. Suppression annotates the projection without deleting the observation or changing lifecycle state.</td>
+          <td>S2 remains queued. S3 still needs append-only assessment and independent resolution projections, plus scoped path/rule/source matching and match preview. S4 and S5 remain queued.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="box ok">
+      <h4>QS-84 verification receipt</h4>
+      <p>Retained result artifacts <code>qs-84-before-label-only-*</code>, <code>qs-84-after-exact-spans-*</code>, and <code>qs-84-after-ignore-list-*</code> provide the light/dark before-and-after screenshots; <code>qs-84-finding-evidence.json</code> records the browser audit. Backend tests cover store recreation, expiry, optimistic conflicts, projection independence, and API create/list/delete behavior; frontend tests cover range segmentation, filtering, ignore mutations, and editor navigation.</p>
+    </div>
+  </section>
+
   <section id="acceptance">
-    <h2><span class="no">10</span>Decision guardrails</h2>
+    <h2><span class="no">11</span>Decision guardrails</h2>
     <table>
       <thead><tr><th>Invariant</th><th>Acceptance signal</th></tr></thead>
       <tbody>

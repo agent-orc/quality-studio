@@ -13,7 +13,10 @@ public sealed record FindingStateCounts(int Open, int Accepted, int Waived, int 
 
 public static class FindingStateProjection
 {
-    public static JsonObject Apply(JsonObject metadata, IReadOnlyDictionary<string, FindingStateRecord> states)
+    public static JsonObject Apply(
+        JsonObject metadata,
+        IReadOnlyDictionary<string, FindingStateRecord> states,
+        IReadOnlyDictionary<string, FindingSuppressionRule>? suppressions = null)
     {
         var result = metadata.DeepClone().AsObject();
         var counts = FindingStateCounts.Empty;
@@ -26,6 +29,9 @@ public static class FindingStateProjection
                 ? stored
                 : null;
             var effective = state?.State ?? FindingState.Open;
+            var suppression = fingerprint is not null && suppressions?.TryGetValue(fingerprint, out var storedSuppression) == true
+                ? storedSuppression
+                : null;
             finding["state"] = FindingStateStore.StateName(effective);
             if (state is not null)
             {
@@ -34,14 +40,27 @@ public static class FindingStateProjection
                 finding["stateTimestamp"] = state.Timestamp.ToUniversalTime().ToString("O");
                 if (state.ExpiresAt is not null) finding["stateExpiresAt"] = state.ExpiresAt.Value.ToUniversalTime().ToString("O");
             }
+            if (suppression is not null)
+            {
+                finding["suppression"] = new JsonObject
+                {
+                    ["id"] = suppression.Id,
+                    ["reason"] = suppression.Reason,
+                    ["author"] = suppression.Author,
+                    ["createdAt"] = suppression.CreatedAt.ToUniversalTime().ToString("O"),
+                    ["expiresAt"] = suppression.ExpiresAt?.ToUniversalTime().ToString("O"),
+                };
+            }
 
             counts = Add(counts, effective);
             var weight = SeverityWeight(finding["severity"]?.GetValue<string>());
-            if (effective is FindingState.Waived or FindingState.FalsePositive or FindingState.Resolved) excludedWeight += weight;
+            if (suppression is not null || effective is FindingState.Waived or FindingState.FalsePositive or FindingState.Resolved) excludedWeight += weight;
             else includedWeight += weight;
         }
 
         result["findingCounts"] = CountsJson(counts);
+        result["suppressedFindingCount"] = result["findings"]?.AsArray().OfType<JsonObject>()
+            .Count(finding => finding["suppression"] is not null) ?? 0;
         ApplyEffectiveGrade(result, includedWeight, excludedWeight);
         return result;
     }
@@ -77,7 +96,7 @@ public static class FindingStateProjection
         grade["score"] = adjusted;
         grade["band"] = adjusted switch { >= 90 => "A", >= 80 => "B", >= 70 => "C", >= 60 => "D", _ => "F" };
         grade["rationale"] = grade["rationale"]!.GetValue<string>() +
-            " Waived, false-positive, and resolved findings are excluded from this effective grade.";
+            " Waived, false-positive, resolved, and suppressed findings are excluded from this effective grade.";
     }
 
     private static int SeverityWeight(string? severity) => severity switch
