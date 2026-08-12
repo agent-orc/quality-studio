@@ -32,6 +32,7 @@
               @if (report.summary.partialReason) { <p class="run-partial">{{ report.summary.partialReason }}</p> }
               <div class="run-summary-grid"><span><b>{{ report.summary.score ?? '—' }}</b><small>Score {{ report.summary.grade ?? 'unavailable' }}</small></span><span><b>{{ report.summary.findings.total }}</b><small>Active findings</small></span><span><b>{{ report.execution.reviewed }}</b><small>Reviewed</small></span><span><b>{{ report.execution.reusedFresh }}</b><small>Reused fresh</small></span></div>
               <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
+              <button class="trend-more run-compare-trigger" type="button" (click)="openComparison()" [disabled]="comparableTrend().length < 2">{{ comparableTrend().length < 2 ? 'Two complete runs are required to compare' : 'Compare review outcomes' }}</button>
 
               <div class="section-title"><span>Run trend</span><small>Same kind, scope, and level</small></div>
               <div class="run-trend" role="list" aria-label="Comparable run trend">
@@ -145,4 +146,35 @@
     <div class="section-title"><span>Repository scan</span><small>Now</small></div>
     <div class="scan-grid"><div><i class="status fresh"></i><b>{{ api.scan().freshCount }}</b><span>Fresh</span></div><div><i class="status stale"></i><b>{{ api.scan().staleCount }}</b><span>Code</span></div><div><i class="status policy-drift"></i><b>{{ api.scan().policyDriftCount }}</b><span>Policy</span></div><div><i class="status missing"></i><b>{{ api.scan().missingCount }}</b><span>Missing</span></div></div>
   </div>
+  @if (comparisonOpen()) {
+    <div class="comparison-backdrop" role="presentation">
+      <section class="comparison-workbench" role="dialog" aria-modal="true" aria-labelledby="comparison-title">
+        <header class="comparison-header"><div><span class="eyebrow">Immutable run outcomes</span><h2 id="comparison-title">Compare review outcomes</h2><p>{{ selectedRun()?.path }} · {{ activeKind() }} · same scope and level</p></div><button type="button" aria-label="Close run comparison" (click)="closeComparison()">×</button></header>
+        <div class="comparison-controls">
+          <label><span>Baseline</span><select aria-label="Comparison baseline" [value]="comparisonBaselineId()" (change)="comparisonBaselineId.set($any($event.target).value); loadComparison()">@for (point of comparisonBaselines(); track point.runId) { <option [value]="point.runId">{{ scannedAt(point.finishedAt) }} · {{ point.score }} {{ point.grade }}</option> }</select></label>
+          <span class="comparison-arrow" aria-hidden="true">→</span>
+          <label><span>Candidate</span><select aria-label="Comparison candidate" [value]="comparisonCandidateId()" (change)="selectComparisonCandidate($any($event.target).value)">@for (point of comparableTrend(); track point.runId) { <option [value]="point.runId">{{ scannedAt(point.finishedAt) }} · {{ point.score }} {{ point.grade }}</option> }</select></label>
+        </div>
+        @if (comparisonLoading()) { <p class="comparison-message" role="status">Aligning immutable findings…</p> }
+        @if (comparisonError()) { <p class="comparison-error" role="alert">{{ comparisonError() }}</p> }
+        @if (comparison(); as result) {
+          <div class="comparison-warning" role="note"><b>Interpretation boundary</b><span>{{ result.interpretation }}</span><small>Route {{ result.routeChanged ? 'changed' : 'matched' }} · source subject {{ result.subjectChanged ? 'changed' : 'matched' }} · review inputs {{ result.reviewInputsChanged === null ? 'unavailable' : result.reviewInputsChanged ? 'changed' : 'matched' }}</small></div>
+          <div class="comparison-summary" aria-label="Run comparison summary">
+            <article><span>Active findings</span><b>{{ result.baseline.activeFindings }} → {{ result.candidate.activeFindings }}</b><small>{{ result.candidate.activeFindings - result.baseline.activeFindings }} net</small></article>
+            <article><span>Grade</span><b>{{ result.baseline.score }} → {{ result.candidate.score }}</b><small>{{ result.baseline.grade }} → {{ result.candidate.grade }}</small></article>
+            <article><span>Tokens</span><b>{{ formatTokens((result.baseline.inputTokens ?? 0) + (result.baseline.outputTokens ?? 0)) }} → {{ formatTokens((result.candidate.inputTokens ?? 0) + (result.candidate.outputTokens ?? 0)) }}</b><small>{{ result.baseline.model }} → {{ result.candidate.model }}</small></article>
+            <article><span>Duration</span><b>{{ formatDuration(result.baseline.durationMs) }} → {{ formatDuration(result.candidate.durationMs) }}</b><small>{{ result.baseline.reviewed }}/{{ result.baseline.failed }}/{{ result.baseline.skipped }} → {{ result.candidate.reviewed }}/{{ result.candidate.failed }}/{{ result.candidate.skipped }} reviewed/failed/skipped</small></article>
+            <article><span>Cost</span><b>{{ result.baseline.cost === null ? 'Unavailable' : result.baseline.cost + ' ' + (result.baseline.currency ?? '') }} → {{ result.candidate.cost === null ? 'Unavailable' : result.candidate.cost + ' ' + (result.candidate.currency ?? '') }}</b><small>Operational context only</small></article>
+          </div>
+          <div class="comparison-delta-heading"><div><span class="eyebrow">Finding delta</span><h3>{{ result.counts.new }} new · {{ result.counts.unchanged }} unchanged · {{ result.counts.resolved }} resolved · {{ result.counts.dispositionChanged }} disposition changed</h3></div><small>Fingerprint aligned · never filter-derived</small></div>
+          <div class="comparison-findings" role="list" aria-label="Finding comparison">
+            @for (finding of result.findings; track finding.fingerprint) {
+              <article role="listitem" [class]="'comparison-finding ' + finding.change"><span class="comparison-change">{{ finding.change }}</span><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><div><b>{{ finding.title }}</b><small>{{ comparisonLocation(finding) }} · {{ finding.baselineState ?? 'absent' }} → {{ finding.candidateState ?? 'absent' }}</small></div></article>
+            } @empty { <p class="comparison-message">Neither outcome contains a finding.</p> }
+          </div>
+          <footer class="comparison-provenance"><div><b>Baseline</b><code>{{ result.baseline.runId }} · revision {{ result.baseline.revision }}</code><code>{{ result.baseline.subjectManifestHash }}</code></div><div><b>Candidate</b><code>{{ result.candidate.runId }} · revision {{ result.candidate.revision }}</code><code>{{ result.candidate.subjectManifestHash }}</code></div></footer>
+        }
+      </section>
+    </div>
+  }
 </aside>

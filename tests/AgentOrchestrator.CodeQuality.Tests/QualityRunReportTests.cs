@@ -156,6 +156,64 @@ public sealed class QualityRunReportTests
         Assert.DoesNotContain(first.Points.Concat(second.Points), point => point.RunId == "other-scope");
     }
 
+    [Fact]
+    public void Comparison_aligns_fingerprints_and_keeps_interpretation_observational()
+    {
+        var baseline = CreateReport("review-baseline", findingCount: 3);
+        baseline = baseline with
+        {
+            Observations = baseline.Observations.Select(observation => observation with
+            {
+                ReviewInputsHash = "sha256:" + new string('d', 64),
+                Findings = observation.Findings.Select(finding => finding.Id == "finding-1"
+                    ? finding with { State = "accepted" }
+                    : finding).ToArray(),
+            }).ToArray(),
+        };
+        var candidate = CreateReport("review-candidate", findingCount: 4);
+        candidate = candidate with
+        {
+            Run = candidate.Run with { FinishedAt = baseline.Run.FinishedAt!.Value.AddHours(1) },
+            Observations = candidate.Observations.Select(observation => observation with
+            {
+                ReviewInputsHash = "sha256:" + new string('e', 64),
+                Findings = observation.Findings
+                    .Where(finding => finding.Id != "finding-2")
+                    .Select(finding => finding.Id == "finding-1" ? finding with { State = "waived" } : finding)
+                    .ToArray(),
+            }).ToArray(),
+        };
+
+        var comparison = QualityRunComparisonBuilder.Build(baseline, candidate);
+
+        Assert.Equal(new QualityRunComparisonCounts(1, 1, 1, 1), comparison.Counts);
+        Assert.False(comparison.SubjectChanged);
+        Assert.True(comparison.ReviewInputsChanged);
+        Assert.False(comparison.RouteChanged);
+        Assert.Contains("do not attribute", comparison.Interpretation, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("new", Assert.Single(comparison.Findings, finding =>
+            finding.Fingerprint.EndsWith("3", StringComparison.Ordinal)).Change);
+        var disposition = Assert.Single(comparison.Findings, finding => finding.Change == "disposition-changed");
+        Assert.Equal("accepted", disposition.BaselineState);
+        Assert.Equal("waived", disposition.CandidateState);
+    }
+
+    [Fact]
+    public void Comparison_rejects_partial_or_incompatible_runs()
+    {
+        var baseline = CreateReport("review-baseline", findingCount: 0);
+        var partial = CreateReport("review-partial", findingCount: 0, complete: false);
+        var otherScope = CreateReport("review-other", findingCount: 0) with
+        {
+            Run = CreateReport("review-other", findingCount: 0).Run with { ScopeUnitId = "other" },
+        };
+
+        Assert.Contains("not comparable", Assert.Throws<ArgumentException>(() =>
+            QualityRunComparisonBuilder.Build(baseline, partial)).Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not compatible", Assert.Throws<ArgumentException>(() =>
+            QualityRunComparisonBuilder.Build(baseline, otherScope)).Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static QualityRunReportDocument CreateReport(
         string id,
         int findingCount,

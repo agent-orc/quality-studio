@@ -148,6 +148,7 @@
         "sidecarSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
         "capturedAt": { "type": ["string", "null"], "format": "date-time" },
         "reviewedHash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+        "reviewInputsHash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
         "providerRunId": { "$ref": "#/$defs/nullableString" },
         "grade": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/grade" }] },
         "summary": { "$ref": "#/$defs/nullableString" },

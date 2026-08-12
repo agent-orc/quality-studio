@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunComparison, QualityRunComparisonFinding, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -56,6 +56,12 @@ export class ReviewPanel {
   readonly runTrendCursor = signal<string | null>(null);
   readonly runDetailLoading = signal(false);
   readonly runDetailError = signal('');
+  readonly comparisonOpen = signal(false);
+  readonly comparisonBaselineId = signal<string | null>(null);
+  readonly comparisonCandidateId = signal<string | null>(null);
+  readonly comparison = signal<QualityRunComparison | null>(null);
+  readonly comparisonLoading = signal(false);
+  readonly comparisonError = signal('');
   readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
@@ -74,6 +80,15 @@ export class ReviewPanel {
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
+  readonly comparableTrend = computed(() => this.runTrend()
+    .filter(point => point.comparable)
+    .sort((left, right) => Date.parse(right.finishedAt) - Date.parse(left.finishedAt)));
+  readonly comparisonBaselines = computed(() => {
+    const candidate = this.comparableTrend().find(point => point.runId === this.comparisonCandidateId());
+    if (!candidate) return [];
+    return this.comparableTrend().filter(point => point.runId !== candidate.runId &&
+      Date.parse(point.finishedAt) <= Date.parse(candidate.finishedAt));
+  });
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const severity = this.severityFilter();
@@ -367,6 +382,7 @@ export class ReviewPanel {
   }
 
   closeRun(): void {
+    this.closeComparison();
     this.selectedRunId.set(null);
     this.runReport.set(null);
     this.runTrend.set([]);
@@ -393,6 +409,57 @@ export class ReviewPanel {
   reportFileName(runId: string, format: RunReportFormat): string { return this.api.runReportFileName(runId, format); }
 
   trendScoreWidth(point: QualityRunTrendPoint): number { return point.score ?? 0; }
+
+  async openComparison(): Promise<void> {
+    const points = this.comparableTrend();
+    if (points.length < 2) return;
+    let candidate = points.find(point => point.runId === this.selectedRunId()) ?? points[0];
+    let baseline = points.find(point => point.runId !== candidate.runId &&
+      Date.parse(point.finishedAt) <= Date.parse(candidate.finishedAt));
+    if (!baseline) {
+      candidate = points[0];
+      baseline = points[1];
+    }
+    this.comparisonCandidateId.set(candidate.runId);
+    this.comparisonBaselineId.set(baseline.runId);
+    this.comparisonOpen.set(true);
+    await this.loadComparison();
+  }
+
+  async selectComparisonCandidate(runId: string): Promise<void> {
+    this.comparisonCandidateId.set(runId);
+    this.comparisonBaselineId.set(this.comparisonBaselines()[0]?.runId ?? null);
+    this.comparison.set(null);
+    if (this.comparisonBaselineId()) await this.loadComparison();
+  }
+
+  async loadComparison(): Promise<void> {
+    const baselineId = this.comparisonBaselineId();
+    const candidateId = this.comparisonCandidateId();
+    if (!baselineId || !candidateId) return;
+    this.comparisonLoading.set(true);
+    this.comparisonError.set('');
+    try {
+      this.comparison.set(await this.api.compareRuns(baselineId, candidateId));
+    } catch (error) {
+      this.comparison.set(null);
+      this.comparisonError.set(this.api.errorMessage(error));
+    } finally {
+      this.comparisonLoading.set(false);
+    }
+  }
+
+  closeComparison(): void {
+    this.comparisonOpen.set(false);
+    this.comparison.set(null);
+    this.comparisonError.set('');
+  }
+
+  comparisonLocation(finding: QualityRunComparisonFinding): string {
+    const location = finding.locations[0];
+    if (!location) return 'Location unavailable';
+    return `${location.path}${location.startLine === null ? '' : `:${location.startLine}`}`;
+  }
 
   async resumeCapped(run: ReviewRun): Promise<void> {
     const current = run.tokenCap ?? run.costCap;

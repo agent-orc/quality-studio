@@ -100,7 +100,8 @@ public sealed record QualityRunObservation(
     string? ProviderRunId,
     QualityRunGrade? Grade,
     string? Summary,
-    IReadOnlyList<QualityRunFinding> Findings);
+    IReadOnlyList<QualityRunFinding> Findings,
+    string? ReviewInputsHash = null);
 
 public sealed record QualityRunGrade(int Score, string Band, string Rationale);
 
@@ -168,6 +169,14 @@ public static class QualityRunReportJson
         foreach (var target in targets)
             canonical.Append(target.UnitId).Append('\0').Append(target.Path).Append('\0')
                 .Append(target.SubjectHash).Append('\n');
+        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+
+    public static string ReviewInputsManifestHash(IEnumerable<KeyValuePair<string, string>> unitHashes)
+    {
+        var canonical = new StringBuilder("quality-studio-run-review-inputs-v1\n");
+        foreach (var pair in unitHashes.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+            canonical.Append(pair.Key).Append('\0').Append(pair.Value).Append('\n');
         return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
     }
 
