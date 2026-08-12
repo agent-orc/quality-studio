@@ -100,7 +100,8 @@ public sealed record QualityRunObservation(
     string? ProviderRunId,
     QualityRunGrade? Grade,
     string? Summary,
-    IReadOnlyList<QualityRunFinding> Findings);
+    IReadOnlyList<QualityRunFinding> Findings,
+    string? ReviewInputsHash = null);
 
 public sealed record QualityRunGrade(int Score, string Band, string Rationale);
 
@@ -171,6 +172,14 @@ public static class QualityRunReportJson
         return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
     }
 
+    public static string ReviewInputsManifestHash(IEnumerable<KeyValuePair<string, string>> unitHashes)
+    {
+        var canonical = new StringBuilder("quality-studio-run-review-inputs-v1\n");
+        foreach (var pair in unitHashes.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+            canonical.Append(pair.Key).Append('\0').Append(pair.Value).Append('\n');
+        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+
     private static void Validate(QualityRunReportDocument report)
     {
         if (report.SchemaVersion != 1 || !string.Equals(report.Schema, SchemaId, StringComparison.Ordinal))
@@ -234,7 +243,15 @@ public sealed class QualityRunReportStore
     {
         var path = PathFor(runId);
         if (!File.Exists(path)) throw new FileNotFoundException($"Review run report '{runId}' was not found.", path);
-        var report = QualityRunReportJson.Deserialize(File.ReadAllText(path));
+        QualityRunReportDocument report;
+        try
+        {
+            report = QualityRunReportJson.Deserialize(File.ReadAllText(path));
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException($"Review run report '{path}' is invalid.", exception);
+        }
         if (!string.Equals(report.Run.Id, runId, StringComparison.Ordinal))
             throw new InvalidDataException($"Review run report '{path}' has a mismatched run id.");
         return report;

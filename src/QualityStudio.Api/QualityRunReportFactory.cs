@@ -266,7 +266,8 @@ public static class QualityRunReportFactory
             StringAt(metadata, "reviewer", "runId"),
             grade,
             metadata["summary"]?.GetValue<string>(),
-            findings);
+            findings,
+            StringAt(metadata, "reviewInputs", "effectiveHash"));
     }
 
     private static QualityRunFinding? ParseFinding(

@@ -187,10 +187,10 @@
     <h1>Review flow: from intent to disposition</h1>
     <p class="lede">A repository-grounded walkthrough of starting a review, watching it run, reading and locating findings, taking action, and comparing outcomes. The recommendation turns the existing three-pane engineer workspace into one continuous review session rather than adding another dashboard.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
-      <span><b>Phase</b> Decision ready</span>
-      <span><b>Evidence date</b> 11 August 2026</span>
-      <span><b>Baseline</b> main + QS-55 + QS-56</span>
+      <span><b>Status</b> Implemented</span>
+      <span><b>Phase</b> Documented</span>
+      <span><b>Evidence date</b> 12 August 2026</span>
+      <span><b>Baseline</b> origin/main + QS-69 + QS-73</span>
     </div>
   </header>
 
@@ -491,7 +491,7 @@
         <tr><td><span class="slice-id">S3</span><br><b>Finding queue + code navigation</b></td><td>Add filters/sort, location control, selected-range input to Editor, focus/scroll behavior, next/previous, and URL restoration using fingerprint plus location index.</td><td class="acceptance">Finding card to code and marker to detail both work across files. Stale findings remain readable but do not claim an authoritative range. Reloading the deep link restores the same finding. Visible counts equal visible rows.</td><td>S0</td></tr>
         <tr><td><span class="slice-id">S4</span><br><b>Disposition UX</b></td><td>Keep the existing lifecycle API and optimistic timestamp. Add Accept and Dismiss facade, consequence copy, action-specific fields, post-accept Create task, success/undo state, and concurrent-write handling.</td><td class="acceptance">Accept visibly remains active. Dismiss requires choosing Waive or False positive. Expiry is offered only where meaningful. Every mutation travels through the API and a stale timestamp produces a recoverable conflict, not a silent overwrite.</td><td>S3</td></tr>
         <tr><td><span class="slice-id">S5</span><br><b>Maintainable scope list</b></td><td>Add repository-scoped API CRUD and match preview over the existing <code>.quality/scope.json</code> / <code>scope.v1</code> contract, then add a management view. Reuse its ordered <code>include</code>/<code>exclude</code>, pattern, and required exclude reason fields.</td><td class="acceptance">Creating “Ignore path” writes an exact-path exclude through an atomic application service and previews matched files. Wider patterns require explicit expansion. Runs continue to record exclusions in aggregate evidence. Removing the rule makes the path eligible on the next review. No direct browser filesystem writes and no parallel ignore file.</td><td>S3; may ship after S4</td></tr>
-        <tr><td><span class="slice-id">S6</span><br><b>Outcome snapshot + compare</b></td><td>Persist <code>review-run-outcome/v1</code> atomically with per-unit grade, input hash, stable finding projection, disposition, and source location. Add compatible-run compare API and comparison workbench.</td><td class="acceptance">Comparison survives a later sidecar replacement and API restart. It aligns by fingerprint, distinguishes New/Unchanged/Resolved/Disposition changed, reports missing/corrupt snapshots plainly, and never attributes quality delta to a model when route or inputs differ.</td><td>S2 and S3</td></tr>
+        <tr><td><span class="slice-id">S6</span><br><b>Outcome snapshot + compare</b></td><td>Read the canonical <code>quality-run-report/v1</code> snapshots established by QS-73, retain per-unit input hashes for new runs, and add a compatible-run comparison API and workbench.</td><td class="acceptance">Comparison survives a later sidecar replacement and API restart. It aligns by fingerprint, distinguishes New/Unchanged/Resolved/Disposition changed, reports missing/corrupt snapshots plainly, and never attributes quality delta to a model when route or inputs differ.</td><td>S2 and S3</td></tr>
       </tbody>
     </table>
 
@@ -524,13 +524,13 @@
         <li>Approve <b>Option B, session-centered workspace</b>, and reject a new Reviews dashboard in this wave.</li>
         <li>Approve the sequence <b>S0 → S1/S3 → S2/S4 → S5/S6</b>, with S1 and S3 allowed to proceed in parallel after S0.</li>
         <li>Approve <b>Accept / Dismiss / Ignore</b> as operator vocabulary, with Dismiss mapping explicitly to Waive or False positive and Ignore remaining a separate future-review rule.</li>
-        <li>Approve a versioned immutable run outcome as the prerequisite for comparison. Decide retention in S6 before calling history durable.</li>
+        <li>Use the versioned immutable canonical run reports supplied by QS-73 as comparison history; do not introduce a second outcome store or automatic pruning.</li>
         <li>Approve backend-owned model recommendation metadata and the rule that cost or quota never crosses a correctness floor.</li>
       </ul>
     </div>
-    <div class="box warn">
-      <h4>Only remaining policy choice inside the approved direction</h4>
-      <p><b>Run outcome retention:</b> recommend retaining the newest 50 outcomes per repository plus every operator-pinned comparison baseline. This is an initial operational default, not yet grounded in repository volume data. S6 must measure typical outcome size and expose cleanup before the default becomes a durable contract.</p>
+    <div class="box accent">
+      <h4>Run outcome retention now follows the canonical report contract</h4>
+      <p><b>QS-73 superseded the ungrounded 50-outcome proposal before S6 shipped.</b> Canonical snapshots under <code>.quality/reports/runs/*.json</code> are intentionally committed repository history and have no automatic pruning. QS-83 compares that durable source and does not introduce a second outcome store, implicit cleanup, or a pinning claim. Retention therefore lasts until an explicit repository-history change removes an artifact.</p>
     </div>
     <p class="dim compact">Evidence register: <code>frontend/src/app/{explorer,editor,review-panel,review-actions}</code>, <code>frontend/src/app/quality-api.ts</code>, <code>src/QualityStudio.Api/{ReviewJobs,ReviewRunStore}.cs</code>, <code>src/AgentOrchestrator.CodeQuality/FindingStateStore.cs</code>, <code>docs/{concept,review-runs,finding-lifecycle}.md</code>, preserved commits <code>0ac0dae8</code> and <code>2b3f31ef</code>, and the local evidence files linked above.</p>
   </section>
@@ -547,15 +547,27 @@
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S3</span></td><td>Added an active-by-default finding queue with state/severity filters, severity/location/title sorting, real visible counts, previous/next controls, multi-location commands, and bidirectional finding/code focus. The editor centers and highlights the selected range; fingerprint plus location index is restored from the URL, including cross-file locations, while stale findings remain readable with non-authoritative navigation disabled.</td></tr>
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S4</span></td><td>Introduced the Accept, Dismiss, and Reopen operator facade over the lifecycle API. Consequence copy preserves Accepted as active and grade-affecting; Dismiss requires Waive or False positive and exposes expiry only for Waive. Mutations retain optimistic concurrency, recover from conflicts by reloading current state, offer a short-lived Undo, and expose task creation after acceptance when handover is configured.</td></tr>
         <tr><td>11 Aug 2026</td><td><code>QS-69</code></td><td><span class="slice-id">S5</span></td><td>Added repository-scoped CRUD and match preview for the existing <code>.quality/scope.json</code> <code>scope.v1</code> contract. The application service validates ordered include/exclude rules and required reasons, blocks traversal, writes atomically, and requires explicit confirmation for wider patterns. “Ignore path…” defaults to an exact-path exclusion and the management surface clearly separates future review eligibility from finding disposition.</td></tr>
+        <tr><td>11 Aug 2026</td><td><code>QS-73</code></td><td><span class="slice-id">S6 prerequisite</span></td><td>Established strict <code>quality-run-report/v1</code> snapshots under <code>.quality/reports/runs</code>, written atomically at terminal transitions with per-unit grades, stable findings, lifecycle dispositions, locations, source manifest, route, usage, and outcome coverage. The snapshots survive mutable sidecar replacement and API restart; same-scope trend reads the same canonical store.</td></tr>
+        <tr><td>12 Aug 2026</td><td><code>QS-83</code></td><td><span class="slice-id">S6</span></td><td>Completed compatible-run comparison on the canonical QS-73 reports. New snapshots also retain each unit’s effective review-input hash. Repository-scoped compare endpoints reject partial, reversed, or incompatible pairs; align findings by fingerprint as New, Unchanged, Resolved, or Disposition changed; and return grade, active severity, coverage, route, source/input hashes, duration, tokens, and cost. The workbench supplies baseline/candidate selectors, plain missing/corrupt errors, provenance, and an explicit non-causal warning whenever route, source subject, or review inputs differ or are unavailable.</td></tr>
       </tbody>
     </table>
-    <div class="box warn">
-      <h4>Skipped operator-decision-gated slice</h4>
-      <p><span class="slice-id">S6</span> was not implemented. Its immutable outcome retention contract remains the dossier’s only open policy choice: the proposed newest 50 outcomes plus pinned baselines is explicitly described as an ungrounded initial default that must be decided and measured before durable comparison history ships.</p>
+    <div class="box accent">
+      <h4>S6 implementation state · documented</h4>
+      <p>The full approved slice is now built. Comparison reads immutable repository-owned snapshots rather than mutable current sidecars, and the browser evidence below exercises the production-built workbench with repository-shaped API responses. The automated audit verifies two selectors, four fingerprint delta classes, keyboard open and Escape close, modal semantics, both themes, and the “do not attribute” interpretation guard.</p>
+    </div>
+    <div class="shots">
+      <figure>
+        <a href="assets/qs-83-before-run-trend-dark--real.png"><img src="assets/qs-83-before-run-trend-dark--real.png" alt="Before QS-83, run detail showing a narrow trend without baseline and candidate comparison"></a>
+        <figcaption><b>Before QS-83 · built app, mocked repository-shaped API responses.</b> QS-73 exposed the canonical snapshot and same-scope trend, but there was no comparison entry, pair selection, fingerprint delta list, or interpretation boundary. <a href="assets/qs-83-before-run-trend-light--real.png">Light theme</a>.</figcaption>
+      </figure>
+      <figure>
+        <a href="assets/qs-83-after-run-comparison-dark--real.png"><img src="assets/qs-83-after-run-comparison-dark--real.png" alt="After QS-83, comparison workbench with baseline and candidate selectors, summary metrics, interpretation warning, and fingerprint delta"></a>
+        <figcaption><b>After QS-83 · built app, mocked repository-shaped API responses.</b> The comparison workbench shows compatible pair selection, grade and operational context, all four fingerprint outcomes, source/run provenance, and the non-causal warning. <a href="assets/qs-83-after-run-comparison-light--real.png">Light theme</a> · <a href="assets/qs-83-after-run-comparison-narrow--real.png">960 px responsive capture</a>.</figcaption>
+      </figure>
     </div>
   </section>
 
-  <footer class="page-footer">Prepared for the 12 August 2026 operator review. Repository artifacts and UI copy are English. This dossier proposes implementation slices; it does not mutate review, finding, task, or ignore state.</footer>
+  <footer class="page-footer">Updated for QS-83 on 12 August 2026. Repository artifacts and UI copy are English. This dossier records the delivered review-session slices and their evidence.</footer>
 </main>
 </body>
 </html>
