@@ -215,7 +215,8 @@ endpoint formats, and documented exit codes.
 ## Required test baseline
 
 The pull-request gate pins .NET 10.0.301 and Node 22.23.1, restores the committed
-lock files, keeps machine-bound timing checks out of routine test runs, builds the
+lock files, runs portable and controlled tool-bound tests as distinct lanes, keeps
+machine-bound timing and external-live checks out of routine test runs, builds the
 production Angular bundle under its unchanged 480 kB budget, provisions the
 Playwright Chromium version declared by the frontend lock file, and runs Angular,
 dev-stack, coverage, and pinned Gitleaks checks. The equivalent local commands are:
@@ -224,9 +225,10 @@ dev-stack, coverage, and pinned Gitleaks checks. The equivalent local commands a
 export COVERAGE_ROOT="${TMPDIR:-/tmp}/quality-studio-coverage"
 dotnet restore QualityStudio.slnx --locked-mode
 dotnet build QualityStudio.slnx --configuration Release --no-restore
-dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound" --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/core"
-dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound" --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/api"
 npm run test:repository-contracts
+node scripts/run-dotnet-lane.mjs portable --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs tool-bound --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs non-machine --configuration Release --no-build --coverage-root "$COVERAGE_ROOT"
 npm run test:dev-stack
 cd frontend
 npm ci
@@ -246,9 +248,21 @@ and lcov for Angular. `.quality/coverage-baseline.json` records the first measur
 project and feature-area line rates; `npm run coverage:check -- ...` rejects missing,
 unreadable, or regressed reports.
 
-Tests carrying `Category=ToolBound` intentionally exercise Git, .NET, or a pinned
-native tool on a provisioned PR host. Tests carrying `Category=MachineBound` contain
-host timing or performance assertions and run only in the labeled release canary.
+Before requesting review, `npm run test:pre-review` provides a quick deterministic
+signal: repository contracts, both portable .NET project selections, and browser
+prerequisite resolution. It intentionally does not claim gate equivalence. The
+required gate still owns tool-bound, host-integration, production Angular, coverage,
+and security evidence.
+
+Uncategorized xUnit tests are portable. Tests carrying `Category=ToolBound`
+intentionally exercise Git, .NET, a browser, or a pinned native tool on a provisioned
+PR host. Tests carrying `Category=MachineBound` contain host timing or performance
+assertions and run only in the labeled release canary. `Category=ExternalLive` is
+selected only by explicit canary approval; without its opt-in environment it fails
+rather than skipping. Every named lane inventories each expected test project before
+running and fails when an expected selection is empty. See
+[`docs/operations/test-baseline/keep-green.md`](docs/operations/test-baseline/keep-green.md)
+for fixture ownership, lane-change rules, and the honesty contract.
 That canary retains three samples, host metadata, JSON, screenshots, and TRX output;
 the optional live-agent check is enabled manually only for review-execution changes.
 

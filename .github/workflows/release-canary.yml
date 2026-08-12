@@ -122,7 +122,7 @@ jobs:
         run: >-
           dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj
           --configuration Release --no-build
-          --filter "FullyQualifiedName~LiveReviewIntegrationTests"
+          --filter "Category=ExternalLive"
           --logger "trx;LogFileName=live-review.trx"
           --results-directory "$CANARY_RESULTS/live-review"
 

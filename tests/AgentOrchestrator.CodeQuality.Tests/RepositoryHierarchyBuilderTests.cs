@@ -1,6 +1,5 @@
 using AgentOrchestrator.CodeQuality;
 using System.Diagnostics;
-using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -130,33 +129,6 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
         var referencedProject = Assert.Single(RepositoryHierarchyBuilder.Build(root));
         Assert.StartsWith("qs-v1/angular/project/", referencedProject.Id, StringComparison.Ordinal);
         Assert.Contains(Flatten([referencedProject]), node => node.Path == "apps/portal/src/main.ts");
-    }
-
-    [Fact]
-    [Trait("Category", "ToolBound")]
-    public void CacheReusesGitStateAndInvalidatesOnWorktreeContent()
-    {
-        Directory.CreateDirectory(root);
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(1)\n");
-        GitTestRepository.Initialize(root);
-        var cache = new RepositoryHierarchyCache();
-
-        var firstMeasurement = cache.GetMeasured(root);
-        var warmMeasurement = cache.GetMeasured(root);
-        var first = firstMeasurement.Snapshot;
-        var warm = warmMeasurement.Snapshot;
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(2)\n");
-        var changedMeasurement = cache.GetMeasured(root);
-        var changed = changedMeasurement.Snapshot;
-
-        Assert.False(firstMeasurement.CacheHit);
-        Assert.True(warmMeasurement.CacheHit);
-        Assert.Equal(0, warmMeasurement.ScanMilliseconds);
-        Assert.Equal(0, warmMeasurement.ReviewMetaDiscoveryMilliseconds);
-        Assert.False(changedMeasurement.CacheHit);
-        Assert.Same(first, warm);
-        Assert.NotSame(first, changed);
-        Assert.NotEqual(first.ETag, changed.ETag);
     }
 
     [Fact]

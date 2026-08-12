@@ -6,7 +6,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import http from 'node:http';
-import { createServer } from 'node:net';
+import {
+  assertPortsReleased,
+  freePorts,
+  npmInstallStub,
+  npmStubEnvironment,
+} from './TestSupport/node-process-fixture.mjs';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const launcher = resolve(repoRoot, 'scripts', 'dev-stack.mjs');
@@ -131,48 +136,6 @@ test('embedded shell loads in an iframe and shows the live connection badge', as
   assert.match(dump, /Embedded/);
   assert.match(started.stdout, new RegExp(`ready: api=http://127\\.0\\.0\\.1:${apiPort} web=http://127\\.0\\.0\\.1:${webPort}`));
 });
-
-function npmInstallStub() {
-  return `
-import { appendFileSync } from 'node:fs';
-if (process.argv[2] !== 'ci') {
-  console.error('expected npm ci arguments, received: ' + process.argv.slice(2).join(' '));
-  process.exit(2);
-}
-appendFileSync(process.env.QUALITY_STUDIO_MARKER_FILE, 'ci\\n');
-`;
-}
-
-function npmStubEnvironment(marker, stub) {
-  return {
-    ...process.env,
-    QUALITY_STUDIO_MARKER_FILE: marker,
-    QUALITY_STUDIO_NPM_COMMAND: process.execPath,
-    QUALITY_STUDIO_NPM_COMMAND_ARGUMENTS: JSON.stringify([stub]),
-  };
-}
-
-async function freePorts(count) {
-  const ports = [];
-  for (let index = 0; index < count; index++) {
-    const server = createServer();
-    await new Promise((resolvePromise, rejectPromise) =>
-      server.listen(0, '127.0.0.1', resolvePromise).once('error', rejectPromise));
-    const address = server.address();
-    ports.push(typeof address === 'object' && address ? address.port : 0);
-    await new Promise(resolvePromise => server.close(resolvePromise));
-  }
-  return ports;
-}
-
-async function assertPortsReleased(ports) {
-  for (const port of ports) {
-    const server = createServer();
-    await new Promise((resolvePromise, rejectPromise) =>
-      server.listen(port, '127.0.0.1', resolvePromise).once('error', rejectPromise));
-    await new Promise(resolvePromise => server.close(resolvePromise));
-  }
-}
 
 function serviceScript(label) {
   return `

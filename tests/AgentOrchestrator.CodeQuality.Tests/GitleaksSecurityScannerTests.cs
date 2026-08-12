@@ -21,18 +21,25 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
     private string? _fakeGitleaksRoot;
     private string? _fakeGitleaksPath;
     private string? _previousGitleaksPath;
+    private string? _previousScenario;
+    private string? _previousVersion;
 
     public async ValueTask InitializeAsync()
     {
         _fakeGitleaksRoot = Directory.CreateTempSubdirectory("quality-studio-fake-gitleaks-").FullName;
         _fakeGitleaksPath = await BuildFakeGitleaksAsync(_fakeGitleaksRoot, TestContext.Current.CancellationToken);
         _previousGitleaksPath = Environment.GetEnvironmentVariable("QUALITY_GITLEAKS_PATH");
+        _previousScenario = Environment.GetEnvironmentVariable("FAKE_GITLEAKS_SCENARIO");
+        _previousVersion = Environment.GetEnvironmentVariable("FAKE_GITLEAKS_VERSION");
         Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", _fakeGitleaksPath);
+        SetScenario("repository");
     }
 
     public ValueTask DisposeAsync()
     {
         Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", _previousGitleaksPath);
+        Environment.SetEnvironmentVariable("FAKE_GITLEAKS_SCENARIO", _previousScenario);
+        Environment.SetEnvironmentVariable("FAKE_GITLEAKS_VERSION", _previousVersion);
         if (_fakeGitleaksRoot is not null)
         {
             TryDelete(_fakeGitleaksRoot);

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   portable:
-    name: Portable build, test, coverage, and security
+    name: Required build, test, coverage, and security
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -36,7 +36,7 @@ jobs:
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
-      - name: Test coverage and release-canary contracts
+      - name: Test coverage, lane, fixture, and release-canary contracts
         run: npm run test:repository-contracts
 
       - name: Restore locked .NET dependencies
@@ -45,17 +45,21 @@ jobs:
       - name: Build Release solution
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
-      - name: Test core and CLI without machine-bound checks
+      - name: Test portable .NET lane
         run: >-
-          dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj
-          --configuration Release --no-build --filter "Category!=MachineBound"
-          --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/core"
+          node scripts/run-dotnet-lane.mjs portable
+          --configuration Release --no-build
 
-      - name: Test API without machine-bound checks
+      - name: Test controlled tool-bound .NET lane
         run: >-
-          dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj
-          --configuration Release --no-build --filter "Category!=MachineBound"
-          --collect:"XPlat Code Coverage" --results-directory "$COVERAGE_ROOT/api"
+          node scripts/run-dotnet-lane.mjs tool-bound
+          --configuration Release --no-build
+
+      - name: Generate non-machine .NET coverage
+        run: >-
+          node scripts/run-dotnet-lane.mjs non-machine
+          --configuration Release --no-build
+          --coverage-root "$COVERAGE_ROOT"
 
       - name: Install locked frontend dependencies
         working-directory: frontend

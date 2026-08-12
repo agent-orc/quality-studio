@@ -584,6 +584,10 @@
         <td>2026-08-11</td><td><code>QS-75</code></td><td><b>5. Release canary follow-up</b></td>
         <td>Hardened the canary after local verification reproduced host timing variance: all three .NET and browser samples now run even when an earlier sample fails, evidence is still published, and a final step fails the workflow with machine, product, or external-dependency classification. A required repository contract test protects that collection-before-enforcement behavior.</td>
       </tr>
+      <tr>
+        <td>2026-08-12</td><td><code>QS-89</code></td><td><b>Keep-green enforcement</b></td>
+        <td>Split portable, controlled tool-bound, machine-bound, and external-live xUnit selections behind one tested lane definition; each expected selection now fails when its inventory is empty. Removed the routine live-test skip by classifying it <code>ExternalLive</code> and making missing opt-in fail. Centralized platform-neutral Node process fixtures, enforced class-level <code>ToolBound</code> ownership for real Git/process consumers, and added the scoped <code>npm run test:pre-review</code> target. The gate honesty and fixture rules are documented in <a href="keep-green.md"><code>keep-green.md</code></a>.</td>
+      </tr>
     </tbody>
   </table>
 </main>
