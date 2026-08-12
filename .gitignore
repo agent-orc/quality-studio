@@ -17,7 +17,7 @@ TestResults/
 # orchestrator task-pipeline artifacts stay out of the repo
 /.orchestrator/
 
-# Review usage, finding decisions, suppressions, and canonical run reports are
+# Review usage, finding decisions, suppressions, canonical reports, and immutable terminal history are
 # durable repository history. Only resumable orchestration state under
 # .quality/runs is ignored.
 !/.quality/

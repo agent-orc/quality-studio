@@ -79,6 +79,10 @@ public sealed class ReviewRunStoreTests
             Assert.Equal(3, completedReport.Observations.Count);
             Assert.Equal(3, completedReport.Execution.Reviewed);
             Assert.All(completedReport.Observations, observation => Assert.True(observation.ProducedByRun));
+            var immutableHistory = new ImmutableQualityRunHistoryStore(fixture.RepositoryRoot)
+                .Load(completedReport.Run.Id);
+            Assert.Equal([1, 2], immutableHistory.Select(report => report.Run.Revision).ToArray());
+            Assert.Equal(["capped", "done"], immutableHistory.Select(report => report.Run.State).ToArray());
             Assert.DoesNotContain(fixture.RepositoryRoot, QualityRunReportJson.Serialize(completedReport),
                 StringComparison.OrdinalIgnoreCase);
             var canonicalBeforeOverwrite = await File.ReadAllBytesAsync(
@@ -403,9 +407,12 @@ public sealed class ReviewRunStoreTests
                     $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
                 Assert.True(new QualityRunReportStore(fixture.RepositoryRoot)
                     .TryLoad(stored.Manifest.RunId, out _));
+                Assert.Single(new ImmutableQualityRunHistoryStore(fixture.RepositoryRoot)
+                    .Load(stored.Manifest.RunId));
             }
 
             Directory.Delete(Path.Combine(fixture.Store.RunsPath, stored.Manifest.RunId), recursive: true);
+            File.Delete(new QualityRunReportStore(fixture.RepositoryRoot).PathFor(stored.Manifest.RunId));
 
             await using var restarted = fixture.CreateApplication();
             using var restartedClient = restarted.CreateClient();
