@@ -149,6 +149,16 @@ curl -X POST "http://127.0.0.1:5127/api/review" -H "Content-Type: application/js
 curl "http://127.0.0.1:5127/api/models"
 # 200 {"policyVersion":"...","models":[{"modelId":"gpt-...","capabilityTier":"frontier","routingStatus":"selectable",...}]}
 
+curl "http://127.0.0.1:5127/api/review/history?kind=code&path=src&outcome=done&limit=20"
+# 200 {"runs":[...],"nextCursor":"..."}
+
+curl "http://127.0.0.1:5127/api/review/history/review-123?attempt=2"
+# 200 {"run":{...},"attempt":{...},"operations":[...],"findings":[...]}
+
+curl "http://127.0.0.1:5127/api/review/history/review-456/diff?against=review-123"
+# 200 {"comparability":{"labels":[...]},"scope":{...},"execution":{...},
+#      "grades":[...],"verdicts":[...],"findings":{...},"economy":{...}}
+
 curl "http://127.0.0.1:5127/api/usage?since=2026-07-01T00:00:00Z&kind=code"
 # 200 {"runs":12,"inputTokens":...,"byModel":[...],"byKind":[...],"byDay":[...],"byReviewRun":[...],"recent":[...]}
 
@@ -167,13 +177,27 @@ timestamp returned by the file response and enables optimistic concurrency. A st
 write returns `409 Conflict` instead of replacing another reviewer's decision. See
 [finding-lifecycle.md](finding-lifecycle.md) for identity, merge, and grading rules.
 
+Archived review history is read from tracked `.quality/run-history/` records.
+The list cursor is opaque; `kind`, `path`, and `outcome` are optional exact
+filters. Detail defaults to the latest attempt. Diff requires `against`; optional
+`attempt` and `againstAttempt` select immutable attempts. Different root paths
+are rejected unless `allowScopeChange=true`, and all non-exact comparability
+labels precede the returned deltas. Unreadable archive entries remain visible in
+the list and return a typed `422` from detail. Repository-scoped history routes
+are available under `/api/repos/{repoId}/review/history`. Usage-ledger groups
+without an archive appear in the list with outcome and provenance
+`legacy-usage-only`; these summaries expose only known ledger facts and do not
+support detail or diff.
+
 `since` is an optional ISO 8601 timestamp and `kind` is an optional exact review
 kind (`code`, `security`, or `performance`). The usage response includes totals,
 `byModel`, `byKind`, `byDay`, and `byReviewRun` aggregates plus the 50 newest
 matching ledger entries. A `byReviewRun` item totals every operation sharing a
-durable v2 `reviewRunId`; legacy v1 entries fall back to their per-operation
-`runId`. Token totals treat unavailable token fields as zero while each recent
-entry preserves `null`, distinguishing unreported usage from a reported zero.
+durable v2/v3 `reviewRunId`; legacy v1 entries fall back to their per-operation
+`runId`. New v3 entries additionally expose `operationId` and `attempt` for an
+exact archive join. Token totals treat unavailable token fields as zero while
+each recent entry preserves `null`, distinguishing unreported usage from a
+reported zero.
 
 `/api/quotas` is a global, presentation-safe snapshot from Runner's
 quota service. It may return an empty `providers` array while credentials or
