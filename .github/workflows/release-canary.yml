@@ -1,6 +1,10 @@
 name: Release canary
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-canary.yml'
   workflow_dispatch:
     inputs:
       run_live_review:
@@ -14,11 +18,20 @@ permissions:
 
 concurrency:
   group: quality-studio-release-canary
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
+  definition-smoke:
+    name: Confirm manual canary policy
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm controlled checks remain manual
+        run: test "$GITHUB_EVENT_NAME" = "push"
+
   canary:
     name: Machine, browser, real API, and optional live canary
+    if: github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, quality-studio-canary]
     timeout-minutes: 75
     env:
