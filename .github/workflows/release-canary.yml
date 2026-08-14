@@ -1,10 +1,6 @@
 name: Release canary
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/release-canary.yml'
   workflow_dispatch:
     inputs:
       run_live_review:
