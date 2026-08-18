@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "quality-studio-quality-concept",
+  "title": "Quality Studio quality concept",
+  "summary": "What the 2026-08-18 review session proves about finding quality per model: the requested opus-5-vs-sonnet-5 comparison is unmeasurable because the deep model is uncatalogued and the claude review path emitted zero operations, so deterministic sensors are the only evidence floor. Recommends default review kinds and models per repo class aligned with the model-routing policy, and names the empty rule library as the first gap to close before any per-model quality signal can feed TE-42.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-08-18T00:00:00Z",
+  "sourceTaskKeys": []
+}
