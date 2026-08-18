@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "quality-studio-security-concept",
+  "title": "Quality Studio security concept",
+  "summary": "Consolidated security concept grounded in the 2026-08-18 review session: the availability delta a wedged review operation adds to the existing hardening dossier, deterministic-sensor corroboration of the authorization-to-command chain, sensor scalability and availability findings, and prioritized mitigations that extend the S0-S6 hardening slices.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-08-18T00:00:00Z",
+  "sourceTaskKeys": []
+}

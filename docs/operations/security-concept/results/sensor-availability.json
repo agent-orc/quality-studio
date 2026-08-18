@@ -1,0 +1,85 @@
+{
+  "default": {
+    "gitleaks": {
+      "available": true,
+      "reason": null,
+      "findings": 0
+    },
+    "dependencies": {
+      "available": false,
+      "reason": "npm is unavailable: npm could not be launched.",
+      "findings": 0
+    },
+    "boundaries": {
+      "available": true,
+      "reason": null,
+      "findings": 16
+    },
+    "roslyn": {
+      "available": false,
+      "reason": "SARIF analyzer configuration requires reportPath.",
+      "findings": 0
+    },
+    "eslint": {
+      "available": false,
+      "reason": "SARIF analyzer configuration requires reportPath.",
+      "findings": 0
+    },
+    "tsc": {
+      "available": false,
+      "reason": "tsc analyzer configuration requires command.",
+      "findings": 0
+    },
+    "coverage": {
+      "available": true,
+      "reason": null,
+      "findings": 0
+    },
+    "sarif": {
+      "available": false,
+      "reason": "SARIF analyzer configuration requires reportPath.",
+      "findings": 0
+    }
+  },
+  "agent-studio": {
+    "gitleaks": {
+      "available": true,
+      "reason": null,
+      "findings": 0
+    },
+    "dependencies": {
+      "available": false,
+      "reason": "npm is unavailable: npm could not be launched.",
+      "findings": 0
+    },
+    "boundaries": {
+      "available": null,
+      "note": "timed-out (>300s)"
+    },
+    "roslyn": {
+      "available": false,
+      "reason": "SARIF analyzer configuration requires reportPath.",
+      "findings": 0
+    },
+    "eslint": {
+      "available": false,
+      "reason": "SARIF analyzer configuration requires reportPath.",
+      "findings": 0
+    },
+    "tsc": {
+      "available": false,
+      "reason": "tsc analyzer configuration requires command.",
+      "findings": 0
+    },
+    "coverage": {
+      "available": true,
+      "reason": "No coverage reports matched the configured report paths.",
+      "findings": 0
+    },
+    "sarif": {
+      "available": false,
+      "reason": "SARIF analyzer configuration requires reportPath.",
+      "findings": 0
+    }
+  }
+}

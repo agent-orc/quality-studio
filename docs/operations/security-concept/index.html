@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio security concept</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;
+    --taskbr: #4a3aa7;
+    --salvage: #eb6834;
+    --rescue: #b58500;
+    --ok: #008300;
+    --bad: #c93736;
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Quality Studio · security concept · run-grounded</p>
+  <h1>Security concept for Quality Studio</h1>
+  <p class="lede">A consolidated security concept that extends the existing hardening dossier with what an operator-driven review session actually observed: the availability failure a non-returning review operation adds to the threat model, deterministic evidence that corroborates the authorization-to-command chain, and two sensor findings that change what the deterministic layer can be relied on to do.</p>
+  <div class="meta">
+    <span><b>Status</b> decision pending</span>
+    <span><b>Phase</b> decision ready</span>
+    <span><b>Session</b> 2026-08-18, Local mode, <code>localhost:5127</code></span>
+    <span><b>QS commit</b> d1dbdf4</span>
+    <span><b>Agent Studio commit</b> 0d03180d3</span>
+  </div>
+</header>
+
+<div class="box accent">
+  <h4>This document extends, and does not replace, the hardening dossier</h4>
+  <p>The <a href="../security/index.html">Quality Studio security hardening decision dossier</a> (QS-58) remains the source of record for the trust boundary, the risk register R-01 through R-09, and the S0-S6 implementation slices. This concept adds one thing the hardening dossier could not: evidence from running the product. Its findings are numbered <b>N-01</b> onward and are mapped back to the existing risks and slices rather than restated as new architecture.</p>
+</div>
+
+<h2><span class="no">00</span>Contents</h2>
+<ul class="toc">
+  <li><a href="#method">Session method and what was executed</a></li>
+  <li><a href="#delta">Threat-model delta: the availability dimension</a></li>
+  <li><a href="#findings">Findings from today's runs</a></li>
+  <li><a href="#corroboration">Deterministic corroboration of the command chain</a></li>
+  <li><a href="#sensors">Sensor availability and scale</a></li>
+  <li><a href="#register">Updated risk register rows</a></li>
+  <li><a href="#mitigations">Prioritized mitigations</a></li>
+  <li><a href="#evidence">Evidence index and limitations</a></li>
+</ul>
+
+<h2 id="method"><span class="no">01</span>Session method and what was executed</h2>
+<p>The session drove the live API in Local mode against two registered repositories: <code>default</code> (Quality Studio itself) and <code>agent-studio</code> (Agent Studio, at <code>agent-taskboard-stable</code>). Two classes of work were run: deterministic sensor and scan endpoints, which returned; and model review runs through <code>cliType=claude</code>, which did not.</p>
+<table>
+  <tr><th>Executed</th><th>Result</th></tr>
+  <tr><td>Repository, sensor, tree, risk, and project-dashboard enumeration on both repos</td><td>Returned. Raw JSON retained under <code>results/</code>.</td></tr>
+  <tr><td>All eight deterministic sensors on both repos; <code>gitleaks</code> security scan; <code>risk</code> churn matrix</td><td>Returned except one timeout (see N-05).</td></tr>
+  <tr><td>Seven review runs (110 files queued) across security and code kinds, <code>claude-sonnet-5</code></td><td>Zero operations, zero findings, zero tokens. See N-01.</td></tr>
+</table>
+<p class="dim">No Agent Studio source was modified, no card pipeline or task lane was touched, and no Quality Studio source was changed. The only writes to the QS worktree are this dossier, its sibling quality concept, their evidence, and a one-line <code>.gitignore</code> entry for the shared dev-stack log that was blocking tree reads.</p>
+
+<h2 id="delta"><span class="no">02</span>Threat-model delta: the availability dimension</h2>
+<p>The hardening dossier reasons about confidentiality and integrity: what a spawned process can read, execute, and transmit, and how a poisoned model response can travel downstream. It assumes, reasonably, that a review operation runs and returns. Today's session showed that assumption does not hold on this host, and that its failure mode is an <b>availability</b> problem the existing register did not weigh: a single review operation that never returns freezes the whole review service.</p>
+<figure>
+<svg viewBox="0 0 900 250" role="img" aria-labelledby="delta-t">
+  <title id="delta-t">A single non-returning operation wedges the sequential review queue</title>
+  <rect x="20" y="40" width="180" height="70" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
+  <text x="110" y="70" text-anchor="middle" class="t-ok">POST /api/review ×7</text>
+  <text x="110" y="92" text-anchor="middle" fill="var(--ink-2)" font-size="12">110 files queued</text>
+  <path d="M200 75 H270" stroke="var(--ink-3)" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <rect x="270" y="40" width="200" height="70" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
+  <text x="370" y="65" text-anchor="middle" fill="var(--ink-1)" font-size="13" font-weight="600">ReviewJobService</text>
+  <text x="370" y="85" text-anchor="middle" fill="var(--ink-2)" font-size="12">single-reader channel</text>
+  <text x="370" y="101" text-anchor="middle" fill="var(--ink-2)" font-size="12">awaits RunAsync fully</text>
+  <path d="M470 75 H540" stroke="var(--ink-3)" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <rect x="540" y="40" width="200" height="70" rx="8" fill="var(--bad-soft)" stroke="var(--bad)"/>
+  <text x="640" y="65" text-anchor="middle" class="t-bad">claude CLI operation</text>
+  <text x="640" y="85" text-anchor="middle" fill="var(--ink-2)" font-size="12">never returns; 0 usage</text>
+  <text x="640" y="101" text-anchor="middle" fill="var(--ink-2)" font-size="12">no wall-clock reclaim</text>
+  <rect x="270" y="150" width="470" height="64" rx="8" fill="var(--warn-soft)" stroke="var(--warn)"/>
+  <text x="505" y="177" text-anchor="middle" class="t-warn">DELETE marks state = cancelled (durable), but the reader stays inside RunAsync</text>
+  <text x="505" y="197" text-anchor="middle" fill="var(--ink-2)" font-size="12">a run enqueued afterwards never leaves "queued" — head-of-line block</text>
+  <path d="M370 110 V150" stroke="var(--ink-3)" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L8 4.5 L0 9 z" fill="var(--ink-3)"/></marker></defs>
+</svg>
+<figcaption>The review queue is a single-reader channel: <code>ReviewJobService.ExecuteAsync</code> awaits each run's <code>RunAsync</code> to completion before reading the next item. When the underlying CLI operation does not return and does not honor cancellation, the reader is parked forever. Cancelling makes the durable state terminal but does not free the reader, so every later run starves. This is a denial-of-availability reachable by <b>one</b> slow or wedged operation, not a flood.</figcaption>
+</figure>
+<p>This is the natural completion of hardening finding <b>F-03</b> ("work and spend caps are enforced after an operation, not before it"). F-03 established there is no pre-flight bound; today shows there is also no <em>post</em>-launch reclaim. Between them, a single operation has unbounded wall-clock license and can hold the entire service.</p>
+
+<h2 id="findings"><span class="no">03</span>Findings from today's runs</h2>
+
+<h3>N-01 · The claude review path returns nothing and wedges the queue <span class="pill open">Critical · availability</span></h3>
+<p>Seven review runs were started through <code>cliType=claude</code>, model <code>claude-sonnet-5</code>, across security and code kinds on both repos: 110 files queued in total. Over roughly sixteen minutes of active running plus repeated probes, the aggregate was <b>zero</b> usage operations, <b>zero</b> findings, <b>zero</b> tokens, and <b>zero</b> cost. The first run (<code>review-85d631c</code>, <code>task-server</code> security, 24 files) held two files in the <code>running</code> state from <code>10:35:11Z</code> until it was cancelled at <code>10:51:32Z</code> without completing a single file. Inspection of the host showed <b>no reviewer CLI child process</b> attached to the <code>QualityStudio.Api</code> server, yet a fresh single-file run enqueued <em>after</em> every prior run had been cancelled still never transitioned out of <code>queued</code> within 60 seconds.</p>
+<div class="box bad">
+  <h4>Security reading</h4>
+  <p>Whatever the root cause — a stalled CLI, or an <code>await</code> in the review runner that does not observe the attempt-cancellation token — the exploitable property is the same: the review service has <b>no watchdog</b>. A repository or operation that induces a non-returning review, whether by accident on this host or deliberately on a hostile input, removes the service for every tenant behind the same single-reader queue. Under the hardening dossier's Gate-B ambition (review untrusted third-party repositories), an adversary who can make one operation hang has a reliable availability attack. The mitigation is not model choice; it is a bounded, reclaimable worker.</p>
+</div>
+<p class="dim">Root cause was not isolated in-session and is deliberately not asserted here. The observable, reproducible facts are recorded in <code>results/todays-runs-evidence.json</code>: run ids, <code>startedAt</code>/<code>cancelled</code> timestamps, and the wedged-worker probe.</p>
+
+<h3>N-02 · The requested deep-review model cannot start a run <span class="pill new">High · assurance</span></h3>
+<p>The session order specified <code>claude-opus-5</code> for deep review. The model catalog (<code>/api/models</code>, policy version <code>2026-07-24</code>) lists <code>claude-opus-5</code> with routing status <code>unsupported</code> and <code>availableForNewRuns=false</code>; <code>ReviewModelCatalog.Resolve</code> therefore rejects it before a run can begin. <code>claude-sonnet-5</code> is <code>fallbackOnly</code> but runnable. The catalog's own recommendation for a module-scope security review is <code>gpt-5.6-sol</code> at <code>xhigh</code> (correctness floor <code>sol-xhigh</code>), i.e. a codex route, and every claude selection is flagged <code>overrideBelowFloor</code>.</p>
+<p>The security consequence is bounded assurance: the strongest review the operator intended to run cannot be dispatched through the supported catalog, so the review layer's confidentiality-and-integrity guarantee is capped below the intended level even before the N-01 availability failure. This reinforces the hardening dossier's own principle — no model can raise the guarantee above the process boundary — with its converse: on this host the intended model cannot be reached at all.</p>
+
+<h2 id="corroboration"><span class="no">04</span>Deterministic corroboration of the command chain</h2>
+<p>The one review class that did produce evidence was deterministic. The boundary-inventory sensor on Quality Studio returned 16 high-severity findings, and they independently corroborate the manual conclusions the hardening dossier reached about R-01 (authorization-to-command) and the inbound API surface.</p>
+<table>
+  <tr><th>Sensor finding (QS)</th><th>Location</th><th>Corroborates</th></tr>
+  <tr><td><b>Inbound boundary has no derived authorization</b></td><td><code>Program.cs:210</code></td><td>The middleware authorizes by repository access and registrar privilege but not per-route capability — the same gap F-01/F-06 describe (any A-scoped client may <code>PUT /api/repos/A</code>; sensor scans are unauthorized state-changers).</td></tr>
+  <tr><td><b>Request-bound value reaches a filesystem or process surface</b> ×15</td><td><code>Program.cs</code> 249, 250, 255, 256, 275-278, 321-326; <code>GitleaksSecurityScanner.cs:419</code></td><td>The tree, file, scan, sensor-scan, handover, and thread routes carry request-controlled values to filesystem and process calls — the taint paths behind R-01 and F-01. The Gitleaks hit marks the exact process-launch line the hardening dossier cites for redaction.</td></tr>
+</table>
+<div class="box ok">
+  <h4>Positive: deterministic and manual review agree</h4>
+  <p>The boundary sensor, run with no model at all, points at the same lines the QS-58 call-chain review flagged by hand. That agreement is itself a quality signal: the deterministic evidence layer is capable of surfacing the R-01 surface without any agent, and should be treated as the reliable floor for this class of finding.</p>
+</div>
+<p>Secret posture is clean and consistent with the hardening dossier: the Gitleaks security scan returned <code>verdict: pass</code> with zero findings on <em>both</em> repositories' current worktrees. The single documented history false positive (the 64-hex "unit-key" in <code>docs/concept.md</code>) is not present in the current QS worktree scan.</p>
+
+<h2 id="sensors"><span class="no">05</span>Sensor availability and scale</h2>
+
+<h3>N-03 · The boundary sensor does not scale to a large repository <span class="pill open">High · availability</span></h3>
+<p>The boundary-inventory sensor completed on Quality Studio (144 files) in about 1.4 seconds. On Agent Studio (a 1269-file frontend plus a large .NET backend) the same endpoint <b>did not return within a 300-second client timeout</b>. Because security reviews attach non-deterministic sensors and the deterministic-evidence collector runs the enabled sensors at run start (<code>ReviewJobs.cs</code>), an unbounded sensor is both a direct availability limit and a second way to wedge a security run before the model is ever consulted. This is the sensor-path instance of R-03 / S2 input-bounding, which the hardening dossier scoped to review input and file reads but not to the sensor sweep itself.</p>
+
+<h3>N-04 · Most deterministic sensors are unavailable by default <span class="pill part">Medium · assurance</span></h3>
+<p>Of eight configured sensors, only three produced evidence in this environment. The rest are unavailable: <code>roslyn</code>, <code>eslint</code>, and <code>sarif</code> require a per-repository <code>reportPath</code>; <code>tsc</code> requires a configured <code>command</code>; and <code>dependencies</code> reports "npm could not be launched".</p>
+<table>
+  <tr><th>Sensor</th><th>quality-studio</th><th>agent-studio</th></tr>
+  <tr><td>gitleaks</td><td><span class="pill done">available</span> 0 findings</td><td><span class="pill done">available</span> 0 findings</td></tr>
+  <tr><td>boundaries</td><td><span class="pill done">available</span> 16 findings</td><td><span class="pill open">timeout &gt;300s</span></td></tr>
+  <tr><td>coverage</td><td><span class="pill done">available</span> 0 findings</td><td><span class="pill done">available</span> 0 findings</td></tr>
+  <tr><td>dependencies</td><td colspan="2"><span class="pill open">unavailable</span> npm could not be launched</td></tr>
+  <tr><td>roslyn / eslint / sarif</td><td colspan="2"><span class="pill new">unavailable</span> requires per-repo reportPath configuration</td></tr>
+  <tr><td>tsc</td><td colspan="2"><span class="pill new">unavailable</span> requires configured command</td></tr>
+</table>
+<div class="box warn">
+  <h4>Two-edged reading</h4>
+  <p>Command-backed analyzers are exactly the host-command-execution surface F-01 warns about, so "disabled until an explicit, host-owned profile exists" is the <em>correct</em> default and matches slice S0. But the same default means a security review presently runs with almost no deterministic corroboration, which pushes the burden of proof onto unverifiable model prose (see the sibling quality concept: agent reproduction status is <code>specified</code>, never <code>verified</code>). The resolution is not to loosen the default; it is to ship the host-owned analyzer profiles of S0/S1 so that corroboration returns without reintroducing free-form command execution.</p>
+</div>
+
+<h2 id="register"><span class="no">06</span>Updated risk register rows</h2>
+<p>New rows to fold into the hardening dossier's register (same 1-5 likelihood × impact scale). These are additive; R-01 through R-09 stand.</p>
+<table>
+  <tr><th>ID</th><th>Risk</th><th>L × I</th><th>Class</th><th>Mitigation</th></tr>
+  <tr><td>N-01</td><td>A single non-returning review operation wedges the single-reader queue; cancellation does not reclaim it.</td><td>4 × 5 = 20</td><td>Critical</td><td>M-1, then S1</td></tr>
+  <tr><td>N-03</td><td>An unbounded deterministic sensor (boundaries) holds a security run on a large repository before the model is consulted.</td><td>4 × 4 = 16</td><td>High</td><td>M-2 (extends S2)</td></tr>
+  <tr><td>N-02</td><td>The intended deep-review model is uncatalogued; reviews run below the correctness floor or not at all.</td><td>3 × 3 = 9</td><td>Medium</td><td>M-4</td></tr>
+  <tr><td>N-04</td><td>Security reviews run with almost no deterministic corroboration, raising reliance on unverifiable model claims.</td><td>3 × 3 = 9</td><td>Medium</td><td>S0/S1 analyzer profiles</td></tr>
+</table>
+
+<h2 id="mitigations"><span class="no">07</span>Prioritized mitigations</h2>
+
+<h3>M-1 · A review-operation watchdog and a resilient queue <span class="pill open">Approve now</span></h3>
+<ul>
+  <li>Give every review operation a versioned <b>wall-clock timeout</b>. On expiry, fail the file, record a diagnostic, and continue — never leave a file in <code>running</code> indefinitely.</li>
+  <li>Decouple run supervision from the channel reader so a stuck run cannot head-of-line-block the queue. A cancelled or timed-out run must free the reader within a bounded interval even if a child process ignores its cancellation token; kill the process tree if needed.</li>
+  <li>Surface a queue-health signal (oldest <code>running</code> age, reader-parked duration) so a wedge is visible instead of silent.</li>
+  <li><b>Exit:</b> a fixture operation that never returns is reclaimed within its timeout; a run enqueued after a wedged run reaches <code>running</code>; the wedged process tree is gone.</li>
+</ul>
+
+<h3>M-2 · Bound the deterministic sensor sweep <span class="pill new">Required for large repos</span></h3>
+<ul>
+  <li>Apply per-sensor wall-clock and output-size limits to the sensor sweep and the run-start evidence collector, not only to review input (this is the sensor-path half of S2).</li>
+  <li>On timeout, degrade to a bounded partial result or a typed "sensor unavailable: exceeded budget" and let the security run proceed without corroboration rather than hang.</li>
+  <li><b>Exit:</b> the boundary sensor on Agent Studio returns a bounded result or a typed budget error inside its limit; a security run on a 1269-file repo starts its model phase.</li>
+</ul>
+
+<h3>M-3 · Keep the S0-S6 hardening slices as the target</h3>
+<p>Nothing observed today weakens the QS-58 recommendation. S0 (close the authorization-to-command chain; host-owned analyzer profiles) and S1 (isolated, resource-bounded workers) subsume the deeper form of M-1 and M-2: bounded workers give wall-clock, CPU, and process quotas by construction. M-1 and M-2 are the pre-S1 emergency brakes that make the service survivable today. The deterministic corroboration in N-04 argues for prioritizing the host-owned analyzer profiles inside S0 so security reviews regain evidence without free-form command execution.</p>
+
+<h3>M-4 · Align the review route with the catalog <span class="pill part">Config</span></h3>
+<p>Either restore a supported deep-review model in the catalog, or make the default security route follow the model-routing policy's own recommendation (codex <code>gpt-5.6-sol</code> at <code>xhigh</code> for module-scope security). Running every review as an <code>overrideBelowFloor</code> claude selection is a standing assurance gap that should be a deliberate, recorded decision rather than a silent default.</p>
+
+<h2 id="evidence"><span class="no">08</span>Evidence index and limitations</h2>
+<table>
+  <tr><th>Claim</th><th>Evidence under <code>results/</code></th></tr>
+  <tr><td>Seven runs, zero operations, wedged queue</td><td><code>todays-runs-evidence.json</code>, <code>review-runs-*.json</code></td></tr>
+  <tr><td>16 boundary findings corroborate R-01</td><td><code>qs-boundaries.json</code></td></tr>
+  <tr><td>Secret scans clean on both repos</td><td><code>qs-gitleaks-scan.json</code>, <code>as-gitleaks-scan.json</code></td></tr>
+  <tr><td>Sensor availability and the boundary timeout</td><td><code>sensor-availability.json</code></td></tr>
+</table>
+<p class="dim"><b>Limitations.</b> This session ran in Local mode on a single Windows host; no hosted deployment, no model-provider traffic interception, and no dynamic exploitation were attempted. The N-01 root cause (CLI stall vs. runner await) was not isolated; the finding rests on the reproducible external behavior of the queue, not on an internal stack trace. The boundary-sensor timeout is a single 300-second observation; the precise scaling curve was not measured. All availability findings are host- and load-dependent and should be reconfirmed on the target deployment.</p>
+
+</main>
+</body>
+</html>

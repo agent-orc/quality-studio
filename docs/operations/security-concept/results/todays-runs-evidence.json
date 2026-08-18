@@ -1,0 +1,16 @@
+{
+  "session": "2026-08-18 Quality Studio hands-on review session",
+  "apiBase": "http://localhost:5127",
+  "securityMode": "Local",
+  "reviewRuns": [
+    {"id": "review-85d631c7d43f46fd98edcf15d6bb9f0b", "repo": "agent-studio", "path": "task-server/TaskServer.csproj", "kind": "security", "cli": "claude", "model": "claude-sonnet-5", "thinking": "xhigh", "totalFiles": 24, "startedAt": "2026-08-18T10:35:11Z", "cancelledAt": "2026-08-18T10:51:32Z", "completedFiles": 0, "usageOperations": 0, "costSpent": 0, "outcome": "cancelled after ~16 min with zero operations; two files stuck in running state the whole time"},
+    {"id": "review-94074f4cee0f4c8cb2ac69f70d5e370c", "repo": "default", "path": "src/QualityStudio.Api/QualityStudio.Api.csproj", "kind": "security", "cli": "claude", "model": "claude-sonnet-5", "thinking": "xhigh", "totalFiles": 14, "outcome": "never left queued (head-of-line blocked); cancelled"},
+    {"id": "review-d6bd245e068b42baab6f5394cce4a970", "repo": "agent-studio", "path": "frontend/src/styles", "kind": "code", "cli": "claude", "model": "claude-sonnet-5", "thinking": "medium", "totalFiles": 7, "outcome": "never left queued; cancelled"},
+    {"id": "review-4a95ace60e8044f9a10298a34b6fa1b0", "repo": "agent-studio", "path": "frontend/src/app/features/board/components/task-card", "kind": "code", "cli": "claude", "model": "claude-sonnet-5", "thinking": "medium", "totalFiles": 6, "outcome": "never left queued; cancelled"},
+    {"id": "review-2a1cd919c3d24c6daec966dc58ee39f8", "repo": "default", "path": "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj", "kind": "code", "cli": "claude", "model": "claude-sonnet-5", "thinking": "medium", "tokenCap": 150000, "totalFiles": 57, "outcome": "never left queued; cancelled"},
+    {"id": "review-86e08d82de6b444c8be65ec7d9da6951", "repo": "agent-studio", "path": "task-server/TaskServerAuthenticationMiddleware.cs", "kind": "security", "cli": "claude", "model": "claude-sonnet-5", "thinking": "medium", "tokenCap": 80000, "totalFiles": 1, "outcome": "single-file probe; stayed queued after run A cancel; cancelled"},
+    {"id": "review-11047623a84b4ac59676b9e8245e686b", "repo": "default", "path": "src/QualityStudio.Api/PathConfinement.cs", "kind": "security", "cli": "claude", "model": "claude-sonnet-5", "thinking": "low", "tokenCap": 50000, "totalFiles": 1, "outcome": "fresh probe after all cancellations; never left queued in 60s -> review worker wedged (not merely slow)"}
+  ],
+  "aggregate": {"runs": 7, "totalFilesQueued": 110, "usageOperationsTotal": 0, "findingsEmitted": 0, "llmTokensSpent": 0, "llmCostSpent": 0},
+  "diagnosis": "cliType=claude / claude-sonnet-5 review operations did not return on this host. No reviewer CLI child process remained attached to the QualityStudio.Api server. DELETE (cancel) set durable state to cancelled but the single-reader ReviewJobService queue did not advance: a run enqueued after all cancellations never transitioned out of queued. Root cause (CLI stall vs pipeline await not honoring cancellation) not isolated in-session; the observable failure is a wedged sequential review queue with no wall-clock reclaim."
+}
