@@ -23,3 +23,4 @@ TestResults/
 !/.quality/
 !/.quality/usage/
 !/.quality/usage/*.jsonl
+/.dev-stack.log
