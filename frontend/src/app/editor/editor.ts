@@ -3,6 +3,7 @@ import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { FindingSpanRange, SegmentedSpan, segmentLineTokens } from './finding-span-segmentation';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
@@ -69,6 +70,18 @@ export class Editor {
     for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
       if (location.path !== path || !location.range) continue;
       for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), finding]);
+    }
+    return map;
+  });
+  readonly rangesByLine = computed(() => {
+    const map = new Map<number, FindingSpanRange[]>();
+    const path = this.api.file()?.path;
+    for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
+      if (location.path !== path || !location.range) continue;
+      const fingerprint = finding.fingerprint ?? finding.id;
+      for (let line = location.range.start.line; line <= location.range.end.line; line++) {
+        map.set(line, [...(map.get(line) ?? []), { fingerprint, start: location.range.start, end: location.range.end }]);
+      }
     }
     return map;
   });
@@ -238,6 +251,24 @@ export class Editor {
     return file && cache.path === file.path && cache.lines[line - 1]
       ? cache.lines[line - 1]!
       : [{ text, kind: 'plain' } satisfies TokenSpan];
+  }
+
+  segmentedLine(line: number, text: string): SegmentedSpan[] {
+    const ranges = this.rangesByLine().get(line);
+    if (!ranges?.length) return this.tokensForLine(line, text).map(token => ({ ...token, state: 'plain', fingerprints: [] }));
+    const selected = this.selectedFinding();
+    return segmentLineTokens(this.tokensForLine(line, text), line, text, ranges, selected ? selected.fingerprint ?? selected.id : null);
+  }
+
+  segmentClass(segment: SegmentedSpan): string {
+    return segment.state === 'plain' ? `tok-${segment.kind}` : `tok-${segment.kind} tok-${segment.state}`;
+  }
+
+  segmentAriaLabel(segment: SegmentedSpan, line: number): string | null {
+    if (segment.state === 'plain') return null;
+    return segment.state === 'overlap'
+      ? `Overlapping findings at line ${line}: ${segment.text}`
+      : `Selected finding span at line ${line}: ${segment.text}`;
   }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
