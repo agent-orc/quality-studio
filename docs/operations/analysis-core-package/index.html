@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analysis-core package split for Quality Studio</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;
+    --taskbr: #4a3aa7;
+    --salvage: #eb6834;
+    --rescue: #b58500;
+    --ok: #008300;
+    --bad: #c93736;
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Quality Studio · analysis-core package · QS-91</p>
+  <h1>Analysis-core package split for Quality Studio</h1>
+  <p class="lede">The operator's 2026-08-12 architecture directive asks Agent Studio to consume Quality Studio analysis as an in-process library, not the HTTP API. This dossier inventories what already exists, packages it, proves in-process consumption with a standalone prototype, and answers the operator's two questions - is the core useful without the UI, and should it move to its own repository.</p>
+  <div class="meta">
+    <span><b>Status</b> decision pending (extraction question only)</span>
+    <span><b>Phase</b> decision ready</span>
+    <span><b>Directive</b> Operator architecture directive, 2026-08-12</span>
+    <span><b>Package</b> <code>AgentOrchestrator.CodeQuality</code> 0.1.0</span>
+  </div>
+</header>
+
+<h2><span class="no">00</span>Contents</h2>
+<ul class="toc">
+  <li><a href="#inventory">Current-state inventory</a></li>
+  <li><a href="#split">Target split</a></li>
+  <li><a href="#q1">Question 1 — useful without the UI?</a></li>
+  <li><a href="#q2">Question 2 — extract to its own repository?</a></li>
+  <li><a href="#slice1">Slice 1 — what shipped</a></li>
+  <li><a href="#evidence">Evidence index and limitations</a></li>
+</ul>
+
+<h2 id="inventory"><span class="no">01</span>Current-state inventory</h2>
+<p>The good news first: the split the directive asks for is <b>largely already there</b>. <code>AgentOrchestrator.CodeQuality</code> already has no ASP.NET or hosting dependency, and every consumer in this solution already reaches it in-process.</p>
+<figure>
+<svg viewBox="0 0 900 260" role="img" aria-labelledby="graph-t">
+  <title id="graph-t">Star topology: the analysis core has no dependents through HTTP</title>
+  <rect x="340" y="20" width="220" height="60" rx="10" fill="var(--ok-soft)" stroke="var(--ok)"/>
+  <text x="450" y="45" text-anchor="middle" class="t-ok" font-size="14">AgentOrchestrator.CodeQuality</text>
+  <text x="450" y="64" text-anchor="middle" fill="var(--ink-2)" font-size="11">library · no web deps · 1 pkg ref (CodingAgentRunner)</text>
+
+  <rect x="40" y="160" width="220" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+  <text x="150" y="185" text-anchor="middle" fill="var(--ink-1)" font-size="13">QualityStudio.Api</text>
+  <text x="150" y="203" text-anchor="middle" fill="var(--ink-2)" font-size="11">Sdk.Web · hosts core over HTTP for the UI</text>
+
+  <rect x="340" y="160" width="220" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+  <text x="450" y="185" text-anchor="middle" fill="var(--ink-1)" font-size="13">quality-cli</text>
+  <text x="450" y="203" text-anchor="middle" fill="var(--ink-2)" font-size="11">exe · full CLI surface</text>
+
+  <rect x="640" y="160" width="220" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+  <text x="750" y="185" text-anchor="middle" fill="var(--ink-1)" font-size="13">quality</text>
+  <text x="750" y="203" text-anchor="middle" fill="var(--ink-2)" font-size="11">exe · PackAsTool · narrower surface</text>
+
+  <line x1="410" y1="80" x2="180" y2="160" stroke="var(--ink-3)" stroke-width="1.5"/>
+  <line x1="450" y1="80" x2="450" y2="160" stroke="var(--ink-3)" stroke-width="1.5"/>
+  <line x1="490" y1="80" x2="730" y2="160" stroke="var(--ink-3)" stroke-width="1.5"/>
+  <text x="450" y="120" text-anchor="middle" fill="var(--ink-3)" font-size="11">ProjectReference (in-process), all three spokes</text>
+</svg>
+<figcaption>Every existing consumer already reaches the core through a plain <code>ProjectReference</code>, never through <code>QualityStudio.Api</code>'s HTTP surface. Full graph, package references, and the one HTTP-shaped boundary detail worth naming are in <code>results/dependency-graph.json</code> and <code>results/boundary-scan.json</code>.</figcaption>
+</figure>
+<table>
+  <tr><th>Project</th><th>SDK</th><th>Role</th><th>Reaches the core via</th></tr>
+  <tr><td><code>AgentOrchestrator.CodeQuality</code></td><td>Sdk</td><td>Analysis core: hierarchy model, review-meta, staleness, sensors (gitleaks, dependency vulns, coverage, boundaries, SARIF), report/finding aggregation, agent-backed reviews</td><td>-</td></tr>
+  <tr><td><code>QualityStudio.Api</code></td><td><b>Sdk.Web</b></td><td>HTTP host for the Angular UI; the only project using the Web SDK</td><td><code>ProjectReference</code></td></tr>
+  <tr><td><code>quality-cli</code></td><td>Sdk</td><td>Full CLI: <code>review</code>, <code>security</code>, <code>boundaries</code>, <code>flow</code>, <code>report</code>, <code>diff</code>, <code>scan</code></td><td><code>ProjectReference</code></td></tr>
+  <tr><td><code>quality</code></td><td>Sdk, <code>PackAsTool</code></td><td>Narrower dotnet-tool surface (<code>scan</code>, <code>diff</code>, <code>security</code>); both this and <code>quality-cli</code> build an executable literally named <code>quality</code></td><td><code>ProjectReference</code></td></tr>
+</table>
+<p>One boundary detail is worth naming precisely rather than glossing over: <code>AgentStudioTaskClient.cs</code> lives inside the core project and wraps <code>System.Net.Http.Json</code> to push a finding-derived task card to Agent Studio's own <code>/api/tasks</code> endpoint - the "handover" feature the root <a href="../../../README.md">README</a> already documents as a decided, separate integration direction (Quality Studio calls Agent Studio, not the other way round). It is wired up and invoked only from <code>QualityStudio.Api/Program.cs</code>. This does not block packaging - it is base-class-library <code>HttpClient</code> usage, not an ASP.NET dependency, and the API project keeps working unchanged either way - but every consumer of the packaged library today would receive this HTTP-push-shaped type whether or not it needs it. Recommendation: leave it in place for slice 1; consider relocating it to the API layer in a follow-up slice, since conceptually it is a delivery concern, not an analysis concern.</p>
+
+<h2 id="split"><span class="no">02</span>Target split</h2>
+<p>Given the inventory, the target split is a formalization, not a rewrite:</p>
+<ul>
+  <li><b>Analysis core</b> (<code>AgentOrchestrator.CodeQuality</code>, now packable as a NuGet package): the stable programmatic surface is <code>QualityReportBuilder.BuildAsync(IReadOnlyList&lt;QualityReportRepository&gt;)</code> - run named analyses (sensors + optional agent review kinds) over a repo path and a small config record, get back <code>QualityReportDocument</code> with the shared <code>QualityFinding</code> model. No web dependency, already proven true by the inventory above.</li>
+  <li><b>HTTP API / UI hosting</b> (<code>QualityStudio.Api</code>): unchanged. Keeps repository registry, path confinement, review-run orchestration, and the Agent Studio task-handover push. It is a caller of the core, exactly as it already is.</li>
+  <li><b>CLI</b> (<code>quality</code>, <code>quality-cli</code>): unchanged. Already the reference example of "consume the core in-process, no server needed."</li>
+  <li><b>Rule library (QS-90)</b>: content the core consumes (guideline catalogues, installed per repository), not a layer with its own hosting concerns. It stays inside the core's boundary - a caller passing a repo path already gets whatever guidelines are installed there.</li>
+</ul>
+<div class="box accent">
+  <h4>What did <em>not</em> need to change</h4>
+  <p>No project moved, no namespace moved, no consumer's code changed. The csproj that was already the hub of the star topology gained packaging metadata (<code>IsPackable</code>, <code>PackageId</code>, <code>PackageReadmeFile</code>) and a README; nothing else in <code>src/</code> was touched except the one place that proves the package works (section 05).</p>
+</div>
+
+<h2 id="q1"><span class="no">03</span>Question 1 — is the core useful without the UI studio?</h2>
+<div class="box ok">
+  <h4>Yes - and it already is, today, inside this repository</h4>
+  <p>Three concrete standalone consumers, none of which touch <code>QualityStudio.Api</code>:</p>
+</div>
+<table>
+  <tr><th>Consumer</th><th>Standalone today?</th><th>What the package must include for it</th></tr>
+  <tr><td><b>quality-cli</b> (this repo)</td><td><span class="pill done">yes</span>, via <code>ProjectReference</code></td><td>Nothing new - it is source-level in-process already. Migrating it to a <code>PackageReference</code> would only add version-skew risk for an in-repo consumer; not recommended while both ship from one repo and one CI run.</td></tr>
+  <tr><td><b>CI usage</b> (this repo's <code>build.yml</code>)</td><td><span class="pill done">yes</span></td><td>The <code>Security scan</code> step already runs <code>dotnet run --project src/quality-cli -- security scan .</code> in-process, in CI, with zero network calls to any Quality Studio server. That is standalone core usage happening on every push to <code>main</code> today.</td></tr>
+  <tr><td><b>Agent Studio pipeline step (AGT-2655)</b>, a different repository</td><td><span class="pill part">proven by prototype, not yet real</span></td><td>A published feed reachable from Agent Studio's own restore (today: nothing beyond nuget.org is configured anywhere in this repo, so real use needs either a public NuGet.org publish or a private feed both repos can reach); an explicit, pinned version (the core is pre-1.0 - surface may still move); the <code>QualityFinding</code>/<code>QualityReportDocument</code> contract kept stable across patch releases; and the caller passing a real git-repository root, not an arbitrary subfolder - the prototype run in section 05 hit exactly this rough edge (<code>QualityReportBuilder</code>'s trend loader shells out to <code>git log</code> assuming <code>root</code> is the repository's top level).</td></tr>
+</table>
+<p>So the operator's expectation is confirmed with names attached, not asserted: the core is not merely theoretically separable, it is <em>already</em> exercised standalone by CI on every push, and quality-cli is a production example of "in-process, no UI, no server." The only genuinely new consumer is the external one (AGT-2655), and slice 1 (section 05) proves that path works mechanically without requiring the "findings reach the QS UI later, not live" tradeoff the directive explicitly accepts to be exercised for real - that tradeoff only matters once the API's own review-run pipeline is the one being bypassed, which is Agent Studio's call to make on its own schedule.</p>
+
+<h2 id="q2"><span class="no">04</span>Question 2 — do we extract the core into its own repository?</h2>
+<div class="box warn">
+  <h4>Not now. Publish from this repository first; extract only if a concrete trigger fires.</h4>
+</div>
+<table>
+  <tr><th>Criterion</th><th>What it says today</th></tr>
+  <tr><td><b>Release cadence coupling</b></td><td>Core, API, CLI, and UI still ship together from one repo (root <code>README.md</code>: "no package published to NuGet yet", cards through QS-52 all landed here). Nothing today asks the core to release on a different cadence than its in-repo consumers.</td></tr>
+  <tr><td><b>Cross-repo versioning cost vs. the 0-PR pipeline</b></td><td>Today a core change and its API/CLI consumer change land in <b>one</b> PR, in this repo. Extracting turns every core change into: a PR in the new core repo, a publish, then a version-bump PR here for the API/CLI <em>and</em> a version-bump PR in Agent Studio. That reintroduces exactly the kind of cross-repo coordination overhead the operator's own directive is trying to remove by choosing "in-process library" over "HTTP API" - it would be strictly better than the HTTP round trip, but not free, and not yet earned by more than one external consumer.</td></tr>
+  <tr><td><b>Public-repo policy</b></td><td><code>quality-studio</code> is already public (Apache-2.0, <code>github.com/agent-orc/quality-studio</code>, public website). A second public repository means new ownership, CI, issue tracking, and security-review sign-off for a package that has exactly one external consumer candidate today. <code>build.yml</code> already has a tag trigger (<code>tags: ['v*.*.*']</code>) that a future "publish on tag" step can hang off without a new repository at all.</td></tr>
+</table>
+<div class="box">
+  <h4>Concrete triggers to revisit</h4>
+  <ul>
+    <li>The core needs a release cadence genuinely independent of the API/UI (e.g. AGT-2655 needs a fix faster than the next UI release, repeatedly).</li>
+    <li>More than one external, differently-owned repository depends on the package.</li>
+    <li>The core's own CI time or code ownership starts to conflict with API/UI iteration speed inside this repo.</li>
+  </ul>
+  <p>None of the three holds today. The recommendation is to wire package publishing into this repository's existing tag-triggered build once the operator wants a real (not local-feed) release, and to leave the repository question open until one of the triggers above actually fires.</p>
+</div>
+
+<h2 id="slice1"><span class="no">05</span>Slice 1 — what shipped</h2>
+<p>Everything below is real, run, and captured under <code>results/</code>; the API, CLI, and UI are unmodified and their test suites are green.</p>
+<table>
+  <tr><th>Deliverable</th><th>Where</th><th>Proof</th></tr>
+  <tr><td>Publishable package metadata + English README</td><td><code>src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj</code>, <code>.../README.md</code></td><td><code>dotnet pack</code> produces <code>AgentOrchestrator.CodeQuality.0.1.0.nupkg</code> with the README packed at the root and no web assembly in <code>lib/</code> - <code>results/package-contents.json</code></td></tr>
+  <tr><td>One real in-process caller, consuming the <em>package</em> (not source)</td><td><code>spikes/agent-pipeline-step/</code> (standalone, outside <code>QualityStudio.slnx</code>)</td><td>Restores <code>AgentOrchestrator.CodeQuality</code> from a local folder feed, runs <code>QualityReportBuilder</code> in-process against this repository, and prints <code>score 87 (B) | findings 7 | ... | no HTTP call made</code> - full report at <code>results/pipeline-step-prototype-report.json</code></td></tr>
+  <tr><td>API / CLI / UI unchanged</td><td>whole solution</td><td><code>dotnet build QualityStudio.slnx</code>: 0 warnings, 0 errors; <code>dotnet test</code>: 155+47 passed, 1 pre-existing skip, 0 failed - <code>results/build-test-verification.json</code></td></tr>
+</table>
+<p class="dim">Reproduce locally: <code>./scripts/pack-analysis-core-local-feed.sh</code> then <code>dotnet run --project spikes/agent-pipeline-step -- &lt;repo-path&gt; &lt;output.json&gt;</code>. Details in <code>spikes/agent-pipeline-step/README.md</code>.</p>
+
+<h2 id="evidence"><span class="no">06</span>Evidence index and limitations</h2>
+<table>
+  <tr><th>Claim</th><th>Evidence under <code>results/</code></th></tr>
+  <tr><td>Star topology; only <code>CodingAgentRunner</code> as a non-BCL dependency</td><td><code>dependency-graph.json</code></td></tr>
+  <tr><td>No ASP.NET dependency in the core; the one HTTP-shaped class and why it is not the directive's concern</td><td><code>boundary-scan.json</code></td></tr>
+  <tr><td>Package contents, nuspec, dependency declaration</td><td><code>package-contents.json</code></td></tr>
+  <tr><td>Prototype run: real findings, in-process, from a packed nupkg, no HTTP</td><td><code>pipeline-step-prototype-report.json</code></td></tr>
+  <tr><td>Full build and test suite unaffected</td><td><code>build-test-verification.json</code></td></tr>
+</table>
+<p class="dim"><b>Limitations.</b> The prototype proves the packaging and in-process mechanics, not a real cross-repository dependency - it consumes a local folder feed, not a published one, and lives inside this repository rather than in Agent Studio's. It also surfaced (rather than fixed) a genuine rough edge: <code>QualityReportBuilder</code> currently requires its <code>root</code> to be a git repository's top level, which any external caller passing an arbitrary subdirectory will hit; that is a pre-existing behavior of the core, unrelated to packaging, and is called out in section 03 rather than silently patched here. The extraction recommendation in section 04 is a decision aid, not a decision - the operator record says that choice stays open.</p>
+
+</main>
+</body>
+</html>

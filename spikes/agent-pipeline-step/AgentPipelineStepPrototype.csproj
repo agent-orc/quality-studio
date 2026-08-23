@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Deliberately a PackageReference, not a ProjectReference: this project stands
+         in for an Agent Studio pipeline step (AGT-2655) living in a different
+         repository, consuming the analysis core the same way an external caller
+         would - as a packed NuGet library, resolved from the local feed built by
+         scripts/pack-analysis-core-local-feed.sh. See README.md in this folder. -->
+    <PackageReference Include="AgentOrchestrator.CodeQuality" Version="0.1.0" />
+  </ItemGroup>
+</Project>

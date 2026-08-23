@@ -1,0 +1,39 @@
+{
+  "generatedBy": "manual inventory, QS-91",
+  "projects": {
+    "src/AgentOrchestrator.CodeQuality": {
+      "sdk": "Microsoft.NET.Sdk",
+      "outputType": "library",
+      "projectReferences": [],
+      "packageReferences": ["CodingAgentRunner 0.7.0"],
+      "aspNetOrHostingReferences": [],
+      "note": "Only non-web dependency is CodingAgentRunner (agent execution client). No Microsoft.AspNetCore.* package anywhere in the tree."
+    },
+    "src/QualityStudio.Api": {
+      "sdk": "Microsoft.NET.Sdk.Web",
+      "outputType": "web host",
+      "projectReferences": ["src/AgentOrchestrator.CodeQuality"],
+      "note": "Only project in the solution using the Web SDK. Hosts the core behind HTTP for the browser UI."
+    },
+    "src/quality-cli": {
+      "sdk": "Microsoft.NET.Sdk",
+      "outputType": "exe (assembly name: quality)",
+      "projectReferences": ["src/AgentOrchestrator.CodeQuality"],
+      "note": "Full-surface CLI: review, security, boundaries, flow, report, diff, scan. Already consumes the core in-process via ProjectReference."
+    },
+    "src/quality": {
+      "sdk": "Microsoft.NET.Sdk",
+      "outputType": "exe, PackAsTool=true, ToolCommandName=quality",
+      "projectReferences": ["src/AgentOrchestrator.CodeQuality"],
+      "note": "Narrower dotnet-tool surface (scan, diff, security). Distinct packaging target from quality-cli; both build an executable literally named quality."
+    },
+    "tests/AgentOrchestrator.CodeQuality.Tests": {
+      "projectReferences": ["src/AgentOrchestrator.CodeQuality", "src/quality-cli"]
+    },
+    "tests/QualityStudio.Api.Tests": {
+      "projectReferences": ["src/QualityStudio.Api"],
+      "packageReferences": ["Microsoft.AspNetCore.Mvc.Testing 10.0.1"]
+    }
+  },
+  "shape": "star topology: AgentOrchestrator.CodeQuality is the hub; QualityStudio.Api, quality-cli, and quality are independent spokes that each take a plain ProjectReference to it. No project currently reaches the core through HTTP."
+}

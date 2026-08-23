@@ -2,9 +2,22 @@
   <PropertyGroup>
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Analysis-core package identity. Root namespace and assembly name stay
+         AgentOrchestrator.CodeQuality (see README.md, "Product shape") so the
+         change is additive: nothing that already references this project by
+         type name has to move. -->
+    <IsPackable>true</IsPackable>
+    <PackageId>AgentOrchestrator.CodeQuality</PackageId>
+    <Version>0.1.0</Version>
+    <Description>In-process analysis core for Quality Studio: repository hierarchy model, review-meta schema, staleness evaluation, deterministic sensors (gitleaks, dependency vulnerabilities, coverage, boundaries, SARIF), and report/finding aggregation. No ASP.NET or hosting dependencies - designed to run inside a caller's own process (a CLI, a CI step, or another product's pipeline) and return the shared QualityFinding model.</Description>
+    <PackageTags>quality;static-analysis;code-review;security-scan;findings</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

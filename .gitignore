@@ -24,3 +24,8 @@ TestResults/
 !/.quality/usage/
 !/.quality/usage/*.jsonl
 /.dev-stack.log
+
+# Local folder feed used by scripts/pack-analysis-core-local-feed.sh to prove
+# spikes/agent-pipeline-step consumes AgentOrchestrator.CodeQuality as a real
+# NuGet package rather than a ProjectReference.
+/.nuget-local-feed/

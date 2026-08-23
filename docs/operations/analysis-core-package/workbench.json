@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "quality-studio-analysis-core-package",
+  "title": "Analysis-core package split for Quality Studio",
+  "summary": "Inventory and first delivery slice for the operator's in-process-library directive: AgentOrchestrator.CodeQuality is already a clean, web-free analysis core reached only through ProjectReference by QualityStudio.Api, quality, and quality-cli. This dossier makes it packable (PackageId, README, verified dotnet pack), proves in-process package consumption with a standalone AGT pipeline-step prototype that packs, restores from a local feed, and runs QualityReportBuilder with zero HTTP calls, answers 'is the core useful without the UI' with named standalone consumers, and answers 'do we extract to its own repository' with a recommendation not to, yet.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-08-23T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-91"
+  ],
+  "statusReason": "The in-process-library direction is decided (operator architecture directive, 2026-08-12) and slice 1 is delivered. The repository-extraction question (section 04) is explicitly left open for the operator; this dossier supplies the criteria, not the answer."
+}

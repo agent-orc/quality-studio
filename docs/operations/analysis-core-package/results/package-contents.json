@@ -1,0 +1,19 @@
+{
+  "command": "dotnet pack src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj -c Release -o <feed>",
+  "result": "Successfully created package AgentOrchestrator.CodeQuality.0.1.0.nupkg",
+  "nupkgFileListing": [
+    "519  2026-08-23 21:09   _rels/.rels",
+    "     1266  2026-08-23 21:09   AgentOrchestrator.CodeQuality.nuspec",
+    "     3594  2026-08-23 19:09   README.md",
+    "  1369600  2026-08-23 19:09   lib/net10.0/AgentOrchestrator.CodeQuality.dll",
+    "      520  2026-08-23 21:09   [Content_Types].xml",
+    "     1101  2026-08-23 21:09   package/services/metadata/core-properties/a0b7fac81cc246a085bee57589cf0de3.psmdcp"
+  ],
+  "nuspecDependencies": [
+    "CodingAgentRunner 0.7.0 (exclude Build,Analyzers)"
+  ],
+  "nuspecLicense": "Apache-2.0 (expression)",
+  "nuspecTags": "quality static-analysis code-review security-scan findings",
+  "packageReadme": "README.md packed at package root via <None Include=\"README.md\" Pack=\"true\" PackagePath=\"\\\" /> in the csproj",
+  "note": "No web/hosting assembly is present in lib/net10.0 - only AgentOrchestrator.CodeQuality.dll and its declared CodingAgentRunner dependency."
+}

@@ -1,0 +1,22 @@
+{
+  "purpose": "Confirm the packaging change to src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj (IsPackable, PackageId, README) does not change API/CLI/UI behavior - QualityStudio.Api, quality, quality-cli still build via the existing ProjectReference and are untouched.",
+  "steps": [
+    {
+      "command": "dotnet restore QualityStudio.slnx",
+      "result": "restored all 6 projects, no changes"
+    },
+    {
+      "command": "dotnet build QualityStudio.slnx --configuration Release --no-restore",
+      "result": "Build succeeded. 0 Warning(s). 0 Error(s)."
+    },
+    {
+      "command": "dotnet test QualityStudio.slnx --configuration Release --no-build --filter \"Category!=MachineBound\"",
+      "result": "AgentOrchestrator.CodeQuality.Tests: 155 passed, 1 skipped (pre-existing live-review skip, unrelated), 0 failed. QualityStudio.Api.Tests: 47 passed, 0 failed."
+    },
+    {
+      "command": "./scripts/pack-analysis-core-local-feed.sh && dotnet restore spikes/agent-pipeline-step/AgentPipelineStepPrototype.csproj && dotnet run --project spikes/agent-pipeline-step -- <repo-root> results/agent-pipeline-step-report.json",
+      "result": "Restored AgentOrchestrator.CodeQuality 0.1.0 from the local folder feed (not source, not ProjectReference); ran QualityReportBuilder in-process; wrote quality-report.v1 JSON; made no HTTP call.",
+      "sample": "agent-pipeline-step: analyzed QS-91 in-process | score 87 (B) | findings 7 | 367 ms | no HTTP call made"
+    }
+  ]
+}

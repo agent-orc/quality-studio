@@ -1,0 +1,306 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-report.v1.json",
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-23T19:11:12.5784542+00:00",
+  "repositories": [
+    {
+      "id": "pipeline-step-target",
+      "name": "QS-91",
+      "scorecard": {
+        "score": 87,
+        "grade": "B",
+        "kinds": [
+          {
+            "kind": "code",
+            "score": 87,
+            "grade": "B",
+            "levels": [
+              {
+                "level": "file",
+                "score": 87,
+                "grade": "B",
+                "reviews": 2
+              }
+            ]
+          },
+          {
+            "kind": "security",
+            "score": null,
+            "grade": "not-reviewed",
+            "levels": []
+          },
+          {
+            "kind": "performance",
+            "score": null,
+            "grade": "not-reviewed",
+            "levels": []
+          }
+        ],
+        "findings": {
+          "total": 7,
+          "bySeverity": {
+            "critical": 0,
+            "high": 0,
+            "medium": 4,
+            "low": 3,
+            "info": 0
+          },
+          "byState": {
+            "open": 7,
+            "accepted": 0,
+            "waived": 0,
+            "false-positive": 0,
+            "resolved": 0
+          }
+        },
+        "staleness": {
+          "fresh": 0,
+          "stale": 2,
+          "policyDrift": 0,
+          "missing": 553,
+          "total": 555
+        },
+        "coverage": {
+          "reviewedFiles": 2,
+          "totalFiles": 185,
+          "percent": 1.08
+        },
+        "sensors": [
+          {
+            "id": "gitleaks",
+            "version": "8.24.2",
+            "enabled": true,
+            "available": null,
+            "unavailableReason": null,
+            "toolVersions": null
+          },
+          {
+            "id": "dependencies",
+            "version": "1.0.0",
+            "enabled": true,
+            "available": null,
+            "unavailableReason": null,
+            "toolVersions": null
+          }
+        ]
+      },
+      "trend": [
+        {
+          "kind": "code",
+          "points": [
+            {
+              "commit": "bc99e8c34491",
+              "at": "2026-07-11T21:20:54+02:00",
+              "score": 98,
+              "grade": "A"
+            },
+            {
+              "commit": "49d892023caa",
+              "at": "2026-07-21T13:36:17+02:00",
+              "score": 87,
+              "grade": "B"
+            }
+          ]
+        },
+        {
+          "kind": "security",
+          "points": []
+        },
+        {
+          "kind": "performance",
+          "points": []
+        }
+      ],
+      "findings": [
+        {
+          "repositoryId": "pipeline-step-target",
+          "id": "QS-PROGRAM-001",
+          "ruleId": "QS-PROGRAM-001",
+          "kind": "code",
+          "severity": "medium",
+          "state": "open",
+          "title": "Broad exception types are mapped to unrelated domain errors",
+          "description": "Every ArgumentException is reported as an invalid repository path and every InvalidOperationException as an unavailable Agent Studio target. These exceptions can originate from serialization, configuration, framework code, or unrelated services, causing misleading 400 or 503 responses and potentially concealing server defects.",
+          "recommendation": "Map explicit domain exception types at the boundary that owns each failure. Allow unexpected ArgumentException and InvalidOperationException instances to fall through to the generic 500 response, or translate them locally where their meaning is known.",
+          "fingerprint": "sha256:65d79f4018b0663ac497b1f9dcac6ff89e078ba41a44c2693dc77eee54c42e53",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 45,
+              "startColumn": 5,
+              "endLine": 57,
+              "endColumn": 89
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "repositoryId": "pipeline-step-target",
+          "id": "QS-PROGRAM-002",
+          "ruleId": "QS-PROGRAM-002",
+          "kind": "code",
+          "severity": "medium",
+          "state": "open",
+          "title": "Raw exception messages are exposed to API clients",
+          "description": "The problem response includes exception.Message for both expected and unexpected failures. Messages from filesystem, HTTP, configuration, and registry operations can reveal local paths, remote targets, or implementation details.",
+          "recommendation": "Return stable, client-safe details for anticipated domain failures and omit detail for unexpected exceptions. Preserve the complete exception only in structured server logs, optionally attaching a correlation identifier to the response.",
+          "fingerprint": "sha256:e15a982bde6aba13e8eb998cbedbe37522c46569f68aee03da0a72f23cf262df",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 61,
+              "startColumn": 5,
+              "endLine": 61,
+              "endColumn": 107
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "repositoryId": "pipeline-step-target",
+          "id": "QS-PROGRAM-003",
+          "ruleId": "QS-PROGRAM-003",
+          "kind": "code",
+          "severity": "medium",
+          "state": "open",
+          "title": "File endpoint loads files into memory without a size limit",
+          "description": "File.ReadAllBytesAsync allocates an array for the entire selected file and the response subsequently creates a decoded string as well. A large repository artifact can therefore consume roughly multiple times its file size and may trigger excessive garbage collection or an out-of-memory process failure.",
+          "recommendation": "Check file length against a configurable maximum before reading and return 413 Payload Too Large when exceeded. If large files must be supported, stream them or decode incrementally with an explicit response-size policy.",
+          "fingerprint": "sha256:801257f21552dae54665e42e48cc86a742d22efd8d9ec23d82cc18a40e231a64",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 148,
+              "startColumn": 5,
+              "endLine": 150,
+              "endColumn": 59
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "repositoryId": "pipeline-step-target",
+          "id": "QS-PROGRAM-004",
+          "ruleId": "QS-PROGRAM-004",
+          "kind": "code",
+          "severity": "medium",
+          "state": "open",
+          "title": "Security finding mapping dereferences a nullable range",
+          "description": "The null-forgiving operator on location.Range suppresses compiler analysis but does not prevent a runtime NullReferenceException. The subsequent range accesses are also unguarded, so any scanner result without positional information makes the entire security-scan response fail.",
+          "recommendation": "Validate scanner output before mapping or make the response range nullable and map absent ranges explicitly. If ranges are a required invariant, enforce that invariant when constructing SecurityFindingLocation and fail with a targeted domain error.",
+          "fingerprint": "sha256:f8cb78847c27e917c4217b83abb41716461fef5a65b5f7d5ab80909ac50e9f46",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 473,
+              "startColumn": 9,
+              "endLine": 477,
+              "endColumn": 98
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "repositoryId": "pipeline-step-target",
+          "id": "QS-PROGRAM-005",
+          "ruleId": "QS-PROGRAM-005",
+          "kind": "code",
+          "severity": "low",
+          "state": "open",
+          "title": "Line-ending detection labels unsupported cases as LF",
+          "description": "The detector only examines newline characters. Content with no line terminator or with legacy lone carriage returns is reported as \u0022lf\u0022, even though no LF line ending exists. This makes the FileResponse metadata inaccurate for valid edge-case files.",
+          "recommendation": "Distinguish \u0022none\u0022, \u0022cr\u0022, \u0022lf\u0022, \u0022crlf\u0022, and \u0022mixed\u0022, or clearly define and implement a documented fallback value for files without recognized line endings.",
+          "fingerprint": "sha256:61c227d1b236a67da401d631ef1aa6fba59f1cef2157920ea52c11ddc5d24bf3",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 178,
+              "startColumn": 1,
+              "endLine": 188,
+              "endColumn": 77
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "repositoryId": "pipeline-step-target",
+          "id": "QS-PROGRAM-006",
+          "ruleId": "QS-PROGRAM-006",
+          "kind": "code",
+          "severity": "low",
+          "state": "open",
+          "title": "Endpoint workflows are embedded as private static methods in Program",
+          "description": "Repository resolution, filesystem access, importing, response mapping, and endpoint orchestration are implemented as private static methods in the application entry point. They can primarily be exercised through full-host integration tests, making edge cases slower and harder to isolate.",
+          "recommendation": "Move substantive workflows into small injectable services or endpoint modules with interfaces around filesystem and external-client operations. Keep Program.cs focused on composition and route registration, while retaining integration tests for routing and middleware behavior.",
+          "fingerprint": "sha256:72797edd3e52fefab2bca5c98252cb80ee4598b8095742a59fc8430e3347b903",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 116,
+              "startColumn": 1,
+              "endLine": 116,
+              "endColumn": 101
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 334,
+              "startColumn": 1,
+              "endLine": 339,
+              "endColumn": 2
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "repositoryId": "pipeline-step-target",
+          "id": "QS-PROGRAM-007",
+          "ruleId": "QS-PROGRAM-007",
+          "kind": "code",
+          "severity": "low",
+          "state": "open",
+          "title": "HttpClient is registered directly as a singleton",
+          "description": "A directly constructed singleton HttpClient is harder to configure and replace per downstream service and may retain an underlying connection handler beyond desired DNS or connection lifetimes. It also couples AgentStudioTaskClient to a generic shared client registration.",
+          "recommendation": "Use AddHttpClient\u003CAgentStudioTaskClient\u003E or a named client, configuring its base address, timeout, policies, and handler lifetime in one place. Tests can then replace the handler or typed client cleanly.",
+          "fingerprint": "sha256:06ca04678e0a16bbec1351e3df0bfef2e65747ed2db872580d331eaf3783b1cf",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 28,
+              "startColumn": 1,
+              "endLine": 29,
+              "endColumn": 56
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "repositories": [
+      {
+        "rank": 1,
+        "repositoryId": "pipeline-step-target",
+        "name": "QS-91",
+        "score": 87,
+        "grade": "B",
+        "coveragePercent": 1.08,
+        "openFindings": 7
+      }
+    ]
+  }
+}

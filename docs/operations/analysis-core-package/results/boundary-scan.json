@@ -1,0 +1,13 @@
+{
+  "check": "grep for AspNetCore / HttpContext / ControllerBase / WebApplication / [Http*] across src/AgentOrchestrator.CodeQuality/*.cs",
+  "command": "grep -rl \"AspNetCore\\|Microsoft.Extensions.Http\\|HttpContext\\|IHttpClientFactory\\|WebApplication\\|ControllerBase\\|\\[Http\" src/AgentOrchestrator.CodeQuality --include=*.cs",
+  "result": ["src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs"],
+  "resultExplained": "The only hit is BoundaryInventorySensor.cs, and it is a false positive for this check: it is a sensor that greps *reviewed target repositories* for ASP.NET route attributes and HttpClient call patterns, as text, to build a boundary inventory. It does not itself depend on ASP.NET.",
+  "realBoundaryFinding": {
+    "file": "src/AgentOrchestrator.CodeQuality/AgentStudioTaskClient.cs",
+    "what": "AgentStudioTaskClient wraps System.Net.Http.Json to POST a finding-derived task card to Agent Studio's /api/tasks endpoint (the 'handover' feature in README.md section 3).",
+    "usedFrom": ["src/QualityStudio.Api/Program.cs (DI registration + two HTTP endpoint handlers)"],
+    "isThisTheHttpDependencyTheDirectiveMeans": false,
+    "reasoning": "This is an OUTBOUND push (Quality Studio -> Agent Studio, finding handover to create a task) and uses only System.Net.Http.Json, part of the base class library - it does not pull in Microsoft.AspNetCore.* and does not block packaging or in-process use. It is a different integration direction than the one the operator directive addresses (Agent Studio pipeline PULLING analysis results in-process instead of calling QualityStudio.Api). Recommendation: leave it in place for slice 1 (no behavior change, README already documents the handover as a decided, separate direction), but flag it as a candidate to move to the API/hosting layer in a later slice, since every consumer of the packaged library today also receives an HttpClient-shaped type it does not need."
+  }
+}
