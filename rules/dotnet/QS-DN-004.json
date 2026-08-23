@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-004",
+  "technology": "dotnet",
+  "category": "dependency-injection",
+  "title": "No service-locator resolution inside handler or business logic bodies",
+  "statement": "Services are declared as minimal API handler parameters or constructor parameters, letting the container inject them; code does not call `context.RequestServices.GetService<T>()` / `GetRequiredService<T>()` from inside a handler or business-logic method body. The one accepted exception is the composition-root shim needed to alias an existing singleton onto `IHostedService` (`AddHostedService(sp => sp.GetRequiredService<T>())`).",
+  "rationale": "Handler-parameter injection is what makes a handler's real dependencies visible at the call site and in tests (see QS-DN-007/008 for how tests then construct these directly). Pulling a service out of `RequestServices` inside the body hides the dependency from the signature, breaks constructing the handler outside a request pipeline, and is easy to reach for as a shortcut around a lifetime mismatch instead of fixing the registration (QS-DN-003).",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)\n{\n    var (_, repository) = ResolveRepository(context, registry);\n    return Results.Ok(store.List(repository.Root));\n}",
+    "caption": "Dependencies declared as parameters.",
+    "source": "src/QualityStudio.Api/Program.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "static IResult Guidelines(HttpContext context, RepositoryRegistry registry)\n{\n    var store = context.RequestServices.GetRequiredService<GuidelineStore>();\n    var (_, repository) = ResolveRepository(context, registry);\n    return Results.Ok(store.List(repository.Root));\n}",
+    "caption": "GuidelineStore pulled from RequestServices instead of declared as a parameter."
+  },
+  "tags": ["dependency-injection", "service-locator", "testability"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, contrasted against Program.cs's own single accepted exception (the hosted-service alias)." }
+  ]
+}
