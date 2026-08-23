@@ -508,6 +508,9 @@
 
 <h3>12 August 2026 · QS-71 · RP-1/RP-3 hardening</h3>
 <p><b>Portable confinement and terminal crash-window recovery landed.</b> Run IDs now reject both separator forms on every platform, history omits native manifests until a stopped attempt exists, and startup idempotently completes a missing terminal attempt without relabelling a native archive or duplicating its operation evidence. Regression tests cover each boundary.</p>
+
+<h3>23 August 2026 · QS-71 · Redelivery after quarantine</h3>
+<p><b>Rebased and re-verified, no feature rework.</b> The RP-1 through RP-5 delivery above had been quarantined by a broken review-tooling path, not a code defect. Rebased the same commits onto current <code>origin/main</code> (one cosmetic CI-workflow formatting conflict, resolved in favor of <code>origin/main</code>); no application code changed. Re-ran the full gate: <code>dotnet build</code> and <code>dotnet test</code> (0 failed, 221 passed, 1 skipped machine-bound) and the Angular unit suite (46/46) both green.</p>
 </main>
 </body>
 </html>
