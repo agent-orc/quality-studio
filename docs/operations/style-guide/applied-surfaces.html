@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Applied surfaces | Quality Studio Style Guide</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <p class="kicker">Quality Studio style guide · Implementation register</p>
+    <h1>Applied surfaces</h1>
+    <p class="lede">A growing record of where the living standard is implemented. Each entry links the user problem, selected pattern, code surface, and review evidence.</p>
+  </header>
+  <nav class="dossier-nav" aria-label="Style guide pages">
+    <a href="index.html">Overview</a>
+    <a href="buttons.html">Buttons</a>
+    <a href="forms.html">Forms</a>
+    <a href="layout.html">Notices and layout</a>
+    <a href="applied-surfaces.html" aria-current="page">Applied surfaces</a>
+  </nav>
+
+  <article class="applied-entry">
+    <aside>
+      ENTRY 001<br>
+      QS-80<br>
+      2026-08-11<br>
+      STATUS: APPLIED
+    </aside>
+    <div>
+      <h2>Onboard and Configure repository</h2>
+      <p>The repository registry modal is the first application of this dossier. Operator evidence showed two related failures: the “+ Add repository” affordance looked broken, and Configure repository could not scroll to lower fields or its Save action.</p>
+
+      <h3>Applied patterns</h3>
+      <ul class="checklist">
+        <li><span>Add repository is a solid ghost button with one aligned leading plus.</span></li>
+        <li><span>Every registry field uses a label, control, and stable helper row.</span></li>
+        <li><span>The field region is the only internal vertical scroller.</span></li>
+        <li><span>Cancel and Save remain in a sticky footer outside the field scroller.</span></li>
+        <li><span>DOM order is unchanged, so tab focus scrolls hidden fields into view.</span></li>
+        <li><span>The default token cap displays as <code>100k</code> and accepts <code>100000</code>, <code>100k</code>, and <code>0.1M</code>.</span></li>
+        <li><span>Light and dark themes use the same geometry and behavior.</span></li>
+      </ul>
+
+      <h3>Implementation</h3>
+      <table class="rule-table">
+        <thead><tr><th>Concern</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Registry markup and field helpers</td><td><code>frontend/src/app/app.html</code></td></tr>
+          <tr><td>Modal scroll, sticky footer, and add affordance</td><td><code>frontend/src/app/app.css</code></td></tr>
+          <tr><td>Shared modal and spacing tokens</td><td><code>frontend/src/styles.css</code></td></tr>
+          <tr><td>Scaled token parsing and display</td><td><code>frontend/src/app/format.ts</code></td></tr>
+          <tr><td>Browser regression evidence</td><td><code>frontend/tests/repository-modal-evidence.mjs</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Evidence inventory</h3>
+      <p>Task results preserve <code>repository-modal-before--mocked.png</code>, <code>repository-modal-after--mocked.png</code>, light and dark after captures, dedicated onboard captures, and <code>repository-modal-evidence.json</code>. “Mocked” identifies the deterministic API-offline preview data used for the visual review.</p>
+
+      <div class="note"><strong>Measured behavior</strong><p>At a 900 × 600 viewport, the browser check tabs from Display name into the previously hidden cost-cap field, observes the field scroller move, and confirms the sticky footer remains within the viewport.</p></div>
+    </div>
+  </article>
+
+  <section>
+    <h2>Adding the next surface</h2>
+    <p>Append one entry with the task key, date, status, user problem, applied patterns, implementation paths, and preserved evidence. Do not rewrite earlier entries as if their original evidence used a different backend or provenance.</p>
+  </section>
+  <footer class="page-footer">Multi-page dossier structure follows the platform Dossier reference identified by AGT-2617.</footer>
+</main>
+</body>
+</html>

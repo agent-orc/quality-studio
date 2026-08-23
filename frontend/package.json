@@ -11,6 +11,7 @@
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence",
+    "evidence:repository-modal": "node tests/repository-modal-evidence.mjs",
     "evidence:run-report": "node tests/run-report-evidence.mjs"
   },
   "prettier": {
