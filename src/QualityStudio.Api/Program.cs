@@ -12,6 +12,8 @@ using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.Extensions.Options;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
@@ -41,10 +43,17 @@ builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
 builder.Services.AddSingleton<AttackCoverageService>();
 builder.Services.AddSingleton<CoverageSensor>();
-builder.Services.AddSingleton<SarifSensor>();
-builder.Services.AddSingleton<RoslynAnalyzerSensor>();
-builder.Services.AddSingleton<EslintAnalyzerSensor>();
-builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
+builder.Services.AddSingleton(serviceProvider =>
+    new SarifSensor(allowCommandAnalyzers: AllowCommandAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider =>
+    new RoslynAnalyzerSensor(allowCommandAnalyzers: AllowCommandAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider =>
+    new EslintAnalyzerSensor(allowCommandAnalyzers: AllowCommandAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider =>
+    new TypeScriptAnalyzerSensor(allowCommandAnalyzers: AllowCommandAnalyzers(serviceProvider)));
+static bool AllowCommandAnalyzers(IServiceProvider serviceProvider) =>
+    serviceProvider.GetRequiredService<IOptions<RepositoryOptions>>().Value.Security.AllowCommandAnalyzers;
+
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -134,6 +143,19 @@ if (apiSecurity.RequireHttps)
 {
     app.UseHsts();
 }
+if (apiSecurity.IsLocal)
+{
+    foreach (var boundUrl in app.Urls)
+    {
+        var host = new Uri(boundUrl).Host;
+        if (!Program.IsLoopbackHost(host))
+        {
+            throw new InvalidOperationException(
+                $"QualityStudio:Security:Mode is Local but the API is configured to bind '{boundUrl}', " +
+                "which is not a loopback address. Switch to Hosted mode or bind a loopback address.");
+        }
+    }
+}
 app.Use(async (context, next) =>
 {
     if (!context.Request.Path.StartsWithSegments("/api"))
@@ -165,14 +187,28 @@ app.Use(async (context, next) =>
     }
     apiSecurity.SetIdentity(context, identity);
 
-    if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
-        HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
+    var isMutation = HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
+                      HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method);
+    if (isMutation)
     {
         if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
         {
             await Results.Problem(statusCode: StatusCodes.Status401Unauthorized,
                 title: "A matching X-Client-Id is required for mutations").ExecuteAsync(context);
             return;
+        }
+
+        // Origin is a browser-set header; a mismatch only ever indicates a cross-origin browser
+        // request (the CSRF case). Non-browser clients (CLI, tests, curl) send no Origin and pass.
+        if (apiSecurity.IsLocal)
+        {
+            var origin = context.Request.Headers.Origin.ToString();
+            if (origin.Length > 0 && Array.IndexOf(apiSecurity.AllowedOrigins, origin) < 0)
+            {
+                await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                    title: "Cross-origin mutation is not permitted").ExecuteAsync(context);
+                return;
+            }
         }
     }
 
@@ -181,7 +217,10 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryItemMutation = repositoryId is not null && isMutation &&
+        (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)) &&
+        string.Equals(path, $"/api/repos/{repositoryId}", StringComparison.OrdinalIgnoreCase);
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryItemMutation)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -278,8 +317,8 @@ app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).R
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
@@ -1343,4 +1382,9 @@ static SecurityScanResponse Map(SecurityScanResult result) => new(
         finding.Path,
         finding.Accepted)).ToArray());
 
-public partial class Program;
+public partial class Program
+{
+    public static bool IsLoopbackHost(string host) =>
+        string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+        (IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address));
+}

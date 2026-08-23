@@ -10,16 +10,19 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
 {
     public const string SensorVersion = "1.0.0";
     private readonly ISensorCommandRunner commandRunner;
+    private readonly bool allowCommandAnalyzers;
     private readonly string id;
 
-    public SarifSensor(ISensorCommandRunner? commandRunner = null) : this("sarif", commandRunner)
+    public SarifSensor(ISensorCommandRunner? commandRunner = null, bool allowCommandAnalyzers = false)
+        : this("sarif", commandRunner, allowCommandAnalyzers)
     {
     }
 
-    internal SarifSensor(string id, ISensorCommandRunner? commandRunner)
+    internal SarifSensor(string id, ISensorCommandRunner? commandRunner, bool allowCommandAnalyzers = false)
     {
         this.id = id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
+        this.allowCommandAnalyzers = allowCommandAnalyzers;
     }
 
     public string Id => id;
@@ -70,6 +73,13 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
         if (configuration.TryGetValue("command", out var configuredCommand) &&
             !string.IsNullOrWhiteSpace(configuredCommand))
         {
+            if (!allowCommandAnalyzers)
+            {
+                return Unavailable(request,
+                    "Command-backed analyzers are disabled by default. An operator must set " +
+                    "QualityStudio:Security:AllowCommandAnalyzers to enable a host-owned analyzer command.");
+            }
+
             IReadOnlyList<string> command;
             try
             {

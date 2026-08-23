@@ -29,6 +29,13 @@ public sealed class ApiSecurityOptions
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
+
+    /// <summary>
+    /// Host-owned switch for command-backed analyzer sensors (sarif/roslyn/eslint/tsc). Repository
+    /// clients cannot set this through the API; it is read once from configuration at startup.
+    /// </summary>
+    public bool AllowCommandAnalyzers { get; set; }
+
     public List<ApiClientOptions> Clients { get; set; } = [];
 }
 

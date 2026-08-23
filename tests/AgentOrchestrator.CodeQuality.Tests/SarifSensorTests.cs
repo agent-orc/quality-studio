@@ -65,7 +65,7 @@ public sealed class SarifSensorTests
         var root = CreateRepository("src/a.ts");
         try
         {
-            var result = await new SarifSensor(new MissingCommandRunner()).RunAsync(
+            var result = await new SarifSensor(new MissingCommandRunner(), allowCommandAnalyzers: true).RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
                     ["command"] = "missing-analyzer --sarif {reportPath}",
@@ -76,6 +76,84 @@ public sealed class SarifSensorTests
             Assert.False(result.Available);
             Assert.Contains("unavailable", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
             Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("/bin/sh -c \"echo pwned\"")]
+    [InlineData("powershell -Command \"Get-Content secret\"")]
+    public async Task CommandBackedAnalyzer_IsRejectedByDefault(string command)
+    {
+        var root = CreateRepository("src/a.ts");
+        try
+        {
+            var runner = new RecordingCommandRunner();
+            var result = await new SarifSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = command,
+                    ["reportPath"] = ".quality/analyzers/sarif.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("disabled by default", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, runner.CallCount);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task CommandBackedAnalyzer_RunsWhenExplicitlyAllowed()
+    {
+        var root = CreateRepository("src/a.ts");
+        try
+        {
+            var runner = new RecordingCommandRunner();
+
+            await new SarifSensor(runner, allowCommandAnalyzers: true).RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "any-analyzer --sarif {reportPath}",
+                    ["reportPath"] = ".quality/analyzers/roslyn.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(1, runner.CallCount);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task TypeScriptSensor_CommandIsRejectedByDefault()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var runner = new RecordingCommandRunner();
+            var sensor = new TypeScriptAnalyzerSensor(runner);
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "npx --no-install tsc --noEmit --pretty false",
+                    ["reportPath"] = ".quality/analyzers/tsc.txt",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("disabled by default", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, runner.CallCount);
         }
         finally
         {
@@ -144,7 +222,8 @@ public sealed class SarifSensorTests
         {
             var sensor = new TypeScriptAnalyzerSensor(new RecordedRunner(
                 2,
-                "src/app.ts(7,11): error TS2322: Type 'string' is not assignable to type 'number'.\n"));
+                "src/app.ts(7,11): error TS2322: Type 'string' is not assignable to type 'number'.\n"),
+                allowCommandAnalyzers: true);
 
             var result = await sensor.RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
@@ -200,5 +279,20 @@ public sealed class SarifSensorTests
             string workingDirectory,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new SensorCommandResult(exitCode, output, string.Empty));
+    }
+
+    private sealed class RecordingCommandRunner : ISensorCommandRunner
+    {
+        public int CallCount { get; private set; }
+
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult(new SensorCommandResult(0, string.Empty, string.Empty));
+        }
     }
 }

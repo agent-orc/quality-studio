@@ -160,6 +160,95 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Hosted_non_registrar_cannot_update_or_archive_the_repository_it_can_access()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        using var update = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+
+        using var archive = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+    }
+
+    [Fact]
+    public async Task Hosted_registrar_can_update_and_archive_a_repository()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var update = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign renamed",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        using var archive = await admin.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, archive.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sensor_scan_is_rate_limited()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+
+        using var alice = CreateClient(rateApplication, "alice", AliceToken);
+        using var first = await alice.PostAsync("/api/sensors/boundaries/scan", null, TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, first.StatusCode);
+        using var second = await alice.PostAsync("/api/sensors/boundaries/scan", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Local_mode_rejects_cross_origin_mutation_but_allows_same_origin_or_absent_origin()
+    {
+        var localHost = Path.Combine(testRoot, "local-origin-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var client = local.CreateClient();
+
+        using var crossOrigin = await SendReviewWithOrigin(client, "https://evil.example");
+        Assert.Equal(HttpStatusCode.Forbidden, crossOrigin.StatusCode);
+
+        using var sameOrigin = await SendReviewWithOrigin(client, "http://localhost:4200");
+        Assert.NotEqual(HttpStatusCode.Forbidden, sameOrigin.StatusCode);
+
+        using var noOrigin = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.Forbidden, noOrigin.StatusCode);
+    }
+
+    private static async Task<HttpResponseMessage> SendReviewWithOrigin(HttpClient client, string origin)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/review")
+        {
+            Content = JsonContent.Create(new { path = "Sample.cs", kind = "code", model = "not-in-catalogue" }),
+        };
+        request.Headers.Add("Origin", origin);
+        return await client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData("localhost", true)]
+    [InlineData("127.0.0.1", true)]
+    [InlineData("::1", true)]
+    [InlineData("0.0.0.0", false)]
+    [InlineData("192.168.1.5", false)]
+    [InlineData("example.com", false)]
+    public void Loopback_host_detection_matches_only_loopback_addresses(string host, bool expected) =>
+        Assert.Equal(expected, Program.IsLoopbackHost(host));
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");

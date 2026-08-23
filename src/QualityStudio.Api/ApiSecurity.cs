@@ -20,6 +20,7 @@ public sealed class ApiSecurity
     public ApiSecurity(IOptions<RepositoryOptions> configured)
     {
         options = configured.Value.Security;
+        AllowedOrigins = configured.Value.AllowedOrigins;
         if (options.Mode is not (ApiSecurityOptions.LocalMode or ApiSecurityOptions.HostedMode))
             throw new InvalidOperationException("QualityStudio:Security:Mode must be Local or Hosted.");
         if (options.MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)
@@ -66,6 +67,7 @@ public sealed class ApiSecurity
 
     public bool IsLocal => string.Equals(options.Mode, ApiSecurityOptions.LocalMode, StringComparison.Ordinal);
     public bool RequireHttps => !IsLocal && options.RequireHttps;
+    public string[] AllowedOrigins { get; }
     public long MaxRequestBodyBytes => options.MaxRequestBodyBytes;
     public int MaxConcurrentRequests => options.MaxConcurrentRequests;
     public int SpendRequestsPerMinute => options.SpendRequestsPerMinute;
