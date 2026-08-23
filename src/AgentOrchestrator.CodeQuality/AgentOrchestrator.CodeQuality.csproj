@@ -2,9 +2,20 @@
   <PropertyGroup>
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageId>QualityStudio.AnalysisCore</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Quality Studio's deterministic analysis core: run named analyses (gitleaks, dependency-vulnerability, boundary-inventory, coverage, roslyn, eslint, typescript) over a repository path and get back findings, in-process and with no web hosting dependency. See AnalysisCore.CreateDefault().</Description>
+    <PackageTags>quality-studio;static-analysis;code-review;sensors</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
