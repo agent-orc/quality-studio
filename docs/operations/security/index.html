@@ -167,6 +167,7 @@
       <li><a href="#options">Options and recommendation</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
+      <li><a href="#implementation-state">Implementation state</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
     </ol>
   </nav>
@@ -446,8 +447,37 @@
     <p>The architecture decision is deliberately independent of model choice: no model can raise the correctness or confidentiality guarantee above the process boundary that supplies its tools, mounts, credentials, and network.</p>
   </section>
 
+  <section id="implementation-state">
+    <h2><span class="no">10</span>Implementation state</h2>
+    <p>Option C and S0–S6 remain <b>decision-pending</b>: no operator sign-off is recorded, and the critical worker-boundary chain (R-01, R-02 → S0, S1) is still open. The slices below are narrow, reviewable, defense-in-depth pieces implemented ahead of that decision because they carry low blast radius and no architectural lock-in; they do not substitute for S0/S1 and untrusted-repository review must stay blocked until those land.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card</th><th>What changed</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>2026-08-23</td>
+          <td>QS-81</td>
+          <td><b>F-02 defense-in-depth:</b> the three file-level prompt templates (<code>prompts/file-{code,security,performance}-review.v1.md</code>) no longer wrap reviewed content in a fixed, guessable <code>&lt;reviewed-file&gt;</code> tag. <code>ReviewPromptBuilder.GenerateContentBoundary()</code> now mints a fresh 128-bit random marker per <code>Build()</code> call and the template states explicitly that content between the markers is untrusted data, never an instruction. This raises the bar against naive close-tag forgery; it is <b>not</b> a process boundary and does not close F-02/R-02 — S1 is still required before untrusted repositories are reviewed.</td>
+          <td><code>ReviewPromptBuilder.cs</code> (<code>BuilderContractVersion</code> bumped to v4 so cached reviews go stale); <code>ReviewPromptBuilderTests.Build_WrapsFileContentInAFreshUnforgeableBoundary</code>.</td>
+        </tr>
+        <tr>
+          <td>2026-08-23</td>
+          <td>QS-81</td>
+          <td><b>F-04 gap closed (scan coverage):</b> <code>.quality/security/gitleaks.toml</code> no longer blanket-excludes <code>.quality/reviews</code>, so persisted review output is scanned for secrets like the rest of the repository. This is the scan-coverage half of S3; the redaction/DLP-before-persistence half and the tracked-config policy check (R-09) are not built yet.</td>
+          <td><code>quality-cli security scan .</code> run clean (349 files, 0 findings) after the exclusion was removed.</td>
+        </tr>
+        <tr>
+          <td>2026-08-23</td>
+          <td>QS-81</td>
+          <td><b>R-08 / partial S6:</b> Angular packages bumped from the vulnerable 20.3.26 line to 20.3.29 (fixes <a href="https://github.com/advisories/GHSA-jhpw-976m-542j">GHSA-jhpw-976m-542j</a> and <a href="https://github.com/advisories/GHSA-jj27-h5hq-8x99">GHSA-jj27-h5hq-8x99</a>; production and full-tree <code>npm audit</code> both report 0 vulnerabilities). <code>.github/workflows/build.yml</code> now also runs frontend install/build/unit-tests, a blocking production <code>npm audit --audit-level=high</code>, an advisory full-tree audit, and a blocking NuGet <code>--vulnerable --include-transitive</code> check for both the solution and the out-of-solution <code>spikes/code-graph</code> project. Actions are still not pinned to commit SHAs, no SBOM is generated, and scheduled dependency updates are not configured — those remain open S6 work.</td>
+          <td><code>.github/workflows/build.yml</code>; <code>frontend/package-lock.json</code>; local runs of every new CI step (build, both audits, both NuGet checks) before commit.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="dim">Note on wave history: this run found no integrated commit or merged branch evidence that a prior "QS-68" attempt had landed hardening slices against this dossier — at the time this card started, QS-68 was a separate task still in progress. Treat prior-wave completion claims as unverified until they appear in <code>git log origin/main</code> or this table.</p>
+  </section>
+
   <section id="evidence">
-    <h2><span class="no">10</span>Evidence index and limitations</h2>
+    <h2><span class="no">11</span>Evidence index and limitations</h2>
     <table>
       <thead><tr><th>Question</th><th>Primary repository evidence</th></tr></thead>
       <tbody>
