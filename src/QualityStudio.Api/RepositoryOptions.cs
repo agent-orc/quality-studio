@@ -29,6 +29,7 @@ public sealed class ApiSecurityOptions
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
+    public bool AllowCommandSensors { get; set; }
     public List<ApiClientOptions> Clients { get; set; } = [];
 }
 

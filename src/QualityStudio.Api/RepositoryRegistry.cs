@@ -287,6 +287,23 @@ public sealed class RepositoryRegistry
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
 
+        if (!legacyOptions.Security.AllowCommandSensors)
+        {
+            var commandSensorIds = sensors
+                .Where(sensor => sensor.Configuration is not null &&
+                    sensor.Configuration.Keys.Any(key => string.Equals(key, "command", StringComparison.OrdinalIgnoreCase)))
+                .Select(sensor => sensor.Id)
+                .ToArray();
+            if (commandSensorIds.Length > 0)
+            {
+                throw new RepositoryRegistryValidationException(
+                    "Command-backed sensor configuration is disabled by default. Set " +
+                    "QualityStudio:Security:AllowCommandSensors to enable a host-approved custom command for: " +
+                    $"{string.Join(", ", commandSensorIds)}.",
+                    "Command-backed sensor configuration is disabled");
+            }
+        }
+
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
         if (request.DefaultReviewTokenCap is <= 0 or > 1_000_000_000)
