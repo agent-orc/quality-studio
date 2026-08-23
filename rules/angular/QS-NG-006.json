@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-006",
+  "technology": "angular",
+  "category": "component-reuse",
+  "title": "One shared badge/chip primitive, not a per-feature -badge class",
+  "statement": "Small status or metadata indicators (badges, chips, pills) reuse one shared badge component or utility class parameterized by variant; a feature does not define its own `.<feature>-badge`/`.<feature>-chip` CSS class that reimplements the same visual pattern.",
+  "rationale": "This is the operator-observed defect class: no component reuse. The app currently carries at least four independently styled badge-like primitives (`.anchor-badge`, `.scope-exclusion-badge`, `.quota-chip`, `.embedded-badge`) across different feature folders, each redeclaring padding/radius/font-size instead of consuming a shared token-driven primitive. A shared primitive also gets QS-NG-003 token compliance for free instead of four times over.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file", "module"],
+  "good": {
+    "language": "html",
+    "code": "<qs-badge variant=\"info\">anchor healed</qs-badge>",
+    "caption": "Target shape: one shared badge primitive, varied by input."
+  },
+  "bad": {
+    "language": "css",
+    "code": ".anchor-badge{ /* editor.css */ }\n.scope-exclusion-badge{ /* explorer.css */ }\n.quota-chip{padding:4px 7px;border:1px solid var(--studio-border);border-radius:999px; /* app.css */ }\n.embedded-badge{padding:3px 6px;border:1px solid var(--studio-border);border-radius:999px; /* app.css */ }",
+    "caption": "Four independently declared badge/chip classes with overlapping geometry.",
+    "source": "frontend/src/app/editor/editor.css, frontend/src/app/explorer/explorer.css, frontend/src/app/app.css"
+  },
+  "tags": ["component-reuse", "badge", "duplication"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule; bad example lists the real duplicated badge/chip classes found across feature stylesheets." }
+  ]
+}
