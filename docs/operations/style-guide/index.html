@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio Style Guide</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <p class="kicker">Living dossier · Quality Studio · QS-SG1</p>
+    <h1>Quality Studio Style Guide</h1>
+    <p class="lede">A calm, practical standard for controls and compact admin surfaces. The guide turns the shared Agent Studio admin language into reviewable Quality Studio patterns.</p>
+    <div class="meta">
+      <span><b>Status:</b> decided</span>
+      <span><b>Lifecycle:</b> living standard</span>
+      <span><b>Updated:</b> 11 August 2026</span>
+      <span><b>First applied surface:</b> repository registry</span>
+    </div>
+    <div class="decision-strip">
+      <strong>Design lineage</strong>
+      <p>This dossier derives from <code>agent-taskboard/docs/operations/admin-design-guideline/</code>, especially ADM-01, ADM-02, ADM-04, ADM-06, ADM-08, and ADM-09. It extends that language to controls; it does not invent a second design world.</p>
+    </div>
+  </header>
+
+  <nav class="dossier-nav" aria-label="Style guide pages">
+    <a href="index.html" aria-current="page">Overview</a>
+    <a href="buttons.html">Buttons</a>
+    <a href="forms.html">Forms</a>
+    <a href="layout.html">Notices and layout</a>
+    <a href="applied-surfaces.html">Applied surfaces</a>
+  </nav>
+
+  <section>
+    <h2>How to use this guide</h2>
+    <p>Use the smallest pattern that states the action or fact. Read semantic theme and spacing tokens, preserve the same structure in light and dark themes, and keep operator surfaces compact. Every changed surface should be added to Applied surfaces with its implementation and evidence references.</p>
+    <div class="page-grid">
+      <article class="page-link">
+        <h3><a href="buttons.html">Buttons and add affordances</a></h3>
+        <p>Primary, secondary, ghost, and additive actions with explicit visual do and do-not examples.</p>
+      </article>
+      <article class="page-link">
+        <h3><a href="forms.html">Inputs, selects, and numbers</a></h3>
+        <p>Aligned field rows, persistent labels, helper text, dropdowns, and scaled token-count syntax.</p>
+      </article>
+      <article class="page-link">
+        <h3><a href="layout.html">Notices, density, and modals</a></h3>
+        <p>Flat notices, tokenized spacing, internal modal scroll, and sticky action footers.</p>
+      </article>
+      <article class="page-link">
+        <h3><a href="applied-surfaces.html">Applied surfaces</a></h3>
+        <p>A growing implementation register, beginning with Onboard and Configure repository.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Binding baseline</h2>
+    <table class="rule-table">
+      <thead><tr><th>Area</th><th>Standard</th><th>Shared source</th></tr></thead>
+      <tbody>
+        <tr><td>Composition</td><td>Flat, full-width admin surfaces. Boundaries belong to controls and data structures, not decorative containers.</td><td>ADM-01</td></tr>
+        <tr><td>Actions</td><td>One primary action per local decision. Secondary and ghost actions retain a solid, intentional boundary where needed.</td><td>ADM-04, ADM-06</td></tr>
+        <tr><td>Forms</td><td>Labels stay above controls. Helpers occupy a consistent row below the control and name units.</td><td>ADM-04, ADM-08</td></tr>
+        <tr><td>Notices</td><td>Acute notices use a full-width tint, one dot, one statement, and at most one action.</td><td>ADM-02</td></tr>
+        <tr><td>Density</td><td>Use the 4 / 8 / 12 / 16 / 24 / 32 / 48 spacing scale and compact control heights.</td><td>ADM-08</td></tr>
+        <tr><td>Themes</td><td>Light and dark share geometry, density, hierarchy, keyboard behavior, and reduced-motion behavior.</td><td>ADM-09</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Contribution contract</h2>
+    <ol>
+      <li>Start with the shared tokens and an existing control pattern.</li>
+      <li>Add a visual do and do-not pair when a new reusable pattern is introduced.</li>
+      <li>Verify relevant widths, both themes, focus order, and keyboard scrolling.</li>
+      <li>Register the shipped surface on <a href="applied-surfaces.html">Applied surfaces</a>.</li>
+    </ol>
+  </section>
+
+  <footer class="page-footer">Living standard established by QS-80. Internal identifier and manifest vocabulary remain workbench-compatible.</footer>
+</main>
+</body>
+</html>
