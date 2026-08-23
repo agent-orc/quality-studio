@@ -76,6 +76,7 @@ export class App implements OnDestroy {
   readonly attackCoverageDialogOpen = signal(false);
   readonly usageHistoryOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
+  readonly retryingConnection = signal(false);
   readonly selectedNode = computed(() => {
     const nodes = flattenTree(this.api.tree(), new Set(), true);
     return nodes.find(node => node.path === this.selected())
@@ -321,6 +322,16 @@ export class App implements OnDestroy {
 
   async openAttackCoverage(): Promise<void> {
     this.attackCoverageDialogOpen.set(true);
+  }
+
+  async retryConnection(): Promise<void> {
+    if (this.retryingConnection()) return;
+    this.retryingConnection.set(true);
+    try {
+      await this.api.retryConnection();
+    } finally {
+      this.retryingConnection.set(false);
+    }
   }
 
   onboardRepository(): void {
