@@ -13,6 +13,7 @@ import { readFindingRoute, writeFindingRoute } from './review-navigation';
 import { reportUrlPreviewNavigation } from './url-preview-embed';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
+const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 const RESIZE_HANDLE_WIDTH = 6;
 const EXPLORER_DEFAULT_WIDTH = 280;
 const EXPLORER_MIN_WIDTH = 180;
@@ -148,12 +149,22 @@ export class App implements OnDestroy {
       };
       localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
     });
+    // Remember the last selected repository so a plain reload restores it without
+    // requiring the ?repo= URL param or a manual re-selection.
+    effect(() => {
+      const id = this.api.selectedRepositoryId();
+      if (id) localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
+    });
     void this.initialize();
-    this.quotaRefreshTimer = setInterval(() => void this.api.loadQuotas(), 60_000);
+    this.quotaRefreshTimer = setInterval(() => {
+      void this.api.loadQuotas();
+      if (this.api.connectionState() === 'offline') void this.api.retryConnection();
+    }, 60_000);
   }
 
   private async initialize(): Promise<void> {
-    const preferredRepository = new URLSearchParams(location.search).get('repo');
+    const preferredRepository = new URLSearchParams(location.search).get('repo')
+      || localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
     await this.api.loadRepositories(preferredRepository);
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();

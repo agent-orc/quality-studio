@@ -80,6 +80,26 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Project_reuses_hierarchy_and_projection_cache_on_a_warm_repeat_switch()
+    {
+        using var client = application!.CreateClient();
+        using var cold = await client.GetAsync("/api/project", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, cold.StatusCode);
+
+        // No If-None-Match here: this is a full re-fetch of the same repository state, exactly what
+        // an operator switching back to a warm project triggers. The Git HEAD/index/working-tree hash
+        // is unchanged, so the hierarchy and projection caches must be reused without rescanning.
+        using var warm = await client.GetAsync("/api/project", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, warm.StatusCode);
+        Assert.Equal(cold.Headers.ETag?.Tag, warm.Headers.ETag?.Tag);
+
+        Assert.True(warm.Headers.TryGetValues("Server-Timing", out var serverTiming));
+        var timing = Assert.Single(serverTiming);
+        Assert.Contains("scan;dur=0.00", timing, StringComparison.Ordinal);
+        Assert.Contains("review-meta-discovery;dur=0.00", timing, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Mixed_repository_tree_exposes_typescript_and_can_queue_file_review()
     {
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "frontend", "src", "app"));

@@ -454,6 +454,7 @@ export class QualityApi {
       this.legacyApi = true;
       this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
       this.selectedRepositoryId.set('default');
+      this.noteConnectionFailure(error);
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }
   }
@@ -522,7 +523,7 @@ export class QualityApi {
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
       if (repositoryId === this.selectedRepositoryId()) {
-        this.connectionState.set('preview');
+        this.connectionState.set(this.isUnreachable(error) ? 'offline' : 'preview');
         console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
       }
     }
@@ -698,7 +699,8 @@ export class QualityApi {
       this.file.set(file); this.connectionState.set('live');
     } catch (error) {
       this.file.set({ path, content: demoFile, metaDocuments: demoMeta, sizeBytes: demoFileSizeBytes, lineEnding: 'lf', encoding: 'utf-8', coverage: unknownCoverage() });
-      if (this.connectionState() !== 'live') this.connectionState.set('preview');
+      if (this.isUnreachable(error)) this.connectionState.set('offline');
+      else if (this.connectionState() !== 'live') this.connectionState.set('preview');
       console.warn(JSON.stringify({ event: 'qs.data.file-demo-fallback', path, reason: error instanceof Error ? error.message : 'API unavailable' }));
     } finally { this.loading.set(false); }
   }
@@ -726,6 +728,7 @@ export class QualityApi {
       if (repositoryId === this.selectedRepositoryId()) {
         if (!this.projectSnapshots.has(repositoryId)) this.project.set(null);
         this.projectError.set(this.errorMessage(error));
+        this.noteConnectionFailure(error);
         console.warn(JSON.stringify({ event: 'qs.project.unavailable', repositoryId, reason: this.errorMessage(error) }));
       }
     } finally {
@@ -847,6 +850,24 @@ export class QualityApi {
       return error.error?.detail || error.error?.title || error.message;
     }
     return error instanceof Error ? error.message : 'The repository request failed.';
+  }
+
+  // Status 0 means the browser never got a response (refused connection, DNS, CORS preflight): a
+  // genuinely unreachable API, distinct from a server-returned error status.
+  private isUnreachable(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 0;
+  }
+
+  private noteConnectionFailure(error: unknown): void {
+    if (this.isUnreachable(error)) this.connectionState.set('offline');
+  }
+
+  /** Retry action for the offline banner; also polled by the app's quota-refresh timer while offline.
+   *  loadTree/loadProjectDashboard flip connectionState back on success, or keep it 'offline' if the
+   *  API is still unreachable. */
+  async retryConnection(): Promise<void> {
+    await this.loadRepositories(this.selectedRepositoryId());
+    await Promise.all([this.loadProjectDashboard(), this.loadTree()]);
   }
 
   private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {
