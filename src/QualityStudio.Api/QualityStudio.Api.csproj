@@ -2,4 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="../AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="QualityStudio.Api.Tests" />
+  </ItemGroup>
 </Project>

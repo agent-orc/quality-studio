@@ -1,0 +1,12 @@
+{
+  "$schema": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "schemaVersion": 1,
+  "operationId": "op-5c9aa63e0b6559faa700183a16e2ffda1a522fd75",
+  "runId": "run-20260811-0001",
+  "attempt": 1,
+  "ordinal": 1,
+  "unitPath": ".",
+  "level": "project",
+  "state": "done",
+  "verdict": { "kind": "security", "verdict": "warn" }
+}

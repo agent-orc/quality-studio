@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived run operation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "operationId", "runId", "attempt", "ordinal", "unitPath", "level", "state"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "unitPath": { "$ref": "#/$defs/repoPath" },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "state": { "enum": ["done", "failed", "skipped", "cancelled"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "providerRunId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "reviewedHash": { "$ref": "#/$defs/sha256String" },
+    "reviewInputsHash": { "$ref": "#/$defs/sha256String" },
+    "resultSidecarPath": { "$ref": "#/$defs/repoPath" },
+    "verdict": {
+      "oneOf": [
+        { "$ref": "#/$defs/gradeVerdict" },
+        { "$ref": "#/$defs/securityVerdict" }
+      ]
+    }
+  },
+  "$defs": {
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$" },
+    "sha256String": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "gradeVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "score", "band"],
+      "properties": {
+        "kind": { "const": "grade" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "securityVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "verdict"],
+      "properties": {
+        "kind": { "const": "security" },
+        "verdict": { "enum": ["pass", "warn", "block", "unavailable"] }
+      }
+    }
+  }
+}

@@ -616,7 +616,8 @@ public sealed class ReviewJobService : BackgroundService
         }
     }
 
-    private sealed class ReviewWorkItem
+    /// <summary>Internal (not private) so ReviewRunArchiveStoreTests.cs can exercise attempt bookkeeping directly.</summary>
+    internal sealed class ReviewWorkItem
     {
         private readonly object gate = new();
         private readonly ReviewRunManifest manifest;
@@ -639,6 +640,7 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int attemptNumber = 1;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -727,6 +729,26 @@ public sealed class ReviewJobService : BackgroundService
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+
+        /// <summary>
+        /// The 1-based attempt this work item is currently on. Advances only when a capped run is
+        /// resumed (see <see cref="Resume"/>); a crash-recovery requeue within the same attempt
+        /// (see <see cref="PrepareForRecovery"/>) never advances it. Not yet persisted across API
+        /// restarts; RP-2 in docs/operations/run-persistence/index.html reconciles it against the
+        /// archived attempt history.
+        /// </summary>
+        public int AttemptNumber { get { lock (gate) return attemptNumber; } }
+
+        /// <summary>
+        /// Deterministic run-archive operation id for one target within the current attempt. Stable
+        /// across a crash-recovery requeue of the same attempt because it never depends on wall-clock
+        /// time or random state; a new attempt after a capped resume yields a fresh id for the same
+        /// target path. See the operationId invariant in docs/operations/run-persistence/index.html.
+        /// </summary>
+        public string ArchiveOperationId(string targetPath)
+        {
+            lock (gate) return ReviewRunOperationIdentity.Compute(Id, attemptNumber, targetPath);
+        }
 
         public void PrepareForRecovery()
         {
@@ -994,6 +1016,9 @@ public sealed class ReviewJobService : BackgroundService
                     foreach (var file in progress.Values.Where(file => file.State == "skipped")) RequeueFileCore(file);
                     if (aggregateState == "skipped") aggregateState = "queued";
                     stopReason = null;
+                    // A capped run is a stopped attempt (ReviewRunStore.IsTerminal); resuming it
+                    // begins a new one. Pausing/resuming a running attempt is not a stop boundary.
+                    attemptNumber++;
                 }
                 attemptCancellation.Dispose();
                 attemptCancellation = new CancellationTokenSource();

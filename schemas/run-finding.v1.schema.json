@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio archived run finding observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "operationId", "runId", "fingerprint", "findingId", "ruleId", "severity", "title", "locations", "state", "observedAt"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "fingerprint": { "$ref": "#/$defs/sha256String" },
+    "findingId": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+    "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+    "observedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$" },
+    "sha256String": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "range": { "$ref": "#/$defs/range" },
+        "symbolId": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

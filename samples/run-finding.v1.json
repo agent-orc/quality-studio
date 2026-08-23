@@ -1,0 +1,16 @@
+{
+  "$schema": "https://quality.studio/schemas/run-finding.v1.schema.json",
+  "schemaVersion": 1,
+  "operationId": "op-3e0b6559faa700183a16e2ffda1a522fd75c9aa6b6410f9",
+  "runId": "run-20260811-0001",
+  "fingerprint": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "findingId": "missing-cancellation-token",
+  "ruleId": "async:cancellation",
+  "severity": "medium",
+  "title": "Cancellation is not propagated",
+  "locations": [
+    { "path": "src/QualityStudio.Api/ReviewJobs.cs", "range": { "start": { "line": 12, "column": 9 }, "end": { "line": 12, "column": 31 } } }
+  ],
+  "state": "open",
+  "observedAt": "2026-08-11T09:16:40Z"
+}

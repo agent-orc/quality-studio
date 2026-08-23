@@ -1,0 +1,35 @@
+{
+  "$schema": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-20260811-0001",
+  "attemptNumber": 1,
+  "outcome": "capped",
+  "completeness": { "totalFiles": 2, "completedFiles": 1, "failedFiles": 0, "skippedFiles": 1 },
+  "startedAt": "2026-08-11T09:15:05Z",
+  "finishedAt": "2026-08-11T09:16:50Z",
+  "spend": {
+    "inputTokens": 9000,
+    "outputTokens": 2100,
+    "cachedInputTokens": 0,
+    "reasoningOutputTokens": 0,
+    "durationMs": 105000,
+    "priceStatus": "priced",
+    "cost": 0.31,
+    "currency": "USD"
+  },
+  "errorCodes": [],
+  "tokenCap": 11000,
+  "estimateDeviation": {
+    "inputTokensPercent": -2.5,
+    "outputTokensPercent": 4.0,
+    "costPercent": 1.2,
+    "note": "Positive means actual was above preflight; prompt tokenizer, CLI context, caching, and response length cause deviation."
+  },
+  "ledgerReferences": ["2026-08"],
+  "qualitySummary": {
+    "lowestGrade": { "score": 82, "band": "good" },
+    "worstSecurityVerdict": "warn",
+    "activeFindingCount": 1,
+    "highestActiveSeverity": "medium"
+  }
+}

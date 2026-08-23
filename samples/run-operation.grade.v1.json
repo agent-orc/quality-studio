@@ -1,0 +1,18 @@
+{
+  "$schema": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "schemaVersion": 1,
+  "operationId": "op-3e0b6559faa700183a16e2ffda1a522fd75c9aa6b6410f9",
+  "runId": "run-20260811-0001",
+  "attempt": 1,
+  "ordinal": 0,
+  "unitPath": "src/QualityStudio.Api/ReviewJobs.cs",
+  "level": "file",
+  "state": "done",
+  "startedAt": "2026-08-11T09:15:05Z",
+  "finishedAt": "2026-08-11T09:16:40Z",
+  "providerRunId": "codex-run-771",
+  "reviewedHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "reviewInputsHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "resultSidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.aa11.review-meta.code.json",
+  "verdict": { "kind": "grade", "score": 82, "band": "good" }
+}

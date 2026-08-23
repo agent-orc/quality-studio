@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio archived run record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "repositoryId", "createdAt", "subject", "kind", "targets", "configuration"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "nodeName", "nodePath", "level"],
+      "properties": {
+        "nodeId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "nodeName": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "nodePath": { "$ref": "#/$defs/repoPath" },
+        "level": { "enum": ["project", "module", "namespace", "file", "function"] }
+      }
+    },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "subjectHash"],
+        "properties": {
+          "path": { "$ref": "#/$defs/repoPath" },
+          "subjectHash": { "type": "string", "minLength": 1, "maxLength": 400 }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cliType", "force"],
+      "properties": {
+        "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "force": { "type": "boolean" },
+        "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "aggregateControls": { "type": "array", "items": { "$ref": "#/$defs/repoPath" } }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "operations", "inputTokens", "outputTokens", "priceStatus"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "priceStatus": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "cost": { "type": "number" },
+        "currency": { "type": "string", "minLength": 1, "maxLength": 20 }
+      }
+    },
+    "tokenCap": { "type": "integer", "minimum": 1 },
+    "costCap": { "type": "number", "exclusiveMinimum": 0 },
+    "sourceRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commitSha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+        "dirty": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$" }
+  }
+}

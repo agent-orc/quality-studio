@@ -1,0 +1,39 @@
+{
+  "$schema": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-20260811-0001",
+  "repositoryId": "quality-studio",
+  "createdAt": "2026-08-11T09:15:00Z",
+  "subject": {
+    "nodeId": "qs-v1/dotnet/module/aa11",
+    "nodeName": "QualityStudio.Api",
+    "nodePath": "src/QualityStudio.Api",
+    "level": "module"
+  },
+  "kind": "code",
+  "targets": [
+    { "path": "src/QualityStudio.Api/ReviewJobs.cs", "subjectHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+    { "path": "src/QualityStudio.Api/ReviewRunStore.cs", "subjectHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
+  ],
+  "configuration": {
+    "cliType": "codex",
+    "force": false,
+    "model": "gpt-5-codex",
+    "thinkingLevel": "high",
+    "aggregateControls": ["src/QualityStudio.Api"]
+  },
+  "estimate": {
+    "files": 2,
+    "operations": 2,
+    "inputTokens": 12000,
+    "outputTokens": 3000,
+    "priceStatus": "priced",
+    "cost": 0.42,
+    "currency": "USD"
+  },
+  "tokenCap": 500000,
+  "sourceRevision": {
+    "commitSha": "3e0b6559faa700183a16e2ffda1a522fd75c9aa6",
+    "dirty": false
+  }
+}

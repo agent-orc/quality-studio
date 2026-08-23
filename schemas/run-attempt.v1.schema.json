@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived run attempt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "attemptNumber", "outcome", "completeness", "finishedAt", "spend", "errorCodes", "ledgerReferences"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attemptNumber": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalFiles", "completedFiles", "failedFiles", "skippedFiles"],
+      "properties": {
+        "totalFiles": { "type": "integer", "minimum": 0 },
+        "completedFiles": { "type": "integer", "minimum": 0 },
+        "failedFiles": { "type": "integer", "minimum": 0 },
+        "skippedFiles": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "spend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["durationMs", "priceStatus"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "priceStatus": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "cost": { "type": "number" },
+        "currency": { "type": "string", "minLength": 1, "maxLength": 20 }
+      }
+    },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 400 } },
+    "tokenCap": { "type": "integer", "minimum": 1 },
+    "costCap": { "type": "number", "exclusiveMinimum": 0 },
+    "estimateDeviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokensPercent", "outputTokensPercent", "note"],
+      "properties": {
+        "inputTokensPercent": { "type": "number" },
+        "outputTokensPercent": { "type": "number" },
+        "costPercent": { "type": "number" },
+        "note": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "ledgerReferences": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
+    "qualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lowestGrade": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["score", "band"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "band": { "type": "string", "minLength": 1, "maxLength": 100 }
+          }
+        },
+        "worstSecurityVerdict": { "enum": ["pass", "warn", "block", "unavailable"] },
+        "activeFindingCount": { "type": "integer", "minimum": 0 },
+        "highestActiveSeverity": { "enum": ["critical", "high", "medium", "low", "info"] }
+      }
+    }
+  }
+}
