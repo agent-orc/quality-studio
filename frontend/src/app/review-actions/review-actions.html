@@ -24,7 +24,7 @@
       [attr.aria-controls]="modelOptionsId"
       [attr.aria-expanded]="modelPickerOpen()"
       [attr.aria-activedescendant]="activeModelIndex() >= 0 ? optionId(activeModelIndex()) : null"
-      placeholder="Runner default model"
+      [attr.placeholder]="defaultModelLabel()"
       autocomplete="off"
       [ngModel]="model()"
       (focus)="openModelPicker()"
@@ -35,7 +35,7 @@
       <div [id]="modelOptionsId" class="model-options" role="listbox" aria-label="Available review models">
         <button type="button" role="option" [id]="optionId(0)" [attr.aria-selected]="!model()" [class.active-option]="activeModelIndex() === 0" (click)="selectModel(null)">
           <span class="model-option-title"><b>Runner default model</b><i class="capability default">default</i></span>
-          <small>No model or thinking override; preserve Runner behavior.</small>
+          <small>{{ defaultPreview() ? 'Resolves to ' + defaultPreview()!.recommendedModel + ' (' + defaultPreview()!.capabilityTier + ') for this scope.' : 'No model or thinking override; preserve Runner behavior.' }}</small>
         </button>
         @for (candidate of filteredModels(); track candidate.modelId; let index = $index) {
           <button type="button" role="option" [id]="optionId(index + 1)" [attr.aria-selected]="selectedModel()?.modelId === candidate.modelId" [class.active-option]="activeModelIndex() === index + 1" (click)="selectModel(candidate)">
@@ -54,19 +54,32 @@
       </div>
     }
   </div>
-  <select aria-label="Review thinking level" [disabled]="!model().trim()" [ngModel]="thinkingLevel()" (ngModelChange)="setThinkingLevel($event)">
-    <option value="">model default thinking</option>
-    @for (level of thinkingOptions(); track level) { <option [value]="level">{{ level }}</option> }
-  </select>
-  <select aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="setCapKind($event)">
-    <option value="repository">repo cap</option><option value="tokens">tokens</option><option value="cost">cost</option>
-  </select>
-  @if (capKind() !== 'repository') {
-    <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="setCapValue($event)" />
-  }
-  <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="setForce($event)" /> Force re-review</label>
+  <div class="review-settings">
+    <button class="settings-toggle" type="button" aria-label="Review options" [attr.aria-expanded]="settingsOpen()" (click)="toggleSettings()">⚙</button>
+    @if (settingsOpen()) {
+      <div class="settings-menu" role="dialog" aria-label="Review options" (keydown.escape)="settingsOpen.set(false)">
+        <label>Thinking
+          <select aria-label="Review thinking level" [disabled]="!model().trim()" [ngModel]="thinkingLevel()" (ngModelChange)="setThinkingLevel($event)">
+            <option value="">model default</option>
+            @for (level of thinkingOptions(); track level) { <option [value]="level">{{ level }}</option> }
+          </select>
+        </label>
+        <label>Cap
+          <span class="cap-fields">
+            <select aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="setCapKind($event)">
+              <option value="repository">repo</option><option value="tokens">tokens</option><option value="cost">cost</option>
+            </select>
+            @if (capKind() !== 'repository') {
+              <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="setCapValue($event)" />
+            }
+          </span>
+        </label>
+        <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="setForce($event)" /> Force re-review</label>
+      </div>
+    }
+  </div>
   <button class="start-review review-intent" type="button" (click)="prepare()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
-    {{ activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + fileCount() + ' file' + (fileCount() === 1 ? '' : 's') + ' for ' + activeKind() + ' quality' }}
+    {{ activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + fileCount() + ' file' + (fileCount() === 1 ? '' : 's') }}
   </button>
 </div>
 @if (preflight(); as sheet) {

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { QualityApi, ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../quality-api';
+import { QualityApi, ReviewKind, ReviewModelOption, ReviewModelRecommendation, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../quality-api';
 
 let reviewActionsInstance = 0;
 
@@ -34,6 +34,12 @@ export class ReviewActions {
   readonly force = signal(false);
   readonly capKind = signal<'repository' | 'tokens' | 'cost'>('repository');
   readonly capValue = signal<number | null>(null);
+  readonly settingsOpen = signal(false);
+  readonly defaultPreview = signal<ReviewModelRecommendation | null>(null);
+  readonly defaultModelLabel = computed(() => {
+    const preview = this.defaultPreview();
+    return preview ? `Runner default (${preview.recommendedModel})` : 'Runner default model';
+  });
   readonly cliTypes = ['codex', 'claude', 'antigravity', 'gemini'];
   readonly fileCount = computed(() => this.countFiles(this.node()));
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
@@ -78,7 +84,28 @@ export class ReviewActions {
       queueMicrotask(() => ((this.element.nativeElement as HTMLElement)
         .querySelector('.review-intent, .active-run-actions button') as HTMLButtonElement | null)?.focus());
     });
+    effect(onCleanup => {
+      const target = this.node();
+      const kind = this.activeKind();
+      const cli = this.cliType();
+      if (!target || this.displayRun()) {
+        this.defaultPreview.set(null);
+        return;
+      }
+      let cancelled = false;
+      onCleanup(() => { cancelled = true; });
+      Promise.resolve(this.api.estimateReview({
+        path: target.path, kind, model: null, cliType: cli, thinkingLevel: null,
+        tokenCap: null, costCap: null, force: false,
+      })).then(preflight => {
+        if (!cancelled) this.defaultPreview.set(preflight?.recommendation ?? null);
+      }).catch(() => {
+        if (!cancelled) this.defaultPreview.set(null);
+      });
+    });
   }
+
+  toggleSettings(): void { this.settingsOpen.update(open => !open); }
 
   selectCli(value: string): void {
     this.clearPreflight();
@@ -145,7 +172,10 @@ export class ReviewActions {
   }
 
   closeOnOutsidePointer(event: PointerEvent): void {
-    if (!this.element.nativeElement.contains(event.target as Node)) this.modelPickerOpen.set(false);
+    if (!this.element.nativeElement.contains(event.target as Node)) {
+      this.modelPickerOpen.set(false);
+      this.settingsOpen.set(false);
+    }
   }
 
   optionId(index: number): string { return `${this.modelOptionsId}-option-${index}`; }
