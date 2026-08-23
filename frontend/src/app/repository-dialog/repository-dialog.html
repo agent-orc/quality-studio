@@ -1,0 +1,85 @@
+<div class="dialog-backdrop" (click)="closed.emit()">
+  <section class="repository-dialog" role="dialog" aria-modal="true" aria-labelledby="repository-dialog-title" (click)="$event.stopPropagation()">
+    <header>
+      <div>
+        <span class="eyebrow">Repository registry</span>
+        <h2 id="repository-dialog-title">{{ editingRepositoryId ? 'Configure repository' : 'Onboard a repository' }}</h2>
+      </div>
+      <button class="icon-button" type="button" aria-label="Close repository dialog" (click)="closed.emit()">×</button>
+    </header>
+    <div class="dialog-body">
+      <nav class="repository-list" aria-label="Configured repositories">
+        @for (repository of repositories; track repository.id) {
+          <button type="button" [class.active]="repository.id === editingRepositoryId" (click)="editRequested.emit(repository)">
+            <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+          </button>
+        }
+        <button class="add-affordance" type="button" (click)="addRequested.emit()"><span aria-hidden="true">+</span><span>Add repository</span></button>
+      </nav>
+      <form class="repository-form" (ngSubmit)="saveRequested.emit()">
+        <div class="repository-form-fields">
+          <label class="form-field">
+            <span class="field-label">Display name</span>
+            <input name="displayName" [(ngModel)]="form.displayName" required maxlength="100" placeholder="Payments service">
+            <small class="field-helper">Shown in the repository switcher.</small>
+          </label>
+          @if (!editingRepositoryId) {
+            <label class="form-field">
+              <span class="field-label">Repository id</span>
+              <input name="id" [(ngModel)]="form.id" maxlength="64" pattern="[a-z0-9-]+" placeholder="payments-service">
+              <small class="field-helper">Optional. Generated from the display name when left blank.</small>
+            </label>
+          }
+          <label class="form-field">
+            <span class="field-label">Root path</span>
+            <input name="rootPath" [(ngModel)]="form.rootPath" required placeholder="C:\Projects\payments">
+            <small class="field-helper">Existing Git repository. Relative paths resolve from the API directory.</small>
+          </label>
+          <label class="form-field">
+            <span class="field-label">Global inputs directory</span>
+            <input name="globalInputsDirectory" [(ngModel)]="form.globalInputsDirectory" placeholder="C:\Quality\inputs">
+            <small class="field-helper">Optional. Shared review inputs for this repository.</small>
+          </label>
+          <label class="form-field">
+            <span class="field-label">Input budget</span>
+            <input name="inputBudgetCharacters" [(ngModel)]="form.inputBudgetCharacters" required type="number" min="1000" max="1000000">
+            <small class="field-helper">Characters available to resolved review guidance.</small>
+          </label>
+          <label class="form-field">
+            <span class="field-label">Default sweep token cap</span>
+            <input name="defaultReviewTokenCap" [ngModel]="tokenCapText" (ngModelChange)="tokenCapChanged.emit($event)" (blur)="tokenCapBlurred.emit()" type="text" inputmode="decimal" autocomplete="off" placeholder="100k" aria-describedby="default-token-cap-helper" [attr.aria-invalid]="tokenCapError ? 'true' : null">
+            <small id="default-token-cap-helper" class="field-helper" [class.field-error]="tokenCapError">{{ tokenCapError || 'Tokens. Accepts 100000, 100k, or 0.1M.' }}</small>
+          </label>
+          <label class="form-field">
+            <span class="field-label">Default sweep cost cap</span>
+            <input name="defaultReviewCostCap" [ngModel]="form.defaultReviewCostCap" (ngModelChange)="costCapChanged.emit($event)" type="number" min="0.0001" max="1000000" step="0.01" placeholder="Optional">
+            <small class="field-helper">USD. Leave blank when the token cap is set.</small>
+          </label>
+          <fieldset>
+            <legend>Enabled review kinds</legend>
+            @for (kind of reviewKinds; track kind) {
+              <label class="kind-option">
+                <input type="checkbox" [checked]="form.enabledReviewKinds.includes(kind)" (change)="reviewKindChanged.emit({ kind, enabled: $any($event.target).checked })">
+                <span class="status" [class.fresh]="form.enabledReviewKinds.includes(kind)" [class.missing]="!form.enabledReviewKinds.includes(kind)"></span>
+                {{ kind }}
+              </label>
+            }
+          </fieldset>
+          @if (error) { <div class="form-error" role="alert">{{ error }}</div> }
+        </div>
+        <footer>
+          @if (editingRepository; as repository) {
+            @if (repository.id !== 'default') {
+              <button class="danger-button" type="button" (click)="archiveRequested.emit(repository)">Archive</button>
+            }
+          }
+          <span class="footer-spacer"></span>
+          <button class="secondary-button" type="button" (click)="closed.emit()">Cancel</button>
+          <button class="primary-button" type="submit" [disabled]="saving || !!tokenCapError || !form.displayName || !form.rootPath || form.enabledReviewKinds.length === 0">
+            {{ saving ? 'Saving…' : editingRepositoryId ? 'Save changes' : 'Onboard repository' }}
+          </button>
+        </footer>
+      </form>
+    </div>
+  </section>
+</div>

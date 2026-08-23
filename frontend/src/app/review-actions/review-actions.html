@@ -61,8 +61,13 @@
   <select aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="setCapKind($event)">
     <option value="repository">repo cap</option><option value="tokens">tokens</option><option value="cost">cost</option>
   </select>
-  @if (capKind() !== 'repository') {
-    <input class="cap-value" aria-label="Review cap" type="number" min="0.0001" [step]="capKind() === 'tokens' ? 1000 : 0.01" placeholder="Cap" [ngModel]="capValue()" (ngModelChange)="setCapValue($event)" />
+  @if (capKind() === 'tokens') {
+    <span class="cap-field">
+      <input class="cap-value" aria-label="Review token cap" type="text" inputmode="decimal" autocomplete="off" placeholder="100k" [ngModel]="tokenCapText()" (ngModelChange)="setTokenCapValue($event)" (blur)="normalizeTokenCap()" [attr.aria-invalid]="tokenCapError() ? 'true' : null" />
+      <small [class.invalid]="tokenCapError()">{{ tokenCapError() || 'tokens · k/M' }}</small>
+    </span>
+  } @else if (capKind() === 'cost') {
+    <input class="cap-value" aria-label="Review cost cap in USD" type="number" min="0.0001" step="0.01" placeholder="USD" [ngModel]="capValue()" (ngModelChange)="setCapValue($event)" />
   }
   <label class="force-review"><input type="checkbox" [ngModel]="force()" (ngModelChange)="setForce($event)" /> Force re-review</label>
   <button class="start-review review-intent" type="button" (click)="prepare()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
