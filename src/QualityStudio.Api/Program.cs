@@ -36,6 +36,9 @@ builder.Services.AddSingleton<GuidelineStore>();
 builder.Services.AddTransient<GuidelineImpactAnalyzer>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
 builder.Services.AddSingleton<GitleaksSecurityScanner>();
+builder.Services.AddSingleton<ISensorCommandRunner>(serviceProvider => new AllowlistedSensorCommandRunner(
+    new ProcessSensorCommandRunner(),
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryOptions>>().Value.Sensors.AllowedExecutables));
 builder.Services.AddSingleton<DependencyVulnerabilitySensor>();
 builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
@@ -181,7 +184,10 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryRootMutation = repositoryId is not null &&
+        (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)) &&
+        string.Equals(path, $"/api/repos/{repositoryId}", StringComparison.OrdinalIgnoreCase);
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryRootMutation)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -278,8 +284,8 @@ app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).R
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);

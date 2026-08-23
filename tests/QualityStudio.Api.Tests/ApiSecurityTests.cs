@@ -107,6 +107,32 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_client_cannot_mutate_its_own_root_or_sensor_configuration()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+        var update = new
+        {
+            id = "default",
+            displayName = "Retargeted",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new { id = "roslyn", enabled = true, configuration = new Dictionary<string, string> { ["command"] = "/bin/sh" } },
+            },
+        };
+        using var put = await alice.PutAsJsonAsync("/api/repos/default", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, put.StatusCode);
+
+        using var delete = await alice.DeleteAsync("/api/repos/default", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, delete.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminPut = await admin.PutAsJsonAsync("/api/repos/default", update, TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.Forbidden, adminPut.StatusCode);
+    }
+
+    [Fact]
     public async Task Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids()
     {
         using var anonymous = CreateClient();
@@ -141,6 +167,10 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         using var secondReview = await alice.PostAsJsonAsync("/api/review",
             new { path = "Sample.cs", kind = "code" }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.TooManyRequests, secondReview.StatusCode);
+
+        using var sensorScan = await alice.PostAsync(
+            "/api/sensors/dependencies/scan", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, sensorScan.StatusCode);
 
         using var bob = CreateClient(rateApplication, "bob", BobToken);
         var handover = new

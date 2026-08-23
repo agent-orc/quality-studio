@@ -17,6 +17,14 @@ public sealed class RepositoryOptions
     public long? DefaultReviewTokenCap { get; set; } = 100_000;
 
     public ApiSecurityOptions Security { get; set; } = new();
+
+    public SensorSecurityOptions Sensors { get; set; } = new();
+}
+
+public sealed class SensorSecurityOptions
+{
+    /// <summary>Bare executable names an analyzer sensor's command-backed configuration may launch. Host-owned; not settable through the repository API.</summary>
+    public string[] AllowedExecutables { get; set; } = ["dotnet", "npx", "npm"];
 }
 
 public sealed class ApiSecurityOptions
