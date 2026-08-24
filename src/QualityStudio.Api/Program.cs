@@ -104,6 +104,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
     var (status, title) = exception switch
     {
+        ReviewModelSelectionException route => (StatusCodes.Status400BadRequest, route.Message),
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
         RepositoryRegistryValidationException validation => (StatusCodes.Status400BadRequest, validation.PublicTitle),
         SensorNotFoundException => (StatusCodes.Status404NotFound, "Sensor not found"),

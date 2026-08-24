@@ -32,9 +32,24 @@ public sealed class ReviewModelCatalogTests
         Assert.Equal(routingStatus, option.RoutingStatus);
         Assert.False(option.AvailableForNewRuns);
 
-        var exception = Assert.Throws<ArgumentException>(() =>
+        var exception = Assert.Throws<ReviewModelSelectionException>(() =>
             catalog.Resolve(option.CliType, modelId, option.SupportedThinkingLevels[0]));
         Assert.Contains(routingStatus, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("claude", "claude-opus-5", "high")]
+    [InlineData("claude", "gpt-5.6-sol", "high")]
+    [InlineData("codex", "gpt-5.4-mini", "xhigh")]
+    [InlineData("codex", null, "high")]
+    [InlineData("codex", "gpt-5.6-sol; rm -rf /", "high")]
+    public void Refused_route_names_the_route_and_never_a_repository_path(string cli, string? model, string thinking)
+    {
+        var exception = Assert.Throws<ReviewModelSelectionException>(() => catalog.Resolve(cli, model, thinking));
+
+        Assert.DoesNotContain("path", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("repository", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Path.DirectorySeparatorChar, exception.Message);
     }
 
     [Fact]
@@ -46,7 +61,7 @@ public sealed class ReviewModelCatalogTests
         Assert.Equal("xhigh", selection.ThinkingLevel);
         Assert.Equal("codex", selection.CliType);
         Assert.True(selection.Catalogued);
-        Assert.Throws<ArgumentException>(() => catalog.Resolve("codex", "gpt-5.4-mini", "xhigh"));
+        Assert.Throws<ReviewModelSelectionException>(() => catalog.Resolve("codex", "gpt-5.4-mini", "xhigh"));
     }
 
     [Fact]
@@ -57,7 +72,7 @@ public sealed class ReviewModelCatalogTests
         Assert.Equal("gpt-6-review-preview", custom.Model);
         Assert.Equal("high", custom.ThinkingLevel);
         Assert.False(custom.Catalogued);
-        Assert.Throws<ArgumentException>(() => catalog.Resolve("claude", "gpt-6-review-preview", "high"));
+        Assert.Throws<ReviewModelSelectionException>(() => catalog.Resolve("claude", "gpt-6-review-preview", "high"));
     }
 
     [Fact]

@@ -31,6 +31,14 @@ public sealed record ReviewModelCatalogSnapshot(
 /// <summary>A normalized review route ready to persist and pass to CodingAgentRunner.</summary>
 public sealed record ReviewModelSelection(string CliType, string? Model, string? ThinkingLevel, bool Catalogued);
 
+/// <summary>
+/// A model or thinking-level override the governed catalog refuses. Every message is composed only from
+/// catalog facts and identifiers already validated by <see cref="ReviewModelCatalog"/>, so it carries no
+/// repository path or other host detail and is safe to return to the caller verbatim. Keep it that way:
+/// a route rejection must name the route, not leak the environment.
+/// </summary>
+public sealed class ReviewModelSelectionException(string message) : ArgumentException(message);
+
 /// <summary>A server-owned route recommendation derived from the synchronized routing policy.</summary>
 public sealed record ReviewModelRecommendation(
     string PolicyVersion,
@@ -85,7 +93,7 @@ public sealed class ReviewModelCatalog
         if (requestedModel is null)
         {
             if (requestedThinking is not null)
-                throw new ArgumentException("A thinking-level override requires a model override.");
+                throw new ReviewModelSelectionException("A thinking-level override requires a model override.");
             return new ReviewModelSelection(cli, null, null, false);
         }
 
@@ -96,18 +104,18 @@ public sealed class ReviewModelCatalog
         if (catalogued is null)
         {
             if (KnownCliTypes.Contains(cli) && !HasCliPrefix(cli, requestedModel))
-                throw new ArgumentException($"Model '{requestedModel}' is not compatible with CLI '{cli}'.");
+                throw new ReviewModelSelectionException($"Model '{requestedModel}' is not compatible with CLI '{cli}'.");
             return new ReviewModelSelection(cli, requestedModel, requestedThinking, false);
         }
 
         if (!catalogued.AvailableForNewRuns)
-            throw new ArgumentException(
+            throw new ReviewModelSelectionException(
                 $"Model '{catalogued.ModelId}' cannot start new reviews because its routing status is '{catalogued.RoutingStatus}'.");
         if (KnownCliTypes.Contains(cli) && !string.Equals(catalogued.CliType, cli, StringComparison.Ordinal))
-            throw new ArgumentException($"Model '{catalogued.ModelId}' is routed through CLI '{catalogued.CliType}', not '{cli}'.");
+            throw new ReviewModelSelectionException($"Model '{catalogued.ModelId}' is routed through CLI '{catalogued.CliType}', not '{cli}'.");
         if (requestedThinking is not null &&
             !catalogued.SupportedThinkingLevels.Contains(requestedThinking, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException(
+            throw new ReviewModelSelectionException(
                 $"Model '{catalogued.ModelId}' does not support thinking level '{requestedThinking}'.");
 
         var canonicalThinking = requestedThinking is null
@@ -280,7 +288,7 @@ public sealed class ReviewModelCatalog
     {
         if (value.Length > 100 || value.Any(character =>
                 !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':')))
-            throw new ArgumentException($"{label} contains unsupported characters.");
+            throw new ReviewModelSelectionException($"{label} contains unsupported characters.");
     }
 
     private void Add(string key, ReviewModelOption model)

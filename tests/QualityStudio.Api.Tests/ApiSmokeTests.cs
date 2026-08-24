@@ -108,6 +108,25 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Refused_model_route_is_reported_as_a_route_problem_not_an_invalid_path()
+    {
+        using var client = application!.CreateClient();
+
+        using var refused = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", cliType = "claude",
+            model = "claude-opus-5", thinkingLevel = "high",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var title = problem.GetProperty("title").GetString()!;
+        Assert.Contains("claude-opus-5", title, StringComparison.Ordinal);
+        Assert.Contains("unsupported", title, StringComparison.Ordinal);
+        Assert.DoesNotContain("path", title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Review_preflight_recommends_policy_route_and_start_requires_below_floor_confirmation()
     {
         using var client = application!.CreateClient();
