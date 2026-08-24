@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using AgentOrchestrator.CodeQuality;
 
@@ -51,7 +52,23 @@ public sealed record ProjectStructuralMetricsResponse(
     IReadOnlyList<ProjectDistributionBucketResponse> FileSizeDistribution,
     IReadOnlyList<ProjectDistributionBucketResponse> FolderSizeDistribution,
     IReadOnlyList<ProjectDuplicationCandidateResponse> DuplicationCandidates,
-    IReadOnlyList<ProjectDependencyEdgeResponse> DependencyEdges);
+    IReadOnlyList<ProjectDependencyEdgeResponse> DependencyEdges,
+    ProjectComplexityMetricsResponse Complexity);
+
+public sealed record ProjectComplexityMetricsResponse(
+    IReadOnlyDictionary<string, int> Thresholds,
+    IReadOnlyList<ProjectDistributionBucketResponse> BreachDistribution,
+    IReadOnlyList<ProjectComplexityBreachResponse> TopBreaches);
+
+public sealed record ProjectComplexityBreachResponse(
+    string Path,
+    int Line,
+    string Symbol,
+    string RuleId,
+    int Value,
+    int Threshold,
+    int Excess,
+    string Fingerprint);
 
 public sealed record ProjectLanguageMetricResponse(
     string Language, int Files, int Lines, long Bytes, string Path);
@@ -86,21 +103,44 @@ public sealed class ProjectDashboardService
     private static readonly IReadOnlyDictionary<string, string> Languages =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            [".cs"] = "C#", [".fs"] = "F#", [".vb"] = "Visual Basic",
-            [".ts"] = "TypeScript", [".tsx"] = "TypeScript",
-            [".js"] = "JavaScript", [".jsx"] = "JavaScript",
-            [".py"] = "Python", [".java"] = "Java", [".kt"] = "Kotlin",
-            [".go"] = "Go", [".rs"] = "Rust", [".cpp"] = "C++", [".cc"] = "C++",
-            [".c"] = "C", [".h"] = "C/C++ header", [".hpp"] = "C/C++ header",
-            [".rb"] = "Ruby", [".php"] = "PHP", [".swift"] = "Swift",
-            [".html"] = "HTML", [".css"] = "CSS", [".scss"] = "SCSS",
-            [".sql"] = "SQL", [".sh"] = "Shell", [".ps1"] = "PowerShell",
-            [".json"] = "JSON", [".xml"] = "XML", [".yml"] = "YAML",
-            [".yaml"] = "YAML", [".md"] = "Markdown",
+            [".cs"] = "C#",
+            [".fs"] = "F#",
+            [".vb"] = "Visual Basic",
+            [".ts"] = "TypeScript",
+            [".tsx"] = "TypeScript",
+            [".js"] = "JavaScript",
+            [".jsx"] = "JavaScript",
+            [".py"] = "Python",
+            [".java"] = "Java",
+            [".kt"] = "Kotlin",
+            [".go"] = "Go",
+            [".rs"] = "Rust",
+            [".cpp"] = "C++",
+            [".cc"] = "C++",
+            [".c"] = "C",
+            [".h"] = "C/C++ header",
+            [".hpp"] = "C/C++ header",
+            [".rb"] = "Ruby",
+            [".php"] = "PHP",
+            [".swift"] = "Swift",
+            [".html"] = "HTML",
+            [".css"] = "CSS",
+            [".scss"] = "SCSS",
+            [".sql"] = "SQL",
+            [".sh"] = "Shell",
+            [".ps1"] = "PowerShell",
+            [".json"] = "JSON",
+            [".xml"] = "XML",
+            [".yml"] = "YAML",
+            [".yaml"] = "YAML",
+            [".md"] = "Markdown",
         };
 
     private static readonly HashSet<string> TextExtensions =
         new(Languages.Keys, StringComparer.OrdinalIgnoreCase);
+
+    private static readonly IReadOnlyDictionary<string, HierarchyNode> EmptyHierarchyFiles =
+        new Dictionary<string, HierarchyNode>(0, StringComparer.Ordinal);
 
     private readonly ConcurrentDictionary<string, ProjectDashboardResponse> cache =
         new(StringComparer.Ordinal);
@@ -116,7 +156,7 @@ public sealed class ProjectDashboardService
     {
         var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var key = root + "\0" + snapshot.GitState;
+        var key = root + "\0" + snapshot.GitState + "\0" + ComplexityEvidenceCacheKey(root);
         if (cache.TryGetValue(key, out var cached))
         {
             return new ProjectDashboardMeasurement(
@@ -160,26 +200,52 @@ public sealed class ProjectDashboardService
             .Where(node => node.Level == ReviewLevel.File)
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
-        var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
-        var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
-            .ToArray();
+        var isGenericHierarchy = roots.Count == 1 &&
+                                 roots[0].Id.StartsWith("qs-v1/generic/", StringComparison.Ordinal);
+        var navigationPaths = isGenericHierarchy
+            ? null
+            : hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
+        var repositoryFiles = isGenericHierarchy
+            ? ReadGenericHierarchyFileMetrics(root, hierarchyFiles)
+            : ReadRepositoryFileMetrics(
+                root,
+                EnumerateRepositoryFiles(root),
+                hierarchyFiles.ToDictionary(node => node.Path, StringComparer.Ordinal));
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
-        var grades = BuildGrades(roots, projectPath);
-        var findings = BuildFindings(hierarchy, projectPath);
-        var staleness = BuildStaleness(hierarchyFiles);
-        var reviewCoverage = new ProjectReviewCoverageResponse(
-            hierarchyFiles.Count(node => node.Documents.Count > 0),
-            hierarchyFiles.Length,
-            hierarchyFiles.Length == 0 ? 0 : Math.Round(
-                hierarchyFiles.Count(node => node.Documents.Count > 0) * 100d / hierarchyFiles.Length, 1),
-            hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
-            hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
+        var hasReviewDocuments = hierarchy.Any(node => node.Documents.Count > 0);
+        var grades = hasReviewDocuments
+            ? BuildGrades(roots, projectPath)
+            : BuildMissingGrades(projectPath);
+        ProjectFindingsResponse findings;
+        ProjectStalenessResponse staleness;
+        ProjectReviewCoverageResponse reviewCoverage;
+        if (!hasReviewDocuments)
+        {
+            var firstPath = hierarchyFiles.FirstOrDefault()?.Path ?? projectPath;
+            findings = new ProjectFindingsResponse(
+                0,
+                NewCountMap(["critical", "high", "medium", "low", "info"]),
+                NewCountMap(["fresh", "stale"]),
+                projectPath);
+            staleness = new ProjectStalenessResponse(
+                0, 0, hierarchyFiles.Length, hierarchyFiles.Length, firstPath);
+            reviewCoverage = new ProjectReviewCoverageResponse(
+                0, hierarchyFiles.Length, 0, firstPath);
+        }
+        else
+        {
+            findings = BuildFindings(hierarchy, projectPath);
+            (staleness, reviewCoverage) = BuildReviewStatus(hierarchyFiles, projectPath);
+        }
         var dependencies = BuildDependencyEdges(root, hierarchy);
-        var metrics = BuildStructuralMetrics(repositoryFiles, dependencies, navigationPaths, projectPath);
-        var churn = ReadGitChurn(root);
+        var metrics = BuildStructuralMetrics(root, repositoryFiles, dependencies, navigationPaths, projectPath);
+        var churn = hierarchyFiles.Length == 0 || !HasGitCommit(root)
+            ? new Dictionary<string, int>(StringComparer.Ordinal)
+            : ReadGitChurn(root);
         var hotspots = BuildHotspots(hierarchyFiles, churn);
+        var testCoverage = ReadTestCoverage(root, repositoryFiles.Select(file => file.Path),
+            hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
 
         return new ProjectDashboardResponse(
             DateTimeOffset.UtcNow.ToString("O"),
@@ -187,35 +253,56 @@ public sealed class ProjectDashboardService
             findings,
             staleness,
             reviewCoverage,
-            ReadTestCoverage(root, repositoryFiles.Select(file => file.Path),
-                hierarchyFiles.FirstOrDefault()?.Path ?? projectPath),
+            testCoverage,
             metrics,
             hotspots);
     }
+
+    private static IReadOnlyList<ProjectGradeResponse> BuildMissingGrades(string projectPath) =>
+        Enum.GetValues<ReviewKind>()
+            .Select(kind => new ProjectGradeResponse(
+                kind.ToString().ToLowerInvariant(),
+                "missing",
+                null,
+                null,
+                projectPath))
+            .ToArray();
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(
         IReadOnlyList<HierarchyNode> roots, string fallbackPath)
     {
         var result = new List<ProjectGradeResponse>();
+        var rootPath = roots.FirstOrDefault()?.Path ?? fallbackPath;
         foreach (var kind in Enum.GetValues<ReviewKind>())
         {
-            var states = roots.Select(root =>
-                root.AggregatedStates.TryGetValue(kind, out var state) ? state.Overall : ReviewState.NotReviewed).ToArray();
-            var state = states.Any(candidate => candidate == ReviewState.Stale) ? "stale"
-                : states.Any(candidate => candidate == ReviewState.Current) ? "fresh" : "missing";
-            var direct = roots
-                .Where(root => root.Documents.TryGetValue(kind, out _))
-                .Select(root => (Root: root, Document: root.Documents[kind]))
-                .ToArray();
-            var scores = direct.Select(item => ReadGrade(item.Document.Payload))
-                .Where(grade => grade.Score is not null).ToArray();
-            var score = scores.Length == 0 ? null : (int?)Math.Round(scores.Average(grade => grade.Score!.Value));
+            var hasStale = false;
+            var hasCurrent = false;
+            var scoreTotal = 0;
+            var scoreCount = 0;
+            string? directPath = null;
+            foreach (var root in roots)
+            {
+                var reviewState = root.AggregatedStates.TryGetValue(kind, out var aggregate)
+                    ? aggregate.Overall
+                    : ReviewState.NotReviewed;
+                hasStale |= reviewState == ReviewState.Stale;
+                hasCurrent |= reviewState == ReviewState.Current;
+                if (!root.Documents.TryGetValue(kind, out var document)) continue;
+                directPath ??= root.Path;
+                var grade = ReadGrade(document.Payload);
+                if (grade.Score is not { } value) continue;
+                scoreTotal += value;
+                scoreCount++;
+            }
+
+            var state = hasStale ? "stale" : hasCurrent ? "fresh" : "missing";
+            var score = scoreCount == 0 ? null : (int?)Math.Round((double)scoreTotal / scoreCount);
             result.Add(new ProjectGradeResponse(
                 kind.ToString().ToLowerInvariant(),
                 state,
                 score,
                 score is null ? null : Band(score.Value),
-                direct.FirstOrDefault().Root?.Path ?? roots.FirstOrDefault()?.Path ?? fallbackPath));
+                directPath ?? rootPath));
         }
         return result;
     }
@@ -276,15 +363,44 @@ public sealed class ProjectDashboardService
                first.TryGetProperty("path", out var path) ? path.GetString() : null;
     }
 
-    private static ProjectStalenessResponse BuildStaleness(IReadOnlyList<HierarchyNode> files)
+    private static (ProjectStalenessResponse Staleness, ProjectReviewCoverageResponse ReviewCoverage)
+        BuildReviewStatus(IReadOnlyList<HierarchyNode> files, string fallbackPath)
     {
-        var fresh = files.Count(node => NodeReviewState(node) == "fresh");
-        var stale = files.Count(node => NodeReviewState(node) == "stale");
-        var missing = files.Count - fresh - stale;
-        var path = files.FirstOrDefault(node => NodeReviewState(node) == "stale")?.Path ??
-                   files.FirstOrDefault(node => NodeReviewState(node) == "missing")?.Path ??
-                   files.FirstOrDefault()?.Path ?? ".";
-        return new ProjectStalenessResponse(fresh, stale, missing, files.Count, path);
+        var fresh = 0;
+        var stale = 0;
+        var missing = 0;
+        var reviewed = 0;
+        string? firstFile = null;
+        string? firstStale = null;
+        string? firstMissing = null;
+        foreach (var file in files)
+        {
+            firstFile ??= file.Path;
+            if (file.Documents.Count > 0) reviewed++;
+            switch (NodeReviewState(file))
+            {
+                case "fresh":
+                    fresh++;
+                    break;
+                case "stale":
+                    stale++;
+                    firstStale ??= file.Path;
+                    break;
+                default:
+                    missing++;
+                    firstMissing ??= file.Path;
+                    break;
+            }
+        }
+
+        return (
+            new ProjectStalenessResponse(
+                fresh, stale, missing, files.Count, firstStale ?? firstMissing ?? firstFile ?? "."),
+            new ProjectReviewCoverageResponse(
+                reviewed,
+                files.Count,
+                files.Count == 0 ? 0 : Math.Round(reviewed * 100d / files.Count, 1),
+                firstMissing ?? firstFile ?? fallbackPath));
     }
 
     private static string NodeReviewState(HierarchyNode node) =>
@@ -292,42 +408,70 @@ public sealed class ProjectDashboardService
         : node.Documents.Count > 0 ? "fresh" : "missing";
 
     private static ProjectStructuralMetricsResponse BuildStructuralMetrics(
+        string root,
         IReadOnlyList<FileMetric> files,
         IReadOnlyList<ProjectDependencyEdgeResponse> dependencies,
-        IReadOnlySet<string> navigationPaths,
+        IReadOnlySet<string>? navigationPaths,
         string fallbackPath)
     {
         var folders = new Dictionary<string, long>(StringComparer.Ordinal);
+        var languagesByName = new Dictionary<string, LanguageAccumulator>(StringComparer.Ordinal);
+        var duplicatesByFingerprint = new Dictionary<string, List<FileMetric>>(StringComparer.Ordinal);
+        var fileSizeCounts = new int[5];
+        long totalBytes = 0;
+        var totalLines = 0;
         foreach (var file in files)
         {
+            totalBytes += file.Bytes;
+            totalLines += file.Lines;
+            fileSizeCounts[DistributionIndex(file.Bytes)]++;
             var directory = RepositoryDirectory(file.Path);
             while (directory != ".")
             {
                 folders[directory] = folders.GetValueOrDefault(directory) + file.Bytes;
                 directory = RepositoryDirectory(directory);
             }
-        }
-        var languages = files.Where(file => file.Language is not null)
-            .GroupBy(file => file.Language!, StringComparer.Ordinal)
-            .Select(group =>
+            if (file.Language is not null)
             {
-                var first = group.Select(file => file.Path).FirstOrDefault(navigationPaths.Contains) ?? fallbackPath;
-                return new ProjectLanguageMetricResponse(
-                    group.Key, group.Count(), group.Sum(file => file.Lines),
-                    group.Sum(file => file.Bytes), first);
-            })
+                if (!languagesByName.TryGetValue(file.Language, out var language))
+                {
+                    language = new LanguageAccumulator();
+                    languagesByName[file.Language] = language;
+                }
+                language.Files++;
+                language.Lines += file.Lines;
+                language.Bytes += file.Bytes;
+                if (language.FirstPath is null &&
+                    (navigationPaths is null || navigationPaths.Contains(file.Path)))
+                    language.FirstPath = file.Path;
+            }
+            if (file.DuplicateFingerprint is not null)
+            {
+                if (!duplicatesByFingerprint.TryGetValue(file.DuplicateFingerprint, out var duplicateFiles))
+                {
+                    duplicateFiles = [];
+                    duplicatesByFingerprint[file.DuplicateFingerprint] = duplicateFiles;
+                }
+                duplicateFiles.Add(file);
+            }
+        }
+        var languages = languagesByName
+            .Select(pair => new ProjectLanguageMetricResponse(
+                pair.Key,
+                pair.Value.Files,
+                pair.Value.Lines,
+                pair.Value.Bytes,
+                pair.Value.FirstPath ?? fallbackPath))
             .OrderByDescending(language => language.Lines)
             .ThenBy(language => language.Language, StringComparer.Ordinal)
             .ToArray();
-        var duplicates = files
-            .Where(file => file.DuplicateFingerprint is not null)
-            .GroupBy(file => file.DuplicateFingerprint!, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group =>
+        var duplicates = duplicatesByFingerprint
+            .Where(pair => pair.Value.Count > 1)
+            .Select(pair =>
             {
-                var ordered = group.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
+                var ordered = pair.Value.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
                 return new ProjectDuplicationCandidateResponse(
-                    "sha256:" + group.Key, ordered[0].Lines, ordered[0].Bytes,
+                    "sha256:" + pair.Key, ordered[0].Lines, ordered[0].Bytes,
                     ordered.Select(file => file.Path).ToArray());
             })
             .OrderByDescending(candidate => candidate.Bytes * candidate.Paths.Count)
@@ -337,26 +481,179 @@ public sealed class ProjectDashboardService
         return new ProjectStructuralMetricsResponse(
             files.Count,
             folders.Count,
-            files.Sum(file => file.Bytes),
-            files.Sum(file => file.Lines),
+            totalBytes,
+            totalLines,
             languages,
-            Distribution(files.Select(file => file.Bytes)),
+            Distribution(fileSizeCounts),
             Distribution(folders.Values),
             duplicates,
-            dependencies);
+            dependencies,
+            ReadComplexityMetrics(root));
+    }
+
+    private static ProjectComplexityMetricsResponse ReadComplexityMetrics(string root)
+    {
+        var thresholds = ReadComplexityThresholds(root);
+        var results = LatestPreflightResults(root);
+        if (results is null)
+            return new ProjectComplexityMetricsResponse(thresholds, [], []);
+
+        var breaches = new List<ProjectComplexityBreachResponse>();
+        foreach (var result in results.Value.EnumerateArray())
+        {
+            if (!result.TryGetProperty("findings", out var findings) || findings.ValueKind != JsonValueKind.Array)
+                continue;
+            foreach (var finding in findings.EnumerateArray())
+            {
+                var ruleId = finding.TryGetProperty("ruleId", out var rule) ? rule.GetString() : null;
+                if (ruleId is null || !thresholds.TryGetValue(ruleId, out var threshold)) continue;
+                var description = finding.TryGetProperty("description", out var descriptionElement)
+                    ? descriptionElement.GetString() ?? string.Empty : string.Empty;
+                var value = MetricValue(ruleId, description);
+                if (value is null || !IsMetricBreach(ruleId, value.Value, threshold)) continue;
+                var location = finding.TryGetProperty("locations", out var locations) &&
+                               locations.ValueKind == JsonValueKind.Array
+                    ? locations.EnumerateArray().FirstOrDefault() : default;
+                var path = location.ValueKind == JsonValueKind.Object &&
+                           location.TryGetProperty("path", out var pathElement)
+                    ? pathElement.GetString() ?? "." : ".";
+                var line = location.ValueKind == JsonValueKind.Object &&
+                           location.TryGetProperty("range", out var range) &&
+                           range.ValueKind == JsonValueKind.Object &&
+                           range.TryGetProperty("start", out var start) &&
+                           start.ValueKind == JsonValueKind.Object &&
+                           start.TryGetProperty("line", out var lineElement)
+                    ? lineElement.GetInt32() : 1;
+                var title = finding.TryGetProperty("title", out var titleElement)
+                    ? titleElement.GetString() ?? ruleId : ruleId;
+                var symbol = MetricSymbol(description) ?? title;
+                var fingerprint = finding.TryGetProperty("fingerprint", out var fingerprintElement)
+                    ? fingerprintElement.GetString() ?? string.Empty : string.Empty;
+                breaches.Add(new ProjectComplexityBreachResponse(
+                    path, line, symbol, ruleId, value.Value, threshold,
+                    MetricExcess(ruleId, value.Value, threshold), fingerprint));
+            }
+        }
+
+        var ordered = breaches
+            .OrderByDescending(breach => breach.Excess)
+            .ThenBy(breach => breach.Path, StringComparer.Ordinal)
+            .ThenBy(breach => breach.Line)
+            .ToArray();
+        var distribution = ordered
+            .GroupBy(breach => $"{breach.RuleId} · {ComplexityBand(breach.RuleId, breach.Value, breach.Threshold)}", StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new ProjectDistributionBucketResponse(group.Key, group.Count()))
+            .ToArray();
+        return new ProjectComplexityMetricsResponse(thresholds, distribution, ordered.Take(25).ToArray());
+    }
+
+    private static IReadOnlyDictionary<string, int> ReadComplexityThresholds(string root)
+    {
+        var thresholds = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["CA1502"] = 25,
+            ["CA1505"] = 20,
+            ["complexity"] = 18,
+        };
+        var path = Path.Combine(root, "CodeMetricsConfig.txt");
+        if (!File.Exists(path)) return thresholds;
+        foreach (var line in File.ReadLines(path))
+        {
+            var match = Regex.Match(line, @"^\s*(?<rule>CA150[25])\s*:\s*(?<value>\d+)\s*$",
+                RegexOptions.CultureInvariant);
+            if (match.Success)
+                thresholds[match.Groups["rule"].Value] =
+                    int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture);
+        }
+        return thresholds;
+    }
+
+    private static JsonElement? LatestPreflightResults(string root)
+    {
+        var runs = Path.Combine(root, ".quality", "runs");
+        if (!Directory.Exists(runs)) return null;
+        var path = Directory.EnumerateFiles(runs, "preflight.json", SearchOption.AllDirectories)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (path is null) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            return document.RootElement.TryGetProperty("results", out var results) &&
+                   results.ValueKind == JsonValueKind.Array
+                ? results.Clone() : null;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static string ComplexityEvidenceCacheKey(string root)
+    {
+        var runs = Path.Combine(root, ".quality", "runs");
+        if (!Directory.Exists(runs)) return "none";
+        var latest = Directory.EnumerateFiles(runs, "preflight.json", SearchOption.AllDirectories)
+            .Select(path => new FileInfo(path))
+            .OrderByDescending(file => file.LastWriteTimeUtc)
+            .FirstOrDefault();
+        return latest is null ? "none" : $"{latest.LastWriteTimeUtc.Ticks}:{latest.Length}";
+    }
+
+    private static int? MetricValue(string ruleId, string description)
+    {
+        var pattern = ruleId switch
+        {
+            "complexity" => @"complexity\s+of\s+(?<value>\d+)",
+            "CA1505" => @"maintainability\s+index\s+of\s+'(?<value>\d+)'",
+            _ => @"complexity\s+of\s+'(?<value>\d+)'",
+        };
+        var match = Regex.Match(description, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success
+            ? int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture)
+            : null;
+    }
+
+    private static string? MetricSymbol(string description)
+    {
+        var match = Regex.Match(description, @"(?:^(?:The\s+)?|(?:method|type|function)\s+)'(?<symbol>[^']+)'",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["symbol"].Value : null;
+    }
+
+    private static bool IsMetricBreach(string ruleId, int value, int threshold) =>
+        ruleId == "CA1505" ? value < threshold : value > threshold;
+
+    private static int MetricExcess(string ruleId, int value, int threshold) =>
+        ruleId == "CA1505" ? threshold - value : value - threshold;
+
+    private static string ComplexityBand(string ruleId, int value, int threshold)
+    {
+        if (ruleId == "CA1505")
+        {
+            var midpoint = Math.Max(1, threshold / 2);
+            return value < midpoint ? $"< {midpoint}" : $"{midpoint}–{threshold - 1}";
+        }
+        var moderate = threshold + Math.Max(5, threshold / 2);
+        return value <= moderate ? $"{threshold + 1}–{moderate}" : $"> {moderate}";
     }
 
     private static IReadOnlyList<ProjectDistributionBucketResponse> Distribution(IEnumerable<long> values)
     {
         var counts = new int[5];
-        foreach (var value in values)
-        {
-            var index = value < 1_024 ? 0 : value < 10_240 ? 1 : value < 102_400 ? 2 : value < 1_048_576 ? 3 : 4;
-            counts[index]++;
-        }
+        foreach (var value in values) counts[DistributionIndex(value)]++;
+        return Distribution(counts);
+    }
+
+    private static IReadOnlyList<ProjectDistributionBucketResponse> Distribution(IReadOnlyList<int> counts)
+    {
         var labels = new[] { "< 1 KB", "1–10 KB", "10–100 KB", "100 KB–1 MB", "≥ 1 MB" };
         return labels.Select((label, index) => new ProjectDistributionBucketResponse(label, counts[index])).ToArray();
     }
+
+    private static int DistributionIndex(long value) =>
+        value < 1_024 ? 0 : value < 10_240 ? 1 : value < 102_400 ? 2 : value < 1_048_576 ? 3 : 4;
 
     private static IReadOnlyList<ProjectDependencyEdgeResponse> BuildDependencyEdges(
         string root, IReadOnlyList<HierarchyNode> hierarchy)
@@ -395,7 +692,7 @@ public sealed class ProjectDashboardService
         IReadOnlyList<HierarchyNode> files, IReadOnlyDictionary<string, int> churn)
     {
         var result = new List<ProjectHotspotResponse>();
-        foreach (var file in files)
+        foreach (var file in files.Where(file => file.Documents.Count > 0 || churn.ContainsKey(file.Path)))
         {
             var findings = 0;
             int? grade = null;
@@ -435,6 +732,50 @@ public sealed class ProjectDashboardService
             result[path] = result.GetValueOrDefault(path) + added + deleted;
         }
         return result;
+    }
+
+    private static bool HasGitCommit(string root)
+    {
+        try
+        {
+            return HasGitCommitCore(root);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool HasGitCommitCore(string root)
+    {
+        var gitDirectory = Path.Combine(root, ".git");
+        if (File.Exists(gitDirectory))
+        {
+            var pointer = File.ReadAllText(gitDirectory).Trim();
+            if (!pointer.StartsWith("gitdir:", StringComparison.OrdinalIgnoreCase)) return false;
+            gitDirectory = Path.GetFullPath(pointer[7..].Trim(), root);
+        }
+        if (!Directory.Exists(gitDirectory)) return false;
+
+        var headPath = Path.Combine(gitDirectory, "HEAD");
+        if (!File.Exists(headPath)) return false;
+        var head = File.ReadAllText(headPath).Trim();
+        if (!head.StartsWith("ref:", StringComparison.OrdinalIgnoreCase))
+            return head.Length is 40 or 64 && head.All(Uri.IsHexDigit);
+
+        var reference = head[4..].Trim().Replace('/', Path.DirectorySeparatorChar);
+        var commonDirectory = gitDirectory;
+        var commonDirectoryPath = Path.Combine(gitDirectory, "commondir");
+        if (File.Exists(commonDirectoryPath))
+            commonDirectory = Path.GetFullPath(File.ReadAllText(commonDirectoryPath).Trim(), gitDirectory);
+        if (File.Exists(Path.Combine(commonDirectory, reference))) return true;
+
+        var packedReferences = Path.Combine(commonDirectory, "packed-refs");
+        if (!File.Exists(packedReferences)) return false;
+        var referenceSuffix = " " + reference.Replace(Path.DirectorySeparatorChar, '/');
+        return File.ReadLines(packedReferences).Any(line =>
+            !line.StartsWith('#') && !line.StartsWith('^') &&
+            line.EndsWith(referenceSuffix, StringComparison.Ordinal));
     }
 
     private static ProjectTestCoverageResponse ReadTestCoverage(
@@ -485,14 +826,22 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(string root, string path)
+    private static FileMetric? ReadFileMetric(
+        string root,
+        string path,
+        IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles)
     {
+        var extension = Path.GetExtension(path);
+        var language = Languages.GetValueOrDefault(extension);
+        if (TryReadHierarchyMetric(path, extension, language, hierarchyFiles, out var knownMetric))
+            return knownMetric;
+
         var absolute = Path.Combine(root, Native(path));
         var info = new FileInfo(absolute);
-        var language = Languages.GetValueOrDefault(Path.GetExtension(path));
+        if (!info.Exists) return null;
         var lines = 0;
         string? duplicateFingerprint = null;
-        if (TextExtensions.Contains(Path.GetExtension(path)) && info.Length <= 4 * 1024 * 1024)
+        if (TextExtensions.Contains(extension) && info.Length <= 4 * 1024 * 1024)
         {
             try
             {
@@ -511,13 +860,89 @@ public sealed class ProjectDashboardService
         return new FileMetric(path, info.Length, lines, language, duplicateFingerprint);
     }
 
+    private static IReadOnlyList<FileMetric> ReadRepositoryFileMetrics(
+        string root,
+        IReadOnlyList<string> paths,
+        IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles)
+    {
+        if (paths.Count < 512)
+            return paths.Select(path => ReadFileMetric(root, path, hierarchyFiles))
+                .OfType<FileMetric>()
+                .ToArray();
+
+        var metrics = new FileMetric?[paths.Count];
+        var deferred = new List<int>();
+        for (var index = 0; index < paths.Count; index++)
+        {
+            var path = paths[index];
+            var extension = Path.GetExtension(path);
+            if (TryReadHierarchyMetric(path, extension, Languages.GetValueOrDefault(extension), hierarchyFiles,
+                    out var knownMetric))
+                metrics[index] = knownMetric;
+            else
+                deferred.Add(index);
+        }
+
+        Parallel.ForEach(deferred, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 1, 32),
+        }, index => metrics[index] = ReadFileMetric(root, paths[index], hierarchyFiles));
+        return metrics.OfType<FileMetric>().ToArray();
+    }
+
+    private static IReadOnlyList<FileMetric> ReadGenericHierarchyFileMetrics(
+        string root,
+        IReadOnlyList<HierarchyNode> hierarchyFiles)
+    {
+        var metrics = new FileMetric?[hierarchyFiles.Count];
+        var deferred = new List<int>();
+        for (var index = 0; index < hierarchyFiles.Count; index++)
+        {
+            var file = hierarchyFiles[index];
+            var extension = Path.GetExtension(file.Path);
+            var language = Languages.GetValueOrDefault(extension);
+            if (!TextExtensions.Contains(extension) && file.SizeBytes is { } knownSize)
+                metrics[index] = new FileMetric(file.Path, knownSize, 0, language, null);
+            else
+                deferred.Add(index);
+        }
+
+        Parallel.ForEach(deferred, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 1, 32),
+        }, index => metrics[index] = ReadFileMetric(
+            root,
+            hierarchyFiles[index].Path,
+            EmptyHierarchyFiles));
+        return metrics.OfType<FileMetric>().ToArray();
+    }
+
+    private static bool TryReadHierarchyMetric(
+        string path,
+        string extension,
+        string? language,
+        IReadOnlyDictionary<string, HierarchyNode> hierarchyFiles,
+        out FileMetric? metric)
+    {
+        if (!TextExtensions.Contains(extension) &&
+            hierarchyFiles.TryGetValue(path, out var hierarchyFile) &&
+            hierarchyFile.SizeBytes is { } knownSize)
+        {
+            metric = new FileMetric(path, knownSize, 0, language, null);
+            return true;
+        }
+
+        metric = null;
+        return false;
+    }
+
     private static IReadOnlyList<string> EnumerateRepositoryFiles(string root)
     {
         var git = RunGit(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z");
         if (git is not null)
             return git.Split('\0', StringSplitOptions.RemoveEmptyEntries)
                 .Select(path => path.Replace('\\', '/'))
-                .Where(path => !Excluded(path) && File.Exists(Path.Combine(root, Native(path))))
+                .Where(path => !Excluded(path))
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Select(path => Relative(root, path))
@@ -543,7 +968,11 @@ public sealed class ProjectDashboardService
 
     private static string Band(int score) => score switch
     {
-        >= 90 => "A", >= 80 => "B", >= 70 => "C", >= 60 => "D", _ => "F",
+        >= 90 => "A",
+        >= 80 => "B",
+        >= 70 => "C",
+        >= 60 => "D",
+        _ => "F",
     };
 
     private static int? ParseInt(string? value) =>
@@ -609,4 +1038,12 @@ public sealed class ProjectDashboardService
 
     private sealed record FileMetric(
         string Path, long Bytes, int Lines, string? Language, string? DuplicateFingerprint);
+
+    private sealed class LanguageAccumulator
+    {
+        public int Files { get; set; }
+        public int Lines { get; set; }
+        public long Bytes { get; set; }
+        public string? FirstPath { get; set; }
+    }
 }
