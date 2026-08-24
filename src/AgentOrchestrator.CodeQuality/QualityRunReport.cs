@@ -33,7 +33,11 @@ public sealed record QualityRunIdentity(
     string Model,
     string ThinkingLevel,
     string CliType,
-    bool Force);
+    bool Force,
+    // Written only when a revision was captured, so a repository without Git still produces the
+    // byte-for-byte document shape that readers built before this field expect.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    QualityRunSourceRevision? SourceRevision = null);
 
 public sealed record QualityRunSubject(
     string ManifestHash,

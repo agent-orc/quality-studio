@@ -162,5 +162,7 @@ describe('QualityApi', () => {
 
     expect(api.runReportUrl('run / 1', 'sarif')).toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=sarif');
     expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
+    expect(api.runReportViewUrl('run / 1'))
+      .toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=html&disposition=inline');
   });
 });

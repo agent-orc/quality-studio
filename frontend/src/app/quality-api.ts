@@ -233,9 +233,12 @@ export interface QualityRunEstimate {
   files: number; operations: number; inputTokens: number; outputTokens: number; cost: number | null;
   currency: string | null; historySamples: number; method: string;
 }
+export interface QualityRunSourceRevision {
+  commitSha: string; shortCommitSha: string; branch: string | null; dirty: boolean | null; committedAt: string | null;
+}
 export interface QualityRunReport {
   $schema: string; schemaVersion: number;
-  run: { id: string; revision: number; repositoryId: string; repositoryName: string; kind: ReviewKind; scopeUnitId: string; level: string; path: string; state: ReviewRunState; completeness: 'complete' | 'partial'; createdAt: string; startedAt: string | null; finishedAt: string | null; model: string; thinkingLevel: string; cliType: string; force: boolean };
+  run: { id: string; revision: number; repositoryId: string; repositoryName: string; kind: ReviewKind; scopeUnitId: string; level: string; path: string; state: ReviewRunState; completeness: 'complete' | 'partial'; createdAt: string; startedAt: string | null; finishedAt: string | null; model: string; thinkingLevel: string; cliType: string; force: boolean; sourceRevision?: QualityRunSourceRevision | null };
   subject: { manifestHash: string; targets: { unitId: string; name: string; path: string; subjectHash: string }[] };
   execution: { reviewed: number; reusedFresh: number; failed: number; skipped: number; cancelled: number; aggregateOutcome: ReviewUnitState | null; errors: string[]; usage: TokenUsage & { operations: number; cost: number | null; currency: string | null; priceStatus: string; inputEstimateDeviationPercent: number | null; outputEstimateDeviationPercent: number | null; costEstimateDeviationPercent: number | null }; cap: { tokenLimit: number | null; costLimit: number | null; outcome: string; reason: string | null }; estimate: QualityRunEstimate | null };
   observations: QualityRunObservation[];
@@ -614,6 +617,11 @@ export class QualityApi {
 
   runReportUrl(id: string, format: RunReportFormat): string {
     return `${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/report?format=${format}`;
+  }
+
+  /** Renders the report in a browser tab instead of downloading it; the server answers `inline`. */
+  runReportViewUrl(id: string, format: RunReportFormat = 'html'): string {
+    return `${this.runReportUrl(id, format)}&disposition=inline`;
   }
 
   runReportFileName(id: string, format: RunReportFormat): string {

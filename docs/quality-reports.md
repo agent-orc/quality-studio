@@ -69,8 +69,31 @@ the next canonical revision after the later terminal transition. Atomic
 same-directory replacement ensures readers see either the previous complete
 document or the next one, never an incomplete temporary write.
 
+### Reviewed source revision
+
+When a run is planned, Quality Studio records the repository head revision in
+`run.sourceRevision`: the full commit SHA, a short SHA, the branch when the head
+is not detached, whether tracked files were modified, and the commit time. The
+revision is pinned at plan time, so a report exported months later still names
+the code that was reviewed rather than the current working tree.
+
+The field is optional and is written only when a revision was captured, so a
+repository without Git, without a commit, or a snapshot written before this
+capture existed simply has no `run.sourceRevision` key. Readers must treat an
+absent and a null value the same way; every projection says `commit unavailable`
+instead of guessing. SARIF carries the
+revision as `sourceRevisionId`, `sourceBranch`, and `sourceDirty` run properties
+rather than `versionControlProvenance`, because OASIS requires a `repositoryUri`
+there and Quality Studio never publishes remote URLs.
+
+### Projections
+
 HTML, bounded Markdown, JSON, and run-scoped SARIF are projections of this one
-document. HTML is self-contained and uses a restrictive content security policy.
+document. HTML is a self-contained document with a restrictive content security
+policy, ordered as run identity, outcome summary, finding delta, findings, unit
+outcomes, execution errors, token ledger and cap, and provenance. The ledger
+states operations, input and cached input tokens, output and reasoning tokens,
+duration, cost, estimate deviation, and the cap outcome with its reason.
 Markdown includes at most 20 active findings and states the omitted count. SARIF
 uses relative paths, stable automation and fingerprint identities, and only emits
 baseline state when the run has a comprehensive comparable predecessor. Exported
@@ -90,6 +113,13 @@ For one review run, use
 `GET /api/repos/{repoId}/review/runs/{id}/report?format=...`. The response carries
 an attachment filename appropriate to the requested format. Repository access is
 resolved through the same registration boundary as the existing run routes.
+
+Append `&disposition=inline` to read the report in a browser tab instead of
+downloading it. Any other value is rejected with `400`. Both dispositions answer
+with `X-Content-Type-Options: nosniff` and a response-level content security
+policy that mirrors the document's own policy and adds `sandbox`, so an inline
+report cannot execute script or reach the network even though it is served from
+the API origin. The run detail surface uses this for its **Open report** action.
 
 `GET /api/review/runs/trend?kind=code&scopeUnitId=<id>&level=file` and its
 repository-scoped form return paged run history. A series is keyed by repository,

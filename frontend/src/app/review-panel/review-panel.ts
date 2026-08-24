@@ -392,6 +392,17 @@ export class ReviewPanel {
 
   reportFileName(runId: string, format: RunReportFormat): string { return this.api.runReportFileName(runId, format); }
 
+  reportViewUrl(runId: string): string { return this.api.runReportViewUrl(runId); }
+
+  /** The commit the run reviewed. Older snapshots predate revision capture and say so. */
+  commitLabel(report: QualityRunReport): string {
+    const revision = report.run.sourceRevision;
+    if (!revision) return 'commit unavailable';
+    const workingTree = revision.dirty === null ? ' · working tree state unknown'
+      : revision.dirty ? ' · uncommitted changes' : '';
+    return `${revision.shortCommitSha}${revision.branch ? ` (${revision.branch})` : ''}${workingTree}`;
+  }
+
   trendScoreWidth(point: QualityRunTrendPoint): number { return point.score ?? 0; }
 
   async resumeCapped(run: ReviewRun): Promise<void> {

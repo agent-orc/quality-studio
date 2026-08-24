@@ -202,7 +202,11 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            // Pinned when the run is planned: an exported report must name the commit it reviewed,
+            // not whatever the working tree holds when someone downloads the report later.
+            await GitSourceRevisionReader.ReadAsync(registration.RootPath, cancellationToken)
+                .ConfigureAwait(false));
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());

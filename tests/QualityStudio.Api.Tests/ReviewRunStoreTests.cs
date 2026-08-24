@@ -130,6 +130,76 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Run_report_pins_the_reviewed_commit_and_opens_inline_on_request()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken, initializeGit: true);
+        try
+        {
+            await using var application = fixture.CreateApplication(new FreshnessExecutorFactory());
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-5",
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var runId = (await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken))
+                .GetProperty("id").GetString()!;
+            await WaitForStateAsync(client, runId, "done", cancellationToken);
+
+            var report = new QualityRunReportStore(fixture.RepositoryRoot).Load(runId);
+            var revision = report.Run.SourceRevision;
+            Assert.NotNull(revision);
+            Assert.Equal(40, revision.CommitSha.Length);
+            Assert.Equal("trunk", revision.Branch);
+
+            using var inline = await client.GetAsync(
+                $"/api/review/runs/{runId}/report?format=html&disposition=Inline", cancellationToken);
+            inline.EnsureSuccessStatusCode();
+            Assert.Equal("text/html", inline.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("inline", inline.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.Equal("nosniff", Assert.Single(inline.Headers.GetValues("X-Content-Type-Options")));
+            Assert.Contains("default-src 'none'",
+                Assert.Single(inline.Headers.GetValues("Content-Security-Policy")), StringComparison.Ordinal);
+            var document = await inline.Content.ReadAsStringAsync(cancellationToken);
+            Assert.Contains(revision.ShortCommitSha, document, StringComparison.Ordinal);
+            Assert.Contains("Token ledger and cap", document, StringComparison.Ordinal);
+            Assert.DoesNotContain(fixture.RepositoryRoot, document, StringComparison.OrdinalIgnoreCase);
+
+            // A sandboxed attachment can stop a browser from completing the download, so the download
+            // response keeps the policy without the sandbox token.
+            using var download = await client.GetAsync(
+                $"/api/review/runs/{runId}/report?format=html&disposition=ATTACHMENT", cancellationToken);
+            download.EnsureSuccessStatusCode();
+            Assert.Equal("attachment", download.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.DoesNotContain("sandbox",
+                Assert.Single(download.Headers.GetValues("Content-Security-Policy")), StringComparison.Ordinal);
+
+            // A content security policy is a document policy: the data projections do not get one.
+            using var json = await client.GetAsync(
+                $"/api/review/runs/{runId}/report?format=json", cancellationToken);
+            json.EnsureSuccessStatusCode();
+            Assert.False(json.Headers.Contains("Content-Security-Policy"));
+            Assert.Equal("nosniff", Assert.Single(json.Headers.GetValues("X-Content-Type-Options")));
+
+            using var rejected = await client.GetAsync(
+                $"/api/review/runs/{runId}/report?format=html&disposition=sideways", cancellationToken);
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, rejected.StatusCode);
+            var problem = await rejected.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal("Invalid report disposition", problem.GetProperty("title").GetString());
+            Assert.Contains("attachment or inline", problem.GetProperty("detail").GetString()!,
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Server_reports_fresh_file_and_aggregate_skips_and_force_bypasses_them()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -560,7 +630,9 @@ public sealed class ReviewRunStoreTests
         public string HostRoot { get; }
         public ReviewRunStore Store { get; }
 
-        public static async Task<DurableRunFixture> CreateAsync(CancellationToken cancellationToken)
+        public static async Task<DurableRunFixture> CreateAsync(
+            CancellationToken cancellationToken,
+            bool initializeGit = false)
         {
             var id = Guid.NewGuid().ToString("N");
             var repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-run-store-tests", id, "repository");
@@ -573,7 +645,48 @@ public sealed class ReviewRunStoreTests
                 "namespace Sample; public static class Second { }", cancellationToken);
             await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"),
                 "<Project Sdk=\"Microsoft.NET.Sdk\" />", cancellationToken);
+            if (initializeGit)
+            {
+                Git(repositoryRoot, "init");
+                Git(repositoryRoot, "symbolic-ref", "HEAD", "refs/heads/trunk");
+                Git(repositoryRoot, "config", "user.email", "fixture@example.invalid");
+                Git(repositoryRoot, "config", "user.name", "Fixture");
+                Git(repositoryRoot, "add", ".");
+                Git(repositoryRoot, "commit", "-m", "fixture commit");
+            }
             return new DurableRunFixture(repositoryRoot, hostRoot);
+        }
+
+        /// <summary>
+        /// Seeds the fixture repository with the ambient Git configuration neutralised, so a developer
+        /// or image that signs commits or installs hooks cannot fail the test.
+        /// </summary>
+        private static void Git(string root, params string[] arguments)
+        {
+            using var process = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo("git")
+                {
+                    WorkingDirectory = root,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                },
+            };
+            process.StartInfo.Environment["GIT_CONFIG_GLOBAL"] = Path.Combine(root, ".gitconfig-absent");
+            process.StartInfo.Environment["GIT_CONFIG_SYSTEM"] = Path.Combine(root, ".gitconfig-absent");
+            process.StartInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+            foreach (var setting in new[] { "commit.gpgsign=false", "core.hooksPath=", "core.autocrlf=false" })
+            {
+                process.StartInfo.ArgumentList.Add("-c");
+                process.StartInfo.ArgumentList.Add(setting);
+            }
+            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+            process.Start();
+            process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
         }
 
         public StoredReviewRun CreateRun(
@@ -628,9 +741,14 @@ public sealed class ReviewRunStoreTests
         {
             try
             {
+                // Git marks pack and object files read-only, so a fixture repository needs the
+                // attributes cleared before the tree can be removed on Windows.
+                foreach (var file in Directory.EnumerateFiles(
+                             Path.GetDirectoryName(RepositoryRoot)!, "*", SearchOption.AllDirectories))
+                    File.SetAttributes(file, FileAttributes.Normal);
                 Directory.Delete(Path.GetDirectoryName(RepositoryRoot)!, recursive: true);
             }
-            catch (IOException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
             }
         }

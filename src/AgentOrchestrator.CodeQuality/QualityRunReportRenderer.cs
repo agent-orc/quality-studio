@@ -50,6 +50,8 @@ public static class QualityRunReportRenderer
         text.AppendLine();
         text.AppendLine($"Run `{EscapeMarkdown(run.Id)}` revision {run.Revision} · {report.Subject.Targets.Count} targets · {report.Execution.Reviewed} reviewed · {report.Execution.ReusedFresh} reused · {report.Execution.Failed} failed · {report.Execution.Skipped} skipped");
         text.AppendLine();
+        text.AppendLine($"Repository `{EscapeMarkdown(run.RepositoryId)}` at commit {EscapeMarkdown(SourceRevisionText(run.SourceRevision))}");
+        text.AppendLine();
         text.AppendLine(summary.Score.HasValue
             ? $"Score {summary.Score}/100 ({summary.Grade}) · {summary.Findings.Total} active findings · {JoinCounts(summary.Findings.BySeverity)}"
             : $"Score unavailable · {summary.Findings.Total} active findings · {EscapeMarkdown(summary.PartialReason ?? "partial run")}");
@@ -87,15 +89,17 @@ public static class QualityRunReportRenderer
         text.AppendLine("## Unit outcomes");
         text.AppendLine();
         foreach (var observation in report.Observations)
-            text.AppendLine($"- {EscapeMarkdown(observation.Outcome)} · {EscapeMarkdown(observation.Level)} · {EscapeMarkdown(observation.Path)}{(observation.ProducedByRun ? " · produced" : observation.Outcome == "skipped-fresh" ? " · reused" : string.Empty)}");
+            text.AppendLine($"- {EscapeMarkdown(observation.Outcome)} · {EscapeMarkdown(observation.Level)} · {EscapeMarkdown(observation.Path)}{(ObservationOrigin(observation) is { } origin ? $" · {origin}" : string.Empty)}");
 
         text.AppendLine();
         text.AppendLine("## Usage and provenance");
         text.AppendLine();
         text.AppendLine($"- Route: {EscapeMarkdown(run.CliType)} · {EscapeMarkdown(run.Model)} · {EscapeMarkdown(run.ThinkingLevel)}");
+        text.AppendLine($"- Commit: {EscapeMarkdown(SourceRevisionText(run.SourceRevision))}");
         text.AppendLine($"- Usage: {Number(report.Execution.Usage.InputTokens)} input · {Number(report.Execution.Usage.OutputTokens)} output · {report.Execution.Usage.DurationMs} ms · {Cost(report.Execution.Usage)}");
-        if (report.Execution.Cap.Reason is not null)
-            text.AppendLine($"- Cap: {EscapeMarkdown(report.Execution.Cap.Outcome)} · {EscapeMarkdown(report.Execution.Cap.Reason)}");
+        // A run with no configured cap has nothing to report; only a configured or reached cap is news.
+        if (report.Execution.Cap.Outcome != "not-configured")
+            text.AppendLine($"- Cap: {EscapeMarkdown(CapText(report.Execution.Cap))}");
         return text.ToString();
     }
 
@@ -106,29 +110,46 @@ public static class QualityRunReportRenderer
         var findings = CurrentFindings(report)
             .OrderBy(finding => SeverityRank.GetValueOrDefault(finding.Severity, int.MaxValue))
             .ThenBy(finding => finding.Title, StringComparer.Ordinal).ToArray();
+        var suppressed = findings.Count(finding => finding.State is "waived" or "false-positive");
         var html = new StringBuilder();
         html.Append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
         html.Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'\">");
         html.Append("<title>Quality Studio review run ").Append(H(run.Id)).Append("</title><style>");
-        html.Append(" :root{color-scheme:light dark;--bg:#fbfbfa;--surface:#f2f2ef;--ink:#171715;--muted:#62625d;--line:#d8d7d1;--ok:#19733a;--warn:#936300;--bad:#a53333} @media(prefers-color-scheme:dark){:root{--bg:#191918;--surface:#242423;--ink:#f7f7f4;--muted:#b5b4ad;--line:#3e3e3a;--ok:#68c884;--warn:#e0b14e;--bad:#ef8585}}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}main{max-width:72rem;margin:auto;padding:2rem 1.5rem 5rem}header{padding-bottom:1.5rem;border-bottom:1px solid var(--line)}h1{margin:.25rem 0;font-size:2rem}.eyebrow,.muted{color:var(--muted)}.eyebrow{text-transform:uppercase;letter-spacing:.1em;font-size:.75rem}.state{display:inline-block;margin-top:.75rem;padding:.2rem .65rem;border:1px solid var(--line);border-radius:999px;font-size:.8rem;font-weight:700}.partial{color:var(--warn)}section{margin-top:2.5rem}h2{font-size:1.25rem}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border:1px solid var(--line);background:var(--line)}.summary div{padding:1rem;background:var(--surface)}.summary b{display:block;font-size:1.25rem}table{width:100%;border-collapse:collapse}th,td{padding:.65rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:.75rem;text-transform:uppercase}.finding{padding:1rem 0;border-bottom:1px solid var(--line)}.finding h3{margin:.35rem 0;font-size:1rem}.finding p{max-width:75ch}.severity{font-size:.75rem;font-weight:700;text-transform:uppercase}.critical,.high{color:var(--bad)}.medium{color:var(--warn)}code{font-family:ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}@media(max-width:42rem){.summary{grid-template-columns:1fr 1fr}th:nth-child(3),td:nth-child(3){display:none}}@media print{body{background:#fff;color:#000}main{max-width:none;padding:0}.state{border-color:#777}} ");
+        html.Append(" :root{color-scheme:light dark;--bg:#fbfbfa;--surface:#f2f2ef;--ink:#171715;--muted:#62625d;--line:#d8d7d1;--ok:#19733a;--warn:#936300;--bad:#a53333} @media(prefers-color-scheme:dark){:root{--bg:#191918;--surface:#242423;--ink:#f7f7f4;--muted:#b5b4ad;--line:#3e3e3a;--ok:#68c884;--warn:#e0b14e;--bad:#ef8585}}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}main{max-width:72rem;margin:auto;padding:2rem 1.5rem 5rem}header{padding-bottom:1.5rem;border-bottom:1px solid var(--line)}h1{margin:.25rem 0;font-size:2rem}.eyebrow,.muted{color:var(--muted)}.eyebrow{text-transform:uppercase;letter-spacing:.1em;font-size:.75rem}.state{display:inline-block;margin-top:.75rem;padding:.2rem .65rem;border:1px solid var(--line);border-radius:999px;font-size:.8rem;font-weight:700}.partial{color:var(--warn)}section{margin-top:2.5rem}h2{font-size:1.25rem}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border:1px solid var(--line);background:var(--line)}.summary div{padding:1rem;background:var(--surface)}.summary b{display:block;font-size:1.25rem}table{width:100%;border-collapse:collapse}th,td{padding:.65rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:.75rem;text-transform:uppercase}.finding{padding:1rem 0;border-bottom:1px solid var(--line)}.finding h3{margin:.35rem 0;font-size:1rem}.finding p{max-width:75ch}.severity{font-size:.75rem;font-weight:700;text-transform:uppercase}.critical,.high{color:var(--bad)}.medium{color:var(--warn)}code{font-family:ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}.facts{margin:1rem 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:.5rem 1.5rem}.facts div{font-size:.8rem}.facts dt{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:.7rem}.facts dd{margin:.1rem 0 0}.dirty{color:var(--warn)}.errors li{max-width:75ch;overflow-wrap:anywhere}@media(max-width:42rem){.summary{grid-template-columns:1fr 1fr}.units th:nth-child(3),.units td:nth-child(3){display:none}}@media print{body{background:#fff;color:#000}main{max-width:none;padding:0}.state{border-color:#777}} ");
         html.Append("</style></head><body><main><header><div class=\"eyebrow\">Quality Studio · review run</div><h1>")
             .Append(H(run.RepositoryName)).Append("</h1><div>").Append(H(run.Kind)).Append(" · ")
-            .Append(H(run.Level)).Append(" · <code>").Append(H(run.Path)).Append("</code></div><span class=\"state ")
-            .Append(run.Completeness == "partial" ? "partial" : string.Empty).Append("\">")
-            .Append(H(run.State)).Append(" · ").Append(H(run.Completeness)).Append("</span><p class=\"muted\">Run <code>")
-            .Append(H(run.Id)).Append("</code> · revision ").Append(run.Revision).Append("</p></header>");
+            .Append(H(run.Level)).Append(" · <code>").Append(H(run.Path)).Append("</code></div><span class=\"state")
+            .Append(run.Completeness == "partial" ? " partial" : string.Empty).Append("\">")
+            .Append(H(run.State)).Append(" · ").Append(H(run.Completeness)).Append("</span><dl class=\"facts\">");
+        Fact(html, "Repository", $"<code>{H(run.RepositoryId)}</code>");
+        Fact(html, "Commit", SourceRevisionHtml(run.SourceRevision));
+        Fact(html, "Run", $"<code>{H(run.Id)}</code> · revision {run.Revision}");
+        Fact(html, "Finished", H(Timestamp(run.FinishedAt)));
+        html.Append("</dl></header>");
         html.Append("<section><h2>Outcome summary</h2><div class=\"summary\"><div><b>")
             .Append(summary.Score?.ToString(CultureInfo.InvariantCulture) ?? "—").Append("</b><span>Score ")
             .Append(H(summary.Grade ?? "unavailable")).Append("</span></div><div><b>").Append(summary.Findings.Total)
             .Append("</b><span>Active findings</span></div><div><b>").Append(report.Execution.Reviewed)
             .Append("</b><span>Reviewed</span></div><div><b>").Append(report.Execution.ReusedFresh)
             .Append("</b><span>Reused fresh</span></div></div>");
+        var severities = JoinCounts(summary.Findings.BySeverity);
+        if (severities.Length > 0) html.Append("<p class=\"muted\">Active by severity: ").Append(H(severities)).Append("</p>");
         if (summary.PartialReason is not null) html.Append("<p class=\"partial\">").Append(H(summary.PartialReason)).Append("</p>");
-        html.Append("<p class=\"muted\">Delta: ").Append(report.Delta.Status == "available"
-            ? $"{report.Delta.New.Count} new · {report.Delta.Persisting.Count} persisting · {report.Delta.Resolved.Count} resolved · {report.Delta.StateChanged.Count} state-changed"
-            : H(report.Delta.Reason ?? "unavailable")).Append("</p></section>");
+        html.Append("</section>");
+
+        html.Append("<section><h2>Finding delta</h2>").Append(report.Delta.Status == "available"
+            ? $"<p>Compared with run <code>{H(report.Delta.PriorRunId!)}</code>.</p><div class=\"summary\">" +
+              $"<div><b>{report.Delta.New.Count}</b><span>New</span></div>" +
+              $"<div><b>{report.Delta.Persisting.Count}</b><span>Persisting</span></div>" +
+              $"<div><b>{report.Delta.Resolved.Count}</b><span>Resolved</span></div>" +
+              $"<div><b>{report.Delta.StateChanged.Count}</b><span>State changed</span></div></div>"
+            : $"<p class=\"muted\">Unavailable: {H(report.Delta.Reason ?? "no prior comparable run snapshot")}</p>")
+            .Append("</section>");
 
         html.Append("<section><h2>Findings</h2>");
+        if (suppressed > 0)
+            html.Append("<p class=\"muted\">").Append(summary.Findings.Total).Append(" active and ")
+                .Append(suppressed).Append(" suppressed finding(s) are listed below. Resolved findings are omitted.</p>");
         if (findings.Length == 0) html.Append("<p class=\"muted\">No active findings were captured.</p>");
         foreach (var finding in findings)
         {
@@ -142,20 +163,106 @@ public static class QualityRunReportRenderer
             if (finding.Evidence is not null) html.Append("<p><b>Evidence:</b> ").Append(H(finding.Evidence)).Append("</p>");
             html.Append("</article>");
         }
-        html.Append("</section><section><h2>Unit outcomes</h2><table><thead><tr><th>Outcome</th><th>Unit</th><th>Observation</th></tr></thead><tbody>");
+        html.Append("</section><section><h2>Unit outcomes</h2><table class=\"units\"><thead><tr><th>Outcome</th><th>Unit</th><th>Observation</th></tr></thead><tbody>");
         foreach (var observation in report.Observations)
-            html.Append("<tr><td>").Append(H(observation.Outcome)).Append("</td><td><code>")
+            html.Append("<tr><td>").Append(H(observation.Outcome))
+                .Append(ObservationOrigin(observation) is { } origin ? $"<br><span class=\"muted\">{origin}</span>" : string.Empty)
+                .Append("</td><td><code>")
                 .Append(H(observation.Path)).Append("</code><br><span class=\"muted\">").Append(H(observation.Level))
+                .Append(observation.Grade is null ? string.Empty : $" · {observation.Grade.Score}/100 {H(observation.Grade.Band)}")
                 .Append("</span></td><td>").Append(observation.SidecarPath is null ? "—" : $"<code>{H(observation.SidecarPath)}</code><br>{H(observation.SidecarSha256 ?? string.Empty)}")
                 .Append("</td></tr>");
-        html.Append("</tbody></table></section><section><h2>Usage and provenance</h2><table><tbody><tr><th>Route</th><td>")
-            .Append(H(run.CliType)).Append(" · ").Append(H(run.Model)).Append(" · ").Append(H(run.ThinkingLevel))
-            .Append("</td></tr><tr><th>Usage</th><td>").Append(H(Number(report.Execution.Usage.InputTokens))).Append(" input · ")
-            .Append(H(Number(report.Execution.Usage.OutputTokens))).Append(" output · ").Append(report.Execution.Usage.DurationMs)
-            .Append(" ms · ").Append(H(Cost(report.Execution.Usage))).Append("</td></tr><tr><th>Subject</th><td><code>")
-            .Append(H(report.Subject.ManifestHash)).Append("</code></td></tr></tbody></table></section></main></body></html>\n");
+        html.Append("</tbody></table></section>");
+
+        if (report.Execution.Errors.Count > 0)
+        {
+            html.Append("<section><h2>Execution errors</h2><ul class=\"errors\">");
+            foreach (var error in report.Execution.Errors) html.Append("<li>").Append(H(error)).Append("</li>");
+            html.Append("</ul></section>");
+        }
+
+        var usage = report.Execution.Usage;
+        html.Append("<section><h2>Token ledger and cap</h2><table><tbody>");
+        Row(html, "Operations", H(usage.Operations.ToString(CultureInfo.InvariantCulture)));
+        Row(html, "Input tokens", H(Number(usage.InputTokens)) +
+                                  (usage.CachedInputTokens.HasValue ? $" · {H(Number(usage.CachedInputTokens))} cached" : string.Empty));
+        Row(html, "Output tokens", H(Number(usage.OutputTokens)) +
+                                   (usage.ReasoningOutputTokens.HasValue ? $" · {H(Number(usage.ReasoningOutputTokens))} reasoning" : string.Empty));
+        Row(html, "Duration", H(usage.DurationMs.ToString("N0", CultureInfo.InvariantCulture)) + " ms");
+        Row(html, "Cost", H(Cost(usage)));
+        Row(html, "Estimate deviation", H(Deviation(usage)));
+        Row(html, "Cap", H(CapText(report.Execution.Cap)));
+        html.Append("</tbody></table></section>");
+
+        html.Append("<section><h2>Provenance</h2><table><tbody>");
+        Row(html, "Route", H($"{run.CliType} · {run.Model} · {run.ThinkingLevel}") +
+                           (run.Force ? " · <span class=\"muted\">forced</span>" : string.Empty));
+        Row(html, "Commit", SourceRevisionHtml(run.SourceRevision));
+        Row(html, "Created", H(Timestamp(run.CreatedAt)));
+        Row(html, "Started", H(Timestamp(run.StartedAt)));
+        Row(html, "Finished", H(Timestamp(run.FinishedAt)));
+        Row(html, "Subject", $"<code>{H(report.Subject.ManifestHash)}</code>");
+        html.Append("</tbody></table></section></main></body></html>\n");
         return html.ToString();
     }
+
+    /// <summary>
+    /// Whether this unit's observation was written by this run or reused from a fresh one. A unit
+    /// that produced no observation at all - failed, cancelled, plain skipped - gets no label rather
+    /// than being described as reused.
+    /// </summary>
+    private static string? ObservationOrigin(QualityRunObservation observation) =>
+        observation.ProducedByRun ? "produced" : observation.Outcome == "skipped-fresh" ? "reused" : null;
+
+    private static void Row(StringBuilder html, string label, string value) =>
+        html.Append("<tr><th>").Append(label).Append("</th><td>").Append(value).Append("</td></tr>");
+
+    private static void Fact(StringBuilder html, string label, string value) =>
+        html.Append("<div><dt>").Append(label).Append("</dt><dd>").Append(value).Append("</dd></div>");
+
+    private static string SourceRevisionHtml(QualityRunSourceRevision? revision) => revision is null
+        ? "<span class=\"muted\">unavailable</span>"
+        : $"<code>{H(revision.ShortCommitSha)}</code>" +
+          (revision.Branch is null ? string.Empty : $" · {H(revision.Branch)}") +
+          (WorkingTree(revision) is { } state ? $" · <span class=\"dirty\">{state}</span>" : string.Empty);
+
+    private static string SourceRevisionText(QualityRunSourceRevision? revision) => revision is null
+        ? "unavailable"
+        : revision.ShortCommitSha +
+          (revision.Branch is null ? string.Empty : $" ({revision.Branch})") +
+          (WorkingTree(revision) is { } state ? $" · {state}" : string.Empty);
+
+    private static string? WorkingTree(QualityRunSourceRevision revision) => revision.Dirty switch
+    {
+        true => "uncommitted changes",
+        false => null,
+        null => "working tree state unknown",
+    };
+
+    private static string Timestamp(DateTimeOffset? value) => value.HasValue
+        ? value.Value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture)
+        : "unavailable";
+
+    private static string CapText(QualityRunCap cap)
+    {
+        var limits = new List<string>();
+        if (cap.TokenLimit.HasValue) limits.Add($"{cap.TokenLimit.Value.ToString("N0", CultureInfo.InvariantCulture)} tokens");
+        if (cap.CostLimit.HasValue) limits.Add($"{cap.CostLimit.Value.ToString("0.####", CultureInfo.InvariantCulture)} cost");
+        var text = cap.Outcome + (limits.Count > 0 ? " · limit " + string.Join(" · ", limits) : string.Empty);
+        return cap.Reason is null ? text : $"{text} · {cap.Reason}";
+    }
+
+    private static string Deviation(QualityRunUsage usage)
+    {
+        var parts = new List<string>();
+        if (usage.InputEstimateDeviationPercent.HasValue) parts.Add($"input {Signed(usage.InputEstimateDeviationPercent.Value)}");
+        if (usage.OutputEstimateDeviationPercent.HasValue) parts.Add($"output {Signed(usage.OutputEstimateDeviationPercent.Value)}");
+        if (usage.CostEstimateDeviationPercent.HasValue) parts.Add($"cost {Signed(usage.CostEstimateDeviationPercent.Value)}");
+        return parts.Count > 0 ? string.Join(" · ", parts) : "unavailable";
+    }
+
+    private static string Signed(decimal percent) =>
+        percent.ToString("+0.##;-0.##;0", CultureInfo.InvariantCulture) + "%";
 
     private static string Sarif(QualityRunReportDocument report)
     {
@@ -271,6 +378,11 @@ public static class QualityRunReportRenderer
                 ["state"] = report.Run.State,
                 ["completeness"] = report.Run.Completeness,
                 ["locationlessResults"] = findings.Count(finding => finding.Locations.Count == 0),
+                // Reported as run properties rather than versionControlProvenance: OASIS requires a
+                // repositoryUri there, and Quality Studio does not publish remote URLs.
+                ["sourceRevisionId"] = report.Run.SourceRevision?.CommitSha,
+                ["sourceBranch"] = report.Run.SourceRevision?.Branch,
+                ["sourceDirty"] = report.Run.SourceRevision?.Dirty,
                 ["summary"] = JsonSerializer.SerializeToNode(report.Summary, QualityRunReportJson.Options),
                 ["delta"] = JsonSerializer.SerializeToNode(report.Delta, QualityRunReportJson.Options),
             },
@@ -298,7 +410,7 @@ public static class QualityRunReportRenderer
     private static string Number(long? value) => value?.ToString("N0", CultureInfo.InvariantCulture) ?? "unavailable";
 
     private static string Cost(QualityRunUsage usage) => usage.Cost.HasValue
-        ? $"{usage.Cost:0.####} {usage.Currency ?? "USD"}"
+        ? $"{usage.Cost.Value.ToString("0.####", CultureInfo.InvariantCulture)} {usage.Currency ?? "USD"}"
         : $"cost {usage.PriceStatus}";
 
     private static string EscapeMarkdown(string value) => value.Replace("\\", "\\\\", StringComparison.Ordinal)

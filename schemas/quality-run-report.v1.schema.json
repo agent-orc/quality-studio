@@ -46,7 +46,20 @@
         "model": { "type": "string", "minLength": 1, "maxLength": 200 },
         "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
         "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
-        "force": { "type": "boolean" }
+        "force": { "type": "boolean" },
+        "sourceRevision": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sourceRevision" }] }
+      }
+    },
+    "sourceRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitSha", "shortCommitSha", "branch", "dirty", "committedAt"],
+      "properties": {
+        "commitSha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
+        "shortCommitSha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
+        "branch": { "type": ["string", "null"], "minLength": 1, "maxLength": 400 },
+        "dirty": { "type": ["boolean", "null"] },
+        "committedAt": { "type": ["string", "null"], "format": "date-time" }
       }
     },
     "subject": {

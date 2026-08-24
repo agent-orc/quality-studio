@@ -735,7 +735,30 @@ in the app, and R4 adds run comparison. Each slice has a bounded proof and no ta
   <b>Commit trend</b>.</p>
 </div>
 
-<p class="dim">Method note: documentation-only dossier. The reference CSS declarations were copied from
+<div class="box">
+  <h4>24 August 2026 · QS-87 · R5</h4>
+  <p>Delivered reviewed-source provenance and a complete portable HTML document. Planning a run now pins the
+  repository head revision - full and short commit SHA, branch, working-tree state, and commit time - into the
+  canonical snapshot as the optional <code>run.sourceRevision</code>. HTML and Markdown name the repository and
+  that commit; SARIF carries it as <code>sourceRevisionId</code>, <code>sourceBranch</code>, and
+  <code>sourceDirty</code> run properties rather than <code>versionControlProvenance</code>, because OASIS
+  requires a <code>repositoryUri</code> that Quality Studio does not publish. The HTML document gained the
+  sections §6 requires but the first wave omitted: repository identity and run timestamps in the header, a
+  severity breakdown, a dedicated finding-delta section naming the prior run, execution errors, and a token
+  ledger that states operations, cached and reasoning tokens, estimate deviation, and the cap outcome with its
+  reason. The report route accepts <code>disposition=inline</code> and answers with <code>nosniff</code> and a
+  response-level content security policy, so the run detail surface can open the document in a browser tab
+  instead of only downloading it. Snapshots written before this capture stay schema-valid and read
+  <b>commit unavailable</b> in every projection.</p>
+</div>
+
+<p>Known gaps this slice deliberately did not claim: the run trend point still omits model, CLI type, severity
+breakdown, and cap outcome; the trend endpoint filters by kind, scope, and level but not by repository id; the
+canonical snapshot is validated by invariant checks rather than against the published JSON Schema at write time;
+and the run detail surface remains drawer-nested rather than linkable.</p>
+
+<p class="dim">Method note: documentation-only dossier through QS-73. The QS-87 entry above records implemented
+behavior verified by that card's tests and before/after evidence. The reference CSS declarations were copied from
 <code>agent-taskboard/docs/operations/haertung-verteilte-ausfuehrung/index.html</code>. Repository evidence was
 read from Quality Studio source, schemas, tests, docs, committed sidecars, and the live CLI report output listed
 in §2.</p>

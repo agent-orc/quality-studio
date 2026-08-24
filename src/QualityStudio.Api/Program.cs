@@ -1023,6 +1023,9 @@ static async Task<IResult> Report(HttpContext context, string? format,
     logger.LogInformation(new EventId(1600, "QualityReportGenerated"),
         "Generated {ReportFormat} quality report for {RepositoryCount} repositories in {ElapsedMilliseconds} ms",
         selectedFormat, repositories.Length, stopwatch.ElapsedMilliseconds);
+    // This route has always rendered inline, so it carries the same document policy as the
+    // run-scoped report rather than being the one report surface without one.
+    HardenReportResponse(context, selectedFormat, inline: true);
     return Results.Text(rendered, QualityReportRenderer.ContentType(selectedFormat), Encoding.UTF8);
 }
 
@@ -1099,6 +1102,7 @@ static IResult ReviewRunReport(
     HttpContext context,
     string id,
     string? format,
+    string? disposition,
     RepositoryRegistry registry)
 {
     var repository = registry.Get(RouteRepositoryId(context));
@@ -1109,12 +1113,38 @@ static IResult ReviewRunReport(
         ? QualityReportFormat.Json
         : QualityReportRenderer.ParseFormat(format);
     var extension = QualityRunReportRenderer.FileExtension(selectedFormat);
+    if (!TryParseDisposition(disposition, out var inline))
+        return Results.Problem("Report disposition must be attachment or inline.",
+            statusCode: StatusCodes.Status400BadRequest, title: "Invalid report disposition");
     context.Response.Headers.ContentDisposition =
-        $"attachment; filename=\"quality-run-{report.Run.Id}.{extension}\"";
+        $"{(inline ? "inline" : "attachment")}; filename=\"quality-run-{report.Run.Id}.{extension}\"";
+    HardenReportResponse(context, selectedFormat, inline);
     return Results.Text(
         QualityRunReportRenderer.Render(report, selectedFormat),
         QualityReportRenderer.ContentType(selectedFormat),
         Encoding.UTF8);
+}
+
+static bool TryParseDisposition(string? disposition, out bool inline)
+{
+    inline = string.Equals(disposition?.Trim(), "inline", StringComparison.OrdinalIgnoreCase);
+    return inline || string.IsNullOrWhiteSpace(disposition) ||
+           string.Equals(disposition.Trim(), "attachment", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// A rendered report is a saved-file document: it never executes script and never reaches the
+/// network. HTML repeats its own document policy as a response header so a browser-rendered report
+/// is bound by it too, and only an inline view is sandboxed - a sandboxed attachment response can
+/// stop a browser from completing the download.
+/// </summary>
+static void HardenReportResponse(HttpContext context, QualityReportFormat format, bool inline)
+{
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    if (format != QualityReportFormat.Html) return;
+    context.Response.Headers.ContentSecurityPolicy =
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'" +
+        (inline ? "; sandbox" : string.Empty);
 }
 
 static IResult ReviewRunTrend(

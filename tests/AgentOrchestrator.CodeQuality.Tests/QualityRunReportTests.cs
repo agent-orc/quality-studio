@@ -6,14 +6,18 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class QualityRunReportTests
 {
+    // JsonSchema.Net registers a schema globally by its $id, so the document is built once per
+    // assembly instead of once per test. Lazy keeps a fixture-path failure inside the test that needs
+    // the schema instead of turning it into a TypeInitializationException for the whole class.
+    private static readonly Lazy<JsonSchema> RunReportSchema = new(() => JsonSchema.FromText(File.ReadAllText(
+        Path.Combine(RepositoryTestContext.FindRepositoryRoot(), "schemas", "quality-run-report.v1.schema.json"))));
+
     [Fact]
     public void Canonical_json_validates_and_sarif_and_html_preserve_portable_evidence()
     {
         var report = CreateReport("review-export", findingCount: 21);
         using var canonical = JsonDocument.Parse(QualityRunReportRenderer.Render(report, QualityReportFormat.Json));
-        var reportSchema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            RepositoryTestContext.FindRepositoryRoot(), "schemas", "quality-run-report.v1.schema.json")));
-        var reportValidation = reportSchema.Evaluate(canonical.RootElement,
+        var reportValidation = RunReportSchema.Value.Evaluate(canonical.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(reportValidation.IsValid, reportValidation.ToString());
 
@@ -52,6 +56,100 @@ public sealed class QualityRunReportTests
         var markdown = QualityRunReportRenderer.Render(report, QualityReportFormat.Markdown);
         Assert.Contains("1 additional active finding(s) omitted", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("21. [", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Projections_pin_the_reviewed_commit_and_state_the_full_token_ledger()
+    {
+        var capped = CreateReport("review-pinned", findingCount: 1, complete: false);
+        var pinned = capped with
+        {
+            Run = capped.Run with
+            {
+                SourceRevision = new QualityRunSourceRevision(
+                    new string('a', 40),
+                    new string('a', 12),
+                    "feature/<script>",
+                    true,
+                    new DateTimeOffset(2026, 8, 10, 6, 0, 0, TimeSpan.Zero)),
+            },
+            Execution = capped.Execution with
+            {
+                Usage = capped.Execution.Usage with
+                {
+                    InputEstimateDeviationPercent = 12.5m,
+                    OutputEstimateDeviationPercent = -4m,
+                },
+            },
+        };
+
+        using var canonical = JsonDocument.Parse(QualityRunReportRenderer.Render(pinned, QualityReportFormat.Json));
+        var validation = RunReportSchema.Value.Evaluate(canonical.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        Assert.True(validation.IsValid, validation.ToString());
+        Assert.Equal(new string('a', 40), canonical.RootElement.GetProperty("run")
+            .GetProperty("sourceRevision").GetProperty("commitSha").GetString());
+
+        var html = QualityRunReportRenderer.Render(pinned, QualityReportFormat.Html);
+        Assert.Contains(new string('a', 12), html, StringComparison.Ordinal);
+        Assert.Contains("uncommitted changes", html, StringComparison.Ordinal);
+        Assert.Contains(">default<", html, StringComparison.Ordinal);
+        Assert.Contains("Token ledger and cap", html, StringComparison.Ordinal);
+        // Every dynamic ledger value is HTML-encoded, so the separator arrives as a character entity.
+        Assert.Contains(WebUtility.HtmlEncode("reached · limit 50 tokens · Token cap reached."), html,
+            StringComparison.Ordinal);
+        Assert.Contains(WebUtility.HtmlEncode("input +12.5% · output -4%"), html, StringComparison.Ordinal);
+        Assert.Contains("2026-08-11 08:02:00 UTC", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("feature/<script>", html, StringComparison.Ordinal);
+        Assert.Contains(WebUtility.HtmlEncode("feature/<script>"), html, StringComparison.Ordinal);
+
+        var markdown = QualityRunReportRenderer.Render(pinned, QualityReportFormat.Markdown);
+        Assert.Contains($"Repository `default` at commit {new string('a', 12)} (", markdown, StringComparison.Ordinal);
+        Assert.Contains(") · uncommitted changes", markdown, StringComparison.Ordinal);
+        Assert.Contains("- Cap: reached · limit 50 tokens · Token cap reached.", markdown, StringComparison.Ordinal);
+
+        using var sarif = JsonDocument.Parse(QualityRunReportRenderer.Render(pinned, QualityReportFormat.Sarif));
+        var properties = Assert.Single(sarif.RootElement.GetProperty("runs").EnumerateArray()).GetProperty("properties");
+        Assert.Equal(new string('a', 40), properties.GetProperty("sourceRevisionId").GetString());
+        Assert.True(properties.GetProperty("sourceDirty").GetBoolean());
+    }
+
+    [Fact]
+    public void Snapshots_without_a_captured_commit_stay_valid_and_say_so()
+    {
+        var report = CreateReport("review-unpinned", findingCount: 1);
+        Assert.Null(report.Run.SourceRevision);
+
+        using var canonical = JsonDocument.Parse(QualityRunReportRenderer.Render(report, QualityReportFormat.Json));
+        var validation = RunReportSchema.Value.Evaluate(
+            canonical.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        Assert.True(validation.IsValid, validation.ToString());
+        Assert.False(canonical.RootElement.GetProperty("run").TryGetProperty("sourceRevision", out _));
+
+        // Anchored on the rendered Commit cell: "unavailable" alone also appears in the token ledger.
+        Assert.Contains("<dt>Commit</dt><dd><span class=\"muted\">unavailable</span></dd>",
+            QualityRunReportRenderer.Render(report, QualityReportFormat.Html), StringComparison.Ordinal);
+        Assert.Contains("<th>Commit</th><td><span class=\"muted\">unavailable</span></td>",
+            QualityRunReportRenderer.Render(report, QualityReportFormat.Html), StringComparison.Ordinal);
+        Assert.Contains("at commit unavailable", QualityRunReportRenderer.Render(report, QualityReportFormat.Markdown),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Html_separates_active_findings_from_suppressed_ones_it_lists()
+    {
+        var report = CreateReport("review-suppressed", findingCount: 2);
+        var suppressed = report with
+        {
+            Observations = [report.Observations[0] with
+            {
+                Findings = report.Observations[0].Findings
+                    .Select((finding, index) => index == 0 ? finding with { State = "waived" } : finding).ToArray(),
+            }],
+            Summary = report.Summary with { Findings = report.Summary.Findings with { Total = 1 } },
+        };
+
+        var html = QualityRunReportRenderer.Render(suppressed, QualityReportFormat.Html);
+        Assert.Contains("1 active and 1 suppressed finding(s) are listed below.", html, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -57,3 +57,9 @@ The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued
 `.quality/runs/` is ignored by Git because it is disposable orchestration working
 data. Review sidecars remain the committed current-state truth, while canonical
 run reports preserve the historical truth of each terminal execution.
+
+Planning a run also records the repository head revision in the manifest, so the
+canonical report of that run names the commit it reviewed even after the working
+tree has moved on. Reading the revision never fails a run: a repository without
+Git, without a commit, or with an unavailable Git binary simply records no
+revision. See [Quality reports](quality-reports.md#run-scoped-reports).

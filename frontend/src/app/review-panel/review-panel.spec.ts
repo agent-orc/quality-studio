@@ -47,8 +47,11 @@ describe('ReviewPanel session flow', () => {
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
-    runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
+    runReportUrl: (id: string, format: string) =>
+      `/api/repos/default/review/runs/${encodeURIComponent(id)}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
+    // Composed exactly as QualityApi does, so a broken separator or a dropped encode fails here too.
+    runReportViewUrl: (id: string) => `${api.runReportUrl(id, 'html')}&disposition=inline`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
     errorMessage: (error: unknown) => error instanceof Error ? error.message : 'request failed',
   };
@@ -210,5 +213,39 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+
+    const open = fixture.nativeElement.querySelector('.run-open-report');
+    expect(open.getAttribute('href'))
+      .toBe('/api/repos/default/review/runs/terminal/report?format=html&disposition=inline');
+    expect(open.getAttribute('target')).toBe('_blank');
+    expect(open.hasAttribute('download')).toBeFalse();
+    expect(fixture.nativeElement.querySelector('.run-report-state').textContent).toContain('commit unavailable');
+  });
+
+  it('names the reviewed commit and its working-tree state in the run detail', async () => {
+    const run = { id: 'pinned', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code', state: 'done',
+      completedFiles: 1, totalFiles: 1, failedFiles: 0, skippedFiles: 0, errors: [], usageOperations: 0,
+      usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0 },
+      costSpent: null, currency: null, stopReason: null, deviation: null, createdAt: '2026-08-11T08:00:00Z' } as any;
+    api.reviewRuns.set([run]);
+    api.loadRunReport.and.resolveTo({
+      run: { id: 'pinned', revision: 1, completeness: 'complete', state: 'done', cliType: 'codex', model: 'gpt-test',
+        thinkingLevel: 'high',
+        sourceRevision: { commitSha: 'a'.repeat(40), shortCommitSha: 'aaaaaaaaaaaa', branch: 'trunk', dirty: true, committedAt: null } },
+      subject: { manifestHash: 'sha256:manifest' },
+      execution: { reviewed: 1, reusedFresh: 0 },
+      summary: { score: 91, grade: 'A', partialReason: null, findings: { total: 0 } },
+      observations: [],
+    } as any);
+    api.loadRunTrend.and.resolveTo({ points: [], nextCursor: null });
+
+    component.runDrawerOpen.set(true);
+    await component.openRun(run);
+    fixture.detectChanges();
+
+    const state = fixture.nativeElement.querySelector('.run-report-state').textContent;
+    expect(state).toContain('aaaaaaaaaaaa (trunk)');
+    expect(state).toContain('uncommitted changes');
+    expect(fixture.nativeElement.querySelector('.run-provenance').textContent).toContain('aaaaaaaaaaaa (trunk)');
   });
 });
