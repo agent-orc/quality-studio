@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived run operation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt", "unitId", "path", "level", "state", "startedAt", "finishedAt"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/id" },
+    "operationId": { "$ref": "#/$defs/id" },
+    "ordinal": { "type": "integer", "minimum": 1 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "$ref": "#/$defs/id" },
+    "path": { "type": "string", "minLength": 1 },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped-fresh"] },
+    "startedAt": { "$ref": "#/$defs/timestamp" },
+    "finishedAt": { "$ref": "#/$defs/timestamp" },
+    "providerRunId": { "$ref": "#/$defs/id" },
+    "reviewedAt": { "$ref": "#/$defs/timestamp" },
+    "reviewedHash": { "type": "string", "minLength": 1 },
+    "reviewInputsHash": { "type": "string", "minLength": 1 },
+    "resultSidecar": { "type": "string", "minLength": 1 },
+    "verdict": { "$ref": "#/$defs/verdict" },
+    "grade": { "$ref": "#/$defs/grade" },
+    "errorCode": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "error": { "type": "string", "minLength": 1, "maxLength": 4000 }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] }
+      }
+    }
+  }
+}
