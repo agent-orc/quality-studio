@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Json.Schema;
 
@@ -233,8 +234,15 @@ internal static class SchemaAssert
 {
     public static EvaluationOptions Options { get; } = new() { OutputFormat = OutputFormat.List };
 
-    public static JsonSchema Load(string fileName) => JsonSchema.FromText(
-        File.ReadAllText(Path.Combine(RepositoryTestContext.FindRepositoryRoot(), "schemas", fileName)));
+    private static readonly ConcurrentDictionary<string, JsonSchema> Cache = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Loads a published schema once per file. <see cref="JsonSchema.FromText"/> registers the
+    /// document by its <c>$id</c> in a process-wide registry, so building the same schema twice
+    /// would throw regardless of which test asked for it first.
+    /// </summary>
+    public static JsonSchema Load(string fileName) => Cache.GetOrAdd(fileName, name => JsonSchema.FromText(
+        File.ReadAllText(Path.Combine(RepositoryTestContext.FindRepositoryRoot(), "schemas", name))));
 
     public static string Describe(EvaluationResults results) => results.ToString() ?? "invalid";
 }

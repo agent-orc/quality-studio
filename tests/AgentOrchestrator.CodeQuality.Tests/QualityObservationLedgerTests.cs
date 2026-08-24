@@ -213,6 +213,23 @@ public sealed class QualityObservationLedgerTests
     }
 
     [Fact]
+    public async Task AnObservationWrittenByARealReviewValidatesAgainstThePublishedSchema()
+    {
+        using var directory = new TempRepository();
+        await WriteSubjectAsync(directory.Path);
+        var schema = SchemaAssert.Load("quality-observation.v1.schema.json");
+
+        await Runner("model-a", "high").ReviewAsync(
+            new ReviewRequest("src/Small.cs", RepositoryRoot: directory.Path, ReviewRunId: "review-1"), Token);
+
+        var line = Assert.Single(await File.ReadAllLinesAsync(QualityObservationLedger.GetLedgerPath(
+            directory.Path, DateTimeOffset.UtcNow), Token), text => text.Length > 0);
+        using var json = JsonDocument.Parse(line);
+        var result = schema.Evaluate(json.RootElement, SchemaAssert.Options);
+        Assert.True(result.IsValid, SchemaAssert.Describe(result));
+    }
+
+    [Fact]
     public void TheRoutingPolicyNamesTheProviderBehindEachCli()
     {
         Assert.Equal("openai", ReviewRouteProvenance.ProviderForCli("codex"));
