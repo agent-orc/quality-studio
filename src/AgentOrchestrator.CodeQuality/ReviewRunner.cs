@@ -34,7 +34,8 @@ public sealed record ReviewResult(
     string RunId,
     ResolvedInputs Inputs,
     ReviewUsageEntry Usage,
-    ReviewObservationSnapshot? Observation = null);
+    ReviewObservationSnapshot? Observation = null,
+    QualityObservation? TaxonomyObservation = null);
 
 /// <summary>
 /// Immutable copy of the review metadata and lifecycle states observed by one sweep operation.
@@ -65,6 +66,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly QualityTaxonomyOptions _taxonomyOptions;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -73,8 +75,10 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        QualityTaxonomyOptions? taxonomyOptions = null)
     {
+        _taxonomyOptions = taxonomyOptions ?? QualityTaxonomyOptions.FromEnvironment();
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
@@ -171,6 +175,7 @@ public sealed class ReviewRunner
 
             var adapter = AdapterFromUnitId(unitId);
             ReviewObservationSnapshot observation;
+            QualityObservation? taxonomyObservation;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -199,6 +204,11 @@ public sealed class ReviewRunner
                     threads,
                     sensorEvidence,
                     deterministicEvidence);
+                // The observation is the authoritative record, so it is appended before the sidecar
+                // projection. A crash between the two leaves a recoverable observation; a failed
+                // append leaves the previous sidecar current instead of an unbacked new one.
+                taxonomyObservation = await AppendTaxonomyObservationAsync(
+                    root, meta, agentResult, usage, cancellationToken).ConfigureAwait(false);
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
@@ -217,7 +227,8 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation,
+                    taxonomyObservation),
                 observation);
         }
         catch (Exception exception)
@@ -225,6 +236,44 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Appends the immutable observation for one completed review. Every route fact the runner
+    /// cannot report is stored as <c>unknown</c>; none is inferred from the model name or from
+    /// today's routing policy.
+    /// </summary>
+    private async Task<QualityObservation?> AppendTaxonomyObservationAsync(
+        string root,
+        JsonObject meta,
+        ReviewAgentResult agentResult,
+        ReviewUsageEntry usage,
+        CancellationToken cancellationToken)
+    {
+        if (!_taxonomyOptions.ObservationWriteEnabled) return null;
+        var producer = new ObservationProducer(
+            CoreTerms.ProducerKind.Agent,
+            _agent.AgentName,
+            ReviewRouteProvenance.OrUnknown(_agent.Provider),
+            ReviewRouteProvenance.OrUnknown(_agent.Model),
+            ReviewRouteProvenance.OrUnknown(agentResult.EffectiveModel ?? usage.Model),
+            ReviewRouteProvenance.OrUnknown(_agent.ThinkingLevel),
+            ReviewRouteProvenance.PolicyVersion,
+            RunId: agentResult.RunId,
+            ReviewRunId: usage.ReviewRunId);
+        var observation = ReviewObservationProjection.FromReviewMeta(meta, producer, DateTimeOffset.UtcNow);
+        try
+        {
+            await QualityObservationLedger.AppendAsync(root, observation, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+        {
+            throw new QualityObservationAppendException(
+                "The review's authoritative observation could not be appended; the previous sidecar stays current.",
+                exception);
+        }
+
+        return observation;
     }
 
     private static async Task<ReviewObservationSnapshot> CaptureExistingObservationAsync(

@@ -13,6 +13,15 @@ public interface IReviewAgent
 
     string? Model { get; }
 
+    /// <summary>
+    /// The thinking level the route selected, or <c>null</c> when the runner cannot report one.
+    /// A level is never inferred from a model name.
+    /// </summary>
+    string? ThinkingLevel => null;
+
+    /// <summary>The provider that owns the CLI, or <c>null</c> when the runner cannot report one.</summary>
+    string? Provider => null;
+
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
@@ -59,6 +68,10 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     public string AgentName => _cliType;
 
     public string? Model { get; }
+
+    public string? ThinkingLevel => _thinkingLevel;
+
+    public string? Provider => ReviewRouteProvenance.ProviderForCli(_cliType);
 
     public async Task<ReviewAgentResult> RunAsync(
         string prompt,
