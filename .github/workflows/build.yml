@@ -21,6 +21,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
@@ -39,3 +46,44 @@ jobs:
 
       - name: Security scan
         run: dotnet run --project src/quality-cli -- security scan .
+
+      - name: NuGet vulnerable package check (solution)
+        run: |
+          set -euo pipefail
+          dotnet list QualityStudio.slnx package --vulnerable --include-transitive --format json > nuget-vulnerable-solution.json
+          cat nuget-vulnerable-solution.json
+          if jq -e '.projects[]? | select(.frameworks != null)' nuget-vulnerable-solution.json >/dev/null; then
+            echo "::error::Vulnerable NuGet packages found in the solution. See output above."
+            exit 1
+          fi
+
+      - name: NuGet vulnerable package check (code-graph spike)
+        run: |
+          set -euo pipefail
+          dotnet restore spikes/code-graph/CodeGraphSpike.csproj
+          dotnet list spikes/code-graph/CodeGraphSpike.csproj package --vulnerable --include-transitive --format json > nuget-vulnerable-spike.json
+          cat nuget-vulnerable-spike.json
+          if jq -e '.projects[]? | select(.frameworks != null)' nuget-vulnerable-spike.json >/dev/null; then
+            echo "::error::Vulnerable NuGet packages found in the code-graph spike. See output above."
+            exit 1
+          fi
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Frontend production dependency audit
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Frontend full dependency tree audit (advisory, dev tooling included)
+        working-directory: frontend
+        run: npm audit || true
