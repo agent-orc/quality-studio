@@ -574,7 +574,7 @@
       </tr>
       <tr>
         <td>2026-08-11</td><td><code>QS-75</code></td><td><b>5. Release canary and upkeep</b></td>
-        <td>Added a scheduled and manual canary for the labeled <code>quality-studio-canary</code> Linux host. It records host metadata, runs three machine-bound .NET and browser-performance samples, exercises real repository switching, retains JSON/screenshots/TRX/logs for 30 days, and exposes the live review check only as an explicit manual option for review-execution changes.</td>
+        <td>Added a manually dispatched canary for the labeled <code>quality-studio-canary</code> Linux host. It records host metadata, runs three machine-bound .NET and browser-performance samples, exercises real repository switching, retains JSON/screenshots/TRX/logs for 30 days, and exposes the live review check only as an explicit manual option for review-execution changes.</td>
       </tr>
       <tr>
         <td>2026-08-11</td><td><code>QS-75</code></td><td><b>Integration refresh</b></td>
@@ -587,6 +587,10 @@
       <tr>
         <td>2026-08-12</td><td><code>QS-89</code></td><td><b>Keep-green enforcement</b></td>
         <td>Split portable, controlled tool-bound, machine-bound, and external-live xUnit selections behind one tested lane definition; each expected selection now fails when its inventory is empty. Removed the routine live-test skip by classifying it <code>ExternalLive</code> and making missing opt-in fail. Centralized platform-neutral Node process fixtures, enforced class-level <code>ToolBound</code> ownership for real Git/process consumers, and added the scoped <code>npm run test:pre-review</code> target. The gate honesty and fixture rules are documented in <a href="keep-green.md"><code>keep-green.md</code></a>.</td>
+      </tr>
+      <tr>
+        <td>2026-08-24</td><td><code>QS-89</code></td><td><b>Integration refresh</b></td>
+        <td>Replayed the keep-green wave onto the current integration tip. Integration had meanwhile landed the release-canary workflow independently and had deliberately retired its cron schedule and kept a workspace-relative results path; that integration version was kept verbatim, so the canary is manual-only and the earlier ledger wording was corrected. Integration had also replaced the required workflow's pull-request trigger with tag and manual dispatch triggers, which was likewise kept; the coarse <code>Category!=MachineBound</code> filter it introduced was superseded by the named lane scripts, which preserve that exclusion and additionally separate portable from controlled tool-bound runs. Re-verified locally on .NET 10.0.301, Node 22.23.1, npm 10.9.8, Playwright Chromium 149: 205 required .NET tests across the two lanes, 41 Angular specs, 5 dev-stack and 10 repository-contract checks, all passing with zero skips; the coverage ratchet held on all eleven scopes and the pinned Gitleaks scan reported no findings.</td>
       </tr>
     </tbody>
   </table>
