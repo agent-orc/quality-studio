@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "quality-studio-performance",
+  "title": "Quality Studio performance",
+  "summary": "Measured performance baseline for Quality Studio on a real host and two real repositories (349 and 5,116 tracked files): startup, repository switch, review-run latency, memory over a long session, and large-repository behaviour. Verifies QS-54's prewarm as delivered and shows why the click-to-usable contract still breaks: the warm /api/tree response is 33.87 MiB in 601.79 ms and owns about 90 % of the switch critical path, any repository write forces a full inline rebuild that cost 16.1 s after an 82 ms sensor scan, and the review preflight is synchronous at ~164 ms per subject file. Recommends slices P-1 to P-5 with harness-checkable exit criteria, and records that the requested model-versus-parsing split is unavailable because the review path emits no phase telemetry.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-08-24T00:00:00Z",
+  "sourceTaskKeys": ["QS-59"]
+}
