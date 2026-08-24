@@ -188,6 +188,12 @@ async function startChild(name, command, options) {
   state.children.push({ name, process: child });
   pipeLogs(name, child.stdout, 'stdout');
   pipeLogs(name, child.stderr, 'stderr');
+  // A failed spawn emits 'error' and never emits 'exit', so without this the
+  // readiness wait would run to its full timeout and report the wrong cause.
+  child.once('error', error => {
+    child.startupError = error;
+    console.error(formatLog(name, `failed to start ${command[0]}: ${error instanceof Error ? error.message : String(error)}`));
+  });
   child.once('exit', (code, signal) => {
     console.log(formatLog(name, `exited code=${code ?? 'null'} signal=${signal ?? 'null'}`));
   });
@@ -242,6 +248,12 @@ async function waitForHttp(url, timeoutMs, name) {
 
 async function waitForChildExitBeforeReady(child) {
   return new Promise((resolvePromise, rejectPromise) => {
+    const rejectSpawnFailure = error => rejectPromise(new Error(`process failed to start: ${error instanceof Error ? error.message : String(error)}`));
+    if (child.startupError) {
+      rejectSpawnFailure(child.startupError);
+      return;
+    }
+    child.once('error', rejectSpawnFailure);
     child.once('exit', code => {
       if (!state.ready) rejectPromise(new Error(`process exited during startup with code ${code ?? 'null'}`));
       else resolvePromise();

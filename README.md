@@ -210,7 +210,64 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `tests/Shared/` contains the test support both xUnit suites link: the temporary Git
+  repository builder, the directory cleanup helper, and the lane taxonomy.
+- `tests/helpers/` contains the launcher-suite harness: platform-neutral fixtures, free
+  port reservation, and the captured child transcript attached to failures.
+- `tests/coverage.runsettings` is the coverage collection configuration the gate uses.
+- `.github/workflows/build.yml` is the required gate for pull requests and pushes to `main`.
+- `.github/workflows/release-canary.yml` is the manually dispatched release canary.
+
+## Test lanes
+
+Checks are separated by what can make them fail, so a red result has one owner and one
+meaning. These are the same commands the required gate runs — nothing in it needs a warm
+cache or a machine-specific measurement.
+
+**Portable — required on every pull request.** Deterministic assertions plus the tools
+the job provisions itself (.NET 10.0.301, Node 22.23.1, pinned Chromium, pinned
+Gitleaks 8.24.2).
+
+```shell
+dotnet build QualityStudio.slnx --configuration Release
+dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound&Category!=ExternalLive"
+npm --prefix frontend ci
+npm --prefix frontend run browser:install   # pinned Chromium; or set CHROME_BIN yourself
+npm --prefix frontend run build             # production bundle, 480 kB initial error budget
+npm --prefix frontend test
+npm --prefix frontend run test:tooling      # repository test tooling (browser resolution)
+```
+
+**Host integration — required, one job per operating system.** The launcher suite drives
+real child processes, allocates free ports, and writes its own fixtures.
+
+```shell
+npm run test:dev-stack
+```
+
+**Coverage ratchet — required.** Cobertura for both .NET assemblies and lcov for Angular
+are generated, then compared against the committed measurement in
+`.quality/coverage-baseline.json`. A missing or unreadable report fails the gate instead
+of reading as zero coverage. Raise the baseline only together with added tests.
+
+```shell
+dotnet test QualityStudio.slnx --configuration Release --no-build \
+  --filter "Category!=MachineBound&Category!=ExternalLive" \
+  --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings \
+  --results-directory .coverage/dotnet
+npm --prefix frontend run test:coverage
+dotnet run --project src/quality-cli -- coverage . --report .coverage/dotnet --report frontend/coverage
+```
+
+`tests/coverage.runsettings` excludes generated sources, so the ratchet tracks product
+code rather than compiler output. Collecting without it measures thousands of
+source-generator lines and moves several points whenever the SDK changes what it emits.
+
+**Release canary — not on pull requests.** Wall-clock and external-service checks run on
+a labeled host with repeated samples and retained evidence: xUnit tests carrying
+`[Trait("Category", "MachineBound")]`, both frontend performance stages, and — only when
+explicitly requested — the `ExternalLive` review check. Run it from the Actions tab
+(`Release canary`) before cutting a release.
 
 ## Minimal API
 
