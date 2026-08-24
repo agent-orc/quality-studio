@@ -1,0 +1,97 @@
+{
+  "description": "POST /api/review/estimate against modules of increasing file count. The endpoint renders the full review prompt per file synchronously inside the request.",
+  "targets": [
+    {
+      "repositoryId": "default",
+      "moduleCount": 7,
+      "samples": [
+        {
+          "path": "src/quality-cli/quality-cli.csproj",
+          "files": 1,
+          "status": 200,
+          "totalMs": 702.13,
+          "msPerFile": 702.13,
+          "promptCharacters": 54249
+        },
+        {
+          "path": "src/quality/quality.csproj",
+          "files": 1,
+          "status": 200,
+          "totalMs": 395.58,
+          "msPerFile": 395.58,
+          "promptCharacters": 22305
+        },
+        {
+          "path": "src/QualityStudio.Api/QualityStudio.Api.csproj",
+          "files": 14,
+          "status": 200,
+          "totalMs": 2693.09,
+          "msPerFile": 192.36,
+          "promptCharacters": 507916
+        },
+        {
+          "path": "frontend",
+          "files": 40,
+          "status": 200,
+          "totalMs": 8637.15,
+          "msPerFile": 215.93,
+          "promptCharacters": 784664
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+          "files": 57,
+          "status": 200,
+          "totalMs": 10657.99,
+          "msPerFile": 186.98,
+          "promptCharacters": 1647207
+        }
+      ]
+    },
+    {
+      "repositoryId": "taskboard",
+      "moduleCount": 28,
+      "samples": [
+        {
+          "path": "cli-hosting/AgentStudio.CliHosting.csproj",
+          "files": 1,
+          "status": 200,
+          "totalMs": 434.23,
+          "msPerFile": 434.23,
+          "promptCharacters": 48336
+        },
+        {
+          "path": "setup/AgentOrchestratorSetup.csproj",
+          "files": 11,
+          "status": 200,
+          "totalMs": 1824.36,
+          "msPerFile": 165.85,
+          "promptCharacters": 195862
+        },
+        {
+          "path": "backend.Tests/OrchestratorApi.Tests.csproj",
+          "files": 508,
+          "status": 200,
+          "totalMs": 74495.39,
+          "msPerFile": 146.64,
+          "promptCharacters": 12936206
+        },
+        {
+          "path": "frontend",
+          "files": 1215,
+          "status": 200,
+          "totalMs": 198976.86,
+          "msPerFile": 163.77,
+          "promptCharacters": 17480737
+        },
+        {
+          "path": "frontend",
+          "files": 1215,
+          "status": 200,
+          "totalMs": 197834.48,
+          "msPerFile": 162.83,
+          "promptCharacters": 17480737
+        }
+      ]
+    }
+  ]
+}
