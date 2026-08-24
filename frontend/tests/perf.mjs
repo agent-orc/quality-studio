@@ -64,7 +64,7 @@ await page.getByRole('tab', { name: /performance/i }).click();
 await page.waitForFunction(() => performance.getEntriesByName('qs.review.aspect-switch').length >= 1);
 await page.getByRole('textbox', { name: 'Filter files' }).fill('');
 const dashboardStarted = await page.evaluate(() => performance.now());
-await page.locator('[data-node-id="quality-studio"]').click();
+await page.locator('.tree-row').first().click();
 await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
 const dashboardDurationMs = await page.evaluate(start => Number((performance.now() - start).toFixed(2)), dashboardStarted);
 
