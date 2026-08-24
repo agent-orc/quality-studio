@@ -1,9 +1,10 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using AgentOrchestrator.CodeQuality;
+using QualityStudio.Api;
+using Xunit;
 
-namespace AgentOrchestrator.CodeQuality.Tests;
+namespace QualityStudio.Api.Tests;
 
 public sealed class AgentStudioTaskClientTests
 {
