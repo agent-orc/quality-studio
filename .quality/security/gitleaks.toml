@@ -10,6 +10,8 @@ paths = [
   '''(^|/)obj(/|$)''',
   '''(^|/)dist(/|$)''',
   '''(^|/)coverage(/|$)''',
+  '''(^|/)\.coverage(/|$)''',
+  '''(^|/)TestResults(/|$)''',
   '''(^|/)node_modules(/|$)''',
   '''(^|/)\.angular(/|$)''',
   '''(^|/)\.quality/reviews(/|$)''',

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System.Globalization;
 using AgentOrchestrator.CodeQuality;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -120,55 +120,17 @@ public sealed class CoverageSensorTests
 
     private sealed class GitChurnFixture : IDisposable
     {
-        public GitChurnFixture()
-        {
-            Root = Directory.CreateTempSubdirectory("quality-studio-churn-").FullName;
-            Directory.CreateDirectory(Path.Combine(Root, "src"));
-            Run("init", "--quiet");
-            Run("config", "user.email", "fixture@example.test");
-            Run("config", "user.name", "Fixture");
-        }
+        private readonly GitTestRepository repository = GitTestRepository.Create("quality-studio-churn");
 
-        public string Root { get; }
+        public string Root => repository.Root;
 
         public void Commit(string timestamp, params (string Path, string Content)[] files)
         {
-            foreach (var (path, content) in files)
-            {
-                var full = Path.Combine(Root, path.Replace('/', Path.DirectorySeparatorChar));
-                Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-                File.WriteAllText(full, content);
-            }
-            Run("add", ".");
-            RunWithDate(timestamp, "commit", "--quiet", "-m", timestamp);
+            foreach (var (path, content) in files) repository.Write(path, content);
+            repository.CommitAll(timestamp, DateTimeOffset.Parse(timestamp, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind));
         }
 
-        private void Run(params string[] arguments) => RunCore(null, arguments);
-        private void RunWithDate(string date, params string[] arguments) => RunCore(date, arguments);
-
-        private void RunCore(string? date, params string[] arguments)
-        {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo("git")
-                {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            if (date is not null)
-            {
-                process.StartInfo.Environment["GIT_AUTHOR_DATE"] = date;
-                process.StartInfo.Environment["GIT_COMMITTER_DATE"] = date;
-            }
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            process.WaitForExit();
-            Assert.Equal(0, process.ExitCode);
-        }
-
-        public void Dispose() => TestDirectory.Delete(Root);
+        public void Dispose() => repository.Dispose();
     }
 }
