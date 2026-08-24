@@ -37,6 +37,36 @@
   "editedBy": "Operator, recorded by AGT-2621",
   "statusReason": "Blanket approval was recorded on 2026-08-11; implementation card QS-74 is archived.",
   "relatedTaskKeys": [
-    "QS-74"
-  ]
+    "QS-74",
+    "QS-88"
+  ],
+  "implementationState": {
+    "verifiedAt": "2026-08-24T00:00:00Z",
+    "verifiedByTask": "QS-88",
+    "qualityStudioSlices": [
+      {
+        "slice": 1,
+        "status": "delivered",
+        "taskKey": "QS-74",
+        "commit": "d7404cdf1e2a434bfcb3fcf5ab51d888c0c5d277"
+      },
+      {
+        "slice": 2,
+        "status": "delivered",
+        "taskKey": "QS-74",
+        "commit": "d7404cdf1e2a434bfcb3fcf5ab51d888c0c5d277"
+      }
+    ],
+    "verificationTask": {
+      "taskKey": "QS-88",
+      "status": "documented",
+      "evidence": "The url-preview-embed v1 sender was reverified end to end against the documented Agent Studio receiver rules using a real browser and the compiled Quality Studio shell."
+    },
+    "nextSlice": {
+      "slice": 3,
+      "status": "external-dependency",
+      "targetProject": "Agent Studio",
+      "reason": "The Review Plane, ReviewArtifactEvidenceDto, task state, and cohort telemetry do not exist in the Quality Studio repository."
+    }
+  }
 }
