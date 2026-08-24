@@ -13,6 +13,7 @@ import { readFindingRoute, writeFindingRoute } from './review-navigation';
 import { reportUrlPreviewNavigation } from './url-preview-embed';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
+const RECONNECT_POLL_MS = 15_000;
 const RESIZE_HANDLE_WIDTH = 6;
 const EXPLORER_DEFAULT_WIDTH = 280;
 const EXPLORER_MIN_WIDTH = 180;
@@ -76,6 +77,7 @@ export class App implements OnDestroy {
   readonly attackCoverageDialogOpen = signal(false);
   readonly usageHistoryOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
+  readonly retryingConnection = signal(false);
   readonly selectedNode = computed(() => {
     const nodes = flattenTree(this.api.tree(), new Set(), true);
     return nodes.find(node => node.path === this.selected())
@@ -108,6 +110,7 @@ export class App implements OnDestroy {
   private dragFrame: number | null = null;
   private pendingClientX = 0;
   private readonly quotaRefreshTimer: ReturnType<typeof setInterval>;
+  private readonly reconnectTimer: ReturnType<typeof setInterval>;
 
   constructor() {
     effect(() => document.documentElement.dataset['theme'] = this.theme());
@@ -150,6 +153,11 @@ export class App implements OnDestroy {
     });
     void this.initialize();
     this.quotaRefreshTimer = setInterval(() => void this.api.loadQuotas(), 60_000);
+    // While the API is unreachable the notice bar must disappear on its own once the API is
+    // back, without the operator having to press Retry. Idle otherwise.
+    this.reconnectTimer = setInterval(() => {
+      if (this.api.connectionState() === 'offline') void this.retryConnection();
+    }, RECONNECT_POLL_MS);
   }
 
   private async initialize(): Promise<void> {
@@ -166,7 +174,18 @@ export class App implements OnDestroy {
     if (path) this.open(path, false, false, !!this.selectedFindingFingerprint());
   }
 
-  ngOnDestroy(): void { clearInterval(this.quotaRefreshTimer); }
+  /** Retry action of the API-offline notice bar; also driven by the reconnect poll. */
+  async retryConnection(): Promise<void> {
+    if (this.retryingConnection()) return;
+    this.retryingConnection.set(true);
+    try {
+      await this.api.retryConnection();
+    } finally {
+      this.retryingConnection.set(false);
+    }
+  }
+
+  ngOnDestroy(): void { clearInterval(this.quotaRefreshTimer); clearInterval(this.reconnectTimer); }
 
   quotaRemaining(provider: QuotaProvider): number | null {
     const values = provider.windows.map(window => window.remainingPct).filter((value): value is number => value !== null);
