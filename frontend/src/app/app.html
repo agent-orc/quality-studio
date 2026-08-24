@@ -13,9 +13,9 @@
         <div class="repository-menu" role="menu">
           <div class="menu-heading">Switch repository</div>
           @for (repository of api.repositories(); track repository.id) {
-            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
-              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
-              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
+            <button type="button" role="menuitemradio" [disabled]="repository.blocked" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" [title]="repository.blockedReason ?? ''" (click)="switchRepository(repository.id)">
+              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId() || repository.blocked"></span>
+              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.blocked ? 'Blocked · ' + repository.blockedReason : repository.rootPath || 'Legacy default' }}</small></span>
             </button>
           }
           <div class="menu-actions">
@@ -147,7 +147,8 @@
         <nav class="repository-list" aria-label="Configured repositories">
           @for (repository of api.repositories(); track repository.id) {
             <button type="button" [class.active]="repository.id === editingRepositoryId()" (click)="editRepository(repository)">
-              <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+              <strong>{{ repository.displayName }}</strong>
+              <small>{{ repository.blocked ? 'Blocked · ' + repository.blockedReason : repository.id }}</small>
             </button>
           }
           <button class="add-repository" type="button" (click)="onboardRepository()">+ Add repository</button>
@@ -194,6 +195,9 @@
               </label>
             }
           </fieldset>
+          @if (editingRepository()?.blocked) {
+            <div class="form-error" role="status"><strong>Repository blocked.</strong> {{ editingRepository()?.blockedReason }} Update the path to restore access.</div>
+          }
           @if (repositoryError()) { <div class="form-error" role="alert">{{ repositoryError() }}</div> }
           <footer>
             @if (editingRepository(); as repository) {

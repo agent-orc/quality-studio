@@ -463,6 +463,18 @@
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
   </section>
+
+  <section id="decision-addendum-qs-77">
+    <h2><span class="no">11</span>Decision addendum · QS-77 · 2026-08-11</h2>
+    <div class="box accent">
+      <h4>Allowed-roots policy decided</h4>
+      <p><b>Keep the relative <code>../../..</code> allowed root alongside <code>../..</code> as the tracked local-development posture.</b> Cross-repository review and Agent Studio project import are core local workflows, and the sibling Agent Studio checkout is therefore an intended repository subject rather than an exceptional maintainer path.</p>
+    </div>
+    <p>This decision is limited to Local mode on an operator-controlled development machine. The wider relative root increases the set of repositories a local registrar can select; it does not make sibling repositories trusted for agent or sensor execution, and it does not relax Gates A–C above. Hosted and deployed instances must override both configured <code>AllowedRoots</code> array slots with deployment-owned neutral roots.</p>
+    <p>The portable relative workspace root does not reverse the prohibition on absolute, maintainer-specific paths in tracked configuration. It supersedes the earlier “same repository only” default described in F-07 solely for this documented cross-product development layout.</p>
+    <p><b>Status of R-09 after this decision.</b> R-09 covered two distinct harms. The disclosure half—shipping maintainer filesystem topology in tracked configuration—remains fully in force and is <i>not</i> weakened here: <code>../../..</code> is portable and names no host path, so the QS-53 prohibition on absolute maintainer paths stands unchanged. The widening half is now an accepted risk rather than an open finding: the second root deliberately expands the selectable repository set on a development machine to the parent workspace, which is the sibling-checkout layout that cross-repository review requires. That acceptance is bounded by Local mode and by the registrar being the operator. It does not lower the R-01 privilege chain's severity—an attacker who reaches the registrar can now select a wider set of local repositories, and S0/S1 remain the mitigations for that chain, unchanged in priority by this decision. R-09 therefore stays open against its recurrence-prevention obligation: the S0 tracked-config policy must still reject absolute and machine-specific <code>AllowedRoots</code> entries, and must now also assert that the tracked array contains exactly the two documented relative roots, so that a future absolute path cannot arrive disguised as this accepted posture.</p>
+    <p>Registry validation is fail-open only for host availability, not for repository access: a persisted entry outside the effective roots is quarantined, logged at Warning with the offending path and effective roots, returned by the registry list with its block reason, and excluded from prewarming, run recovery, reports, and repository operations. Entries are revalidated on every boot so a corrected root policy or edited path clears the derived quarantine state.</p>
+  </section>
 </main>
 </body>
 </html>
