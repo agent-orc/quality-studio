@@ -4,6 +4,7 @@ using CodingAgentRunner.Abstractions;
 using CodingAgentRunner.Events;
 using CodingAgentRunner.Execution;
 using CodingAgentRunner.Metrics;
+using CodingAgentRunner.Model;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -70,6 +71,8 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _runner.Get(_cliType);
+        var attached = false;
+        CliRunEvent.RunEnded? ended = null;
         try
         {
             await foreach (var runEvent in driver.StreamAsync(new CliRunRequest
@@ -85,9 +88,17 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             {
                 metrics.Observe(runEvent);
                 _eventObserver?.Invoke(_cliType, runEvent);
-                if (runEvent is CliRunEvent.OutputDelta delta)
+                switch (runEvent)
                 {
-                    output.Append(delta.Text);
+                    case CliRunEvent.RunStarted:
+                        attached = true;
+                        break;
+                    case CliRunEvent.RunEnded end:
+                        ended = end;
+                        break;
+                    case CliRunEvent.OutputDelta delta:
+                        output.Append(delta.Text);
+                        break;
                 }
             }
         }
@@ -103,7 +114,43 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
 
         var completed = BuildUsage(metrics, stopwatch);
+        // A non-Completed outcome is a failed reviewer, not a review. Returning its stderr text
+        // as if it were a response hides the real cause behind a downstream JSON parse error.
+        if (ended is { Outcome: RunOutcome.Stopped } && cancellationToken.IsCancellationRequested)
+        {
+            throw new ReviewAgentRunCanceledException(runId, completed.Usage, completed.Model,
+                new OperationCanceledException($"The {_cliType} CLI was stopped: {ended.Reason ?? "no reason reported"}."),
+                cancellationToken);
+        }
+        if (ended is null || ended.Outcome != RunOutcome.Completed)
+        {
+            throw new ReviewAgentRunException(runId, completed.Usage, completed.Model,
+                new InvalidOperationException(DescribeFailure(_cliType, attached, ended, output)));
+        }
         return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+    }
+
+    private static string DescribeFailure(
+        string cliType, bool attached, CliRunEvent.RunEnded? ended, StringBuilder output)
+    {
+        var detail = Tail(output);
+        if (ended is null)
+        {
+            return attached
+                ? $"The {cliType} CLI stream ended without a run-terminal event; the reviewer reported no outcome.{detail}"
+                : $"The {cliType} CLI never attached: no reviewer process was observed and the stream ended without a run-terminal event.{detail}";
+        }
+        var exit = ended.ExitCode is { } code ? $" (exit code {code})" : string.Empty;
+        var reason = string.IsNullOrWhiteSpace(ended.Reason) ? string.Empty : $": {ended.Reason}";
+        return $"The {cliType} CLI ended with outcome {ended.Outcome}{exit}{reason}.{detail}";
+    }
+
+    private static string Tail(StringBuilder output)
+    {
+        var text = output.ToString().Trim();
+        if (text.Length == 0) return string.Empty;
+        const int limit = 400;
+        return " CLI output: " + (text.Length <= limit ? text : "…" + text[^limit..]);
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,

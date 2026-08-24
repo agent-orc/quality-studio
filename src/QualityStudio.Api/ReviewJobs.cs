@@ -45,6 +45,49 @@ public sealed record ReviewEstimateDeviation(
 
 public sealed record ReviewFileProgress(string Path, string State, DateTimeOffset? StartedAt, DateTimeOffset? FinishedAt, string? Error);
 
+/// <summary>
+/// Operator-visible health of the single-reader review queue. A wedged reviewer is only
+/// dangerous while it is silent, so the oldest in-flight ages and the reader-parked
+/// duration are reported even when every run looks nominally "running".
+/// </summary>
+public sealed record ReviewQueueHealthResponse(
+    string RepositoryId,
+    int QueuedRuns,
+    int RunningRuns,
+    string? OldestRunningRunId,
+    double? OldestRunningRunAgeSeconds,
+    string? OldestRunningFilePath,
+    double? OldestRunningFileAgeSeconds,
+    bool ReaderParked,
+    string? ReaderRunId,
+    double? ReaderParkedSeconds,
+    long ReclaimedRuns,
+    long ReclaimedOperations,
+    int OperationTimeoutSeconds,
+    int OperationStartupTimeoutSeconds,
+    int QueueReclaimGraceSeconds);
+
+/// <summary>
+/// A single review operation exhausted its wall-clock budget and was abandoned by the
+/// watchdog. <see cref="Reason"/> distinguishes a reviewer that never attached from one
+/// that attached and then stopped making progress.
+/// </summary>
+public sealed class ReviewOperationTimeoutException(
+    string cliType, string operationPath, string reason, TimeSpan elapsed, TimeSpan budget)
+    : Exception(reason == ReviewOperationTimeoutException.ReviewerNeverAttached
+        ? $"The {cliType} reviewer never attached: no CLI event was observed for '{operationPath}' within {budget.TotalSeconds:0.###}s. The operation was abandoned after {elapsed.TotalSeconds:0.###}s."
+        : $"The {cliType} review of '{operationPath}' exceeded its {budget.TotalSeconds:0.###}s wall-clock budget and was abandoned after {elapsed.TotalSeconds:0.###}s.")
+{
+    public const string ReviewerNeverAttached = "reviewer-never-attached";
+    public const string OperationTimeout = "operation-timeout";
+
+    public string CliType { get; } = cliType;
+    public string OperationPath { get; } = operationPath;
+    public string Reason { get; } = reason;
+    public TimeSpan Elapsed { get; } = elapsed;
+    public TimeSpan Budget { get; } = budget;
+}
+
 public sealed record ReviewRunResponse(
     string Id,
     string RepositoryId,
@@ -117,6 +160,18 @@ public sealed class ReviewJobsOptions
     public const string SectionName = "ReviewJobs";
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
+
+    /// <summary>Wall-clock budget for one review operation (a single file, or the aggregate).</summary>
+    public int OperationTimeoutSeconds { get; set; } = 1800;
+
+    /// <summary>Budget for the reviewer CLI to attach and emit its first run event.</summary>
+    public int OperationStartupTimeoutSeconds { get; set; } = 180;
+
+    /// <summary>Grace an over-budget operation gets to unwind before it is abandoned outright.</summary>
+    public int OperationAbandonGraceSeconds { get; set; } = 20;
+
+    /// <summary>Grace a terminal run gets to release the queue reader before the reader abandons it.</summary>
+    public int QueueReclaimGraceSeconds { get; set; } = 30;
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -135,6 +190,11 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private ReaderState? readerState;
+    private long reclaimedRuns;
+    private long reclaimedOperations;
+
+    private sealed record ReaderState(string RunId, string RepositoryId, DateTimeOffset ParkedAt);
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
@@ -391,13 +451,106 @@ public sealed class ReviewJobService : BackgroundService
             await foreach (var item in queue.Reader.ReadAllAsync(stoppingToken))
             {
                 if (item.State != "queued") continue;
-                await RunAsync(item, stoppingToken).ConfigureAwait(false);
+                await SuperviseAsync(item, stoppingToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             logger.LogInformation(new EventId(1506, "ReviewQueueStopped"), "Review queue stopped with the API host");
         }
+    }
+
+    /// <summary>
+    /// Runs one work item without letting it own the queue reader indefinitely. The reader is
+    /// released as soon as the run returns, or — if the run has already been driven terminal by
+    /// a cancel/pause and still has not unwound within the reclaim grace — by abandoning it.
+    /// A terminal run cannot touch its own files any more (every transition is state-guarded),
+    /// so an abandoned run task is inert and the next queued run is free to start.
+    /// </summary>
+    private async Task SuperviseAsync(ReviewWorkItem item, CancellationToken stoppingToken)
+    {
+        var releaseRequested = item.BeginSupervision();
+        var parkedAt = DateTimeOffset.UtcNow;
+        readerState = new ReaderState(item.Id, item.Repository.Id, parkedAt);
+        var shutdown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = Task.Run(() => RunAsync(item, stoppingToken), CancellationToken.None);
+        try
+        {
+            await using var stopping = stoppingToken.Register(() => shutdown.TrySetResult());
+            if (await Task.WhenAny(run, releaseRequested, shutdown.Task).ConfigureAwait(false) != run)
+            {
+                // Host shutdown gets a short grace of its own: the reclaim grace is sized for an
+                // operator waiting on the next run, not for a process trying to exit.
+                var grace = stoppingToken.IsCancellationRequested
+                    ? TimeSpan.FromSeconds(1)
+                    : TimeSpan.FromSeconds(Math.Max(0, options.QueueReclaimGraceSeconds));
+                try
+                {
+                    await run.WaitAsync(grace, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    ObserveAbandoned(run);
+                    Interlocked.Increment(ref reclaimedRuns);
+                    logger.LogError(new EventId(1514, "ReviewQueueReaderReclaimed"),
+                        "Reclaimed the review queue reader from {ReviewRunId} ({ReviewState}) after {ElapsedSeconds:0.###}s; the run did not release the reader within its {GraceSeconds:0.###}s grace and was abandoned so later runs can start",
+                        item.Id, item.State, (DateTimeOffset.UtcNow - parkedAt).TotalSeconds, grace.TotalSeconds);
+                    return;
+                }
+            }
+            await run.ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException ||
+                                          !stoppingToken.IsCancellationRequested)
+        {
+            // RunAsync already records its own failures; anything escaping it (for example a
+            // state race in Start) must not tear down the single reader and starve the queue.
+            item.Fail(exception.Message);
+            logger.LogError(new EventId(1515, "ReviewSupervisionFailed"), exception,
+                "Review {ReviewRunId} escaped its runner; the queue reader continues", item.Id);
+        }
+        finally
+        {
+            readerState = null;
+        }
+    }
+
+    private static void ObserveAbandoned(Task task) =>
+        _ = task.ContinueWith(static completed => _ = completed.Exception,
+            CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+    public ReviewQueueHealthResponse QueueHealth(string repositoryId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var mine = runs.Values
+            .Where(run => string.Equals(run.Repository.Id, repositoryId, StringComparison.OrdinalIgnoreCase))
+            .Select(run => run.Snapshot()).ToArray();
+        var running = mine.Where(run => run.State == "running").OrderBy(run => run.StartedAt ?? run.CreatedAt).ToArray();
+        var oldestRun = running.FirstOrDefault();
+        var oldestFile = mine.SelectMany(run => run.Files)
+            .Where(file => file.State == "running" && file.StartedAt.HasValue)
+            .OrderBy(file => file.StartedAt!.Value).FirstOrDefault();
+        var reader = readerState;
+        var readerIsMine = reader is not null &&
+                           string.Equals(reader.RepositoryId, repositoryId, StringComparison.OrdinalIgnoreCase);
+        return new ReviewQueueHealthResponse(
+            repositoryId,
+            mine.Count(run => run.State == "queued"),
+            running.Length,
+            oldestRun?.Id,
+            oldestRun is null ? null : (now - (oldestRun.StartedAt ?? oldestRun.CreatedAt)).TotalSeconds,
+            oldestFile?.Path,
+            oldestFile is null ? null : (now - oldestFile.StartedAt!.Value).TotalSeconds,
+            reader is not null,
+            // The reader is global, so its duration is always reported but the run it is parked
+            // on is only named for callers authorized for that run's repository.
+            readerIsMine ? reader!.RunId : null,
+            reader is null ? null : (now - reader.ParkedAt).TotalSeconds,
+            Interlocked.Read(ref reclaimedRuns),
+            Interlocked.Read(ref reclaimedOperations),
+            options.OperationTimeoutSeconds,
+            options.OperationStartupTimeoutSeconds,
+            options.QueueReclaimGraceSeconds);
     }
 
     private void RecoverRuns()
@@ -421,6 +574,18 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     var item = ReviewWorkItem.Restore(stored, registration, store);
                     if (!runs.TryAdd(item.Id, item)) continue;
+                    // A terminal run can still carry files left in flight — the host can stop
+                    // between the durable terminal state and the per-file release, and an
+                    // abandoned operation never writes its own transition. Release them here so
+                    // no file is reported "running" behind a run that will never execute again.
+                    if (item.ReclaimOrphanedFiles(
+                            "The review host stopped while this operation was in flight; the terminal run released it during startup recovery."))
+                    {
+                        Interlocked.Increment(ref reclaimedRuns);
+                        logger.LogWarning(new EventId(1516, "ReviewRunFilesReclaimed"),
+                            "Released in-flight operations of terminal review {ReviewRunId} ({ReviewState}) during startup recovery",
+                            item.Id, item.State);
+                    }
                     item.EnsureTerminalReport();
                     if (!ReviewRunStore.IsTerminal(item.State))
                     {
@@ -488,9 +653,8 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     if (item.StartAggregate())
                     {
-                        var execution = await CreateRunner(item).ReviewIfNeededAsync(
+                        var execution = await ExecuteOperationAsync(item, item.Node.Path,
                             CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
-                            item.Force,
                             linked.Token).ConfigureAwait(false);
                         item.FinishAggregate(execution);
                     }
@@ -531,9 +695,8 @@ public sealed class ReviewJobService : BackgroundService
         }
         try
         {
-            var execution = await CreateRunner(item).ReviewIfNeededAsync(
+            var execution = await ExecuteOperationAsync(item, file.Path,
                 CreateRequest(item, file, ReviewLevel.File, [file.Path]),
-                item.Force,
                 cancellationToken).ConfigureAwait(false);
             item.FinishFile(file.Path, execution);
         }
@@ -542,11 +705,85 @@ public sealed class ReviewJobService : BackgroundService
             if (item.State == "cancelled") item.CancelFile(file.Path); else item.RequeueFile(file.Path);
             throw;
         }
+        catch (ReviewOperationTimeoutException exception)
+        {
+            // The watchdog already gave up on this operation; fail the file loudly and let the
+            // run continue with the next one instead of leaving it "running" forever.
+            item.FailFile(file.Path, exception.Message);
+            logger.LogError(new EventId(1513, "ReviewOperationReclaimed"), exception,
+                "Reclaimed {ReviewFilePath} in review {ReviewRunId} after {ReclaimReason} ({ElapsedSeconds:0.###}s via {ReviewCli})",
+                file.Path, item.Id, exception.Reason, exception.Elapsed.TotalSeconds, exception.CliType);
+        }
         catch (Exception exception)
         {
             item.FailFile(file.Path, exception.Message);
             logger.LogError(new EventId(1504, "ReviewFileFailed"), exception,
                 "File {ReviewFilePath} failed in review {ReviewRunId}", file.Path, item.Id);
+        }
+    }
+
+    /// <summary>
+    /// Runs one review operation under a wall-clock watchdog. Two budgets apply: the reviewer
+    /// must attach (emit at least one CLI event) inside <c>OperationStartupTimeoutSeconds</c>,
+    /// and the whole operation must finish inside <c>OperationTimeoutSeconds</c>. On breach the
+    /// operation's token is cancelled — which asks the runner to kill the CLI process tree — and
+    /// if it still does not unwind within the abandon grace it is dropped. Dropping, not merely
+    /// cancelling, is the point: a CLI that ignores its cancellation token must not be able to
+    /// hold the operation, the run, and the single-reader queue behind it.
+    /// </summary>
+    private async Task<ReviewExecutionResult> ExecuteOperationAsync(
+        ReviewWorkItem item, string operationPath, ReviewRequest request, CancellationToken cancellationToken)
+    {
+        var totalBudget = TimeSpan.FromSeconds(Math.Max(1, options.OperationTimeoutSeconds));
+        var startupBudget = TimeSpan.FromSeconds(Math.Max(1, options.OperationStartupTimeoutSeconds));
+        if (startupBudget > totalBudget) startupBudget = totalBudget;
+        var tick = TimeSpan.FromMilliseconds(Math.Clamp(startupBudget.TotalMilliseconds / 10d, 25d, 1000d));
+        var elapsed = Stopwatch.StartNew();
+        var observedEvents = 0;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var executor = executors.Create(item.CliType, item.Model, item.ThinkingLevel,
+            (_, runEvent) =>
+            {
+                Interlocked.Increment(ref observedEvents);
+                quotas.Observe(item.CliType, runEvent);
+            },
+            item.AddUsage);
+        // Task.Run so a runner that blocks synchronously before its first await still leaves the
+        // watchdog running on this thread.
+        var work = Task.Run(() => executor.ReviewIfNeededAsync(request, item.Force, deadline.Token),
+            CancellationToken.None);
+        while (true)
+        {
+            if (await Task.WhenAny(work, Task.Delay(tick, CancellationToken.None)).ConfigureAwait(false) == work)
+                return await work.ConfigureAwait(false);
+            var reason = elapsed.Elapsed >= totalBudget
+                ? ReviewOperationTimeoutException.OperationTimeout
+                : Volatile.Read(ref observedEvents) == 0 && elapsed.Elapsed >= startupBudget
+                    ? ReviewOperationTimeoutException.ReviewerNeverAttached
+                    : null;
+            if (reason is null) continue;
+
+            deadline.Cancel();
+            var grace = TimeSpan.FromSeconds(Math.Max(0, options.OperationAbandonGraceSeconds));
+            if (grace > TimeSpan.Zero)
+            {
+                try
+                {
+                    return await work.WaitAsync(grace, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    // Still wedged after the kill request: abandon it below.
+                }
+                catch (Exception)
+                {
+                    // It unwound with an error of its own, but the breach is the real diagnosis.
+                }
+            }
+            ObserveAbandoned(work);
+            Interlocked.Increment(ref reclaimedOperations);
+            throw new ReviewOperationTimeoutException(item.CliType, operationPath, reason,
+                elapsed.Elapsed, reason == ReviewOperationTimeoutException.OperationTimeout ? totalBudget : startupBudget);
         }
     }
 
@@ -557,10 +794,6 @@ public sealed class ReviewJobService : BackgroundService
             throw new KeyNotFoundException($"Review run '{id}' was not found.");
         return run;
     }
-
-    private IReviewExecutor CreateRunner(ReviewWorkItem item) => executors.Create(
-        item.CliType, item.Model, item.ThinkingLevel,
-        (_, runEvent) => quotas.Observe(item.CliType, runEvent), item.AddUsage);
 
     private ReviewRequest CreateRequest(
         ReviewWorkItem item,
@@ -627,6 +860,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly List<string> errors;
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
+        private TaskCompletionSource releaseRequested = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int usageOperations;
         private long? tokenCap;
         private decimal? costCap;
@@ -727,6 +961,66 @@ public sealed class ReviewJobService : BackgroundService
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+
+        /// <summary>
+        /// Arms the reader-release signal for the attempt that is about to start and returns the
+        /// task the supervisor waits on. Called before the attempt so a cancel racing the start
+        /// still trips the signal that is actually being observed.
+        /// </summary>
+        public Task BeginSupervision()
+        {
+            lock (gate)
+            {
+                if (releaseRequested.Task.IsCompleted)
+                    releaseRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                return releaseRequested.Task;
+            }
+        }
+
+        /// <summary>
+        /// Releases operations that a terminal run left in flight. Used by startup recovery, where
+        /// the durable terminal state can outlive the per-file transitions that should have followed it.
+        /// </summary>
+        public bool ReclaimOrphanedFiles(string reason)
+        {
+            lock (gate)
+            {
+                if (!ReviewRunStore.IsTerminal(state)) return false;
+                var releasedState = state switch
+                {
+                    "cancelled" => "cancelled",
+                    "capped" => "skipped",
+                    _ => "failed",
+                };
+                var reclaimed = false;
+                var finishedAt = FinishedAt ?? DateTimeOffset.UtcNow;
+                // Only files still marked "running" are orphaned: they claim an operation that no
+                // longer exists. A "queued" file under a terminal run was never started, and
+                // rewriting it would change the partial-report shape recovery already publishes.
+                foreach (var file in progress.Values.Where(file => file.State == "running").ToArray())
+                {
+                    file.State = releasedState;
+                    file.FinishedAt = finishedAt;
+                    if (releasedState != "cancelled")
+                    {
+                        file.Error = reason;
+                        errors.Add($"{file.Path}: {reason}");
+                    }
+                    AppendProgress(file);
+                    reclaimed = true;
+                }
+                if (aggregateState == "running")
+                {
+                    aggregateState = releasedState;
+                    reclaimed = true;
+                }
+                if (!reclaimed) return false;
+                FinishedAt = finishedAt;
+                PersistStatus();
+                PublishReport();
+                return true;
+            }
+        }
 
         public void PrepareForRecovery()
         {
@@ -954,6 +1248,9 @@ public sealed class ReviewJobService : BackgroundService
                 PersistStatus();
                 PublishReport();
                 cancellation = attemptCancellation;
+                // The run is terminal now, so the queue reader must stop waiting on it even if
+                // the in-flight CLI never honours the token below.
+                releaseRequested.TrySetResult();
             }
             cancellation.Cancel();
         }
@@ -970,6 +1267,7 @@ public sealed class ReviewJobService : BackgroundService
                 FinishedAt = null;
                 PersistStatus();
                 cancellation = attemptCancellation;
+                releaseRequested.TrySetResult();
             }
             cancellation.Cancel();
         }

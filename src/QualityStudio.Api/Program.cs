@@ -303,6 +303,8 @@ app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
+app.MapGet("/api/review/queue", ReviewQueue);
+app.MapGet("/api/repos/{repoId}/review/queue", ReviewQueue);
 app.MapGet("/api/review/runs/trend", ReviewRunTrend);
 app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
@@ -1087,6 +1089,12 @@ static IResult ReviewRuns(HttpContext context, RepositoryRegistry registry, Revi
 {
     var repository = registry.Get(RouteRepositoryId(context));
     return Results.Ok(new { runs = jobs.List(repository.Id) });
+}
+
+static IResult ReviewQueue(HttpContext context, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(jobs.QueueHealth(repository.Id));
 }
 
 static IResult ReviewRun(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

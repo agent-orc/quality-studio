@@ -1,0 +1,124 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-988e40442a0c4d8d9103c034db033926",
+    "revision": 1,
+    "repositoryId": "default",
+    "repositoryName": "QS-93",
+    "kind": "security",
+    "scopeUnitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+    "level": "file",
+    "path": "src/QualityStudio.Api/PathConfinement.cs",
+    "state": "done",
+    "completeness": "partial",
+    "createdAt": "2026-08-24T09:37:49.9494984+00:00",
+    "startedAt": "2026-08-24T09:37:50.0078796+00:00",
+    "finishedAt": "2026-08-24T09:38:21.3083316+00:00",
+    "model": "claude-sonnet-5",
+    "thinkingLevel": "low",
+    "cliType": "claude",
+    "force": false
+  },
+  "subject": {
+    "manifestHash": "sha256:8e81f8e9d71e9dc7c2051e6d60555508b64069e4a91e9d7b2ad2486ae295d1c0",
+    "targets": [
+      {
+        "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+        "name": "PathConfinement.cs",
+        "path": "src/QualityStudio.Api/PathConfinement.cs",
+        "subjectHash": "sha256:f211614773562894f8bceebdaa73ce324cb4d31f817e4c5a133aa9d4f942c071"
+      }
+    ]
+  },
+  "execution": {
+    "reviewed": 0,
+    "reusedFresh": 0,
+    "failed": 1,
+    "skipped": 0,
+    "cancelled": 0,
+    "aggregateOutcome": null,
+    "errors": [
+      "src/QualityStudio.Api/PathConfinement.cs: The coding agent run failed: The claude CLI ended with outcome Failed (exit code 1): success. CLI output: Not logged in \u00B7 Please run /login"
+    ],
+    "usage": {
+      "operations": 1,
+      "inputTokens": null,
+      "outputTokens": null,
+      "cachedInputTokens": null,
+      "reasoningOutputTokens": null,
+      "durationMs": 1530,
+      "cost": 0,
+      "currency": "USD",
+      "priceStatus": "resolved",
+      "inputEstimateDeviationPercent": null,
+      "outputEstimateDeviationPercent": null,
+      "costEstimateDeviationPercent": null
+    },
+    "cap": {
+      "tokenLimit": 50000,
+      "costLimit": null,
+      "outcome": "within-cap",
+      "reason": null
+    },
+    "estimate": {
+      "files": 1,
+      "operations": 1,
+      "inputTokens": 1245,
+      "outputTokens": 249,
+      "cost": 0.00498000,
+      "currency": "USD",
+      "historySamples": 0,
+      "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
+    }
+  },
+  "observations": [
+    {
+      "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+      "level": "file",
+      "path": "src/QualityStudio.Api/PathConfinement.cs",
+      "outcome": "failed",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    }
+  ],
+  "delta": {
+    "status": "unavailable",
+    "priorRunId": null,
+    "reason": "Partial runs are not comparable.",
+    "new": [],
+    "persisting": [],
+    "resolved": [],
+    "stateChanged": []
+  },
+  "summary": {
+    "score": null,
+    "grade": null,
+    "findings": {
+      "total": 0,
+      "bySeverity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0
+      },
+      "byState": {
+        "open": 0,
+        "accepted": 0,
+        "waived": 0,
+        "false-positive": 0,
+        "resolved": 0
+      }
+    },
+    "highestSeverity": null,
+    "partialReason": "1 unit(s) failed."
+  }
+}
