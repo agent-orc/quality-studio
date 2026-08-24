@@ -27,6 +27,30 @@ Keyboard shortcuts:
 - `Ctrl+B` — toggle the Explorer
 - `Ctrl+Alt+B` — toggle the Review panel
 
+## Repository switching and API availability
+
+The switcher lists every registered repository with its full root path. Long paths wrap to a
+second line rather than being truncated, and the path is repeated in the element's tooltip.
+
+The last active repository is remembered in `localStorage` under `qs-last-repository` and is
+restored on the next start, so a reload or a fresh launch reopens the project the operator was
+working in without a manual re-selection. An explicit `?repo=` URL parameter still wins, and the
+remembered value is only consulted on the very first registry load — later reloads (after
+onboarding, archiving, or an Agent Studio import) leave the current selection alone.
+
+The shell separates two failure modes that used to look alike:
+
+- The API answers with an error status — the header keeps its quieter "API offline, preview data"
+  state and the workspace stays inspectable.
+- The API cannot be reached at all (HTTP status 0: refused connection, DNS, aborted preflight) —
+  a flat notice bar appears under the header saying so, with a Retry action. The bar clears as
+  soon as a request succeeds again; a 15-second poll retries on its own while it is showing, so
+  a recovered API clears it without the operator pressing anything.
+
+`npm run evidence:qs-78` captures all three behaviours against a running API and asserts them
+(full paths rendered without clipping, aligned switcher actions, restored project after a plain
+reload, notice bar raised on a refused connection and cleared on recovery).
+
 ## Embedded URL preview contract
 
 When the shell runs inside an iframe, every selected repository, path, or

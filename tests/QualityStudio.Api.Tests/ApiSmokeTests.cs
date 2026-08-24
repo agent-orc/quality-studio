@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -77,6 +78,36 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         cachedRequest.Headers.TryAddWithoutValidation("If-None-Match", response.Headers.ETag.Tag);
         using var cached = await client.SendAsync(cachedRequest, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NotModified, cached.StatusCode);
+    }
+
+    [Fact]
+    public async Task Project_reuses_the_scan_and_projection_caches_on_a_warm_repeat_switch()
+    {
+        using var client = application!.CreateClient();
+        using var cold = await client.GetAsync("/api/project", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, cold.StatusCode);
+
+        // Deliberately no If-None-Match: this is the full re-fetch an operator triggers by switching
+        // back to a project they already visited. The Git state is unchanged, so the hierarchy scan
+        // and the review-meta discovery must be served from cache rather than rerun.
+        using var warm = await client.GetAsync("/api/project", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, warm.StatusCode);
+        Assert.Equal(cold.Headers.ETag?.Tag, warm.Headers.ETag?.Tag);
+
+        Assert.True(warm.Headers.TryGetValues("Server-Timing", out var serverTiming));
+        var timing = Assert.Single(serverTiming);
+        Assert.Contains("scan;dur=0.00", timing, StringComparison.Ordinal);
+        Assert.Contains("review-meta-discovery;dur=0.00", timing, StringComparison.Ordinal);
+        // The projection phase measures its own cache lookup, so it is small rather than exactly
+        // zero; a rebuilt projection costs orders of magnitude more than this bound.
+        Assert.True(ServerTimingPhase(timing, "projection") < 5, timing);
+    }
+
+    private static double ServerTimingPhase(string serverTiming, string phase)
+    {
+        var entry = serverTiming.Split(',').Select(part => part.Trim())
+            .Single(part => part.StartsWith(phase + ";dur=", StringComparison.Ordinal));
+        return double.Parse(entry[(phase.Length + ";dur=".Length)..], CultureInfo.InvariantCulture);
     }
 
     [Fact]
