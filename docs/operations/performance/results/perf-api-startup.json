@@ -1,0 +1,100 @@
+{
+  "description": "dotnet process spawn to first HTTP 200 from /health, Release build, no browser.",
+  "runs": 5,
+  "samples": {
+    "seededSingleRepository": [
+      {
+        "run": 0,
+        "spawnToHealthMs": 614.06,
+        "firstLogMs": 229.36,
+        "listeningLogMs": 312.92
+      },
+      {
+        "run": 1,
+        "spawnToHealthMs": 686.87,
+        "firstLogMs": 193.66,
+        "listeningLogMs": 308.08
+      },
+      {
+        "run": 2,
+        "spawnToHealthMs": 764.67,
+        "firstLogMs": 242.64,
+        "listeningLogMs": 349.46
+      },
+      {
+        "run": 3,
+        "spawnToHealthMs": 778.25,
+        "firstLogMs": 266.17,
+        "listeningLogMs": 369.74
+      },
+      {
+        "run": 4,
+        "spawnToHealthMs": 759.52,
+        "firstLogMs": 310.66,
+        "listeningLogMs": 416.31
+      }
+    ],
+    "allRegisteredRepositories": [
+      {
+        "run": 0,
+        "spawnToHealthMs": 596.58,
+        "firstLogMs": 290.76,
+        "listeningLogMs": 290.77
+      },
+      {
+        "run": 1,
+        "spawnToHealthMs": 1072.85,
+        "firstLogMs": 528.86,
+        "listeningLogMs": 528.87
+      },
+      {
+        "run": 2,
+        "spawnToHealthMs": 918.78,
+        "firstLogMs": 561.74,
+        "listeningLogMs": 561.75
+      },
+      {
+        "run": 3,
+        "spawnToHealthMs": 516.4,
+        "firstLogMs": 253.32,
+        "listeningLogMs": 253.33
+      },
+      {
+        "run": 4,
+        "spawnToHealthMs": 607.09,
+        "firstLogMs": 322.28,
+        "listeningLogMs": 322.29
+      }
+    ]
+  },
+  "statistics": {
+    "seededSingleRepository": {
+      "count": 5,
+      "minMs": 614.06,
+      "medianMs": 759.52,
+      "p95Ms": 778.25,
+      "maxMs": 778.25
+    },
+    "allRegisteredRepositories": {
+      "count": 5,
+      "minMs": 516.4,
+      "medianMs": 607.09,
+      "p95Ms": 1072.85,
+      "maxMs": 1072.85
+    },
+    "listeningLogSingle": {
+      "count": 5,
+      "minMs": 308.08,
+      "medianMs": 349.46,
+      "p95Ms": 416.31,
+      "maxMs": 416.31
+    },
+    "listeningLogAll": {
+      "count": 5,
+      "minMs": 253.33,
+      "medianMs": 322.29,
+      "p95Ms": 561.75,
+      "maxMs": 561.75
+    }
+  }
+}
