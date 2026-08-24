@@ -1,0 +1,44 @@
+{
+  "description": "qs.repository.prewarm events emitted by the background prewarmer at host start.",
+  "events": [
+    {
+      "event": "qs.repository.prewarm",
+      "repositoryId": "default",
+      "cache": "cold",
+      "durationMs": 3994.8,
+      "phases": {
+        "gitStatusMs": 31.01,
+        "scanMs": 3106.25,
+        "reviewMetaDiscoveryMs": 37.23,
+        "projectionMs": 818.34
+      },
+      "fileCount": 323
+    },
+    {
+      "event": "qs.repository.prewarm",
+      "repositoryId": "churn",
+      "cache": "cold",
+      "durationMs": 1902.58,
+      "phases": {
+        "gitStatusMs": 42.5,
+        "scanMs": 1204.91,
+        "reviewMetaDiscoveryMs": 8.2,
+        "projectionMs": 646.86
+      },
+      "fileCount": 323
+    },
+    {
+      "event": "qs.repository.prewarm",
+      "repositoryId": "taskboard",
+      "cache": "cold",
+      "durationMs": 23763.55,
+      "phases": {
+        "gitStatusMs": 220.44,
+        "scanMs": 20774.26,
+        "reviewMetaDiscoveryMs": 90.28,
+        "projectionMs": 2678.49
+      },
+      "fileCount": 5105
+    }
+  ]
+}
