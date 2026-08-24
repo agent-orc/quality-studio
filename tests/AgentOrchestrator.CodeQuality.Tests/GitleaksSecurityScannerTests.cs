@@ -33,7 +33,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", _previousGitleaksPath);
         if (_fakeGitleaksRoot is not null)
         {
-            TryDelete(_fakeGitleaksRoot);
+            TestDirectory.Delete(_fakeGitleaksRoot);
         }
 
         return ValueTask.CompletedTask;
@@ -43,189 +43,161 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
     public async Task ScanAsync_RepositoryMode_AcceptsBaselineAndRedactsSecrets()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-repo-").FullName;
-        try
+        using var repository = GitTestRepository.Create("quality-studio-gitleaks-repo");
+        var root = repository.Root;
+        Directory.CreateDirectory(Path.Combine(root, ".quality", "security"));
+        await File.WriteAllTextAsync(Path.Combine(root, ".quality", "security", "gitleaks.toml"), """
+            title = "Quality Studio Gitleaks configuration"
+
+            [extend]
+            useDefault = true
+            """, cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(root, ".gitignore"), "bin/\n", cancellationToken);
+        await WriteRepoFixtureAsync(root, "src/placeholder.txt", "placeholder fixture\n", cancellationToken);
+        await WriteRepoFixtureAsync(root, "src/private-key.pem", "-----BEGIN PRIVATE KEY-----\nfixture\n", cancellationToken);
+        await WriteRepoFixtureAsync(root, "src/bearer-token.ts", "const token = 'fixture';\n", cancellationToken);
+        await WriteRepoFixtureAsync(root, "src/entropy.txt", "entropy false positive fixture\n", cancellationToken);
+        await WriteRepoFixtureAsync(root, "bin/Generated.cs", "generated output fixture\n", cancellationToken);
+
+        var baselinePath = Path.Combine(root, ".quality", "security", "gitleaks.baseline.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(baselinePath)!);
+        await File.WriteAllTextAsync(baselinePath, """
+            [
+              { "Fingerprint": "sha256:accepted-placeholder" }
+            ]
+            """, cancellationToken);
+
+        SetScenario("repository");
+        var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+            root,
+            SecurityScanMode.Repository,
+            BaselinePath: baselinePath),
+            cancellationToken);
+
+        Assert.True(result.Report.Available);
+        Assert.Equal(SecurityVerdict.Block, result.Report.Verdict);
+        Assert.Equal(Version, result.Report.Version);
+        Assert.Equal(7, result.Report.FilesScanned);
+        Assert.Equal(3, result.Report.NewFindings);
+        Assert.Equal(1, result.Report.AcceptedFindings);
+        Assert.Equal(2, result.Report.BlockFindings);
+        Assert.Equal(1, result.Report.WarnFindings);
+        Assert.Equal(3, result.Report.CleanFiles);
+        Assert.Equal(4, result.Findings.Count);
+        Assert.Contains(result.Findings, finding => finding.Accepted && finding.RuleId == "accepted-placeholder");
+        Assert.All(result.Findings, finding => Assert.Null(finding.Evidence));
+
+        var sidecars = Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories).ToArray();
+        Assert.Equal(4, sidecars.Length);
+        Assert.Contains(sidecars, path => path.Contains($"{Path.DirectorySeparatorChar}src{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+        foreach (var path in sidecars)
         {
-            await InitializeGitRepositoryAsync(root, cancellationToken);
-            Directory.CreateDirectory(Path.Combine(root, ".quality", "security"));
-            await File.WriteAllTextAsync(Path.Combine(root, ".quality", "security", "gitleaks.toml"), """
-                title = "Quality Studio Gitleaks configuration"
-
-                [extend]
-                useDefault = true
-                """, cancellationToken);
-            await File.WriteAllTextAsync(Path.Combine(root, ".gitignore"), "bin/\n", cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/placeholder.txt", "placeholder fixture\n", cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/private-key.pem", "-----BEGIN PRIVATE KEY-----\nfixture\n", cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/bearer-token.ts", "const token = 'fixture';\n", cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/entropy.txt", "entropy false positive fixture\n", cancellationToken);
-            await WriteRepoFixtureAsync(root, "bin/Generated.cs", "generated output fixture\n", cancellationToken);
-
-            var baselinePath = Path.Combine(root, ".quality", "security", "gitleaks.baseline.json");
-            Directory.CreateDirectory(Path.GetDirectoryName(baselinePath)!);
-            await File.WriteAllTextAsync(baselinePath, """
-                [
-                  { "Fingerprint": "sha256:accepted-placeholder" }
-                ]
-                """, cancellationToken);
-
-            SetScenario("repository");
-            var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
-                root,
-                SecurityScanMode.Repository,
-                BaselinePath: baselinePath),
-                cancellationToken);
-
-            Assert.True(result.Report.Available);
-            Assert.Equal(SecurityVerdict.Block, result.Report.Verdict);
-            Assert.Equal(Version, result.Report.Version);
-            Assert.Equal(7, result.Report.FilesScanned);
-            Assert.Equal(3, result.Report.NewFindings);
-            Assert.Equal(1, result.Report.AcceptedFindings);
-            Assert.Equal(2, result.Report.BlockFindings);
-            Assert.Equal(1, result.Report.WarnFindings);
-            Assert.Equal(3, result.Report.CleanFiles);
-            Assert.Equal(4, result.Findings.Count);
-            Assert.Contains(result.Findings, finding => finding.Accepted && finding.RuleId == "accepted-placeholder");
-            Assert.All(result.Findings, finding => Assert.Null(finding.Evidence));
-
-            var sidecars = Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories).ToArray();
-            Assert.Equal(4, sidecars.Length);
-            Assert.Contains(sidecars, path => path.Contains($"{Path.DirectorySeparatorChar}src{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
-            foreach (var path in sidecars)
-            {
-                var content = await File.ReadAllTextAsync(path, cancellationToken);
-                Assert.DoesNotContain(SecretSentinel, content, StringComparison.Ordinal);
-                Assert.DoesNotContain("-----BEGIN PRIVATE KEY-----", content, StringComparison.Ordinal);
-                Assert.DoesNotContain("Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9", content, StringComparison.Ordinal);
-            }
-
-            string? placeholderMetaPath = null;
-            foreach (var path in sidecars)
-            {
-                using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path, cancellationToken));
-                if (document.RootElement.GetProperty("unit").GetProperty("path").GetString() == "src/placeholder.txt")
-                {
-                    placeholderMetaPath = path;
-                    break;
-                }
-            }
-
-            Assert.NotNull(placeholderMetaPath);
-            var resolvedPlaceholderMetaPath = placeholderMetaPath!;
-            using var placeholderDocument = JsonDocument.Parse(await File.ReadAllTextAsync(resolvedPlaceholderMetaPath, cancellationToken));
-            var acceptedFinding = Assert.Single(placeholderDocument.RootElement.GetProperty("findings").EnumerateArray());
-            Assert.Equal("accepted-placeholder", acceptedFinding.GetProperty("ruleId").GetString());
-            Assert.Equal(100, placeholderDocument.RootElement.GetProperty("grade").GetProperty("score").GetInt32());
-            var lifecycle = await new FindingStateStore(root).ReadAsync(cancellationToken);
-            Assert.Equal(FindingState.Accepted, lifecycle[acceptedFinding.GetProperty("fingerprint").GetString()!].State);
+            var content = await File.ReadAllTextAsync(path, cancellationToken);
+            Assert.DoesNotContain(SecretSentinel, content, StringComparison.Ordinal);
+            Assert.DoesNotContain("-----BEGIN PRIVATE KEY-----", content, StringComparison.Ordinal);
+            Assert.DoesNotContain("Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9", content, StringComparison.Ordinal);
         }
-        finally
+
+        string? placeholderMetaPath = null;
+        foreach (var path in sidecars)
         {
-            TryDelete(root);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path, cancellationToken));
+            if (document.RootElement.GetProperty("unit").GetProperty("path").GetString() == "src/placeholder.txt")
+            {
+                placeholderMetaPath = path;
+                break;
+            }
         }
+
+        Assert.NotNull(placeholderMetaPath);
+        var resolvedPlaceholderMetaPath = placeholderMetaPath!;
+        using var placeholderDocument = JsonDocument.Parse(await File.ReadAllTextAsync(resolvedPlaceholderMetaPath, cancellationToken));
+        var acceptedFinding = Assert.Single(placeholderDocument.RootElement.GetProperty("findings").EnumerateArray());
+        Assert.Equal("accepted-placeholder", acceptedFinding.GetProperty("ruleId").GetString());
+        Assert.Equal(100, placeholderDocument.RootElement.GetProperty("grade").GetProperty("score").GetInt32());
+        var lifecycle = await new FindingStateStore(root).ReadAsync(cancellationToken);
+        Assert.Equal(FindingState.Accepted, lifecycle[acceptedFinding.GetProperty("fingerprint").GetString()!].State);
     }
 
     [Fact]
     public async Task ScanAsync_RangeMode_ParsesSarifAndTracksRenameDiffs()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-range-").FullName;
-        try
-        {
-            await InitializeGitRepositoryAsync(root, cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/OldSecret.cs", "namespace Sample;\n", cancellationToken);
-            await CommitAsync(root, "initial", cancellationToken);
+        using var repository = GitTestRepository.Create("quality-studio-gitleaks-range");
+        var root = repository.Root;
+        await WriteRepoFixtureAsync(root, "src/OldSecret.cs", "namespace Sample;\n", cancellationToken);
+        repository.CommitAll("initial");
 
-            await RunGitAsync(root, cancellationToken, "mv", "src/OldSecret.cs", "src/RenamedSecret.cs");
-            await CommitAsync(root, "rename", cancellationToken);
+        repository.Git("mv", "src/OldSecret.cs", "src/RenamedSecret.cs");
+        repository.CommitAll("rename");
 
-            SetScenario("range");
-            var range = "HEAD~1..HEAD";
-            var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
-                root,
-                SecurityScanMode.Range,
-                Range: range),
-                cancellationToken);
+        SetScenario("range");
+        var range = "HEAD~1..HEAD";
+        var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+            root,
+            SecurityScanMode.Range,
+            Range: range),
+            cancellationToken);
 
-            Assert.True(result.Report.Available);
-            Assert.Equal(SecurityVerdict.Block, result.Report.Verdict);
-            Assert.Equal("range", result.Report.Mode);
-            Assert.Equal(range, result.Report.Range);
-            Assert.Equal(1, result.Report.FilesScanned);
-            Assert.Single(result.Findings);
+        Assert.True(result.Report.Available);
+        Assert.Equal(SecurityVerdict.Block, result.Report.Verdict);
+        Assert.Equal("range", result.Report.Mode);
+        Assert.Equal(range, result.Report.Range);
+        Assert.Equal(1, result.Report.FilesScanned);
+        Assert.Single(result.Findings);
 
-            var finding = Assert.Single(result.Findings);
-            Assert.Equal("renamed-secret", finding.RuleId);
-            Assert.Equal("src/RenamedSecret.cs", finding.Path);
-            Assert.Matches("^sha256:[a-f0-9]{64}$", finding.Fingerprint);
-            Assert.Equal(FindingSeverity.Critical, finding.Severity);
-        }
-        finally
-        {
-            TryDelete(root);
-        }
+        var finding = Assert.Single(result.Findings);
+        Assert.Equal("renamed-secret", finding.RuleId);
+        Assert.Equal("src/RenamedSecret.cs", finding.Path);
+        Assert.Matches("^sha256:[a-f0-9]{64}$", finding.Fingerprint);
+        Assert.Equal(FindingSeverity.Critical, finding.Severity);
     }
 
     [Fact]
     public async Task ScanAsync_StagedMode_UsesDeletedAndRenamedFiles()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-staged-").FullName;
-        try
-        {
-            await InitializeGitRepositoryAsync(root, cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/DeletedSecret.cs", "namespace Sample;\n", cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/OldName.cs", "namespace Sample;\n", cancellationToken);
-            await CommitAsync(root, "initial", cancellationToken);
+        using var repository = GitTestRepository.Create("quality-studio-gitleaks-staged");
+        var root = repository.Root;
+        await WriteRepoFixtureAsync(root, "src/DeletedSecret.cs", "namespace Sample;\n", cancellationToken);
+        await WriteRepoFixtureAsync(root, "src/OldName.cs", "namespace Sample;\n", cancellationToken);
+        repository.CommitAll("initial");
 
-            await RunGitAsync(root, cancellationToken, "rm", "src/DeletedSecret.cs");
-            await RunGitAsync(root, cancellationToken, "mv", "src/OldName.cs", "src/RenamedSecret.cs");
+        repository.Git("rm", "src/DeletedSecret.cs");
+        repository.Git("mv", "src/OldName.cs", "src/RenamedSecret.cs");
 
-            SetScenario("staged");
-            var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
-                root,
-                SecurityScanMode.Staged),
-                cancellationToken);
+        SetScenario("staged");
+        var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+            root,
+            SecurityScanMode.Staged),
+            cancellationToken);
 
-            Assert.True(result.Report.Available);
-            Assert.Equal(SecurityVerdict.Block, result.Report.Verdict);
-            Assert.Equal(2, result.Report.FilesScanned);
-            Assert.Equal(2, result.Findings.Count);
-            Assert.Contains(result.Findings, finding => finding.Path == "src/DeletedSecret.cs");
-            Assert.Contains(result.Findings, finding => finding.Path == "src/RenamedSecret.cs");
-        }
-        finally
-        {
-            TryDelete(root);
-        }
+        Assert.True(result.Report.Available);
+        Assert.Equal(SecurityVerdict.Block, result.Report.Verdict);
+        Assert.Equal(2, result.Report.FilesScanned);
+        Assert.Equal(2, result.Findings.Count);
+        Assert.Contains(result.Findings, finding => finding.Path == "src/DeletedSecret.cs");
+        Assert.Contains(result.Findings, finding => finding.Path == "src/RenamedSecret.cs");
     }
 
     [Fact]
     public async Task ScanAsync_ReturnsUnavailableWhenPinnedVersionDoesNotMatch()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-unavailable-").FullName;
-        try
-        {
-            await InitializeGitRepositoryAsync(root, cancellationToken);
-            await WriteRepoFixtureAsync(root, "src/Example.cs", "namespace Sample;\n", cancellationToken);
+        using var repository = GitTestRepository.Create("quality-studio-gitleaks-unavailable");
+        var root = repository.Root;
+        await WriteRepoFixtureAsync(root, "src/Example.cs", "namespace Sample;\n", cancellationToken);
 
-            SetScenario("repository", "v0.0.0");
-            var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
-                root,
-                SecurityScanMode.Repository),
-                cancellationToken);
+        SetScenario("repository", "v0.0.0");
+        var result = await new GitleaksSecurityScanner().ScanAsync(new SecurityScanRequest(
+            root,
+            SecurityScanMode.Repository),
+            cancellationToken);
 
-            Assert.False(result.Report.Available);
-            Assert.Equal(SecurityVerdict.Unavailable, result.Report.Verdict);
-            Assert.Contains(Version, result.Report.UnavailableReason ?? string.Empty, StringComparison.Ordinal);
-            Assert.Empty(result.Findings);
-        }
-        finally
-        {
-            TryDelete(root);
-        }
+        Assert.False(result.Report.Available);
+        Assert.Equal(SecurityVerdict.Unavailable, result.Report.Verdict);
+        Assert.Contains(Version, result.Report.UnavailableReason ?? string.Empty, StringComparison.Ordinal);
+        Assert.Empty(result.Findings);
     }
 
     private static void SetScenario(string scenario, string version = Version)
@@ -239,47 +211,6 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         var path = Path.Combine(root, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllTextAsync(path, content, cancellationToken);
-    }
-
-    private static async Task InitializeGitRepositoryAsync(string root, CancellationToken cancellationToken)
-    {
-        await RunGitAsync(root, cancellationToken, "init", "--quiet");
-    }
-
-    private static async Task CommitAsync(string root, string message, CancellationToken cancellationToken)
-    {
-        await RunGitAsync(root, cancellationToken, "add", "-A");
-        await RunGitAsync(root, cancellationToken, "-c", "user.name=Quality Studio", "-c", "user.email=quality@example.com", "commit", "--quiet", "-m", message);
-    }
-
-    private static async Task RunGitAsync(string root, CancellationToken cancellationToken, params string[] arguments)
-    {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException("Git did not start.");
-        }
-
-        await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        await process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        Assert.Equal(0, process.ExitCode);
     }
 
     private static async Task<string> BuildFakeGitleaksAsync(string root, CancellationToken cancellationToken)
@@ -582,19 +513,5 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
                 : OperatingSystem.IsMacOS()
                     ? $"osx-{architecture}"
                     : null;
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path))
-            {
-                Directory.Delete(path, true);
-            }
-        }
-        catch
-        {
-        }
     }
 }

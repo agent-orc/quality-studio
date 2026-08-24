@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
@@ -11,7 +10,7 @@ public sealed class StalenessEvaluatorTests
     [Fact]
     public async Task Scan_reports_fresh_stale_and_missing_files()
     {
-        using var fixture = await RepositoryFixture.CreateAsync();
+        using var fixture = RepositoryFixture.Create();
         await fixture.WriteSourceAsync("src/fresh.cs", "class Fresh {}\r\n");
         await fixture.WriteSourceAsync("src/stale.cs", "class Before {}\n");
         await fixture.WriteSourceAsync("src/missing.cs", "class Missing {}\n");
@@ -34,7 +33,7 @@ public sealed class StalenessEvaluatorTests
     [Fact]
     public async Task Scan_respects_gitignore_and_include_globs()
     {
-        using var fixture = await RepositoryFixture.CreateAsync();
+        using var fixture = RepositoryFixture.Create();
         await fixture.WriteSourceAsync(".gitignore", "ignored/\n");
         await fixture.WriteSourceAsync("ignored/no.cs", "ignored");
         await fixture.WriteSourceAsync("src/yes.cs", "included");
@@ -53,7 +52,7 @@ public sealed class StalenessEvaluatorTests
     [Fact]
     public async Task Scan_does_not_hash_a_file_without_metadata()
     {
-        using var fixture = await RepositoryFixture.CreateAsync();
+        using var fixture = RepositoryFixture.Create();
         await File.WriteAllBytesAsync(
             Path.Combine(fixture.Root, "binary.cs"),
             [0xff, 0xfe, 0x00],
@@ -70,7 +69,7 @@ public sealed class StalenessEvaluatorTests
     [Fact]
     public async Task Scan_discovers_a_root_file_sidecar()
     {
-        using var fixture = await RepositoryFixture.CreateAsync();
+        using var fixture = RepositoryFixture.Create();
         await fixture.WriteSourceAsync("root.cs", "class Root {}\n");
         await fixture.WriteMetaAsync("root.cs", "class Root {}\n");
 
@@ -86,7 +85,7 @@ public sealed class StalenessEvaluatorTests
     public async Task Guideline_change_reports_policy_drift_without_changing_the_code_hash()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        using var fixture = await RepositoryFixture.CreateAsync();
+        using var fixture = RepositoryFixture.Create();
         await fixture.WriteSourceAsync("src/stable.cs", "class Stable {}\n");
         await fixture.WriteSourceAsync(".quality/inputs/style.md", "---\nid: stable-style\nenabled: true\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nBefore.\n");
         var metaPath = await fixture.WriteMetaAsync("src/stable.cs", "class Stable {}\n");
@@ -154,23 +153,16 @@ public sealed class StalenessEvaluatorTests
         }
         finally
         {
-            directory.Delete(true);
+            TestDirectory.Delete(directory.FullName);
         }
     }
 
-    private sealed class RepositoryFixture : IDisposable
+    private sealed class RepositoryFixture(GitTestRepository repository) : IDisposable
     {
-        private RepositoryFixture(string root) => Root = root;
+        public string Root => repository.Root;
 
-        public string Root { get; }
-
-        public static async Task<RepositoryFixture> CreateAsync()
-        {
-            var root = Path.Combine(Path.GetTempPath(), "quality-studio-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(root);
-            await RunGitAsync(root, "init", "--quiet");
-            return new RepositoryFixture(root);
-        }
+        public static RepositoryFixture Create() =>
+            new(GitTestRepository.Create("quality-studio-tests"));
 
         public async Task WriteSourceAsync(string relativePath, string content)
         {
@@ -206,27 +198,6 @@ public sealed class StalenessEvaluatorTests
             return metaPath;
         }
 
-        public void Dispose()
-        {
-            try
-            {
-                Directory.Delete(Root, true);
-            }
-            catch (IOException)
-            {
-                // Test cleanup is best effort on Windows, where Git may briefly retain a handle.
-            }
-        }
-
-        private static async Task RunGitAsync(string root, params string[] arguments)
-        {
-            using var process = Process.Start(new ProcessStartInfo("git", arguments)
-            {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            })!;
-            await process.WaitForExitAsync();
-            Assert.Equal(0, process.ExitCode);
-        }
+        public void Dispose() => repository.Dispose();
     }
 }
