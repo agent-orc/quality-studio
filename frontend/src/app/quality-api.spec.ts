@@ -102,6 +102,36 @@ describe('QualityApi', () => {
     expect(result.results[1].reason).toBe('Already registered.');
   });
 
+  it('keeps quarantined repositories visible but selects an available repository', async () => {
+    const loading = api.loadRepositories('agent-studio');
+    http.expectOne('/api/repos').flush({
+      repositories: [
+        {
+          id: 'default', displayName: 'Quality Studio', rootPath: '/work/quality-studio',
+          globalInputsDirectory: null, inputBudgetCharacters: 12000,
+          enabledReviewKinds: ['code', 'security', 'performance'], archived: false,
+          defaultReviewTokenCap: 100000, defaultReviewCostCap: null,
+          blocked: false, blockedReason: null,
+        },
+        {
+          id: 'agent-studio', displayName: 'Agent Studio', rootPath: '/work/agent-studio',
+          globalInputsDirectory: null, inputBudgetCharacters: 12000,
+          enabledReviewKinds: ['code', 'security', 'performance'], archived: false,
+          defaultReviewTokenCap: 100000, defaultReviewCostCap: null,
+          blocked: true, blockedReason: 'Repository path /work/agent-studio is outside allowed roots.',
+        },
+      ],
+      defaultRepositoryId: 'default',
+    });
+
+    await loading;
+
+    expect(api.repositories().length).toBe(2);
+    expect(api.repositories()[1].blockedReason).toContain('/work/agent-studio');
+    expect(api.selectedRepositoryId()).toBe('default');
+    expect(api.selectedRepository()?.displayName).toBe('Quality Studio');
+  });
+
   it('loads repository usage and global provider quotas', async () => {
     api.connectionState.set('live');
     const usageLoading = api.loadUsage(undefined, 'code');

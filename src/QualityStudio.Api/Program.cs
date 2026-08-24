@@ -212,16 +212,18 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualitySt
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
 {
-    var repositories = registry.List(includeArchived == true)
+    var repositories = registry.List(includeArchived == true, includeBlocked: true)
         .Where(repository => security.Identity(context).CanAccess(repository.Id))
         .ToArray();
     prewarmer.QueueAll(repositories);
     return Results.Ok(new
     {
         repositories,
-        defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
-            ? RepositoryRegistry.DefaultRepositoryId
-            : null,
+        defaultRepositoryId = repositories.Any(repository =>
+            !repository.Blocked &&
+            string.Equals(repository.Id, RepositoryRegistry.DefaultRepositoryId, StringComparison.OrdinalIgnoreCase))
+                ? RepositoryRegistry.DefaultRepositoryId
+                : null,
     });
 });
 
@@ -1196,7 +1198,7 @@ static async Task<IResult> ImportFromAgentStudio(
     // Fetch the full project list before touching the registry: if Agent Studio is offline or
     // unconfigured, this throws and the exception middleware returns a clear error with zero writes.
     var projects = await client.GetProjectsAsync(cancellationToken);
-    var knownPaths = registry.List(includeArchived: true)
+    var knownPaths = registry.List(includeArchived: true, includeBlocked: true)
         .Select(repository => repository.RootPath)
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 

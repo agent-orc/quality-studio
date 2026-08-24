@@ -43,6 +43,7 @@ try {
   start('api', 'dotnet', [apiDll, '--urls', `http://127.0.0.1:${apiPort}`, '--contentRoot', apiHost], apiHost, {
     QualityStudio__RepositoryRoot: smallRepository,
     QualityStudio__AllowedRoots__0: state.tempRoot,
+    QualityStudio__AllowedRoots__1: state.tempRoot,
     QualityStudio__Security__Mode: 'Local',
   }, apiLines);
   await waitForHttp(`http://127.0.0.1:${apiPort}/health`, 30_000);
