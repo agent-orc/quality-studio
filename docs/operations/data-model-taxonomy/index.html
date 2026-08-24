@@ -141,7 +141,7 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -557,6 +558,49 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only record of what landed. The decisions above are the source; this section never restates or revises them.</p>
+
+  <section class="box ok">
+    <h4>11 August 2026 · QS-76 · approval</h4>
+    <p>The operator approved every recommendation of this dossier without reservation, including the slices that were previously marked operator-decision-gated. Status is therefore <b>decided</b>: Option B, the core v1 terms in section 6, the legacy mappings in section 8, and slices T1 through T5 are all released for implementation.</p>
+  </section>
+
+  <section class="box">
+    <h4>11 August 2026 · QS-76 · T1 — Contract and catalogue foundation</h4>
+    <p>Landed <code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code>, the core catalogue <code>quality-studio/core@1.0.0</code> as an embedded resource, and the C# contract types <code>QualityTaxonomyCatalogue</code>, <code>QualityTaxonomyResolver</code>, <code>QualityObservation</code>, and <code>QualityTaxonomyLegacyMap</code>.</p>
+    <ul>
+      <li>The catalogue pins the eight axes of section 6 with exact terms, descriptions, ordering, deprecation fields, and an <code>objects</code> table that declares which axes each object may carry.</li>
+      <li>Catalogue aliases are same-axis spelling variants that resolve without knowing the source contract, for example <code>accepted</code> and <code>falsePositive</code>. The cross-contract projections of section 8 live in the adapter library instead, so a lossy projection is never mistaken for a rename.</li>
+      <li>Extension terms keep their reverse-DNS prefix and cannot shadow a core term; an uninstalled prefix resolves as an unrecognized term that stays visible, renders as <q>unrecognized term</q>, and is excluded from core aggregation.</li>
+      <li>Round-trip is proven for both the explicit <code>extensions</code> dictionary and legacy root <code>x-*</code> keys, closing the F7 loss. An unsupported schema version or taxonomy major is quarantined as structured-but-unsupported with its raw JSON retained.</li>
+      <li>Conformance vectors cover every row of section 8. The rows that map an existing C# enum are total by construction, so a new legacy value fails the build rather than silently defaulting.</li>
+    </ul>
+    <p>No writer was changed and no production output changed.</p>
+  </section>
+
+  <section class="box">
+    <h4>11 August 2026 · QS-76 · T2 — Observation dual-write and route provenance</h4>
+    <p>Landed <code>QualityObservationLedger</code>, <code>ObservationIdentity</code>, <code>ReviewObservationProjection</code>, and <code>ReviewRouteProvenance</code>, plus the <code>QualityTaxonomy:ObservationWriteEnabled</code> gate on <code>ReviewRunner</code>. <code>review-meta.v2</code> continues to be written unchanged.</p>
+    <ul>
+      <li>Observations append to <code>.quality/observations/YYYY-MM.jsonl</code> with the write-through append and malformed-line tolerance already proven by <code>UsageLedger</code>. A known observation id is a no-op, so replay does not duplicate a line.</li>
+      <li><code>observationId</code> is derived from run id, unit id, kind, subject hash, review-input hash, and taxonomy digest. Two models on one subject leave two observations and one current sidecar; both join their usage entries by exact run id.</li>
+      <li>The append runs before the sidecar write. A crash between the two leaves a recoverable observation, and a failed append raises <code>QualityObservationAppendException</code> and leaves the previous sidecar current rather than writing an unbacked new one.</li>
+      <li>Provider, requested and effective model, thinking level, and routing-policy version are recorded. <code>IReviewAgent</code> gained optional <code>ThinkingLevel</code> and <code>Provider</code> members; the provider is read from the governed routing policy. Anything the runner cannot report is stored as <code>unknown</code> and never inferred from a model name.</li>
+      <li>The projection resolves the F5 misattribution at the source: a structured <code>source</code> or an exact <code>machine-sensor</code> evidence payload proves a deterministic sensor, a document that no sensor could have contributed to attributes the finding to its agent, and anything else stays <code>unknown</code>.</li>
+      <li>The security combination verdict is split into an assessment plus a separate policy decision with its retained <code>policyRef</code>; <code>sensor-availability</code> folds into <code>evidenceStatus</code> instead of becoming an aspect. An unavailable scanner is <code>inconclusive</code>, never a synthetic pass.</li>
+    </ul>
+    <p>An observation's assessment is derived by the versioned rule <code>quality-studio-review-assessment-v1</code>: unavailable evidence is inconclusive; otherwise a critical or high finding is a fail, a medium or low finding is a concern, and nothing else is a pass. The rule is published as an identifier so a later change is visible rather than silently reinterpreting stored observations. It does not touch grade thresholds or the security combination policy.</p>
+  </section>
+
+  <section class="box warn">
+    <h4>11 August 2026 · QS-76 · not delivered</h4>
+    <p>Slices <b>T3</b>, <b>T4</b>, and <b>T5</b> are approved but not implemented in this change. Each is sized <b>L</b> in section 10 and T3 depends on T2, so they were left for a following card rather than landed half-finished. Their scope is unchanged and their dependencies are now satisfied.</p>
+    <p>Two consequences are worth stating plainly. First, the F5 misattribution is fixed inside the observation projection but <b>not</b> in <code>QualityReportBuilder</code> or the SARIF export, which still label every top-level finding agent-authored; that correction belongs to T3. Second, <code>QualityTaxonomy:ObservationReadEnabled</code> exists as a gate but nothing reads through it yet, because the reducer is T4. The write gate is therefore safe to enable for a comparison sweep, and enabling the read gate has no effect until T4 lands.</p>
+  </section>
+
+  <p class="dim">Repository gate at delivery: <code>dotnet build</code> clean; <code>dotnet test</code> green for <code>AgentOrchestrator.CodeQuality.Tests</code> (279 passed, 1 skipped live-agent test). One pre-existing failure remains in <code>QualityStudio.Api.Tests</code>, <code>ProjectDashboardTests.Cached_dashboard_for_5000_file_repository_is_within_interaction_budget</code>, a machine-speed-sensitive QS-8 interaction budget that fails identically on the unmodified baseline and is owned by the test-baseline work.</p>
 </main>
 </body>
 </html>
