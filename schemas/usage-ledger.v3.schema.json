@@ -2,10 +2,22 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agent-orchestrator.dev/quality/schemas/usage-ledger.v3.schema.json",
   "title": "Quality Studio usage ledger entry v3",
-  "description": "One agent-backed review operation. Version 3 attributes every operation to a model source so cost and quality evidence always name a real model; the sweep id is optional because standalone CLI reviews have none.",
+  "description": "One agent-backed review operation. Version 3 records model attribution and cost; sweep operations additionally join to their archived operation and immutable attempt.",
   "type": "object",
   "additionalProperties": false,
   "required": ["runId", "timestamp", "model", "cliType", "tokens", "kind", "level", "path", "schemaVersion", "modelSource"],
+  "oneOf": [
+    { "required": ["reviewRunId", "operationId", "attempt"] },
+    {
+      "not": {
+        "anyOf": [
+          { "required": ["reviewRunId"] },
+          { "required": ["operationId"] },
+          { "required": ["attempt"] }
+        ]
+      }
+    }
+  ],
   "properties": {
     "runId": {
       "type": "string",
@@ -18,23 +30,34 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "The model id the CLI was asked to run. The literal \"runner-default\" appears only together with modelSource \"runner-default\"."
+      "description": "The model id the CLI was asked to run; runner-default is used only with the matching modelSource."
     },
     "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
     "tokens": { "$ref": "#/$defs/tokens" },
-    "kind": { "type": "string", "minLength": 1, "maxLength": 100 },
-    "level": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
     "path": { "type": "string", "minLength": 1 },
     "reviewRunId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "Durable sweep/job identifier shared by every operation in one review run. Absent for standalone CLI reviews."
+      "description": "Durable sweep/job identifier shared by every operation in one review run."
+    },
+    "operationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Backend-allocated identity shared by this usage event and its archived operation."
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Stopped-attempt ordinal in the logical review run."
     },
     "schemaVersion": { "const": 3 },
     "modelSource": {
       "enum": ["explicit", "policy-default", "runner-default"],
-      "description": "explicit: the caller named the model. policy-default: no model was named and Quality Studio resolved the synchronized routing policy's route for the CLI and passed it explicitly. runner-default: no model was named and the policy routes nothing for the CLI, so the CLI's own default served the run and is unknown."
+      "description": "How Quality Studio selected or attributed the model."
     },
     "cost": { "$ref": "#/$defs/cost" }
   },
@@ -43,7 +66,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["total", "currency", "status"],
-      "description": "Estimated provider cost at the catalog price valid at the operation timestamp. total is null when no price resolved; status names the reason (resolved, unknownModel, noPriceForDate).",
       "properties": {
         "total": { "type": ["number", "null"], "minimum": 0 },
         "currency": { "type": ["string", "null"], "minLength": 1, "maxLength": 10 },

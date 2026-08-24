@@ -40,7 +40,9 @@ public sealed record ReviewUsageEntry(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReviewRunId = null,
     int SchemaVersion = 1,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ModelSource = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] UsageCost? Cost = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] UsageCost? Cost = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OperationId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Attempt = null);
 
 public sealed record UsageAggregate(string Key, int Runs, long InputTokens, long OutputTokens,
     long CachedInputTokens, long ReasoningOutputTokens, long DurationMs);
@@ -76,7 +78,7 @@ public static class UsageLedger
     {
         ArgumentNullException.ThrowIfNull(entry);
         if (!IsSupported(entry))
-            throw new ArgumentException("Usage ledger entries must conform to schema version 1 or 2.", nameof(entry));
+            throw new ArgumentException("Usage ledger entries must conform to schema version 1, 2, or 3.", nameof(entry));
         var path = GetLedgerPath(repositoryRoot, entry.Timestamp);
         var gate = Locks.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -96,6 +98,28 @@ public static class UsageLedger
 
     public static async Task<UsageReport> QueryAsync(string repositoryRoot, DateTimeOffset? since = null,
         string? kind = null, int recentLimit = 50, CancellationToken cancellationToken = default)
+    {
+        var entries = await ReadEntriesAsync(repositoryRoot, since, kind, cancellationToken).ConfigureAwait(false);
+        var costs = entries.Select(entry => entry.Cost ?? EstimateCost(entry.Model, entry.Tokens, entry.Timestamp)).ToArray();
+        var priced = costs.Where(cost => cost.Total.HasValue).ToArray();
+        return new UsageReport(DateTimeOffset.UtcNow, entries.Count,
+            Sum(entries, entry => entry.Tokens.InputTokens), Sum(entries, entry => entry.Tokens.OutputTokens),
+            Sum(entries, entry => entry.Tokens.CachedInputTokens), Sum(entries, entry => entry.Tokens.ReasoningOutputTokens),
+            entries.Sum(entry => entry.Tokens.DurationMs),
+            Aggregate(entries, entry => entry.Model), Aggregate(entries, entry => entry.Kind),
+            Aggregate(entries, entry => entry.Timestamp.UtcDateTime.ToString("yyyy-MM-dd")),
+            Aggregate(entries, entry => entry.ReviewRunId ?? entry.RunId),
+            entries.Take(Math.Clamp(recentLimit, 1, 200)).ToArray(),
+            priced.Length == 0 ? null : priced.Sum(cost => cost.Total!.Value),
+            priced.FirstOrDefault()?.Currency,
+            costs.Length - priced.Length);
+    }
+
+    public static async Task<IReadOnlyList<ReviewUsageEntry>> ReadEntriesAsync(
+        string repositoryRoot,
+        DateTimeOffset? since = null,
+        string? kind = null,
+        CancellationToken cancellationToken = default)
     {
         var entries = new List<ReviewUsageEntry>();
         var directory = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage");
@@ -121,23 +145,7 @@ public static class UsageLedger
                 }
             }
         }
-
-        var ordered = entries.OrderByDescending(entry => entry.Timestamp).ToArray();
-        // Entries written before cost was recorded are priced at query time so the history stays
-        // comparable; an entry whose model or date has no price stays unpriced and is counted.
-        var costs = ordered.Select(entry => entry.Cost ?? EstimateCost(entry.Model, entry.Tokens, entry.Timestamp)).ToArray();
-        var priced = costs.Where(cost => cost.Total.HasValue).ToArray();
-        return new UsageReport(DateTimeOffset.UtcNow, ordered.Length,
-            Sum(ordered, entry => entry.Tokens.InputTokens), Sum(ordered, entry => entry.Tokens.OutputTokens),
-            Sum(ordered, entry => entry.Tokens.CachedInputTokens), Sum(ordered, entry => entry.Tokens.ReasoningOutputTokens),
-            ordered.Sum(entry => entry.Tokens.DurationMs),
-            Aggregate(ordered, entry => entry.Model), Aggregate(ordered, entry => entry.Kind),
-            Aggregate(ordered, entry => entry.Timestamp.UtcDateTime.ToString("yyyy-MM-dd")),
-            Aggregate(ordered, entry => entry.ReviewRunId ?? entry.RunId),
-            ordered.Take(Math.Clamp(recentLimit, 1, 200)).ToArray(),
-            priced.Length == 0 ? null : priced.Sum(cost => cost.Total!.Value),
-            priced.FirstOrDefault()?.Currency,
-            costs.Length - priced.Length);
+        return entries.OrderByDescending(entry => entry.Timestamp).ToArray();
     }
 
     /// <summary>
@@ -172,11 +180,12 @@ public static class UsageLedger
 
         return entry.SchemaVersion switch
         {
-            1 => entry.ReviewRunId is null,
-            2 => !string.IsNullOrWhiteSpace(entry.ReviewRunId),
-            // v3 attributes every operation to a model source; the sweep id is optional because
-            // standalone CLI reviews have none.
-            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ModelSource),
+            1 => entry.ReviewRunId is null && entry.OperationId is null && entry.Attempt is null,
+            2 => !string.IsNullOrWhiteSpace(entry.ReviewRunId) && entry.OperationId is null && entry.Attempt is null,
+            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ModelSource) &&
+                                    (entry.ReviewRunId is null && entry.OperationId is null && entry.Attempt is null ||
+                                     !string.IsNullOrWhiteSpace(entry.ReviewRunId) &&
+                                     !string.IsNullOrWhiteSpace(entry.OperationId) && entry.Attempt > 0),
             _ => false,
         };
     }

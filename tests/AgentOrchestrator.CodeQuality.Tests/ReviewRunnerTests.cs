@@ -948,7 +948,8 @@ public sealed class ReviewRunnerTests
             var runner = new ReviewRunner(new FakeAgent(response: "{}"), usageRecorded: recorded.Add);
 
             await Assert.ThrowsAsync<ReviewResponseException>(() => runner.ReviewAsync(
-                new ReviewRequest("src/Small.cs", RepositoryRoot: root, ReviewRunId: "review-sweep-test"),
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root, ReviewRunId: "review-sweep-test",
+                    OperationId: "operation-test", ReviewAttempt: 2),
                 TestContext.Current.CancellationToken));
 
             Assert.Equal("run-test", Assert.Single(recorded).RunId);
@@ -956,6 +957,8 @@ public sealed class ReviewRunnerTests
             Assert.Equal(UsageLedger.CurrentSchemaVersion, recorded[0].SchemaVersion);
             // The fake agent names its model, so the entry is attributed to an explicit choice.
             Assert.Equal(ReviewModelSource.Explicit, recorded[0].ModelSource);
+            Assert.Equal("operation-test", recorded[0].OperationId);
+            Assert.Equal(2, recorded[0].Attempt);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal("run-test", Assert.Single(report.Recent).RunId);
@@ -1051,9 +1054,14 @@ public sealed class ReviewRunnerTests
             var runner = new ReviewRunner(new FailingAgent(), usageRecorded: recorded.Add);
 
             await Assert.ThrowsAsync<ReviewAgentRunException>(() => runner.ReviewAsync(
-                new ReviewRequest("src/Small.cs", RepositoryRoot: root), TestContext.Current.CancellationToken));
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root, ReviewRunId: "review-failed",
+                    OperationId: "operation-failed", ReviewAttempt: 1), TestContext.Current.CancellationToken));
 
-            Assert.Equal(321, Assert.Single(recorded).Tokens.InputTokens);
+            var failed = Assert.Single(recorded);
+            Assert.Equal(321, failed.Tokens.InputTokens);
+            Assert.Equal(3, failed.SchemaVersion);
+            Assert.Equal("operation-failed", failed.OperationId);
+            Assert.Equal(1, failed.Attempt);
             Assert.Equal("failed-run", Assert.Single((await UsageLedger.QueryAsync(root,
                 cancellationToken: TestContext.Current.CancellationToken)).Recent).RunId);
         });

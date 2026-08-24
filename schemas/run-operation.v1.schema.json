@@ -1,36 +1,54 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
-  "title": "Quality Studio archived run operation record v1",
-  "description": "Append-only completed/failed operation record, one line per operation in operations.jsonl.",
+  "title": "Quality Studio archived run operation v1",
+  "description": "Append-only terminal operation record written to operations.jsonl.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "$schema", "schemaVersion", "runId", "operationId", "attempt", "ordinal",
-    "path", "level", "state"
-  ],
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt", "unitId", "path", "level", "state", "startedAt", "finishedAt"],
   "properties": {
-    "$schema": {
-      "enum": [
-        "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
-        "https://quality.studio/schemas/run-operation.v1.schema.json"
-      ]
-    },
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
     "schemaVersion": { "const": 1 },
-    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
-    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "runId": { "$ref": "#/$defs/id" },
+    "operationId": { "$ref": "#/$defs/id" },
+    "ordinal": { "type": "integer", "minimum": 1 },
     "attempt": { "type": "integer", "minimum": 1 },
-    "ordinal": { "type": "integer", "minimum": 0 },
+    "unitId": { "$ref": "#/$defs/id" },
     "path": { "type": "string", "minLength": 1 },
     "level": { "enum": ["project", "module", "namespace", "file", "function"] },
     "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
-    "startedAt": { "type": "string", "format": "date-time" },
-    "finishedAt": { "type": "string", "format": "date-time" },
-    "providerRunId": { "type": "string", "minLength": 1, "maxLength": 300 },
-    "reviewedHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "sidecarPath": { "type": "string", "minLength": 1 },
-    "verdict": { "type": "string", "minLength": 1, "maxLength": 100 },
-    "gradeScore": { "type": "integer", "minimum": 0, "maximum": 100 },
-    "gradeBand": { "type": "string", "minLength": 1, "maxLength": 100 }
+    "startedAt": { "$ref": "#/$defs/timestamp" },
+    "finishedAt": { "$ref": "#/$defs/timestamp" },
+    "providerRunId": { "$ref": "#/$defs/id" },
+    "reviewedAt": { "$ref": "#/$defs/timestamp" },
+    "reviewedHash": { "type": "string", "minLength": 1 },
+    "reviewInputsHash": { "type": "string", "minLength": 1 },
+    "resultSidecar": { "type": "string", "minLength": 1 },
+    "verdict": { "$ref": "#/$defs/verdict" },
+    "grade": { "$ref": "#/$defs/grade" },
+    "errorCode": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "error": { "type": "string", "minLength": 1, "maxLength": 4000 }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] }
+      }
+    }
   }
 }

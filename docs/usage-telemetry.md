@@ -15,8 +15,11 @@ contracts in `schemas/usage-ledger.v1.schema.json`,
 In every version, `runId` is the ID returned by the CLI for one operation.
 Version 2 adds `reviewRunId`, the durable sweep/job ID shared by all file and
 aggregate operations in the review. Version 3 (written since 2026-09-06) adds
-`modelSource` and makes `reviewRunId` optional for standalone CLI reviews.
-Existing v1 and v2 lines remain valid and are never migrated or rewritten.
+`modelSource`; for a sweep it also requires `operationId` and a positive
+`attempt`, joining the ledger event to its archived operation and immutable
+attempt record. `reviewRunId`, `operationId`, and `attempt` remain absent for
+standalone CLI reviews. Existing v1 and v2 lines remain valid and are never
+migrated or rewritten.
 
 ## Model attribution
 
@@ -66,7 +69,7 @@ estimated and logged so the ledger stays complete.
 
 `GET /api/usage?since=&kind=` (and its repository-scoped equivalent) reads the
 ledger and returns totals, model/kind/day/review-run aggregates, and at most 50
-recent entries. `byReviewRun` groups v2 entries by `reviewRunId`, making a
+recent entries. `byReviewRun` groups v2/v3 entries by `reviewRunId`, making a
 completed sweep's token total recoverable without the in-memory job object and
 after an API restart. A v1 entry has no sweep ID, so it is retained as a
 singleton group keyed by its CLI `runId`. A malformed historical JSONL line is
@@ -74,7 +77,8 @@ skipped so one interrupted write cannot make the rest of the ledger unavailable.
 
 The Usage button in the top bar opens the repository history view. It shows
 input-plus-output token spend, model and daily aggregates, and keyboard-accessible
-recent-entry details containing both run identifiers.
+recent-entry details containing the available run, operation, and attempt
+identifiers.
 
 ## Git history policy
 

@@ -133,6 +133,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),
         InvalidOperationException => (StatusCodes.Status503ServiceUnavailable, "Agent Studio target unavailable"),
         FindingStateConflictException => (StatusCodes.Status409Conflict, "Finding state changed"),
+        ReviewRunHistoryCorruptException => (StatusCodes.Status422UnprocessableEntity, "Review run history is corrupt"),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected API error"),
     };
     // Only this exception carries a message vetted as operator-safe; every other message stays in the
@@ -345,6 +346,12 @@ app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/review/history", ReviewHistory);
+app.MapGet("/api/repos/{repoId}/review/history", ReviewHistory);
+app.MapGet("/api/review/history/{id}", ReviewHistoryDetail);
+app.MapGet("/api/repos/{repoId}/review/history/{id}", ReviewHistoryDetail);
+app.MapGet("/api/review/history/{id}/diff", ReviewHistoryDiff);
+app.MapGet("/api/repos/{repoId}/review/history/{id}/diff", ReviewHistoryDiff);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1358,6 +1365,48 @@ static IResult UnpinReviewRun(HttpContext context, string id, RepositoryRegistry
     var repository = registry.Get(RouteRepositoryId(context));
     var pinned = new QualityRunReportPinStore(repository.RootPath).Unpin(id);
     return Results.Ok(new ReviewRunPinsResponse(pinned.Order(StringComparer.Ordinal).ToArray()));
+}
+
+static async Task<IResult> ReviewHistory(
+    HttpContext context,
+    string? cursor,
+    int? limit,
+    string? kind,
+    string? path,
+    string? outcome,
+    RepositoryRegistry registry,
+    ReviewJobService jobs,
+    CancellationToken cancellationToken)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(await jobs.HistoryAsync(repository.Id, cursor, limit, kind, path, outcome, cancellationToken));
+}
+
+static IResult ReviewHistoryDetail(
+    HttpContext context,
+    string id,
+    int? attempt,
+    RepositoryRegistry registry,
+    ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(jobs.HistoryDetail(repository.Id, id, attempt));
+}
+
+static async Task<IResult> ReviewHistoryDiff(
+    HttpContext context,
+    string id,
+    string against,
+    int? attempt,
+    int? againstAttempt,
+    bool? allowScopeChange,
+    RepositoryRegistry registry,
+    ReviewJobService jobs,
+    CancellationToken cancellationToken)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(await jobs.HistoryDiffAsync(repository.Id, id, against, attempt, againstAttempt,
+        allowScopeChange ?? false, cancellationToken));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
