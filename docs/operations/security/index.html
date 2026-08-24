@@ -463,7 +463,7 @@
           <td>2026-08-24</td>
           <td>QS-81</td>
           <td><b>F-04 gap closed (scan coverage):</b> <code>.quality/security/gitleaks.toml</code> no longer blanket-excludes <code>.quality/reviews</code>, so persisted review output is scanned for secrets like the rest of the repository. This is the scan-coverage half of S3; the redaction/DLP-before-persistence half and the tracked-config policy check (R-09) are not built yet.</td>
-          <td><code>quality-cli security scan .</code> run clean (349 files, 0 findings) after the exclusion was removed.</td>
+          <td>Coverage confirmed by scanned-file count: the repository scan reports 349 files with <code>.quality/reviews</code> empty and 350 once a file is placed there, so the path is genuinely in scope. <b>The accompanying <code>pass</code> verdict is not evidence of anything</b> — see the scanner defect noted below; a clean run is currently indistinguishable from a run that never happened.</td>
         </tr>
         <tr>
           <td>2026-08-24</td>
@@ -473,6 +473,12 @@
         </tr>
       </tbody>
     </table>
+    <div class="box accent">
+      <h4>Blocking defect found while verifying F-04: <code>quality security scan</code> cannot fail</h4>
+      <p><code>GitleaksSecurityScanner</code> passes the redaction flag as two separate argv entries (<code>"--redact"</code> then <code>"100"</code>). Gitleaks 8.24.2 expects <code>--redact=100</code>, so it rejects <code>100</code> as an unknown command, exits <b>1</b>, and writes nothing to stdout. The caller treats exit <code>1</code> as the normal "leaks found" code, discards stderr, and parses empty stdout into zero findings — so <b>every</b> repository scan reports <code>pass</code>, whatever the repository contains.</p>
+      <p>Reproduced on <code>origin/main</code> (pre-existing; QS-81 does not touch this file): with a GitHub PAT planted in both <code>src/</code> and <code>.quality/reviews/</code>, gitleaks invoked directly with the repository config reports <code>leaks found: 3</code>, while <code>quality-cli security scan .</code> reports <code>pass | new 0 | block 0</code>.</p>
+      <p><b>Impact:</b> the "Security scan" step in <code>build.yml</code> is a no-op gate, and the F-04 slice above widens coverage of a scanner that cannot report. <b>Fix</b> is one line (<code>--redact=100</code>, or drop the value), plus treating a gitleaks usage error as scanner-unavailable rather than as a clean result. Deliberately <b>not</b> fixed in QS-81 to keep this card to its stated scope; it needs its own card and should outrank the remaining S6 items.</p>
+    </div>
     <p class="dim">Note on wave history: this run found no integrated commit or merged branch evidence that a prior "QS-68" attempt had landed hardening slices against this dossier — at the time this card started, QS-68 was a separate task still in progress. Treat prior-wave completion claims as unverified until they appear in <code>git log origin/main</code> or this table.</p>
   </section>
 
