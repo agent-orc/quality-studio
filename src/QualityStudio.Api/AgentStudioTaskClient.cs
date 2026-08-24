@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace AgentOrchestrator.CodeQuality;
+namespace QualityStudio.Api;
 
 /// <summary>Configuration for handing review findings to Agent Studio.</summary>
 public sealed class AgentStudioTaskOptions
