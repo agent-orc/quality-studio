@@ -523,6 +523,13 @@
       <h4>Approved and decided; blocked on an enforceable worker runtime</h4>
       <p>The delivery host has the Docker client but denies its daemon socket, has no Podman or bubblewrap runtime, and denies unprivileged user-namespace creation. S1 requires a snapshot broker, isolated mounts and identity, egress policy, cross-platform resource enforcement, short-lived model credentials, and adversarial canary evidence. A wrapper around the existing host process would not satisfy the approved decision, so no worker-isolation claim is made. Command-backed analyzers remain disabled by default and untrusted-repository Gate B remains locked. This is a missing enforcement dependency, not an operator-decision gate.</p>
     </div>
+
+    <h3>2026-08-24 · QS-68 · rebased onto current main and re-verified</h3>
+    <ul>
+      <li>The S0/S2/S3/S4/S5/S6 series was rebased onto current <code>main</code>. The only conflict was a whitespace reflow of the CI test command in <code>.github/workflows/build.yml</code>; <code>main</code>'s folded form was kept and the security steps around it were preserved. No slice behaviour was changed.</li>
+      <li>Gate re-run on the rebased tree: solution build clean; 220 backend tests pass with 1 opt-in live-review test skipped; 43 frontend tests pass; frontend build succeeds; tracked-configuration, supply-chain, dev-stack, and catalog gates pass; the production npm graph reports zero advisories; current-worktree and all-history (516 commits) secret scans report no leaks.</li>
+      <li>The S1 runtime blocker above was re-checked on this host and still holds: Docker client present with an unreachable daemon, no Podman or bubblewrap, and unprivileged user-namespace mapping denied. S1 therefore remains undelivered and Gate B remains locked.</li>
+    </ul>
   </section>
 </main>
 </body>
