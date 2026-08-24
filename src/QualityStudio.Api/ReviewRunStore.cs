@@ -47,7 +47,11 @@ public sealed record ReviewRunFileTransition(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     string RunId,
-    string? Error);
+    string? Error,
+    string? OperationId = null,
+    int? Attempt = null,
+    int? Ordinal = null,
+    string? ErrorCode = null);
 
 public sealed record ReviewRunStatus(
     string RunId,
@@ -70,7 +74,17 @@ public sealed record ReviewRunStatus(
     int SkippedFiles = 0,
     string? AggregateState = null,
     string? StopReason = null,
-    int AttemptOrdinal = 1);
+    int Attempt = 0,
+    DateTimeOffset? AttemptStartedAt = null,
+    int AttemptUsageOperations = 0,
+    TokenUsage? AttemptUsage = null,
+    decimal? AttemptCostSpent = null,
+    IReadOnlyList<string>? AttemptLedgerMonths = null,
+    string? AggregateOperationId = null,
+    int? AggregateAttempt = null,
+    int? AggregateOrdinal = null,
+    DateTimeOffset? AggregateStartedAt = null,
+    string? AggregateErrorCode = null);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so
@@ -325,7 +339,7 @@ public sealed class ReviewRunStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         if (!string.Equals(runId, Path.GetFileName(runId), StringComparison.Ordinal) ||
-            runId.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0)
+            runId.IndexOfAny(['/', '\\']) >= 0)
             throw new ArgumentException("A review run id cannot contain path separators.", nameof(runId));
         return Path.Combine(runsPath, runId);
     }

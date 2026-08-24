@@ -1,36 +1,36 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/run-finding.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
   "title": "Quality Studio archived run finding observation v1",
-  "description": "Append-only finding observation record, one line per observation in findings.jsonl. Never becomes the current lifecycle owner; see .quality/findings/state.json for that.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "$schema", "schemaVersion", "runId", "operationId", "fingerprint",
-    "findingId", "ruleId", "severity", "title", "locations", "stateAtObservation"
-  ],
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "fingerprint", "findingId", "ruleId", "severity", "title", "locations", "state"],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/run-finding.v1.schema.json" },
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json" },
     "schemaVersion": { "const": 1 },
-    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
-    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
-    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "findingId": { "type": "string", "minLength": 1, "maxLength": 200 },
-    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "runId": { "$ref": "#/$defs/id" },
+    "operationId": { "$ref": "#/$defs/id" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "findingId": { "$ref": "#/$defs/id" },
+    "ruleId": { "$ref": "#/$defs/id" },
     "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
-    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
-    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
-    "stateAtObservation": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] }
+    "title": { "type": "string", "minLength": 1 },
+    "locations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/location" }
+    },
+    "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] }
   },
   "$defs": {
-    "location": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "position": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path"],
+      "required": ["line", "column"],
       "properties": {
-        "path": { "type": "string", "minLength": 1 },
-        "range": { "$ref": "#/$defs/range" },
-        "symbolId": { "type": "string", "minLength": 1, "maxLength": 2000 }
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
       }
     },
     "range": {
@@ -42,13 +42,14 @@
         "end": { "$ref": "#/$defs/position" }
       }
     },
-    "position": {
+    "location": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["line", "column"],
+      "required": ["path"],
       "properties": {
-        "line": { "type": "integer", "minimum": 1 },
-        "column": { "type": "integer", "minimum": 1 }
+        "path": { "type": "string", "minLength": 1 },
+        "range": { "$ref": "#/$defs/range" },
+        "symbolId": { "type": "string", "minLength": 1 }
       }
     }
   }
