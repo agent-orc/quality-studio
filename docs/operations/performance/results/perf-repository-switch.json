@@ -1,0 +1,474 @@
+{
+  "description": "Warm /api/project, the QualityApi.selectRepository critical path (project+tree), and the deferred detail fan-out (scan, inputs, guidelines, risk, review runs, usage).",
+  "runs": 7,
+  "targets": [
+    {
+      "repositoryId": "default",
+      "trackedFiles": 349,
+      "warmProject": {
+        "samples": [
+          {
+            "totalMs": 85.09,
+            "serverTiming": {
+              "git-status": 12.69,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0.01
+            }
+          },
+          {
+            "totalMs": 33.74,
+            "serverTiming": {
+              "git-status": 23.83,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0.01
+            }
+          },
+          {
+            "totalMs": 37.76,
+            "serverTiming": {
+              "git-status": 33.14,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 18.49,
+            "serverTiming": {
+              "git-status": 16.46,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 16.5,
+            "serverTiming": {
+              "git-status": 13.82,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 17.35,
+            "serverTiming": {
+              "git-status": 15.37,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 15.4,
+            "serverTiming": {
+              "git-status": 13.04,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0.01
+            }
+          }
+        ],
+        "statistics": {
+          "count": 7,
+          "minMs": 15.4,
+          "medianMs": 18.49,
+          "p95Ms": 85.09,
+          "maxMs": 85.09
+        }
+      },
+      "criticalPath": {
+        "samples": [
+          {
+            "totalMs": 213.38,
+            "projectMs": 22.49,
+            "treeMs": 212.21,
+            "projectBytes": 8797,
+            "treeBytes": 1463779,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 136.78,
+            "projectMs": 23.77,
+            "treeMs": 135.86,
+            "projectBytes": 8797,
+            "treeBytes": 1463779,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 124.14,
+            "projectMs": 25.37,
+            "treeMs": 123.37,
+            "projectBytes": 8797,
+            "treeBytes": 1463779,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 114.76,
+            "projectMs": 41.73,
+            "treeMs": 114.04,
+            "projectBytes": 8797,
+            "treeBytes": 1463779,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 110.27,
+            "projectMs": 16.59,
+            "treeMs": 109.52,
+            "projectBytes": 8797,
+            "treeBytes": 1463779,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 168.17,
+            "projectMs": 31.22,
+            "treeMs": 167.57,
+            "projectBytes": 8797,
+            "treeBytes": 1463779,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 65.11,
+            "projectMs": 9.08,
+            "treeMs": 64.37,
+            "projectBytes": 8797,
+            "treeBytes": 1463779,
+            "treeServerTiming": null
+          }
+        ],
+        "statistics": {
+          "count": 7,
+          "minMs": 65.11,
+          "medianMs": 124.14,
+          "p95Ms": 213.38,
+          "maxMs": 213.38
+        }
+      },
+      "deferredDetail": {
+        "samples": [
+          {
+            "totalMs": 89.04,
+            "scanMs": 88.92,
+            "inputsMs": 19.73,
+            "guidelinesMs": 35.21,
+            "riskMs": 57.42,
+            "reviewRunsMs": 27.74,
+            "usageMs": 32.39
+          },
+          {
+            "totalMs": 44.22,
+            "scanMs": 44.13,
+            "inputsMs": 2.3,
+            "guidelinesMs": 7.69,
+            "riskMs": 39.56,
+            "reviewRunsMs": 2.66,
+            "usageMs": 1.75
+          },
+          {
+            "totalMs": 26.9,
+            "scanMs": 26.81,
+            "inputsMs": 1.1,
+            "guidelinesMs": 5,
+            "riskMs": 25.97,
+            "reviewRunsMs": 1.15,
+            "usageMs": 1.28
+          },
+          {
+            "totalMs": 37.18,
+            "scanMs": 37.09,
+            "inputsMs": 4.06,
+            "guidelinesMs": 7.95,
+            "riskMs": 36.26,
+            "reviewRunsMs": 4.04,
+            "usageMs": 4.12
+          },
+          {
+            "totalMs": 28.06,
+            "scanMs": 27.98,
+            "inputsMs": 7.77,
+            "guidelinesMs": 9.01,
+            "riskMs": 26.1,
+            "reviewRunsMs": 1.99,
+            "usageMs": 2.13
+          },
+          {
+            "totalMs": 25.51,
+            "scanMs": 25.41,
+            "inputsMs": 1.11,
+            "guidelinesMs": 5.71,
+            "riskMs": 19.27,
+            "reviewRunsMs": 0.76,
+            "usageMs": 1.17
+          },
+          {
+            "totalMs": 43.16,
+            "scanMs": 43.06,
+            "inputsMs": 5.5,
+            "guidelinesMs": 13.56,
+            "riskMs": 33.03,
+            "reviewRunsMs": 5.53,
+            "usageMs": 5.64
+          }
+        ],
+        "statistics": {
+          "count": 7,
+          "minMs": 25.51,
+          "medianMs": 37.18,
+          "p95Ms": 89.04,
+          "maxMs": 89.04
+        },
+        "perEndpointMedianMs": {
+          "scan": 37.09,
+          "inputs": 4.06,
+          "guidelines": 7.95,
+          "risk": 33.03,
+          "reviewRuns": 2.66,
+          "usage": 2.13
+        }
+      }
+    },
+    {
+      "repositoryId": "taskboard",
+      "trackedFiles": 5116,
+      "warmProject": {
+        "samples": [
+          {
+            "totalMs": 33.4,
+            "serverTiming": {
+              "git-status": 31.99,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 28.56,
+            "serverTiming": {
+              "git-status": 27.02,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 44.09,
+            "serverTiming": {
+              "git-status": 42.41,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 27.01,
+            "serverTiming": {
+              "git-status": 25.79,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 29.33,
+            "serverTiming": {
+              "git-status": 28.02,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 41.07,
+            "serverTiming": {
+              "git-status": 36.49,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          },
+          {
+            "totalMs": 31.87,
+            "serverTiming": {
+              "git-status": 30.58,
+              "cache-wait": 0,
+              "scan": 0,
+              "review-meta-discovery": 0,
+              "projection": 0
+            }
+          }
+        ],
+        "statistics": {
+          "count": 7,
+          "minMs": 27.01,
+          "medianMs": 31.87,
+          "p95Ms": 44.09,
+          "maxMs": 44.09
+        }
+      },
+      "criticalPath": {
+        "samples": [
+          {
+            "totalMs": 1395.78,
+            "projectMs": 32.9,
+            "treeMs": 1388.48,
+            "projectBytes": 15086,
+            "treeBytes": 35519812,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 1096.53,
+            "projectMs": 34.42,
+            "treeMs": 1090.67,
+            "projectBytes": 15086,
+            "treeBytes": 35519812,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 771.66,
+            "projectMs": 35.76,
+            "treeMs": 765.49,
+            "projectBytes": 15086,
+            "treeBytes": 35519812,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 609.06,
+            "projectMs": 24.82,
+            "treeMs": 602.98,
+            "projectBytes": 15086,
+            "treeBytes": 35519812,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 631.73,
+            "projectMs": 32.77,
+            "treeMs": 625.74,
+            "projectBytes": 15086,
+            "treeBytes": 35519812,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 664.89,
+            "projectMs": 45.23,
+            "treeMs": 659.1,
+            "projectBytes": 15086,
+            "treeBytes": 35519812,
+            "treeServerTiming": null
+          },
+          {
+            "totalMs": 593.63,
+            "projectMs": 22.83,
+            "treeMs": 586.89,
+            "projectBytes": 15086,
+            "treeBytes": 35519812,
+            "treeServerTiming": null
+          }
+        ],
+        "statistics": {
+          "count": 7,
+          "minMs": 593.63,
+          "medianMs": 664.89,
+          "p95Ms": 1395.78,
+          "maxMs": 1395.78
+        }
+      },
+      "deferredDetail": {
+        "samples": [
+          {
+            "totalMs": 227.26,
+            "scanMs": 119.09,
+            "inputsMs": 2.35,
+            "guidelinesMs": 10.89,
+            "riskMs": 225.33,
+            "reviewRunsMs": 1.78,
+            "usageMs": 1.61
+          },
+          {
+            "totalMs": 274.94,
+            "scanMs": 163.97,
+            "inputsMs": 0.78,
+            "guidelinesMs": 11.43,
+            "riskMs": 274.46,
+            "reviewRunsMs": 0.56,
+            "usageMs": 0.75
+          },
+          {
+            "totalMs": 227.91,
+            "scanMs": 137.26,
+            "inputsMs": 1.14,
+            "guidelinesMs": 12.88,
+            "riskMs": 227.47,
+            "reviewRunsMs": 1.14,
+            "usageMs": 1.18
+          },
+          {
+            "totalMs": 207.98,
+            "scanMs": 112.43,
+            "inputsMs": 0.66,
+            "guidelinesMs": 11.04,
+            "riskMs": 207.52,
+            "reviewRunsMs": 0.7,
+            "usageMs": 0.77
+          },
+          {
+            "totalMs": 296.1,
+            "scanMs": 124.36,
+            "inputsMs": 0.69,
+            "guidelinesMs": 9.04,
+            "riskMs": 295.54,
+            "reviewRunsMs": 0.69,
+            "usageMs": 0.75
+          },
+          {
+            "totalMs": 267.17,
+            "scanMs": 159.22,
+            "inputsMs": 0.95,
+            "guidelinesMs": 9.14,
+            "riskMs": 266.4,
+            "reviewRunsMs": 0.95,
+            "usageMs": 1.01
+          },
+          {
+            "totalMs": 335.24,
+            "scanMs": 208.28,
+            "inputsMs": 3.14,
+            "guidelinesMs": 16.32,
+            "riskMs": 334.49,
+            "reviewRunsMs": 2.76,
+            "usageMs": 2.47
+          }
+        ],
+        "statistics": {
+          "count": 7,
+          "minMs": 207.98,
+          "medianMs": 267.17,
+          "p95Ms": 335.24,
+          "maxMs": 335.24
+        },
+        "perEndpointMedianMs": {
+          "scan": 137.26,
+          "inputs": 0.95,
+          "guidelines": 11.04,
+          "risk": 266.4,
+          "reviewRuns": 0.95,
+          "usage": 1.01
+        }
+      }
+    }
+  ]
+}
