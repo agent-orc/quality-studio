@@ -879,6 +879,7 @@ public sealed class ReviewRunnerTests
 public sealed class LiveReviewIntegrationTests
 {
     [Fact]
+    [Trait("Category", TestCategories.ExternalLive)]
     public async Task CodexCanReviewSmallFile_WhenExplicitlyEnabled()
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("QUALITY_RUN_LIVE_REVIEW"), "1", StringComparison.Ordinal))

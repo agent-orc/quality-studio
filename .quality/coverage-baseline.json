@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-08-24T09:01:35Z",
+  "commit": "e31089ccd5640bb2742a25a2a08a9a3120534656",
+  "tolerancePercent": 1.0,
+  "areas": [
+    {
+      "id": "core",
+      "pathPrefix": "src/AgentOrchestrator.CodeQuality/",
+      "coveredLines": 5576,
+      "totalLines": 6449,
+      "linePercent": 86.46
+    },
+    {
+      "id": "api",
+      "pathPrefix": "src/QualityStudio.Api/",
+      "coveredLines": 1809,
+      "totalLines": 1996,
+      "linePercent": 90.63
+    },
+    {
+      "id": "cli",
+      "pathPrefix": "src/quality-cli/",
+      "coveredLines": 32,
+      "totalLines": 136,
+      "linePercent": 23.53
+    },
+    {
+      "id": "frontend",
+      "pathPrefix": "frontend/src/",
+      "coveredLines": 788,
+      "totalLines": 1243,
+      "linePercent": 63.40
+    },
+    {
+      "id": "repository",
+      "pathPrefix": "",
+      "coveredLines": 8205,
+      "totalLines": 9824,
+      "linePercent": 83.52
+    }
+  ]
+}

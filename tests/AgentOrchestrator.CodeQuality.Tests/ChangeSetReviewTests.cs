@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -32,18 +31,18 @@ public sealed class ChangeSetReviewTests
     [Fact]
     public async Task Merge_range_detects_lower_grade_new_finding_boundary_and_staleness()
     {
-        using var repository = await TestRepository.CreateAsync();
+        using var repository = TestRepository.Create();
         const string original = "var app = WebApplication.Create();\n";
-        await repository.WriteAsync("src/Api.cs", original);
-        await repository.WriteMetaAsync(score: 92, findings: []);
-        var @base = await repository.CommitAsync("base");
-        await repository.WriteAsync("src/Api.cs",
+        repository.Write("src/Api.cs", original);
+        repository.WriteMeta(score: 92, findings: []);
+        var @base = repository.Commit("base");
+        repository.Write("src/Api.cs",
             "var app = WebApplication.Create();\napp.MapGet(\"/orders\", () => \"ok\");\n");
-        await repository.WriteMetaAsync(score: 78,
+        repository.WriteMeta(score: 78,
         [
             new TestFinding("sha256:" + new string('a', 64), "api-auth", "high", "Endpoint lacks authorization"),
         ], original);
-        var head = await repository.CommitAsync("add endpoint");
+        var head = repository.Commit("add endpoint");
 
         var provider = new GitMergeRangeChangeSetProvider();
         var result = Assert.Single(await new ChangeSetReviewService().ReviewAsync(
@@ -74,11 +73,11 @@ public sealed class ChangeSetReviewTests
     [Fact]
     public async Task Pure_rename_reports_no_quality_delta()
     {
-        using var repository = await TestRepository.CreateAsync();
-        await repository.WriteAsync("src/Api.cs", "app.MapGet(\"/health\", () => \"ok\");\n");
-        var @base = await repository.CommitAsync("base");
-        await repository.MoveAsync("src/Api.cs", "src/MovedApi.cs");
-        var head = await repository.CommitAsync("move only");
+        using var repository = TestRepository.Create();
+        repository.Write("src/Api.cs", "app.MapGet(\"/health\", () => \"ok\");\n");
+        var @base = repository.Commit("base");
+        repository.Move("src/Api.cs", "src/MovedApi.cs");
+        var head = repository.Commit("move only");
 
         var result = Assert.Single(await new ChangeSetReviewService().ReviewAsync(
             new GitMergeRangeChangeSetProvider(),
@@ -97,15 +96,15 @@ public sealed class ChangeSetReviewTests
     [Fact]
     public async Task Two_parent_merge_keeps_base_topic_head_and_merge_identity_distinct()
     {
-        using var repository = await TestRepository.CreateAsync();
-        await repository.WriteAsync("README.md", "base\n");
-        var @base = await repository.CommitAsync("base");
-        await repository.GitCommandAsync("checkout", "-q", "-b", "topic");
-        await repository.WriteAsync("topic.txt", "topic\n");
-        var topic = await repository.CommitAsync("topic");
-        await repository.GitCommandAsync("checkout", "-q", "-");
-        await repository.GitCommandAsync("merge", "--no-ff", "-q", "-m", "merge topic", "topic");
-        var merge = (await repository.GitCommandAsync("rev-parse", "HEAD")).Trim();
+        using var repository = TestRepository.Create();
+        repository.Write("README.md", "base\n");
+        var @base = repository.Commit("base");
+        repository.Git("checkout", "-q", "-b", "topic");
+        repository.Write("topic.txt", "topic\n");
+        var topic = repository.Commit("topic");
+        repository.Git("checkout", "-q", "-");
+        repository.Git("merge", "--no-ff", "-q", "-m", "merge topic", "topic");
+        var merge = repository.Git("rev-parse", "HEAD").Trim();
 
         var change = Assert.Single(await new GitMergeRangeChangeSetProvider().GetAsync(
             new ChangeSetQuery(repository.Root, @base, merge),
@@ -122,11 +121,11 @@ public sealed class ChangeSetReviewTests
     [Fact]
     public async Task Provider_contract_accepts_a_second_trivial_provider_and_injected_reviewer()
     {
-        using var repository = await TestRepository.CreateAsync();
-        await repository.WriteAsync("README.md", "before\n");
-        var @base = await repository.CommitAsync("base");
-        await repository.WriteAsync("README.md", "after\n");
-        var head = await repository.CommitAsync("head");
+        using var repository = TestRepository.Create();
+        repository.Write("README.md", "before\n");
+        var @base = repository.Commit("base");
+        repository.Write("README.md", "after\n");
+        var head = repository.Commit("head");
         var gitChange = Assert.Single(await new GitMergeRangeChangeSetProvider().GetAsync(
             new ChangeSetQuery(repository.Root, @base, head),
             TestContext.Current.CancellationToken));
@@ -167,19 +166,19 @@ public sealed class ChangeSetReviewTests
     [Fact]
     public async Task Portable_json_binds_exact_commits_validates_and_leaves_git_unchanged()
     {
-        using var repository = await TestRepository.CreateAsync();
-        await repository.WriteAsync("src/Api.cs", "var app = WebApplication.Create();\n");
-        await repository.WriteMetaAsync(95, []);
-        var @base = await repository.CommitAsync("base");
-        await repository.WriteAsync("src/Api.cs",
+        using var repository = TestRepository.Create();
+        repository.Write("src/Api.cs", "var app = WebApplication.Create();\n");
+        repository.WriteMeta(95, []);
+        var @base = repository.Commit("base");
+        repository.Write("src/Api.cs",
             "var app = WebApplication.Create();\napp.MapPost(\"/admin\", () => \"ok\");\n");
-        await repository.WriteMetaAsync(70,
+        repository.WriteMeta(70,
         [
             new TestFinding("sha256:" + new string('a', 64), "api-auth", "high", "Endpoint lacks authorization"),
         ]);
-        var head = await repository.CommitAsync("regression");
-        var statusBefore = await repository.GitCommandAsync("status", "--porcelain=v1", "--untracked-files=all");
-        var indexBefore = await repository.GitCommandAsync("diff", "--cached", "--binary");
+        var head = repository.Commit("regression");
+        var statusBefore = repository.Git("status", "--porcelain=v1", "--untracked-files=all");
+        var indexBefore = repository.Git("diff", "--cached", "--binary");
         using var outputDirectory = new TemporaryOutputDirectory("quality-change-export");
         var artifactPath = Path.Combine(outputDirectory.Path, "change-review.json");
         var output = new StringWriter();
@@ -201,8 +200,8 @@ public sealed class ChangeSetReviewTests
         Assert.True(File.Exists(artifactPath));
         Assert.False(Directory.Exists(Path.Combine(repository.Root, ".quality", "changes")));
         Assert.Equal(statusBefore,
-            await repository.GitCommandAsync("status", "--porcelain=v1", "--untracked-files=all"));
-        Assert.Equal(indexBefore, await repository.GitCommandAsync("diff", "--cached", "--binary"));
+            repository.Git("status", "--porcelain=v1", "--untracked-files=all"));
+        Assert.Equal(indexBefore, repository.Git("diff", "--cached", "--binary"));
 
         var artifactJson = await File.ReadAllTextAsync(artifactPath, TestContext.Current.CancellationToken);
         var artifact = ChangeReviewEvidenceJson.Deserialize(artifactJson);
@@ -226,14 +225,14 @@ public sealed class ChangeSetReviewTests
     [Fact]
     public async Task Fail_on_regression_uses_documented_exit_codes()
     {
-        using var repository = await TestRepository.CreateAsync();
-        await repository.WriteAsync("src/Api.cs", "var app = WebApplication.Create();\n");
-        await repository.WriteMetaAsync(95, []);
-        var @base = await repository.CommitAsync("base");
-        await repository.WriteAsync("src/Api.cs",
+        using var repository = TestRepository.Create();
+        repository.Write("src/Api.cs", "var app = WebApplication.Create();\n");
+        repository.WriteMeta(95, []);
+        var @base = repository.Commit("base");
+        repository.Write("src/Api.cs",
             "var app = WebApplication.Create();\napp.MapPost(\"/admin\", () => \"ok\");\n");
-        await repository.WriteMetaAsync(70, []);
-        var head = await repository.CommitAsync("regression");
+        repository.WriteMeta(70, []);
+        var head = repository.Commit("regression");
         var output = new StringWriter();
         var error = new StringWriter();
 
@@ -298,39 +297,23 @@ public sealed class ChangeSetReviewTests
 
     private sealed record TestFinding(string Fingerprint, string RuleId, string Severity, string Title);
 
-    private sealed class TestRepository : IDisposable
+    private sealed class TestRepository(GitTestRepository repository) : IDisposable
     {
         public const string UnitId = "qs-v1/test/file/api";
         private const string MetaPath = "src/.quality/reviews/files/api.review-meta.code.json";
 
-        private TestRepository(string root) => Root = root;
-        public string Root { get; }
+        public string Root => repository.Root;
 
-        public static async Task<TestRepository> CreateAsync()
-        {
-            var root = Path.Combine(Path.GetTempPath(), "quality-change-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(root);
-            var repository = new TestRepository(root);
-            await repository.GitAsync("init", "--quiet");
-            await repository.GitAsync("config", "user.email", "quality-tests@example.test");
-            await repository.GitAsync("config", "user.name", "Quality Tests");
-            return repository;
-        }
+        public static TestRepository Create() => new(GitTestRepository.Create("quality-change-tests"));
 
-        public async Task WriteAsync(string relativePath, string content)
-        {
-            var path = Absolute(relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            await File.WriteAllTextAsync(path, content, TestContext.Current.CancellationToken);
-        }
+        public void Write(string relativePath, string content) => repository.Write(relativePath, content);
 
-        public async Task WriteMetaAsync(
+        public void WriteMeta(
             int score,
             IReadOnlyList<TestFinding> findings,
             string? reviewedContent = null)
         {
-            var source = reviewedContent ??
-                         await File.ReadAllTextAsync(Absolute("src/Api.cs"), TestContext.Current.CancellationToken);
+            var source = reviewedContent ?? File.ReadAllText(Absolute("src/Api.cs"));
             var contentHash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
                 Encoding.UTF8.GetBytes(source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n'))));
             var meta = new
@@ -354,48 +337,23 @@ public sealed class ChangeSetReviewTests
                     title = finding.Title,
                 }),
             };
-            await WriteAsync(MetaPath, JsonSerializer.Serialize(meta));
+            Write(MetaPath, JsonSerializer.Serialize(meta));
         }
 
-        public async Task<string> CommitAsync(string message)
+        public string Commit(string message)
         {
-            await GitAsync("add", "-A");
-            await GitAsync("commit", "--quiet", "-m", message);
-            return (await GitAsync("rev-parse", "HEAD")).Trim();
+            repository.CommitAll(message);
+            return Git("rev-parse", "HEAD").Trim();
         }
 
-        public async Task MoveAsync(string from, string to) => await GitAsync("mv", from, to);
+        public void Move(string from, string to) => Git("mv", from, to);
 
         private string Absolute(string path) =>
             Path.Combine(Root, path.Replace('/', Path.DirectorySeparatorChar));
 
-        public Task<string> GitCommandAsync(params string[] arguments) => GitAsync(arguments);
+        public string Git(params string[] arguments) => repository.Git(arguments);
 
-        private async Task<string> GitAsync(params string[] arguments)
-        {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo("git")
-                {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-            var error = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
-            return output;
-        }
-
-        public void Dispose()
-        {
-            TestDirectory.Delete(Root);
-        }
+        public void Dispose() => repository.Dispose();
     }
 
     private static void AssertPortableSchemaValid(string json)
