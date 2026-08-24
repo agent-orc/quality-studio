@@ -1,4 +1,4 @@
-namespace AgentOrchestrator.CodeQuality.Tests;
+namespace QualityStudio.TestSupport;
 
 internal static class TestDirectory
 {

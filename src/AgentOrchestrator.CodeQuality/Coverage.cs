@@ -304,11 +304,21 @@ public sealed class CoverageReportParser
 
     private static void ParseCobertura(string root, XDocument document, Dictionary<string, MutableCoverageFile> files)
     {
+        // Cobertura class filenames are relative to one of the declared <source> roots.
+        // Coverlet writes `<source>/repo/src/</source>` with filenames like
+        // `Project/File.cs`, so ignoring the roots resolves every file to a path that
+        // matches nothing in the repository and the ingested coverage covers nothing.
+        var sourceRoots = document.Descendants()
+            .Where(element => element.Name.LocalName == "source")
+            .Select(element => element.Value.Trim())
+            .Where(value => value.Length > 0)
+            .ToArray();
+
         foreach (var @class in document.Descendants().Where(element => element.Name.LocalName == "class"))
         {
             var source = @class.Attribute("filename")?.Value;
             if (string.IsNullOrWhiteSpace(source)) continue;
-            var target = Get(files, ResolvePath(root, source));
+            var target = Get(files, ResolveCoberturaPath(root, sourceRoots, source));
             foreach (var line in @class.Descendants().Where(element => element.Name.LocalName == "line"))
             {
                 if (!TryInt(line.Attribute("number")?.Value, out var number)) continue;
@@ -333,7 +343,9 @@ public sealed class CoverageReportParser
         {
             if (line.StartsWith("SF:", StringComparison.Ordinal))
             {
-                target = Get(files, ResolvePath(root, line[3..]));
+                // lcov source paths are relative to wherever the tool ran, which for the
+                // Angular Karma run is `frontend/`, not the repository root.
+                target = Get(files, ResolvePath(root, line[3..], System.IO.Path.GetDirectoryName(path)));
             }
             else if (target is not null && line.StartsWith("DA:", StringComparison.Ordinal))
             {
@@ -416,7 +428,55 @@ public sealed class CoverageReportParser
         return value;
     }
 
-    private static string ResolvePath(string root, string source)
+    private static string ResolveCoberturaPath(string root, IReadOnlyList<string> sourceRoots, string filename)
+    {
+        if (!System.IO.Path.IsPathRooted(filename))
+        {
+            foreach (var sourceRoot in sourceRoots)
+            {
+                var combined = System.IO.Path.Combine(
+                    sourceRoot,
+                    filename.Trim().Replace('\\', System.IO.Path.DirectorySeparatorChar).Replace('/', System.IO.Path.DirectorySeparatorChar));
+                if (File.Exists(combined)) return ResolvePath(root, combined);
+            }
+        }
+
+        return ResolvePath(root, filename);
+    }
+
+    /// <summary>
+    /// Walks up from the report's own directory to the repository root looking for the
+    /// relative source path. lcov has no source-root declaration, and the writer's working
+    /// directory is the only thing its paths are relative to.
+    /// </summary>
+    private static string? ResolveAgainstReportDirectory(string normalizedRoot, string? reportDirectory, string relative)
+    {
+        if (string.IsNullOrEmpty(reportDirectory)) return null;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var native = relative.Replace('/', System.IO.Path.DirectorySeparatorChar);
+        var current = System.IO.Path.GetFullPath(reportDirectory);
+        var boundary = normalizedRoot.TrimEnd(System.IO.Path.DirectorySeparatorChar);
+
+        // Compare on a separator boundary so a sibling directory such as `<root>2` cannot
+        // be mistaken for something inside the repository.
+        while (string.Equals(current, boundary, comparison) ||
+               current.StartsWith(boundary + System.IO.Path.DirectorySeparatorChar, comparison))
+        {
+            // Report-supplied paths can contain `..`, so the combined result is normalised
+            // and re-checked; only a path that really lands inside the repository is used.
+            var candidate = System.IO.Path.GetFullPath(System.IO.Path.Combine(current, native));
+            if (candidate.StartsWith(boundary + System.IO.Path.DirectorySeparatorChar, comparison) && File.Exists(candidate))
+                return System.IO.Path.GetRelativePath(normalizedRoot, candidate).Replace('\\', '/');
+            if (string.Equals(current, boundary, comparison)) break;
+            var parent = Directory.GetParent(current);
+            if (parent is null) break;
+            current = parent.FullName;
+        }
+
+        return null;
+    }
+
+    private static string ResolvePath(string root, string source, string? reportDirectory = null)
     {
         var decoded = Uri.UnescapeDataString(source.Trim()).Replace('\\', '/');
         if (decoded.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
@@ -432,6 +492,10 @@ public sealed class CoverageReportParser
         var relative = decoded.TrimStart('/');
         if (File.Exists(System.IO.Path.Combine(root, relative.Replace('/', System.IO.Path.DirectorySeparatorChar))))
             return relative;
+        var fromReport = ResolveAgainstReportDirectory(normalizedRoot, reportDirectory, relative);
+        if (fromReport is not null) return fromReport;
+        // Last resort: drop leading segments until something matches. This is a guess, so
+        // it runs only after the declared source roots and the report location failed.
         var segments = relative.Split('/', StringSplitOptions.RemoveEmptyEntries);
         for (var index = 1; index < segments.Length; index++)
         {

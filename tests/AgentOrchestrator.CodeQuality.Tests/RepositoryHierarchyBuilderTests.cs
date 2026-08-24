@@ -134,9 +134,8 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     [Fact]
     public void CacheReusesGitStateAndInvalidatesOnWorktreeContent()
     {
-        Directory.CreateDirectory(root);
+        using var repository = GitTestRepository.CreateIn(root);
         File.WriteAllText(Path.Combine(root, "main.py"), "print(1)\n");
-        RunGit("init", "--quiet");
         var cache = new RepositoryHierarchyCache();
 
         var firstMeasurement = cache.GetMeasured(root);
@@ -158,7 +157,7 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     }
 
     [Fact]
-    [Trait("Category", "MachineBound")]
+    [Trait("Category", TestCategories.MachineBound)]
     public void GenericFiveThousandFileScanStaysWithinBudget()
     {
         var source = Path.Combine(root, "src");
@@ -175,19 +174,6 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
 
         Assert.Equal(5_000, Flatten([project]).Count(node => node.Level == ReviewLevel.File));
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"5,000-file hierarchy took {stopwatch.Elapsed}.");
-    }
-
-    private void RunGit(params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
@@ -315,11 +301,7 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(root))
-        {
-            Directory.Delete(root, recursive: true);
-        }
-
+        TestDirectory.Delete(root);
         GC.SuppressFinalize(this);
     }
 }

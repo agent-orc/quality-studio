@@ -98,20 +98,21 @@ public sealed class QualityReportTests
 
     private sealed class ReportRepositoryFixture : IDisposable
     {
+        private readonly GitTestRepository repository;
         private readonly string sidecarPath;
         private readonly string contentHash;
         private readonly string reviewedHash;
         private int score;
 
         private ReportRepositoryFixture(
-            string root,
+            GitTestRepository repository,
             string sidecarPath,
             string contentHash,
             string reviewedHash,
             string fingerprint,
             int score)
         {
-            Root = root;
+            this.repository = repository;
             this.sidecarPath = sidecarPath;
             this.contentHash = contentHash;
             this.reviewedHash = reviewedHash;
@@ -120,25 +121,21 @@ public sealed class QualityReportTests
             Request = new QualityReportRepository(
                 "fixture",
                 "Fixture repository",
-                root,
+                repository.Root,
                 ["code", "security", "performance"],
                 [new QualityReportSensor("fixture-sensor", "1.0.0", true, true)]);
         }
 
-        public string Root { get; }
+        public string Root => repository.Root;
         public string Fingerprint { get; }
         public QualityReportRepository Request { get; }
 
         public static async Task<ReportRepositoryFixture> CreateAsync(int score)
         {
-            var root = Directory.CreateTempSubdirectory("quality-report-fixture-").FullName;
-            Directory.CreateDirectory(Path.Combine(root, "src"));
+            var repository = GitTestRepository.Create("quality-report-fixture");
+            var root = repository.Root;
             Directory.CreateDirectory(Path.Combine(root, ".quality", "reviews", "files"));
-            await File.WriteAllTextAsync(Path.Combine(root, "src", "App.cs"),
-                "namespace Fixture; public sealed class App { }\n", TestContext.Current.CancellationToken);
-            await RunGitAsync(root, "init", "--quiet");
-            await RunGitAsync(root, "config", "user.email", "quality@example.test");
-            await RunGitAsync(root, "config", "user.name", "Quality Fixture");
+            repository.Write("src/App.cs", "namespace Fixture; public sealed class App { }\n");
             var contentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
                 Path.Combine(root, "src", "App.cs"), TestContext.Current.CancellationToken);
             const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -146,15 +143,14 @@ public sealed class QualityReportTests
                 [new SubjectInputHash("src/App.cs", "file", contentHash)]);
             var fingerprint = "sha256:" + new string('b', 64);
             var fixture = new ReportRepositoryFixture(
-                root,
+                repository,
                 Path.Combine(root, ".quality", "reviews", "files", "app.review-meta.code.json"),
                 contentHash,
                 reviewedHash,
                 fingerprint,
                 score);
             await fixture.WriteSidecarAsync();
-            await RunGitAsync(root, "add", ".");
-            await RunGitAsync(root, "commit", "--quiet", "-m", $"score {score}");
+            repository.CommitAll($"score {score}");
             return fixture;
         }
 
@@ -162,8 +158,7 @@ public sealed class QualityReportTests
         {
             score = nextScore;
             await WriteSidecarAsync();
-            await RunGitAsync(Root, "add", ".");
-            await RunGitAsync(Root, "commit", "--quiet", "-m", $"score {nextScore}");
+            repository.CommitAll($"score {nextScore}");
         }
 
         public async Task AddDeterministicEvidenceAsync()
@@ -259,27 +254,6 @@ public sealed class QualityReportTests
                 TestContext.Current.CancellationToken);
         }
 
-        private static async Task RunGitAsync(string root, params string[] arguments)
-        {
-            using var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-                {
-                    WorkingDirectory = root,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            var error = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, error);
-        }
-
-        public void Dispose()
-        {
-            TestDirectory.Delete(Root);
-        }
+        public void Dispose() => repository.Dispose();
     }
 }
