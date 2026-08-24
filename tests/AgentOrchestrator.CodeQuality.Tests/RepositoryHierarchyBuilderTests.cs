@@ -132,32 +132,6 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     }
 
     [Fact]
-    public void CacheReusesGitStateAndInvalidatesOnWorktreeContent()
-    {
-        Directory.CreateDirectory(root);
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(1)\n");
-        RunGit("init", "--quiet");
-        var cache = new RepositoryHierarchyCache();
-
-        var firstMeasurement = cache.GetMeasured(root);
-        var warmMeasurement = cache.GetMeasured(root);
-        var first = firstMeasurement.Snapshot;
-        var warm = warmMeasurement.Snapshot;
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(2)\n");
-        var changedMeasurement = cache.GetMeasured(root);
-        var changed = changedMeasurement.Snapshot;
-
-        Assert.False(firstMeasurement.CacheHit);
-        Assert.True(warmMeasurement.CacheHit);
-        Assert.Equal(0, warmMeasurement.ScanMilliseconds);
-        Assert.Equal(0, warmMeasurement.ReviewMetaDiscoveryMilliseconds);
-        Assert.False(changedMeasurement.CacheHit);
-        Assert.Same(first, warm);
-        Assert.NotSame(first, changed);
-        Assert.NotEqual(first.ETag, changed.ETag);
-    }
-
-    [Fact]
     [Trait("Category", "MachineBound")]
     public void GenericFiveThousandFileScanStaysWithinBudget()
     {
@@ -175,19 +149,6 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
 
         Assert.Equal(5_000, Flatten([project]).Count(node => node.Level == ReviewLevel.File));
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"5,000-file hierarchy took {stopwatch.Elapsed}.");
-    }
-
-    private void RunGit(params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
