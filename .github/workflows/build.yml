@@ -1,6 +1,13 @@
 name: Build
 
+# The required gate is deliberately split in two. `portable` holds the deterministic
+# checks that must pass on every change from a clean checkout; `host-integration` holds
+# the launcher suite, which drives real child processes and therefore needs its own job
+# per operating system. Timing, real-service, and live-agent checks are not here at all —
+# they run in release-canary.yml so host variance can never mask a real regression.
+
 on:
+  pull_request:
   push:
     branches: [main]
     tags: ['v*.*.*']
@@ -9,33 +16,132 @@ on:
 permissions:
   contents: read
 
+env:
+  # Pinned rather than floating: a clean-checkout run has to be reproducible, and the
+  # dossier measured this repository on exactly these versions.
+  DOTNET_VERSION: '10.0.301'
+  NODE_VERSION: '22.23.1'
+  GITLEAKS_VERSION: '8.24.2'
+
 jobs:
-  build-and-test:
+  portable:
+    name: Portable gate
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_COVERAGE_DIR: ${{ github.workspace }}/.coverage/dotnet
+      CHROME_NO_SANDBOX: '1'
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up .NET
+      - name: Set up .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
-      - name: Restore
+      - name: Install frontend dependencies from the lock file
+        run: npm --prefix frontend ci
+
+      - name: Provision pinned Chromium
+        run: npm --prefix frontend run browser:install
+
+      - name: Provision pinned Gitleaks ${{ env.GITLEAKS_VERSION }}
+        run: |
+          set -euo pipefail
+          asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          curl --fail --silent --show-error --location --retry 3 -o "$RUNNER_TEMP/$asset" "$base/$asset"
+          curl --fail --silent --show-error --location --retry 3 \
+            -o "$RUNNER_TEMP/checksums.txt" "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          # Match the asset name exactly; a grep pattern would treat its dots as wildcards.
+          expected="$(awk -v asset="$asset" '$2 == asset { print; found++ } END { exit found == 1 ? 0 : 1 }' \
+            "$RUNNER_TEMP/checksums.txt")"
+          (cd "$RUNNER_TEMP" && printf '%s\n' "$expected" | sha256sum --check --strict -)
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/gitleaks" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks/gitleaks"
+          # Fail here rather than inside the scan, so an unavailable download is never
+          # reported as a product result.
+          test "$("$RUNNER_TEMP/gitleaks/gitleaks" version)" = "$GITLEAKS_VERSION"
+          echo "QUALITY_GITLEAKS_PATH=$RUNNER_TEMP/gitleaks/gitleaks" >> "$GITHUB_ENV"
+
+      - name: Restore .NET solution
         run: dotnet restore QualityStudio.slnx
 
-      - name: Build
+      - name: Build .NET solution (Release)
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
-      - name: Test
+      - name: Run portable .NET tests with coverage
         run: >-
           dotnet test QualityStudio.slnx
           --configuration Release
           --no-build
-          --filter "Category!=MachineBound"
+          --filter "Category!=MachineBound&Category!=ExternalLive"
+          --collect:"XPlat Code Coverage"
+          --settings tests/coverage.runsettings
+          --results-directory "$DOTNET_COVERAGE_DIR"
+          --logger trx
 
-      - name: Security scan
-        run: dotnet run --project src/quality-cli -- security scan .
+      - name: Run repository tooling tests
+        run: npm --prefix frontend run test:tooling
+
+      - name: Build production Angular bundle
+        run: npm --prefix frontend run build
+
+      - name: Run Angular tests with coverage
+        run: npm --prefix frontend run test:coverage
+
+      - name: Enforce the coverage ratchet
+        run: >-
+          dotnet run --project src/quality-cli --configuration Release --no-build --
+          coverage . --report .coverage/dotnet --report frontend/coverage
+
+      - name: Run repository security scan
+        run: >-
+          dotnet run --project src/quality-cli --configuration Release --no-build --
+          security scan .
+
+      - name: Publish gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-gate-${{ github.run_id }}
+          path: |
+            .coverage/**
+            frontend/coverage/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  host-integration:
+    name: Host integration (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The launcher suite allocates its own free ports and writes its own fixtures, so it
+      # deliberately runs without a warmed package or browser cache: a run that only passes
+      # against inherited state is not evidence about a clean checkout.
+      - name: Run dev-stack launcher suite
+        run: npm run test:dev-stack

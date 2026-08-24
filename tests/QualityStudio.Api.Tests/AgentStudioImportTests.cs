@@ -16,6 +16,7 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
     private readonly string hostRoot = Path.Combine(Path.GetTempPath(), "quality-studio-import-hosts", Guid.NewGuid().ToString("N"));
     private readonly string secondProjectRoot = Path.Combine(Path.GetTempPath(), "quality-studio-import-second", Guid.NewGuid().ToString("N"));
     private readonly string missingProjectPath = Path.Combine(Path.GetTempPath(), "quality-studio-import-missing-" + Guid.NewGuid().ToString("N"));
+    private readonly List<GitTestRepository> repositories = [];
 
     [Fact]
     public async Task Import_onboards_new_projects_skips_known_paths_and_reports_failures()
@@ -86,43 +87,17 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        Directory.CreateDirectory(repositoryRoot);
+        repositories.Add(GitTestRepository.CreateIn(repositoryRoot));
+        repositories.Add(GitTestRepository.CreateIn(secondProjectRoot));
         Directory.CreateDirectory(hostRoot);
-        Directory.CreateDirectory(secondProjectRoot);
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
-        await RunGitInDirectoryAsync(repositoryRoot, "init", "--quiet");
-        await RunGitInDirectoryAsync(secondProjectRoot, "init", "--quiet");
     }
 
     public ValueTask DisposeAsync()
     {
-        foreach (var directory in new[] { repositoryRoot, hostRoot, secondProjectRoot })
-        {
-            try { Directory.Delete(directory, true); }
-            catch (IOException) { }
-        }
-
+        foreach (var repository in repositories) repository.Dispose();
+        TestDirectory.Delete(hostRoot);
         return ValueTask.CompletedTask;
-    }
-
-    private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = workingDirectory,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        process.Start();
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class StubHandler(IReadOnlyList<object> projects) : HttpMessageHandler
