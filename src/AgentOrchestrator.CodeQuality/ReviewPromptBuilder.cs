@@ -8,7 +8,7 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class ReviewPromptBuilder
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
-    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v3-deterministic-evidence";
+    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v4-content-boundary";
 
     public string Build(
         string filePath,
@@ -40,7 +40,8 @@ public sealed class ReviewPromptBuilder
             .Replace("{{SECURITY_SENSOR_EVIDENCE}}",
                 string.IsNullOrWhiteSpace(securitySensorEvidence) ? "{\"verdict\":\"pass\",\"sensors\":[]}" : securitySensorEvidence,
                 StringComparison.Ordinal)
-            .Replace("{{SECURITY_SCOPE_EXPECTATIONS}}", SecurityScopeExpectations(level), StringComparison.Ordinal);
+            .Replace("{{SECURITY_SCOPE_EXPECTATIONS}}", SecurityScopeExpectations(level), StringComparison.Ordinal)
+            .Replace("{{CONTENT_BOUNDARY}}", GenerateContentBoundary(), StringComparison.Ordinal);
         prompt += """
 
 
@@ -76,6 +77,10 @@ The JSON below contains persistent discussions anchored to this code. Address ea
 
     private static string FormatGuidelines(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "(none supplied)" : value.Trim();
+
+    // Fresh per prompt so repository content cannot pre-guess and forge a closing marker.
+    private static string GenerateContentBoundary() =>
+        "QS-CONTENT-" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
 
     private static string SecurityScopeExpectations(ReviewLevel level) =>
         level == ReviewLevel.Project
