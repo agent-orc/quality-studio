@@ -33,6 +33,10 @@ export class ProjectDashboardView {
       ?? '.';
   }
 
+  complexityPath(): string {
+    return this.api.project()?.metrics.complexity.topBreaches[0]?.path ?? this.metricPath();
+  }
+
   distributionMax(buckets: ProjectDistributionBucket[]): number {
     return Math.max(1, ...buckets.map(bucket => bucket.count));
   }
