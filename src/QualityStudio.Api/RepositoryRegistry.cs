@@ -30,7 +30,9 @@ public sealed record RepositoryRegistrationRequest(
 public sealed record RepositorySensorConfiguration(
     string Id,
     bool Enabled = true,
-    IReadOnlyDictionary<string, string>? Configuration = null);
+    IReadOnlyDictionary<string, string>? Configuration = null,
+    bool Required = true,
+    string? CommandId = null);
 
 public sealed class RepositoryRegistry
 {
@@ -277,6 +279,7 @@ public sealed class RepositoryRegistry
                 Configuration = sensor.Configuration is null
                     ? null
                     : new Dictionary<string, string>(sensor.Configuration, StringComparer.Ordinal),
+                CommandId = string.IsNullOrWhiteSpace(sensor.CommandId) ? null : sensor.CommandId.Trim(),
             })
             .ToArray();
         if (sensors.Length == 0 ||
@@ -371,7 +374,7 @@ public sealed class RepositoryRegistry
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
-        supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
+        supportedSensors.Select(DefaultSensor).ToArray();
 
     private IReadOnlyList<RepositorySensorConfiguration> MergeSupportedSensors(
         IReadOnlyList<RepositorySensorConfiguration>? configured)
@@ -381,9 +384,30 @@ public sealed class RepositoryRegistry
         return supportedSensors
             .Select(id => existing.TryGetValue(id, out var sensor)
                 ? sensor
-                : new RepositorySensorConfiguration(id))
+                : DefaultSensor(id))
             .ToArray();
     }
+
+    private static RepositorySensorConfiguration DefaultSensor(string id) => id switch
+    {
+        "gitleaks" => new RepositorySensorConfiguration(id, Required: true),
+        "npm-ci" => new RepositorySensorConfiguration(id, Required: true, CommandId: "frontend:npm-ci"),
+        "dotnet-build" => new RepositorySensorConfiguration(id, Required: true, CommandId: "dotnet:release-build"),
+        "angular-compiler" => new RepositorySensorConfiguration(id, Required: true, CommandId: "frontend:angular-compiler"),
+        "angular-budget" => new RepositorySensorConfiguration(id, Required: true, CommandId: "frontend:production-build"),
+        "eslint" => new RepositorySensorConfiguration(
+            id,
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["workingDirectory"] = ".",
+                ["reportPath"] = ".quality/preflight/eslint.sarif",
+                ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . --config frontend/eslint.config.mjs --format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js --output-file {reportPath}",
+            },
+            Required: false,
+            CommandId: "frontend:eslint-sarif"),
+        "dependencies" or "boundaries" => new RepositorySensorConfiguration(id, Required: false),
+        _ => new RepositorySensorConfiguration(id, Enabled: false, Required: false),
+    };
 }
 
 public sealed class RepositoryRegistryValidationException : Exception

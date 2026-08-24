@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
@@ -19,7 +20,20 @@ public sealed record ReviewRunEstimate(
     string PriceStatus,
     int HistorySamples,
     string Method,
-    int ExpectedFreshSkips = 0);
+    int ExpectedFreshSkips = 0,
+    long? PromptCharactersBeforeCompaction = null);
+
+public sealed record ReviewRunEconomyEvidence(
+    long StaticDurationMs,
+    int PreflightCacheHits,
+    int FindingCount,
+    int ModelCallsPlanned,
+    int ModelCallsBlocked,
+    int ModelCallsExecuted,
+    long? PromptCharactersBeforeCompaction,
+    long? PromptCharactersAfterCompaction,
+    TokenUsage ActualUsage,
+    ReviewEstimateDeviation? EstimateDeviation);
 
 public sealed record ReviewRunManifest(
     string RunId,
@@ -69,7 +83,15 @@ public sealed record ReviewRunStatus(
     string PriceStatus = "unknownModel",
     int SkippedFiles = 0,
     string? AggregateState = null,
-    string? StopReason = null);
+    string? StopReason = null,
+    string PreflightState = "queued",
+    int PreflightChecks = 0,
+    int PreflightUnavailableChecks = 0,
+    string? PreflightResultHash = null,
+    long? PreflightDurationMs = null,
+    int BlockedFiles = 0,
+    int PreflightCacheHits = 0,
+    int PreflightFindings = 0);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so
@@ -100,13 +122,15 @@ public sealed record ReviewRunResult(
     string PriceStatus,
     string? StopReason,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    ReviewRunEconomyEvidence? Economy = null);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
     ReviewRunStatus Status,
     IReadOnlyList<ReviewRunFileTransition> Progress,
-    IReadOnlyDictionary<string, ReviewObservationSnapshot>? Observations = null);
+    IReadOnlyDictionary<string, ReviewObservationSnapshot>? Observations = null,
+    PreflightSnapshot? Preflight = null);
 
 public sealed record StoredReviewObservation(string OperationId, ReviewObservationSnapshot Snapshot);
 
@@ -115,7 +139,7 @@ public sealed class ReviewRunStore
 {
     public const string RelativeRunsPath = ".quality/runs";
     private static readonly UTF8Encoding Utf8 = new(false);
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private static readonly JsonSerializerOptions LineJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string runsPath;
 
@@ -222,8 +246,9 @@ public sealed class ReviewRunStore
             status.PriceStatus,
             status.StopReason,
             manifest.Recommendation,
-            manifest.RouteOverride);
-        WriteAtomic(Path.Combine(RunDirectory(status.RunId), "result.json"),
+            manifest.RouteOverride,
+            Economy(manifest, status));
+        WriteAtomically(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }
 
@@ -243,7 +268,50 @@ public sealed class ReviewRunStore
         observations[operationId] = snapshot;
         var document = observations.OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => new StoredReviewObservation(pair.Key, pair.Value)).ToArray();
-        WriteAtomic(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
+        WriteAtomically(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
+    }
+
+    private static ReviewRunEconomyEvidence Economy(ReviewRunManifest manifest, ReviewRunStatus status)
+    {
+        var aggregateBlocked = string.Equals(status.AggregateState, "blocked-preflight", StringComparison.Ordinal) ? 1 : 0;
+        return new ReviewRunEconomyEvidence(
+            status.PreflightDurationMs ?? 0,
+            status.PreflightCacheHits,
+            status.PreflightFindings,
+            manifest.Estimate?.Operations ?? status.TotalFiles + (manifest.Level == "file" ? 0 : 1),
+            status.BlockedFiles + aggregateBlocked,
+            status.UsageOperations,
+            manifest.Estimate?.PromptCharactersBeforeCompaction,
+            manifest.Estimate?.PromptCharacters,
+            status.Usage,
+            Deviation(manifest, status));
+    }
+
+    private static ReviewEstimateDeviation? Deviation(ReviewRunManifest manifest, ReviewRunStatus status)
+    {
+        if (status.State != "done" || manifest.Estimate is null ||
+            status.Usage.InputTokens is null || status.Usage.OutputTokens is null)
+            return null;
+        return new ReviewEstimateDeviation(
+            Percent(status.Usage.InputTokens.Value, manifest.Estimate.InputTokens),
+            Percent(status.Usage.OutputTokens.Value, manifest.Estimate.OutputTokens),
+            status.CostSpent.HasValue && manifest.Estimate.Cost.HasValue
+                ? Percent(status.CostSpent.Value, manifest.Estimate.Cost.Value)
+                : null,
+            "Positive means actual was above preflight; prompt tokenizer, CLI context, caching, and response length cause deviation.");
+    }
+
+    private static decimal Percent(decimal actual, decimal estimate) =>
+        estimate == 0 ? 0 : Math.Round((actual - estimate) / estimate * 100m, 2);
+
+    public void WritePreflight(PreflightSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var directory = RunDirectory(snapshot.RunId);
+        Directory.CreateDirectory(directory);
+        WriteAtomically(
+            Path.Combine(directory, "preflight.json"),
+            JsonSerializer.Serialize(snapshot, JsonOptions) + Environment.NewLine);
     }
 
     public IReadOnlyList<StoredReviewRun> LoadAll(Action<string, Exception>? loadFailed = null)
@@ -269,8 +337,12 @@ public sealed class ReviewRunStore
                 if (!string.Equals(manifest.RunId, status.RunId, StringComparison.Ordinal) ||
                     !string.Equals(Path.GetFileName(directory), manifest.RunId, StringComparison.Ordinal))
                     throw new InvalidDataException($"Review run files disagree about the run id in '{directory}'.");
+                var preflightPath = Path.Combine(directory, "preflight.json");
+                var preflight = File.Exists(preflightPath) ? ReadRequired<PreflightSnapshot>(preflightPath) : null;
+                if (preflight is not null && !string.Equals(preflight.RunId, manifest.RunId, StringComparison.Ordinal))
+                    throw new InvalidDataException($"Preflight result disagrees about the run id in '{directory}'.");
                 loaded.Add(new StoredReviewRun(manifest, status, ReadProgress(directory, manifest.RunId),
-                    ReadObservations(directory)));
+                    ReadObservations(directory), preflight));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
             {
@@ -280,7 +352,8 @@ public sealed class ReviewRunStore
         return loaded;
     }
 
-    public static bool IsTerminal(string state) => state is "done" or "failed" or "cancelled" or "capped";
+    public static bool IsTerminal(string state) =>
+        state is "done" or "failed" or "cancelled" or "capped" or "blocked-preflight";
 
     private IReadOnlyList<ReviewRunFileTransition> ReadProgress(string directory, string runId)
     {
@@ -342,7 +415,7 @@ public sealed class ReviewRunStore
         stream.Flush(flushToDisk: true);
     }
 
-    private static void WriteAtomic(string destination, string content)
+    private static void WriteAtomically(string destination, string content)
     {
         var temporary = Path.Combine(Path.GetDirectoryName(destination)!,
             $"{Path.GetFileNameWithoutExtension(destination)}.{Guid.NewGuid():N}.tmp");
@@ -361,5 +434,12 @@ public sealed class ReviewRunStore
         {
             if (File.Exists(temporary)) File.Delete(temporary);
         }
+    }
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        return options;
     }
 }
