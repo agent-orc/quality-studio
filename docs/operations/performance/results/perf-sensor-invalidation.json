@@ -1,0 +1,81 @@
+{
+  "description": "Dashboard latency before a sensor scan, on the first request after it, and once the snapshot is warm again — the cost of a sensor writing into the repository Git state.",
+  "targets": [
+    {
+      "repositoryId": "default",
+      "warmBeforeScan": {
+        "totalMs": 873.52,
+        "serverTiming": {
+          "git-status": 7.72,
+          "cache-wait": 0,
+          "scan": 666.82,
+          "review-meta-discovery": 4.4,
+          "projection": 178.3
+        }
+      },
+      "scan": {
+        "id": "coverage",
+        "status": 200,
+        "totalMs": 32.58
+      },
+      "firstRequestAfterScan": {
+        "totalMs": 833.52,
+        "serverTiming": {
+          "git-status": 7.72,
+          "cache-wait": 0,
+          "scan": 635.46,
+          "review-meta-discovery": 5.94,
+          "projection": 182.96
+        }
+      },
+      "secondRequestAfterScan": {
+        "totalMs": 13.21,
+        "serverTiming": {
+          "git-status": 11.09,
+          "cache-wait": 0,
+          "scan": 0,
+          "review-meta-discovery": 0,
+          "projection": 0.02
+        }
+      }
+    },
+    {
+      "repositoryId": "taskboard",
+      "warmBeforeScan": {
+        "totalMs": 12160.41,
+        "serverTiming": {
+          "git-status": 41.36,
+          "cache-wait": 0,
+          "scan": 9686.97,
+          "review-meta-discovery": 19.61,
+          "projection": 2406.98
+        }
+      },
+      "scan": {
+        "id": "coverage",
+        "status": 200,
+        "totalMs": 81.95
+      },
+      "firstRequestAfterScan": {
+        "totalMs": 16143.72,
+        "serverTiming": {
+          "git-status": 65.76,
+          "cache-wait": 0,
+          "scan": 14755.32,
+          "review-meta-discovery": 19.3,
+          "projection": 1298.37
+        }
+      },
+      "secondRequestAfterScan": {
+        "totalMs": 32.46,
+        "serverTiming": {
+          "git-status": 31.14,
+          "cache-wait": 0,
+          "scan": 0,
+          "review-meta-discovery": 0,
+          "projection": 0
+        }
+      }
+    }
+  ]
+}
