@@ -21,6 +21,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     private string ForeignRepositoryRoot => Path.Combine(testRoot, "foreign");
     private string OutsideRoot => Path.Combine(testRoot, "outside");
     private string HostRoot => Path.Combine(testRoot, "host");
+    private readonly List<GitTestRepository> repositories = [];
     private HostedApplication? application;
 
     [Fact]
@@ -178,15 +179,13 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        foreach (var directory in new[] { RepositoryRoot, ForeignRepositoryRoot, OutsideRoot, HostRoot })
-            Directory.CreateDirectory(directory);
+        foreach (var directory in new[] { RepositoryRoot, ForeignRepositoryRoot, OutsideRoot })
+            repositories.Add(GitTestRepository.CreateIn(directory));
+        Directory.CreateDirectory(HostRoot);
         await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, "Sample.cs"), "namespace Sample; public sealed class Subject;");
         await File.WriteAllTextAsync(Path.Combine(ForeignRepositoryRoot, "Foreign.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(ForeignRepositoryRoot, "Foreign.cs"), "namespace Foreign; public sealed class Secret;");
-        await RunGitAsync(RepositoryRoot);
-        await RunGitAsync(ForeignRepositoryRoot);
-        await RunGitAsync(OutsideRoot);
         WriteRegistry(HostRoot);
         application = new HostedApplication(RepositoryRoot, ForeignRepositoryRoot, HostRoot, spendRequestsPerMinute: 100);
     }
@@ -194,8 +193,8 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         if (application is not null) await application.DisposeAsync();
-        try { Directory.Delete(testRoot, true); }
-        catch (IOException) { }
+        foreach (var repository in repositories) repository.Dispose();
+        TestDirectory.Delete(testRoot);
     }
 
     private HttpClient CreateClient(string? clientId = null, string? token = null, bool includeClientId = true) =>
@@ -227,17 +226,6 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         };
         File.WriteAllText(path, JsonSerializer.Serialize(entries,
             new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
-    }
-
-    private static async Task RunGitAsync(string directory)
-    {
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-        {
-            WorkingDirectory = directory,
-            UseShellExecute = false,
-        })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute)

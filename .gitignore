@@ -24,3 +24,8 @@ TestResults/
 !/.quality/usage/
 !/.quality/usage/*.jsonl
 /.dev-stack.log
+
+# Generated coverage reports. The committed artifact is the measured ratchet in
+# .quality/coverage-baseline.json, not the raw reports it was derived from.
+/.coverage/
+/frontend/coverage/

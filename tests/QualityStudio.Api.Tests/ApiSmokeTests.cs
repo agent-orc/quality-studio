@@ -17,6 +17,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 {
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-tests", Guid.NewGuid().ToString("N"));
     private readonly string hostRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-hosts", Guid.NewGuid().ToString("N"));
+    private GitTestRepository? repository;
     private TestApplication? application;
 
     [Fact]
@@ -204,43 +205,35 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     public async Task Report_returns_scorecard_sarif_and_registry_comparison()
     {
         var secondRoot = repositoryRoot + "-report-second";
-        Directory.CreateDirectory(secondRoot);
+        using var second = GitTestRepository.CreateIn(secondRoot);
         await File.WriteAllTextAsync(Path.Combine(secondRoot, "Second.cs"),
             "namespace Second; public sealed class Marker;", TestContext.Current.CancellationToken);
-        await RunGitInDirectoryAsync(secondRoot, "init", "--quiet");
-        try
+        using var client = application!.CreateClient();
+        using var created = await client.PostAsJsonAsync("/api/repos", new
         {
-            using var client = application!.CreateClient();
-            using var created = await client.PostAsJsonAsync("/api/repos", new
-            {
-                id = "report-second",
-                displayName = "Report second",
-                rootPath = secondRoot,
-                inputBudgetCharacters = 8000,
-                enabledReviewKinds = new[] { "code" },
-            }, TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            id = "report-second",
+            displayName = "Report second",
+            rootPath = secondRoot,
+            inputBudgetCharacters = 8000,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
-            using var response = await client.GetAsync("/api/report", TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
-            var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-            Assert.Equal(2, json.GetProperty("repositories").GetArrayLength());
-            Assert.Equal(2, json.GetProperty("comparison").GetProperty("repositories").GetArrayLength());
-            Assert.All(json.GetProperty("repositories").EnumerateArray(),
-                repository => Assert.True(repository.GetProperty("scorecard").TryGetProperty("coverage", out _)));
+        using var response = await client.GetAsync("/api/report", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(2, json.GetProperty("repositories").GetArrayLength());
+        Assert.Equal(2, json.GetProperty("comparison").GetProperty("repositories").GetArrayLength());
+        Assert.All(json.GetProperty("repositories").EnumerateArray(),
+            repository => Assert.True(repository.GetProperty("scorecard").TryGetProperty("coverage", out _)));
 
-            using var sarifResponse = await client.GetAsync(
-                "/api/repos/report-second/report?format=sarif", TestContext.Current.CancellationToken);
-            Assert.Equal("application/sarif+json", sarifResponse.Content.Headers.ContentType?.MediaType);
-            var sarif = await sarifResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-            Assert.Equal("2.1.0", sarif.GetProperty("version").GetString());
-            Assert.Single(sarif.GetProperty("runs").EnumerateArray());
-        }
-        finally
-        {
-            Directory.Delete(secondRoot, true);
-        }
+        using var sarifResponse = await client.GetAsync(
+            "/api/repos/report-second/report?format=sarif", TestContext.Current.CancellationToken);
+        Assert.Equal("application/sarif+json", sarifResponse.Content.Headers.ContentType?.MediaType);
+        var sarif = await sarifResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("2.1.0", sarif.GetProperty("version").GetString());
+        Assert.Single(sarif.GetProperty("runs").EnumerateArray());
     }
 
     [Fact]
@@ -619,53 +612,45 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     public async Task Registry_onboards_and_scopes_a_second_repository()
     {
         var secondRoot = repositoryRoot + "-second";
-        Directory.CreateDirectory(secondRoot);
+        using var second = GitTestRepository.CreateIn(secondRoot);
         await File.WriteAllTextAsync(Path.Combine(secondRoot, "Second.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />", TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(Path.Combine(secondRoot, "Second.cs"), "namespace Second; public sealed class Marker;", TestContext.Current.CancellationToken);
-        await RunGitInDirectoryAsync(secondRoot, "init", "--quiet");
 
-        try
+        using var client = application!.CreateClient();
+        var create = await client.PostAsJsonAsync("/api/repos", new
         {
-            using var client = application!.CreateClient();
-            var create = await client.PostAsJsonAsync("/api/repos", new
+            id = "second",
+            displayName = "Second repository",
+            rootPath = secondRoot,
+            globalInputsDirectory = (string?)null,
+            inputBudgetCharacters = 8000,
+            enabledReviewKinds = new[] { "code", "security" },
+            sensors = new object[]
             {
-                id = "second",
-                displayName = "Second repository",
-                rootPath = secondRoot,
-                globalInputsDirectory = (string?)null,
-                inputBudgetCharacters = 8000,
-                enabledReviewKinds = new[] { "code", "security" },
-                sensors = new object[]
-                {
-                    new { id = "gitleaks", enabled = true },
-                    new { id = "dependencies", enabled = false, configuration = new { ecosystems = "npm" } },
-                },
-            }, TestContext.Current.CancellationToken);
+                new { id = "gitleaks", enabled = true },
+                new { id = "dependencies", enabled = false, configuration = new { ecosystems = "npm" } },
+            },
+        }, TestContext.Current.CancellationToken);
 
-            Assert.Equal(HttpStatusCode.Created, create.StatusCode);
-            using var scopedFile = await client.GetAsync("/api/repos/second/file?path=Second.cs", TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.OK, scopedFile.StatusCode);
-            var file = await scopedFile.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-            Assert.Contains("namespace Second", file.GetProperty("content").GetString());
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        using var scopedFile = await client.GetAsync("/api/repos/second/file?path=Second.cs", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, scopedFile.StatusCode);
+        var file = await scopedFile.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains("namespace Second", file.GetProperty("content").GetString());
 
-            using var sensors = await client.GetAsync("/api/repos/second/sensors", TestContext.Current.CancellationToken);
-            var sensorsJson = await sensors.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-            var dependency = Assert.Single(sensorsJson.GetProperty("sensors").EnumerateArray(),
-                sensor => sensor.GetProperty("id").GetString() == "dependencies");
-            Assert.False(dependency.GetProperty("enabled").GetBoolean());
-            Assert.Equal("npm", dependency.GetProperty("configuration").GetProperty("ecosystems").GetString());
+        using var sensors = await client.GetAsync("/api/repos/second/sensors", TestContext.Current.CancellationToken);
+        var sensorsJson = await sensors.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var dependency = Assert.Single(sensorsJson.GetProperty("sensors").EnumerateArray(),
+            sensor => sensor.GetProperty("id").GetString() == "dependencies");
+        Assert.False(dependency.GetProperty("enabled").GetBoolean());
+        Assert.Equal("npm", dependency.GetProperty("configuration").GetProperty("ecosystems").GetString());
 
-            using var traversal = await client.GetAsync($"/api/file?path=../{Path.GetFileName(secondRoot)}/Second.cs", TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.BadRequest, traversal.StatusCode);
+        using var traversal = await client.GetAsync($"/api/file?path=../{Path.GetFileName(secondRoot)}/Second.cs", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, traversal.StatusCode);
 
-            var persisted = await File.ReadAllTextAsync(Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken);
-            Assert.Contains("Second repository", persisted);
-            Assert.Contains("ecosystems", persisted);
-        }
-        finally
-        {
-            Directory.Delete(secondRoot, true);
-        }
+        var persisted = await File.ReadAllTextAsync(Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken);
+        Assert.Contains("Second repository", persisted);
+        Assert.Contains("ecosystems", persisted);
     }
 
     [Fact]
@@ -691,13 +676,13 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         }
         finally
         {
-            Directory.Delete(invalidRoot, true);
+            TestDirectory.Delete(invalidRoot);
         }
     }
 
     public async ValueTask InitializeAsync()
     {
-        Directory.CreateDirectory(repositoryRoot);
+        repository = GitTestRepository.CreateIn(repositoryRoot);
         Directory.CreateDirectory(hostRoot);
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.cs"), "namespace Sample; public static class Greeter { public static string Hello() => \"hello\"; }");
@@ -707,7 +692,6 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Directory.CreateDirectory(Path.Combine(repositoryRoot, ".quality", "inputs"));
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, ".quality", "inputs", "sample.md"),
             "---\nid: sample-rules\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nPrefer explicit names.\n");
-        await RunGitAsync("init", "--quiet");
         application = new TestApplication(repositoryRoot, hostRoot);
     }
 
@@ -718,19 +702,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             await application.DisposeAsync();
         }
 
-        try
-        {
-            Directory.Delete(repositoryRoot, true);
-            Directory.Delete(hostRoot, true);
-        }
-        catch (IOException)
-        {
-        }
-    }
-
-    private async Task RunGitAsync(params string[] arguments)
-    {
-        await RunGitInDirectoryAsync(repositoryRoot, arguments);
+        repository?.Dispose();
+        TestDirectory.Delete(hostRoot);
     }
 
     private static IEnumerable<JsonElement> FlattenTree(JsonElement nodes)
@@ -740,26 +713,6 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             yield return node;
             foreach (var child in FlattenTree(node.GetProperty("children"))) yield return child;
         }
-    }
-
-    private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = workingDirectory,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        process.Start();
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class TestApplication(string root, string contentRoot) : WebApplicationFactory<Program>
