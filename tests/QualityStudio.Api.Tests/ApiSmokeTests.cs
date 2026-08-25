@@ -558,6 +558,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var sol = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "gpt-5.6-sol");
         Assert.Equal("frontier", sol.GetProperty("capabilityTier").GetString());
         Assert.True(sol.GetProperty("availableForNewRuns").GetBoolean());
+        foreach (var modelId in new[] { "claude-opus-5", "claude-sonnet-5" })
+        {
+            var claude = Assert.Single(models, model => model.GetProperty("modelId").GetString() == modelId);
+            Assert.Equal("selectable", claude.GetProperty("routingStatus").GetString());
+            Assert.True(claude.GetProperty("availableForNewRuns").GetBoolean());
+        }
         var retired = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "claude-opus-4-1");
         Assert.Equal("deprecated", retired.GetProperty("routingStatus").GetString());
         Assert.False(retired.GetProperty("availableForNewRuns").GetBoolean());
