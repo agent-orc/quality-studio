@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -17,6 +18,46 @@ namespace QualityStudio.Api.Tests;
 
 public sealed class ReviewRunStoreTests
 {
+    [Theory]
+    [InlineData("Sample.cs", "claude-sonnet-5", "xhigh")]
+    [InlineData("Second.cs", "claude-opus-5", "max")]
+    public async Task Claude_5_review_model_starts_at_the_correctness_critical_floor(
+        string path, string model, string thinkingLevel)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new CappedExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path,
+                kind = "security",
+                cliType = "claude",
+                model,
+                thinkingLevel,
+            }, cancellationToken);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal(model, accepted.GetProperty("model").GetString());
+            Assert.Equal(thinkingLevel, accepted.GetProperty("thinkingLevel").GetString());
+            var completed = await WaitForStateAsync(
+                client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+            Assert.Equal(1, completed.GetProperty("completedFiles").GetInt32());
+            Assert.Equal("claude", fake.CliType);
+            Assert.Equal(model, fake.Model);
+            Assert.Equal(thinkingLevel, fake.ThinkingLevel);
+            Assert.Equal(1, fake.OperationCount);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Fact]
     public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
     {
