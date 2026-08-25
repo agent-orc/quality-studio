@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-001",
+  "technology": "dotnet",
+  "category": "api-shape",
+  "title": "Every endpoint is mapped twice: default-repo and repo-scoped, same handler",
+  "statement": "A new minimal API route is mapped both as `/api/<resource>` (default repository) and `/api/repos/{repoId}/<resource>` (explicit repository), pointing at the same handler function; the handler resolves the target repository through the shared resolver instead of re-implementing repository lookup.",
+  "rationale": "Quality Studio is multi-repo; every existing resource endpoint (`tree`, `risk`, `project`, `file`, `inputs`, `guidelines`, ...) follows this exact pairing in `Program.cs`. An endpoint added only in the default-repo form silently breaks for every caller working against a non-default repository, and is easy to miss in review because the app still builds and the default-repo case still works.",
+  "severity": "low",
+  "autofixable": false,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "app.MapGet(\"/api/guidelines\", Guidelines);\napp.MapGet(\"/api/repos/{repoId}/guidelines\", Guidelines);\n\nstatic IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)\n{\n    var (_, repository) = ResolveRepository(context, registry);\n    return Results.Ok(store.List(repository.Root));\n}",
+    "caption": "One handler, two routes, shared repository resolution.",
+    "source": "src/QualityStudio.Api/Program.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "app.MapGet(\"/api/widgets\", (WidgetStore store) => Results.Ok(store.List(DefaultRoot)));\n// no /api/repos/{repoId}/widgets route: every non-default repository gets a 404",
+    "caption": "Only the default-repository route exists."
+  },
+  "tags": ["minimal-api", "multi-repo", "routing"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in the paired-route convention used across Program.cs." }
+  ]
+}

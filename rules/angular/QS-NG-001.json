@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-001",
+  "technology": "angular",
+  "category": "component-structure",
+  "title": "Standalone components with signal-based inputs and outputs",
+  "statement": "New components omit `standalone: true` (it is the default) and declare their public surface with `input()`/`input.required()` and `output()`, not `@Input()`/`@Output()` decorators or an enclosing NgModule.",
+  "rationale": "Signal-based inputs are readable synchronously, compose with `computed()`, and give the compiler a typed, required/optional distinction (`input.required<T>()`); decorator inputs are late-bound, untyped-until-runtime for required-ness, and NgModules add a declaration surface this codebase has already moved away from. Mixing both idioms in one app makes every new file's team style a coin flip and slows review.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "typescript",
+    "code": "@Component({\n  selector: 'qs-review-panel',\n  imports: [],\n  templateUrl: './review-panel.html',\n  styleUrl: './review-panel.css',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n})\nexport class ReviewPanel {\n  readonly activeKind = input.required<ReviewKind>();\n  readonly selectedPath = input.required<string>();\n  readonly selectedFinding = input<ReviewFinding | null>(null);\n  readonly findingSelect = output<ReviewFinding>();\n}",
+    "caption": "Signal-based inputs/outputs on a standalone component.",
+    "source": "frontend/src/app/review-panel/review-panel.ts"
+  },
+  "bad": {
+    "language": "typescript",
+    "code": "@Component({\n  selector: 'qs-review-panel',\n  templateUrl: './review-panel.html',\n})\nexport class ReviewPanel {\n  @Input() activeKind!: ReviewKind;\n  @Input() selectedFinding: ReviewFinding | null = null;\n  @Output() findingSelect = new EventEmitter<ReviewFinding>();\n}\n\n@NgModule({ declarations: [ReviewPanel] })\nexport class ReviewPanelModule {}",
+    "caption": "Decorator inputs plus a declaring NgModule."
+  },
+  "tags": ["signals", "standalone", "component-api"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in the review-panel component." }
+  ]
+}
