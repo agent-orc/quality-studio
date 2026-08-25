@@ -57,6 +57,12 @@ try {
   try {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     const events = [];
+    const journey = {
+      connectionState: null,
+      repositories: [],
+      darkTheme: false,
+      dashboardHealthCards: 0,
+    };
     page.on('console', message => {
       try {
         const event = JSON.parse(message.text());
@@ -65,18 +71,27 @@ try {
     });
 
     await page.goto(`http://127.0.0.1:${webPort}/?theme=light&repo=default&path=.`);
+    await page.locator('.health[data-connection-state="live"]').waitFor({ state: 'visible' });
+    journey.connectionState = 'live';
+    await assertSelectedRepository(page, 'Small fixture');
+    journey.repositories.push('Small fixture');
     await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
 
     await switchRepository(page, 'Realistic fixture');
+    journey.repositories.push('Realistic fixture');
     await page.locator('[data-transition-state]').first().waitFor({ state: 'visible' });
     await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-light.png'), fullPage: true });
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 1);
     await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
 
     await switchRepository(page, 'Small fixture');
+    journey.repositories.push('Small fixture');
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 2);
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+    await page.getByRole('button', { name: 'Switch to light theme' }).waitFor({ state: 'visible' });
+    journey.darkTheme = true;
     await switchRepository(page, 'Realistic fixture');
+    journey.repositories.push('Realistic fixture');
     await page.locator('[data-transition-state="stale"]').waitFor({ state: 'visible' });
     await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-dark.png'), fullPage: true });
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 3);
@@ -84,11 +99,16 @@ try {
     const transitionEvents = events.filter(event => event.event === 'qs.repository.transition-visible');
     const usableEvents = events.filter(event => event.event === 'qs.repository.switch.usable');
     const projectEvents = events.filter(event => event.event === 'qs.project.first-interactive');
+    journey.dashboardHealthCards = await page.locator('.project-dashboard .health-card').count();
+    if (journey.dashboardHealthCards === 0) {
+      throw new Error('Real-API journey finished without a rendered repository dashboard.');
+    }
     const result = {
       measuredAt: new Date().toISOString(),
       browser: await browser.version(),
       fixtureFiles: 1_600,
       backend: 'real QualityStudio.Api (no Playwright response interception)',
+      journey,
       budgets: { transitionVisibleMs: transitionBudgetMs, usableMs: usableBudgetMs },
       transitionEvents,
       usableEvents,
@@ -221,4 +241,10 @@ async function waitFor(predicate, timeoutMs, label) {
 async function switchRepository(page, name) {
   await page.locator('.repository-trigger').click();
   await page.getByRole('menuitemradio', { name: new RegExp(name, 'i') }).click();
+  await assertSelectedRepository(page, name);
+}
+
+async function assertSelectedRepository(page, name) {
+  await page.waitForFunction(expected =>
+    document.querySelector('.repository-trigger strong')?.textContent?.trim() === expected, name);
 }
