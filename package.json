@@ -2,10 +2,15 @@
   "name": "quality-studio",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.23.1",
+    "npm": "10.x"
+  },
   "scripts": {
     "start": "node scripts/dev-stack.mjs",
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs",
+    "test:repository-contracts": "node --test tests/release-canary-workflow.test.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
     "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs"
   }
