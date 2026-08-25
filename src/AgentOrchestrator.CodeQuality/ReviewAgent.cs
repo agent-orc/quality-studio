@@ -46,12 +46,14 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
 
     public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
         CliOptions? options = null,
-        Action<string, CliRunEvent>? eventObserver = null)
+        Action<string, CliRunEvent>? eventObserver = null,
+        Microsoft.Extensions.Logging.ILogger? logger = null,
+        IRunLogPathProvider? logPaths = null)
     {
         _cliType = cliType;
         _thinkingLevel = thinkingLevel;
         Model = model;
-        _runner = new CliRunner(options ?? new CliOptions());
+        _runner = new CliRunner(options ?? new CliOptions(), logger, logPaths);
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
@@ -70,6 +72,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _runner.Get(_cliType);
+        string? cliFailure = null;
         try
         {
             await foreach (var runEvent in driver.StreamAsync(new CliRunRequest
@@ -89,7 +92,23 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
                 {
                     output.Append(delta.Text);
                 }
+                else if (runEvent is CliRunEvent.TurnFailed failed)
+                {
+                    cliFailure ??= failed.Reason;
+                }
+                else if (runEvent is CliRunEvent.Diagnostic diagnostic &&
+                         diagnostic.Severity == DiagnosticSeverity.Error)
+                {
+                    cliFailure ??= diagnostic.Summary;
+                }
+                else if (runEvent is CliRunEvent.RunEnded ended &&
+                         !string.Equals(ended.Outcome.ToString(), "Completed", StringComparison.Ordinal))
+                {
+                    cliFailure ??= ended.Reason ?? $"CLI run ended with outcome {ended.Outcome}.";
+                }
             }
+            if (cliFailure is not null)
+                throw new InvalidOperationException(output.Length > 0 ? output.ToString() : cliFailure);
         }
         catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
         {
