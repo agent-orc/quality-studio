@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
+using Json.Schema;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -766,6 +767,108 @@ public sealed class ReviewRunnerTests
         });
     }
 
+    [Fact]
+    public async Task ObservationDualWritePreservesEachModelRunAndLinksUsage()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var first = await new ReviewRunner(
+                    new FakeAgent(model: "model-a", runId: "run-a"), observationWriteEnabled: true)
+                .ReviewAsync(new ReviewRequest("src/Small.cs", RepositoryRoot: root),
+                    TestContext.Current.CancellationToken);
+            var second = await new ReviewRunner(
+                    new FakeAgent(model: "model-b", runId: "run-b"), observationWriteEnabled: true)
+                .ReviewAsync(new ReviewRequest("src/Small.cs", RepositoryRoot: root),
+                    TestContext.Current.CancellationToken);
+
+            Assert.Equal(first.MetaPath, second.MetaPath);
+            using (var current = JsonDocument.Parse(await File.ReadAllTextAsync(
+                       second.MetaPath, TestContext.Current.CancellationToken)))
+            {
+                Assert.Equal("model-b", current.RootElement.GetProperty("reviewer").GetProperty("model").GetString());
+            }
+            var observations = await QualityObservationLedger.ReadAsync(
+                root, TestContext.Current.CancellationToken);
+            Assert.Equal(2, observations.Count);
+            Assert.Equal(["model-a", "model-b"],
+                observations.Select(item => item.Producer.EffectiveModel).Order(StringComparer.Ordinal));
+            Assert.All(observations, item =>
+            {
+                Assert.Equal("unknown", item.Producer.Provider);
+                Assert.Equal("unknown", item.Producer.ThinkingLevel);
+            });
+            var usage = await UsageLedger.QueryAsync(root,
+                cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(2, usage.Runs);
+            Assert.All(usage.Recent, item =>
+            {
+                Assert.Equal(3, item.SchemaVersion);
+                Assert.Contains(observations, observation => observation.ObservationId == item.ObservationId);
+            });
+            var usageSchema = JsonSchema.FromText(await File.ReadAllTextAsync(Path.Combine(
+                RepositoryTestContext.FindRepositoryRoot(), "schemas", "usage-ledger.v3.schema.json"),
+                TestContext.Current.CancellationToken));
+            var usagePath = UsageLedger.GetLedgerPath(root, usage.Recent[0].Timestamp);
+            foreach (var line in await File.ReadAllLinesAsync(usagePath, TestContext.Current.CancellationToken))
+            {
+                using var usageJson = JsonDocument.Parse(line);
+                var validation = usageSchema.Evaluate(usageJson.RootElement,
+                    new EvaluationOptions { OutputFormat = OutputFormat.List });
+                Assert.True(validation.IsValid, validation.ToString());
+            }
+            Assert.False(await QualityObservationLedger.AppendAsync(root, observations[0],
+                TestContext.Current.CancellationToken));
+            Assert.Equal(2, (await QualityObservationLedger.ReadAsync(
+                root, TestContext.Current.CancellationToken)).Count);
+        });
+    }
+
+    [Fact]
+    public async Task ObservationAppendFailureLeavesPreviousSidecarCurrent()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var current = await new ReviewRunner(new FakeAgent(model: "model-a", runId: "run-a"))
+                .ReviewAsync(new ReviewRequest("src/Small.cs", RepositoryRoot: root),
+                    TestContext.Current.CancellationToken);
+            var originalSidecar = await File.ReadAllBytesAsync(current.MetaPath,
+                TestContext.Current.CancellationToken);
+            var blockedLedgerPath = QualityObservationLedger.GetLedgerPath(root, DateTimeOffset.UtcNow);
+            Directory.CreateDirectory(blockedLedgerPath);
+
+            var exception = await Record.ExceptionAsync(() => new ReviewRunner(
+                    new FakeAgent(model: "model-b", runId: "run-b"), observationWriteEnabled: true)
+                .ReviewAsync(new ReviewRequest("src/Small.cs", RepositoryRoot: root),
+                    TestContext.Current.CancellationToken));
+            Assert.True(exception is IOException or UnauthorizedAccessException, exception?.ToString());
+
+            Assert.Equal(originalSidecar, await File.ReadAllBytesAsync(
+                current.MetaPath, TestContext.Current.CancellationToken));
+        });
+    }
+
+    [Fact]
+    public async Task FailureAfterObservationAppendLeavesRecoverableObservationWithoutSidecar()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var statePath = Path.Combine(root,
+                FindingStateStore.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(statePath)!);
+            await File.WriteAllTextAsync(statePath, "{invalid", TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<JsonException>(() => new ReviewRunner(
+                    new FakeAgent(model: "model-a", runId: "run-a"), observationWriteEnabled: true)
+                .ReviewAsync(new ReviewRequest("src/Small.cs", RepositoryRoot: root),
+                    TestContext.Current.CancellationToken));
+
+            var observation = Assert.Single(await QualityObservationLedger.ReadAsync(
+                root, TestContext.Current.CancellationToken));
+            Assert.Equal("run-a", observation.Producer.RunId);
+            Assert.False(Directory.Exists(Path.Combine(root, "src", ".quality", "reviews")));
+        });
+    }
+
     private static async Task WithReviewFileAsync(Func<string, string, Task> test)
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-review-tests", Guid.NewGuid().ToString("N"));
@@ -787,12 +890,15 @@ public sealed class ReviewRunnerTests
         private readonly string _response;
         private readonly Action? _onRun;
         private readonly string _model;
+        private readonly string _runId;
 
-        public FakeAgent(string? response = null, Action? onRun = null, string model = "deterministic")
+        public FakeAgent(string? response = null, Action? onRun = null, string model = "deterministic",
+            string runId = "run-test")
         {
             _response = response ?? ReviewResponseParserTests.ValidResponse;
             _onRun = onRun;
             _model = model;
+            _runId = runId;
         }
 
         public string AgentName => "test-agent";
@@ -811,7 +917,7 @@ public sealed class ReviewRunnerTests
             Prompt = prompt;
             WorkingDirectory = workingDirectory;
             _onRun?.Invoke();
-            return Task.FromResult(new ReviewAgentResult("run-test", $"```json\n{_response}\n```",
+            return Task.FromResult(new ReviewAgentResult(_runId, $"```json\n{_response}\n```",
                 new TokenUsage(120, 34, 56, 7, 890), _model));
         }
     }

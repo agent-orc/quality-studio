@@ -39,7 +39,11 @@ public sealed record ReviewRunManifest(
     bool Force = false,
     string? ThinkingLevel = null,
     ReviewModelRecommendation? Recommendation = null,
-    bool RouteOverride = false);
+    bool RouteOverride = false,
+    string Provider = "unknown",
+    string RequestedModel = "unknown",
+    string EffectiveModel = "unknown",
+    string RoutePolicyVersion = "unknown");
 
 public sealed record ReviewRunFileTransition(
     string Path,

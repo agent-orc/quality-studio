@@ -94,13 +94,16 @@ public interface IReviewExecutorFactory
 
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
-    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
+    StalenessEvaluator stalenessEvaluator,
+    IOptions<QualityTaxonomyOptions> taxonomyOptions) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
-                cliType, model, thinkingLevel, eventObserver: eventObserver),
-            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
+                cliType, model, thinkingLevel, taxonomyOptions.Value.Provider,
+                taxonomyOptions.Value.RoutePolicyVersion, eventObserver: eventObserver),
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
+            observationWriteEnabled: taxonomyOptions.Value.ObservationWriteEnabled));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -119,6 +122,15 @@ public sealed class ReviewJobsOptions
     public int RecentRunLimit { get; set; } = 30;
 }
 
+public sealed class QualityTaxonomyOptions
+{
+    public const string SectionName = "QualityTaxonomy";
+    public bool ObservationWriteEnabled { get; set; }
+    public bool ObservationReadEnabled { get; set; }
+    public string? Provider { get; set; }
+    public string? RoutePolicyVersion { get; set; }
+}
+
 public sealed class ReviewJobService : BackgroundService
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
@@ -135,11 +147,12 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private readonly QualityTaxonomyOptions taxonomyOptions;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
-        ReviewModelCatalog modelCatalog)
+        ReviewModelCatalog modelCatalog, IOptions<QualityTaxonomyOptions> taxonomyOptions)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -150,6 +163,7 @@ public sealed class ReviewJobService : BackgroundService
         this.dashboards = dashboards;
         this.sensorRegistry = sensorRegistry;
         this.modelCatalog = modelCatalog;
+        this.taxonomyOptions = taxonomyOptions.Value;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -202,7 +216,10 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            Provider: taxonomyOptions.Provider ?? "unknown",
+            RequestedModel: selection.Model ?? "unknown",
+            RoutePolicyVersion: taxonomyOptions.RoutePolicyVersion ?? "unknown");
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -595,7 +612,11 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            Provider: taxonomyOptions.Provider,
+            RequestedModel: item.Model,
+            ThinkingLevel: item.ThinkingLevel,
+            RoutePolicyVersion: taxonomyOptions.RoutePolicyVersion);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch

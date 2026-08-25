@@ -153,7 +153,10 @@ public static class QualityCli
             var sensors = options.Kind == "security"
                 ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()])
                 : null;
-            var result = await new ReviewRunner(sensorRegistry: sensors).ReviewAsync(new ReviewRequest(
+            var observationWriteEnabled = bool.TryParse(
+                Environment.GetEnvironmentVariable("QUALITY_TAXONOMY_OBSERVATION_WRITE_ENABLED"), out var enabled) && enabled;
+            var result = await new ReviewRunner(sensorRegistry: sensors,
+                observationWriteEnabled: observationWriteEnabled).ReviewAsync(new ReviewRequest(
                 options.File, options.Kind, GlobalInputsDirectory: globalInputs,
                 InputBudgetCharacters: options.BudgetCharacters,
                 Sensors: options.Kind == "security"

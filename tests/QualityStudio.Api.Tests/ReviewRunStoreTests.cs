@@ -122,6 +122,12 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
+                fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "manifest.json"), cancellationToken));
+            Assert.Equal("claude-sonnet-5", manifest.RootElement.GetProperty("requestedModel").GetString());
+            Assert.Equal("unknown", manifest.RootElement.GetProperty("effectiveModel").GetString());
+            Assert.Equal("unknown", manifest.RootElement.GetProperty("provider").GetString());
+            Assert.Equal("unknown", manifest.RootElement.GetProperty("routePolicyVersion").GetString());
         }
         finally
         {
