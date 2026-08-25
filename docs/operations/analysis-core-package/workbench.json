@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "implemented",
   "phase": "first-slice",
-  "updatedAt": "2026-08-12T16:48:00Z",
+  "updatedAt": "2026-08-25T09:30:00Z",
   "sourceTaskKeys": [
     "QS-91",
     "AGT-2655",
@@ -39,6 +39,10 @@
     ".github/workflows/build.yml",
     "$JOB_RESULTS_DIR/package/AgentOrchestrator.CodeQuality.0.1.0.nupkg",
     "$JOB_RESULTS_DIR/summary.json",
-    "$JOB_RESULTS_DIR/test-results/quality-studio-api.trx"
+    "$JOB_RESULTS_DIR/test-results/analysis-core-full.trx",
+    "$JOB_RESULTS_DIR/test-results/quality-studio-api-full.trx",
+    "$JOB_RESULTS_DIR/test-results/quality-studio-api-machinebound-isolated.trx",
+    "$JOB_RESULTS_DIR/cli-proof/transcript.txt",
+    "$JOB_RESULTS_DIR/cli-proof/repository/.quality/boundaries/inventory.json"
   ]
 }
