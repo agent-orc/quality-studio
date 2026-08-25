@@ -26,11 +26,22 @@ public sealed record SensorProvenance(
     string ScannedAt,
     IReadOnlyDictionary<string, string> ToolVersions);
 
+public sealed record SensorScanCoverage(
+    bool Complete,
+    string Unit,
+    int Discovered,
+    int Processed,
+    int Skipped,
+    bool HasMore,
+    string? ContinuationToken = null,
+    string? PartialReason = null);
+
 public sealed record SensorScanResult(
     bool Available,
     string? UnavailableReason,
     IReadOnlyList<ReviewFinding> Findings,
-    SensorProvenance Provenance);
+    SensorProvenance Provenance,
+    SensorScanCoverage? Coverage = null);
 
 public sealed record ReviewSensorConfiguration(
     string Id,

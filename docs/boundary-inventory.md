@@ -15,9 +15,20 @@ Run it directly with:
 quality boundaries scan .
 ```
 
+For a bounded page, pass `--max-files N`. Continue from the returned token with
+`--cursor <relative-path>`; add `--no-write` when running a full diagnostic scan
+that must not update repository metadata. The equivalent repository sensor
+configuration keys are `maxFiles` and `cursor`.
+
 It is also available through the sensor API as sensor id `boundaries`.
 Repository scans persist the inventory; path-scoped scans return a partial
-inventory without replacing the repository truth.
+inventory without replacing the repository truth. Bounded and cursor-based
+scans are also explicitly partial and never replace the repository inventory.
+Their `coverage` object reports the number of eligible files discovered and
+processed, the number skipped, whether more remain, the continuation token, and
+the reason the result is partial. A partial security-sensor result is treated as
+unavailable rather than as a clean scan, while retaining findings from the
+processed page.
 
 ## Contract
 

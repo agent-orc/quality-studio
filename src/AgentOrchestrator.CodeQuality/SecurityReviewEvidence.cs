@@ -190,7 +190,14 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 .Where(finding => finding.Locations.Count > 0)
                 .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
                 .ToArray();
-            var verdict = !result.Available
+            var complete = result.Coverage?.Complete != false;
+            var available = result.Available && complete;
+            var unavailableReason = !result.Available
+                ? result.UnavailableReason
+                : complete
+                    ? null
+                    : result.Coverage?.PartialReason ?? "Sensor returned partial coverage.";
+            var verdict = !available
                 ? SecurityEvidenceVerdict.Unavailable
                 : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
                     ? SecurityEvidenceVerdict.Block
@@ -201,8 +208,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 result.Provenance.SensorId,
                 result.Provenance.SensorVersion,
                 string.Empty,
-                result.Available,
-                result.UnavailableReason,
+                available,
+                unavailableReason,
                 verdict,
                 result.Provenance.ToolVersions,
                 findings);

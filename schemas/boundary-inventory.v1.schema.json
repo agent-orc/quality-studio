@@ -10,6 +10,7 @@
     "schemaVersion": { "const": 1 },
     "sensor": { "const": "boundaries" },
     "sensorVersion": { "type": "string", "minLength": 1 },
+    "coverage": { "$ref": "#/$defs/coverage" },
     "entries": {
       "type": "array",
       "items": { "$ref": "#/$defs/entry" }
@@ -20,6 +21,21 @@
     }
   },
   "$defs": {
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "complete", "unit", "discovered", "processed", "skipped", "hasMore" ],
+      "properties": {
+        "complete": { "type": "boolean" },
+        "unit": { "const": "files" },
+        "discovered": { "type": "integer", "minimum": 0 },
+        "processed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "hasMore": { "type": "boolean" },
+        "continuationToken": { "type": [ "string", "null" ] },
+        "partialReason": { "type": [ "string", "null" ] }
+      }
+    },
     "location": {
       "type": "object",
       "additionalProperties": false,

@@ -426,7 +426,28 @@
             ]
           }
         },
-        "provenance": { "$ref": "#/$defs/deterministicSensorProvenance" }
+        "provenance": { "$ref": "#/$defs/deterministicSensorProvenance" },
+        "coverage": {
+          "anyOf": [
+            { "$ref": "#/$defs/sensorScanCoverage" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "sensorScanCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["complete", "unit", "discovered", "processed", "skipped", "hasMore", "continuationToken", "partialReason"],
+      "properties": {
+        "complete": { "type": "boolean" },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "discovered": { "type": "integer", "minimum": 0 },
+        "processed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "hasMore": { "type": "boolean" },
+        "continuationToken": { "type": ["string", "null"], "maxLength": 2000 },
+        "partialReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 }
       }
     },
     "deterministicSensorProvenance": {

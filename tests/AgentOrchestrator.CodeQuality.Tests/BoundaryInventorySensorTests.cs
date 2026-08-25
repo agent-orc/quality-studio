@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Json.Schema;
@@ -210,6 +211,116 @@ public sealed class BoundaryInventorySensorTests
         var validation = schema.Evaluate(generated.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());
+    }
+
+    [Fact]
+    public async Task Large_synthetic_tree_completes_with_linear_regexes()
+    {
+        const int fileCount = 1_500;
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-large-").FullName;
+        try
+        {
+            for (var index = 0; index < fileCount - 1; index++)
+            {
+                var directory = Path.Combine(root, $"area-{index / 50:D2}");
+                Directory.CreateDirectory(directory);
+                await File.WriteAllTextAsync(
+                    Path.Combine(directory, $"Source{index:D4}.cs"),
+                    index % 100 == 0
+                        ? $"var app = WebApplication.Create(); app.MapGet(\"/synthetic/{index}\", () => Results.Ok());"
+                        : $"[Synthetic({index})] public sealed class Source{index:D4} {{ }}",
+                    TestContext.Current.CancellationToken);
+            }
+            var attributeHeavySource = string.Join('\n', Enumerable.Range(0, 8_000)
+                .Select(index => $"[Synthetic({index})] public sealed class Generated{index:D4} {{ }}"));
+            await File.WriteAllTextAsync(
+                Path.Combine(root, "AttributeHeavy.cs"),
+                attributeHeavySource,
+                TestContext.Current.CancellationToken);
+
+            var stopwatch = Stopwatch.StartNew();
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            Assert.True(inventory.Coverage.Complete);
+            Assert.Equal(fileCount, inventory.Coverage.Discovered);
+            Assert.Equal(fileCount, inventory.Coverage.Processed);
+            Assert.Equal(15, inventory.Entries.Count(entry => entry.Kind == "http"));
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(15),
+                $"Large-tree scan took {stopwatch.Elapsed}.");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Bounded_pages_report_partial_coverage_and_never_replace_repository_truth()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-bounded-").FullName;
+        try
+        {
+            for (var index = 0; index < 12; index++)
+            {
+                await File.WriteAllTextAsync(
+                    Path.Combine(root, $"Source{index:D2}.cs"),
+                    $"var app = WebApplication.Create(); app.MapGet(\"/bounded/{index}\", () => Results.Ok());",
+                    TestContext.Current.CancellationToken);
+            }
+            var sensor = new BoundaryInventorySensor();
+            var first = await sensor.InventoryAsync(new SensorScanRequest(
+                root,
+                Configuration: new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.MaxFilesConfigurationKey] = "5",
+                }), TestContext.Current.CancellationToken);
+
+            Assert.False(first.Coverage.Complete);
+            Assert.Equal(12, first.Coverage.Discovered);
+            Assert.Equal(5, first.Coverage.Processed);
+            Assert.True(first.Coverage.HasMore);
+            Assert.Equal("Source04.cs", first.Coverage.ContinuationToken);
+            Assert.Contains("configured maxFiles bound", first.Coverage.PartialReason, StringComparison.Ordinal);
+            Assert.False(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+
+            var last = await sensor.InventoryAsync(new SensorScanRequest(
+                root,
+                Configuration: new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.MaxFilesConfigurationKey] = "7",
+                    [BoundaryInventorySensor.CursorConfigurationKey] = first.Coverage.ContinuationToken!,
+                }), TestContext.Current.CancellationToken);
+
+            Assert.False(last.Coverage.Complete);
+            Assert.Equal(7, last.Coverage.Processed);
+            Assert.Equal(5, last.Coverage.Skipped);
+            Assert.False(last.Coverage.HasMore);
+            Assert.Null(last.Coverage.ContinuationToken);
+            Assert.Contains("continued after 5 earlier file(s)", last.Coverage.PartialReason, StringComparison.Ordinal);
+            Assert.False(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+
+            var securityEvidence = await new SecurityEvidenceCollector(new SensorRegistry([sensor])).CollectAsync(
+                root,
+                ["Source00.cs"],
+                [new ReviewSensorConfiguration(sensor.Id, new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.MaxFilesConfigurationKey] = "5",
+                })],
+                TestContext.Current.CancellationToken);
+            Assert.Equal(SecurityEvidenceVerdict.Unavailable, securityEvidence.Verdict);
+            Assert.Contains("Partial boundary inventory", Assert.Single(securityEvidence.Sensors).UnavailableReason,
+                StringComparison.Ordinal);
+
+            var complete = await sensor.InventoryAsync(
+                new SensorScanRequest(root), TestContext.Current.CancellationToken);
+            Assert.True(complete.Coverage.Complete);
+            Assert.True(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed record Widget(string Name);
