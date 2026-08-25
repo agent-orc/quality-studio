@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -17,6 +18,48 @@ namespace QualityStudio.Api.Tests;
 
 public sealed class ReviewRunStoreTests
 {
+    [Fact]
+    public async Task Claude_5_review_models_each_start_at_the_correctness_critical_floor()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new CappedExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+            var routes = new[]
+            {
+                new { Path = "Sample.cs", Model = "claude-sonnet-5", ThinkingLevel = "xhigh" },
+                new { Path = "Second.cs", Model = "claude-opus-5", ThinkingLevel = "max" },
+            };
+
+            foreach (var route in routes)
+            {
+                using var response = await client.PostAsJsonAsync("/api/review", new
+                {
+                    path = route.Path,
+                    kind = "security",
+                    cliType = "claude",
+                    model = route.Model,
+                    thinkingLevel = route.ThinkingLevel,
+                }, cancellationToken);
+
+                Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+                var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+                Assert.Equal(route.Model, accepted.GetProperty("model").GetString());
+                Assert.Equal(route.ThinkingLevel, accepted.GetProperty("thinkingLevel").GetString());
+                var completed = await WaitForStateAsync(
+                    client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+                Assert.Equal(1, completed.GetProperty("completedFiles").GetInt32());
+            }
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Fact]
     public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
     {
