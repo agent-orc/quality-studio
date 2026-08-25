@@ -613,6 +613,39 @@
       <li>Section 03 reports 17 Angular cases. That was true at <code>3e0b655</code>; the suite had already grown to 39 before this card added its own.</li>
     </ul>
   </div>
+
+  <div class="box accent">
+    <h4>2026-08-25 &middot; QS-75 &middot; Recovery, contract completion, and re-verification</h4>
+    <p>The approved implementation was recovered onto the current integration tip and verified from a clean dependency restore. The remote has no <code>develop</code> ref, so the requested integration refresh used the remote's actual HEAD branch, <code>origin/main</code>. The operator decision is now reflected as <b>decided</b> in both the dossier header and workbench metadata. No operator-decision-gated slice was skipped.</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-08-25</td><td><code>QS-75</code></td><td><b>1. Truthful required gate</b></td>
+        <td>Recovered the portable and host-integration jobs, then completed the cold-checkout contract with <code>global.json</code>, six .NET <code>packages.lock.json</code> files, locked-mode CI restore, root Node/npm engine declarations, and README commands matching the gate. Re-verified a zero-warning Release build, the 478.30 kB production bundle under the unchanged 480 kB error budget, pinned browser resolution, and the repository contract checks.</td>
+      </tr>
+      <tr>
+        <td>2026-08-25</td><td><code>QS-75</code></td><td><b>2. Host and fixture repair</b></td>
+        <td>Recovered the platform-neutral launcher harness, held free-port reservations, captured child-process diagnostics, immediate spawn-error reporting, and the shared temporary Git repository builder. The Linux launcher lane passed all 6 cases; the workflow retains the required Windows matrix job.</td>
+      </tr>
+      <tr>
+        <td>2026-08-25</td><td><code>QS-75</code></td><td><b>3. Honest portability taxonomy</b></td>
+        <td>Recovered the shared <code>MachineBound</code> and <code>ExternalLive</code> taxonomy and the portable exclusion filter. The fresh portable run selected and passed 235 tests with neither timing nor live-agent checks mixed into its result.</td>
+      </tr>
+      <tr>
+        <td>2026-08-25</td><td><code>QS-75</code></td><td><b>4. Coverage generation and priority gaps</b></td>
+        <td>Recovered Cobertura and lcov generation, the source-path ingestion repair, the measured five-area ratchet, direct positive/failure HTTP route coverage, and the added Angular high-risk surface tests. Re-verification passed 174 core/CLI tests, 61 API tests, and 91 Angular tests; all five coverage areas met their committed floors.</td>
+      </tr>
+      <tr>
+        <td>2026-08-25</td><td><code>QS-75</code></td><td><b>5. Release canary and upkeep</b></td>
+        <td>Retained the labeled-host canary's three-sample machine and browser stages, host metadata, optional live-review lane, evidence upload, and final failure classification. Removed the browser harness's hidden dependency on the checkout directory being named <code>quality-studio</code>, and added required executable repository-contract tests for both portable root selection and publication-before-enforcement. The real-API repository-switch stage passed locally; the complementary browser stage recorded one 55.2 ms tree-toggle machine-variance sample and then a green retained sample. Actual scheduling, labeled-host availability, and branch-protection requirements remain repository settings outside this checkout.</td>
+      </tr>
+    </tbody>
+  </table>
 </main>
 </body>
 </html>
