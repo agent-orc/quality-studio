@@ -2,18 +2,20 @@
   "schemaVersion": 1,
   "id": "ux-review-flow",
   "title": "Quality Studio Review Flow",
-  "summary": "Decision-ready operator dossier for the complete Quality Studio review journey: one scope-owned launch surface, backend-owned model recommendation on top of the QS-56 catalog, inline preflight, active run visibility, a QS-55-readable findings queue, bidirectional finding-to-code navigation, explicit Accept/Dismiss/Ignore semantics, API-owned management for the existing .quality/scope.json list, and immutable per-run outcomes for fingerprint-aligned comparison. Recommends the session-centered three-pane workspace (Option B) and provides approval-ready Slices S0-S6 with acceptance contracts.",
+  "summary": "Documented implementation dossier for the complete Quality Studio review journey. QS-69 delivered the session-centered S0-S5 flow, QS-73 established canonical immutable run reports, and QS-83 completed S6 with compatible baseline/candidate selection, fingerprint-aligned comparison, provenance, and non-causal interpretation guards.",
   "entrypoint": "index.html",
-  "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:09Z",
+  "status": "documented",
+  "phase": "implementation",
+  "updatedAt": "2026-08-12T14:29:00Z",
   "sourceTaskKeys": [
     "QS-60"
   ],
   "relatedTaskKeys": [
     "QS-55",
     "QS-56",
-    "QS-69"
+    "QS-69",
+    "QS-73",
+    "QS-83"
   ],
   "key": "QS-W1",
   "decision": {
@@ -52,5 +54,5 @@
       "taskType": "feature"
     }
   },
-  "editedBy": "Operator, recorded by AGT-2621"
+  "editedBy": "Codex, QS-83"
 }

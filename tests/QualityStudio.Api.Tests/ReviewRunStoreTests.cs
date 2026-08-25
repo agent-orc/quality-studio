@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -79,6 +80,7 @@ public sealed class ReviewRunStoreTests
             Assert.Equal(3, completedReport.Observations.Count);
             Assert.Equal(3, completedReport.Execution.Reviewed);
             Assert.All(completedReport.Observations, observation => Assert.True(observation.ProducedByRun));
+            Assert.All(completedReport.Observations, observation => Assert.NotNull(observation.ReviewInputsHash));
             Assert.DoesNotContain(fixture.RepositoryRoot, QualityRunReportJson.Serialize(completedReport),
                 StringComparison.OrdinalIgnoreCase);
             var canonicalBeforeOverwrite = await File.ReadAllBytesAsync(
@@ -115,6 +117,44 @@ public sealed class ReviewRunStoreTests
             Assert.Contains(trend.GetProperty("points").EnumerateArray(), point =>
                 point.GetProperty("runId").GetString() == completedReport.Run.Id &&
                 point.GetProperty("comparable").GetBoolean());
+
+            var comparisonCandidate = completedReport with
+            {
+                Run = completedReport.Run with
+                {
+                    Id = "review-comparison-candidate",
+                    FinishedAt = completedReport.Run.FinishedAt!.Value.AddMinutes(1),
+                },
+            };
+            reportStore.Save(comparisonCandidate);
+            var comparisonUrl = "/api/review/runs/compare?baselineId=" +
+                                Uri.EscapeDataString(completedReport.Run.Id) + "&candidateId=" +
+                                Uri.EscapeDataString(comparisonCandidate.Run.Id);
+            var comparison = await client.GetFromJsonAsync<JsonElement>(comparisonUrl, cancellationToken);
+            Assert.Equal(completedReport.Run.Id,
+                comparison.GetProperty("baseline").GetProperty("runId").GetString());
+            Assert.Equal(comparisonCandidate.Run.Id,
+                comparison.GetProperty("candidate").GetProperty("runId").GetString());
+            Assert.True(comparison.GetProperty("counts").GetProperty("unchanged").GetInt32() > 0);
+            Assert.Contains("observational", comparison.GetProperty("interpretation").GetString(),
+                StringComparison.OrdinalIgnoreCase);
+
+            using var reversedComparison = await client.GetAsync(
+                "/api/review/runs/compare?baselineId=" + Uri.EscapeDataString(comparisonCandidate.Run.Id) +
+                "&candidateId=" + Uri.EscapeDataString(completedReport.Run.Id), cancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, reversedComparison.StatusCode);
+            var reversedProblem = await reversedComparison.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Contains("finish after", reversedProblem.GetProperty("title").GetString(),
+                StringComparison.OrdinalIgnoreCase);
+
+            Directory.CreateDirectory(reportStore.ReportsPath);
+            await File.WriteAllTextAsync(reportStore.PathFor("review-corrupt"), "{\"run\":", cancellationToken);
+            using var corruptComparison = await client.GetAsync(
+                "/api/review/runs/compare?baselineId=" + Uri.EscapeDataString(completedReport.Run.Id) +
+                "&candidateId=review-corrupt", cancellationToken);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, corruptComparison.StatusCode);
+            var corruptProblem = await corruptComparison.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal("Stored report is invalid", corruptProblem.GetProperty("title").GetString());
 
             using var result = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
                 fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "result.json"), cancellationToken));
@@ -515,6 +555,11 @@ public sealed class ReviewRunStoreTests
             ["kind"] = request.Kind,
             ["reviewer"] = new JsonObject { ["runId"] = $"provider-{sequence}" },
             ["reviewedHash"] = new JsonObject { ["value"] = reviewedHash },
+            ["reviewInputs"] = new JsonObject
+            {
+                ["effectiveHash"] = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
+                    Encoding.UTF8.GetBytes($"{request.Kind}\0{request.Level}"))),
+            },
             ["grade"] = new JsonObject
             {
                 ["score"] = 84,

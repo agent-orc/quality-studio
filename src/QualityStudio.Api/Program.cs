@@ -104,6 +104,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
     var (status, title) = exception switch
     {
+        QualityRunComparisonException comparison => (StatusCodes.Status400BadRequest, comparison.Message),
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
         RepositoryRegistryValidationException validation => (StatusCodes.Status400BadRequest, validation.PublicTitle),
         SensorNotFoundException => (StatusCodes.Status404NotFound, "Sensor not found"),
@@ -305,6 +306,8 @@ app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
 app.MapGet("/api/review/runs/trend", ReviewRunTrend);
 app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend);
+app.MapGet("/api/review/runs/compare", ReviewRunComparison);
+app.MapGet("/api/repos/{repoId}/review/runs/compare", ReviewRunComparison);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
@@ -1133,6 +1136,24 @@ static IResult ReviewRunTrend(
     var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
     return Results.Ok(QualityRunTrendBuilder.Build(
         reports, kind, scopeUnitId, level, cursor, limit ?? 30));
+}
+
+static IResult ReviewRunComparison(
+    HttpContext context,
+    string? baselineId,
+    string? candidateId,
+    RepositoryRegistry registry)
+{
+    if (string.IsNullOrWhiteSpace(baselineId) || string.IsNullOrWhiteSpace(candidateId))
+        throw new QualityRunComparisonException("Run comparison requires baselineId and candidateId.");
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new QualityRunReportStore(repository.RootPath);
+    var baseline = store.Load(baselineId);
+    var candidate = store.Load(candidateId);
+    if (!string.Equals(baseline.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase) ||
+        !string.Equals(candidate.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
+        throw new FileNotFoundException("One or more review run snapshots were not found.");
+    return Results.Ok(QualityRunComparisonBuilder.Build(baseline, candidate));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

@@ -227,7 +227,7 @@ export interface QualityRunObservation {
   unitId: string; level: string; path: string; outcome: ReviewUnitState; producedByRun: boolean;
   sidecarPath: string | null; sidecarSha256: string | null; capturedAt: string | null;
   reviewedHash: string | null; providerRunId: string | null; grade: ReviewGrade | null; summary: string | null;
-  findings: QualityRunFinding[];
+  findings: QualityRunFinding[]; reviewInputsHash?: string | null;
 }
 export interface QualityRunEstimate {
   files: number; operations: number; inputTokens: number; outputTokens: number; cost: number | null;
@@ -250,6 +250,23 @@ export interface QualityRunTrendPoint {
   cost: number | null; currency: string | null;
 }
 export interface QualityRunTrendPage { points: QualityRunTrendPoint[]; nextCursor: string | null; }
+export interface QualityRunComparisonRun {
+  runId: string; revision: number; finishedAt: string; score: number; grade: string; activeFindings: number;
+  activeBySeverity: Record<string, number>; reviewed: number; reusedFresh: number; failed: number; skipped: number;
+  cliType: string; model: string; thinkingLevel: string; subjectManifestHash: string; reviewInputsHash: string | null;
+  durationMs: number; inputTokens: number | null; outputTokens: number | null; cost: number | null; currency: string | null;
+}
+export interface QualityRunComparisonFinding {
+  fingerprint: string; change: 'new' | 'unchanged' | 'resolved' | 'disposition-changed'; title: string;
+  severity: FindingSeverity; baselineState: FindingState | null; candidateState: FindingState | null;
+  locations: { path: string; startLine: number | null; startColumn: number | null; endLine: number | null; endColumn: number | null }[];
+}
+export interface QualityRunComparison {
+  baseline: QualityRunComparisonRun; candidate: QualityRunComparisonRun; subjectChanged: boolean;
+  reviewInputsChanged: boolean | null; routeChanged: boolean; interpretation: string;
+  counts: { new: number; unchanged: number; resolved: number; dispositionChanged: number };
+  findings: QualityRunComparisonFinding[];
+}
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
@@ -610,6 +627,11 @@ export class QualityApi {
     if (cursor) params['cursor'] = cursor;
     return await firstValueFrom(this.http.get<QualityRunTrendPage>(
       `${this.repositoryApiBase()}/review/runs/trend`, { params }));
+  }
+
+  async compareRuns(baselineId: string, candidateId: string): Promise<QualityRunComparison> {
+    return await firstValueFrom(this.http.get<QualityRunComparison>(
+      `${this.repositoryApiBase()}/review/runs/compare`, { params: { baselineId, candidateId } }));
   }
 
   runReportUrl(id: string, format: RunReportFormat): string {
