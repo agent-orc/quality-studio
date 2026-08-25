@@ -91,7 +91,7 @@ jobs:
           cat "$CANARY_RESULTS/stack.log"
           exit 1
 
-      - name: Run three browser performance samples
+      - name: Run three real-API browser journey and performance samples
         id: browser
         if: steps.stack.outcome == 'success'
         continue-on-error: true

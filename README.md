@@ -268,9 +268,10 @@ source-generator lines and moves several points whenever the SDK changes what it
 
 **Release canary — not on pull requests.** Wall-clock and external-service checks run on
 a labeled host with repeated samples and retained evidence: xUnit tests carrying
-`[Trait("Category", "MachineBound")]`, both frontend performance stages, and — only when
-explicitly requested — the `ExternalLive` review check. Run it from the Actions tab
-(`Release canary`) before cutting a release.
+`[Trait("Category", "MachineBound")]`, both frontend performance stages, the functional
+real-API repository-switch journey, and — only when explicitly requested — the
+`ExternalLive` review check. Run it from the Actions tab (`Release canary`) before cutting
+a release.
 
 ## Minimal API
 
