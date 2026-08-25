@@ -8,7 +8,7 @@ public sealed class ReviewModelCatalogTests
     public void Snapshot_exposes_token_economy_provenance_and_capability_annotations()
     {
         Assert.Equal("agent-orc/token-economy", catalog.Snapshot.SourceRepository);
-        Assert.Equal("28568bc197c109c60b9699901e655d783c09b82f", catalog.Snapshot.SourceCommit);
+        Assert.Equal("7c0ce918a4039710f5a9628372ef071d1d101290", catalog.Snapshot.SourceCommit);
         Assert.Equal("2026-07-24", catalog.Snapshot.PolicyVersion);
 
         var sol = Assert.Single(catalog.Snapshot.Models, model => model.ModelId == "gpt-5.6-sol");
@@ -17,13 +17,23 @@ public sealed class ReviewModelCatalogTests
         Assert.Equal("selectable", sol.RoutingStatus);
         Assert.Contains("correctness-critical", sol.Suitability, StringComparison.Ordinal);
         Assert.Contains("xhigh", sol.SupportedThinkingLevels);
-        Assert.False(sol.PriceAvailable);
+        Assert.True(sol.PriceAvailable);
         Assert.True(sol.AvailableForNewRuns);
+
+        foreach (var modelId in new[] { "claude-opus-5", "claude-sonnet-5" })
+        {
+            var claude = Assert.Single(catalog.Snapshot.Models, model => model.ModelId == modelId);
+            Assert.Equal("claude", claude.CliType);
+            Assert.Equal("selectable", claude.RoutingStatus);
+            Assert.Contains("correctness-critical", claude.Suitability, StringComparison.Ordinal);
+            Assert.True(claude.PriceAvailable);
+            Assert.True(claude.AvailableForNewRuns);
+        }
     }
 
     [Theory]
     [InlineData("claude-opus-4-1", "deprecated")]
-    [InlineData("claude-mythos-5", "restricted")]
+    [InlineData("gpt-5.5-cyber-preview", "restricted")]
     [InlineData("gpt-5.5", "unsupported")]
     public void Non_routable_catalog_models_are_visible_as_evidence_but_rejected_for_new_runs(
         string modelId, string routingStatus)
@@ -110,6 +120,17 @@ public sealed class ReviewModelCatalogTests
             catalog.Resolve("codex", "gpt-5.6-sol", "low"), broad));
         Assert.False(catalog.IsBelowCorrectnessFloor(
             catalog.Resolve("claude", "claude-sonnet-5", "high"), broad));
+        Assert.False(catalog.IsBelowCorrectnessFloor(
+            catalog.Resolve("claude", "claude-opus-5", "high"), broad));
+
+        Assert.True(catalog.IsBelowCorrectnessFloor(
+            catalog.Resolve("claude", "claude-sonnet-5", "high"), recommendation));
+        Assert.False(catalog.IsBelowCorrectnessFloor(
+            catalog.Resolve("claude", "claude-sonnet-5", "xhigh"), recommendation));
+        Assert.True(catalog.IsBelowCorrectnessFloor(
+            catalog.Resolve("claude", "claude-opus-5", "high"), recommendation));
+        Assert.False(catalog.IsBelowCorrectnessFloor(
+            catalog.Resolve("claude", "claude-opus-5", "max"), recommendation));
 
         var small = catalog.Recommend("code", ReviewLevel.File, 1);
         Assert.True(catalog.IsBelowCorrectnessFloor(
