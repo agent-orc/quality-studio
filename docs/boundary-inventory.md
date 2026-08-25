@@ -15,6 +15,21 @@ Run it directly with:
 quality boundaries scan .
 ```
 
+Large or latency-sensitive scans can be split into deterministic pages:
+
+```text
+quality boundaries scan . --max-files 500 --no-write
+quality boundaries scan . --max-files 500 --start-after src/last-file.ts --no-write
+```
+
+The result's `scan` object reports `status`, discovered/scanned/skipped file
+counts, and an exclusive `nextCursor`. Every bounded page is explicitly
+`partial`; its findings apply only to the files in that page. Partial results
+return CLI exit code `3`, are unavailable as pass/fail sensor evidence, and
+never replace the repository-owned inventory. Callers may merge pages for
+exploration, but only an unbounded `complete` scan is authoritative repository
+truth.
+
 It is also available through the sensor API as sensor id `boundaries`.
 Repository scans persist the inventory; path-scoped scans return a partial
 inventory without replacing the repository truth.
@@ -50,3 +65,8 @@ stages consume the same deterministic evidence.
 The inventory intentionally contains no generation timestamp. Re-running it
 against unchanged source produces identical content, while adding, changing, or
 removing a boundary creates a normal repository diff.
+
+The analyzer indexes repository host bindings and JavaScript client-call lines
+once per scan. It does not rescan every source line or rebuild route regular
+expressions for every discovered boundary. Test and build-output directories
+are excluded case-insensitively, including conventional `*.Tests` directories.

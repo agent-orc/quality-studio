@@ -132,6 +132,11 @@ and caller-influenced outbound surfaces and run the standard mechanical checks:
 dotnet run --project src/quality-cli -- boundaries scan .
 ```
 
+Use `--max-files <count>` and the reported `--start-after <cursor>` for bounded
+incremental pages. Partial pages return exit code `3`, never overwrite the
+repository inventory, and must not be interpreted as a clean full-repository
+result. Add `--no-write` for profiling or exploratory scans.
+
 The stable result is written to `.quality/boundaries/inventory.json`, so boundary
 changes appear in normal source-control diffs. See
 [`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and

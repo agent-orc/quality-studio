@@ -234,24 +234,52 @@ public static class QualityCli
             PrintBoundariesUsage();
             return 2;
         }
-        if (args.Length > 2 || (args.Length == 2 && args[1].StartsWith("-", StringComparison.Ordinal)))
-        {
-            Console.Error.WriteLine("The boundaries scan accepts one optional repository path.");
-            return 2;
-        }
-
         try
         {
-            var path = args.Length == 2 ? args[1] : ".";
+            var path = ".";
+            var persist = true;
+            var pathSet = false;
+            var configuration = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            for (var index = 1; index < args.Length; index++)
+            {
+                switch (args[index])
+                {
+                    case "--no-write":
+                        persist = false;
+                        break;
+                    case "--max-files" when index + 1 < args.Length:
+                        configuration["maxFiles"] = args[++index];
+                        break;
+                    case "--start-after" when index + 1 < args.Length:
+                        configuration["startAfter"] = args[++index];
+                        break;
+                    default:
+                        if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                            throw new ArgumentException($"Unknown or duplicate boundaries argument: {args[index]}");
+                        path = args[index];
+                        pathSet = true;
+                        break;
+                }
+            }
             var stopwatch = Stopwatch.StartNew();
-            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(
+                path,
+                Configuration: configuration,
+                PersistMetadata: persist));
+            var coverage = inventory.Scan!;
+            var destination = persist && coverage.Complete
+                ? $"wrote {BoundaryInventorySensor.InventoryRelativePath}"
+                : "did not write repository inventory";
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+                $"quality boundaries scan: {coverage.Status} ({coverage.FilesScanned}/{coverage.FilesDiscovered} files) | {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | {destination} | {stopwatch.ElapsedMilliseconds} ms");
+            if (!coverage.Complete)
+                Console.WriteLine($"partial  {coverage.PartialReason}");
             foreach (var finding in inventory.Findings)
             {
                 Console.WriteLine(
                     $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Locations[0].Path}:{finding.Locations[0].Range?.Start.Line} {finding.RuleId}");
             }
+            if (!coverage.Complete) return 3;
             return inventory.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
         }
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
@@ -518,7 +546,7 @@ public static class QualityCli
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private static void PrintBoundariesUsage() => Console.WriteLine(
-        "Usage:\n  quality boundaries scan [path]");
+        "Usage:\n  quality boundaries scan [path] [--max-files <count>] [--start-after <relative-path>] [--no-write]\n\nExit code 3 means the bounded scan returned partial findings; continue with --start-after using the reported cursor.");
 
     private static void PrintFlowUsage() => Console.WriteLine(
         "Usage:\n  quality flow review <request.json>");

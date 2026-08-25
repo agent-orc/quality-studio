@@ -17,9 +17,27 @@
     "findings": {
       "type": "array",
       "items": { "type": "object" }
+    },
+    "scan": {
+      "$ref": "#/$defs/scan"
     }
   },
   "$defs": {
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "status", "filesDiscovered", "filesScanned", "filesSkipped" ],
+      "properties": {
+        "status": { "enum": [ "complete", "partial" ] },
+        "filesDiscovered": { "type": "integer", "minimum": 0 },
+        "filesScanned": { "type": "integer", "minimum": 0 },
+        "filesSkipped": { "type": "integer", "minimum": 0 },
+        "maxFiles": { "type": [ "integer", "null" ], "minimum": 1 },
+        "startAfter": { "type": [ "string", "null" ] },
+        "nextCursor": { "type": [ "string", "null" ] },
+        "partialReason": { "type": [ "string", "null" ] }
+      }
+    },
     "location": {
       "type": "object",
       "additionalProperties": false,

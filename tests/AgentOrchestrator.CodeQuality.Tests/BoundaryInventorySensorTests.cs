@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Json.Schema;
@@ -210,6 +211,87 @@ public sealed class BoundaryInventorySensorTests
         var validation = schema.Evaluate(generated.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());
+    }
+
+    [Fact]
+    public async Task Large_tree_is_indexed_once_instead_of_rescanned_for_every_route()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-large-").FullName;
+        try
+        {
+            var routes = string.Join(Environment.NewLine, Enumerable.Range(0, 200)
+                .Select(index => $"app.MapGet(\"/api/items/{index}\", () => Results.Ok());"));
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"), routes,
+                TestContext.Current.CancellationToken);
+            var clients = Directory.CreateDirectory(Path.Combine(root, "clients")).FullName;
+            var filler = string.Join('\n', Enumerable.Range(0, 100).Select(index => $"// unrelated line {index}"));
+            for (var index = 0; index < 1_300; index++)
+            {
+                await File.WriteAllTextAsync(Path.Combine(clients, $"client-{index:D4}.ts"),
+                    $"{filler}\nconst result = http.get('/api/items/{index % 200}');\n",
+                    TestContext.Current.CancellationToken);
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+            stopwatch.Stop();
+
+            Assert.True(inventory.Scan!.Complete);
+            Assert.Equal(1_301, inventory.Scan.FilesScanned);
+            Assert.Equal(200, inventory.Entries.Count(entry => entry.Kind == "http"));
+            Assert.All(inventory.Entries.Where(entry => entry.Kind == "http"),
+                entry => Assert.NotEmpty(entry.KnownConsumers));
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(15),
+                $"Large boundary scan took {stopwatch.Elapsed}.");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Bounded_pages_report_partial_results_and_never_replace_repository_truth()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-bounded-").FullName;
+        try
+        {
+            for (var index = 0; index < 120; index++)
+            {
+                await File.WriteAllTextAsync(Path.Combine(root, $"route-{index:D3}.cs"),
+                    $"app.MapGet(\"/route/{index}\", () => Results.Ok());",
+                    TestContext.Current.CancellationToken);
+            }
+            var configuration = new Dictionary<string, string> { ["maxFiles"] = "50" };
+            var sensor = new BoundaryInventorySensor();
+
+            var first = await sensor.InventoryAsync(new SensorScanRequest(root, Configuration: configuration),
+                TestContext.Current.CancellationToken);
+            var run = await sensor.RunAsync(new SensorScanRequest(root, Configuration: configuration),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("partial", first.Scan!.Status);
+            Assert.Equal(120, first.Scan.FilesDiscovered);
+            Assert.Equal(50, first.Scan.FilesScanned);
+            Assert.Equal(70, first.Scan.FilesSkipped);
+            Assert.NotNull(first.Scan.NextCursor);
+            Assert.False(run.Available);
+            Assert.Contains("partial", run.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.False(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+
+            configuration["startAfter"] = first.Scan.NextCursor!;
+            var second = await sensor.InventoryAsync(
+                new SensorScanRequest(root, Configuration: configuration, PersistMetadata: false),
+                TestContext.Current.CancellationToken);
+            Assert.Equal("partial", second.Scan!.Status);
+            Assert.Equal(50, second.Scan.FilesScanned);
+            Assert.NotEqual(first.Entries[0].Location.Path, second.Entries[0].Location.Path);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed record Widget(string Name);
