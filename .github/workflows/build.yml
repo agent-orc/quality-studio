@@ -50,6 +50,9 @@ jobs:
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
+      - name: Test repository gate contracts
+        run: npm run test:repository-contracts
+
       - name: Install frontend dependencies from the lock file
         run: npm --prefix frontend ci
 
@@ -76,8 +79,8 @@ jobs:
           test "$("$RUNNER_TEMP/gitleaks/gitleaks" version)" = "$GITLEAKS_VERSION"
           echo "QUALITY_GITLEAKS_PATH=$RUNNER_TEMP/gitleaks/gitleaks" >> "$GITHUB_ENV"
 
-      - name: Restore .NET solution
-        run: dotnet restore QualityStudio.slnx
+      - name: Restore locked .NET dependencies
+        run: dotnet restore QualityStudio.slnx --locked-mode
 
       - name: Build .NET solution (Release)
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore

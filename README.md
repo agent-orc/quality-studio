@@ -217,6 +217,7 @@ endpoint formats, and documented exit codes.
 - `tests/coverage.runsettings` is the coverage collection configuration the gate uses.
 - `.github/workflows/build.yml` is the required gate for pull requests and pushes to `main`.
 - `.github/workflows/release-canary.yml` is the manually dispatched release canary.
+- `global.json` and the project `packages.lock.json` files pin the .NET restore contract.
 
 ## Test lanes
 
@@ -229,8 +230,10 @@ the job provisions itself (.NET 10.0.301, Node 22.23.1, pinned Chromium, pinned
 Gitleaks 8.24.2).
 
 ```shell
-dotnet build QualityStudio.slnx --configuration Release
+dotnet restore QualityStudio.slnx --locked-mode
+dotnet build QualityStudio.slnx --configuration Release --no-restore
 dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound&Category!=ExternalLive"
+npm run test:repository-contracts              # CI and canary collection/classification contract
 npm --prefix frontend ci
 npm --prefix frontend run browser:install   # pinned Chromium; or set CHROME_BIN yourself
 npm --prefix frontend run build             # production bundle, 480 kB initial error budget
