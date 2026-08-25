@@ -76,6 +76,34 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Startup_releases_files_left_running_under_a_terminal_run()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateRun("terminal-orphan", "cancelled");
+            fixture.Store.AppendProgress(new ReviewRunFileTransition(
+                "Sample.cs", "running", stored.Status.CreatedAt, null, stored.Manifest.RunId, null));
+
+            await using var application = fixture.CreateApplication();
+            using var client = application.CreateClient();
+            var recovered = await client.GetFromJsonAsync<JsonElement>(
+                $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
+
+            Assert.Equal("cancelled", recovered.GetProperty("state").GetString());
+            var file = Assert.Single(recovered.GetProperty("files").EnumerateArray());
+            Assert.Equal("cancelled", file.GetProperty("state").GetString());
+            Assert.NotEqual(JsonValueKind.Null, file.GetProperty("finishedAt").ValueKind);
+            Assert.Equal("cancelled", fixture.Store.LoadAll().Single().Progress[^1].State);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -746,7 +774,11 @@ public sealed class ReviewRunStoreTests
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
                 };
                 if (operationTimeout.HasValue)
+                {
                     values["ReviewJobs:OperationTimeout"] = operationTimeout.Value.ToString("c");
+                    values["ReviewJobs:ReviewerAttachTimeout"] = operationTimeout.Value.ToString("c");
+                    values["ReviewJobs:CancellationGrace"] = TimeSpan.FromMilliseconds(20).ToString("c");
+                }
                 configuration.AddInMemoryCollection(values);
             });
             builder.ConfigureServices(services =>

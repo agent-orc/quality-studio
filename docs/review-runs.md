@@ -16,13 +16,16 @@ The server-side acceptance test exercises a two-file plus aggregate sweep throug
 
 The API runs uncapped file reviews with bounded concurrency (`ReviewJobs:MaxConcurrency`, default `2`). Capped runs execute serially so concurrent files cannot all cross the boundary. Container sweeps continue after individual file failures and write the selected project, module, or namespace review after all file attempts finish.
 
-Every file and aggregate reviewer operation has a wall-clock watchdog
-(`ReviewJobs:OperationTimeout`, default `00:10:00`). Expiry cancels the runner, records
-the stable `reviewer_attach_timeout` or `reviewer_operation_timeout` error code, releases
-all files, and fails the run. The queue waits on the bounded supervision task rather than
-the underlying reviewer task, so cancellation and timeout advance the reader even when a
+Every file and aggregate reviewer operation has an attach watchdog
+(`ReviewJobs:ReviewerAttachTimeout`, default `00:00:30`) and a total wall-clock watchdog
+(`ReviewJobs:OperationTimeout`, default `00:10:00`). Expiry cancels the runner, gives its
+process tree a bounded `ReviewJobs:CancellationGrace` (default `00:00:05`), records the
+stable `reviewer_attach_timeout` or `reviewer_operation_timeout` error code, releases all
+files, and fails the run. The queue waits on this bounded supervision task rather than the
+underlying reviewer task, so cancellation and timeout advance the reader even when a
 faulty executor ignores its cancellation token. Late usage from a reclaimed operation is
-discarded after the run becomes terminal.
+discarded after the run becomes terminal. Startup recovery also releases any in-flight
+`running` file transition left behind beneath a durable terminal run.
 
 Claude prompts use stdin rather than a process argument. Review prompts can exceed the
 Windows 32,767-character command-line limit, and stdin both removes that launch failure

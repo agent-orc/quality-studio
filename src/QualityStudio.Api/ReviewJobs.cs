@@ -102,7 +102,8 @@ public interface IReviewExecutorFactory
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
     StalenessEvaluator stalenessEvaluator,
-    ILoggerFactory loggerFactory) : IReviewExecutorFactory
+    ILoggerFactory loggerFactory,
+    IOptions<ReviewJobsOptions> jobOptions) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
@@ -115,7 +116,8 @@ public sealed class ReviewExecutorFactory(
                     ClaudePromptTransport = CodingAgentRunner.Abstractions.ClaudePromptTransport.Stdin,
                 },
                 eventObserver: eventObserver,
-                logger: loggerFactory.CreateLogger<CodingAgentReviewAgent>()),
+                logger: loggerFactory.CreateLogger<CodingAgentReviewAgent>(),
+                reviewerAttachTimeout: jobOptions.Value.ReviewerAttachTimeout),
             usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
@@ -134,6 +136,8 @@ public sealed class ReviewJobsOptions
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
     public TimeSpan OperationTimeout { get; set; } = TimeSpan.FromMinutes(10);
+    public TimeSpan ReviewerAttachTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan CancellationGrace { get; set; } = TimeSpan.FromSeconds(5);
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -438,6 +442,12 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     var item = ReviewWorkItem.Restore(stored, registration, store);
                     if (!runs.TryAdd(item.Id, item)) continue;
+                    if (item.ReclaimTerminalOperations())
+                    {
+                        logger.LogWarning(new EventId(1517, "TerminalReviewReclaimed"),
+                            "Released orphaned operations from terminal review {ReviewRunId} during startup recovery",
+                            item.Id);
+                    }
                     item.EnsureTerminalReport();
                     if (!ReviewRunStore.IsTerminal(item.State))
                     {
@@ -612,33 +622,59 @@ public sealed class ReviewJobService : BackgroundService
     {
         if (options.OperationTimeout <= TimeSpan.Zero)
             throw new InvalidOperationException("ReviewJobs:OperationTimeout must be greater than zero.");
+        if (options.ReviewerAttachTimeout <= TimeSpan.Zero)
+            throw new InvalidOperationException("ReviewJobs:ReviewerAttachTimeout must be greater than zero.");
+        if (options.CancellationGrace < TimeSpan.Zero)
+            throw new InvalidOperationException("ReviewJobs:CancellationGrace cannot be negative.");
 
         var attached = 0;
-        var runner = executors.Create(
-            item.CliType, item.Model, item.ThinkingLevel,
-            (_, runEvent) =>
-            {
-                quotas.Observe(item.CliType, runEvent);
-                if (runEvent is CliRunEvent.RunStarted started)
+        IReviewExecutor runner;
+        try
+        {
+            runner = executors.Create(
+                item.CliType, item.Model, item.ThinkingLevel,
+                (_, runEvent) =>
                 {
-                    Interlocked.Exchange(ref attached, 1);
-                    logger.LogInformation(new EventId(1513, "ReviewerProcessStarted"),
-                        "Reviewer CLI attached for review {ReviewRunId} operation {ReviewOperation}: {ReviewCli} PID {ReviewerProcessId}",
-                        item.Id, operation, item.CliType, started.ProcessId);
-                }
-            },
-            item.AddUsage);
+                    quotas.Observe(item.CliType, runEvent);
+                    if (runEvent is CliRunEvent.RunStarted started)
+                    {
+                        Interlocked.Exchange(ref attached, 1);
+                        logger.LogInformation(new EventId(1513, "ReviewerProcessStarted"),
+                            "Reviewer CLI attached for review {ReviewRunId} operation {ReviewOperation}: {ReviewCli} PID {ReviewerProcessId}",
+                            item.Id, operation, item.CliType, started.ProcessId);
+                    }
+                },
+                item.AddUsage);
+        }
+        catch (Exception exception)
+        {
+            throw new ReviewOperationException("reviewer_launch_failed",
+                $"Reviewer CLI could not be prepared: {exception.Message}", exception);
+        }
 
         using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var task = runner.ReviewIfNeededAsync(request, item.Force, operationCancellation.Token);
+        Task<ReviewExecutionResult> task;
+        try
+        {
+            task = runner.ReviewIfNeededAsync(request, item.Force, operationCancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new ReviewOperationException("reviewer_launch_failed",
+                $"Reviewer CLI failed before its operation task started: {exception.Message}", exception);
+        }
+
         try
         {
             return await task.WaitAsync(options.OperationTimeout, cancellationToken).ConfigureAwait(false);
         }
         catch (TimeoutException exception)
         {
-            operationCancellation.Cancel();
-            ObserveAbandonedOperation(task, item.Id, operation);
+            await ReclaimOperationAsync(task, operationCancellation, item.Id, operation).ConfigureAwait(false);
             var code = Volatile.Read(ref attached) == 0
                 ? "reviewer_attach_timeout"
                 : "reviewer_operation_timeout";
@@ -648,14 +684,42 @@ public sealed class ReviewJobService : BackgroundService
         }
         catch (ReviewAgentRunException exception) when (Volatile.Read(ref attached) == 0)
         {
-            throw new ReviewOperationException("reviewer_launch_failed",
+            var code = exception.ErrorCode == "reviewer_attach_timeout"
+                ? exception.ErrorCode
+                : "reviewer_launch_failed";
+            throw new ReviewOperationException(code,
                 $"Reviewer CLI failed before a process attached: {exception.Message}", exception);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            operationCancellation.Cancel();
-            ObserveAbandonedOperation(task, item.Id, operation);
+            await ReclaimOperationAsync(task, operationCancellation, item.Id, operation).ConfigureAwait(false);
             throw;
+        }
+    }
+
+    private async Task ReclaimOperationAsync(
+        Task task,
+        CancellationTokenSource operationCancellation,
+        string runId,
+        string operation)
+    {
+        operationCancellation.Cancel();
+        try
+        {
+            await task.WaitAsync(options.CancellationGrace, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            ObserveAbandonedOperation(task, runId, operation);
+            logger.LogError(new EventId(1516, "ReviewerOperationReclaimed"),
+                "Reviewer operation {ReviewOperation} in review {ReviewRunId} ignored cancellation for {CancellationGrace}; the queue abandoned it",
+                operation, runId, options.CancellationGrace);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or ReviewAgentRunCanceledException or ReviewAgentRunException)
+        {
+            logger.LogDebug(exception,
+                "Reviewer operation {ReviewOperation} in review {ReviewRunId} stopped during reclaim",
+                operation, runId);
         }
     }
 
@@ -671,7 +735,7 @@ public sealed class ReviewJobService : BackgroundService
     }
 
     private sealed class ReviewOperationException(string code, string message, Exception innerException)
-        : TimeoutException(message, innerException)
+        : Exception(message, innerException)
     {
         public string Code { get; } = code;
     }
@@ -845,6 +909,49 @@ public sealed class ReviewJobService : BackgroundService
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
 
+        public bool ReclaimTerminalOperations()
+        {
+            lock (gate)
+            {
+                if (!ReviewRunStore.IsTerminal(state)) return false;
+                var reclaimed = false;
+                var finishedAt = FinishedAt ?? DateTimeOffset.UtcNow;
+                foreach (var file in progress.Values.Where(file => file.State == "running"))
+                {
+                    file.State = state switch
+                    {
+                        "cancelled" => "cancelled",
+                        "capped" => "skipped",
+                        _ => "failed",
+                    };
+                    file.FinishedAt = finishedAt;
+                    if (file.State == "failed")
+                    {
+                        file.ErrorCode = errorCode ?? "reviewer_reclaimed_on_startup";
+                        file.Error = "The host stopped while this terminal run still owned the reviewer operation; startup recovery released it.";
+                        errors.Add($"{file.Path}: {file.Error}");
+                    }
+                    AppendProgress(file);
+                    reclaimed = true;
+                }
+                if (aggregateState == "running")
+                {
+                    aggregateState = state switch
+                    {
+                        "cancelled" => "cancelled",
+                        "capped" => "skipped",
+                        _ => "failed",
+                    };
+                    reclaimed = true;
+                }
+                if (!reclaimed) return false;
+                FinishedAt = finishedAt;
+                PersistStatus();
+                PublishReport();
+                return true;
+            }
+        }
+
         public void PrepareForRecovery()
         {
             lock (gate)
@@ -891,6 +998,7 @@ public sealed class ReviewJobService : BackgroundService
                 file.StartedAt = DateTimeOffset.UtcNow;
                 file.FinishedAt = null;
                 file.Error = null;
+                file.ErrorCode = null;
                 Append(file);
                 return true;
             }
@@ -905,6 +1013,7 @@ public sealed class ReviewJobService : BackgroundService
                 CaptureObservation(path, execution.Observation);
                 file.State = execution.SkippedFresh ? "skipped-fresh" : "done";
                 file.Error = null;
+                file.ErrorCode = null;
                 file.FinishedAt = DateTimeOffset.UtcNow;
                 Append(file);
             }
@@ -1214,6 +1323,7 @@ public sealed class ReviewJobService : BackgroundService
             file.StartedAt = null;
             file.FinishedAt = null;
             file.Error = null;
+            file.ErrorCode = null;
             Append(file);
         }
 
