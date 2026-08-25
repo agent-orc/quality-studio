@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-002",
+  "technology": "angular",
+  "category": "component-structure",
+  "title": "One feature folder, four colocated files per component",
+  "statement": "Every component ships as a feature folder containing exactly `<name>.ts`, `<name>.html`, `<name>.css`, and `<name>.spec.ts`; templates and styles use `templateUrl`/`styleUrl`, never inline `template`/`styles` strings past a couple of lines, and component logic does not spread into unrelated folders.",
+  "rationale": "Colocation is what makes 'enter anywhere (project -> subproject -> folder -> file)' code browsing (the product's stated core interaction) actually work: a reviewer opens one folder and sees the whole unit. Inline templates turn a `.ts` file into an unreviewable string blob with no template-language tooling, and logic split across folders defeats the folder-first navigation model.",
+  "severity": "low",
+  "autofixable": false,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file", "module"],
+  "good": {
+    "language": "text",
+    "code": "frontend/src/app/review-panel/\n  review-panel.ts\n  review-panel.html\n  review-panel.css\n  review-panel.spec.ts",
+    "caption": "Colocated four-file component folder.",
+    "source": "frontend/src/app/review-panel"
+  },
+  "bad": {
+    "language": "typescript",
+    "code": "@Component({\n  selector: 'qs-review-panel',\n  template: `<div class=\"finding-detail\"><h3>{{ title }}</h3>...200 more lines...</div>`,\n  styles: [`.finding-detail{margin:12px 0;padding:16px}...200 more lines...`],\n})\nexport class ReviewPanel { /* ... */ }",
+    "caption": "Template and styles inlined as large strings instead of colocated files."
+  },
+  "tags": ["file-layout", "code-browsing"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in the existing frontend/src/app feature-folder layout." }
+  ]
+}

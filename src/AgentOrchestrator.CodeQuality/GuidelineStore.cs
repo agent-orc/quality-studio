@@ -27,13 +27,16 @@ public sealed record GuidelineCatalogueEntry(
     string Description,
     GuidelineDraft Guideline);
 
+/// <summary>One rule's outcome from <see cref="GuidelineStore.SyncDefaultRules"/>.</summary>
+public sealed record RuleSyncResult(string RuleId, string Action);
+
 public sealed partial class GuidelineStore
 {
     private static readonly HashSet<string> ReviewKinds = ["code", "security", "performance", "all", "*"];
     private static readonly HashSet<string> ReviewLevels = Enum.GetNames<ReviewLevel>()
         .Select(value => value.ToLowerInvariant()).Append("all").Append("*").ToHashSet(StringComparer.Ordinal);
 
-    public static IReadOnlyList<GuidelineCatalogueEntry> Catalogue { get; } =
+    private static readonly IReadOnlyList<GuidelineCatalogueEntry> LegacyCatalogue =
     [
         Entry("dotnet-api-safety", ".NET API safety", ".NET", "Cancellation, disposal, async and public API guidance", "code", 80,
             "Prefer async APIs for I/O, propagate CancellationToken, dispose owned resources, and validate arguments at public boundaries. Report a finding only when the concrete code violates one of these rules."),
@@ -44,6 +47,14 @@ public sealed partial class GuidelineStore
         Entry("security-boundaries", "Security boundaries", "Security", "Input, secret, authorization and logging guidance", "security", 100,
             "Validate untrusted input at its boundary, enforce authorization server-side, keep secrets out of source and logs, use parameterized data access, and avoid exposing sensitive values in errors or telemetry."),
     ];
+
+    /// <summary>
+    /// The legacy four broad, hand-written entries plus every named rule from the rules/ library
+    /// (see docs/concepts/rule-library.md). Each rule installs individually, so a review can cite
+    /// its exact id (e.g. "QS-NG-003") instead of only the broad technology bucket it belongs to.
+    /// </summary>
+    public static IReadOnlyList<GuidelineCatalogueEntry> Catalogue { get; } =
+        LegacyCatalogue.Concat(RuleLibrary.CatalogueEntries).ToArray();
 
     public IReadOnlyList<GuidelineDefinition> List(string repositoryRoot)
     {
@@ -92,6 +103,55 @@ public sealed partial class GuidelineStore
         return Create(repositoryRoot, entry.Guideline);
     }
 
+    /// <summary>
+    /// Materializes the rule library's effective set for one project: installs or updates the guideline
+    /// file for every rule whose effective enabled state (rules.config.json override, falling back to
+    /// the rule's own defaultOn) is true, and removes a previously synced file for a rule a project
+    /// has explicitly disabled. Safe to call repeatedly; a no-op when nothing changed. Rule-authored
+    /// content always wins on sync -- hand edits to a synced file are overwritten on the next call, by
+    /// design (see docs/concepts/rule-library.md#automatic-defaults-and-optional-materialization).
+    /// </summary>
+    public IReadOnlyList<RuleSyncResult> SyncDefaultRules(string repositoryRoot)
+    {
+        var config = RuleConfig.Load(repositoryRoot);
+        var existing = List(repositoryRoot).ToDictionary(value => value.Id, StringComparer.Ordinal);
+        var results = new List<RuleSyncResult>();
+        foreach (var rule in RuleLibrary.Rules)
+        {
+            var enabled = string.Equals(rule.Status, "active", StringComparison.Ordinal) &&
+                          config.IsEnabled(rule.Id, rule.DefaultOn);
+            var draft = RuleLibrary.CreateGuidelineDraft(rule, config.GetOverride(rule.Id));
+            var current = existing.GetValueOrDefault(rule.Id);
+            if (!enabled)
+            {
+                if (current is not null)
+                {
+                    Delete(repositoryRoot, rule.Id);
+                    results.Add(new RuleSyncResult(rule.Id, "removed"));
+                }
+                continue;
+            }
+            if (current is null)
+            {
+                Create(repositoryRoot, draft);
+                results.Add(new RuleSyncResult(rule.Id, "installed"));
+            }
+            else if (!string.Equals(current.Content, draft.Content, StringComparison.Ordinal) ||
+                      current.Priority != draft.Priority ||
+                      !current.Kinds.SequenceEqual(draft.Kinds, StringComparer.Ordinal) ||
+                      !current.Levels.SequenceEqual(draft.Levels, StringComparer.Ordinal))
+            {
+                Update(repositoryRoot, rule.Id, draft);
+                results.Add(new RuleSyncResult(rule.Id, "updated"));
+            }
+            else
+            {
+                results.Add(new RuleSyncResult(rule.Id, "unchanged"));
+            }
+        }
+        return results;
+    }
+
     public static string Serialize(GuidelineDraft draft)
     {
         Validate(draft);
@@ -125,7 +185,7 @@ public sealed partial class GuidelineStore
     {
         ArgumentNullException.ThrowIfNull(draft);
         if (!IdPattern().IsMatch(draft.Id ?? string.Empty))
-            throw new ArgumentException("Guideline id must be 2-128 lowercase letters, digits, dots, underscores or hyphens.");
+            throw new ArgumentException("Guideline id must be 2-128 letters, digits, dots, underscores or hyphens.");
         if (draft.Priority is < -100000 or > 100000) throw new ArgumentException("Guideline priority must be between -100000 and 100000.");
         if (draft.Kinds is null || draft.Kinds.Count == 0 || draft.Kinds.Any(value => !ReviewKinds.Contains(value.ToLowerInvariant())))
             throw new ArgumentException("A guideline requires supported review kinds.");
@@ -135,6 +195,6 @@ public sealed partial class GuidelineStore
         if (draft.Content.Length > 100000) throw new ArgumentException("Guideline content cannot exceed 100,000 characters.");
     }
 
-    [GeneratedRegex("^[a-z0-9][a-z0-9._-]{1,127}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$", RegexOptions.CultureInvariant)]
     private static partial Regex IdPattern();
 }

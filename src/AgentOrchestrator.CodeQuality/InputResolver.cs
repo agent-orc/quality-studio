@@ -74,14 +74,23 @@ public sealed class InputResolver
         var global = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
             globalInputsDirectory);
         var projectRoot = Path.GetFullPath(repositoryRoot);
+        var ruleConfig = RuleConfig.Load(projectRoot);
+        var namedRules = ReadNamedRules(ruleConfig, normalizedKind, normalizedLevel);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
-        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
+        var explicitlyDisabledRuleIds = ruleConfig.Overrides
+            .Where(entry => entry.Value.Enabled == false)
+            .Select(entry => entry.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot)
+            .Where(input => !explicitlyDisabledRuleIds.Contains(input.Id))
+            .ToArray();
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var omissions = global
+        var shipped = global.Concat(namedRules).ToArray();
+        var omissions = shipped
             .Where(input => projectIds.Contains(input.Id))
             .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0))
             .ToList();
-        var effective = global.Where(input => !projectIds.Contains(input.Id)).Concat(project).ToArray();
+        var effective = shipped.Where(input => !projectIds.Contains(input.Id)).Concat(project).ToArray();
 
         var remaining = budgetCharacters;
         var included = new List<ReviewInput>();
@@ -102,6 +111,21 @@ public sealed class InputResolver
         return new ResolvedInputs(normalizedKind, normalizedLevel, budgetCharacters,
             budgetCharacters - remaining, included, omissions);
     }
+
+    private static IReadOnlyList<ReviewInput> ReadNamedRules(RuleConfig config, string kind, string level) =>
+        RuleLibrary.Rules
+            .Where(rule => string.Equals(rule.Status, "active", StringComparison.Ordinal) &&
+                           config.IsEnabled(rule.Id, rule.DefaultOn) &&
+                           Applies(rule.Kinds, kind) && Applies(rule.Levels, level))
+            .Select(rule =>
+            {
+                var draft = RuleLibrary.CreatePromptGuidelineDraft(rule, config.GetOverride(rule.Id));
+                return new ReviewInput(rule.Id, $"rules/{rule.Technology}/{rule.Id}.json", "project",
+                    draft.Priority, draft.Kinds, draft.Levels, true, draft.Content, string.Empty, false);
+            })
+            .OrderByDescending(input => input.Priority)
+            .ThenBy(input => input.Id, StringComparer.Ordinal)
+            .ToArray();
 
     private static IReadOnlyList<ReviewInput> ReadDirectory(
         string? directory, string scope, string kind, string level, string? confinementRoot)
