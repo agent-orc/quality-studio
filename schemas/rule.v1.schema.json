@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/rule.v1.schema.json",
+  "title": "Quality Studio named rule",
+  "description": "A single named best-practice rule stored file-first under rules/<technology>/<id>.json. One file per rule; the file's git history is the rule's change history in addition to the changelog array.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "id", "technology", "category", "title", "statement",
+    "rationale", "severity", "autofixable", "defaultOn", "kinds", "levels",
+    "good", "bad", "version", "changelog"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/rule.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "description": "Stable rule id. Never reused once shipped; a retired rule is marked deprecated instead of deleted or renumbered.",
+      "pattern": "^QS-[A-Z]{2,6}-[0-9]{3}$"
+    },
+    "technology": {
+      "type": "string",
+      "description": "The primary technology the rule applies to. Extend the enum, don't overload an existing value, when a new seed set is added.",
+      "enum": ["angular", "dotnet"]
+    },
+    "category": {
+      "type": "string",
+      "description": "Grouping used for seed-set coverage and browsing, e.g. 'design-tokens' or 'async-hygiene'.",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "statement": {
+      "type": "string",
+      "description": "The one- or two-sentence rule itself, phrased as a directive. This is what a reviewer cites.",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Why the rule exists: the failure mode it prevents or the property it protects.",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "severity": {
+      "description": "Default severity when the rule fires. Matches the finding envelope's severity enum (schemas/quality-finding.v1.schema.json).",
+      "enum": ["critical", "high", "medium", "low", "info"]
+    },
+    "autofixable": {
+      "type": "boolean",
+      "description": "Whether a mechanical fix exists that a coding agent (or codemod) can apply without design judgement."
+    },
+    "defaultOn": {
+      "type": "boolean",
+      "description": "Whether this rule belongs to the core that InputResolver applies automatically to every project unless .quality/rules.config.json overrides it."
+    },
+    "kinds": {
+      "type": "array",
+      "description": "Review kinds the rule participates in.",
+      "minItems": 1,
+      "items": { "enum": ["code", "security", "performance", "all"] }
+    },
+    "levels": {
+      "type": "array",
+      "description": "Review hierarchy levels the rule applies at.",
+      "minItems": 1,
+      "items": { "enum": ["project", "module", "namespace", "file", "function", "all"] }
+    },
+    "good": { "$ref": "#/$defs/example" },
+    "bad": { "$ref": "#/$defs/example" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+      "uniqueItems": true
+    },
+    "version": {
+      "type": "string",
+      "description": "Semver of this rule's content. Bump on any statement, severity, or example change.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "status": {
+      "enum": ["active", "deprecated"],
+      "default": "active"
+    },
+    "supersededBy": {
+      "type": "string",
+      "description": "Rule id that replaces this one. Required when status is deprecated.",
+      "pattern": "^QS-[A-Z]{2,6}-[0-9]{3}$"
+    },
+    "changelog": {
+      "type": "array",
+      "description": "Append-only history of substantive changes to this rule, newest first.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "date", "summary"],
+        "properties": {
+          "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+          "date": { "type": "string", "format": "date" },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 400 }
+        }
+      }
+    }
+  },
+  "if": {
+    "properties": { "status": { "const": "deprecated" } },
+    "required": ["status"]
+  },
+  "then": {
+    "required": ["supersededBy"],
+    "description": "A deprecated rule must name the rule that replaces it, so an id is never retired into a dead end."
+  },
+  "$defs": {
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "code"],
+      "properties": {
+        "language": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "caption": { "type": "string", "maxLength": 300 },
+        "source": {
+          "type": "string",
+          "description": "Repository-relative path the example was grounded in, when it is a real excerpt rather than illustrative.",
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}

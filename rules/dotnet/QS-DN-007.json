@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-007",
+  "technology": "dotnet",
+  "category": "test-structure",
+  "title": "Tests use TestContext.Current.CancellationToken, not CancellationToken.None",
+  "statement": "xUnit tests that call async APIs pass `TestContext.Current.CancellationToken` (captured once at the top of the test) rather than omitting the token or passing `CancellationToken.None`.",
+  "rationale": "`TestContext.Current.CancellationToken` is wired to the test host's own cancellation (a run timeout, `dotnet test --cancel`, or CI's own deadline); a hung async call in test code will actually stop instead of hanging the whole suite. `GuidelineImpactAnalyzerTests` captures the token once and reuses it for every async call in the test.",
+  "severity": "low",
+  "autofixable": true,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "var cancellationToken = TestContext.Current.CancellationToken;\nawait File.WriteAllTextAsync(Path.Combine(root, \"Sample.cs\"), \"class Sample { }\\n\", cancellationToken);",
+    "caption": "Ambient test cancellation token captured and forwarded.",
+    "source": "tests/AgentOrchestrator.CodeQuality.Tests/GuidelineImpactAnalyzerTests.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "await File.WriteAllTextAsync(Path.Combine(root, \"Sample.cs\"), \"class Sample { }\\n\");",
+    "caption": "No cancellation token: a hang here outlasts the test run's own timeout."
+  },
+  "tags": ["testing", "xunit", "cancellation"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in GuidelineImpactAnalyzerTests.cs. autofixable: true (mechanical token threading)." }
+  ]
+}

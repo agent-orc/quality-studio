@@ -24,3 +24,7 @@ TestResults/
 !/.quality/usage/
 !/.quality/usage/*.jsonl
 /.dev-stack.log
+
+# Deterministic rule-check SARIF reports are regenerated per run from scripts/rule-checks/,
+# so they are sensor output, not repository history (docs/concepts/rule-library.md).
+/.quality/rule-checks/
