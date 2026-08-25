@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "implemented",
   "phase": "first-slice",
-  "updatedAt": "2026-08-25T12:30:00Z",
+  "updatedAt": "2026-08-25T21:20:00Z",
   "sourceTaskKeys": [
     "QS-91",
     "AGT-2655",
@@ -42,6 +42,7 @@
     "$JOB_RESULTS_DIR/test-results/analysis-core-full.trx",
     "$JOB_RESULTS_DIR/test-results/quality-studio-api-stable.trx",
     "$JOB_RESULTS_DIR/test-results/quality-studio-api-machinebound-isolated-rerun.trx",
+    "$JOB_RESULTS_DIR/test-results/quality-studio-api-machinebound-warm-rerun.trx",
     "$JOB_RESULTS_DIR/frontend-build.log",
     "$JOB_RESULTS_DIR/frontend-tests.log",
     "$JOB_RESULTS_DIR/package-contents.txt",
