@@ -1,1 +1,2 @@
 /.quality/usage/*.jsonl merge=union
+frontend/angular.json text eol=lf
