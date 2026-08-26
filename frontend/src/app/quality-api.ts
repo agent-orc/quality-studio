@@ -183,8 +183,9 @@ export interface AgentStudioImportResult {
   reason: string | null;
 }
 export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
-export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped';
+export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped' | 'blocked-preflight';
 export type ReviewUnitState = ReviewRunState | 'skipped' | 'skipped-fresh';
+export type ReviewPreflightState = 'queued' | 'running' | 'done' | 'unavailable' | 'failed' | 'blocked';
 export type ModelCapabilityTier = 'light' | 'balanced' | 'frontier';
 export type ModelRoutingStatus = 'selectable' | 'fallbackOnly' | 'unsupported' | 'restricted' | 'deprecated';
 export interface ReviewModelOption {
@@ -197,8 +198,9 @@ export interface ReviewModelCatalog {
   thinkingLevels: string[]; models: ReviewModelOption[];
 }
 export interface ReviewFileProgress { path: string; state: ReviewUnitState; startedAt: string | null; finishedAt: string | null; error: string | null; }
-export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; expectedFreshSkips: number; }
+export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; expectedFreshSkips: number; promptCharactersBeforeCompaction?: number | null; }
 export interface ReviewEstimateDeviation { inputTokensPercent: number; outputTokensPercent: number; costPercent: number | null; note: string; }
+export interface ReviewRunEconomyEvidence { staticDurationMs: number; preflightCacheHits: number; findingCount: number; modelCallsPlanned: number; modelCallsBlocked: number; modelCallsExecuted: number; promptCharactersBeforeCompaction: number | null; promptCharactersAfterCompaction: number | null; actualUsage: TokenUsage; estimateDeviation: ReviewEstimateDeviation | null; }
 export interface ReviewModelRecommendation {
   policyVersion: string; recommendedModel: string; recommendedThinkingLevel: string; capabilityTier: ModelCapabilityTier;
   score: number; correctnessFloor: string; reason: string; selectionSource: string;
@@ -207,6 +209,7 @@ export interface ReviewPreflight {
   repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null;
   cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null;
   recommendation: ReviewModelRecommendation; overrideBelowFloor: boolean;
+  preflightResultHash?: string | null; preflightChecks?: number; preflightUnavailableChecks?: number;
 }
 export interface ReviewRun {
   id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string;
@@ -215,6 +218,9 @@ export interface ReviewRun {
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
+  preflightState?: ReviewPreflightState; preflightChecks?: number; preflightUnavailableChecks?: number;
+  preflightResultHash?: string | null; preflightDurationMs?: number | null; blockedFiles?: number;
+  economy?: ReviewRunEconomyEvidence | null;
 }
 export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
 export interface QualityRunFinding {
@@ -266,6 +272,8 @@ export interface ProjectLanguageMetric { language: string; files: number; lines:
 export interface ProjectDistributionBucket { label: string; count: number; }
 export interface ProjectDuplicationCandidate { fingerprint: string; lines: number; bytes: number; paths: string[]; }
 export interface ProjectDependencyEdge { source: string; sourcePath: string; target: string; targetPath: string; kind: string; }
+export interface ProjectComplexityBreach { path: string; line: number; symbol: string; ruleId: string; value: number; threshold: number; excess: number; fingerprint: string; }
+export interface ProjectComplexityMetrics { thresholds: Record<string, number>; breachDistribution: ProjectDistributionBucket[]; topBreaches: ProjectComplexityBreach[]; }
 export interface ProjectStructuralMetrics {
   fileCount: number; folderCount: number; bytes: number; lines: number;
   languages: ProjectLanguageMetric[];
@@ -273,6 +281,7 @@ export interface ProjectStructuralMetrics {
   folderSizeDistribution: ProjectDistributionBucket[];
   duplicationCandidates: ProjectDuplicationCandidate[];
   dependencyEdges: ProjectDependencyEdge[];
+  complexity: ProjectComplexityMetrics;
 }
 export interface ProjectHotspot { path: string; churn: number; grade: number | null; findings: number; findingsPerKloc: number; risk: number; }
 export interface ProjectDashboard {

@@ -105,6 +105,18 @@
             <div class="edge"><button type="button" (click)="open(edge.sourcePath)">{{ edge.source }}</button><span>→</span><button type="button" (click)="open(edge.targetPath)">{{ edge.target }}</button></div>
           } @empty { <p class="empty">No declared module edges discovered.</p> }
         </article>
+        <button class="fact-panel distribution-panel" type="button" (click)="open(complexityPath())">
+          <h3>Complexity breaches <small>{{ project.metrics.complexity.topBreaches.length }}</small></h3>
+          @for (bucket of project.metrics.complexity.breachDistribution; track bucket.label) {
+            <span class="distribution-row"><small>{{ bucket.label }}</small><i><b [style.width.%]="bucket.count * 100 / distributionMax(project.metrics.complexity.breachDistribution)"></b></i><strong>{{ bucket.count }}</strong></span>
+          } @empty { <p class="empty">No complexity threshold breaches in the latest preflight.</p> }
+        </button>
+        <article class="fact-panel dependency-panel">
+          <h3>Highest complexity excess <small>Top {{ project.metrics.complexity.topBreaches.length }}</small></h3>
+          @for (breach of project.metrics.complexity.topBreaches.slice(0, 6); track breach.fingerprint) {
+            <button class="candidate" type="button" (click)="open(breach.path)"><span><b>{{ breach.symbol }}</b><small>{{ breach.ruleId }} · {{ breach.value }} / {{ breach.threshold }} threshold</small></span><code>{{ breach.path }}:{{ breach.line }}</code></button>
+          } @empty { <p class="empty">Run preflight to populate complexity evidence.</p> }
+        </article>
       </div>
     </section>
 
