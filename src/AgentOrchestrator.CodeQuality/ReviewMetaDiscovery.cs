@@ -22,6 +22,7 @@ public static class ReviewMetaDiscovery
     {
         var root = Path.GetFullPath(repositoryPath);
         var nodes = Flatten(projects).ToDictionary(node => node.Id, StringComparer.Ordinal);
+        var ruleLibrary = new RuleLibrary();
         foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
@@ -44,7 +45,8 @@ public static class ReviewMetaDiscovery
             node.Attach(new AttachedReviewMetaDocument(
                 unitId,
                 kind,
-                DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
+                DetermineState(root, node, document, inputResolver ?? new InputResolver(), ruleLibrary,
+                    globalInputsDirectory, inputBudgetCharacters),
                 Path.GetRelativePath(root, path).Replace('\\', '/'),
                 document.GetRawText()));
         }
@@ -55,6 +57,7 @@ public static class ReviewMetaDiscovery
         HierarchyNode node,
         JsonElement document,
         InputResolver inputResolver,
+        RuleLibrary ruleLibrary,
         string? globalInputsDirectory,
         int inputBudgetCharacters)
     {
@@ -106,6 +109,10 @@ public static class ReviewMetaDiscovery
         var levelText = document.GetProperty("unit").GetProperty("level").GetString()!;
         if (!Enum.TryParse<ReviewLevel>(levelText, true, out var level)) return ReviewState.Current;
         var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters);
+        var subjectPaths = Flatten([node]).Where(candidate => candidate.Level == ReviewLevel.File)
+            .Select(candidate => candidate.Path).Distinct(StringComparer.Ordinal).ToArray();
+        if (subjectPaths.Length == 0) subjectPaths = [node.Path];
+        resolved = ruleLibrary.AddToReviewInputs(resolved, ruleLibrary.Resolve(root, kind, subjectPaths));
         var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
         return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
             ? ReviewState.Current

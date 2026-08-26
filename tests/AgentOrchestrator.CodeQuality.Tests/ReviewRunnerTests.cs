@@ -167,6 +167,34 @@ public sealed class ReviewResponseParserTests
 public sealed class ReviewRunnerTests
 {
     [Fact]
+    public async Task Code_review_injects_effective_named_rules_and_records_their_ids()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await WithReviewFileAsync(async (root, file) =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, ".quality"));
+            await File.WriteAllTextAsync(Path.Combine(root, ".quality", "rules.json"), """
+                {
+                  "$schema": "https://quality.studio/schemas/quality-rules-config.v1.schema.json",
+                  "schemaVersion": 1,
+                  "overrides": { "QS-CS-002": { "enabled": false } }
+                }
+                """, cancellationToken);
+            var agent = new FakeAgent();
+
+            var result = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+
+            Assert.Contains("QS-CS-001", agent.Prompt, StringComparison.Ordinal);
+            Assert.DoesNotContain("QS-CS-002", agent.Prompt, StringComparison.Ordinal);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, cancellationToken));
+            var rules = document.RootElement.GetProperty("reviewInputs").GetProperty("rules");
+            Assert.Equal(3, rules.GetArrayLength());
+            Assert.Contains(rules.EnumerateArray(), rule => rule.GetProperty("id").GetString() == "QS-CS-003");
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesFreshQs3Metadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -248,9 +276,11 @@ public sealed class ReviewRunnerTests
             Assert.Contains("Global rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Project rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Treat external data as untrusted.", agent.Prompt, StringComparison.Ordinal);
+            Assert.Contains("Named Quality Studio rules", agent.Prompt, StringComparison.Ordinal);
             var standard = Assert.Single(json.GetProperty("reviewInputs").GetProperty("standards").EnumerateArray());
             Assert.Equal("secure-boundaries", standard.GetProperty("id").GetString());
             Assert.Equal("project", standard.GetProperty("scope").GetString());
+            Assert.Empty(json.GetProperty("reviewInputs").GetProperty("rules").EnumerateArray());
             Assert.Equal(root, agent.WorkingDirectory);
         });
     }

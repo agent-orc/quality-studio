@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-001",
+  "version": "1.0.0",
+  "title": "Keep public API contracts explicit and narrow",
+  "language": "csharp",
+  "category": "api-shape",
+  "statement": "Model public inputs and outputs with named typed contracts, validate at the boundary, preserve stable JSON names, and avoid exposing persistence or framework internals as API shape.",
+  "rationale": "Quality Studio's API records and core review contracts are integration boundaries shared with the browser and Agent Studio. Explicit contracts make compatibility and validation reviewable.",
+  "severity": "high",
+  "autofixable": false,
+  "defaultEnabled": true,
+  "reviewKinds": ["code"],
+  "appliesTo": ["**/*.cs"],
+  "examples": {
+    "bad": "public object Start(dynamic request) => databaseEntity;",
+    "good": "public sealed record StartReviewRequest(string Path, string Kind, bool Force = false);\npublic Task<ReviewRunResponse> EnqueueAsync(StartReviewRequest request, CancellationToken cancellationToken);"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial .NET API-shape seed grounded in Quality Studio API contracts." }]
+}

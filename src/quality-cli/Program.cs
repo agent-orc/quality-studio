@@ -150,19 +150,27 @@ public static class QualityCli
             }
 
             var stopwatch = Stopwatch.StartNew();
-            var sensors = options.Kind == "security"
-                ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()])
-                : null;
+            var sensorList = new List<IReviewSensor> { new RulePrecheckSensor() };
+            if (options.Kind == "security")
+            {
+                sensorList.Add(new GitleaksSecurityScanner());
+                sensorList.Add(new DependencyVulnerabilitySensor());
+            }
+            var sensors = new SensorRegistry(sensorList);
             var result = await new ReviewRunner(sensorRegistry: sensors).ReviewAsync(new ReviewRequest(
                 options.File, options.Kind, GlobalInputsDirectory: globalInputs,
                 InputBudgetCharacters: options.BudgetCharacters,
                 Sensors: options.Kind == "security"
                     ? [new ReviewSensorConfiguration("gitleaks"), new ReviewSensorConfiguration("dependencies")]
+                    : null,
+                DeterministicSensors: options.Kind is "code" or "performance"
+                    ? [new ReviewSensorConfiguration("quality-rules")]
                     : null));
             Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;
         }
-        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or ReviewResponseException or ReviewRunException)
+        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or
+                   RuleFormatException or ReviewResponseException or ReviewRunException)
         {
             Console.Error.WriteLine($"quality review failed: {exception.Message}");
             return 2;

@@ -10,8 +10,13 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class StalenessEvaluator
 {
     private readonly InputResolver inputResolver;
+    private readonly RuleLibrary ruleLibrary;
 
-    public StalenessEvaluator(InputResolver? inputResolver = null) => this.inputResolver = inputResolver ?? new InputResolver();
+    public StalenessEvaluator(InputResolver? inputResolver = null, RuleLibrary? ruleLibrary = null)
+    {
+        this.inputResolver = inputResolver ?? new InputResolver();
+        this.ruleLibrary = ruleLibrary ?? new RuleLibrary();
+    }
 
     public async Task<ReviewFreshness> EvaluateReviewAsync(
         string metaPath,
@@ -143,6 +148,10 @@ public sealed class StalenessEvaluator
         if (metadata.ReviewInputHash is null) return StalenessState.Fresh;
         var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
             options.GlobalInputsDirectory, options.InputBudgetCharacters);
+        var subjectPaths = metadata.Inputs.Where(input => input.Selector == "file")
+            .Select(input => input.Path).ToArray();
+        inputs = ruleLibrary.AddToReviewInputs(inputs,
+            ruleLibrary.Resolve(root, metadata.Kind, subjectPaths));
         var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh

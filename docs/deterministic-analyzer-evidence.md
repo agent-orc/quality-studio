@@ -6,6 +6,8 @@ Quality Studio treats analyzer output as prior machine evidence, not as an agent
 - the Quality Studio sensor id and the SARIF producer name/version;
 - the producer's analyzer identifier in `ruleId`.
 
+The built-in `quality-rules` sensor is the static-analysis wave for the mechanically enforceable subset of Quality Studio's [named rules](rule-library.md). Unlike repository-configured external analyzers, it needs no command configuration; `.quality/rules.json` controls each named rule's enablement and effective severity.
+
 The prompt asks the agent to judge applicability, deduplicate and prioritise these facts instead of repeating them. The stored `grade`, rationale and aspects remain the agent's statement; analyzer evidence does not change or cap the score. The review UI and generated quality report label analyzer findings with their deterministic source.
 
 ## Repository configuration
