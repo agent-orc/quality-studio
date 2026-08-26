@@ -59,10 +59,11 @@ The analyzers currently recognize:
 - Subprocess creation, outbound HTTP sinks, filesystem watchers, and literal or
   configured host bindings across supported source/configuration files.
 
-Client consumers and host reachability are indexed once per scan. Route
-matching reuses that index instead of rescanning every browser source line for
-every server endpoint, and MVC controller matching uses a non-backtracking
-expression.
+Client consumers and host reachability are indexed once per scan. Consumer
+matching uses method-and-route-token buckets, then applies the full route
+expression only to the smallest safe bucket instead of rescanning every browser
+source line for every server endpoint. MVC controller matching uses a
+non-backtracking expression.
 
 ## Mechanical findings
 

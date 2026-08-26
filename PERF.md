@@ -2,16 +2,17 @@
 
 ## QS-95 boundary inventory scaling
 
-Measured 2026-08-26 on the task host with .NET 10.0.301 against the real
-Agent Studio checkout at `/home/agent/runner-work/repo`. The sensor found 1,773
-eligible files. A 30-second baseline timed out after consuming 30.16 seconds of
-CPU. A sample profile identified backtracking in MVC controller discovery;
+Measured 2026-08-26 on the task host with .NET 10.0.301 against real Agent
+Studio checkouts. The initial checkout had 1,773 eligible files. A 30-second
+baseline timed out after consuming 30.16 seconds of CPU. A sample profile
+identified backtracking in MVC controller discovery;
 after that expression alone was made non-backtracking, the full scan still took
 40.31 seconds because every server endpoint rebuilt route expressions and
 rescanned every JavaScript/TypeScript line for client consumers.
 
-Controller discovery is now non-backtracking. Browser client calls and host
-reachability are indexed once per scan. The final real-repository verification
+Controller discovery is now non-backtracking. Browser client calls are indexed
+once by method and route token, and host reachability is derived once per scan.
+The initial optimized real-repository verification
 completes in 1.87 seconds (2.08 seconds user CPU), producing 583 boundary
 entries and 917 mechanical findings. It honestly reports 1,772 of 1,773 files
 analyzed because one 19 MiB HTML artifact exceeds the 2 MiB source limit. A
@@ -24,12 +25,18 @@ matching client calls. It verifies consumer joins and full coverage under a
 10-second host budget, then verifies bounded and continuation-page coverage
 metadata.
 
-The rebased delivery was re-verified against the current Agent Studio
-`develop` checkout at `/home/agent/promotion/agent-studio` (`c4e305b`). The
-larger 3,180-file corpus completed in 5.34 seconds, with 3,179 files analyzed
-and the same 19 MiB HTML artifact reported as omitted. Bounded and continuation
-pages of 100 files completed in 0.43 and 0.40 seconds respectively, returned
-exit code 2, and did not persist an inventory.
+The rebased delivery was re-verified against the real Agent Studio `develop`
+checkout at `/home/agent/promotion/agent-studio` (`c4e305b`). A fresh
+build of the old sensor timed out after 15 seconds while consuming 15.29 seconds
+of user CPU and producing no result. The optimized 3,180-file scan completed in
+3.84 seconds, producing 1,041 entries and 1,658 findings from 3,179 analyzed
+files; the remaining 19 MiB HTML artifact was explicitly reported as omitted.
+Bounded and continuation pages of 100 files completed in 0.32 and 0.28 seconds
+respectively, returned exit code 2, and did not persist an inventory.
+After fetching Agent Studio, an archive of the newer `origin/develop` tip
+(`9d3b9da99`) was also scanned without changing that separate checkout. Its
+3,192-file corpus completed in 3.16 seconds, analyzing 3,191 files and again
+reporting the oversized HTML artifact as the sole omission.
 
 ## QS-5 hierarchy scan budget
 
