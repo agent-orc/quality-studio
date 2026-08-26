@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-004",
+  "version": "1.0.0",
+  "title": "Structure tests around observable behavior and isolated repositories",
+  "language": "csharp",
+  "category": "test-structure",
+  "statement": "Name tests for observable behavior, arrange only the state the behavior needs, assert the persisted or returned contract, pass the test cancellation token, and isolate filesystem fixtures with cleanup.",
+  "rationale": "Quality Studio is file-first and Git-aware. Behavior-focused tests using temporary repository roots catch contract regressions without depending on machine state or test order.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultEnabled": true,
+  "reviewKinds": ["code"],
+  "appliesTo": ["**/*.cs"],
+  "examples": {
+    "bad": "[Fact] public async Task Test1() { await service.RunAsync(); Assert.True(true); }",
+    "good": "[Fact]\npublic async Task Exact_exclude_is_atomic_ordered_and_removable() {\n  using var root = new TemporaryRoot();\n  var result = await service.RunAsync(root.Path, TestContext.Current.CancellationToken);\n  Assert.Equal(expected, result);\n}"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial .NET test-structure seed grounded in Quality Studio's xUnit repository fixtures." }]
+}

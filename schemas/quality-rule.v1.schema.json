@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "title": "Quality Studio named best-practice rule v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "id", "version", "title", "language", "category",
+    "statement", "rationale", "severity", "autofixable", "defaultEnabled",
+    "reviewKinds", "appliesTo", "examples", "history"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-rule.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^QS-[A-Z]{2,8}-[0-9]{3}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "language": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "category": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "statement": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "rationale": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "autofixable": { "type": "boolean" },
+    "defaultEnabled": { "type": "boolean" },
+    "reviewKinds": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": ["code", "security", "performance"] }
+    },
+    "appliesTo": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    },
+    "examples": {
+      "type": "object", "additionalProperties": false, "required": ["bad", "good"],
+      "properties": {
+        "bad": { "type": "string", "minLength": 1, "maxLength": 8000 },
+        "good": { "type": "string", "minLength": 1, "maxLength": 8000 }
+      }
+    },
+    "history": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["version", "date", "change"],
+        "properties": {
+          "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+          "date": { "type": "string", "format": "date" },
+          "change": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      }
+    }
+  }
+}

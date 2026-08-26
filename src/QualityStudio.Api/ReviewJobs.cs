@@ -94,13 +94,15 @@ public interface IReviewExecutorFactory
 
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
-    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
+    StalenessEvaluator stalenessEvaluator,
+    RuleLibrary ruleLibrary) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
                 cliType, model, thinkingLevel, eventObserver: eventObserver),
-            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
+            ruleLibrary: ruleLibrary));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {

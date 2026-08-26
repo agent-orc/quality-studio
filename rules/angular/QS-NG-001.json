@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-001",
+  "version": "1.0.0",
+  "title": "Keep Angular components focused and externally templated",
+  "language": "angular",
+  "category": "component-structure",
+  "statement": "Keep a component focused on one view responsibility. Use templateUrl and styleUrl for non-trivial views, inject dependencies explicitly, and expose narrow typed inputs and outputs.",
+  "rationale": "Focused view classes such as Quality Studio's ProjectDashboardView keep rendering, navigation, and data services separable and make component tests cheaper to understand.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultEnabled": true,
+  "reviewKinds": ["code"],
+  "appliesTo": ["**/*.ts"],
+  "examples": {
+    "bad": "@Component({ selector: 'qs-dashboard', template: '<section>...</section>', styles: ['...'] })\nexport class Dashboard { /* data access, formatting, navigation, and rendering */ }",
+    "good": "@Component({\n  selector: 'qs-project-dashboard',\n  templateUrl: './project-dashboard.html',\n  styleUrl: './project-dashboard.css',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n})\nexport class ProjectDashboardView {\n  readonly api = inject(QualityApi);\n  readonly nodeOpen = output<string>();\n}"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial Angular component-structure seed grounded in Quality Studio views." }]
+}

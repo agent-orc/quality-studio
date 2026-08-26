@@ -451,6 +451,12 @@
             "$ref": "#/$defs/standardReference"
           }
         },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ruleReference"
+          }
+        },
         "omitted": {
           "type": "array",
           "items": {
@@ -461,6 +467,15 @@
         "prompt": {
           "$ref": "#/$defs/promptReference"
         }
+      }
+    },
+    "ruleReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "contentHash"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^QS-[A-Z]{2,8}-[0-9]{3}$" },
+        "contentHash": { "$ref": "#/$defs/sha256String" }
       }
     },
     "grade": {

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-003",
+  "version": "1.0.0",
+  "title": "Reuse standard components and shared UI primitives",
+  "language": "angular",
+  "category": "component-reuse",
+  "statement": "Before creating a control, badge, pane, card, dialog, or status treatment, reuse the established standard component or shared primitive. Extend the shared family when a capability is genuinely missing.",
+  "rationale": "One-off UI primitives duplicate behavior, accessibility, states, and styling. Shared Agent Studio and Quality Studio primitives keep interactions consistent and defects fixable in one place.",
+  "severity": "high",
+  "autofixable": false,
+  "defaultEnabled": true,
+  "reviewKinds": ["code"],
+  "appliesTo": ["**/*.ts", "**/*.html", "**/*.css"],
+  "examples": {
+    "bad": "<span class=\"my-new-stale-dot\"></span><button class=\"tiny-local-button\">Retry</button>",
+    "good": "<i class=\"status stale\"></i><button class=\"quiet\" type=\"button\">Retry</button>"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial default-on rule covering the operator-observed missing component reuse defect class." }]
+}

@@ -8,7 +8,7 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class ReviewPromptBuilder
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
-    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v3-deterministic-evidence";
+    private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v4-named-rules";
 
     public string Build(
         string filePath,
@@ -20,7 +20,8 @@ public sealed class ReviewPromptBuilder
         string? securitySensorEvidence = null,
         ReviewLevel level = ReviewLevel.File,
         string? coverageEvidence = null,
-        string? deterministicEvidence = null)
+        string? deterministicEvidence = null,
+        string? namedRules = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -49,6 +50,19 @@ public sealed class ReviewPromptBuilder
 """ + (string.IsNullOrWhiteSpace(coverageEvidence)
             ? "No coverage data is available. Treat coverage as unknown; do not infer 0% coverage."
             : coverageEvidence.Trim());
+        prompt += """
+
+
+## Named Quality Studio rules
+
+These are the effective, repository-configured rules for this target. Treat each id as stable context.
+When a finding is caused by one of these rules, copy its exact `QS-...` id into `ruleId`. Do not cite a
+disabled or non-applicable rule. The stated severity is the default finding severity unless concrete impact
+justifies a different one.
+
+""" + (string.IsNullOrWhiteSpace(namedRules)
+            ? "(no named Quality Studio rules apply to this review target)"
+            : namedRules.Trim());
         prompt += """
 
 
