@@ -47,7 +47,8 @@ public sealed record ReviewRunFileTransition(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     string RunId,
-    string? Error);
+    string? Error,
+    string? ErrorCode = null);
 
 public sealed record ReviewRunStatus(
     string RunId,
@@ -69,7 +70,8 @@ public sealed record ReviewRunStatus(
     string PriceStatus = "unknownModel",
     int SkippedFiles = 0,
     string? AggregateState = null,
-    string? StopReason = null);
+    string? StopReason = null,
+    IReadOnlyList<ReviewRunError>? RunErrors = null);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so
@@ -100,7 +102,8 @@ public sealed record ReviewRunResult(
     string PriceStatus,
     string? StopReason,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    IReadOnlyList<ReviewRunError>? RunErrors = null);
 
 public sealed record StoredReviewRun(
     ReviewRunManifest Manifest,
@@ -222,7 +225,8 @@ public sealed class ReviewRunStore
             status.PriceStatus,
             status.StopReason,
             manifest.Recommendation,
-            manifest.RouteOverride);
+            manifest.RouteOverride,
+            status.RunErrors);
         WriteAtomic(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }
