@@ -772,6 +772,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = Path.GetDirectoryName(root),
+                    ["QualityStudio:AllowedRoots:1"] = Path.GetDirectoryName(root),
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",
