@@ -80,8 +80,8 @@
     <p class="lede">The first package slice turns the existing Quality Studio kernel into a publishable NuGet boundary with a named-analysis facade. Agent Studio pipelines, the CLI, and CI can call the DLL directly. The Quality Studio API remains an adapter and the Angular UI remains a client of that API.</p>
     <div class="meta">
       <span><b>Status:</b> first slice implemented</span>
-      <span><b>Evidence cut:</b> 12 August 2026, re-verified 24 August 2026</span>
-      <span><b>Source baseline:</b> 59941d8</span>
+      <span><b>Evidence cut:</b> 12 August 2026, re-verified 27 August 2026</span>
+      <span><b>Source baseline:</b> origin/main at e31089c</span>
       <span><b>Publication:</b> not performed</span>
     </div>
   </header>
@@ -176,7 +176,7 @@ foreach (ReviewFinding finding in result.Findings)
       <tbody>
         <tr><td>Publishable package</td><td>Package ID/assembly/root namespace <code>AgentOrchestrator.CodeQuality</code>, version <code>0.1.0</code>, Apache-2.0, repository metadata, English package README, symbols package, and .NET 10 target.</td></tr>
         <tr><td>Stable facade</td><td>Named multi-analysis request, per-analysis configuration and scope, no-write default, QS findings, availability and provenance, discovery, cancellation, and clear unknown-name errors.</td></tr>
-        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. A temporary fixture produced 15 structured findings and the expected repository artifact.</td></tr>
+        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. A fresh temporary fixture produced one boundary entry, two structured findings, the expected repository artifact, and the expected gate exit code.</td></tr>
         <tr><td>Host separation</td><td>Agent Studio HTTP client/tests and starter rule content moved to the API boundary. API routes and Angular source are unchanged.</td></tr>
         <tr><td>Release rail</td><td>CI now packs <code>.nupkg</code>/<code>.snupkg</code> and retains them as a workflow artifact. It does not publish.</td></tr>
       </tbody>
@@ -212,6 +212,7 @@ foreach (ReviewFinding finding in result.Findings)
     </ul>
     <p class="note"><b>Observed baseline verification limits:</b> the existing machine-bound 5,000-file dashboard assertion exceeded its 150 ms first-projection budget both while the assemblies ran concurrently (329 ms) and in an isolated API rerun (157 ms). The other 51 API tests passed. Browser tests could not start because this runner has no Chrome-compatible binary; two pre-existing dev-stack bootstrap cases also exited early in their Linux test harness. The package split changes neither dashboard nor frontend/dev-stack source, and these results remain visible rather than being represented as a clean full-suite run.</p>
     <p class="note"><b>24 August 2026 recovery re-run:</b> the implementation described here had landed on an agent-studio salvage branch after a teardown interrupted the original delivery, instead of reaching the task branch. This re-run merged that history cleanly (no textual conflicts) onto <code>runner/agent-runner-01/QS-91</code> and repeated Release build, both test suites, and the package/CLI proof from scratch: build succeeded with 0 warnings/errors, the core suite reproduced 156 passed/1 skipped, the API suite reproduced 51 passed under the same <code>Category!=MachineBound</code> filter, the package was packed again, and <code>quality-cli boundaries scan</code> was re-run in process against a fresh fixture. Evidence is under the task server's <code>QS-91/results</code> directory, including <code>summary.json</code>.</p>
+    <p class="note"><b>27 August 2026 delivery re-run:</b> the remote no longer advertises a <code>develop</code> branch; its default integration branch is <code>main</code>. The task worktree was already at the freshly fetched <code>origin/main</code> commit <code>e31089c</code>, so there was no integration delta or textual conflict to replay. The semantically resolved QS-91 history was then fast-forwarded onto the task branch. Release build, both stable test suites, NuGet packing and archive inspection, the in-process CLI proof, and the unchanged Angular production build all succeeded. The optional full API run again isolated the pre-existing machine-bound dashboard budget assertion (220 ms observed versus 150 ms); its other 51 tests passed. Collected evidence is in the task server's absolute results directory.</p>
     <h3>Next slices, not required for this proof</h3>
     <ol>
       <li>Add AGT-2655 as a package consumer and persist its transport-neutral result artifact; keep Studio gate/lane policy outside this DLL.</li>
@@ -221,7 +222,7 @@ foreach (ReviewFinding finding in result.Findings)
     </ol>
   </section>
 
-  <footer>Quality Studio · QS-91 · calm architecture record · generated from repository evidence on 12 August 2026</footer>
+  <footer>Quality Studio · QS-91 · calm architecture record · generated from repository evidence on 12 August 2026 · verified 27 August 2026</footer>
 </main>
 </body>
 </html>
