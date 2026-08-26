@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "Quality Studio Analysis Core Package",
+  "summary": "Implemented decision dossier for the in-process Quality Studio analysis package. It inventories the current API, UI, CLI, and core boundaries; answers that the core is independently useful; recommends keeping it in this repository for now; and records the publishable package plus quality-cli proof slice.",
+  "entrypoint": "index.html",
+  "status": "implemented",
+  "phase": "first-slice",
+  "updatedAt": "2026-08-26T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-91"
+  ],
+  "decisions": [
+    {
+      "question": "Is the analysis core useful without the Quality Studio UI?",
+      "answer": "Yes. AGT-2655 pipeline steps, quality-cli, and CI are standalone consumers."
+    },
+    {
+      "question": "Should the core be extracted to its own repository now?",
+      "answer": "No. Keep the package here until release cadence, compatibility, cross-repository automation, and public-repository policy justify extraction."
+    }
+  ],
+  "implementation": {
+    "packageId": "AgentOrchestrator.CodeQuality",
+    "version": "0.1.0-preview.2",
+    "proofConsumer": "quality-cli boundaries scan",
+    "httpAdapterOwner": "QualityStudio.Api"
+  }
+}

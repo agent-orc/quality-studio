@@ -244,21 +244,47 @@ public static class QualityCli
         {
             var path = args.Length == 2 ? args[1] : ".";
             var stopwatch = Stopwatch.StartNew();
-            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
+            var result = await new AnalysisRunner().RunAsync(new AnalysisRequest(
+                path,
+                [AnalysisNames.Boundaries],
+                new AnalysisConfiguration { PersistArtifacts = true }));
+            var execution = AssertSingleExecution(result, AnalysisNames.Boundaries);
+            var entryCount = await ReadBoundaryEntryCountAsync(path);
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
-            foreach (var finding in inventory.Findings)
+                $"quality boundaries scan: {entryCount} entries | {execution.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+            foreach (var finding in execution.Findings)
             {
                 Console.WriteLine(
                     $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Locations[0].Path}:{finding.Locations[0].Range?.Start.Line} {finding.RuleId}");
             }
-            return inventory.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
+            return execution.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
         }
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
         {
             Console.Error.WriteLine($"quality boundaries scan failed: {exception.Message}");
             return 2;
         }
+    }
+
+    private static AnalysisExecution AssertSingleExecution(AnalysisResult result, string name)
+    {
+        var execution = result.Executions.Single();
+        if (!string.Equals(execution.Name, name, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Analysis runner returned '{execution.Name}' for requested analysis '{name}'.");
+        }
+
+        return execution;
+    }
+
+    private static async Task<int> ReadBoundaryEntryCountAsync(string repositoryPath)
+    {
+        var inventoryPath = Path.Combine(
+            Path.GetFullPath(repositoryPath),
+            BoundaryInventorySensor.InventoryRelativePath);
+        await using var stream = File.OpenRead(inventoryPath);
+        using var document = await JsonDocument.ParseAsync(stream);
+        return document.RootElement.GetProperty("entries").GetArrayLength();
     }
 
     private static async Task<int> RunFlowAsync(string[] args)
