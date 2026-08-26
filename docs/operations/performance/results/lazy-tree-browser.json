@@ -1,0 +1,232 @@
+{
+  "measuredAt": "2026-08-24T08:03:51.803Z",
+  "browser": "151.0.7922.34",
+  "productCommit": "e31089ccd5640bb2742a25a2a08a9a3120534656",
+  "productWorktreeDirty": true,
+  "target": {
+    "root": "/home/agent/runner-work/PROJ-002/repo",
+    "commit": "9af1a848e3be1401340b3b15c9704ae1f87c9408",
+    "trackedFiles": 3927
+  },
+  "largeSwitch": {
+    "samples": 5,
+    "medianMs": 19.8,
+    "p95Ms": 87,
+    "minMs": 16.2,
+    "maxMs": 87,
+    "values": [
+      87,
+      19.8,
+      16.2,
+      18.7,
+      21.8
+    ]
+  },
+  "cachedExpand": {
+    "samples": 6,
+    "medianMs": 6.8,
+    "p95Ms": 14.1,
+    "minMs": 3.6,
+    "maxMs": 14.1,
+    "values": [
+      7.4,
+      14.1,
+      5.7,
+      6.8,
+      3.6,
+      8
+    ]
+  },
+  "firstLazyLoad": {
+    "event": "qs.data.tree-children-loaded",
+    "parentId": "qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5",
+    "nodeCount": 10,
+    "source": "api"
+  },
+  "firstLazyExpand": {
+    "event": "qs.tree.expand-loaded",
+    "durationMs": 33.1,
+    "budgetMs": 100,
+    "withinBudget": true
+  },
+  "transitionEvents": [
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 21.8,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 16.5,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 19.5,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 19.1,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 15.8,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 19.1,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 18.3,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 14.1,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 21.6,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 26.8,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 16.3,
+      "budgetMs": 100,
+      "withinBudget": true
+    }
+  ],
+  "switchEvents": [
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 87,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 16.9,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 19.8,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 19.5,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 16.2,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 19.6,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 18.7,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 14.4,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 21.8,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 28.5,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 16.5,
+      "budgetMs": 500,
+      "withinBudget": true
+    }
+  ],
+  "toggleEvents": [
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 7.4,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 14.1,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 5.7,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 6.8,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 3.6,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 8,
+      "budgetMs": 50,
+      "withinBudget": true
+    }
+  ],
+  "screenshots": [
+    "tree-transport-before.png",
+    "tree-transport-before-dark.png",
+    "tree-transport-after.png",
+    "tree-transport-after-dark.png"
+  ]
+}

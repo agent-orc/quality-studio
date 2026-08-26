@@ -55,6 +55,7 @@ async function fulfillApi(route) {
   let body;
   if (path === '/api/repos') body = { repositories: [{ id: 'default', displayName: 'Quality Studio', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: null, defaultReviewCostCap: null }], defaultRepositoryId: 'default' };
   else if (path === '/api/models') body = { schemaVersion: 1, policyVersion: 'evidence', evidenceAsOfDate: '2026-08-11', sourceRepository: 'fixture', sourceCommit: 'fixture', thinkingLevels: ['high'], models: [] };
+  else if (path.endsWith('/tree/v2')) body = { schemaVersion: 2, parentId: null, path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [{ id: 'quality-studio', name: 'Quality Studio', path: '.', level: 'project', kinds: treeNode.kinds, hasChildren: true, childCount: 1, children: [treeNode] }] };
   else if (path.endsWith('/tree')) body = { nodes: [{ id: 'quality-studio', name: 'Quality Studio', path: '.', level: 'project', kinds: treeNode.kinds, children: [treeNode] }] };
   else if (path.endsWith('/file')) body = { path: run.path, content: 'var builder = WebApplication.CreateBuilder(args);\n', metaDocuments: [meta], sizeBytes: 50, lineEnding: 'lf', encoding: 'utf-8' };
   else if (path.endsWith('/scan')) body = { files: [], freshCount: 1, staleCount: 0, policyDriftCount: 0, missingCount: 0 };

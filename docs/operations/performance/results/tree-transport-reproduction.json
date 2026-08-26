@@ -1,0 +1,104 @@
+{
+  "measuredAt": "2026-08-24T08:51:48.160Z",
+  "environment": {
+    "productCommit": "b36bfe34cb1e7f785fc126f876c63ee7569acfb2",
+    "productWorktreeDirty": false,
+    "targetRoot": "/home/agent/runner-work/PROJ-002/repo",
+    "targetCommit": "9af1a848e3be1401340b3b15c9704ae1f87c9408",
+    "trackedFiles": 3927,
+    "dotnet": "10.0.301",
+    "node": "v22.23.1",
+    "samples": 10
+  },
+  "dossierBaseline": {
+    "source": "QS-59 dossier refreshed 2026-08-12 on the same repository commit",
+    "recursiveRootBytes": 29119333,
+    "warmProjectAndTreeMedianMs": 423.74,
+    "warmProjectAndTreeP95Ms": 954.1
+  },
+  "sameBuildBefore": {
+    "samples": 10,
+    "medianMs": 526.45,
+    "p95Ms": 2290.63,
+    "minMs": 385.31,
+    "maxMs": 2290.63,
+    "medianBytes": 29119333,
+    "serverTiming": null
+  },
+  "after": {
+    "coldProjection": {
+      "durationMs": 151.32,
+      "bytes": 15391,
+      "serverTiming": "tree-snapshot;dur=60.31, tree-projection;dur=10.14, tree-serialization;dur=29.55"
+    },
+    "root": {
+      "samples": 10,
+      "medianMs": 44.69,
+      "p95Ms": 60.75,
+      "minMs": 38.53,
+      "maxMs": 60.75,
+      "medianBytes": 15391,
+      "serverTiming": "tree-snapshot;dur=45.86, tree-projection;dur=10.40, tree-serialization;dur=0.29"
+    },
+    "cachedExpand": {
+      "samples": 10,
+      "medianMs": 5.28,
+      "p95Ms": 7.16,
+      "minMs": 4.04,
+      "maxMs": 7.16,
+      "medianBytes": 13361,
+      "serverTiming": "tree-snapshot;dur=0.01, tree-projection;dur=2.71, tree-serialization;dur=0.14"
+    },
+    "conditional": {
+      "status": 304,
+      "durationMs": 309.86
+    }
+  },
+  "switch": {
+    "recursiveV1": {
+      "samples": 10,
+      "medianMs": 533.49,
+      "p95Ms": 1160.09,
+      "minMs": 394.56,
+      "maxMs": 1160.09,
+      "medianBytes": 29130742,
+      "serverTiming": null
+    },
+    "lazyV2": {
+      "samples": 10,
+      "medianMs": 43.16,
+      "p95Ms": 106.13,
+      "minMs": 36.98,
+      "maxMs": 106.13,
+      "medianBytes": 26800,
+      "serverTiming": null
+    }
+  },
+  "reduction": {
+    "rootBytesPercent": 99.95,
+    "rootMedianPercent": 91.51,
+    "switchMedianPercent": 91.91
+  },
+  "transportEvents": [
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":52.42,\"projectionMs\":1.89,\"serializationMs\":0.12,\"totalMs\":54.58}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":\"qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5\",\"Path\":\"agent-taskboard.sln\",\"nodeCount\":10,\"responseBytes\":13361,\"snapshotMs\":0,\"projectionMs\":2.28,\"serializationMs\":0.14,\"totalMs\":2.59}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":32.07,\"projectionMs\":4.25,\"serializationMs\":0.14,\"totalMs\":36.61}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":44.83,\"projectionMs\":3.49,\"serializationMs\":0.11,\"totalMs\":48.69}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":\"qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5\",\"Path\":\"agent-taskboard.sln\",\"nodeCount\":10,\"responseBytes\":13361,\"snapshotMs\":0,\"projectionMs\":2.15,\"serializationMs\":0.08,\"totalMs\":2.37}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":38.78,\"projectionMs\":2.68,\"serializationMs\":0.13,\"totalMs\":41.74}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":29.13,\"projectionMs\":3.88,\"serializationMs\":0.13,\"totalMs\":33.31}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":\"qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5\",\"Path\":\"agent-taskboard.sln\",\"nodeCount\":10,\"responseBytes\":13361,\"snapshotMs\":0,\"projectionMs\":3.66,\"serializationMs\":0.12,\"totalMs\":4.18}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":34.95,\"projectionMs\":3.13,\"serializationMs\":0.12,\"totalMs\":38.42}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":33.24,\"projectionMs\":1.78,\"serializationMs\":0.11,\"totalMs\":35.25}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":\"qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5\",\"Path\":\"agent-taskboard.sln\",\"nodeCount\":10,\"responseBytes\":13361,\"snapshotMs\":0,\"projectionMs\":1.87,\"serializationMs\":0.07,\"totalMs\":2.04}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":30.55,\"projectionMs\":2.43,\"serializationMs\":0.09,\"totalMs\":33.19}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":34.61,\"projectionMs\":3.52,\"serializationMs\":0.08,\"totalMs\":38.3}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":\"qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5\",\"Path\":\"agent-taskboard.sln\",\"nodeCount\":10,\"responseBytes\":13361,\"snapshotMs\":0,\"projectionMs\":2.18,\"serializationMs\":0.07,\"totalMs\":2.38}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":34.75,\"projectionMs\":2.74,\"serializationMs\":0.17,\"totalMs\":37.81}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":31.55,\"projectionMs\":2.24,\"serializationMs\":0.11,\"totalMs\":34.15}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":\"qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5\",\"Path\":\"agent-taskboard.sln\",\"nodeCount\":10,\"responseBytes\":13361,\"snapshotMs\":0,\"projectionMs\":2.65,\"serializationMs\":0.15,\"totalMs\":2.94}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":32.22,\"projectionMs\":2.28,\"serializationMs\":0.08,\"totalMs\":34.69}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":null,\"Path\":\".\",\"nodeCount\":13,\"responseBytes\":15391,\"snapshotMs\":32.99,\"projectionMs\":3.22,\"serializationMs\":0.12,\"totalMs\":36.48}",
+    "{\"event\":\"qs.tree.transport\",\"schemaVersion\":2,\"repositoryId\":\"default\",\"ParentId\":\"qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5\",\"Path\":\"agent-taskboard.sln\",\"nodeCount\":10,\"responseBytes\":13361,\"snapshotMs\":0,\"projectionMs\":3.16,\"serializationMs\":0.12,\"totalMs\":3.47}"
+  ]
+}
