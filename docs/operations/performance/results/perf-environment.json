@@ -1,0 +1,46 @@
+{
+  "measuredAt": "2026-08-24T08:04:30.594Z",
+  "host": {
+    "platform": "linux",
+    "kernel": "6.8.0-124-generic",
+    "cpuModel": "Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz",
+    "logicalCpus": 12,
+    "totalMemoryGiB": 63,
+    "dotnet": "10.0.301",
+    "node": "v22.23.1"
+  },
+  "build": "Release",
+  "apiDll": "/home/agent/runner-work/PROJ-016/worktrees/QS-59/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll",
+  "targets": [
+    {
+      "id": "default",
+      "displayName": "default",
+      "sourcePath": "/home/agent/runner-work/PROJ-016/worktrees/QS-59",
+      "trackedFiles": 349,
+      "head": "e31089c"
+    },
+    {
+      "id": "taskboard",
+      "displayName": "taskboard",
+      "sourcePath": "/home/agent/agent-taskboard",
+      "trackedFiles": 5116,
+      "head": "ffe887a0"
+    },
+    {
+      "id": "churn",
+      "displayName": "Edit-churn clone",
+      "sourcePath": "/home/agent/runner-work/PROJ-016/worktrees/QS-59",
+      "trackedFiles": 349,
+      "head": "e31089c"
+    }
+  ],
+  "harness": {
+    "backend": "scripts/perf/backend-perf.mjs",
+    "treePayload": "scripts/perf/tree-payload-perf.mjs",
+    "commands": [
+      "node scripts/perf/backend-perf.mjs --out <dir> --targets \"default=<quality-studio>,taskboard=<agent-taskboard>\"",
+      "node scripts/perf/tree-payload-perf.mjs --out <dir> --targets \"default=<quality-studio>,taskboard=<agent-taskboard>\""
+    ],
+    "note": "Every target is measured on a throwaway git clone; no source repository is mutated."
+  }
+}

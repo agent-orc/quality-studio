@@ -1,0 +1,83 @@
+{
+  "description": "Resident set size of the API process while 40 full repository-switch fan-outs are replayed per registered repository against one process.",
+  "loops": 40,
+  "requestsPerLoop": 16,
+  "samples": [
+    {
+      "label": "baseline",
+      "iteration": 0,
+      "rssMiB": 313.2,
+      "peakRssMiB": 423.05,
+      "threads": 49
+    },
+    {
+      "label": "session",
+      "iteration": 5,
+      "rssMiB": 340.56,
+      "peakRssMiB": 423.05,
+      "threads": 49
+    },
+    {
+      "label": "session",
+      "iteration": 10,
+      "rssMiB": 324.64,
+      "peakRssMiB": 423.05,
+      "threads": 49
+    },
+    {
+      "label": "session",
+      "iteration": 15,
+      "rssMiB": 333.16,
+      "peakRssMiB": 423.05,
+      "threads": 48
+    },
+    {
+      "label": "session",
+      "iteration": 20,
+      "rssMiB": 336.39,
+      "peakRssMiB": 423.05,
+      "threads": 48
+    },
+    {
+      "label": "session",
+      "iteration": 25,
+      "rssMiB": 326.93,
+      "peakRssMiB": 423.05,
+      "threads": 48
+    },
+    {
+      "label": "session",
+      "iteration": 30,
+      "rssMiB": 346.92,
+      "peakRssMiB": 423.05,
+      "threads": 48
+    },
+    {
+      "label": "session",
+      "iteration": 35,
+      "rssMiB": 337.02,
+      "peakRssMiB": 423.05,
+      "threads": 48
+    },
+    {
+      "label": "session",
+      "iteration": 40,
+      "rssMiB": 336.54,
+      "peakRssMiB": 423.05,
+      "threads": 48
+    },
+    {
+      "label": "settled",
+      "iteration": 40,
+      "rssMiB": 336.54,
+      "peakRssMiB": 423.05,
+      "threads": 48
+    }
+  ],
+  "growth": {
+    "baselineRssMiB": 313.2,
+    "finalRssMiB": 336.54,
+    "deltaMiB": 23.34,
+    "perLoopKiB": 597.5
+  }
+}
