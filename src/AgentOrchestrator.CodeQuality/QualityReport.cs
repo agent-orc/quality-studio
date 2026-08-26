@@ -271,7 +271,12 @@ public sealed class QualityReportBuilder
         var findings = new List<QualityFinding>();
         foreach (var finding in metadata["findings"]?.AsArray().OfType<JsonObject>() ?? [])
         {
-            if (ParseFinding(finding, repositoryId, kind, "agent", null, null) is { } parsed)
+            var deterministic = string.Equals(
+                finding["source"]?["kind"]?.GetValue<string>(), "deterministic", StringComparison.Ordinal);
+            var source = deterministic ? "deterministic" : "agent";
+            var sensorId = deterministic ? finding["source"]?["sensorId"]?.GetValue<string>() : null;
+            var producer = deterministic ? finding["source"]?["producer"]?.GetValue<string>() : null;
+            if (ParseFinding(finding, repositoryId, kind, source, sensorId, producer) is { } parsed)
                 findings.Add(parsed);
         }
         foreach (var sensor in metadata["deterministicEvidence"]?.AsArray().OfType<JsonObject>() ?? [])

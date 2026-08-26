@@ -1,0 +1,65 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "observedAt": "2026-08-11T10:00:00+00:00",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "extensions": []
+  },
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/example",
+    "manifestHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "reviewInputsHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "producer": {
+    "kind": "agent",
+    "agent": "codex",
+    "provider": "openai",
+    "requestedModel": "gpt-5.6-sol",
+    "effectiveModel": "gpt-5.6-sol",
+    "thinkingLevel": "xhigh",
+    "routePolicyVersion": "2026-07-24",
+    "runId": "quality-example",
+    "reviewRunId": "review-example"
+  },
+  "evidenceStatus": "available",
+  "evidence": [
+    {
+      "id": "ev-1",
+      "kind": "source-code",
+      "locator": { "path": "src/Example.cs" },
+      "summary": "The dereference is visible at the referenced source location.",
+      "contentHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ],
+  "aspects": [
+    {
+      "aspectId": "code.correctness",
+      "assessment": "fail",
+      "rationale": "A high-severity correctness defect is evidenced.",
+      "grade": { "score": 68, "band": "D" }
+    }
+  ],
+  "assessment": "fail",
+  "findings": [
+    {
+      "observationFindingId": "of-1",
+      "issueId": "issue-example",
+      "occurrenceFingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "fingerprintAlgorithm": "quality-studio-occurrence-v2",
+      "ruleRef": "built-in/code.correctness.null-deref@1",
+      "aspectId": "code.correctness",
+      "severity": "high",
+      "evidenceRefs": ["ev-1"],
+      "source": { "kind": "agent", "producerRef": "self" }
+    }
+  ]
+}

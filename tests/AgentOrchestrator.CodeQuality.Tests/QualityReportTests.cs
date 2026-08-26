@@ -79,6 +79,26 @@ public sealed class QualityReportTests
     }
 
     [Fact]
+    public async Task Top_level_sensor_finding_keeps_deterministic_provenance_in_report_and_sarif()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(88);
+        await fixture.MarkTopLevelFindingDeterministicAsync();
+
+        var report = await new QualityReportBuilder().BuildAsync(
+            [fixture.Request], TestContext.Current.CancellationToken);
+        var finding = Assert.Single(Assert.Single(report.Repositories).Findings);
+        using var sarif = JsonDocument.Parse(QualityReportRenderer.Render(report, QualityReportFormat.Sarif));
+        var result = Assert.Single(Assert.Single(sarif.RootElement.GetProperty("runs").EnumerateArray())
+            .GetProperty("results").EnumerateArray());
+
+        Assert.Equal("deterministic", finding.Source);
+        Assert.Equal("gitleaks", finding.SensorId);
+        Assert.Equal("security-sensor", finding.Producer);
+        Assert.Equal("deterministic",
+            result.GetProperty("properties").GetProperty("source").GetString());
+    }
+
+    [Fact]
     public async Task Cli_exit_codes_cover_passing_failing_and_invalid_gates()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(68);
@@ -205,6 +225,21 @@ public sealed class QualityReportTests
                     }),
                 }),
             });
+            await File.WriteAllTextAsync(
+                sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        }
+
+        public async Task MarkTopLevelFindingDeterministicAsync()
+        {
+            var metadata = JsonNode.Parse(await File.ReadAllTextAsync(
+                sidecarPath, TestContext.Current.CancellationToken))!.AsObject();
+            metadata["findings"]![0]!["source"] = new JsonObject
+            {
+                ["kind"] = "deterministic",
+                ["sensorId"] = "gitleaks",
+                ["producer"] = "security-sensor",
+                ["producerVersion"] = "8.24.2",
+            };
             await File.WriteAllTextAsync(
                 sidecarPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
         }

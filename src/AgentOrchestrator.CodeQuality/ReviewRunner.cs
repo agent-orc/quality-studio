@@ -24,7 +24,11 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? Provider = null,
+    string? RequestedModel = null,
+    string? ThinkingLevel = null,
+    string? RoutePolicyVersion = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -34,7 +38,9 @@ public sealed record ReviewResult(
     string RunId,
     ResolvedInputs Inputs,
     ReviewUsageEntry Usage,
-    ReviewObservationSnapshot? Observation = null);
+    ReviewObservationSnapshot? Observation = null,
+    string? QualityObservationId = null,
+    string? QualityObservationPath = null);
 
 /// <summary>
 /// Immutable copy of the review metadata and lifecycle states observed by one sweep operation.
@@ -65,6 +71,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly QualityTaxonomyOptions _taxonomyOptions;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -73,7 +80,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        QualityTaxonomyOptions? taxonomyOptions = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -82,6 +90,7 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _taxonomyOptions = taxonomyOptions ?? new QualityTaxonomyOptions();
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -138,9 +147,16 @@ public sealed class ReviewRunner
                 throw;
             }
 
+            var qualityObservationId = QualityObservationJson.CreateObservationId(
+                agentResult.RunId,
+                unitId,
+                request.Kind,
+                reviewedHash,
+                reviewInputsHash,
+                QualityTaxonomyCatalogue.Core.Digest);
             var usage = CreateUsage(agentResult.RunId,
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
-                agentResult.EffectiveModel, startedAt, request, relativePath);
+                agentResult.EffectiveModel, startedAt, request, relativePath, agentResult);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
             if (request.Level == ReviewLevel.Project &&
@@ -171,6 +187,7 @@ public sealed class ReviewRunner
 
             var adapter = AdapterFromUnitId(unitId);
             ReviewObservationSnapshot observation;
+            QualityObservationAppendResult? qualityObservationAppend = null;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -199,6 +216,21 @@ public sealed class ReviewRunner
                     threads,
                     sensorEvidence,
                     deterministicEvidence);
+                if (_taxonomyOptions.ObservationWriteEnabled)
+                {
+                    var qualityObservation = CreateQualityObservation(
+                        response,
+                        request,
+                        unitId,
+                        reviewedHash,
+                        reviewInputsHash,
+                        usage,
+                        agentResult,
+                        sensorEvidence,
+                        qualityObservationId);
+                    qualityObservationAppend = await QualityObservationStore.AppendAsync(
+                        root, qualityObservation, cancellationToken).ConfigureAwait(false);
+                }
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
@@ -217,7 +249,17 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
+                new ReviewResult(
+                    metaPath,
+                    reviewedHash,
+                    agentResult.RunId,
+                    inputs,
+                    usage,
+                    observation,
+                    qualityObservationAppend?.ObservationId,
+                    qualityObservationAppend is null
+                        ? null
+                        : NormalizeRelativePath(root, qualityObservationAppend.Path)),
                 observation);
         }
         catch (Exception exception)
@@ -360,12 +402,23 @@ public sealed class ReviewRunner
             .CollectAsync(root, request.DeterministicSensors, cancellationToken).ConfigureAwait(false);
     }
 
-    private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
+    private ReviewUsageEntry CreateUsage(
+        string runId,
+        TokenUsage tokens,
+        string? effectiveModel,
+        DateTimeOffset startedAt,
+        ReviewRequest request,
+        string relativePath,
+        ReviewAgentResult? agentResult = null) =>
         new(runId, startedAt,
             string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
             _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+            request.ReviewRunId ?? runId, UsageLedger.CurrentSchemaVersion,
+            FirstKnown(agentResult?.Provider, request.Provider, _agent.Provider),
+            FirstKnown(agentResult?.RequestedModel, request.RequestedModel, _agent.Model),
+            effectiveModel ?? _agent.Model ?? "unknown",
+            FirstKnown(agentResult?.ThinkingLevel, request.ThinkingLevel, _agent.ThinkingLevel),
+            FirstKnown(agentResult?.RoutePolicyVersion, request.RoutePolicyVersion, _agent.RoutePolicyVersion));
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {
@@ -377,6 +430,165 @@ public sealed class ReviewRunner
             usage.Tokens.CachedInputTokens ?? -1, usage.Tokens.DurationMs);
         _usageRecorded?.Invoke(usage);
     }
+
+    private QualityObservationDocument CreateQualityObservation(
+        JsonObject response,
+        ReviewRequest request,
+        string unitId,
+        string reviewedHash,
+        string reviewInputsHash,
+        ReviewUsageEntry usage,
+        ReviewAgentResult agentResult,
+        SecurityEvidenceBundle sensorEvidence,
+        string observationId)
+    {
+        var findings = response["findings"]!.AsArray().OfType<JsonObject>().ToArray();
+        var evidence = new List<QualityEvidence>();
+        var observationFindings = new List<QualityObservationFinding>();
+        foreach (var finding in findings)
+        {
+            var findingId = finding["id"]!.GetValue<string>();
+            var fingerprint = finding["fingerprint"]!.GetValue<string>();
+            var aspectId = MapCoreAspect(finding["aspect"]!.GetValue<string>(), request.Kind);
+            var evidenceRefs = new List<string>();
+            var location = finding["locations"]?.AsArray().OfType<JsonObject>().FirstOrDefault();
+            if (location is not null)
+            {
+                var evidenceId = "ev-" + findingId;
+                evidence.Add(new QualityEvidence(
+                    evidenceId,
+                    QualityEvidenceKind.SourceCode,
+                    $"Source location for finding '{findingId}'.",
+                    Locator: new QualityEvidenceLocator(
+                        Path: location["path"]!.GetValue<string>(),
+                        SymbolId: location["symbolId"]?.GetValue<string>())));
+                evidenceRefs.Add(evidenceId);
+            }
+
+            var sourceKind = finding["source"]?["kind"]?.GetValue<string>() == "deterministic"
+                ? QualityProducerKind.DeterministicSensor
+                : QualityProducerKind.Agent;
+            observationFindings.Add(new QualityObservationFinding(
+                findingId,
+                "issue-" + fingerprint["sha256:".Length..],
+                fingerprint,
+                FindingIdentity.Canonicalization,
+                finding["ruleId"]!.GetValue<string>(),
+                aspectId,
+                Enum.Parse<FindingSeverity>(finding["severity"]!.GetValue<string>(), true),
+                evidenceRefs,
+                new QualityFindingSource(sourceKind, sourceKind == QualityProducerKind.Agent ? "self" : "sensor")));
+        }
+
+        var securityMapping = request.Kind == "security"
+            ? LegacyTaxonomyMapper.Map(
+                LegacyTaxonomyContract.SecurityVerdict,
+                SecurityEvidenceBundle.VerdictName(sensorEvidence.Verdict))
+            : null;
+        var aspects = response["aspects"]!.AsArray().OfType<JsonObject>()
+            .Where(aspect => !string.Equals(
+                aspect["id"]!.GetValue<string>(), "sensor-availability", StringComparison.Ordinal))
+            .Select(aspect =>
+            {
+                var legacyAspectId = aspect["id"]!.GetValue<string>();
+                var mappedAspectId = MapCoreAspect(legacyAspectId, request.Kind);
+                var aspectFindings = observationFindings
+                    .Where(finding => string.Equals(finding.AspectId, mappedAspectId, StringComparison.Ordinal))
+                    .ToArray();
+                var assessment = AssessmentForFindings(aspectFindings);
+                var grade = aspect["grade"]!.AsObject();
+                return new QualityAspectAssessment(
+                    mappedAspectId,
+                    assessment,
+                    grade["rationale"]!.GetValue<string>(),
+                    new QualityObservationGrade(
+                        grade["score"]!.GetValue<int>(),
+                        Enum.Parse<GradeBand>(grade["band"]!.GetValue<string>(), false)));
+            }).ToArray();
+
+        var findingAssessment = AssessmentForFindings(observationFindings);
+        var overallAssessment = securityMapping?.Assessment is { } securityAssessment
+            ? StrongerAssessment(securityAssessment, findingAssessment)
+            : findingAssessment;
+        var provider = FirstKnown(agentResult.Provider, request.Provider, _agent.Provider);
+        var requestedModel = FirstKnown(agentResult.RequestedModel, request.RequestedModel, _agent.Model);
+        var effectiveModel = agentResult.EffectiveModel ?? usage.Model;
+        var thinkingLevel = FirstKnown(agentResult.ThinkingLevel, request.ThinkingLevel, _agent.ThinkingLevel);
+        var routePolicyVersion = FirstKnown(
+            agentResult.RoutePolicyVersion, request.RoutePolicyVersion, _agent.RoutePolicyVersion);
+        var promptHash = ReviewPromptBuilder.TemplateHash(request.Kind);
+        return new QualityObservationDocument
+        {
+            ObservationId = observationId,
+            ObservedAt = usage.Timestamp.ToUniversalTime(),
+            Taxonomy = new QualityTaxonomyReference(
+                QualityTaxonomyDocument.CoreId,
+                QualityTaxonomyDocument.CoreVersion,
+                QualityTaxonomyCatalogue.Core.Digest,
+                []),
+            Subject = new QualityObservationSubject(unitId, WithSha256Prefix(reviewedHash)),
+            Profile = new QualityReviewProfile(
+                $"file-{request.Kind}-review",
+                "1.0.0",
+                WithSha256Prefix(promptHash),
+                WithSha256Prefix(reviewInputsHash)),
+            Producer = new QualityObservationProducer(
+                QualityProducerKind.Agent,
+                _agent.AgentName,
+                provider,
+                requestedModel,
+                effectiveModel,
+                thinkingLevel,
+                routePolicyVersion,
+                agentResult.RunId,
+                request.ReviewRunId ?? agentResult.RunId),
+            EvidenceStatus = securityMapping?.EvidenceStatus ?? QualityEvidenceStatus.Available,
+            Evidence = evidence,
+            Aspects = aspects,
+            Assessment = overallAssessment,
+            Decision = securityMapping?.Decision is { } decision
+                ? new QualityPolicyDecision(decision, securityMapping.PolicyRef!)
+                : null,
+            Findings = observationFindings,
+        };
+    }
+
+    private static QualityAssessment AssessmentForFindings(
+        IReadOnlyCollection<QualityObservationFinding> findings)
+    {
+        if (findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High))
+            return QualityAssessment.Fail;
+        return findings.Count > 0 ? QualityAssessment.Concern : QualityAssessment.Pass;
+    }
+
+    private static QualityAssessment StrongerAssessment(QualityAssessment left, QualityAssessment right)
+    {
+        static int Rank(QualityAssessment value) => value switch
+        {
+            QualityAssessment.Fail => 4,
+            QualityAssessment.Concern => 3,
+            QualityAssessment.Inconclusive => 2,
+            QualityAssessment.Pass => 1,
+            _ => 0,
+        };
+        return Rank(left) >= Rank(right) ? left : right;
+    }
+
+    private static string MapCoreAspect(string legacyAspectId, string reviewKind)
+    {
+        if (QualityTaxonomyCatalogue.Core.IsCoreAspect(legacyAspectId)) return legacyAspectId;
+        var alias = QualityTaxonomyCatalogue.Core.ResolveCoreAspectAlias(legacyAspectId);
+        if (alias is not null) return alias;
+        return $"{reviewKind}.{legacyAspectId}";
+    }
+
+    private static string WithSha256Prefix(string value) =>
+        value.StartsWith("sha256:", StringComparison.Ordinal) ? value : "sha256:" + value;
+
+    private static string FirstKnown(params string?[] values) =>
+        values.FirstOrDefault(value =>
+            !string.IsNullOrWhiteSpace(value) && !string.Equals(value, "unknown", StringComparison.OrdinalIgnoreCase))
+        ?? "unknown";
 
     private JsonObject CreateMeta(
         JsonObject response,

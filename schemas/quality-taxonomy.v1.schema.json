@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "title": "Quality Studio taxonomy catalogue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "id", "version", "terms", "aspects"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*/[a-z][a-z0-9.-]*$" },
+    "version": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$" },
+    "terms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producerKinds", "evidenceStatuses", "assessments", "changes",
+        "decisions", "severities", "lifecycles", "evidenceKinds"
+      ],
+      "properties": {
+        "producerKinds": { "$ref": "#/$defs/termList" },
+        "evidenceStatuses": { "$ref": "#/$defs/termList" },
+        "assessments": { "$ref": "#/$defs/termList" },
+        "changes": { "$ref": "#/$defs/termList" },
+        "decisions": { "$ref": "#/$defs/termList" },
+        "severities": { "$ref": "#/$defs/termList" },
+        "lifecycles": { "$ref": "#/$defs/termList" },
+        "evidenceKinds": { "$ref": "#/$defs/termList" }
+      }
+    },
+    "aspects": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/aspect" }
+    },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "termList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/term" }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "order", "aliases", "deprecated", "allowedAxes"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "description": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "deprecated": { "type": "boolean" },
+        "replacement": { "type": "string", "minLength": 1 },
+        "allowedAxes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["producer", "evidence-status", "assessment", "change", "decision", "severity", "lifecycle", "evidence-kind"] }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "order", "aliases", "deprecated", "allowedAssessmentAxes"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "deprecated": { "type": "boolean" },
+        "replacement": { "type": "string", "minLength": 1 },
+        "allowedAssessmentAxes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "const": "assessment" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$" }
+    }
+  }
+}

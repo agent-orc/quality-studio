@@ -13,10 +13,24 @@ public interface IReviewAgent
 
     string? Model { get; }
 
+    string Provider => "unknown";
+
+    string? ThinkingLevel => null;
+
+    string RoutePolicyVersion => "unknown";
+
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
-public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null);
+public sealed record ReviewAgentResult(
+    string RunId,
+    string Response,
+    TokenUsage? Usage = null,
+    string? EffectiveModel = null,
+    string? Provider = null,
+    string? RequestedModel = null,
+    string? ThinkingLevel = null,
+    string? RoutePolicyVersion = null);
 
 public sealed class ReviewAgentRunException(
     string runId, TokenUsage usage, string? effectiveModel, Exception innerException)
@@ -59,6 +73,18 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     public string AgentName => _cliType;
 
     public string? Model { get; }
+
+    public string Provider => _cliType switch
+    {
+        "codex" => "openai",
+        "claude" => "anthropic",
+        "gemini" => "google",
+        _ => "unknown",
+    };
+
+    public string? ThinkingLevel => _thinkingLevel;
+
+    public string RoutePolicyVersion => "unknown";
 
     public async Task<ReviewAgentResult> RunAsync(
         string prompt,
@@ -103,7 +129,15 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
 
         var completed = BuildUsage(metrics, stopwatch);
-        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+        return new ReviewAgentResult(
+            runId,
+            output.ToString(),
+            completed.Usage,
+            completed.Model,
+            Provider,
+            Model,
+            ThinkingLevel,
+            RoutePolicyVersion);
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,

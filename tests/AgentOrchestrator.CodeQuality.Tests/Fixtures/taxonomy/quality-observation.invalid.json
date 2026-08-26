@@ -1,0 +1,20 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "mutable-id",
+  "observedAt": "not-a-timestamp",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "not-a-digest",
+    "extensions": []
+  },
+  "subject": {},
+  "profile": {},
+  "producer": { "kind": "agent" },
+  "evidenceStatus": "pass",
+  "evidence": [],
+  "aspects": [],
+  "assessment": "unknown",
+  "findings": []
+}
