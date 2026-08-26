@@ -9,7 +9,7 @@
   "rationale": "The core package is documented as usable standalone ('the package stays usable standalone... write meta JSONs, drive the CLI runner'), which means its async methods can run under a host with a capturing `SynchronizationContext`. `ConfigureAwait(false)` keeps the continuation off that context, avoiding needless context-switch overhead and a class of deadlocks in synchronous-over-asynchronous callers outside this repo's own ASP.NET Core host, where it is unnecessary but harmless.",
   "severity": "low",
   "autofixable": true,
-  "defaultOn": true,
+  "defaultOn": false,
   "kinds": ["code"],
   "levels": ["file"],
   "good": {

@@ -9,7 +9,7 @@
   "rationale": "Handler-parameter injection is what makes a handler's real dependencies visible at the call site and in tests (see QS-DN-007/008 for how tests then construct these directly). Pulling a service out of `RequestServices` inside the body hides the dependency from the signature, breaks constructing the handler outside a request pipeline, and is easy to reach for as a shortcut around a lifetime mismatch instead of fixing the registration (QS-DN-003).",
   "severity": "medium",
   "autofixable": false,
-  "defaultOn": true,
+  "defaultOn": false,
   "kinds": ["code"],
   "levels": ["file"],
   "good": {

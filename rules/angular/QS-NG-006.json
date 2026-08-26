@@ -21,7 +21,7 @@
     "language": "css",
     "code": ".anchor-badge{ /* editor.css */ }\n.scope-exclusion-badge{ /* explorer.css */ }\n.quota-chip{padding:4px 7px;border:1px solid var(--studio-border);border-radius:999px; /* app.css */ }\n.embedded-badge{padding:3px 6px;border:1px solid var(--studio-border);border-radius:999px; /* app.css */ }",
     "caption": "Four independently declared badge/chip classes with overlapping geometry.",
-    "source": "frontend/src/app/editor/editor.css, frontend/src/app/explorer/explorer.css, frontend/src/app/app.css"
+    "source": "frontend/src/app/editor/editor.css"
   },
   "tags": ["component-reuse", "badge", "duplication"],
   "version": "1.0.0",

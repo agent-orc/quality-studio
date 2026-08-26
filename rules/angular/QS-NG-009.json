@@ -9,7 +9,7 @@
   "rationale": "The editor view has a stated hard performance goal ('rock-solid, extremely fast'). Default change detection walks every component's template on every zone event, which does not scale as panels (explorer, editor, review-panel) grow; OnPush plus signal-based state (QS-NG-010) checks a component only when its own inputs or signals actually change.",
   "severity": "medium",
   "autofixable": false,
-  "defaultOn": true,
+  "defaultOn": false,
   "kinds": ["code", "performance"],
   "levels": ["file"],
   "good": {

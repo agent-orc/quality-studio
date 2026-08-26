@@ -74,6 +74,10 @@ public sealed class InputResolver
         var global = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
             globalInputsDirectory);
         var projectRoot = Path.GetFullPath(repositoryRoot);
+        // The named rule core is repository policy, not an opt-in UI action. Materialize its
+        // effective state before every resolution so API, CLI, staleness and review paths all see
+        // the same default-on rules and versioned .quality/rules.config.json overrides.
+        new GuidelineStore().EnsureDefaultRules(projectRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
         var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);

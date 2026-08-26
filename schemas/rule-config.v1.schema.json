@@ -27,7 +27,7 @@
           "description": "false disables a defaultOn rule for this project (SyncDefaultRules removes its installed guideline file on the next sync). true re-enables a rule the project had previously disabled."
         },
         "severity": {
-          "description": "Project-local severity override, informational only in v1: it is recorded and surfaced next to the rule but the review prompt still asks the agent to use its own judgement, so it is not a hard cap or floor on reported findings.",
+          "description": "Project-local severity guidance. It changes the rule's displayed severity and prompt priority, but is not a hard cap or floor on the severity of a concrete finding.",
           "enum": ["critical", "high", "medium", "low", "info"]
         },
         "reason": {

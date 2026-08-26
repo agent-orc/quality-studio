@@ -41,6 +41,22 @@ public sealed class RuleLibraryTests
             var technology = document.RootElement.GetProperty("technology").GetString();
             Assert.True(seen.Add(id), $"Duplicate rule id '{id}'.");
             Assert.Equal(Path.GetFileName(Path.GetDirectoryName(path)), technology);
+            Assert.StartsWith(technology == "angular" ? "QS-NG-" : "QS-DN-", id, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Grounded_example_sources_exist_in_this_repository()
+    {
+        var repositoryRoot = RepositoryTestContext.FindRepositoryRoot();
+        foreach (var rule in RuleLibrary.Rules)
+        {
+            foreach (var example in new[] { rule.Good, rule.Bad }.Where(example => example.Source is not null))
+            {
+                var path = Path.Combine(repositoryRoot, example.Source!.Replace('/', Path.DirectorySeparatorChar));
+                Assert.True(File.Exists(path) || Directory.Exists(path),
+                    $"{rule.Id} example source does not exist: {example.Source}");
+            }
         }
     }
 
@@ -106,9 +122,10 @@ public sealed class RuleLibraryTests
         try
         {
             var store = new GuidelineStore();
-            var rule = RuleLibrary.Rules.First(value => value.Category == "design-tokens");
+            var rule = RuleLibrary.Rules.First(value => !value.DefaultOn);
 
             var installed = store.Install(root, rule.Id);
+            _ = new InputResolver().Resolve(root, "code", ReviewLevel.File);
 
             Assert.Equal(rule.Id, installed.Id);
             var reListed = store.List(root);
@@ -125,13 +142,17 @@ public sealed class RuleLibraryTests
     {
         var root = Path.Combine(Path.GetTempPath(), "rule-library-sync-tests", Guid.NewGuid().ToString("N"));
         var disabledRuleId = RuleLibrary.Rules.First(rule => rule.DefaultOn).Id;
+        var adjustedRuleId = RuleLibrary.Rules.First(rule => rule.DefaultOn && rule.Id != disabledRuleId).Id;
+        var optedInRuleId = RuleLibrary.Rules.First(rule => !rule.DefaultOn).Id;
         Directory.CreateDirectory(Path.Combine(root, ".quality"));
         File.WriteAllText(Path.Combine(root, ".quality", "rules.config.json"), $$"""
         {
           "$schema": "https://quality.studio/schemas/rule-config.v1.schema.json",
           "schemaVersion": 1,
           "overrides": {
-            "{{disabledRuleId}}": { "enabled": false, "reason": "test override" }
+            "{{disabledRuleId}}": { "enabled": false, "reason": "test override" },
+            "{{adjustedRuleId}}": { "severity": "high", "reason": "project risk" },
+            "{{optedInRuleId}}": { "enabled": true, "reason": "project convention" }
           }
         }
         """);
@@ -141,10 +162,14 @@ public sealed class RuleLibraryTests
 
             var firstSync = store.SyncDefaultRules(root);
             var defaultOnCount = RuleLibrary.Rules.Count(rule => rule.DefaultOn);
-            Assert.Equal(defaultOnCount - 1, firstSync.Count(result => result.Action == "installed"));
+            Assert.Equal(defaultOnCount, firstSync.Count(result => result.Action == "installed"));
             var installedIds = store.List(root).Select(value => value.Id).ToHashSet(StringComparer.Ordinal);
             Assert.DoesNotContain(disabledRuleId, installedIds);
-            Assert.Contains(RuleLibrary.Rules.First(rule => rule.DefaultOn && rule.Id != disabledRuleId).Id, installedIds);
+            Assert.Contains(adjustedRuleId, installedIds);
+            Assert.Contains(optedInRuleId, installedIds);
+            var adjusted = Assert.Single(store.List(root), guideline => guideline.Id == adjustedRuleId);
+            Assert.Equal(85, adjusted.Priority);
+            Assert.Contains("Severity: high", adjusted.Content, StringComparison.Ordinal);
 
             var secondSync = store.SyncDefaultRules(root);
             Assert.All(secondSync.Where(result => result.Action != "removed"),
@@ -185,6 +210,66 @@ public sealed class RuleLibraryTests
             Assert.Empty(config.Overrides);
             Assert.True(config.IsEnabled("QS-NG-003", defaultOn: true));
             Assert.False(config.IsEnabled("QS-NG-002", defaultOn: false));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Input_resolution_automatically_materializes_the_default_on_core()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rule-library-auto-sync-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var resolved = new InputResolver().Resolve(root, "code", ReviewLevel.File);
+
+            var expectedIds = RuleLibrary.Rules.Where(rule => rule.DefaultOn).Select(rule => rule.Id).ToHashSet();
+            Assert.All(expectedIds, id => Assert.Contains(resolved.Inputs, input => input.Id == id));
+            Assert.All(expectedIds, id => Assert.True(
+                File.Exists(Path.Combine(root, ".quality", "inputs", id + ".md")), $"{id} was not synced."));
+
+            var disabledId = expectedIds.First();
+            File.WriteAllText(Path.Combine(root, ".quality", "rules.config.json"), $$"""
+            {
+              "$schema": "https://quality.studio/schemas/rule-config.v1.schema.json",
+              "schemaVersion": 1,
+              "overrides": {
+                "{{disabledId}}": { "enabled": false, "reason": "covered elsewhere" }
+              }
+            }
+            """);
+
+            var overridden = new InputResolver().Resolve(root, "code", ReviewLevel.File);
+            Assert.DoesNotContain(overridden.Inputs, input => input.Id == disabledId);
+            Assert.False(File.Exists(Path.Combine(root, ".quality", "inputs", disabledId + ".md")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void RuleConfig_rejects_unknown_rule_ids()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rule-library-invalid-config-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, ".quality"));
+        File.WriteAllText(Path.Combine(root, ".quality", "rules.config.json"), """
+        {
+          "$schema": "https://quality.studio/schemas/rule-config.v1.schema.json",
+          "schemaVersion": 1,
+          "overrides": {
+            "QS-NG-999": { "enabled": false, "reason": "typo" }
+          }
+        }
+        """);
+        try
+        {
+            var exception = Assert.Throws<JsonException>(() => RuleConfig.Load(root));
+            Assert.Contains("unknown rule 'QS-NG-999'", exception.Message, StringComparison.Ordinal);
         }
         finally
         {

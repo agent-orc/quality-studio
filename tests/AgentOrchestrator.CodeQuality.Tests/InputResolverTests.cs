@@ -25,8 +25,10 @@ public sealed class InputResolverTests : IDisposable
 
         var result = new InputResolver().Resolve(root, "code", ReviewLevel.File, global);
 
-        Assert.Equal(["global-high", "global-low", "project"], result.Inputs.Select(input => input.Id));
-        Assert.All(result.Inputs.Take(2), input => Assert.Equal("global", input.Scope));
+        var authored = result.Inputs.Where(input => !input.Id.StartsWith("QS-", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(["global-high", "global-low", "project"], authored.Select(input => input.Id));
+        Assert.All(authored.Take(2), input => Assert.Equal("global", input.Scope));
+        Assert.Contains(result.Inputs, input => input.Id == "QS-NG-003");
     }
 
     [Fact]
@@ -37,7 +39,7 @@ public sealed class InputResolverTests : IDisposable
 
         var result = new InputResolver().Resolve(root, "code", ReviewLevel.File, global);
 
-        var input = Assert.Single(result.Inputs);
+        var input = Assert.Single(result.Inputs, input => input.Id == "rules");
         Assert.Equal("project", input.Scope);
         Assert.Equal("project body", input.Content);
         Assert.Contains(result.Omissions, omission => omission.Id == "rules" && omission.Reason == "overridden-by-project");
@@ -68,11 +70,13 @@ public sealed class InputResolverTests : IDisposable
         var resolved = new InputResolver().Resolve(root, "code", ReviewLevel.File);
 
         Assert.Equal("api-boundaries.md", created.FileName);
-        Assert.Equal("Validate boundary input.", Assert.Single(resolved.Inputs).IncludedContent);
+        Assert.Equal("Validate boundary input.", Assert.Single(resolved.Inputs,
+            input => input.Id == "api-boundaries").IncludedContent);
         Assert.Contains("enabled: true", File.ReadAllText(Path.Combine(Project, created.FileName)), StringComparison.Ordinal);
 
         store.Update(root, created.Id, new GuidelineDraft(created.Id, false, 42, ["code"], ["file"], created.Content));
-        Assert.Empty(new InputResolver().Resolve(root, "code", ReviewLevel.File).Inputs);
+        Assert.DoesNotContain(new InputResolver().Resolve(root, "code", ReviewLevel.File).Inputs,
+            input => input.Id == "api-boundaries");
     }
 
     private string Project => Path.Combine(root, ".quality", "inputs");

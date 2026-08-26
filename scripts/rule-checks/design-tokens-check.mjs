@@ -10,7 +10,7 @@
 //   targetDir  defaults to frontend/src
 //   reportPath defaults to .quality/rule-checks/design-tokens.sarif.json
 
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,12 +22,35 @@ const HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
 // Raw px values, excluding the accepted 1px hairline-border exception (QS-NG-003).
 const RAW_PX = /(?<![\w-])(?!1px\b)\d+(?:\.\d+)?px\b/g;
 
-async function collectCssFiles(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
+function normalizedLiteral(value) {
+  return value.startsWith('#') ? value.toLowerCase() : value;
+}
+
+async function loadTokenValues() {
+  const tokenSource = await readFile(join(repositoryRoot, 'frontend', 'src', 'styles.css'), 'utf8');
+  const values = new Map();
+  for (const declaration of tokenSource.matchAll(/(--[\w-]+)\s*:\s*([^;}{]+)/g)) {
+    for (const literal of [
+      ...findMatches(declaration[2], HEX_COLOR),
+      ...findMatches(declaration[2], RAW_PX),
+    ]) {
+      const key = normalizedLiteral(literal.value);
+      const names = values.get(key) ?? new Set();
+      names.add(declaration[1]);
+      values.set(key, names);
+    }
+  }
+  return values;
+}
+
+async function collectCssFiles(target) {
+  const targetStat = await stat(target);
+  if (targetStat.isFile()) return target.endsWith('.css') ? [target] : [];
+  const entries = await readdir(target, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
-    const full = join(dir, entry.name);
+    const full = join(target, entry.name);
     if (entry.isDirectory()) files.push(...(await collectCssFiles(full)));
     else if (entry.name.endsWith('.css')) files.push(full);
   }
@@ -37,7 +60,10 @@ async function collectCssFiles(dir) {
 function stripRootBlocks(content) {
   // Token declarations themselves (":root { --studio-space-1: 4px; ... }") are the source of
   // truth, not a violation; strip every :root[...]{...} block before scanning for raw literals.
-  return content.replace(/:root(?:\[[^\]]*])?\s*\{[^}]*\}/g, (match) => ' '.repeat(match.length));
+  const preserveOffsets = (match) => match.replace(/[^\n]/g, ' ');
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, preserveOffsets)
+    .replace(/:root(?:\[[^\]]*])?\s*\{[^}]*\}/g, preserveOffsets);
 }
 
 function lineAndColumnAt(content, index) {
@@ -58,6 +84,7 @@ function findMatches(content, pattern) {
 
 async function main() {
   const files = await collectCssFiles(targetDir);
+  const tokenValues = await loadTokenValues();
   const results = [];
   const literalOccurrences = new Map(); // raw literal -> Set(relativePath), for QS-NG-004 duplication
 
@@ -67,12 +94,14 @@ async function main() {
     const relativePath = relative(repositoryRoot, file).replaceAll('\\', '/');
 
     for (const match of [...findMatches(scanned, HEX_COLOR), ...findMatches(scanned, RAW_PX)]) {
+      const tokenNames = tokenValues.get(normalizedLiteral(match.value));
+      if (!tokenNames) continue;
       const { line, column } = lineAndColumnAt(raw, match.index);
       results.push({
         ruleId: 'QS-NG-003',
         level: 'warning',
         message: {
-          text: `Raw literal '${match.value}' outside :root; use an existing --studio-*/--font-* design token instead.`,
+          text: `Raw literal '${match.value}' duplicates ${[...tokenNames].sort().join('/')} outside :root; use the existing design token instead.`,
         },
         locations: [
           {

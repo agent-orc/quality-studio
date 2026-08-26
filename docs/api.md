@@ -145,7 +145,8 @@ curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/QS-NG-003/install"
 curl -X POST "http://127.0.0.1:5127/api/guidelines/sync-defaults"
 # 200 {"results":[{"ruleId":"QS-NG-003","action":"installed"},{"ruleId":"QS-DN-002","action":"unchanged"},...]}
 # installs/updates every defaultOn rule not disabled by .quality/rules.config.json, and removes a
-# previously synced file for a rule the project has explicitly disabled. Safe to call repeatedly.
+# previously synced file for a rule the project has explicitly disabled. Safe to call repeatedly;
+# normal input resolution performs the same sync automatically.
 
 curl -X POST "http://127.0.0.1:5127/api/guidelines/impact" -H "Content-Type: application/json" \
   -d '{"guideline":{"id":"api-boundaries","enabled":true,"priority":80,"kinds":["code"],"levels":["file"],"content":"Validate all public boundary input."},"samplePaths":["src/Api.cs"],"kind":"code"}'

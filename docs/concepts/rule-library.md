@@ -76,19 +76,22 @@ stable rule ids. Set every finding's `ruleId` to the exact id of the
 supplied guideline that caused it"* — now resolves to the specific rule,
 not a technology bucket. No prompt template changed.
 
-**Default-on core.** Every `defaultOn: true` rule
-(`design-tokens`, `component-reuse`, plus the highest-confidence .NET rules)
-is meant to apply to every project without a manual install step.
+**Default-on core.** The defined v1 core is QS-NG-003 through QS-NG-006
+(design-token and standard-component reuse) plus QS-DN-002 and QS-DN-006
+(request cancellation and whole-call-chain cancellation). These six
+`defaultOn: true` rules apply to every project without a manual install step.
+Before each `InputResolver.Resolve`,
 `GuidelineStore.SyncDefaultRules(repositoryRoot)` computes, for every rule
 in the library, an effective enabled state (`.quality/rules.config.json`
 override, falling back to the rule's own `defaultOn`) and installs, updates,
-or removes the corresponding `.quality/inputs/<id>.md` file to match. It is
-idempotent — call it again and unchanged rules report `"unchanged"`. Reach
-it through `POST /api/guidelines/sync-defaults` (paired
-`/api/repos/{repoId}/...` route, same convention as every other guideline
-endpoint). Call it once after onboarding a repository and again whenever
-`rules/` or a project's `rules.config.json` changes; nothing calls it
-automatically today.
+or removes the corresponding `.quality/inputs/<id>.md` file to match. An
+off-by-default rule manually installed from the catalogue remains an ordinary
+project guideline unless an override explicitly disables it. The operation is
+idempotent — a normal review, CLI input resolution, or staleness calculation
+therefore always sees the current core and project overrides. The explicit
+`POST /api/guidelines/sync-defaults` endpoint (with the paired
+`/api/repos/{repoId}/...` route) remains available to refresh and inspect the
+actions immediately; callers do not need it for correctness.
 
 Default-on sync **overwrites** the installed file's content, priority,
 kinds, and levels to match the current rule every time it runs. A synced
@@ -106,7 +109,7 @@ colors and raw `px` literals (QS-NG-003) and the same literal repeated
 across stylesheets (QS-NG-004), and writes a SARIF report citing those rule
 ids. Register it as a deterministic sensor per project via
 `ReviewSensorConfiguration { Id = "sarif", Configuration = { command =
-"node scripts/rule-checks/design-tokens-check.mjs {target} {reportPath}",
+"node {repositoryRoot}/scripts/rule-checks/design-tokens-check.mjs {target} {reportPath}",
 reportPath = ".quality/rule-checks/design-tokens.sarif.json" } }` — the
 review prompt then sees its results as prior deterministic evidence, kept
 distinct from the agent's own judgement (`ReviewPromptBuilder`'s existing
@@ -150,11 +153,12 @@ It lists **deviations only** — the default-on set itself is not repeated
 here, and an absent file means every `defaultOn` rule applies unmodified.
 `enabled: false` disables a default rule for this project; `enabled: true`
 can also opt a normally off-by-default rule into automatic sync. A
-`severity` override is recorded and surfaced next to the rule but is
-informational only in v1 — the review prompt still asks the agent for its
-own severity judgement, so an override is not a hard cap or floor on what
-gets reported. `reason` is not schema-enforced but is expected in review,
-the same way any other override needs to be explainable.
+`severity` override changes the rule's displayed severity and guideline
+priority in review context. It is guidance, not a hard cap or floor: the
+review prompt still asks the agent to judge the concrete finding. Unknown
+rule ids and unsupported severity names fail config loading rather than
+silently doing nothing. `reason` is not schema-enforced but is expected in
+review, the same way any other override needs to be explainable.
 
 ## Edge case: an unfixed security finding
 

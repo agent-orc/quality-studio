@@ -5,6 +5,12 @@
   "description": "A single named best-practice rule stored file-first under rules/<technology>/<id>.json. One file per rule; the file's git history is the rule's change history in addition to the changelog array.",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "deprecated" } }, "required": ["status"] },
+      "then": { "required": ["supersededBy"] }
+    }
+  ],
   "required": [
     "$schema", "schemaVersion", "id", "technology", "category", "title", "statement",
     "rationale", "severity", "autofixable", "defaultOn", "kinds", "levels",
@@ -91,6 +97,7 @@
     "changelog": {
       "type": "array",
       "description": "Append-only history of substantive changes to this rule, newest first.",
+      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,

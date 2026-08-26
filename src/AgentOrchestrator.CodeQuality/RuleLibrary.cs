@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -51,13 +50,23 @@ public static class RuleLibrary
         Rules.SingleOrDefault(rule => string.Equals(rule.Id, id, StringComparison.Ordinal))
         ?? throw new KeyNotFoundException($"Rule '{id}' was not found in the rule library.");
 
-    public static string RenderContent(RuleDefinition rule)
+    public static GuidelineDraft ToGuidelineDraft(RuleDefinition rule, string? severityOverride = null)
     {
+        var severity = severityOverride ?? rule.Severity;
+        if (!Severities.Contains(severity))
+            throw new ArgumentException($"Unsupported rule severity '{severity}'.", nameof(severityOverride));
+        return new GuidelineDraft(
+            rule.Id, true, Priority(severity), rule.Kinds, rule.Levels, RenderContent(rule, severity));
+    }
+
+    public static string RenderContent(RuleDefinition rule, string? severityOverride = null)
+    {
+        var severity = severityOverride ?? rule.Severity;
         var builder = new StringBuilder();
         builder.Append('[').Append(rule.Id).Append("] ").Append(rule.Title.Trim());
         builder.Append("\n\n").Append(rule.Statement.Trim());
         builder.Append("\n\nWhy this rule exists: ").Append(rule.Rationale.Trim());
-        builder.Append("\n\nSeverity: ").Append(rule.Severity)
+        builder.Append("\n\nSeverity: ").Append(severity)
             .Append(". Autofixable: ").Append(rule.Autofixable ? "yes" : "no").Append('.');
         AppendExample(builder, "Good", rule.Good);
         AppendExample(builder, "Avoid", rule.Bad);
@@ -76,7 +85,7 @@ public static class RuleLibrary
         rule.Title,
         rule.Technology,
         rule.Statement,
-        new GuidelineDraft(rule.Id, true, Priority(rule.Severity), rule.Kinds, rule.Levels, RenderContent(rule)));
+        ToGuidelineDraft(rule));
 
     private static int Priority(string severity) => severity switch
     {

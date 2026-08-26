@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -32,6 +34,8 @@ public sealed record RuleSyncResult(string RuleId, string Action);
 
 public sealed partial class GuidelineStore
 {
+    private static readonly ConcurrentDictionary<string, DefaultRuleSyncSlot> DefaultRuleSyncSlots =
+        new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> ReviewKinds = ["code", "security", "performance", "all", "*"];
     private static readonly HashSet<string> ReviewLevels = Enum.GetNames<ReviewLevel>()
         .Select(value => value.ToLowerInvariant()).Append("all").Append("*").ToHashSet(StringComparer.Ordinal);
@@ -104,12 +108,30 @@ public sealed partial class GuidelineStore
     }
 
     /// <summary>
+    /// Synchronizes once per repository and effective config content. Input resolution is frequent
+    /// (including once per discovered review unit), so unchanged repositories must not repeatedly
+    /// enumerate and parse every installed rule file.
+    /// </summary>
+    public void EnsureDefaultRules(string repositoryRoot)
+    {
+        var root = Path.GetFullPath(repositoryRoot);
+        var slot = DefaultRuleSyncSlots.GetOrAdd(root, _ => new DefaultRuleSyncSlot());
+        var configFingerprint = ConfigFingerprint(root);
+        lock (slot.Gate)
+        {
+            if (string.Equals(slot.ConfigFingerprint, configFingerprint, StringComparison.Ordinal)) return;
+            SyncDefaultRules(root);
+            slot.ConfigFingerprint = configFingerprint;
+        }
+    }
+
+    /// <summary>
     /// Applies the rule library's default-on core to one project: installs or updates the guideline
     /// file for every rule whose effective enabled state (rules.config.json override, falling back to
     /// the rule's own defaultOn) is true, and removes a previously synced file for a rule a project
     /// has explicitly disabled. Safe to call repeatedly; a no-op when nothing changed. Rule-authored
     /// content always wins on sync -- hand edits to a synced file are overwritten on the next call, by
-    /// design (see docs/concepts/rule-library.md#default-on-sync).
+    /// design (see docs/concepts/rule-library.md#default-on-core).
     /// </summary>
     public IReadOnlyList<RuleSyncResult> SyncDefaultRules(string repositoryRoot)
     {
@@ -118,13 +140,18 @@ public sealed partial class GuidelineStore
         var results = new List<RuleSyncResult>();
         foreach (var rule in RuleLibrary.Rules)
         {
-            var enabled = config.IsEnabled(rule.Id, rule.DefaultOn);
-            var draft = RuleLibrary.CatalogueEntries
-                .Single(entry => StringComparer.Ordinal.Equals(entry.Id, rule.Id)).Guideline;
+            var enabled = string.Equals(rule.Status, "active", StringComparison.Ordinal) &&
+                          config.IsEnabled(rule.Id, rule.DefaultOn);
+            var draft = RuleLibrary.ToGuidelineDraft(rule, config.EffectiveSeverity(rule));
             var current = existing.GetValueOrDefault(rule.Id);
             if (!enabled)
             {
-                if (current is not null)
+                // Off-by-default rules may still be installed deliberately from the catalogue as
+                // ordinary project guidelines. Automatic sync owns a disabled file only when the
+                // shipped default was on, the project explicitly disabled it, or it is deprecated.
+                var syncOwnsDisabledRule = rule.DefaultOn || config.EnabledOverride(rule.Id) is false ||
+                                            !string.Equals(rule.Status, "active", StringComparison.Ordinal);
+                if (current is not null && syncOwnsDisabledRule)
                 {
                     Delete(repositoryRoot, rule.Id);
                     results.Add(new RuleSyncResult(rule.Id, "removed"));
@@ -175,6 +202,15 @@ public sealed partial class GuidelineStore
     private static string DirectoryPath(string repositoryRoot) =>
         Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "inputs");
 
+    private static string ConfigFingerprint(string repositoryRoot)
+    {
+        var path = Path.Combine(repositoryRoot,
+            RuleConfig.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        return File.Exists(path)
+            ? Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)))
+            : "absent";
+    }
+
     private static string FileName(string id) => id + ".md";
 
     private static GuidelineCatalogueEntry Entry(string id, string title, string technology, string description,
@@ -197,4 +233,10 @@ public sealed partial class GuidelineStore
 
     [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$", RegexOptions.CultureInvariant)]
     private static partial Regex IdPattern();
+
+    private sealed class DefaultRuleSyncSlot
+    {
+        public object Gate { get; } = new();
+        public string? ConfigFingerprint { get; set; }
+    }
 }
