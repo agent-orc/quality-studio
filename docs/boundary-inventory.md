@@ -15,9 +15,33 @@ Run it directly with:
 quality boundaries scan .
 ```
 
+Source files are read once and repository-wide joins (host bindings and client
+HTTP calls) are indexed once. The default repository scan is bounded to 5,000
+eligible source/configuration files. Override that limit or request the next
+deterministic page with:
+
+```text
+quality boundaries scan . --max-files 1000
+quality boundaries scan . --max-files 1000 --continuation-token frontend/src/client.ts
+```
+
+Sensor/API callers use the equivalent `maxFiles` and `continuationToken`
+configuration keys. Paths and continuation tokens are ordered repository-
+relative paths, so repeated scans of an unchanged tree return stable pages.
+
 It is also available through the sensor API as sensor id `boundaries`.
 Repository scans persist the inventory; path-scoped scans return a partial
 inventory without replacing the repository truth.
+
+Every inventory includes a `scan` object. `complete` is true only when the
+result covers the whole repository; `mode`, discovered/scanned/omitted counts,
+`partialReason`, and `continuationToken` make bounded, incremental, unreadable-
+file, and path-scoped results explicit. A partial scan returns the findings it
+did establish, but never overwrites `.quality/boundaries/inventory.json` and
+must not be interpreted as a clean repository result. `SensorScanResult`
+projects the same state through `complete`, `partialReason`, and
+`continuationToken`, allowing security review to continue with visibly partial
+deterministic evidence instead of waiting indefinitely.
 
 ## Contract
 

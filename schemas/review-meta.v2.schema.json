@@ -417,6 +417,9 @@
       "properties": {
         "available": { "type": "boolean" },
         "unavailableReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
+        "complete": { "type": "boolean" },
+        "partialReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 4000 },
+        "continuationToken": { "type": ["string", "null"], "maxLength": 4000 },
         "findings": {
           "type": "array",
           "items": {

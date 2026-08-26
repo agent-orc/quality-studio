@@ -30,7 +30,19 @@ public sealed record SensorScanResult(
     bool Available,
     string? UnavailableReason,
     IReadOnlyList<ReviewFinding> Findings,
-    SensorProvenance Provenance);
+    SensorProvenance Provenance)
+{
+    /// <summary>
+    /// True only when the result covers the entire requested scope. Sensors that
+    /// return a bounded page keep their useful findings while explicitly marking
+    /// the result incomplete.
+    /// </summary>
+    public bool Complete { get; init; } = true;
+
+    public string? PartialReason { get; init; }
+
+    public string? ContinuationToken { get; init; }
+}
 
 public sealed record ReviewSensorConfiguration(
     string Id,

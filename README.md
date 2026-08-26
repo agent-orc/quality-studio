@@ -132,6 +132,12 @@ and caller-influenced outbound surfaces and run the standard mechanical checks:
 dotnet run --project src/quality-cli -- boundaries scan .
 ```
 
+Large repositories are capped at 5,000 eligible files by default. Use
+`--max-files <count>` for a smaller deterministic batch and
+`--continuation-token <relative-path>` for the next page. Partial results report
+their omitted-file count and never replace the complete inventory. Add
+`--no-write` for profiling or read-only verification.
+
 The stable result is written to `.quality/boundaries/inventory.json`, so boundary
 changes appear in normal source-control diffs. See
 [`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and

@@ -10,6 +10,7 @@
     "schemaVersion": { "const": 1 },
     "sensor": { "const": "boundaries" },
     "sensorVersion": { "type": "string", "minLength": 1 },
+    "scan": { "$ref": "#/$defs/scan" },
     "entries": {
       "type": "array",
       "items": { "$ref": "#/$defs/entry" }
@@ -20,6 +21,23 @@
     }
   },
   "$defs": {
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode", "complete", "discoveredFiles", "scannedFiles",
+        "omittedFiles"
+      ],
+      "properties": {
+        "mode": { "enum": [ "full", "path", "bounded", "incremental" ] },
+        "complete": { "type": "boolean" },
+        "discoveredFiles": { "type": "integer", "minimum": 0 },
+        "scannedFiles": { "type": "integer", "minimum": 0 },
+        "omittedFiles": { "type": "integer", "minimum": 0 },
+        "continuationToken": { "type": [ "string", "null" ] },
+        "partialReason": { "type": [ "string", "null" ] }
+      }
+    },
     "location": {
       "type": "object",
       "additionalProperties": false,

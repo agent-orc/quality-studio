@@ -12,7 +12,23 @@ public sealed record BoundaryInventory(
     string Sensor,
     string SensorVersion,
     IReadOnlyList<BoundaryEntry> Entries,
-    IReadOnlyList<ReviewFinding> Findings);
+    IReadOnlyList<ReviewFinding> Findings)
+{
+    public BoundaryScanSummary Scan { get; init; } = BoundaryScanSummary.Empty;
+}
+
+public sealed record BoundaryScanSummary(
+    string Mode,
+    bool Complete,
+    int DiscoveredFiles,
+    int ScannedFiles,
+    int OmittedFiles,
+    string? ContinuationToken,
+    string? PartialReason)
+{
+    internal static BoundaryScanSummary Empty { get; } =
+        new("full", true, 0, 0, 0, null, null);
+}
 
 public sealed record BoundaryEntry(
     string Id,
@@ -47,10 +63,14 @@ public sealed record BoundaryLimit(string Value, IReadOnlyList<string> DerivedFr
 /// deliberately conservative: an unproved fact is recorded as unknown, never upgraded
 /// by convention or by an agent's judgement.
 /// </summary>
-public sealed partial class BoundaryInventorySensor : IReviewSensor
+public sealed partial class BoundaryInventorySensor : IDeterministicEvidenceSensor
 {
-    public const string SensorVersion = "1.0.0";
+    public const string SensorId = "boundaries";
+    public const string SensorVersion = "1.1.0";
     public const string InventoryRelativePath = ".quality/boundaries/inventory.json";
+    public const int DefaultMaxFiles = 5_000;
+    public const string MaxFilesConfigurationKey = "maxFiles";
+    public const string ContinuationTokenConfigurationKey = "continuationToken";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -59,7 +79,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
-    public string Id => "boundaries";
+    public string Id => SensorId;
 
     public string Version => SensorVersion;
 
@@ -86,7 +106,12 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                 request.Scope.ToString().ToLowerInvariant(),
                 request.Scope == SensorScope.Path ? request.Path ?? "." : ".",
                 DateTimeOffset.UtcNow.ToString("O"),
-                new Dictionary<string, string> { ["boundary-analyzer"] = Version }));
+                new Dictionary<string, string> { ["boundary-analyzer"] = Version }))
+        {
+            Complete = inventory.Scan.Complete,
+            PartialReason = inventory.Scan.PartialReason,
+            ContinuationToken = inventory.Scan.ContinuationToken,
+        };
     }
 
     public async Task<BoundaryInventory> InventoryAsync(
@@ -101,8 +126,8 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
 
         var target = ResolveTarget(root, request);
-        var sources = await ReadSourcesAsync(root, target, cancellationToken).ConfigureAwait(false);
-        var context = new AnalysisContext(root, sources);
+        var read = await ReadSourcesAsync(root, target, request, cancellationToken).ConfigureAwait(false);
+        var context = AnalysisContext.Create(root, read.Sources);
         var entries = new List<BoundaryEntry>();
         AnalyzeAspNet(context, entries);
         AnalyzeJavaScript(context, entries);
@@ -125,9 +150,12 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             Id,
             Version,
             ordered,
-            findings);
+            findings)
+        {
+            Scan = read.Scan,
+        };
 
-        if (request.PersistMetadata && request.Scope == SensorScope.Repository)
+        if (request.PersistMetadata && request.Scope == SensorScope.Repository && inventory.Scan.Complete)
         {
             await PersistAsync(root, inventory, cancellationToken).ConfigureAwait(false);
         }
@@ -135,31 +163,92 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         return inventory;
     }
 
-    private static async Task<IReadOnlyList<SourceFile>> ReadSourcesAsync(
+    private static async Task<SourceReadResult> ReadSourcesAsync(
         string root,
         string target,
+        SensorScanRequest request,
         CancellationToken cancellationToken)
     {
+        var maxFiles = ReadMaxFiles(request.Configuration);
+        var cursor = ReadContinuationToken(request.Configuration);
+        var discovered = EnumerateFiles(target)
+            .Select(path => new SourcePath(
+                path,
+                Path.GetRelativePath(root, path).Replace('\\', '/')))
+            .OrderBy(file => file.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        var afterCursor = cursor is null
+            ? discovered
+            : discovered.Where(file => string.CompareOrdinal(file.RelativePath, cursor) > 0).ToArray();
+        var selected = afterCursor.Take(maxFiles).ToArray();
+        var hasMore = afterCursor.Length > selected.Length;
         var files = new List<SourceFile>();
-        foreach (var path in EnumerateFiles(target))
+        var unreadableFiles = 0;
+        foreach (var file in selected)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var info = new FileInfo(path);
-                if (info.Length > 2 * 1024 * 1024) continue;
-                var content = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+                var info = new FileInfo(file.FullPath);
+                if (info.Length > 2 * 1024 * 1024)
+                {
+                    unreadableFiles++;
+                    continue;
+                }
+                var content = await File.ReadAllTextAsync(file.FullPath, cancellationToken).ConfigureAwait(false);
                 files.Add(new SourceFile(
-                    Path.GetRelativePath(root, path).Replace('\\', '/'),
+                    file.RelativePath,
                     content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n')));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DecoderFallbackException)
             {
                 // An unreadable source cannot safely be guessed. Other readable sources
                 // remain useful and any facts depending on this file stay unknown.
+                unreadableFiles++;
             }
         }
-        return files.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
+        var continuationToken = hasMore && selected.Length > 0 ? selected[^1].RelativePath : null;
+        var isPathScope = request.Scope == SensorScope.Path;
+        var complete = !isPathScope && cursor is null && !hasMore && unreadableFiles == 0;
+        var reasons = new List<string>();
+        if (isPathScope) reasons.Add("The result covers only the requested repository path.");
+        if (cursor is not null) reasons.Add($"The result starts after continuation token '{cursor}'.");
+        if (hasMore) reasons.Add($"The {MaxFilesConfigurationKey} limit of {maxFiles} files was reached.");
+        if (unreadableFiles > 0) reasons.Add($"{unreadableFiles} selected file(s) were unreadable or exceeded 2 MiB.");
+        var mode = cursor is not null
+            ? "incremental"
+            : hasMore || unreadableFiles > 0
+                ? "bounded"
+                : isPathScope ? "path" : "full";
+        var scan = new BoundaryScanSummary(
+            mode,
+            complete,
+            discovered.Length,
+            files.Count,
+            discovered.Length - files.Count,
+            continuationToken,
+            reasons.Count == 0 ? null : string.Join(' ', reasons));
+        return new SourceReadResult(files, scan);
+    }
+
+    private static int ReadMaxFiles(IReadOnlyDictionary<string, string>? configuration)
+    {
+        if (configuration is null || !configuration.TryGetValue(MaxFilesConfigurationKey, out var configured) ||
+            string.IsNullOrWhiteSpace(configured))
+            return DefaultMaxFiles;
+        if (!int.TryParse(configured, out var maxFiles) || maxFiles is < 1 or > 100_000)
+            throw new ArgumentException($"Boundary sensor {MaxFilesConfigurationKey} must be between 1 and 100000.");
+        return maxFiles;
+    }
+
+    private static string? ReadContinuationToken(IReadOnlyDictionary<string, string>? configuration)
+    {
+        if (configuration is null || !configuration.TryGetValue(ContinuationTokenConfigurationKey, out var configured) ||
+            string.IsNullOrWhiteSpace(configured)) return null;
+        var normalized = configured.Replace('\\', '/').TrimStart('/');
+        if (normalized.Split('/', StringSplitOptions.RemoveEmptyEntries).Any(segment => segment == ".."))
+            throw new ArgumentException("Boundary sensor continuationToken must be a repository-relative source path.");
+        return normalized;
     }
 
     private static IEnumerable<string> EnumerateFiles(string target)
@@ -192,10 +281,15 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
     }
 
-    private static bool IsIgnoredDirectory(string path) =>
-        Path.GetFileName(path) is ".git" or ".quality" or ".quality-studio" or "bin" or "obj" or
+    private static bool IsIgnoredDirectory(string path)
+    {
+        var name = Path.GetFileName(path);
+        return name is ".git" or ".quality" or ".quality-studio" or "bin" or "obj" or
             "node_modules" or "dist" or "coverage" or ".angular" or ".next" or "TestResults" or
-            "tests" or "test" or "__tests__";
+            "tests" or "test" or "__tests__" ||
+            name.EndsWith(".Tests", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(".Test", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string ResolveTarget(string root, SensorScanRequest request)
     {
@@ -1034,7 +1128,12 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             [location],
             fingerprint,
             ruleId,
-            evidence);
+            evidence,
+            new FindingSource(
+                FindingSourceKind.Deterministic,
+                SensorId,
+                "boundary-analyzer",
+                SensorVersion));
     }
 
     private static BoundaryEntry UnknownInbound(
@@ -1069,21 +1168,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             evidence);
 
     private static BoundaryFact HostReachability(AnalysisContext context)
-    {
-        var listeners = context.Sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
-            .Where(match => IsHostBinding(file.Content, match.Index))
-            .Select(match => match.Groups["url"].Value)).ToArray();
-        if (listeners.Length == 0)
-            return new BoundaryFact("unknown", ["No literal host binding was joined to this route"]);
-        if (listeners.All(value => value.Contains("127.0.0.1", StringComparison.Ordinal) ||
-                                   value.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
-                                   value.Contains("[::1]", StringComparison.Ordinal)))
-            return new BoundaryFact("loopback-only", ["All derived repository host bindings use loopback addresses"]);
-        if (listeners.Any(value => value.Contains("0.0.0.0", StringComparison.Ordinal) ||
-                                   value.Contains("://+:", StringComparison.Ordinal)))
-            return new BoundaryFact("public", ["A derived repository host binding uses a wildcard address"]);
-        return new BoundaryFact("unknown", ["Repository host bindings include unresolved or non-loopback values"]);
-    }
+        => context.HostReachability;
 
     private static IReadOnlyList<BoundarySourceLocation> KnownConsumers(
         AnalysisContext context,
@@ -1092,40 +1177,43 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         var literalPrefix = route.Split('{')[0].TrimEnd('/');
         if (literalPrefix.Length < 2) return [];
+        if (!context.ClientCalls.TryGetValue(method, out var calls)) return [];
         var result = new List<BoundarySourceLocation>();
-        foreach (var file in context.Sources.Where(IsJavaScript))
+        foreach (var call in calls)
         {
-            foreach (var (line, text) in file.Lines())
-            {
-                if (ClientRouteMention(text, route) &&
-                    Regex.IsMatch(text,
-                        $@"\.{Regex.Escape(method.ToLowerInvariant())}(?:<[^>]+>)?\s*\(",
-                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-                    result.Add(new BoundarySourceLocation(file.Path, line));
-            }
+            if (ClientRouteMention(call.Text, route))
+                result.Add(new BoundarySourceLocation(call.Path, call.Line));
         }
         return result.Distinct().OrderBy(location => location.Path, StringComparer.Ordinal).ThenBy(location => location.Line).ToArray();
     }
 
     private static bool ClientRouteMention(string text, string route)
     {
-        var candidates = new List<string> { route };
+        var candidates = new List<string> { CanonicalRoute(route) };
         if (route.StartsWith("/api/", StringComparison.Ordinal)) candidates.Add(route[4..]);
-        var repositoryPrefix = Regex.Match(route, @"^/api/repos/\{[^}]+\}(?<tail>/.*)$",
-            RegexOptions.CultureInvariant);
-        if (repositoryPrefix.Success) candidates.Add(repositoryPrefix.Groups["tail"].Value);
-        foreach (var candidate in candidates.Distinct(StringComparer.Ordinal))
+        if (route.StartsWith("/api/repos/{", StringComparison.Ordinal))
         {
-            var pattern = Regex.Replace(
-                Regex.Escape(candidate),
-                @"\\\{[^}]+\\\}",
-                @"(?:\$\{[^}]+\}|[^/`'""?]+)",
-                RegexOptions.CultureInvariant);
-            if (Regex.IsMatch(text, pattern + @"(?=$|[?`'""),}\]])", RegexOptions.CultureInvariant))
-                return true;
+            var parameterEnd = route.IndexOf('}', "/api/repos/{".Length);
+            if (parameterEnd >= 0 && parameterEnd + 1 < route.Length)
+                candidates.Add(route[(parameterEnd + 1)..]);
+        }
+        foreach (var rawCandidate in candidates.Distinct(StringComparer.Ordinal))
+        {
+            var candidate = CanonicalRoute(rawCandidate);
+            var start = 0;
+            while ((start = text.IndexOf(candidate, start, StringComparison.Ordinal)) >= 0)
+            {
+                var end = start + candidate.Length;
+                if (end == text.Length || text[end] is '?' or '`' or '\'' or '"' or ')' or ',' or '}' or ']')
+                    return true;
+                start = end;
+            }
         }
         return false;
     }
+
+    private static string CanonicalRoute(string value) =>
+        ClientTemplateParameterRegex().Replace(RouteParameterRegex().Replace(value, "{}"), "{}");
 
     private static IReadOnlyList<BoundarySourceLocation> ProcessConsumers(AnalysisContext context, SourceFile processFile)
     {
@@ -1315,7 +1403,63 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
     }
 
-    private sealed record AnalysisContext(string Root, IReadOnlyList<SourceFile> Sources);
+    private sealed record SourcePath(string FullPath, string RelativePath);
+
+    private sealed record SourceReadResult(
+        IReadOnlyList<SourceFile> Sources,
+        BoundaryScanSummary Scan);
+
+    private sealed record ClientCall(string Path, int Line, string Text);
+
+    private sealed record AnalysisContext(
+        string Root,
+        IReadOnlyList<SourceFile> Sources,
+        BoundaryFact HostReachability,
+        IReadOnlyDictionary<string, IReadOnlyList<ClientCall>> ClientCalls)
+    {
+        public static AnalysisContext Create(string root, IReadOnlyList<SourceFile> sources)
+        {
+            var listeners = sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
+                .Where(match => IsHostBinding(file.Content, match.Index))
+                .Select(match => match.Groups["url"].Value)).ToArray();
+            var reachability = listeners.Length == 0
+                ? new BoundaryFact("unknown", ["No literal host binding was joined to this route"])
+                : listeners.All(value => value.Contains("127.0.0.1", StringComparison.Ordinal) ||
+                                         value.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+                                         value.Contains("[::1]", StringComparison.Ordinal))
+                    ? new BoundaryFact("loopback-only", ["All derived repository host bindings use loopback addresses"])
+                    : listeners.Any(value => value.Contains("0.0.0.0", StringComparison.Ordinal) ||
+                                             value.Contains("://+:", StringComparison.Ordinal))
+                        ? new BoundaryFact("public", ["A derived repository host binding uses a wildcard address"])
+                        : new BoundaryFact("unknown", ["Repository host bindings include unresolved or non-loopback values"]);
+
+            var calls = new Dictionary<string, List<ClientCall>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in sources.Where(IsJavaScript))
+            {
+                foreach (var (line, text) in file.Lines())
+                {
+                    foreach (Match match in ClientHttpMethodRegex().Matches(text))
+                    {
+                        var method = match.Groups["method"].Value;
+                        if (!calls.TryGetValue(method, out var indexed))
+                        {
+                            indexed = [];
+                            calls[method] = indexed;
+                        }
+                        indexed.Add(new ClientCall(file.Path, line, CanonicalRoute(text)));
+                    }
+                }
+            }
+            return new AnalysisContext(
+                root,
+                sources,
+                reachability,
+                calls.ToDictionary(
+                    pair => pair.Key,
+                    pair => (IReadOnlyList<ClientCall>)pair.Value,
+                    StringComparer.OrdinalIgnoreCase));
+        }
+    }
 
     private sealed record RouteGroup(string Prefix, bool Authorized);
 
@@ -1325,13 +1469,13 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     [GeneratedRegex(@"\bvar\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\.MapGroup\s*\(\s*""(?<prefix>[^""]*)""\s*\)", RegexOptions.CultureInvariant)]
     private static partial Regex MapGroupRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex ControllerRegex();
 
     [GeneratedRegex(@"\bRoute\s*\(\s*""(?<route>[^""]*)""", RegexOptions.CultureInvariant)]
     private static partial Regex ControllerRouteRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*\s*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\](?:\s*\[[^\]]+\]\s*)*)\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*\s*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\](?:\s*\[[^\]]+\]\s*)*)\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex ControllerActionRegex();
 
     [GeneratedRegex(@"\b(?<operation>UseStaticFiles|MapFallbackToFile|MapHealthChecks|MapHub|UseWebSockets)\s*(?:<[^>]+>)?\s*\(\s*(?<argument>""[^""]*"")?", RegexOptions.CultureInvariant)]
@@ -1348,6 +1492,12 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     [GeneratedRegex(@"\b(?<receiver>[A-Za-z_$][A-Za-z0-9_$]*)\.(?<method>get|post|put|delete|patch|all)\s*\(\s*['""`](?<route>/[^'""`]*)['""`]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NodeRouteRegex();
+
+    [GeneratedRegex(@"\.(?<method>get|post|put|delete|patch|options|head)(?:<[^>]+>)?\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ClientHttpMethodRegex();
+
+    [GeneratedRegex(@"\$\{[^}]+\}", RegexOptions.CultureInvariant)]
+    private static partial Regex ClientTemplateParameterRegex();
 
     [GeneratedRegex(@"(?:(?<receive>window\.addEventListener\s*\(\s*['""]message['""]|window\.onmessage\s*=)|postMessage\s*\([^\n]*,\s*['""](?<target>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BrowserMessageRegex();

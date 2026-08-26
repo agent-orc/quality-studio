@@ -234,24 +234,67 @@ public static class QualityCli
             PrintBoundariesUsage();
             return 2;
         }
-        if (args.Length > 2 || (args.Length == 2 && args[1].StartsWith("-", StringComparison.Ordinal)))
+        string? path = null;
+        var persistMetadata = true;
+        var configuration = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = 1; index < args.Length; index++)
         {
-            Console.Error.WriteLine("The boundaries scan accepts one optional repository path.");
-            return 2;
+            if (args[index] == "--no-write")
+            {
+                persistMetadata = false;
+            }
+            else if (args[index] is "--max-files" or "--continuation-token")
+            {
+                if (++index >= args.Length)
+                {
+                    Console.Error.WriteLine($"The {args[index - 1]} option requires a value.");
+                    return 2;
+                }
+                var key = args[index - 1] == "--max-files"
+                    ? BoundaryInventorySensor.MaxFilesConfigurationKey
+                    : BoundaryInventorySensor.ContinuationTokenConfigurationKey;
+                configuration[key] = args[index];
+            }
+            else if (args[index].StartsWith("-", StringComparison.Ordinal) || path is not null)
+            {
+                Console.Error.WriteLine($"Unexpected boundaries scan argument: {args[index]}");
+                PrintBoundariesUsage();
+                return 2;
+            }
+            else
+            {
+                path = args[index];
+            }
         }
 
         try
         {
-            var path = args.Length == 2 ? args[1] : ".";
+            path ??= ".";
             var stopwatch = Stopwatch.StartNew();
-            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(
+                path,
+                Configuration: configuration.Count == 0 ? null : configuration,
+                PersistMetadata: persistMetadata));
+            var persistence = inventory.Scan.Complete && persistMetadata
+                ? $"wrote {BoundaryInventorySensor.InventoryRelativePath}"
+                : inventory.Scan.Complete
+                    ? "write disabled"
+                    : "did not replace the complete repository inventory";
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | " +
+                $"{inventory.Scan.ScannedFiles}/{inventory.Scan.DiscoveredFiles} files | {inventory.Scan.Mode} | {persistence} | {stopwatch.ElapsedMilliseconds} ms");
+            if (!inventory.Scan.Complete)
+            {
+                Console.Error.WriteLine($"Partial boundary inventory: {inventory.Scan.PartialReason}");
+                if (inventory.Scan.ContinuationToken is not null)
+                    Console.Error.WriteLine($"Continue with --continuation-token {inventory.Scan.ContinuationToken}");
+            }
             foreach (var finding in inventory.Findings)
             {
                 Console.WriteLine(
                     $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Locations[0].Path}:{finding.Locations[0].Range?.Start.Line} {finding.RuleId}");
             }
+            if (!inventory.Scan.Complete) return 2;
             return inventory.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
         }
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
@@ -518,7 +561,7 @@ public static class QualityCli
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private static void PrintBoundariesUsage() => Console.WriteLine(
-        "Usage:\n  quality boundaries scan [path]");
+        "Usage:\n  quality boundaries scan [path] [--max-files <count>] [--continuation-token <relative-path>] [--no-write]");
 
     private static void PrintFlowUsage() => Console.WriteLine(
         "Usage:\n  quality flow review <request.json>");
