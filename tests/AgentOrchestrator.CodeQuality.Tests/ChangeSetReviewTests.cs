@@ -311,9 +311,7 @@ public sealed class ChangeSetReviewTests
             var root = Path.Combine(Path.GetTempPath(), "quality-change-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
             var repository = new TestRepository(root);
-            await repository.GitAsync("init", "--quiet");
-            await repository.GitAsync("config", "user.email", "quality-tests@example.test");
-            await repository.GitAsync("config", "user.name", "Quality Tests");
+            await TestToolProcess.InitializeGitRepositoryAsync(root, TestContext.Current.CancellationToken);
             return repository;
         }
 
@@ -373,23 +371,7 @@ public sealed class ChangeSetReviewTests
 
         private async Task<string> GitAsync(params string[] arguments)
         {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo("git")
-                {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-            var error = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
-            return output;
+            return await TestToolProcess.RunGitAsync(Root, arguments, TestContext.Current.CancellationToken);
         }
 
         public void Dispose()

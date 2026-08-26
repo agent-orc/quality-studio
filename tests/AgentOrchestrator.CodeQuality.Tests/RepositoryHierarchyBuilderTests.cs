@@ -132,11 +132,11 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     }
 
     [Fact]
-    public void CacheReusesGitStateAndInvalidatesOnWorktreeContent()
+    public async Task CacheReusesGitStateAndInvalidatesOnWorktreeContent()
     {
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, "main.py"), "print(1)\n");
-        RunGit("init", "--quiet");
+        await TestToolProcess.InitializeGitRepositoryAsync(root, TestContext.Current.CancellationToken);
         var cache = new RepositoryHierarchyCache();
 
         var firstMeasurement = cache.GetMeasured(root);
@@ -179,15 +179,7 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
 
     private void RunGit(params string[] arguments)
     {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        TestToolProcess.RunGit(root, arguments);
     }
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)

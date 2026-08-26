@@ -90,8 +90,8 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
         Directory.CreateDirectory(hostRoot);
         Directory.CreateDirectory(secondProjectRoot);
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
-        await RunGitInDirectoryAsync(repositoryRoot, "init", "--quiet");
-        await RunGitInDirectoryAsync(secondProjectRoot, "init", "--quiet");
+        await TestToolProcess.InitializeGitRepositoryAsync(repositoryRoot, TestContext.Current.CancellationToken);
+        await TestToolProcess.InitializeGitRepositoryAsync(secondProjectRoot, TestContext.Current.CancellationToken);
     }
 
     public ValueTask DisposeAsync()
@@ -103,26 +103,6 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
         }
 
         return ValueTask.CompletedTask;
-    }
-
-    private static async Task RunGitInDirectoryAsync(string workingDirectory, params string[] arguments)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = workingDirectory,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        process.Start();
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class StubHandler(IReadOnlyList<object> projects) : HttpMessageHandler

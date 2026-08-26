@@ -124,9 +124,7 @@ public sealed class CoverageSensorTests
         {
             Root = Directory.CreateTempSubdirectory("quality-studio-churn-").FullName;
             Directory.CreateDirectory(Path.Combine(Root, "src"));
-            Run("init", "--quiet");
-            Run("config", "user.email", "fixture@example.test");
-            Run("config", "user.name", "Fixture");
+            TestToolProcess.InitializeGitRepositoryAsync(Root).GetAwaiter().GetResult();
         }
 
         public string Root { get; }
@@ -148,25 +146,12 @@ public sealed class CoverageSensorTests
 
         private void RunCore(string? date, params string[] arguments)
         {
-            using var process = new Process
+            var environment = date is null ? null : new Dictionary<string, string>
             {
-                StartInfo = new ProcessStartInfo("git")
-                {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
+                ["GIT_AUTHOR_DATE"] = date,
+                ["GIT_COMMITTER_DATE"] = date,
             };
-            if (date is not null)
-            {
-                process.StartInfo.Environment["GIT_AUTHOR_DATE"] = date;
-                process.StartInfo.Environment["GIT_COMMITTER_DATE"] = date;
-            }
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            process.WaitForExit();
-            Assert.Equal(0, process.ExitCode);
+            TestToolProcess.RunGit(Root, arguments, environment);
         }
 
         public void Dispose() => TestDirectory.Delete(Root);

@@ -212,6 +212,34 @@ endpoint formats, and documented exit codes.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 
+## Required test baseline
+
+The required gate uses .NET 10.0.301 and Node 22.23.1. It builds the Release solution,
+excludes the two declared `MachineBound` timing checks, preserves the 480 kB production
+Angular bundle budget, provisions Playwright Chromium and Gitleaks 8.24.2 explicitly,
+runs the Angular and launcher suites, and enforces the committed Cobertura/lcov ratchet.
+The launcher suite is also required on both Linux and Windows. Exact tool-boundary and
+machine-bound classifications are recorded in [`docs/test-lanes.md`](docs/test-lanes.md).
+
+Run the same deterministic checks locally:
+
+```shell
+dotnet restore QualityStudio.slnx
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
+npm --prefix frontend ci
+npm --prefix frontend run browser:install
+npm --prefix frontend run build
+CHROME_NO_SANDBOX=1 npm --prefix frontend test
+npm run test:dev-stack
+dotnet run --project src/quality-cli --configuration Release --no-build -- security provision
+dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+```
+
+Coverage is generated per .NET test assembly with `--collect:"XPlat Code Coverage"`
+and for Angular with `npm --prefix frontend run test:coverage`; `npm run
+coverage:verify` rejects missing, malformed, or regressed reports.
+
 ## Minimal API
 
 The ASP.NET Core host provides repository tree, file/meta overlay, staleness scan,

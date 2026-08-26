@@ -143,7 +143,7 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> decided</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
@@ -180,6 +180,7 @@
     <li><a href="#slices">Implementation slices</a></li>
     <li><a href="#green">Definition of green</a></li>
     <li><a href="#evidence">Evidence ledger</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 
   <h2 id="decision"><span class="no">01</span>Decision requested</h2>
@@ -547,6 +548,46 @@
     <h4>Evidence limits</h4>
     <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
   </div>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <p class="dim">Append-only delivery receipts for the approved implementation wave.</p>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>26 August 2026</td>
+        <td><code>QS-75</code></td>
+        <td><b>1. Truthful required gate</b></td>
+        <td>Kept the 480 kB production budget and verified a 478.30 kB production bundle; pinned .NET 10.0.301 and Node 22.23.1; restored the pull-request trigger; added locked frontend install, explicit Playwright Chromium discovery/provisioning, production Angular build and tests, filtered .NET tests, explicit Gitleaks 8.24.2 provisioning, and matching README commands.</td>
+      </tr>
+      <tr>
+        <td>26 August 2026</td>
+        <td><code>QS-75</code></td>
+        <td><b>2. Host and fixture repair</b></td>
+        <td>Replaced the Windows-only <code>npm.cmd</code> fixture with an OS-neutral Node stub, allocated isolated dynamic ports, included child stdout and stderr in early-exit diagnostics, required all five launcher cases on Linux and Windows, and centralized temporary Git process and identity setup.</td>
+      </tr>
+      <tr>
+        <td>26 August 2026</td>
+        <td><code>QS-75</code></td>
+        <td><b>3. Honest portability taxonomy</b></td>
+        <td>Audited and centralized every test-owned Git/.NET process boundary, documented the controlled tool lane, preserved exactly two intentional <code>MachineBound</code> timing checks, and added a source-level contract test that rejects undeclared process creation or silent machine-lane drift.</td>
+      </tr>
+      <tr>
+        <td>26 August 2026</td>
+        <td><code>QS-75</code></td>
+        <td><b>4. Coverage generation and priority gaps</b></td>
+        <td>Added per-assembly .NET Cobertura and Angular lcov generation, schema/readability checks, artifact publication, and the first measured line ratchet (core 79.70%, API 43.19%, Angular 57.28%). Added direct repository, guideline, review-run, handover, thread, and attack-judgement route proof plus attack-coverage component success/failure proof; the real-API repository-switch browser journey is retained by the canary.</td>
+      </tr>
+      <tr>
+        <td>26 August 2026</td>
+        <td><code>QS-75</code></td>
+        <td><b>5. Release canary and upkeep</b></td>
+        <td>Scheduled the labeled-host canary, retained three samples for both machine-bound xUnit checks and both browser performance stages with JSON, screenshots, logs, and host metadata, preserved an explicit live-review switch, tagged the live test for reliable selection, and separated unavailable Codex dependency from product assertion failure.</td>
+      </tr>
+    </tbody>
+  </table>
 </main>
 </body>
 </html>

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-08-26",
+  "projects": {
+    "dotnet-core": {
+      "format": "cobertura",
+      "report": "core",
+      "minimumLineRate": 0.7969
+    },
+    "dotnet-api": {
+      "format": "cobertura",
+      "report": "api",
+      "minimumLineRate": 0.4318
+    },
+    "angular": {
+      "format": "lcov",
+      "minimumLineRate": 0.5728
+    }
+  }
+}
