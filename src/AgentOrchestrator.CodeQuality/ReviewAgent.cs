@@ -149,7 +149,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         if (!string.IsNullOrWhiteSpace(turnFailure))
         {
             var outputText = output.ToString();
-            var failureDetail = string.IsNullOrWhiteSpace(outputText) ? turnFailure : outputText.Trim();
+            var failureDetail = Tail(string.IsNullOrWhiteSpace(outputText) ? turnFailure : outputText.Trim());
             var code = failureDetail.Contains("logged in", StringComparison.OrdinalIgnoreCase) ||
                        failureDetail.Contains("authentication", StringComparison.OrdinalIgnoreCase)
                 ? "reviewer-authentication-failed"
@@ -157,13 +157,30 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             throw Failure(runId, completed.Usage, completed.Model, code, "review-turn",
                 configuredExecutable, logDirectory, new InvalidOperationException(failureDetail));
         }
-        if (runEnded is { Outcome: RunOutcome.Failed } failedRun)
+        if (runEnded is null)
         {
-            throw Failure(runId, completed.Usage, completed.Model, "reviewer-process-exited", "process-exit",
+            throw Failure(runId, completed.Usage, completed.Model, "reviewer-stream-ended", "process-exit",
                 configuredExecutable, logDirectory,
-                new InvalidOperationException(failedRun.Reason ?? $"Reviewer exited with code {failedRun.ExitCode}."));
+                new InvalidOperationException("The reviewer stream ended without a terminal process event."));
+        }
+        if (runEnded.Outcome != RunOutcome.Completed)
+        {
+            var code = runEnded.Outcome == RunOutcome.Stopped
+                ? "reviewer-process-stopped"
+                : "reviewer-process-exited";
+            throw Failure(runId, completed.Usage, completed.Model, code, "process-exit",
+                configuredExecutable, logDirectory,
+                new InvalidOperationException(Tail(
+                    runEnded.Reason ?? $"Reviewer exited with code {runEnded.ExitCode}.")));
         }
         return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+    }
+
+    private static string Tail(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "No diagnostic output was reported.";
+        const int limit = 1_000;
+        return value.Length <= limit ? value : "..." + value[^limit..];
     }
 
     private ReviewAgentRunException Failure(
