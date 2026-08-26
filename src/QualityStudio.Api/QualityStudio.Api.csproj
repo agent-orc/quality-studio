@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
+    <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <ProjectReference Include="../AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
   </ItemGroup>
 </Project>

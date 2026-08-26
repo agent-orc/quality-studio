@@ -36,6 +36,30 @@ public sealed class AnalysisRunnerTests
     }
 
     [Fact]
+    public void Default_runner_exposes_stable_builtin_names_without_web_dependencies()
+    {
+        var names = new AnalysisRunner().ListAnalyses()
+            .Select(analysis => analysis.Name)
+            .ToArray();
+
+        Assert.Equal(
+        [
+            AnalysisNames.Boundaries,
+            AnalysisNames.Coverage,
+            AnalysisNames.Dependencies,
+            AnalysisNames.Eslint,
+            AnalysisNames.Gitleaks,
+            AnalysisNames.Roslyn,
+            AnalysisNames.Sarif,
+            AnalysisNames.TypeScript,
+        ], names);
+        var assembly = typeof(AnalysisRunner).Assembly;
+        Assert.DoesNotContain(assembly.GetReferencedAssemblies(), reference =>
+            reference.Name?.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal) == true);
+        Assert.Null(assembly.GetType("AgentOrchestrator.CodeQuality.AgentStudioTaskClient"));
+    }
+
+    [Fact]
     public async Task RunAsync_rejects_duplicate_analysis_names()
     {
         using var directory = new TemporaryDirectory();

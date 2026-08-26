@@ -20,8 +20,8 @@ var result = await runner.RunAsync(new AnalysisRequest(
     RepositoryPath: repositoryPath,
     Analyses:
     [
-        new AnalysisConfiguration("boundaries"),
-        new AnalysisConfiguration("sarif", new Dictionary<string, string>
+        new AnalysisConfiguration(AnalysisNames.Boundaries),
+        new AnalysisConfiguration(AnalysisNames.Sarif, new Dictionary<string, string>
         {
             ["reportPath"] = ".quality/analyzers/results.sarif",
         }),
@@ -34,6 +34,8 @@ foreach (var finding in result.Findings)
 ```
 
 `AnalysisRunner.ListAnalyses()` reports the registered names without probing tools. A named result distinguishes an unavailable analyzer from an available analyzer that found nothing. Runs through this façade do not persist review metadata.
+
+Use the constants in `AnalysisNames` for built-in analyses. Custom `IReviewSensor` implementations keep their own stable names and versions.
 
 ## Configuration and rule content
 

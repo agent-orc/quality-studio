@@ -85,7 +85,7 @@
     <table>
       <thead><tr><th>Area</th><th>Role and dependencies before QS-91</th><th>QS-91 boundary</th></tr></thead>
       <tbody>
-        <tr><td><code>AgentOrchestrator.CodeQuality</code></td><td>.NET 10 library. Models, review metadata, staleness, hierarchy, sensors, security/static analysis, review runners, prompts, and catalog snapshots. One direct package dependency: <code>CodingAgentRunner 0.7.0</code>.</td><td>Becomes explicitly packable at version <code>0.1.0</code>; adds <code>AnalysisRunner</code>, package README, and finding schema. Contains no ASP.NET dependency.</td></tr>
+        <tr><td><code>AgentOrchestrator.CodeQuality</code></td><td>.NET 10 library. Models, review metadata, staleness, hierarchy, sensors, security/static analysis, review runners, prompts, and operational catalog snapshots. One direct package dependency: <code>CodingAgentRunner 0.7.0</code>.</td><td>Becomes explicitly packable at version <code>0.1.0</code>; adds <code>AnalysisRunner</code>, stable <code>AnalysisNames</code>, package README, and finding schema. Contains no ASP.NET dependency or QS-90 guideline catalogue content.</td></tr>
         <tr><td><code>QualityStudio.Api</code></td><td>ASP.NET Core host referencing the core. Owns HTTP routes, authentication, repository registry, API DTOs, job lifecycle, persistence adapters, and UI-facing responses.</td><td>Still references the core. Agent Studio outbound HTTP handover/discovery now lives here because it is host integration, not analysis.</td></tr>
         <tr><td><code>quality-cli</code></td><td>Rich executable referencing the core; exposes review, scan, security, boundaries, flow, diff, and report commands.</td><td>Real proof caller: <code>quality analyze &lt;name&gt; [path] --set key=value</code> calls the DLL façade directly.</td></tr>
         <tr><td><code>quality</code></td><td>Older pack-as-tool executable referencing the core; exposes hierarchy, diff, and security operations.</td><td>Unchanged. It remains a standalone consumer candidate; consolidation with <code>quality-cli</code> is outside this slice.</td></tr>
@@ -105,7 +105,7 @@
       <tbody>
         <tr><td><code>AnalysisRequest</code></td><td>Absolute-or-relative repository path, one or more named configurations, and optional path scope.</td></tr>
         <tr><td><code>AnalysisConfiguration</code></td><td>Analysis name plus caller-owned string settings. The runner does not reinterpret rule-library content.</td></tr>
-        <tr><td><code>AnalysisRunner</code></td><td>Lists registered analyses and executes them in process. Built-ins cover boundaries, coverage, dependencies, ESLint, Gitleaks, Roslyn, SARIF, and TypeScript.</td></tr>
+        <tr><td><code>AnalysisRunner</code> and <code>AnalysisNames</code></td><td>List registered analyses and execute them in process through stable names. Built-ins cover boundaries, coverage, dependencies, ESLint, Gitleaks, Roslyn, SARIF, and TypeScript.</td></tr>
         <tr><td><code>AnalysisResult</code></td><td>Normalized repository path, named results, aggregate <code>ReviewFinding</code> collection, provenance, and unavailable reasons.</td></tr>
         <tr><td><code>IReviewSensor</code></td><td>Existing extension boundary for additional named analyses and separately versioned rule-library adapters.</td></tr>
       </tbody>
@@ -132,7 +132,7 @@
 
   <section>
     <h2>5. QS-90 rule-library boundary</h2>
-    <p>The rule library is content consumed by analysis, not a host capability. Repository/global rule selection and versioning remain outside the web layer. Callers pass settings to a named analysis or compose <code>IReviewSensor</code> implementations when QS-90 introduces executable rule adapters. The core owns execution, result normalization, and contracts; QS-90 owns rule definitions, identifiers, versions, and policy content.</p>
+    <p>The rule library is content consumed by analysis, not a host capability. Repository/global rule selection and versioning remain outside the web layer. Callers pass settings to a named analysis or compose <code>IReviewSensor</code> implementations when QS-90 introduces executable rule adapters. The core owns execution, result normalization, and contracts; QS-90 owns rule definitions, identifiers, versions, and policy content. The four legacy guideline templates used by the current UI now live in the API-side <code>GuidelineRuleCatalogue</code>; only generic guideline contracts and repository storage remain in the package.</p>
     <div class="callout warn"><strong>Deliberate non-goal:</strong> this slice does not copy an empty or evolving rule catalogue into the NuGet package. Doing so would couple package releases to content edits and erase the boundary QS-91 is establishing.</div>
   </section>
 
@@ -156,7 +156,8 @@
     <h2>7. First-slice receipt</h2>
     <ul>
       <li>Publishable package metadata, explicit <code>0.1.0</code> version, English package README, license/repository metadata, embedded runtime resources, and packaged finding schema.</li>
-      <li>Stable in-process façade with built-in named analyses and an injection boundary.</li>
+      <li>Stable in-process façade with named-analysis constants, built-ins, and an injection boundary.</li>
+      <li>Legacy UI guideline content moved to the API host so QS-90 content is not compiled into the core package.</li>
       <li>One real caller in <code>quality-cli</code>.</li>
       <li>HTTP-only Agent Studio integration removed from the core and retained in the API.</li>
       <li>API routes and frontend code unchanged; migrated API tests preserve handover behavior.</li>

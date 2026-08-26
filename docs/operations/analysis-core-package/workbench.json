@@ -33,6 +33,7 @@
     "src/AgentOrchestrator.CodeQuality/AnalysisRunner.cs",
     "src/AgentOrchestrator.CodeQuality/PACKAGE_README.md",
     "src/quality-cli/Program.cs",
-    "src/QualityStudio.Api/AgentStudioTaskClient.cs"
+    "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+    "src/QualityStudio.Api/GuidelineRuleCatalogue.cs"
   ]
 }

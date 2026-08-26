@@ -26,6 +26,19 @@ public sealed record AnalysisResult(
     IReadOnlyList<NamedAnalysisResult> Analyses,
     IReadOnlyList<ReviewFinding> Findings);
 
+/// <summary>Stable names for the analyses supplied by the package.</summary>
+public static class AnalysisNames
+{
+    public const string Boundaries = "boundaries";
+    public const string Coverage = "coverage";
+    public const string Dependencies = "dependencies";
+    public const string Eslint = "eslint";
+    public const string Gitleaks = "gitleaks";
+    public const string Roslyn = "roslyn";
+    public const string Sarif = "sarif";
+    public const string TypeScript = "tsc";
+}
+
 /// <summary>
 /// Stable host-independent entry point for running named Quality Studio analyses.
 /// Callers can use the built-in analyses or inject additional <see cref="IReviewSensor"/>
