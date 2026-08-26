@@ -4,11 +4,13 @@
   "title": "Quality Studio run persistence",
   "summary": "Decision-ready storage design for durable Quality Studio review runs. The recommendation keeps the tested, Git-ignored .quality/runs recovery journal and adds a tracked folder-per-run archive under .quality/run-history. It preserves run plans, immutable stopped attempts, operation results, finding observations, typed verdicts and timestamps; extends the existing token ledger with operation IDs; defines deterministic history and two-run diff APIs; and supplies five implementation slices with acceptance criteria and a non-fabricating migration path.",
   "entrypoint": "index.html",
-  "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:14Z",
+  "status": "documented",
+  "phase": "implementation",
+  "updatedAt": "2026-08-26T04:22:50Z",
   "sourceTaskKeys": [
-    "QS-62"
+    "QS-62",
+    "QS-71",
+    "QS-85"
   ],
   "key": "QS-W3",
   "decision": {
@@ -48,7 +50,51 @@
     }
   },
   "relatedTaskKeys": [
-    "QS-71"
+    "QS-71",
+    "QS-85"
   ],
-  "editedBy": "Operator, recorded by AGT-2621"
+  "implementationState": {
+    "verifiedAt": "2026-08-26T04:22:50Z",
+    "verifiedByTask": "QS-85",
+    "status": "documented",
+    "integrationBase": "origin/main@e31089ccd5640bb2742a25a2a08a9a3120534656",
+    "wave1": {
+      "taskKey": "QS-71",
+      "sourceCommits": [
+        "3a7bcb55ee577c406cc10e8fb2906286e473e6bf",
+        "35d6394d4b6098101f6eb3f48503669ef69a1343"
+      ],
+      "deliveredSlices": [
+        "RP-1",
+        "RP-2",
+        "RP-3",
+        "RP-4",
+        "RP-5"
+      ]
+    },
+    "wave2": {
+      "taskKey": "QS-85",
+      "status": "verified",
+      "evidence": "Final revalidation on 2026-08-26 against integration base e31089c: Release build clean (0 warnings, 0 errors), 221 passing .NET tests across two assemblies with one intentionally skipped live-provider test, 46 of 46 Karma browser tests, 5 of 5 dev-stack launcher tests on Linux, a successful production frontend bundle, and a valid Token Economy catalogue snapshot. Persistence-specific tests cover archived attempts, findings, operation identity, and usage-ledger v3 across restart.",
+      "redelivery": {
+        "reason": "Wave-1 QS-71 content was reapplied after prior QS-85 runs were quarantined by a path-fragile review spec that has since been fixed by QS-92.",
+        "rebasedOnto": "e31089ccd5640bb2742a25a2a08a9a3120534656",
+        "conflicts": "No conflicts in the 2026-08-26 final rebase because origin/main remains e31089c. An earlier redelivery conflict in .github/workflows/build.yml was resolved in favour of main, whose commit 312c94c already carries the same Category!=MachineBound test filter.",
+        "reconfirmedAt": "2026-08-26T04:22:50Z",
+        "reconfirmation": "A fresh fetch and rebase reported the QS-85 branch up to date with origin/main at e31089c. The preserved delivery tree was restored without feature rework, and the full local gate reproduced the recorded test counts."
+      },
+      "uiEvidence": {
+        "capturedAt": "2026-08-26T04:22:50Z",
+        "harness": "frontend/tests/run-history-evidence.mjs (npm run evidence:run-history), Playwright route mocks against the Angular dev server",
+        "before": "qs-85-history-before.png captured against origin/main, where the run drawer ends at Token usage and no History section exists (history section count 0).",
+        "after": "qs-85-history-after-collapsed.png, -expanded.png, -detail.png and -compare.png captured on the delivery commit: five archived rows including one corrupt archive and one legacy usage-only row, a three-operation detail drawer, and a two-run comparison showing two grade deltas of which one is a regression.",
+        "guards": "The corrupt row and the legacy usage-only row both render but keep their Compare control disabled, so degraded provenance stays visible without becoming comparable."
+      }
+    },
+    "nextSlice": {
+      "status": "none",
+      "reason": "All five approved run-persistence dossier slices are delivered and documented."
+    }
+  },
+  "editedBy": "QS-85 implementation verification"
 }
