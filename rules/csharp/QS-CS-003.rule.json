@@ -1,0 +1,17 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-003",
+  "name": "Keep asynchronous flows async and cancellation-aware",
+  "language": "csharp",
+  "category": "async-hygiene",
+  "defaultOn": true,
+  "statement": "Return Task or ValueTask from asynchronous operations, await work instead of blocking on it, propagate CancellationToken through I/O and long-running orchestration, and reserve async void for event handlers.",
+  "rationale": "Review runs and repository scans are concurrent, cancellable operations. Sync-over-async risks deadlocks and thread starvation, while dropped cancellation wastes work after callers leave.",
+  "badExample": { "description": "A request path blocks on asynchronous work", "code": "public Result Scan() => scanner.ScanAsync().Result;" },
+  "goodExample": { "description": "The path remains asynchronous and propagates cancellation", "code": "public Task<Result> ScanAsync(CancellationToken cancellationToken) => scanner.ScanAsync(cancellationToken);" },
+  "severity": "high",
+  "autofixable": false,
+  "deterministic": { "check": "csharp-no-sync-over-async" },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial async-hygiene rule grounded in Quality Studio review, sensor, API, and persistence flows." }]
+}

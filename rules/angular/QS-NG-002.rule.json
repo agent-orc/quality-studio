@@ -1,0 +1,17 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-002",
+  "name": "Use design tokens instead of ad-hoc styles",
+  "language": "angular",
+  "category": "design-tokens",
+  "defaultOn": true,
+  "statement": "Use the shared design-token scale for spacing, color, typography, radius, elevation, and control geometry; do not introduce local raw values when an existing token expresses the same role.",
+  "rationale": "Agent Studio and Quality Studio share a compact workbench vocabulary. Central tokens keep themes, density, accessibility, and cross-product visual kinship consistent.",
+  "badExample": { "description": "A feature card invents spacing, color, and radius", "code": ".finding-card { padding: 13px; border-radius: 5px; color: #66707e; }" },
+  "goodExample": { "description": "The feature uses the shared semantic scale", "code": ".finding-card { padding: var(--studio-space-3); border-radius: var(--studio-radius-card); color: var(--studio-fg-muted); }" },
+  "severity": "medium",
+  "autofixable": false,
+  "deterministic": { "check": "angular-no-ad-hoc-style-values" },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial default-on rule covering the operator-observed ad-hoc style defect class and the shared --studio-* token system." }]
+}

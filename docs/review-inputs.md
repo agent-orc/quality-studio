@@ -31,12 +31,16 @@ Use `quality review <file> --kind code --explain-inputs` to inspect the exact se
 Every generated finding requires a `ruleId`. Supplied guidelines use their
 frontmatter `id`; base prompt rules use `built-in:<kind>`. The UI uses that stable
 identity to show findings per guideline and the producing guideline on each finding.
+The language-specific named library is resolved separately from the Markdown budget;
+applicable documents are injected with stable `QS-*` IDs and recorded as `built-in`
+standards. See [Named best-practice rule library](rule-library.md).
 
 The effective input hash covers the versioned prompt template and only the guideline
 content actually included after precedence and budgeting. It never includes source
 code. A current code manifest with a different effective input hash is reported as
 `policyDrift` (shown as “Guideline changed”); a different code manifest remains
 `stale` (shown as “Code changed”).
+The hash also covers the effective named-rule set and repository overrides.
 
 The guideline editor can dry-run an unsaved draft against one to ten sample files.
 It runs both current and draft policy through the reviewer, compares stable finding

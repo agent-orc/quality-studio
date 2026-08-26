@@ -1,0 +1,17 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-005",
+  "name": "Use OnPush change detection",
+  "language": "angular",
+  "category": "change-detection",
+  "defaultOn": true,
+  "statement": "Declare ChangeDetectionStrategy.OnPush on application components and drive their view state through signals, inputs, or observable bindings.",
+  "rationale": "The Agent Studio-style workbench renders dense, frequently changing views. OnPush and explicit reactive state keep updates predictable and bound unnecessary checks.",
+  "badExample": { "description": "A component relies on default change detection", "code": "@Component({ selector: 'app-panel', templateUrl: './panel.html' }) export class Panel {}" },
+  "goodExample": { "description": "The component makes its update contract explicit", "code": "@Component({ selector: 'app-panel', templateUrl: './panel.html', changeDetection: ChangeDetectionStrategy.OnPush }) export class Panel {}" },
+  "severity": "medium",
+  "autofixable": false,
+  "deterministic": { "check": "angular-require-on-push" },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial default-on change-detection rule grounded in Quality Studio's standalone OnPush components." }]
+}

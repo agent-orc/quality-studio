@@ -45,6 +45,7 @@ builder.Services.AddSingleton<SarifSensor>();
 builder.Services.AddSingleton<RoslynAnalyzerSensor>();
 builder.Services.AddSingleton<EslintAnalyzerSensor>();
 builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
+builder.Services.AddSingleton<QualityRulePrecheckSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -53,6 +54,7 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<RoslynAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<QualityRulePrecheckSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
@@ -114,6 +116,8 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         QualityReportException => (StatusCodes.Status422UnprocessableEntity, "Quality report failed"),
         InvalidDataException => (StatusCodes.Status422UnprocessableEntity, "Stored report is invalid"),
         InputFormatException => (StatusCodes.Status422UnprocessableEntity, "Review input is invalid"),
+        QualityRuleFormatException => (StatusCodes.Status422UnprocessableEntity, "Quality rule library is invalid"),
+        QualityRuleConfigurationException => (StatusCodes.Status422UnprocessableEntity, "Repository rule configuration is invalid"),
         JsonException => (StatusCodes.Status422UnprocessableEntity, "Repository security metadata is invalid"),
         SecurityScannerUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Security scanner unavailable"),
         HttpRequestException => (StatusCodes.Status502BadGateway, "Agent Studio request failed"),

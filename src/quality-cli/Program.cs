@@ -162,7 +162,9 @@ public static class QualityCli
             Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;
         }
-        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or ReviewResponseException or ReviewRunException)
+        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or
+                                              QualityRuleFormatException or QualityRuleConfigurationException or
+                                              ReviewResponseException or ReviewRunException)
         {
             Console.Error.WriteLine($"quality review failed: {exception.Message}");
             return 2;

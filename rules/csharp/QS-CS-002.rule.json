@@ -1,0 +1,16 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-002",
+  "name": "Use constructor injection and correct service lifetimes",
+  "language": "csharp",
+  "category": "dependency-injection",
+  "defaultOn": true,
+  "statement": "Register dependencies in the composition root, inject them explicitly through constructors, and choose singleton, scoped, or transient lifetime according to ownership and concurrency behavior.",
+  "rationale": "Explicit dependency graphs keep orchestration testable and prevent hidden service location, accidental per-request state sharing, and undisposed resources.",
+  "badExample": { "description": "Business code reaches into the service provider", "code": "var scanner = services.GetRequiredService<GitleaksSecurityScanner>();" },
+  "goodExample": { "description": "The dependency is explicit", "code": "public sealed class ScanService(GitleaksSecurityScanner scanner) { }" },
+  "severity": "medium",
+  "autofixable": false,
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial DI rule based on Quality Studio's ASP.NET composition root and injectable core services." }]
+}

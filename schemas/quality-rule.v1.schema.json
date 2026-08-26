@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "title": "Quality Studio named rule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "id", "name", "language", "category", "defaultOn", "statement", "rationale", "badExample", "goodExample", "severity", "autofixable", "history"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-rule.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^QS-[A-Z]{2,8}-[0-9]{3}$" },
+    "name": { "type": "string", "minLength": 1 },
+    "language": { "enum": ["angular", "csharp"] },
+    "category": { "type": "string", "minLength": 1 },
+    "defaultOn": { "type": "boolean" },
+    "statement": { "type": "string", "minLength": 1 },
+    "rationale": { "type": "string", "minLength": 1 },
+    "badExample": { "$ref": "#/$defs/example" },
+    "goodExample": { "$ref": "#/$defs/example" },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "autofixable": { "type": "boolean" },
+    "deterministic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check"],
+      "properties": { "check": { "type": "string", "minLength": 1 } }
+    },
+    "history": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "date", "change"],
+        "properties": {
+          "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+          "date": { "type": "string", "format": "date" },
+          "change": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "code"],
+      "properties": {
+        "description": { "type": "string", "minLength": 1 },
+        "code": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

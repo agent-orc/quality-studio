@@ -1,0 +1,16 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-003",
+  "name": "Reuse standard components before creating local primitives",
+  "language": "angular",
+  "category": "component-reuse",
+  "defaultOn": true,
+  "statement": "Before creating a local button, badge, panel, dialog, tab, status indicator, or other UI primitive, reuse or extend the standard component and shared primitive already serving that role.",
+  "rationale": "One-off primitives duplicate interaction, accessibility, and visual behavior. Reuse preserves the Agent Studio family language and concentrates fixes in one implementation.",
+  "badExample": { "description": "A feature recreates a status badge", "code": "<span class=\"my-green-pill\">Fresh</span>" },
+  "goodExample": { "description": "The feature uses the shared status primitive", "code": "<span class=\"status fresh\" aria-label=\"Fresh\"></span>" },
+  "severity": "high",
+  "autofixable": false,
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial default-on rule covering the operator-observed missing component reuse defect class." }]
+}

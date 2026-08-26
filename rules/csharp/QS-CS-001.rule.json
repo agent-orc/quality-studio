@@ -1,0 +1,16 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-001",
+  "name": "Keep public API contracts explicit and narrow",
+  "language": "csharp",
+  "category": "api-shape",
+  "defaultOn": true,
+  "statement": "Model API boundaries with narrow request and response contracts, validate caller-controlled values at entry, and avoid exposing persistence or framework implementation types.",
+  "rationale": "Quality Studio's API and Agent Studio handover boundary evolve independently. Explicit records and boundary validation keep contracts reviewable and prevent accidental coupling.",
+  "badExample": { "description": "An endpoint binds and returns an internal mutable entity", "code": "app.MapPost(\"/tasks\", (TaskEntity task) => db.Tasks.Add(task));" },
+  "goodExample": { "description": "The endpoint uses an explicit contract", "code": "app.MapPost(\"/tasks\", (CreateTaskRequest request) => Results.Ok(new TaskResponse(id)));" },
+  "severity": "high",
+  "autofixable": false,
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial API-shape rule grounded in Quality Studio API records and the Agent Studio task handover contract." }]
+}

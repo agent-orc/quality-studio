@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "rule-library",
+  "title": "Named Best-Practice Rule Library",
+  "summary": "Delivered dossier for Quality Studio's file-first Angular and C# rule library, default-on core, repository-owned JSON overrides, prompt and finding integration, deterministic pre-check subset, living-document history, and visible but non-blocking unresolved-security policy.",
+  "entrypoint": "index.html",
+  "status": "decided",
+  "phase": "delivered",
+  "updatedAt": "2026-08-26T00:00:00Z",
+  "sourceTaskKeys": ["QS-90"],
+  "relatedTaskKeys": [],
+  "editedBy": "Quality Studio delivery"
+}

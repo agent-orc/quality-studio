@@ -1,0 +1,16 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-004",
+  "name": "Structure tests around observable behavior",
+  "language": "csharp",
+  "category": "test-structure",
+  "defaultOn": true,
+  "statement": "Name tests for the behavior and outcome, arrange isolated deterministic fixtures, assert observable contracts, and cover material failure and cancellation paths without timing-dependent waits.",
+  "rationale": "Behavior-focused tests survive refactoring and give reviewers evidence about contracts rather than reproducing implementation details.",
+  "badExample": { "description": "A timing-dependent test asserts an internal call", "code": "[Fact] public async Task Test1() { service.Start(); await Task.Delay(500); Assert.True(service.called); }" },
+  "goodExample": { "description": "The test states and observes the contract", "code": "[Fact] public async Task ScanAsync_returns_unavailable_when_tool_is_missing() { var result = await scanner.ScanAsync(token); Assert.False(result.Available); }" },
+  "severity": "medium",
+  "autofixable": false,
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial test-structure rule grounded in Quality Studio's xUnit suites and deterministic temporary repository fixtures." }]
+}

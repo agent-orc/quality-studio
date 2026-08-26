@@ -177,6 +177,15 @@ from its findings and grade. Configuration and unavailable behavior are document
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.
 
+## Named best-practice rules
+
+The file-first [`rules/`](rules/) library provides stable Angular and C# rule IDs,
+a default-on core, repository-versioned overrides in `.quality/rules.json`, named
+review context, and a deterministic pre-check subset. See
+[`docs/rule-library.md`](docs/rule-library.md) for the format, seed catalogue,
+scope semantics, versioning policy, and the documented non-blocking treatment of
+unresolved security findings.
+
 ## Review usage telemetry
 
 Agent-backed reviews persist their model, CLI, token counts, duration, and run

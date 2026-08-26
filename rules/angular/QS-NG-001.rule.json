@@ -1,0 +1,16 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-001",
+  "name": "Keep Angular components focused",
+  "language": "angular",
+  "category": "component-structure",
+  "defaultOn": false,
+  "statement": "Keep a component responsible for one coherent view concern; move reusable presentation, orchestration, and data access into established components and injected services.",
+  "rationale": "Focused standalone components are easier to test, review, reuse, and render efficiently than page components that accumulate unrelated workflows.",
+  "badExample": { "description": "A page component owns unrelated fetching and formatting", "code": "export class DashboardComponent { loadProjects() {} formatMoney() {} openTaskEditor() {} }" },
+  "goodExample": { "description": "The page composes focused components and services", "code": "export class DashboardComponent { readonly projects = inject(ProjectStore).projects; }" },
+  "severity": "medium",
+  "autofixable": false,
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial Angular component-structure rule grounded in the standalone component organization used by Agent Studio and Quality Studio." }]
+}

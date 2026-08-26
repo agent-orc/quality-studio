@@ -8,6 +8,11 @@ Quality Studio treats analyzer output as prior machine evidence, not as an agent
 
 The prompt asks the agent to judge applicability, deduplicate and prioritise these facts instead of repeating them. The stored `grade`, rationale and aspects remain the agent's statement; analyzer evidence does not change or cap the score. The review UI and generated quality report label analyzer findings with their deterministic source.
 
+The built-in `quality-rules` sensor is the deterministic subset of the named
+best-practice library. It uses stable `QS-*` rule IDs and honors the same
+`.quality/rules.json` overrides as agent review. Its deliberately narrow checks are
+documented in [Named best-practice rule library](rule-library.md).
+
 ## Repository configuration
 
 Analyzer commands are repository-specific entries in the existing `sensors` array. Commands are launched directly, without a shell. The placeholders `{repositoryRoot}`, `{target}` and `{reportPath}` are expanded inside individual arguments. `reportPath` and an optional `workingDirectory` must remain inside the repository.
