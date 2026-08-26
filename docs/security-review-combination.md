@@ -16,7 +16,7 @@ Each sensor maps active `critical` or `high` findings to `block`, any other acti
 
 The unit verdict uses this precedence:
 
-1. `unavailable` if any enabled sensor is unavailable.
+1. `unavailable` if any enabled sensor is unavailable or returned incomplete evidence.
 2. `block` if any available sensor blocks.
 3. `warn` if any available sensor warns.
 4. `pass` otherwise.

@@ -234,24 +234,66 @@ public static class QualityCli
             PrintBoundariesUsage();
             return 2;
         }
-        if (args.Length > 2 || (args.Length == 2 && args[1].StartsWith("-", StringComparison.Ordinal)))
-        {
-            Console.Error.WriteLine("The boundaries scan accepts one optional repository path.");
-            return 2;
-        }
-
         try
         {
-            var path = args.Length == 2 ? args[1] : ".";
+            var path = ".";
+            var pathSet = false;
+            var configuration = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            for (var index = 1; index < args.Length; index++)
+            {
+                switch (args[index])
+                {
+                    case "--max-files" when index + 1 < args.Length:
+                        configuration[BoundaryInventorySensor.MaxFilesConfigurationKey] = args[++index];
+                        break;
+                    case "--after" when index + 1 < args.Length:
+                        configuration[BoundaryInventorySensor.AfterConfigurationKey] = args[++index];
+                        break;
+                    default:
+                        if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                        {
+                            Console.Error.WriteLine($"Unknown or duplicate boundaries argument: {args[index]}");
+                            PrintBoundariesUsage();
+                            return 2;
+                        }
+                        path = args[index];
+                        pathSet = true;
+                        break;
+                }
+            }
             var stopwatch = Stopwatch.StartNew();
-            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(
+                path,
+                Configuration: configuration));
+            var persistence = inventory.Coverage.Complete
+                ? $"wrote {BoundaryInventorySensor.InventoryRelativePath}"
+                : "partial result not persisted";
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | " +
+                $"{inventory.Coverage.AnalyzedFileCount}/{inventory.Coverage.EligibleFileCount} files | " +
+                $"{inventory.Coverage.Mode} | {persistence} | {stopwatch.ElapsedMilliseconds} ms");
+            if (!inventory.Coverage.Complete)
+            {
+                Console.WriteLine(
+                    $"partial: omitted {inventory.Coverage.OmittedFileCount} files" +
+                    (inventory.Coverage.ContinuationAfter is null
+                        ? string.Empty
+                        : $" | continue with --after \"{inventory.Coverage.ContinuationAfter}\""));
+                foreach (var omission in inventory.Coverage.Omissions)
+                {
+                    Console.WriteLine(
+                        $"omission: {omission.Reason}={omission.Count}" +
+                        (omission.Examples.Count == 0
+                            ? string.Empty
+                            : $" | examples: {string.Join(", ", omission.Examples)}"));
+                }
+            }
             foreach (var finding in inventory.Findings)
             {
                 Console.WriteLine(
                     $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Locations[0].Path}:{finding.Locations[0].Range?.Start.Line} {finding.RuleId}");
             }
+            if (!inventory.Coverage.Complete) return 2;
             return inventory.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
         }
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
@@ -512,13 +554,13 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path] [--max-files <count>] [--after <repository-relative-path>]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private static void PrintBoundariesUsage() => Console.WriteLine(
-        "Usage:\n  quality boundaries scan [path]");
+        "Usage:\n  quality boundaries scan [path] [--max-files <count>] [--after <repository-relative-path>]");
 
     private static void PrintFlowUsage() => Console.WriteLine(
         "Usage:\n  quality flow review <request.json>");

@@ -413,7 +413,7 @@
     "deterministicSensorResult": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["available", "unavailableReason", "findings", "provenance"],
+      "required": ["available", "unavailableReason", "findings", "provenance", "complete", "incompleteReason"],
       "properties": {
         "available": { "type": "boolean" },
         "unavailableReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
@@ -426,7 +426,9 @@
             ]
           }
         },
-        "provenance": { "$ref": "#/$defs/deterministicSensorProvenance" }
+        "provenance": { "$ref": "#/$defs/deterministicSensorProvenance" },
+        "complete": { "type": "boolean" },
+        "incompleteReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 }
       }
     },
     "deterministicSensorProvenance": {

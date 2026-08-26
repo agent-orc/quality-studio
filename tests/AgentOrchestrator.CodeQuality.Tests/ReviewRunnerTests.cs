@@ -381,6 +381,32 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
+    public async Task SecurityReview_PartialSensorCannotBecomeClean()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var sensor = FakeSensor.Partial();
+            var result = await new ReviewRunner(new FakeAgent(), sensorRegistry: new SensorRegistry([sensor]))
+                .ReviewAsync(new ReviewRequest(
+                    "src/Small.cs",
+                    "security",
+                    RepositoryRoot: root,
+                    Sensors: [new ReviewSensorConfiguration(sensor.Id)]),
+                    TestContext.Current.CancellationToken);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
+                result.MetaPath, TestContext.Current.CancellationToken));
+            var storedSensor = Assert.Single(document.RootElement
+                .GetProperty("security").GetProperty("sensors").EnumerateArray());
+            Assert.Equal("unavailable", document.RootElement
+                .GetProperty("security").GetProperty("verdict").GetString());
+            Assert.False(storedSensor.GetProperty("available").GetBoolean());
+            Assert.Equal("sensor analyzed 10 of 100 files", storedSensor
+                .GetProperty("unavailableReason").GetString());
+        });
+    }
+
+    [Fact]
     public async Task ProjectSecurityReview_UsesNamedPostureAspects()
     {
         await WithReviewFileAsync(async (root, _) =>
@@ -829,7 +855,9 @@ public sealed class ReviewRunnerTests
     private sealed class FakeSensor(
         bool available,
         string? unavailableReason,
-        IReadOnlyList<ReviewFinding> findings) : IReviewSensor
+        IReadOnlyList<ReviewFinding> findings,
+        bool complete = true,
+        string? incompleteReason = null) : IReviewSensor
     {
         public string Id => "gitleaks";
         public string Version => "8.24.2";
@@ -852,7 +880,9 @@ public sealed class ReviewRunnerTests
                     "repository",
                     ".",
                     "2026-07-25T10:00:00.000Z",
-                    new Dictionary<string, string> { ["gitleaks"] = Version })));
+                    new Dictionary<string, string> { ["gitleaks"] = Version }),
+                complete,
+                incompleteReason));
 
         public static FakeSensor BlockingSecret() => new(
             true,
@@ -871,6 +901,8 @@ public sealed class ReviewRunnerTests
                 "generic-api-key")]);
 
         public static FakeSensor Unavailable() => new(false, "test sensor is offline", []);
+
+        public static FakeSensor Partial() => new(true, null, [], false, "sensor analyzed 10 of 100 files");
 
         public static FakeSensor Pass() => new(true, null, []);
     }

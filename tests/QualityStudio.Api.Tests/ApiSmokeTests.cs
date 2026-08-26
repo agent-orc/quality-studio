@@ -399,8 +399,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
         Assert.True(File.Exists(path));
         using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
-        Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("boundaries", inventory.RootElement.GetProperty("sensor").GetString());
+        Assert.True(inventory.RootElement.GetProperty("coverage").GetProperty("complete").GetBoolean());
     }
 
     [Fact]
