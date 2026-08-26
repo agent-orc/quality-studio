@@ -11,8 +11,22 @@ public sealed record BoundaryInventory(
     int SchemaVersion,
     string Sensor,
     string SensorVersion,
+    BoundaryScanSummary Scan,
     IReadOnlyList<BoundaryEntry> Entries,
     IReadOnlyList<ReviewFinding> Findings);
+
+public sealed record BoundaryScanSummary(
+    string Mode,
+    bool Complete,
+    string? PartialReason,
+    int CandidateFiles,
+    int ScannedFiles,
+    int OmittedFiles,
+    long CandidateBytes,
+    long ScannedBytes,
+    int? MaxFiles,
+    long? MaxBytes,
+    IReadOnlyList<string> IncrementalPaths);
 
 public sealed record BoundaryEntry(
     string Id,
@@ -47,10 +61,13 @@ public sealed record BoundaryLimit(string Value, IReadOnlyList<string> DerivedFr
 /// deliberately conservative: an unproved fact is recorded as unknown, never upgraded
 /// by convention or by an agent's judgement.
 /// </summary>
-public sealed partial class BoundaryInventorySensor : IReviewSensor
+public sealed partial class BoundaryInventorySensor : IDeterministicEvidenceSensor
 {
-    public const string SensorVersion = "1.0.0";
+    public const string SensorVersion = "1.1.0";
     public const string InventoryRelativePath = ".quality/boundaries/inventory.json";
+    public const int DefaultBoundedMaxFiles = 2_000;
+    public const long DefaultBoundedMaxBytes = 128L * 1024 * 1024;
+    private const long MaxSourceFileBytes = 2L * 1024 * 1024;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -86,7 +103,15 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                 request.Scope.ToString().ToLowerInvariant(),
                 request.Scope == SensorScope.Path ? request.Path ?? "." : ".",
                 DateTimeOffset.UtcNow.ToString("O"),
-                new Dictionary<string, string> { ["boundary-analyzer"] = Version }));
+                new Dictionary<string, string>
+                {
+                    ["boundary-analyzer"] = Version,
+                    ["boundary-scan-mode"] = inventory.Scan.Mode,
+                    ["boundary-scan-completeness"] = inventory.Scan.Complete ? "complete" : "partial",
+                    ["boundary-files"] = $"{inventory.Scan.ScannedFiles}/{inventory.Scan.CandidateFiles}",
+                }),
+            inventory.Scan.Complete ? SensorScanCompleteness.Complete : SensorScanCompleteness.Partial,
+            inventory.Scan.PartialReason);
     }
 
     public async Task<BoundaryInventory> InventoryAsync(
@@ -101,8 +126,10 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
 
         var target = ResolveTarget(root, request);
-        var sources = await ReadSourcesAsync(root, target, cancellationToken).ConfigureAwait(false);
-        var context = new AnalysisContext(root, sources);
+        var options = BoundaryScanOptions.Parse(request.Configuration);
+        var sourceRead = await ReadSourcesAsync(root, target, request.Scope, options, cancellationToken)
+            .ConfigureAwait(false);
+        var context = new AnalysisContext(root, sourceRead.Sources);
         var entries = new List<BoundaryEntry>();
         AnalyzeAspNet(context, entries);
         AnalyzeJavaScript(context, entries);
@@ -124,10 +151,11 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             1,
             Id,
             Version,
+            sourceRead.Summary,
             ordered,
             findings);
 
-        if (request.PersistMetadata && request.Scope == SensorScope.Repository)
+        if (request.PersistMetadata && request.Scope == SensorScope.Repository && inventory.Scan.Complete)
         {
             await PersistAsync(root, inventory, cancellationToken).ConfigureAwait(false);
         }
@@ -135,31 +163,66 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         return inventory;
     }
 
-    private static async Task<IReadOnlyList<SourceFile>> ReadSourcesAsync(
+    private static async Task<SourceReadResult> ReadSourcesAsync(
         string root,
         string target,
+        SensorScope scope,
+        BoundaryScanOptions options,
         CancellationToken cancellationToken)
     {
+        var candidates = EnumerateFiles(target)
+            .Select(path => new SourceCandidate(
+                path,
+                Path.GetRelativePath(root, path).Replace('\\', '/'),
+                new FileInfo(path).Length))
+            .OrderBy(file => file.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        var selected = options.Select(root, candidates);
         var files = new List<SourceFile>();
-        foreach (var path in EnumerateFiles(target))
+        long scannedBytes = 0;
+        var unreadableFiles = 0;
+        var oversizedFiles = 0;
+        foreach (var candidate in selected)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (candidate.Bytes > MaxSourceFileBytes)
+            {
+                oversizedFiles++;
+                continue;
+            }
             try
             {
-                var info = new FileInfo(path);
-                if (info.Length > 2 * 1024 * 1024) continue;
-                var content = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+                var content = await File.ReadAllTextAsync(candidate.Path, cancellationToken).ConfigureAwait(false);
                 files.Add(new SourceFile(
-                    Path.GetRelativePath(root, path).Replace('\\', '/'),
+                    candidate.RelativePath,
                     content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n')));
+                scannedBytes += candidate.Bytes;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DecoderFallbackException)
             {
-                // An unreadable source cannot safely be guessed. Other readable sources
-                // remain useful and any facts depending on this file stay unknown.
+                unreadableFiles++;
             }
         }
-        return files.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
+        var partialReasons = new List<string>();
+        if (scope == SensorScope.Path) partialReasons.Add("path-scope");
+        if (options.IncrementalPaths.Count > 0) partialReasons.Add("incremental-selection");
+        if ((options.MaxFiles is not null || options.MaxBytes is not null) && selected.Count < candidates.Length)
+            partialReasons.Add("scan-budget");
+        if (oversizedFiles > 0) partialReasons.Add($"{oversizedFiles}-oversized-files");
+        if (unreadableFiles > 0) partialReasons.Add($"{unreadableFiles}-unreadable-files");
+        var summary = new BoundaryScanSummary(
+            options.Mode,
+            partialReasons.Count == 0,
+            partialReasons.Count == 0 ? null : string.Join(',', partialReasons),
+            candidates.Length,
+            files.Count,
+            candidates.Length - files.Count,
+            candidates.Sum(candidate => candidate.Bytes),
+            scannedBytes,
+            options.MaxFiles,
+            options.MaxBytes,
+            options.IncrementalPaths);
+        return new SourceReadResult(files, summary);
     }
 
     private static IEnumerable<string> EnumerateFiles(string target)
@@ -192,10 +255,15 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
     }
 
-    private static bool IsIgnoredDirectory(string path) =>
-        Path.GetFileName(path) is ".git" or ".quality" or ".quality-studio" or "bin" or "obj" or
-            "node_modules" or "dist" or "coverage" or ".angular" or ".next" or "TestResults" or
-            "tests" or "test" or "__tests__";
+    private static bool IsIgnoredDirectory(string path)
+    {
+        var name = Path.GetFileName(path);
+        return name is ".git" or ".quality" or ".quality-studio" or "bin" or "obj" or
+                   "node_modules" or "dist" or "coverage" or ".angular" or ".next" or "TestResults" or
+                   "tests" or "test" or "__tests__" or "e2e" ||
+               name.EndsWith(".Tests", StringComparison.OrdinalIgnoreCase) ||
+               name.EndsWith(".Test", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string ResolveTarget(string root, SensorScanRequest request)
     {
@@ -234,7 +302,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     (file.Content.Contains("Authenticate(context)", StringComparison.Ordinal) ||
                      file.Content.Contains("UseAuthentication()", StringComparison.Ordinal));
                 var authenticated = explicitlyAuthorized || middlewareAuthenticated;
-                var reachability = HostReachability(context);
+                var reachability = context.HostReachability;
                 if (authenticated)
                 {
                     reachability = new BoundaryFact("authenticated",
@@ -329,6 +397,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         SourceFile file,
         ICollection<BoundaryEntry> entries)
     {
+        if (!file.Content.Contains("Controller", StringComparison.Ordinal)) return;
         foreach (Match controller in ControllerRegex().Matches(file.Content))
         {
             var classOpen = file.Content.IndexOf('{', controller.Index + controller.Length);
@@ -390,7 +459,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     $"{verb} {route}",
                     kind == "sse" ? "sse" : "http",
                     new BoundarySourceLocation(file.Path, line),
-                    authorized ? new BoundaryFact("authenticated", [derivation]) : HostReachability(context),
+                    authorized ? new BoundaryFact("authenticated", [derivation]) : context.HostReachability,
                     new BoundaryFact(authorized ? "required" : allowsAnonymous ? "none" : "unknown", [derivation]),
                     new BoundaryFact(authorized ? "required" : allowsAnonymous ? "none" : "unknown", [derivation]),
                     ParseDotNetInputs("(" + action.Groups["parameters"].Value + ")", route),
@@ -606,38 +675,38 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             }
 
             if (!file.Path.Contains(".worker.", StringComparison.OrdinalIgnoreCase))
-            foreach (Match match in BrowserMessageRegex().Matches(file.Content))
-            {
-                var direction = match.Groups["receive"].Success ? "inbound" : "outbound";
-                var line = Line(file.Content, match.Index);
-                var statement = StatementAt(file.Content, match.Index);
-                var target = match.Groups["target"].Success ? match.Groups["target"].Value : "message event";
-                entries.Add(new BoundaryEntry(
-                    StableId("browser-message", file.Path, line.ToString()),
-                    "browser-message",
-                    direction,
-                    direction == "inbound" ? "postMessage receiver" : $"postMessage to {target}",
-                    "postmessage",
-                    new BoundarySourceLocation(file.Path, line),
-                    new BoundaryFact(direction == "inbound" ? "public" : "hosting-page",
-                        [$"{file.Path}:{line} uses the browser postMessage boundary"]),
-                    new BoundaryFact("none", [$"{file.Path}:{line} contains no transport authentication"]),
-                    new BoundaryFact(
-                        statement.Contains(".origin", StringComparison.Ordinal) || statement.Contains("origin", StringComparison.OrdinalIgnoreCase)
-                            ? "origin-checked"
-                            : "none",
-                        [$"{file.Path}:{line} " +
+                foreach (Match match in BrowserMessageRegex().Matches(file.Content))
+                {
+                    var direction = match.Groups["receive"].Success ? "inbound" : "outbound";
+                    var line = Line(file.Content, match.Index);
+                    var statement = StatementAt(file.Content, match.Index);
+                    var target = match.Groups["target"].Success ? match.Groups["target"].Value : "message event";
+                    entries.Add(new BoundaryEntry(
+                        StableId("browser-message", file.Path, line.ToString()),
+                        "browser-message",
+                        direction,
+                        direction == "inbound" ? "postMessage receiver" : $"postMessage to {target}",
+                        "postmessage",
+                        new BoundarySourceLocation(file.Path, line),
+                        new BoundaryFact(direction == "inbound" ? "public" : "hosting-page",
+                            [$"{file.Path}:{line} uses the browser postMessage boundary"]),
+                        new BoundaryFact("none", [$"{file.Path}:{line} contains no transport authentication"]),
+                        new BoundaryFact(
+                            statement.Contains(".origin", StringComparison.Ordinal) || statement.Contains("origin", StringComparison.OrdinalIgnoreCase)
+                                ? "origin-checked"
+                                : "none",
+                            [$"{file.Path}:{line} " +
                          (statement.Contains("origin", StringComparison.OrdinalIgnoreCase)
                              ? "references message origin"
                              : "has no derived origin check")]),
-                    direction == "inbound" ? [new BoundaryInput("event.data", "message", "unknown", null)] : [],
-                    new BoundaryResponse("message", null),
-                    [],
-                    new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message rate limit"]),
-                    new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message size limit"]),
-                    [],
-                    [statement.Trim()]));
-            }
+                        direction == "inbound" ? [new BoundaryInput("event.data", "message", "unknown", null)] : [],
+                        new BoundaryResponse("message", null),
+                        [],
+                        new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message rate limit"]),
+                        new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message size limit"]),
+                        [],
+                        [statement.Trim()]));
+                }
 
             foreach (Match match in JavaScriptTriggerRegex().Matches(file.Content))
             {
@@ -1068,9 +1137,9 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             [],
             evidence);
 
-    private static BoundaryFact HostReachability(AnalysisContext context)
+    private static BoundaryFact HostReachability(IReadOnlyList<SourceFile> sources)
     {
-        var listeners = context.Sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
+        var listeners = sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
             .Where(match => IsHostBinding(file.Content, match.Index))
             .Select(match => match.Groups["url"].Value)).ToArray();
         if (listeners.Length == 0)
@@ -1092,39 +1161,42 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         var literalPrefix = route.Split('{')[0].TrimEnd('/');
         if (literalPrefix.Length < 2) return [];
+        var routePatterns = ClientRoutePatterns(route);
         var result = new List<BoundarySourceLocation>();
-        foreach (var file in context.Sources.Where(IsJavaScript))
+        foreach (var candidate in context.ConsumerCandidates(method))
         {
-            foreach (var (line, text) in file.Lines())
-            {
-                if (ClientRouteMention(text, route) &&
-                    Regex.IsMatch(text,
-                        $@"\.{Regex.Escape(method.ToLowerInvariant())}(?:<[^>]+>)?\s*\(",
-                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-                    result.Add(new BoundarySourceLocation(file.Path, line));
-            }
+            if (routePatterns.Any(pattern =>
+                    candidate.Text.Contains(pattern.Literal, StringComparison.Ordinal) &&
+                    pattern.Regex.IsMatch(candidate.Text)))
+                result.Add(new BoundarySourceLocation(candidate.Path, candidate.Line));
         }
         return result.Distinct().OrderBy(location => location.Path, StringComparer.Ordinal).ThenBy(location => location.Line).ToArray();
     }
 
-    private static bool ClientRouteMention(string text, string route)
+    private static IReadOnlyList<ClientRoutePattern> ClientRoutePatterns(string route)
     {
         var candidates = new List<string> { route };
         if (route.StartsWith("/api/", StringComparison.Ordinal)) candidates.Add(route[4..]);
         var repositoryPrefix = Regex.Match(route, @"^/api/repos/\{[^}]+\}(?<tail>/.*)$",
             RegexOptions.CultureInvariant);
         if (repositoryPrefix.Success) candidates.Add(repositoryPrefix.Groups["tail"].Value);
-        foreach (var candidate in candidates.Distinct(StringComparer.Ordinal))
-        {
-            var pattern = Regex.Replace(
-                Regex.Escape(candidate),
-                @"\\\{[^}]+\\\}",
-                @"(?:\$\{[^}]+\}|[^/`'""?]+)",
-                RegexOptions.CultureInvariant);
-            if (Regex.IsMatch(text, pattern + @"(?=$|[?`'""),}\]])", RegexOptions.CultureInvariant))
-                return true;
-        }
-        return false;
+        return candidates
+            .Distinct(StringComparer.Ordinal)
+            .Select(candidate =>
+            {
+                var literal = Regex.Split(candidate, @"\{[^}]+\}", RegexOptions.CultureInvariant)
+                    .OrderByDescending(value => value.Length)
+                    .First();
+                var pattern = Regex.Replace(
+                    Regex.Escape(candidate),
+                    @"\\\{[^}]+\\\}",
+                    @"(?:\$\{[^}]+\}|[^/`'""?]+)",
+                    RegexOptions.CultureInvariant);
+                return new ClientRoutePattern(
+                    literal,
+                    new Regex(pattern + @"(?=$|[?`'""),}\]])", RegexOptions.CultureInvariant));
+            })
+            .ToArray();
     }
 
     private static IReadOnlyList<BoundarySourceLocation> ProcessConsumers(AnalysisContext context, SourceFile processFile)
@@ -1315,7 +1387,156 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
     }
 
-    private sealed record AnalysisContext(string Root, IReadOnlyList<SourceFile> Sources);
+    private sealed record SourceCandidate(string Path, string RelativePath, long Bytes);
+
+    private sealed record SourceReadResult(
+        IReadOnlyList<SourceFile> Sources,
+        BoundaryScanSummary Summary);
+
+    private sealed record ConsumerCandidate(string Path, int Line, string Text);
+
+    private sealed record ClientRoutePattern(string Literal, Regex Regex);
+
+    private sealed class AnalysisContext
+    {
+        private readonly IReadOnlyDictionary<string, IReadOnlyList<ConsumerCandidate>> consumerCandidates;
+
+        public AnalysisContext(string root, IReadOnlyList<SourceFile> sources)
+        {
+            Root = root;
+            Sources = sources;
+            HostReachability = BoundaryInventorySensor.HostReachability(sources);
+            consumerCandidates = BuildConsumerCandidates(sources);
+        }
+
+        public string Root { get; }
+
+        public IReadOnlyList<SourceFile> Sources { get; }
+
+        public BoundaryFact HostReachability { get; }
+
+        public IReadOnlyList<ConsumerCandidate> ConsumerCandidates(string method) =>
+            consumerCandidates.GetValueOrDefault(method.ToUpperInvariant()) ?? [];
+
+        private static IReadOnlyDictionary<string, IReadOnlyList<ConsumerCandidate>> BuildConsumerCandidates(
+            IReadOnlyList<SourceFile> sources)
+        {
+            var result = new Dictionary<string, List<ConsumerCandidate>>(StringComparer.Ordinal);
+            foreach (var file in sources.Where(IsJavaScript))
+            {
+                foreach (var (line, text) in file.Lines())
+                {
+                    foreach (Match match in ClientMethodCallRegex().Matches(text))
+                    {
+                        if (!ClientPathLiteralRegex().IsMatch(text.AsSpan(match.Index))) continue;
+                        var method = match.Groups["method"].Value.ToUpperInvariant();
+                        if (!result.TryGetValue(method, out var candidates))
+                        {
+                            candidates = [];
+                            result[method] = candidates;
+                        }
+                        candidates.Add(new ConsumerCandidate(file.Path, line, text));
+                    }
+                }
+            }
+            return result.ToDictionary(
+                pair => pair.Key,
+                pair => (IReadOnlyList<ConsumerCandidate>)pair.Value,
+                StringComparer.Ordinal);
+        }
+    }
+
+    private sealed record BoundaryScanOptions(
+        string Mode,
+        int? MaxFiles,
+        long? MaxBytes,
+        IReadOnlyList<string> IncrementalPaths)
+    {
+        public static BoundaryScanOptions Parse(IReadOnlyDictionary<string, string>? configuration)
+        {
+            configuration ??= new Dictionary<string, string>();
+            var configuredMode = Value(configuration, "mode")?.Trim().ToLowerInvariant();
+            if (configuredMode is not null and not ("full" or "bounded" or "incremental"))
+                throw new ArgumentException("Boundary scan mode must be full, bounded, or incremental.");
+
+            var incrementalPaths = (Value(configuration, "paths") ?? string.Empty)
+                .Split(['\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+            var mode = configuredMode ?? (incrementalPaths.Length > 0 ? "incremental" : "full");
+            if (mode == "incremental" && incrementalPaths.Length == 0)
+                throw new ArgumentException("Incremental boundary scans require at least one configured path.");
+            if (mode != "incremental" && incrementalPaths.Length > 0)
+                throw new ArgumentException("Boundary scan paths are only valid in incremental mode.");
+
+            var maxFiles = PositiveInt(configuration, "maxFiles");
+            var maxBytes = PositiveLong(configuration, "maxBytes");
+            if (mode == "bounded")
+            {
+                maxFiles ??= DefaultBoundedMaxFiles;
+                maxBytes ??= DefaultBoundedMaxBytes;
+            }
+            return new BoundaryScanOptions(mode, maxFiles, maxBytes, incrementalPaths);
+        }
+
+        public IReadOnlyList<SourceCandidate> Select(string root, IReadOnlyList<SourceCandidate> candidates)
+        {
+            IEnumerable<SourceCandidate> selected = candidates;
+            if (IncrementalPaths.Count > 0)
+            {
+                var includes = IncrementalPaths.Select(path => ResolveIncrementalPath(root, path)).ToArray();
+                selected = selected.Where(candidate => includes.Any(include =>
+                    string.Equals(candidate.Path, include.Path, PathComparison) ||
+                    include.IsDirectory && candidate.Path.StartsWith(include.Prefix, PathComparison)));
+            }
+
+            var result = new List<SourceCandidate>();
+            long bytes = 0;
+            foreach (var candidate in selected)
+            {
+                if (MaxFiles is { } maxFiles && result.Count >= maxFiles) break;
+                if (MaxBytes is { } maxBytes && candidate.Bytes > maxBytes - bytes) break;
+                result.Add(candidate);
+                bytes += candidate.Bytes;
+            }
+            return result;
+        }
+
+        private static (string Path, string Prefix, bool IsDirectory) ResolveIncrementalPath(string root, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Incremental boundary scan paths cannot be empty.");
+            var path = Path.GetFullPath(Path.Combine(root, value.Replace('/', Path.DirectorySeparatorChar)));
+            var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+            if (!path.StartsWith(rootPrefix, PathComparison) && !string.Equals(path, root, PathComparison))
+                throw new ArgumentException($"Incremental boundary scan path escapes the repository: {value}");
+            var isDirectory = Directory.Exists(path);
+            var prefix = path.EndsWith(Path.DirectorySeparatorChar) ? path : path + Path.DirectorySeparatorChar;
+            return (path, prefix, isDirectory);
+        }
+
+        private static string? Value(IReadOnlyDictionary<string, string> configuration, string key) =>
+            configuration.FirstOrDefault(pair => string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase)).Value;
+
+        private static int? PositiveInt(IReadOnlyDictionary<string, string> configuration, string key)
+        {
+            var value = Value(configuration, key);
+            if (value is null) return null;
+            if (!int.TryParse(value, out var parsed) || parsed <= 0)
+                throw new ArgumentException($"Boundary scan {key} must be a positive integer.");
+            return parsed;
+        }
+
+        private static long? PositiveLong(IReadOnlyDictionary<string, string> configuration, string key)
+        {
+            var value = Value(configuration, key);
+            if (value is null) return null;
+            if (!long.TryParse(value, out var parsed) || parsed <= 0)
+                throw new ArgumentException($"Boundary scan {key} must be a positive integer.");
+            return parsed;
+        }
+    }
 
     private sealed record RouteGroup(string Prefix, bool Authorized);
 
@@ -1325,7 +1546,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     [GeneratedRegex(@"\bvar\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\.MapGroup\s*\(\s*""(?<prefix>[^""]*)""\s*\)", RegexOptions.CultureInvariant)]
     private static partial Regex MapGroupRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex ControllerRegex();
 
     [GeneratedRegex(@"\bRoute\s*\(\s*""(?<route>[^""]*)""", RegexOptions.CultureInvariant)]
@@ -1348,6 +1569,12 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     [GeneratedRegex(@"\b(?<receiver>[A-Za-z_$][A-Za-z0-9_$]*)\.(?<method>get|post|put|delete|patch|all)\s*\(\s*['""`](?<route>/[^'""`]*)['""`]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NodeRouteRegex();
+
+    [GeneratedRegex(@"\.(?<method>get|post|put|delete|patch)(?:<[^>]+>)?\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ClientMethodCallRegex();
+
+    [GeneratedRegex("['\"`](?<path>/[^'\"`]*)['\"`]", RegexOptions.CultureInvariant)]
+    private static partial Regex ClientPathLiteralRegex();
 
     [GeneratedRegex(@"(?:(?<receive>window\.addEventListener\s*\(\s*['""]message['""]|window\.onmessage\s*=)|postMessage\s*\([^\n]*,\s*['""](?<target>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BrowserMessageRegex();

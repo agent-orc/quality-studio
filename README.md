@@ -132,6 +132,11 @@ and caller-influenced outbound surfaces and run the standard mechanical checks:
 dotnet run --project src/quality-cli -- boundaries scan .
 ```
 
+Use `--max-files` and/or `--max-bytes` for a deterministic bounded scan, or
+repeat `--changed <path>` to scan an explicit incremental set. Partial scans
+return exit code `3`, identify omitted coverage in the result, and never replace
+the persisted full inventory. Add `--no-write` for a read-only full scan.
+
 The stable result is written to `.quality/boundaries/inventory.json`, so boundary
 changes appear in normal source-control diffs. See
 [`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and

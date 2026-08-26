@@ -234,24 +234,33 @@ public static class QualityCli
             PrintBoundariesUsage();
             return 2;
         }
-        if (args.Length > 2 || (args.Length == 2 && args[1].StartsWith("-", StringComparison.Ordinal)))
-        {
-            Console.Error.WriteLine("The boundaries scan accepts one optional repository path.");
-            return 2;
-        }
-
         try
         {
-            var path = args.Length == 2 ? args[1] : ".";
+            var options = ParseBoundaryArguments(args[1..]);
+            var configuration = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["mode"] = options.ChangedPaths.Count > 0
+                    ? "incremental"
+                    : options.MaxFiles is not null || options.MaxBytes is not null ? "bounded" : "full",
+            };
+            if (options.MaxFiles is { } maxFiles) configuration["maxFiles"] = maxFiles.ToString();
+            if (options.MaxBytes is { } maxBytes) configuration["maxBytes"] = maxBytes.ToString();
+            if (options.ChangedPaths.Count > 0) configuration["paths"] = string.Join('\n', options.ChangedPaths);
             var stopwatch = Stopwatch.StartNew();
-            var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(options.Path, Configuration: configuration, PersistMetadata: !options.NoWrite));
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | " +
+                $"{inventory.Scan.ScannedFiles}/{inventory.Scan.CandidateFiles} files | " +
+                $"{(inventory.Scan.Complete ? "complete" : $"partial ({inventory.Scan.PartialReason})")} | " +
+                $"{(inventory.Scan.Complete && !options.NoWrite ? $"wrote {BoundaryInventorySensor.InventoryRelativePath}" : "inventory not written")} | " +
+                $"{stopwatch.ElapsedMilliseconds} ms");
             foreach (var finding in inventory.Findings)
             {
                 Console.WriteLine(
                     $"{finding.Severity.ToString().ToLowerInvariant(),-8} {finding.Locations[0].Path}:{finding.Locations[0].Range?.Start.Line} {finding.RuleId}");
             }
+            if (!inventory.Scan.Complete) return 3;
             return inventory.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
         }
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
@@ -259,6 +268,41 @@ public static class QualityCli
             Console.Error.WriteLine($"quality boundaries scan failed: {exception.Message}");
             return 2;
         }
+    }
+
+    private static BoundaryCommandOptions ParseBoundaryArguments(string[] args)
+    {
+        var path = ".";
+        var pathSet = false;
+        int? maxFiles = null;
+        long? maxBytes = null;
+        var changedPaths = new List<string>();
+        var noWrite = false;
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--max-files" when index + 1 < args.Length && int.TryParse(args[++index], out var parsedFiles) && parsedFiles > 0:
+                    maxFiles = parsedFiles;
+                    break;
+                case "--max-bytes" when index + 1 < args.Length && long.TryParse(args[++index], out var parsedBytes) && parsedBytes > 0:
+                    maxBytes = parsedBytes;
+                    break;
+                case "--changed" when index + 1 < args.Length:
+                    changedPaths.Add(args[++index]);
+                    break;
+                case "--no-write":
+                    noWrite = true;
+                    break;
+                case var value when !value.StartsWith("-", StringComparison.Ordinal) && !pathSet:
+                    path = value;
+                    pathSet = true;
+                    break;
+                default:
+                    throw new ArgumentException($"Unknown or invalid boundaries option: {args[index]}");
+            }
+        }
+        return new BoundaryCommandOptions(path, maxFiles, maxBytes, changedPaths, noWrite);
     }
 
     private static async Task<int> RunFlowAsync(string[] args)
@@ -404,10 +448,10 @@ public static class QualityCli
         var options = globs.Count == 0
             ? new StalenessEvaluatorOptions { ReviewKind = kind }
             : new StalenessEvaluatorOptions
-        {
-            ReviewKind = kind,
-            IncludeGlobs = globs,
-        };
+            {
+                ReviewKind = kind,
+                IncludeGlobs = globs,
+            };
         return (path, options);
     }
 
@@ -512,13 +556,13 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path] [--max-files <count>] [--max-bytes <count>] [--changed <path>]... [--no-write]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
 
     private static void PrintBoundariesUsage() => Console.WriteLine(
-        "Usage:\n  quality boundaries scan [path]");
+        "Usage:\n  quality boundaries scan [path] [--max-files <count>] [--max-bytes <count>] [--changed <path>]... [--no-write]");
 
     private static void PrintFlowUsage() => Console.WriteLine(
         "Usage:\n  quality flow review <request.json>");
@@ -535,6 +579,13 @@ public static class QualityCli
 
     private sealed record SecurityCliOptions(string Path, SecurityScanMode Mode, string? Range,
         string? ConfigPath, string? BaselinePath);
+
+    private sealed record BoundaryCommandOptions(
+        string Path,
+        int? MaxFiles,
+        long? MaxBytes,
+        IReadOnlyList<string> ChangedPaths,
+        bool NoWrite);
 
     private sealed record ReportCliOptions(
         string Path,

@@ -30,7 +30,15 @@ public sealed record SensorScanResult(
     bool Available,
     string? UnavailableReason,
     IReadOnlyList<ReviewFinding> Findings,
-    SensorProvenance Provenance);
+    SensorProvenance Provenance,
+    SensorScanCompleteness Completeness = SensorScanCompleteness.Complete,
+    string? PartialReason = null);
+
+public enum SensorScanCompleteness
+{
+    Complete,
+    Partial,
+}
 
 public sealed record ReviewSensorConfiguration(
     string Id,

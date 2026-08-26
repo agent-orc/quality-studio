@@ -386,7 +386,9 @@ public sealed class AttackCoverageTests
             null);
 
     private static BoundaryInventory Inventory(params BoundaryEntry[] boundaries) =>
-        new("test", 1, "boundaries", "1.0.0", boundaries, []);
+        new("test", 1, "boundaries", "1.0.0",
+            new BoundaryScanSummary("full", true, null, 1, 1, 0, 1, 1, null, null, []),
+            boundaries, []);
 
     private static BoundaryEntry Boundary(string id, string kind, int line) =>
         new(

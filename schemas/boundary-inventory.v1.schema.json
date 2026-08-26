@@ -10,6 +10,7 @@
     "schemaVersion": { "const": 1 },
     "sensor": { "const": "boundaries" },
     "sensorVersion": { "type": "string", "minLength": 1 },
+    "scan": { "$ref": "#/$defs/scan" },
     "entries": {
       "type": "array",
       "items": { "$ref": "#/$defs/entry" }
@@ -20,6 +21,31 @@
     }
   },
   "$defs": {
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode", "complete", "candidateFiles", "scannedFiles", "omittedFiles",
+        "candidateBytes", "scannedBytes", "incrementalPaths"
+      ],
+      "properties": {
+        "mode": { "enum": [ "full", "bounded", "incremental" ] },
+        "complete": { "type": "boolean" },
+        "partialReason": { "type": [ "string", "null" ] },
+        "candidateFiles": { "type": "integer", "minimum": 0 },
+        "scannedFiles": { "type": "integer", "minimum": 0 },
+        "omittedFiles": { "type": "integer", "minimum": 0 },
+        "candidateBytes": { "type": "integer", "minimum": 0 },
+        "scannedBytes": { "type": "integer", "minimum": 0 },
+        "maxFiles": { "type": [ "integer", "null" ], "minimum": 1 },
+        "maxBytes": { "type": [ "integer", "null" ], "minimum": 1 },
+        "incrementalPaths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
     "location": {
       "type": "object",
       "additionalProperties": false,

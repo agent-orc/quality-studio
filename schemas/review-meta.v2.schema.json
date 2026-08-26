@@ -402,6 +402,8 @@
         "version": { "type": "string", "minLength": 1, "maxLength": 200 },
         "resultHash": { "$ref": "#/$defs/sha256String" },
         "available": { "type": "boolean" },
+        "completeness": { "enum": ["complete", "partial"] },
+        "partialReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
         "unavailableReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
         "verdict": { "enum": ["pass", "warn", "block", "unavailable"] },
         "toolVersions": {
@@ -416,6 +418,8 @@
       "required": ["available", "unavailableReason", "findings", "provenance"],
       "properties": {
         "available": { "type": "boolean" },
+        "completeness": { "enum": ["complete", "partial"] },
+        "partialReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
         "unavailableReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
         "findings": {
           "type": "array",

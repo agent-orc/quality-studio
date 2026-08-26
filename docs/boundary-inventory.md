@@ -19,6 +19,38 @@ It is also available through the sensor API as sensor id `boundaries`.
 Repository scans persist the inventory; path-scoped scans return a partial
 inventory without replacing the repository truth.
 
+## Scaling and partial scans
+
+The sensor reads each eligible source once and builds repository-wide host and
+client-call indexes once. Endpoint discovery queries those indexes instead of
+rescanning every source for every endpoint. Test directories, generated output,
+package caches, files larger than 2 MiB, and the documented lockfile/test-file
+patterns are not analyzed.
+
+Operators can put a deterministic file and/or byte budget around a scan:
+
+```text
+quality boundaries scan . --max-files 2000 --max-bytes 134217728
+```
+
+Supplying either limit selects bounded mode. When no explicit limit is supplied,
+bounded mode defaults to 2,000 files and 128 MiB. Incremental callers supply the
+exact changed files or directories explicitly:
+
+```text
+quality boundaries scan . --changed src/Api.cs --changed frontend/src/app
+```
+
+The serialized `scan` object reports the mode, candidate/scanned/omitted file
+and byte counts, configured limits, incremental paths, `complete`, and a typed
+`partialReason`. Path-scoped, incremental, budget-truncated, oversized-file, or
+unreadable-file results are partial. A partial result is useful positive
+evidence only for the files that were scanned: absence of a finding is not a
+repository-wide pass. Sensor APIs propagate this as `completeness: partial`,
+security evidence raises at least a warning, and the CLI returns exit code `3`.
+Partial repository scans never overwrite
+`.quality/boundaries/inventory.json`; only a complete repository scan may do so.
+
 ## Contract
 
 The JSON contract is

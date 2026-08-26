@@ -18,6 +18,8 @@ public sealed record SecuritySensorEvidence(
     string SensorVersion,
     string ResultHash,
     bool Available,
+    SensorScanCompleteness Completeness,
+    string? PartialReason,
     string? UnavailableReason,
     SecurityEvidenceVerdict Verdict,
     IReadOnlyDictionary<string, string> ToolVersions,
@@ -51,6 +53,8 @@ public sealed record SecurityEvidenceBundle(
             ["version"] = sensor.SensorVersion,
             ["resultHash"] = sensor.ResultHash,
             ["available"] = sensor.Available,
+            ["completeness"] = sensor.Completeness.ToString().ToLowerInvariant(),
+            ["partialReason"] = sensor.PartialReason,
             ["unavailableReason"] = sensor.UnavailableReason,
             ["verdict"] = VerdictName(sensor.Verdict),
             ["toolVersions"] = new JsonObject(sensor.ToolVersions.OrderBy(pair => pair.Key, StringComparer.Ordinal)
@@ -194,6 +198,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 ? SecurityEvidenceVerdict.Unavailable
                 : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
                     ? SecurityEvidenceVerdict.Block
+                    : result.Completeness == SensorScanCompleteness.Partial
+                        ? SecurityEvidenceVerdict.Warn
                     : findings.Length > 0
                         ? SecurityEvidenceVerdict.Warn
                         : SecurityEvidenceVerdict.Pass;
@@ -202,6 +208,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 result.Provenance.SensorVersion,
                 string.Empty,
                 result.Available,
+                result.Completeness,
+                result.PartialReason,
                 result.UnavailableReason,
                 verdict,
                 result.Provenance.ToolVersions,
@@ -225,6 +233,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             version,
             string.Empty,
             false,
+            SensorScanCompleteness.Partial,
+            reason,
             reason,
             SecurityEvidenceVerdict.Unavailable,
             new Dictionary<string, string>(),
