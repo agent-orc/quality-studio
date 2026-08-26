@@ -143,7 +143,7 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> decided</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
@@ -563,7 +563,7 @@
     </thead>
     <tbody>
       <tr>
-        <td><b>1. Truthful required gate</b><br><span class="pill done">Delivered</span></td>
+        <td><b>1. Truthful required gate</b><br><span class="pill done">Delivered</span><br><span class="dim">2026-08-24 &middot; QS-75</span></td>
         <td>
           <a href="../../../.github/workflows/build.yml"><code>build.yml</code></a> rewritten into two required jobs. It now triggers on <code>pull_request</code>, which it did not before. .NET is pinned to 10.0.301 and Node to 22.23.1 instead of <code>10.0.x</code>. Added: frontend install from the lock file, explicit Chromium provisioning, the production Angular build, the Angular specs, the repository tooling tests, coverage collection, the coverage ratchet, and a named Gitleaks 8.24.2 provisioning step that verifies the checksum and the reported version before the scan runs.
           <br><br>
@@ -572,22 +572,22 @@
         <td>Cold resolution picked the cached Chromium with no <code>CHROME_BIN</code> set. Production build exits 0 at <b>478.30 kB</b> initial against the unchanged 480 kB budget. Resolver: 8 cases.</td>
       </tr>
       <tr>
-        <td><b>2. Host and fixture repair</b><br><span class="pill done">Delivered</span></td>
+        <td><b>2. Host and fixture repair</b><br><span class="pill done">Delivered</span><br><span class="dim">2026-08-24 &middot; QS-75</span></td>
         <td>The Windows <code>npm.cmd</code> batch fixture is gone. <a href="../../../tests/helpers/dev-stack-harness.mjs"><code>dev-stack-harness.mjs</code></a> writes a real executable stub per platform, reserves free ports by holding them all open at once, and attaches the captured launcher transcript to every assertion failure. All fixed ports were removed. <a href="../../../scripts/dev-stack.mjs"><code>dev-stack.mjs</code></a> gained spawn-failure handling: a missing service executable emits a named diagnostic and fails immediately instead of running out the readiness timeout. The launcher suite runs on Linux and Windows jobs. On the .NET side, ten hand-rolled <code>git</code> runners across ten files were replaced by one <a href="../../../tests/Shared/GitTestRepository.cs"><code>GitTestRepository</code></a> that owns identity, fixed commit timestamps, line-ending policy, allowed roots, cleanup, and failure diagnostics.</td>
         <td><b>6 of 6</b> launcher cases pass on Linux, up from 3 of 5. The sixth is a new case proving the missing-executable diagnostic. Roughly 250 lines of duplicated process plumbing removed.</td>
       </tr>
       <tr>
-        <td><b>3. Honest portability taxonomy</b><br><span class="pill done">Delivered</span></td>
+        <td><b>3. Honest portability taxonomy</b><br><span class="pill done">Delivered</span><br><span class="dim">2026-08-24 &middot; QS-75</span></td>
         <td>The <code>Category=ExternalLive</code> filter that the canary already selected on matched <b>zero</b> tests, so the live-review step passed by selecting nothing. The live Codex review test now carries that trait, and the portable lane excludes both non-portable categories explicitly. Category strings moved into <a href="../../../tests/Shared/TestCategories.cs"><code>TestCategories</code></a>, which documents what belongs in each lane. The ten process-spawning classes were audited: all but the two existing timing checks spawn <code>git</code> incidentally, so rather than reclassifying them, the boundary was made explicit &mdash; the shared fixture provisions and pins it, and reports a missing <code>git</code> as a named requirement of the portable lane instead of an opaque exit code.</td>
         <td><code>--filter "Category=ExternalLive"</code> now selects 1 test; it selected 0 before. The portable filter reports <b>0 skipped</b>, where it previously reported an opt-in skip.</td>
       </tr>
       <tr>
-        <td><b>4. Coverage generation and priority gaps</b><br><span class="pill done">Delivered</span></td>
+        <td><b>4. Coverage generation and priority gaps</b><br><span class="pill done">Delivered</span><br><span class="dim">2026-08-24 &middot; QS-75</span></td>
         <td>Both .NET projects reference <code>coverlet.collector</code> and emit Cobertura; Karma loads <code>karma-coverage</code> and emits lcov. The new <a href="../../../src/AgentOrchestrator.CodeQuality/CoverageRatchetCommand.cs"><code>quality coverage</code></a> command measures line coverage per area and compares it with the committed baseline. It reuses the product's own <code>CoverageReportParser</code> rather than adding a second parser &mdash; which exposed a real ingestion defect: the parser ignored Cobertura <code>&lt;source&gt;</code> roots and lcov's report-relative paths, so every generated report resolved to paths matching nothing in the repository and measured 0%. Fixed in <a href="../../../src/AgentOrchestrator.CodeQuality/Coverage.cs"><code>Coverage.cs</code></a>. A missing report and an area that measures zero lines against a non-zero baseline both fail rather than reading as a pass. Direct HTTP tests were added for repository update and delete, risk, guideline list/update/delete/catalogue-install/impact, scope-rule read, review pause, review cancel, handover configuration, and thread mutation &mdash; each with a positive and a failure path. Angular specs were added for the attack-coverage dialog, the syntax-highlighting worker orchestration, and the tree, format, and language helpers. Schematics no longer set <code>skipTests: true</code>.</td>
         <td>First measured baseline in <a href="../../../.quality/coverage-baseline.json"><code>.quality/coverage-baseline.json</code></a>: core 86.46%, api 90.63%, cli 23.53%, frontend 63.40%, repository 83.52% of lines, tolerance 1.00. Collection runs under <a href="../../../tests/coverage.runsettings"><code>coverage.runsettings</code></a>, which keeps source-generator output out of the measurement &mdash; without it the emitted regex code alone adds several thousand lines and the ratchet would track the SDK instead of the tests. .NET <b>235 pass</b> (from 202 with 1 skip); Angular <b>91 pass</b> (from 39). Ratchet exits 0 against its own baseline; 16 cases cover the command itself.</td>
       </tr>
       <tr>
-        <td><b>5. Release canary and upkeep</b><br><span class="pill part">Pre-existing, repaired</span></td>
+        <td><b>5. Release canary and upkeep</b><br><span class="pill part">Pre-existing, repaired</span><br><span class="dim">2026-08-24 &middot; QS-75</span></td>
         <td>The workflow itself landed earlier in <code>312c94c</code> and was not rewritten. Two defects that made parts of it inert were fixed here: it called <code>npm run browser:install</code>, which did not exist in <code>frontend/package.json</code>, and its live-review step filtered on a category no test carried.</td>
         <td>Both referenced entry points now exist and resolve.</td>
       </tr>
