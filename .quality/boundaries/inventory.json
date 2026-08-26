@@ -1,85 +1,43 @@
 {
-  "$schema": "https://quality.studio/schemas/boundary-inventory.v1.schema.json",
-  "schemaVersion": 1,
+  "$schema": "https://quality.studio/schemas/boundary-inventory.v2.schema.json",
+  "schemaVersion": 2,
   "sensor": "boundaries",
-  "sensorVersion": "1.0.0",
+  "sensorVersion": "1.1.0",
+  "coverage": {
+    "mode": "full",
+    "complete": true,
+    "eligibleFileCount": 189,
+    "analyzedFileCount": 189,
+    "omittedFileCount": 0,
+    "omissions": []
+  },
   "entries": [
     {
-      "id": "browser-message:frontend:src:app:app.ts:103",
-      "kind": "browser-message",
-      "direction": "outbound",
-      "name": "postMessage to *",
-      "transport": "postmessage",
-      "location": {
-        "path": "frontend/src/app/app.ts",
-        "line": 103
-      },
-      "reachability": {
-        "value": "hosting-page",
-        "derivedFrom": [
-          "frontend/src/app/app.ts:103 uses the browser postMessage boundary"
-        ]
-      },
-      "authentication": {
-        "value": "none",
-        "derivedFrom": [
-          "frontend/src/app/app.ts:103 contains no transport authentication"
-        ]
-      },
-      "authorization": {
-        "value": "none",
-        "derivedFrom": [
-          "frontend/src/app/app.ts:103 has no derived origin check"
-        ]
-      },
-      "inputs": [],
-      "response": {
-        "shape": "message"
-      },
-      "sideEffects": [],
-      "rateLimit": {
-        "value": "absent",
-        "derivedFrom": [
-          "frontend/src/app/app.ts:103 has no recognized message rate limit"
-        ]
-      },
-      "sizeLimit": {
-        "value": "absent",
-        "derivedFrom": [
-          "frontend/src/app/app.ts:103 has no recognized message size limit"
-        ]
-      },
-      "knownConsumers": [],
-      "evidence": [
-        "postMessage({ source: \u0027url-preview-embed\u0027, type: \u0027navigation\u0027, url: location.href }, \u0027*\u0027);"
-      ]
-    },
-    {
-      "id": "cors:src:qualitystudio.api:appsettings.json:8",
+      "id": "cors:src:qualitystudio.api:appsettings.json:10",
       "kind": "cors-policy",
       "direction": "inbound",
-      "name": "CORS  \u0022http://localhost:4200\u0022 ",
+      "name": "CORS \n      \u0022http://localhost:4200\u0022\n    ",
       "transport": "browser",
       "location": {
         "path": "src/QualityStudio.Api/appsettings.json",
-        "line": 8
+        "line": 10
       },
       "reachability": {
         "value": "browser-origins",
         "derivedFrom": [
-          "src/QualityStudio.Api/appsettings.json:8 configures CORS"
+          "src/QualityStudio.Api/appsettings.json:10 configures CORS"
         ]
       },
       "authentication": {
         "value": "not-applicable",
         "derivedFrom": [
-          "src/QualityStudio.Api/appsettings.json:8 is a browser origin policy"
+          "src/QualityStudio.Api/appsettings.json:10 is a browser origin policy"
         ]
       },
       "authorization": {
         "value": "origin-allowlist",
         "derivedFrom": [
-          "src/QualityStudio.Api/appsettings.json:8 uses an origin allowlist or configured origins"
+          "src/QualityStudio.Api/appsettings.json:10 uses an origin allowlist or configured origins"
         ]
       },
       "inputs": [],
@@ -97,35 +55,35 @@
       },
       "knownConsumers": [],
       "evidence": [
-        "\u0022AllowedOrigins\u0022: [ \u0022http://localhost:4200\u0022 ]"
+        "\u0022AllowedOrigins\u0022: [\n      \u0022http://localhost:4200\u0022\n    ]"
       ]
     },
     {
-      "id": "cors:src:qualitystudio.api:program.cs:61",
+      "id": "cors:src:qualitystudio.api:program.cs:78",
       "kind": "cors-policy",
       "direction": "inbound",
       "name": "CORS corsOptions.AllowedOrigins",
       "transport": "browser",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 61
+        "line": 78
       },
       "reachability": {
         "value": "browser-origins",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:61 configures CORS"
+          "src/QualityStudio.Api/Program.cs:78 configures CORS"
         ]
       },
       "authentication": {
         "value": "not-applicable",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:61 is a browser origin policy"
+          "src/QualityStudio.Api/Program.cs:78 is a browser origin policy"
         ]
       },
       "authorization": {
         "value": "origin-allowlist",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:61 uses an origin allowlist or configured origins"
+          "src/QualityStudio.Api/Program.cs:78 uses an origin allowlist or configured origins"
         ]
       },
       "inputs": [],
@@ -260,7 +218,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 228
+        "line": 265
       },
       "reachability": {
         "value": "authenticated",
@@ -320,7 +278,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 213
+        "line": 246
       },
       "reachability": {
         "value": "authenticated",
@@ -373,7 +331,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 229
+        "line": 266
       },
       "reachability": {
         "value": "authenticated",
@@ -433,7 +391,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 259
+        "line": 317
       },
       "reachability": {
         "value": "authenticated",
@@ -487,6 +445,66 @@
       ]
     },
     {
+      "id": "http:delete::api:repos:{repoid}:scope:rules:{index:int}",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "DELETE /api/repos/{repoId}/scope/rules/{index:int}",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 298
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "index",
+          "source": "route",
+          "type": "int"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "state-mutation"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapDelete(\u0022/api/repos/{repoId}/scope/rules/{index:int}\u0022)",
+        "handler DeleteScopeRule"
+      ]
+    },
+    {
       "id": "http:delete::api:review:runs:{id}",
       "kind": "http",
       "direction": "inbound",
@@ -494,7 +512,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 258
+        "line": 316
       },
       "reachability": {
         "value": "authenticated",
@@ -548,6 +566,66 @@
       ]
     },
     {
+      "id": "http:delete::api:scope:rules:{index:int}",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "DELETE /api/scope/rules/{index:int}",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 297
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "index",
+          "source": "route",
+          "type": "int"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "state-mutation"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapDelete(\u0022/api/scope/rules/{index:int}\u0022)",
+        "handler DeleteScopeRule"
+      ]
+    },
+    {
       "id": "http:get::api:file",
       "kind": "http",
       "direction": "inbound",
@@ -555,7 +633,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 218
+        "line": 255
       },
       "reachability": {
         "value": "authenticated",
@@ -605,7 +683,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 433
+          "line": 697
         }
       ],
       "evidence": [
@@ -621,7 +699,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 222
+        "line": 259
       },
       "reachability": {
         "value": "authenticated",
@@ -662,7 +740,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 312
+          "line": 820
         }
       ],
       "evidence": [
@@ -678,7 +756,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 261
+        "line": 319
       },
       "reachability": {
         "value": "authenticated",
@@ -721,7 +799,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 490
+          "line": 837
         }
       ],
       "evidence": [
@@ -737,7 +815,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 220
+        "line": 257
       },
       "reachability": {
         "value": "authenticated",
@@ -784,14 +862,78 @@
       ]
     },
     {
-      "id": "http:get::api:quotas",
+      "id": "http:get::api:models",
       "kind": "http",
       "direction": "inbound",
-      "name": "GET /api/quotas",
+      "name": "GET /api/models",
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 244
+        "line": 288
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "Results.Ok(catalog.Snapshot)",
+          "source": "body",
+          "type": "(ReviewModelCatalog catalog) =\u003E"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 565
+        }
+      ],
+      "evidence": [
+        "app.MapGet(\u0022/api/models\u0022)"
+      ]
+    },
+    {
+      "id": "http:get::api:project",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/project",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 253
       },
       "reachability": {
         "value": "authenticated",
@@ -834,23 +976,23 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 383
+          "line": 715
         }
       ],
       "evidence": [
-        "app.MapGet(\u0022/api/quotas\u0022)",
-        "handler Quotas"
+        "app.MapGet(\u0022/api/project\u0022)",
+        "handler ProjectDashboard"
       ]
     },
     {
-      "id": "http:get::api:repos",
+      "id": "http:get::api:quotas",
       "kind": "http",
       "direction": "inbound",
-      "name": "GET /api/repos",
+      "name": "GET /api/quotas",
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 191
+        "line": 287
       },
       "reachability": {
         "value": "authenticated",
@@ -875,6 +1017,136 @@
         "shape": "200",
         "contentType": "application/json"
       },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 646
+        }
+      ],
+      "evidence": [
+        "app.MapGet(\u0022/api/quotas\u0022)",
+        "handler Quotas"
+      ]
+    },
+    {
+      "id": "http:get::api:report",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/report",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 285
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "format",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "security",
+          "source": "body",
+          "type": "ApiSecurity"
+        },
+        {
+          "name": "builder",
+          "source": "body",
+          "type": "QualityReportBuilder"
+        }
+      ],
+      "response": {
+        "shape": "unknown",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/report\u0022)",
+        "handler Report"
+      ]
+    },
+    {
+      "id": "http:get::api:repos",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 212
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [],
+      "response": {
+        "shape": "unknown",
+        "contentType": "application/json"
+      },
       "sideEffects": [],
       "rateLimit": {
         "value": "global",
@@ -891,7 +1163,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 252
+          "line": 443
         }
       ],
       "evidence": [
@@ -906,7 +1178,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 219
+        "line": 256
       },
       "reachability": {
         "value": "authenticated",
@@ -956,7 +1228,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 433
+          "line": 697
         }
       ],
       "evidence": [
@@ -972,7 +1244,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 223
+        "line": 260
       },
       "reachability": {
         "value": "authenticated",
@@ -1013,7 +1285,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 312
+          "line": 820
         }
       ],
       "evidence": [
@@ -1029,7 +1301,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 262
+        "line": 320
       },
       "reachability": {
         "value": "authenticated",
@@ -1072,7 +1344,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 490
+          "line": 837
         }
       ],
       "evidence": [
@@ -1088,7 +1360,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 221
+        "line": 258
       },
       "reachability": {
         "value": "authenticated",
@@ -1135,14 +1407,14 @@
       ]
     },
     {
-      "id": "http:get::api:repos:{repoid}:review:runs",
+      "id": "http:get::api:repos:{repoid}:project",
       "kind": "http",
       "direction": "inbound",
-      "name": "GET /api/repos/{repoId}/review/runs",
+      "name": "GET /api/repos/{repoId}/project",
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 251
+        "line": 254
       },
       "reachability": {
         "value": "authenticated",
@@ -1185,12 +1457,227 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 353
+          "line": 715
+        }
+      ],
+      "evidence": [
+        "app.MapGet(\u0022/api/repos/{repoId}/project\u0022)",
+        "handler ProjectDashboard"
+      ]
+    },
+    {
+      "id": "http:get::api:repos:{repoid}:report",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos/{repoId}/report",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 286
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "format",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "security",
+          "source": "body",
+          "type": "ApiSecurity"
+        },
+        {
+          "name": "builder",
+          "source": "body",
+          "type": "QualityReportBuilder"
+        }
+      ],
+      "response": {
+        "shape": "unknown",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/repos/{repoId}/report\u0022)",
+        "handler Report"
+      ]
+    },
+    {
+      "id": "http:get::api:repos:{repoid}:review:runs",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos/{repoId}/review/runs",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 305
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 585
         }
       ],
       "evidence": [
         "app.MapGet(\u0022/api/repos/{repoId}/review/runs\u0022)",
         "handler ReviewRuns"
+      ]
+    },
+    {
+      "id": "http:get::api:repos:{repoid}:review:runs:trend",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos/{repoId}/review/runs/trend",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 307
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "kind",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "scopeUnitId",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "level",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "cursor",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "source": "query",
+          "type": "int?",
+          "required": false
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/repos/{repoId}/review/runs/trend\u0022)",
+        "handler ReviewRunTrend"
       ]
     },
     {
@@ -1201,7 +1688,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 253
+        "line": 309
       },
       "reachability": {
         "value": "authenticated",
@@ -1254,6 +1741,138 @@
       ]
     },
     {
+      "id": "http:get::api:repos:{repoid}:review:runs:{id}:report",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos/{repoId}/review/runs/{id}/report",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 311
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "id",
+          "source": "route",
+          "type": "string"
+        },
+        {
+          "name": "format",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        }
+      ],
+      "response": {
+        "shape": "unknown",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/repos/{repoId}/review/runs/{id}/report\u0022)",
+        "handler ReviewRunReport"
+      ]
+    },
+    {
+      "id": "http:get::api:repos:{repoid}:risk",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos/{repoId}/risk",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 252
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "days",
+          "source": "query",
+          "type": "int?",
+          "required": false
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 821
+        }
+      ],
+      "evidence": [
+        "app.MapGet(\u0022/api/repos/{repoId}/risk\u0022)",
+        "handler Risk"
+      ]
+    },
+    {
       "id": "http:get::api:repos:{repoid}:scan",
       "kind": "http",
       "direction": "inbound",
@@ -1261,7 +1880,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 235
+        "line": 272
       },
       "reachability": {
         "value": "authenticated",
@@ -1308,11 +1927,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 309
-        },
-        {
-          "path": "frontend/src/app/quality-api.ts",
-          "line": 310
+          "line": 818
         }
       ],
       "evidence": [
@@ -1321,14 +1936,14 @@
       ]
     },
     {
-      "id": "http:get::api:repos:{repoid}:security:scan",
+      "id": "http:get::api:repos:{repoid}:scope:rules",
       "kind": "http",
       "direction": "inbound",
-      "name": "GET /api/repos/{repoId}/security/scan",
+      "name": "GET /api/repos/{repoId}/scope/rules",
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 237
+        "line": 290
       },
       "reachability": {
         "value": "authenticated",
@@ -1369,9 +1984,133 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 310
+          "line": 756
         }
       ],
+      "evidence": [
+        "app.MapGet(\u0022/api/repos/{repoId}/scope/rules\u0022)",
+        "handler ScopeRules"
+      ]
+    },
+    {
+      "id": "http:get::api:repos:{repoid}:security:attack-coverage",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos/{repoId}/security/attack-coverage",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 276
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "path",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "recheck",
+          "source": "query",
+          "type": "bool?",
+          "required": false
+        },
+        {
+          "name": "boundaries",
+          "source": "body",
+          "type": "BoundaryInventorySensor"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "filesystem-read"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/repos/{repoId}/security/attack-coverage\u0022)",
+        "handler AttackCoverage"
+      ]
+    },
+    {
+      "id": "http:get::api:repos:{repoid}:security:scan",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/repos/{repoId}/security/scan",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 274
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
       "evidence": [
         "app.MapGet(\u0022/api/repos/{repoId}/security/scan\u0022)",
         "handler SecurityScan"
@@ -1385,7 +2124,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 239
+        "line": 280
       },
       "reachability": {
         "value": "authenticated",
@@ -1437,7 +2176,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 217
+        "line": 250
       },
       "reachability": {
         "value": "authenticated",
@@ -1487,7 +2226,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 308
+          "line": 518
         }
       ],
       "evidence": [
@@ -1503,7 +2242,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 243
+        "line": 284
       },
       "reachability": {
         "value": "authenticated",
@@ -1557,7 +2296,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 374
+          "line": 634
         }
       ],
       "evidence": [
@@ -1573,7 +2312,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 250
+        "line": 304
       },
       "reachability": {
         "value": "authenticated",
@@ -1616,12 +2355,97 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 353
+          "line": 585
         }
       ],
       "evidence": [
         "app.MapGet(\u0022/api/review/runs\u0022)",
         "handler ReviewRuns"
+      ]
+    },
+    {
+      "id": "http:get::api:review:runs:trend",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/review/runs/trend",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 306
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "kind",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "scopeUnitId",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "level",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "cursor",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "source": "query",
+          "type": "int?",
+          "required": false
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/review/runs/trend\u0022)",
+        "handler ReviewRunTrend"
       ]
     },
     {
@@ -1632,7 +2456,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 252
+        "line": 308
       },
       "reachability": {
         "value": "authenticated",
@@ -1685,6 +2509,138 @@
       ]
     },
     {
+      "id": "http:get::api:review:runs:{id}:report",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/review/runs/{id}/report",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 310
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "id",
+          "source": "route",
+          "type": "string"
+        },
+        {
+          "name": "format",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        }
+      ],
+      "response": {
+        "shape": "unknown",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/review/runs/{id}/report\u0022)",
+        "handler ReviewRunReport"
+      ]
+    },
+    {
+      "id": "http:get::api:risk",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/risk",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 251
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "days",
+          "source": "query",
+          "type": "int?",
+          "required": false
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "spends-money-or-quota"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 821
+        }
+      ],
+      "evidence": [
+        "app.MapGet(\u0022/api/risk\u0022)",
+        "handler Risk"
+      ]
+    },
+    {
       "id": "http:get::api:scan",
       "kind": "http",
       "direction": "inbound",
@@ -1692,7 +2648,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 234
+        "line": 271
       },
       "reachability": {
         "value": "authenticated",
@@ -1739,11 +2695,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 309
-        },
-        {
-          "path": "frontend/src/app/quality-api.ts",
-          "line": 310
+          "line": 818
         }
       ],
       "evidence": [
@@ -1752,14 +2704,14 @@
       ]
     },
     {
-      "id": "http:get::api:security:scan",
+      "id": "http:get::api:scope:rules",
       "kind": "http",
       "direction": "inbound",
-      "name": "GET /api/security/scan",
+      "name": "GET /api/scope/rules",
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 236
+        "line": 289
       },
       "reachability": {
         "value": "authenticated",
@@ -1800,9 +2752,133 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 310
+          "line": 756
         }
       ],
+      "evidence": [
+        "app.MapGet(\u0022/api/scope/rules\u0022)",
+        "handler ScopeRules"
+      ]
+    },
+    {
+      "id": "http:get::api:security:attack-coverage",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/security/attack-coverage",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 275
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "path",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "recheck",
+          "source": "query",
+          "type": "bool?",
+          "required": false
+        },
+        {
+          "name": "boundaries",
+          "source": "body",
+          "type": "BoundaryInventorySensor"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "filesystem-read"
+      ],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapGet(\u0022/api/security/attack-coverage\u0022)",
+        "handler AttackCoverage"
+      ]
+    },
+    {
+      "id": "http:get::api:security:scan",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "GET /api/security/scan",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 273
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
       "evidence": [
         "app.MapGet(\u0022/api/security/scan\u0022)",
         "handler SecurityScan"
@@ -1816,7 +2892,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 238
+        "line": 279
       },
       "reachability": {
         "value": "authenticated",
@@ -1868,7 +2944,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 216
+        "line": 249
       },
       "reachability": {
         "value": "authenticated",
@@ -1918,7 +2994,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 308
+          "line": 518
         }
       ],
       "evidence": [
@@ -1934,7 +3010,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 242
+        "line": 283
       },
       "reachability": {
         "value": "authenticated",
@@ -1988,7 +3064,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 374
+          "line": 634
         }
       ],
       "evidence": [
@@ -2004,7 +3080,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 189
+        "line": 210
       },
       "reachability": {
         "value": "loopback-only",
@@ -2015,7 +3091,7 @@
       "authentication": {
         "value": "none",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:189 has no applicable authorization requirement"
+          "src/QualityStudio.Api/Program.cs:210 has no applicable authorization requirement"
         ]
       },
       "authorization": {
@@ -2066,7 +3142,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 267
+        "line": 325
       },
       "reachability": {
         "value": "authenticated",
@@ -2117,7 +3193,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 456
+          "line": 748
         }
       ],
       "evidence": [
@@ -2133,7 +3209,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 224
+        "line": 261
       },
       "reachability": {
         "value": "authenticated",
@@ -2174,7 +3250,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 462
+          "line": 788
         }
       ],
       "evidence": [
@@ -2190,7 +3266,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 230
+        "line": 267
       },
       "reachability": {
         "value": "authenticated",
@@ -2250,7 +3326,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 232
+        "line": 269
       },
       "reachability": {
         "value": "authenticated",
@@ -2291,7 +3367,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 485
+          "line": 811
         }
       ],
       "evidence": [
@@ -2307,7 +3383,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 263
+        "line": 321
       },
       "reachability": {
         "value": "authenticated",
@@ -2358,7 +3434,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 445
+          "line": 737
         }
       ],
       "evidence": [
@@ -2374,7 +3450,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 201
+        "line": 228
       },
       "reachability": {
         "value": "authenticated",
@@ -2415,7 +3491,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 282
+          "line": 491
         }
       ],
       "evidence": [
@@ -2431,7 +3507,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 207
+        "line": 236
       },
       "reachability": {
         "value": "authenticated",
@@ -2475,7 +3551,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 299
+          "line": 508
         }
       ],
       "evidence": [
@@ -2491,7 +3567,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 268
+        "line": 326
       },
       "reachability": {
         "value": "authenticated",
@@ -2542,7 +3618,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 456
+          "line": 748
         }
       ],
       "evidence": [
@@ -2558,7 +3634,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 225
+        "line": 262
       },
       "reachability": {
         "value": "authenticated",
@@ -2599,7 +3675,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 462
+          "line": 788
         }
       ],
       "evidence": [
@@ -2615,7 +3691,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 231
+        "line": 268
       },
       "reachability": {
         "value": "authenticated",
@@ -2675,7 +3751,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 233
+        "line": 270
       },
       "reachability": {
         "value": "authenticated",
@@ -2716,7 +3792,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 485
+          "line": 811
         }
       ],
       "evidence": [
@@ -2732,7 +3808,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 264
+        "line": 322
       },
       "reachability": {
         "value": "authenticated",
@@ -2783,7 +3859,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 445
+          "line": 737
         }
       ],
       "evidence": [
@@ -2799,7 +3875,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 247
+        "line": 301
       },
       "reachability": {
         "value": "authenticated",
@@ -2848,7 +3924,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 328
+          "line": 552
         }
       ],
       "evidence": [
@@ -2864,7 +3940,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 249
+        "line": 303
       },
       "reachability": {
         "value": "authenticated",
@@ -2913,7 +3989,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 342
+          "line": 574
         }
       ],
       "evidence": [
@@ -2929,7 +4005,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 255
+        "line": 313
       },
       "reachability": {
         "value": "authenticated",
@@ -2990,7 +4066,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 257
+        "line": 315
       },
       "reachability": {
         "value": "authenticated",
@@ -3050,6 +4126,203 @@
       ]
     },
     {
+      "id": "http:post::api:repos:{repoid}:scope:rules",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "POST /api/repos/{repoId}/scope/rules",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 294
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "request",
+          "source": "body",
+          "type": "ScopeRuleMutationRequest"
+        }
+      ],
+      "response": {
+        "shape": "201",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 766
+        }
+      ],
+      "evidence": [
+        "app.MapPost(\u0022/api/repos/{repoId}/scope/rules\u0022)",
+        "handler AddScopeRule"
+      ]
+    },
+    {
+      "id": "http:post::api:repos:{repoid}:scope:rules:preview",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "POST /api/repos/{repoId}/scope/rules/preview",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 292
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "request",
+          "source": "body",
+          "type": "ScopeRuleMutationRequest"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 762
+        }
+      ],
+      "evidence": [
+        "app.MapPost(\u0022/api/repos/{repoId}/scope/rules/preview\u0022)",
+        "handler PreviewScopeRule"
+      ]
+    },
+    {
+      "id": "http:post::api:repos:{repoid}:security:attack-coverage:judgements",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "POST /api/repos/{repoId}/security/attack-coverage/judgements",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 278
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "path",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "request",
+          "source": "body",
+          "type": "AttackJudgementSubmission"
+        },
+        {
+          "name": "boundaries",
+          "source": "body",
+          "type": "BoundaryInventorySensor"
+        }
+      ],
+      "response": {
+        "shape": "201",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "filesystem-read"
+      ],
+      "rateLimit": {
+        "value": "policy",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs applies rate-limit policy \u0027spend\u0027"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapPost(\u0022/api/repos/{repoId}/security/attack-coverage/judgements\u0022)",
+        "handler RecordAttackJudgement"
+      ]
+    },
+    {
       "id": "http:post::api:repos:{repoid}:sensors:{id}:scan",
       "kind": "http",
       "direction": "inbound",
@@ -3057,7 +4330,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 241
+        "line": 282
       },
       "reachability": {
         "value": "authenticated",
@@ -3121,7 +4394,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 266
+        "line": 324
       },
       "reachability": {
         "value": "authenticated",
@@ -3173,7 +4446,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 449
+          "line": 741
         }
       ],
       "evidence": [
@@ -3189,7 +4462,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 246
+        "line": 300
       },
       "reachability": {
         "value": "authenticated",
@@ -3238,7 +4511,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 328
+          "line": 552
         }
       ],
       "evidence": [
@@ -3254,7 +4527,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 248
+        "line": 302
       },
       "reachability": {
         "value": "authenticated",
@@ -3303,7 +4576,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 342
+          "line": 574
         }
       ],
       "evidence": [
@@ -3319,7 +4592,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 254
+        "line": 312
       },
       "reachability": {
         "value": "authenticated",
@@ -3380,7 +4653,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 256
+        "line": 314
       },
       "reachability": {
         "value": "authenticated",
@@ -3440,6 +4713,203 @@
       ]
     },
     {
+      "id": "http:post::api:scope:rules",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "POST /api/scope/rules",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 293
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "request",
+          "source": "body",
+          "type": "ScopeRuleMutationRequest"
+        }
+      ],
+      "response": {
+        "shape": "201",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 766
+        }
+      ],
+      "evidence": [
+        "app.MapPost(\u0022/api/scope/rules\u0022)",
+        "handler AddScopeRule"
+      ]
+    },
+    {
+      "id": "http:post::api:scope:rules:preview",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "POST /api/scope/rules/preview",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 291
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "request",
+          "source": "body",
+          "type": "ScopeRuleMutationRequest"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [
+        {
+          "path": "frontend/src/app/quality-api.ts",
+          "line": 762
+        }
+      ],
+      "evidence": [
+        "app.MapPost(\u0022/api/scope/rules/preview\u0022)",
+        "handler PreviewScopeRule"
+      ]
+    },
+    {
+      "id": "http:post::api:security:attack-coverage:judgements",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "POST /api/security/attack-coverage/judgements",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 277
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "path",
+          "source": "query",
+          "type": "string?",
+          "required": false
+        },
+        {
+          "name": "request",
+          "source": "body",
+          "type": "AttackJudgementSubmission"
+        },
+        {
+          "name": "boundaries",
+          "source": "body",
+          "type": "BoundaryInventorySensor"
+        }
+      ],
+      "response": {
+        "shape": "201",
+        "contentType": "application/json"
+      },
+      "sideEffects": [
+        "filesystem-read"
+      ],
+      "rateLimit": {
+        "value": "policy",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs applies rate-limit policy \u0027spend\u0027"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapPost(\u0022/api/security/attack-coverage/judgements\u0022)",
+        "handler RecordAttackJudgement"
+      ]
+    },
+    {
       "id": "http:post::api:sensors:{id}:scan",
       "kind": "http",
       "direction": "inbound",
@@ -3447,7 +4917,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 240
+        "line": 281
       },
       "reachability": {
         "value": "authenticated",
@@ -3511,7 +4981,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 265
+        "line": 323
       },
       "reachability": {
         "value": "authenticated",
@@ -3563,7 +5033,7 @@
       "knownConsumers": [
         {
           "path": "frontend/src/app/quality-api.ts",
-          "line": 449
+          "line": 741
         }
       ],
       "evidence": [
@@ -3579,7 +5049,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 226
+        "line": 263
       },
       "reachability": {
         "value": "authenticated",
@@ -3637,7 +5107,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 209
+        "line": 238
       },
       "reachability": {
         "value": "authenticated",
@@ -3659,12 +5129,10 @@
       },
       "inputs": [],
       "response": {
-        "shape": "200",
+        "shape": "unknown",
         "contentType": "application/json"
       },
-      "sideEffects": [
-        "state-mutation"
-      ],
+      "sideEffects": [],
       "rateLimit": {
         "value": "global",
         "derivedFrom": [
@@ -3679,7 +5147,8 @@
       },
       "knownConsumers": [],
       "evidence": [
-        "app.MapPut(\u0022/api/repos/{repoId}\u0022)"
+        "app.MapPut(\u0022/api/repos/{repoId}\u0022)",
+        "handler cancellationToken"
       ]
     },
     {
@@ -3690,7 +5159,7 @@
       "transport": "http",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 227
+        "line": 264
       },
       "reachability": {
         "value": "authenticated",
@@ -3738,6 +5207,132 @@
       "evidence": [
         "app.MapPut(\u0022/api/repos/{repoId}/guidelines/{guidelineId}\u0022)",
         "handler UpdateGuideline"
+      ]
+    },
+    {
+      "id": "http:put::api:repos:{repoid}:scope:rules:{index:int}",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "PUT /api/repos/{repoId}/scope/rules/{index:int}",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 296
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "index",
+          "source": "route",
+          "type": "int"
+        },
+        {
+          "name": "request",
+          "source": "body",
+          "type": "ScopeRuleMutationRequest"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapPut(\u0022/api/repos/{repoId}/scope/rules/{index:int}\u0022)",
+        "handler UpdateScopeRule"
+      ]
+    },
+    {
+      "id": "http:put::api:scope:rules:{index:int}",
+      "kind": "http",
+      "direction": "inbound",
+      "name": "PUT /api/scope/rules/{index:int}",
+      "transport": "http",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 295
+      },
+      "reachability": {
+        "value": "authenticated",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authentication": {
+        "value": "required",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api"
+        ]
+      },
+      "authorization": {
+        "value": "repository-scoped",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs checks the authenticated identity\u0027s repository access for /api routes"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "index",
+          "source": "route",
+          "type": "int"
+        },
+        {
+          "name": "request",
+          "source": "body",
+          "type": "ScopeRuleMutationRequest"
+        }
+      ],
+      "response": {
+        "shape": "200",
+        "contentType": "application/json"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter"
+        ]
+      },
+      "sizeLimit": {
+        "value": "global",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "app.MapPut(\u0022/api/scope/rules/{index:int}\u0022)",
+        "handler UpdateScopeRule"
       ]
     },
     {
@@ -3973,6 +5568,258 @@
       ]
     },
     {
+      "id": "process:src:agentorchestrator.codequality:coverage.cs:265",
+      "kind": "process",
+      "direction": "outbound",
+      "name": "process \u0022dotnet-coverage\u0022",
+      "transport": "subprocess",
+      "location": {
+        "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+        "line": 265
+      },
+      "reachability": {
+        "value": "internal-callable",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:265 constructs a process invocation"
+        ]
+      },
+      "authentication": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:265 subprocess authentication is inherited from callers"
+        ]
+      },
+      "authorization": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:265 subprocess authorization is inherited from callers"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "executable",
+          "source": "constant",
+          "type": "string"
+        },
+        {
+          "name": "argument0",
+          "source": "unknown",
+          "type": "string"
+        }
+      ],
+      "response": {
+        "shape": "exit-code/stdout/stderr"
+      },
+      "sideEffects": [
+        "process"
+      ],
+      "rateLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:265 does not prove invocation throttling"
+        ]
+      },
+      "sizeLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:265 does not prove output sizing"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "new ProcessStartInfo(\u0022dotnet-coverage\u0022"
+      ]
+    },
+    {
+      "id": "process:src:agentorchestrator.codequality:attackcoverageservice.cs:716",
+      "kind": "process",
+      "direction": "outbound",
+      "name": "process \u0022git\u0022",
+      "transport": "subprocess",
+      "location": {
+        "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+        "line": 716
+      },
+      "reachability": {
+        "value": "internal-callable",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs:716 constructs a process invocation"
+        ]
+      },
+      "authentication": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs:716 subprocess authentication is inherited from callers"
+        ]
+      },
+      "authorization": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs:716 subprocess authorization is inherited from callers"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "executable",
+          "source": "constant",
+          "type": "string"
+        },
+        {
+          "name": "argument0",
+          "source": "unknown",
+          "type": "string"
+        }
+      ],
+      "response": {
+        "shape": "exit-code/stdout/stderr"
+      },
+      "sideEffects": [
+        "process"
+      ],
+      "rateLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs:716 does not prove invocation throttling"
+        ]
+      },
+      "sizeLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs:716 does not prove output sizing"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "new ProcessStartInfo(\u0022git\u0022"
+      ]
+    },
+    {
+      "id": "process:src:agentorchestrator.codequality:coverage.cs:579",
+      "kind": "process",
+      "direction": "outbound",
+      "name": "process \u0022git\u0022",
+      "transport": "subprocess",
+      "location": {
+        "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+        "line": 579
+      },
+      "reachability": {
+        "value": "internal-callable",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:579 constructs a process invocation"
+        ]
+      },
+      "authentication": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:579 subprocess authentication is inherited from callers"
+        ]
+      },
+      "authorization": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:579 subprocess authorization is inherited from callers"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "executable",
+          "source": "constant",
+          "type": "string"
+        },
+        {
+          "name": "argument0",
+          "source": "unknown",
+          "type": "string"
+        }
+      ],
+      "response": {
+        "shape": "exit-code/stdout/stderr"
+      },
+      "sideEffects": [
+        "process"
+      ],
+      "rateLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:579 does not prove invocation throttling"
+        ]
+      },
+      "sizeLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/Coverage.cs:579 does not prove output sizing"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "new ProcessStartInfo(\u0022git\u0022"
+      ]
+    },
+    {
+      "id": "process:src:agentorchestrator.codequality:gitchangesetprovider.cs:200",
+      "kind": "process",
+      "direction": "outbound",
+      "name": "process \u0022git\u0022",
+      "transport": "subprocess",
+      "location": {
+        "path": "src/AgentOrchestrator.CodeQuality/GitChangeSetProvider.cs",
+        "line": 200
+      },
+      "reachability": {
+        "value": "internal-callable",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/GitChangeSetProvider.cs:200 constructs a process invocation"
+        ]
+      },
+      "authentication": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/GitChangeSetProvider.cs:200 subprocess authentication is inherited from callers"
+        ]
+      },
+      "authorization": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/GitChangeSetProvider.cs:200 subprocess authorization is inherited from callers"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "executable",
+          "source": "constant",
+          "type": "string"
+        },
+        {
+          "name": "argument0",
+          "source": "unknown",
+          "type": "string"
+        }
+      ],
+      "response": {
+        "shape": "exit-code/stdout/stderr"
+      },
+      "sideEffects": [
+        "process"
+      ],
+      "rateLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/GitChangeSetProvider.cs:200 does not prove invocation throttling"
+        ]
+      },
+      "sizeLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/GitChangeSetProvider.cs:200 does not prove output sizing"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "new ProcessStartInfo(\u0022git\u0022"
+      ]
+    },
+    {
       "id": "process:src:agentorchestrator.codequality:gitleakssecurityscanner.cs:583",
       "kind": "process",
       "direction": "outbound",
@@ -4033,9 +5880,72 @@
       "knownConsumers": [
         {
           "path": "src/QualityStudio.Api/Program.cs",
-          "line": 608
+          "line": 860
         }
       ],
+      "evidence": [
+        "new ProcessStartInfo(\u0022git\u0022"
+      ]
+    },
+    {
+      "id": "process:src:agentorchestrator.codequality:qualityreport.cs:469",
+      "kind": "process",
+      "direction": "outbound",
+      "name": "process \u0022git\u0022",
+      "transport": "subprocess",
+      "location": {
+        "path": "src/AgentOrchestrator.CodeQuality/QualityReport.cs",
+        "line": 469
+      },
+      "reachability": {
+        "value": "internal-callable",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/QualityReport.cs:469 constructs a process invocation"
+        ]
+      },
+      "authentication": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/QualityReport.cs:469 subprocess authentication is inherited from callers"
+        ]
+      },
+      "authorization": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/QualityReport.cs:469 subprocess authorization is inherited from callers"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "executable",
+          "source": "constant",
+          "type": "string"
+        },
+        {
+          "name": "argument0",
+          "source": "unknown",
+          "type": "string"
+        }
+      ],
+      "response": {
+        "shape": "exit-code/stdout/stderr"
+      },
+      "sideEffects": [
+        "process"
+      ],
+      "rateLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/QualityReport.cs:469 does not prove invocation throttling"
+        ]
+      },
+      "sizeLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/AgentOrchestrator.CodeQuality/QualityReport.cs:469 does not prove output sizing"
+        ]
+      },
+      "knownConsumers": [],
       "evidence": [
         "new ProcessStartInfo(\u0022git\u0022"
       ]
@@ -4124,31 +6034,31 @@
       ]
     },
     {
-      "id": "process:src:agentorchestrator.codequality:repositoryhierarchycache.cs:142",
+      "id": "process:src:agentorchestrator.codequality:repositoryhierarchycache.cs:181",
       "kind": "process",
       "direction": "outbound",
       "name": "process \u0022git\u0022",
       "transport": "subprocess",
       "location": {
         "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
-        "line": 142
+        "line": 181
       },
       "reachability": {
         "value": "internal-callable",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:142 constructs a process invocation"
+          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:181 constructs a process invocation"
         ]
       },
       "authentication": {
         "value": "caller-dependent",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:142 subprocess authentication is inherited from callers"
+          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:181 subprocess authentication is inherited from callers"
         ]
       },
       "authorization": {
         "value": "caller-dependent",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:142 subprocess authorization is inherited from callers"
+          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:181 subprocess authorization is inherited from callers"
         ]
       },
       "inputs": [
@@ -4172,13 +6082,13 @@
       "rateLimit": {
         "value": "unknown",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:142 does not prove invocation throttling"
+          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:181 does not prove invocation throttling"
         ]
       },
       "sizeLimit": {
         "value": "unknown",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:142 does not prove output sizing"
+          "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:181 does not prove output sizing"
         ]
       },
       "knownConsumers": [],
@@ -4187,31 +6097,31 @@
       ]
     },
     {
-      "id": "process:src:agentorchestrator.codequality:stalenessevaluator.cs:191",
+      "id": "process:src:agentorchestrator.codequality:stalenessevaluator.cs:228",
       "kind": "process",
       "direction": "outbound",
       "name": "process \u0022git\u0022",
       "transport": "subprocess",
       "location": {
         "path": "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs",
-        "line": 191
+        "line": 228
       },
       "reachability": {
         "value": "internal-callable",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:191 constructs a process invocation"
+          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:228 constructs a process invocation"
         ]
       },
       "authentication": {
         "value": "caller-dependent",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:191 subprocess authentication is inherited from callers"
+          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:228 subprocess authentication is inherited from callers"
         ]
       },
       "authorization": {
         "value": "caller-dependent",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:191 subprocess authorization is inherited from callers"
+          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:228 subprocess authorization is inherited from callers"
         ]
       },
       "inputs": [
@@ -4255,13 +6165,76 @@
       "rateLimit": {
         "value": "unknown",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:191 does not prove invocation throttling"
+          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:228 does not prove invocation throttling"
         ]
       },
       "sizeLimit": {
         "value": "unknown",
         "derivedFrom": [
-          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:191 does not prove output sizing"
+          "src/AgentOrchestrator.CodeQuality/StalenessEvaluator.cs:228 does not prove output sizing"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "new ProcessStartInfo(\u0022git\u0022"
+      ]
+    },
+    {
+      "id": "process:src:qualitystudio.api:projectdashboard.cs:568",
+      "kind": "process",
+      "direction": "outbound",
+      "name": "process \u0022git\u0022",
+      "transport": "subprocess",
+      "location": {
+        "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+        "line": 568
+      },
+      "reachability": {
+        "value": "internal-callable",
+        "derivedFrom": [
+          "src/QualityStudio.Api/ProjectDashboard.cs:568 constructs a process invocation"
+        ]
+      },
+      "authentication": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/QualityStudio.Api/ProjectDashboard.cs:568 subprocess authentication is inherited from callers"
+        ]
+      },
+      "authorization": {
+        "value": "caller-dependent",
+        "derivedFrom": [
+          "src/QualityStudio.Api/ProjectDashboard.cs:568 subprocess authorization is inherited from callers"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "executable",
+          "source": "constant",
+          "type": "string"
+        },
+        {
+          "name": "argument0",
+          "source": "unknown",
+          "type": "string"
+        }
+      ],
+      "response": {
+        "shape": "exit-code/stdout/stderr"
+      },
+      "sideEffects": [
+        "process"
+      ],
+      "rateLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/QualityStudio.Api/ProjectDashboard.cs:568 does not prove invocation throttling"
+        ]
+      },
+      "sizeLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/QualityStudio.Api/ProjectDashboard.cs:568 does not prove output sizing"
         ]
       },
       "knownConsumers": [],
@@ -4715,7 +6688,7 @@
       "knownConsumers": [
         {
           "path": "src/QualityStudio.Api/Program.cs",
-          "line": 608
+          "line": 860
         }
       ],
       "evidence": [
@@ -4723,31 +6696,31 @@
       ]
     },
     {
-      "id": "scheduled-trigger:src:qualitystudio.api:program.cs:49",
+      "id": "scheduled-trigger:src:qualitystudio.api:program.cs:30",
       "kind": "scheduled-trigger",
       "direction": "inbound",
-      "name": "ReviewJobService",
+      "name": "RepositorySnapshotPrewarmer",
       "transport": "hosted-service",
       "location": {
         "path": "src/QualityStudio.Api/Program.cs",
-        "line": 49
+        "line": 30
       },
       "reachability": {
         "value": "unknown",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:49 registers a hosted background service"
+          "src/QualityStudio.Api/Program.cs:30 registers a hosted background service"
         ]
       },
       "authentication": {
         "value": "unknown",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:49 has no derived authentication fact"
+          "src/QualityStudio.Api/Program.cs:30 has no derived authentication fact"
         ]
       },
       "authorization": {
         "value": "unknown",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:49 has no derived authorization fact"
+          "src/QualityStudio.Api/Program.cs:30 has no derived authorization fact"
         ]
       },
       "inputs": [
@@ -4764,18 +6737,74 @@
       "rateLimit": {
         "value": "unknown",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:49 has no derived rate-limit fact"
+          "src/QualityStudio.Api/Program.cs:30 has no derived rate-limit fact"
         ]
       },
       "sizeLimit": {
         "value": "unknown",
         "derivedFrom": [
-          "src/QualityStudio.Api/Program.cs:49 has no derived size-limit fact"
+          "src/QualityStudio.Api/Program.cs:30 has no derived size-limit fact"
         ]
       },
       "knownConsumers": [],
       "evidence": [
-        "src/QualityStudio.Api/Program.cs:49 registers a hosted background service"
+        "src/QualityStudio.Api/Program.cs:30 registers a hosted background service"
+      ]
+    },
+    {
+      "id": "scheduled-trigger:src:qualitystudio.api:program.cs:66",
+      "kind": "scheduled-trigger",
+      "direction": "inbound",
+      "name": "ReviewJobService",
+      "transport": "hosted-service",
+      "location": {
+        "path": "src/QualityStudio.Api/Program.cs",
+        "line": 66
+      },
+      "reachability": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs:66 registers a hosted background service"
+        ]
+      },
+      "authentication": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs:66 has no derived authentication fact"
+        ]
+      },
+      "authorization": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs:66 has no derived authorization fact"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "payload",
+          "source": "schedule",
+          "type": "unknown"
+        }
+      ],
+      "response": {
+        "shape": "unknown"
+      },
+      "sideEffects": [],
+      "rateLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs:66 has no derived rate-limit fact"
+        ]
+      },
+      "sizeLimit": {
+        "value": "unknown",
+        "derivedFrom": [
+          "src/QualityStudio.Api/Program.cs:66 has no derived size-limit fact"
+        ]
+      },
+      "knownConsumers": [],
+      "evidence": [
+        "src/QualityStudio.Api/Program.cs:66 registers a hosted background service"
       ]
     }
   ],
@@ -4818,11 +6847,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 189,
+              "line": 210,
               "column": 1
             },
             "end": {
-              "line": 189,
+              "line": 210,
               "column": 1
             }
           }
@@ -4830,7 +6859,7 @@
       ],
       "fingerprint": "sha256:0894aa6003b66a98e4c7b7a3f513724298cb77ceff90bc9975d02328dfa84f14",
       "ruleId": "boundary/missing-authorization",
-      "evidence": "{\n  \u0022boundaryId\u0022: \u0022http:get::health\u0022,\n  \u0022reachability\u0022: {\n    \u0022value\u0022: \u0022loopback-only\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022All derived repository host bindings use loopback addresses\u0022\n    ]\n  },\n  \u0022authentication\u0022: {\n    \u0022value\u0022: \u0022none\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs:189 has no applicable authorization requirement\u0022\n    ]\n  },\n  \u0022authorization\u0022: {\n    \u0022value\u0022: \u0022none\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs contains no applicable authorization check\u0022\n    ]\n  },\n  \u0022rateLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\n    ]\n  },\n  \u0022sizeLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\n    ]\n  },\n  \u0022sideEffects\u0022: []\n}"
+      "evidence": "{\n  \u0022boundaryId\u0022: \u0022http:get::health\u0022,\n  \u0022reachability\u0022: {\n    \u0022value\u0022: \u0022loopback-only\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022All derived repository host bindings use loopback addresses\u0022\n    ]\n  },\n  \u0022authentication\u0022: {\n    \u0022value\u0022: \u0022none\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs:210 has no applicable authorization requirement\u0022\n    ]\n  },\n  \u0022authorization\u0022: {\n    \u0022value\u0022: \u0022none\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs contains no applicable authorization check\u0022\n    ]\n  },\n  \u0022rateLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\n    ]\n  },\n  \u0022sizeLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\n    ]\n  },\n  \u0022sideEffects\u0022: []\n}"
     },
     {
       "id": "boundary-38d591886be2",
@@ -4844,11 +6873,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 216,
+              "line": 249,
               "column": 1
             },
             "end": {
-              "line": 216,
+              "line": 249,
               "column": 1
             }
           }
@@ -4870,11 +6899,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 217,
+              "line": 250,
               "column": 1
             },
             "end": {
-              "line": 217,
+              "line": 250,
               "column": 1
             }
           }
@@ -4896,11 +6925,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 218,
+              "line": 255,
               "column": 1
             },
             "end": {
-              "line": 218,
+              "line": 255,
               "column": 1
             }
           }
@@ -4922,11 +6951,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 219,
+              "line": 256,
               "column": 1
             },
             "end": {
-              "line": 219,
+              "line": 256,
               "column": 1
             }
           }
@@ -4935,6 +6964,110 @@
       "fingerprint": "sha256:7ccf2ad2c7f7b0c9a7e62ff743405ba780170ec80aaf44b6961a35b44360db79",
       "ruleId": "boundary/request-to-system-sink",
       "evidence": "{\n  \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:file\u0022,\n  \u0022reachability\u0022: {\n    \u0022value\u0022: \u0022authenticated\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authentication\u0022: {\n    \u0022value\u0022: \u0022required\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authorization\u0022: {\n    \u0022value\u0022: \u0022repository-scoped\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\n    ]\n  },\n  \u0022rateLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\n    ]\n  },\n  \u0022sizeLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\n    ]\n  },\n  \u0022sideEffects\u0022: [\n    \u0022filesystem-read\u0022\n  ]\n}"
+    },
+    {
+      "id": "boundary-079e9339f805",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/security/attack-coverage combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 275,
+              "column": 1
+            },
+            "end": {
+              "line": 275,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:079e9339f80574b58fcb79d3547b1b9051bafa5bf1b4a520ffa20adbc6b4718b",
+      "ruleId": "boundary/request-to-system-sink",
+      "evidence": "{\n  \u0022boundaryId\u0022: \u0022http:get::api:security:attack-coverage\u0022,\n  \u0022reachability\u0022: {\n    \u0022value\u0022: \u0022authenticated\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authentication\u0022: {\n    \u0022value\u0022: \u0022required\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authorization\u0022: {\n    \u0022value\u0022: \u0022repository-scoped\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\n    ]\n  },\n  \u0022rateLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\n    ]\n  },\n  \u0022sizeLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\n    ]\n  },\n  \u0022sideEffects\u0022: [\n    \u0022filesystem-read\u0022\n  ]\n}"
+    },
+    {
+      "id": "boundary-3f5fb10760ed",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/repos/{repoId}/security/attack-coverage combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 276,
+              "column": 1
+            },
+            "end": {
+              "line": 276,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3f5fb10760ed42c4aec65d74c6cf5efb945c9e9eff22b8c88b517fd2761af286",
+      "ruleId": "boundary/request-to-system-sink",
+      "evidence": "{\n  \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:security:attack-coverage\u0022,\n  \u0022reachability\u0022: {\n    \u0022value\u0022: \u0022authenticated\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authentication\u0022: {\n    \u0022value\u0022: \u0022required\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authorization\u0022: {\n    \u0022value\u0022: \u0022repository-scoped\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\n    ]\n  },\n  \u0022rateLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\n    ]\n  },\n  \u0022sizeLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\n    ]\n  },\n  \u0022sideEffects\u0022: [\n    \u0022filesystem-read\u0022\n  ]\n}"
+    },
+    {
+      "id": "boundary-0bed611945e1",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/security/attack-coverage/judgements combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 277,
+              "column": 1
+            },
+            "end": {
+              "line": 277,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0bed611945e1d15753c56942cf19bdf46c25c4687902b6922e5e43d8aa74e475",
+      "ruleId": "boundary/request-to-system-sink",
+      "evidence": "{\n  \u0022boundaryId\u0022: \u0022http:post::api:security:attack-coverage:judgements\u0022,\n  \u0022reachability\u0022: {\n    \u0022value\u0022: \u0022authenticated\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authentication\u0022: {\n    \u0022value\u0022: \u0022required\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authorization\u0022: {\n    \u0022value\u0022: \u0022repository-scoped\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\n    ]\n  },\n  \u0022rateLimit\u0022: {\n    \u0022value\u0022: \u0022policy\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\n    ]\n  },\n  \u0022sizeLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\n    ]\n  },\n  \u0022sideEffects\u0022: [\n    \u0022filesystem-read\u0022\n  ]\n}"
+    },
+    {
+      "id": "boundary-cd23e66e1509",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/repos/{repoId}/security/attack-coverage/judgements combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 278,
+              "column": 1
+            },
+            "end": {
+              "line": 278,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:cd23e66e1509538c1b5bfc49a766b83c31c016962d6a131004f5ad26e8e29a95",
+      "ruleId": "boundary/request-to-system-sink",
+      "evidence": "{\n  \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:security:attack-coverage:judgements\u0022,\n  \u0022reachability\u0022: {\n    \u0022value\u0022: \u0022authenticated\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authentication\u0022: {\n    \u0022value\u0022: \u0022required\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\n    ]\n  },\n  \u0022authorization\u0022: {\n    \u0022value\u0022: \u0022repository-scoped\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\n    ]\n  },\n  \u0022rateLimit\u0022: {\n    \u0022value\u0022: \u0022policy\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\n    ]\n  },\n  \u0022sizeLimit\u0022: {\n    \u0022value\u0022: \u0022global\u0022,\n    \u0022derivedFrom\u0022: [\n      \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\n    ]\n  },\n  \u0022sideEffects\u0022: [\n    \u0022filesystem-read\u0022\n  ]\n}"
     },
     {
       "id": "boundary-f2bfd75d9312",
@@ -4948,11 +7081,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 263,
+              "line": 321,
               "column": 1
             },
             "end": {
-              "line": 263,
+              "line": 321,
               "column": 1
             }
           }
@@ -4974,11 +7107,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 264,
+              "line": 322,
               "column": 1
             },
             "end": {
-              "line": 264,
+              "line": 322,
               "column": 1
             }
           }
@@ -5000,11 +7133,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 265,
+              "line": 323,
               "column": 1
             },
             "end": {
-              "line": 265,
+              "line": 323,
               "column": 1
             }
           }
@@ -5026,11 +7159,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 266,
+              "line": 324,
               "column": 1
             },
             "end": {
-              "line": 266,
+              "line": 324,
               "column": 1
             }
           }
@@ -5052,11 +7185,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 267,
+              "line": 325,
               "column": 1
             },
             "end": {
-              "line": 267,
+              "line": 325,
               "column": 1
             }
           }
@@ -5078,11 +7211,11 @@
           "path": "src/QualityStudio.Api/Program.cs",
           "range": {
             "start": {
-              "line": 268,
+              "line": 326,
               "column": 1
             },
             "end": {
-              "line": 268,
+              "line": 326,
               "column": 1
             }
           }
