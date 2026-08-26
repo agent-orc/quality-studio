@@ -647,6 +647,7 @@ public sealed class ReviewRunStoreTests
                 {
                     ["QualityStudio:RepositoryRoot"] = repositoryRoot,
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
+                    ["QualityStudio:AllowedRoots:1"] = repositoryRoot,
                 }));
             builder.ConfigureServices(services =>
             {
