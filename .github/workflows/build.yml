@@ -4,38 +4,111 @@ on:
   push:
     branches: [main]
     tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  portable:
+    name: Portable product gate
     runs-on: ubuntu-latest
+    env:
+      CHROME_NO_SANDBOX: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up .NET
+      - name: Set up pinned .NET 10.0.301
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.301
+
+      - name: Set up pinned Node 22.23.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
-      - name: Restore
+      - name: Restore .NET dependencies
         run: dotnet restore QualityStudio.slnx
 
-      - name: Build
+      - name: Build release product
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
-      - name: Test
+      - name: Test portable core and collect Cobertura
         run: >-
-          dotnet test QualityStudio.slnx
+          dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj
           --configuration Release
           --no-build
           --filter "Category!=MachineBound"
+          --collect:"XPlat Code Coverage"
+          --results-directory .coverage/dotnet/core
 
-      - name: Security scan
-        run: dotnet run --project src/quality-cli -- security scan .
+      - name: Test portable API and collect Cobertura
+        run: >-
+          dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj
+          --configuration Release
+          --no-build
+          --filter "Category!=MachineBound"
+          --collect:"XPlat Code Coverage"
+          --results-directory .coverage/dotnet/api
+
+      - name: Install frontend dependencies from lock file
+        run: npm --prefix frontend ci
+
+      - name: Provision pinned Playwright Chromium
+        run: npm --prefix frontend run browser:install
+
+      - name: Build production Angular product
+        run: npm --prefix frontend run build
+
+      - name: Test Angular product and collect lcov
+        run: npm --prefix frontend run test:coverage
+
+      - name: Test coverage ratchet contract
+        run: npm run test:coverage-ratchet
+
+      - name: Enforce measured coverage ratchet
+        run: npm run coverage:verify
+
+      - name: Publish coverage evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}
+          path: |
+            .coverage/dotnet
+            frontend/coverage/frontend/lcov.info
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Provision and verify pinned Gitleaks 8.24.2
+        run: dotnet run --project src/quality-cli --configuration Release --no-build -- security provision
+
+      - name: Run repository security gate
+        run: dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+
+  host-integration:
+    name: Dev stack (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pinned Node 22.23.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+
+      - name: Run isolated launcher integration tests
+        run: npm run test:dev-stack

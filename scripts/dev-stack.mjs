@@ -114,7 +114,7 @@ async function ensureInstall(parsedArgs, repoRoot, frontendRoot, apiPort, webPor
   if (installState.ready) return;
 
   console.log(formatLog('install', installState.reason));
-  await runCommand('install', npmCommand, ['ci'], { cwd: frontendRoot });
+  await runCommand('install', ...buildNpmCommand(['ci']), { cwd: frontendRoot });
 }
 
 function frontendInstallState(frontendRoot) {
@@ -152,8 +152,7 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
     return ['node', parsedArgs['web-script']];
   }
 
-  return [
-    npmCommand,
+  return buildNpmCommand([
     'start',
     '--',
     '--host',
@@ -162,7 +161,13 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
     String(webPort),
     '--proxy-config',
     proxyConfig,
-  ];
+  ]);
+}
+
+function buildNpmCommand(args) {
+  return npmCommand.endsWith('.mjs') || npmCommand.endsWith('.js')
+    ? [process.execPath, [npmCommand, ...args]]
+    : [npmCommand, args];
 }
 
 async function createProxyConfig(apiPort) {
@@ -180,7 +185,7 @@ async function startChild(name, command, options) {
     cwd: options.cwd,
     env: { ...process.env, ...options.env },
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: process.platform === 'win32',
+    shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(command[0]),
     detached: process.platform !== 'win32',
     windowsHide: true,
   });
@@ -218,7 +223,7 @@ async function runCommand(name, executable, args, options) {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
+      shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(executable),
       windowsHide: true,
     });
 

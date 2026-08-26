@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { chromium } from 'playwright-core';
 
 const testsDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testsDir, '..');
@@ -10,6 +11,11 @@ function findBrowserBinary() {
   const override = process.env.CHROME_BIN;
   if (override && existsSync(override)) {
     return override;
+  }
+
+  const playwrightChromium = chromium.executablePath();
+  if (existsSync(playwrightChromium)) {
+    return playwrightChromium;
   }
 
   const candidates = process.platform === 'win32'
@@ -37,7 +43,9 @@ function findBrowserBinary() {
 
 const chromeBin = findBrowserBinary();
 if (!chromeBin) {
-  console.error('Unable to locate a Chrome-compatible browser binary for the Angular test runner.');
+  console.error(
+    'Unable to locate a Chrome-compatible browser binary. Run `npm run browser:install` in frontend or set CHROME_BIN.',
+  );
   process.exit(1);
 }
 
@@ -45,7 +53,13 @@ const ngCli = join(frontendRoot, 'node_modules', '@angular', 'cli', 'bin', 'ng.j
 const browser = process.env.CHROME_NO_SANDBOX === '1'
   ? 'ChromeHeadlessNoSandbox'
   : 'ChromeHeadless';
-const result = spawnSync(process.execPath, [ngCli, 'test', '--watch=false', `--browsers=${browser}`], {
+const result = spawnSync(process.execPath, [
+  ngCli,
+  'test',
+  '--watch=false',
+  `--browsers=${browser}`,
+  ...process.argv.slice(2),
+], {
   cwd: frontendRoot,
   env: {
     ...process.env,
