@@ -199,6 +199,10 @@ export interface ReviewModelCatalog {
 export interface ReviewFileProgress { path: string; state: ReviewUnitState; startedAt: string | null; finishedAt: string | null; error: string | null; }
 export interface ReviewEstimate { files: number; operations: number; promptCharacters: number; inputTokens: number; outputTokens: number; cost: number | null; currency: string | null; priceStatus: string; historySamples: number; method: string; expectedFreshSkips: number; }
 export interface ReviewEstimateDeviation { inputTokensPercent: number; outputTokensPercent: number; costPercent: number | null; note: string; }
+export interface ReviewRunFailure {
+  code: string; stage: string; message: string; operation: string | null; cliType: string;
+  reviewerRunId: string | null; configuredExecutable: string | null; logDirectory: string | null;
+}
 export interface ReviewModelRecommendation {
   policyVersion: string; recommendedModel: string; recommendedThinkingLevel: string; capabilityTier: ModelCapabilityTier;
   score: number; correctnessFloor: string; reason: string; selectionSource: string;
@@ -215,6 +219,7 @@ export interface ReviewRun {
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
+  failure: ReviewRunFailure | null;
 }
 export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
 export interface QualityRunFinding {

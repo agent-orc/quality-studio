@@ -18,6 +18,18 @@ The API runs uncapped file reviews with bounded concurrency (`ReviewJobs:MaxConc
 
 Before every file and aggregate operation, the runner compares the current subject manifest hash, effective review-inputs hash, and requested model with the existing sidecar. A unit is `skipped-fresh` only when all three match, and the agent is not called. The run snapshot and durable status include these skips; aggregate freshness is exposed through `aggregateState`. Set `force: true` on the start or estimate request to bypass this gate for every unit in the run.
 
+Every file and aggregate operation is supervised by three bounds. A process-backed
+executor must emit its process-start event within `ReviewJobs:ReviewerAttachTimeout`
+(default 30 seconds), the operation must finish within
+`ReviewJobs:OperationTimeout` (default 15 minutes), and cancellation gets only
+`ReviewJobs:CancellationGracePeriod` (default 5 seconds) before the queue reader
+abandons an uncooperative task and advances. Timeout and launch failures fail the run,
+terminalize all remaining files, cancel the reviewer process tree, and expose a typed
+`failure` with a stable code, stage, operation, reviewer run ID, configured executable,
+and durable runner-log directory. Claude prompts use stdin transport because review
+prompts can exceed the Windows process command-line limit and should not appear in
+process listings.
+
 A run may use one token cap or one cost cap. Omitting both inherits the repository's default. Enforcement happens in `ReviewJobService` at durable review-operation boundaries: once recorded usage reaches the cap, no next file or aggregate operation starts. The operation that crosses the threshold is allowed to finish cleanly, so actual spend can exceed the cap by at most that operation. Remaining files are persisted as `skipped`, the aggregate is reported as `skipped` when applicable, and the run ends as `capped` with a stop reason and complete reviewed, failed, and skipped counts.
 
 A capped run is resumable without repeating completed files. `POST /api/review/runs/{id}/resume` accepts a higher `{ "tokenCap": ... }` or `{ "costCap": ... }`. Skipped units return to `queued`, while done and failed units remain durable. The server rejects a replacement cap already below current spend. Repository defaults are configured with `defaultReviewTokenCap` or `defaultReviewCostCap` (mutually exclusive) in the repository registration UI or API.
@@ -50,7 +62,7 @@ Model options come from the governed Token Economy snapshot described in
 thinking-level override are persisted in the manifest before enqueue and passed to the
 same CodingAgentRunner request used for every file and aggregate operation.
 
-At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed.
+At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed. Startup also reconciles any queued or running file transition left behind by an already durable cancelled or failed run, so terminal work cannot be revived or retain a running file lease.
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
