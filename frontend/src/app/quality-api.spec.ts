@@ -102,6 +102,33 @@ describe('QualityApi', () => {
     expect(result.results[1].reason).toBe('Already registered.');
   });
 
+  it('keeps quarantined repositories visible without selecting them', async () => {
+    const loading = api.loadRepositories('poisoned');
+    http.expectOne('/api/repos').flush({
+      repositories: [
+        {
+          id: 'default', displayName: 'Default', rootPath: '/allowed/default', globalInputsDirectory: null,
+          inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false,
+          defaultReviewTokenCap: 100000, defaultReviewCostCap: null, blocked: false, blockedReason: null,
+        },
+        {
+          id: 'poisoned', displayName: 'Poisoned', rootPath: '/outside/poisoned', globalInputsDirectory: null,
+          inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false,
+          defaultReviewTokenCap: 100000, defaultReviewCostCap: null, blocked: true,
+          blockedReason: "Repository path '/outside/poisoned' is outside allowed roots [/allowed].",
+        },
+      ],
+      defaultRepositoryId: 'default',
+    });
+
+    await loading;
+
+    expect(api.repositories().map(repository => repository.id)).toEqual(['default', 'poisoned']);
+    expect(api.repositories()[1].blocked).toBeTrue();
+    expect(api.repositories()[1].blockedReason).toContain('/outside/poisoned');
+    expect(api.selectedRepositoryId()).toBe('default');
+  });
+
   it('loads repository usage and global provider quotas', async () => {
     api.connectionState.set('live');
     const usageLoading = api.loadUsage(undefined, 'code');
