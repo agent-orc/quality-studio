@@ -117,7 +117,12 @@ public sealed record ReviewInputs(
     [property: JsonPropertyOrder(1)] bool Complete,
     [property: JsonPropertyOrder(2)] IReadOnlyList<StandardReference> Standards,
     [property: JsonPropertyOrder(3)] IReadOnlyList<string> Omitted,
-    [property: JsonPropertyOrder(4)] PromptReference Prompt);
+    [property: JsonPropertyOrder(4)] PromptReference Prompt,
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<RuleReference>? Rules = null);
+
+public sealed record RuleReference(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] string ContentHash);
 
 public sealed record StandardReference(
     [property: JsonPropertyOrder(0)] string Id,

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-002",
+  "version": "1.0.0",
+  "title": "Use constructor injection with explicit lifetimes",
+  "language": "csharp",
+  "category": "dependency-injection",
+  "statement": "Receive required collaborators through constructor injection, register them with a lifetime justified by their state, and avoid service-location or hidden process-global dependencies.",
+  "rationale": "Quality Studio review orchestration composes runners, stores, sensors, and registries. Constructor injection makes those dependencies testable while explicit lifetimes prevent cross-run state leakage.",
+  "severity": "high",
+  "autofixable": false,
+  "defaultEnabled": true,
+  "reviewKinds": ["code"],
+  "appliesTo": ["**/*.cs"],
+  "examples": {
+    "bad": "public Task RunAsync() { var registry = Global.Services.GetRequiredService<SensorRegistry>(); return registry.Run(); }",
+    "good": "public sealed class ReviewJobService(SensorRegistry sensors, ILogger<ReviewJobService> logger) { /* use injected collaborators */ }"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial .NET DI seed grounded in Quality Studio service registration and orchestration." }]
+}

@@ -65,6 +65,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly RuleLibrary _ruleLibrary;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -73,7 +74,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        RuleLibrary? ruleLibrary = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -82,6 +84,7 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _ruleLibrary = ruleLibrary ?? new RuleLibrary();
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -304,6 +307,8 @@ public sealed class ReviewRunner
         var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
         var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
             request.GlobalInputsDirectory, request.InputBudgetCharacters);
+        var ruleResolution = _ruleLibrary.Resolve(root, request.Kind, subjectPaths);
+        inputs = _ruleLibrary.AddToReviewInputs(inputs, ruleResolution);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
         var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
@@ -328,7 +333,8 @@ public sealed class ReviewRunner
             request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
             request.Level,
             coverageEvidence,
-            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
+            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence),
+            ruleResolution.PromptContext);
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
             prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
@@ -451,11 +457,16 @@ public sealed class ReviewRunner
                     ["value"] = effectiveHash,
                 },
                 ["complete"] = inputs.Complete,
-                ["standards"] = new JsonArray(inputs.Inputs.Where(input => input.IncludedContent.Length > 0).Select(input => (JsonNode)new JsonObject
+                ["standards"] = new JsonArray(inputs.Inputs.Where(input => input.Scope != "rule" && input.IncludedContent.Length > 0).Select(input => (JsonNode)new JsonObject
                 {
                     ["id"] = input.Id,
                     ["scope"] = input.Scope,
                     ["version"] = "unversioned",
+                    ["contentHash"] = "sha256:" + Sha256(input.Content),
+                }).ToArray()),
+                ["rules"] = new JsonArray(inputs.Inputs.Where(input => input.Scope == "rule" && input.IncludedContent.Length > 0).Select(input => (JsonNode)new JsonObject
+                {
+                    ["id"] = input.Id,
                     ["contentHash"] = "sha256:" + Sha256(input.Content),
                 }).ToArray()),
                 ["omitted"] = new JsonArray(inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).Select(id => (JsonNode)id).ToArray()),

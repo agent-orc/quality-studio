@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-005",
+  "version": "1.0.0",
+  "title": "Use OnPush with explicit reactive state",
+  "language": "angular",
+  "category": "change-detection",
+  "statement": "Set ChangeDetectionStrategy.OnPush on application components and express derived view state with signals or computed values. Do not rely on mutation that requires broad implicit change-detection passes.",
+  "rationale": "Quality Studio's large code and review surfaces need predictable rendering costs. OnPush plus explicit reactive state makes updates local and performance behavior inspectable.",
+  "severity": "medium",
+  "autofixable": true,
+  "defaultEnabled": true,
+  "reviewKinds": ["code", "performance"],
+  "appliesTo": ["**/*.ts"],
+  "examples": {
+    "bad": "@Component({ selector: 'qs-panel', templateUrl: './panel.html' })\nexport class Panel { total = 0; }",
+    "good": "@Component({\n  selector: 'qs-panel',\n  templateUrl: './panel.html',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n})\nexport class Panel { readonly total = computed(() => this.items().length); }"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial Angular change-detection seed grounded in Quality Studio components." }]
+}

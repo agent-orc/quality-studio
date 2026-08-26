@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-002",
+  "version": "1.0.0",
+  "title": "Use central design tokens instead of ad-hoc visual values",
+  "language": "angular",
+  "category": "design-tokens",
+  "statement": "Use the central design-token scale for spacing, color, typography, radii, shadows, and control geometry. Do not introduce local hard-coded visual values when a shared token expresses the intent.",
+  "rationale": "Agent Studio and Quality Studio must retain visual kinship across themes. Ad-hoc pixels and colors silently fork the design language and make systematic refinement expensive.",
+  "severity": "high",
+  "autofixable": false,
+  "defaultEnabled": true,
+  "reviewKinds": ["code"],
+  "appliesTo": ["**/*.css", "**/*.scss", "**/*.html"],
+  "examples": {
+    "bad": ".finding-card { padding: 13px; border-radius: 5px; color: #66707e; }",
+    "good": ".finding-card {\n  padding: var(--studio-space-3);\n  border-radius: var(--studio-radius-card);\n  color: var(--studio-fg-muted);\n}"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial default-on rule covering the operator-observed ad-hoc styling defect class." }]
+}

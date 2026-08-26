@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-CS-003",
+  "version": "1.0.0",
+  "title": "Keep asynchronous flows cancellation-aware and non-blocking",
+  "language": "csharp",
+  "category": "async-hygiene",
+  "statement": "Use async all the way for I/O, accept and propagate CancellationToken, use ConfigureAwait(false) in the reusable core library, and avoid .Result, .Wait(), fire-and-forget work, or cancellation converted into success.",
+  "rationale": "Reviews and sensors can be long-running and highly concurrent. Blocking or dropped cancellation wastes worker capacity and can leave persisted review state inconsistent.",
+  "severity": "high",
+  "autofixable": false,
+  "defaultEnabled": true,
+  "reviewKinds": ["code", "performance"],
+  "appliesTo": ["**/*.cs"],
+  "examples": {
+    "bad": "var result = client.SendAsync(request).Result;\nTask.Run(() => PersistAsync(result));",
+    "good": "var result = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);\nawait PersistAsync(result, cancellationToken).ConfigureAwait(false);"
+  },
+  "history": [{ "version": "1.0.0", "date": "2026-08-12", "change": "Initial .NET async-hygiene seed grounded in Quality Studio runners and sensors." }]
+}

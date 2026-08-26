@@ -2,6 +2,8 @@
 
 Quality Studio reads project review guidance from `.quality/inputs/*.md` in the reviewed repository. A separate global directory can be configured with `QualityStudio:GlobalInputsDirectory`, the `QUALITY_GLOBAL_INPUTS` environment variable, or the CLI's `--global-inputs` option.
 
+These free-form guidelines complement, but do not replace, Quality Studio's typed named rules. The default-on rule library and repository-owned `.quality/rules.json` overrides are documented in [Named rule library](rule-library.md).
+
 Each Markdown file starts with small frontmatter:
 
 ```markdown
