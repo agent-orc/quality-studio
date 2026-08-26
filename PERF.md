@@ -19,9 +19,17 @@ bounded 100-file page completes in 0.29 seconds and its next incremental page
 in 0.27 seconds. All three partial results name their omission reasons, do not
 replace repository truth, and exit with code 2.
 
-A regression fixture creates 1,500 source files containing ordinary test
-attributes, verifies full coverage under a 10-second host budget, and verifies
-bounded and continuation-page coverage metadata.
+A regression fixture creates 1,500 source files, 800 server routes, and 1,499
+matching client calls. It verifies consumer joins and full coverage under a
+10-second host budget, then verifies bounded and continuation-page coverage
+metadata.
+
+The rebased delivery was re-verified against the current Agent Studio
+`develop` checkout at `/home/agent/promotion/agent-studio` (`c4e305b`). The
+larger 3,180-file corpus completed in 5.34 seconds, with 3,179 files analyzed
+and the same 19 MiB HTML artifact reported as omitted. Bounded and continuation
+pages of 100 files completed in 0.43 and 0.40 seconds respectively, returned
+exit code 2, and did not persist an inventory.
 
 ## QS-5 hierarchy scan budget
 
