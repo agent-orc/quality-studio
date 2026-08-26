@@ -215,21 +215,27 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Large_tree_is_linear_and_bounded_pages_are_explicitly_partial()
     {
         const int fileCount = 1_500;
+        const int routeCount = 800;
         const int pageSize = 125;
         var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-large-").FullName;
         try
         {
-            var body = new StringBuilder("using Xunit;\n\npublic sealed class SyntheticTests\n{\n");
-            for (var method = 0; method < 24; method++)
-                body.Append("    [Fact]\n    public void Case").Append(method).Append("() => Assert.True(true);\n\n");
-            body.Append("}\n");
-            await Task.WhenAll(Enumerable.Range(0, fileCount).Select(index =>
+            var server = new StringBuilder("var app = WebApplication.Create();\n");
+            for (var route = 0; route < routeCount; route++)
+                server.Append("app.MapGet(\"/api/items/").Append(route).Append("\", () => Results.Ok());\n");
+            server.Append("app.Run();\n");
+            await File.WriteAllTextAsync(
+                Path.Combine(root, "Program.cs"),
+                server.ToString(),
+                TestContext.Current.CancellationToken);
+            await Task.WhenAll(Enumerable.Range(0, fileCount - 1).Select(index =>
                 File.WriteAllTextAsync(
-                    Path.Combine(root, $"Source{index:D4}.cs"),
-                    body.ToString(),
+                    Path.Combine(root, $"Client{index:D4}.ts"),
+                    $"client.get('/api/items/{index % routeCount}');\n",
                     TestContext.Current.CancellationToken)));
 
             var sensor = new BoundaryInventorySensor();
@@ -243,8 +249,11 @@ public sealed class BoundaryInventorySensorTests
             Assert.Equal("full", complete.Coverage.Mode);
             Assert.Equal(fileCount, complete.Coverage.EligibleFileCount);
             Assert.Equal(fileCount, complete.Coverage.AnalyzedFileCount);
+            var routes = complete.Entries.Where(entry => entry.Kind == "http").ToArray();
+            Assert.Equal(routeCount, routes.Length);
+            Assert.All(routes, route => Assert.NotEmpty(route.KnownConsumers));
             Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10),
-                $"Expected a 1,500-file scan below 10 seconds, observed {stopwatch.Elapsed}.");
+                $"Expected a 1,500-file, 800-route scan below 10 seconds, observed {stopwatch.Elapsed}.");
 
             var firstPage = await sensor.InventoryAsync(new SensorScanRequest(
                 root,
@@ -260,6 +269,17 @@ public sealed class BoundaryInventorySensorTests
             Assert.Equal(fileCount - pageSize, firstPage.Coverage.OmittedFileCount);
             Assert.NotNull(firstPage.Coverage.ContinuationAfter);
             Assert.False(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+
+            var firstPageResult = await sensor.RunAsync(new SensorScanRequest(
+                root,
+                Configuration: new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.MaxFilesConfigurationKey] = pageSize.ToString(),
+                }), TestContext.Current.CancellationToken);
+            Assert.True(firstPageResult.Available);
+            Assert.False(firstPageResult.Complete);
+            Assert.Contains($"analyzed {pageSize} of {fileCount}", firstPageResult.IncompleteReason,
+                StringComparison.Ordinal);
 
             var secondPage = await sensor.InventoryAsync(new SensorScanRequest(
                 root,
