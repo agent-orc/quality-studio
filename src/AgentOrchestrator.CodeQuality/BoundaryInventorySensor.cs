@@ -1201,35 +1201,38 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         var literalPrefix = route.Split('{')[0].TrimEnd('/');
         if (literalPrefix.Length < 2) return [];
-        var routePatterns = ClientRoutePatterns(route);
+        var routeCandidates = ClientRouteCandidates(route);
+        var routePatterns = routeCandidates.Select(ClientRoutePattern).ToArray();
         var result = new List<BoundarySourceLocation>();
-        foreach (var call in context.ClientCalls)
+        foreach (var call in context.ConsumerCandidates(method, routeCandidates))
         {
-            if (string.Equals(call.Method, method, StringComparison.OrdinalIgnoreCase) &&
-                routePatterns.Any(pattern => pattern.IsMatch(call.Text)))
+            if (routePatterns.Any(pattern => pattern.IsMatch(call.Text)))
                 result.Add(new BoundarySourceLocation(call.Path, call.Line));
         }
         return result.Distinct().OrderBy(location => location.Path, StringComparer.Ordinal).ThenBy(location => location.Line).ToArray();
     }
 
-    private static IReadOnlyList<Regex> ClientRoutePatterns(string route)
+    private static IReadOnlyList<string> ClientRouteCandidates(string route)
     {
         var candidates = new List<string> { route };
         if (route.StartsWith("/api/", StringComparison.Ordinal)) candidates.Add(route[4..]);
         var repositoryPrefix = Regex.Match(route, @"^/api/repos/\{[^}]+\}(?<tail>/.*)$",
             RegexOptions.CultureInvariant);
         if (repositoryPrefix.Success) candidates.Add(repositoryPrefix.Groups["tail"].Value);
-        return candidates.Distinct(StringComparer.Ordinal)
-            .Select(candidate => Regex.Replace(
-                Regex.Escape(candidate),
-                @"\\\{[^}]+\\\}",
-                @"(?:\$\{[^}]+\}|[^/`'""?]+)",
-                RegexOptions.CultureInvariant))
-            .Select(pattern => new Regex(
-                pattern + @"(?=$|[?`'""),}\]])",
-                RegexOptions.CultureInvariant,
-                TimeSpan.FromMilliseconds(100)))
-            .ToArray();
+        return candidates.Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    private static Regex ClientRoutePattern(string candidate)
+    {
+        var pattern = Regex.Replace(
+            Regex.Escape(candidate),
+            @"\\\{[^}]+\\\}",
+            @"(?:\$\{[^}]+\}|[^/`'""?]+)",
+            RegexOptions.CultureInvariant);
+        return new Regex(
+            pattern + @"(?=$|[?`'""),}\]])",
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
     }
 
     private static IReadOnlyList<BoundarySourceLocation> ProcessConsumers(AnalysisContext context, SourceFile processFile)
@@ -1428,11 +1431,14 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     private sealed class AnalysisContext
     {
+        private readonly IReadOnlyDictionary<string, IReadOnlyList<ClientCall>> clientCallsByMethod;
+        private readonly IReadOnlyDictionary<string, IReadOnlyList<ClientCall>> clientCallsByMethodAndToken;
+
         public AnalysisContext(IReadOnlyList<SourceFile> sources)
         {
             Sources = sources;
             HostReachability = DeriveHostReachability(sources);
-            ClientCalls = sources
+            var clientCalls = sources
                 .Where(IsJavaScript)
                 .SelectMany(file => file.Lines().SelectMany(line =>
                     ClientMethodCallRegex().Matches(line.Text).Cast<Match>()
@@ -1442,13 +1448,59 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                             line.Text,
                             match.Groups["method"].Value.ToUpperInvariant()))))
                 .ToArray();
+            clientCallsByMethod = clientCalls
+                .GroupBy(call => call.Method, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<ClientCall>)group.ToArray(),
+                    StringComparer.Ordinal);
+            clientCallsByMethodAndToken = clientCalls
+                .SelectMany(call => ClientTokenRegex().Matches(call.Text).Cast<Match>()
+                    .Select(match => match.Value)
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(token => (Key: ConsumerIndexKey(call.Method, token), Call: call)))
+                .GroupBy(item => item.Key, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<ClientCall>)group.Select(item => item.Call).ToArray(),
+                    StringComparer.Ordinal);
         }
 
         public IReadOnlyList<SourceFile> Sources { get; }
 
         public BoundaryFact HostReachability { get; }
 
-        public IReadOnlyList<ClientCall> ClientCalls { get; }
+        public IReadOnlyList<ClientCall> ConsumerCandidates(
+            string method,
+            IReadOnlyList<string> routeCandidates)
+        {
+            var normalizedMethod = method.ToUpperInvariant();
+            if (!clientCallsByMethod.TryGetValue(normalizedMethod, out var methodCalls)) return [];
+
+            HashSet<string>? commonTokens = null;
+            foreach (var candidate in routeCandidates)
+            {
+                var withoutParameters = RouteParameterRegex().Replace(candidate, string.Empty);
+                var tokens = ClientTokenRegex().Matches(withoutParameters).Cast<Match>()
+                    .Select(match => match.Value)
+                    .ToHashSet(StringComparer.Ordinal);
+                if (commonTokens is null) commonTokens = tokens;
+                else commonTokens.IntersectWith(tokens);
+            }
+
+            IReadOnlyList<ClientCall>? smallestBucket = null;
+            foreach (var token in commonTokens ?? [])
+            {
+                if (!clientCallsByMethodAndToken.TryGetValue(
+                        ConsumerIndexKey(normalizedMethod, token), out var bucket))
+                    return [];
+                if (smallestBucket is null || bucket.Count < smallestBucket.Count)
+                    smallestBucket = bucket;
+            }
+            return smallestBucket ?? methodCalls;
+        }
+
+        private static string ConsumerIndexKey(string method, string token) => method + "\0" + token;
     }
 
     private sealed record ClientCall(string Path, int Line, string Text, string Method);
@@ -1487,6 +1539,9 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     [GeneratedRegex(@"\.(?<method>get|post|put|delete|patch|all)(?:<[^>\r\n]+>)?\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex ClientMethodCallRegex();
+
+    [GeneratedRegex(@"[A-Za-z0-9_-]+", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
+    private static partial Regex ClientTokenRegex();
 
     [GeneratedRegex(@"(?:(?<receive>window\.addEventListener\s*\(\s*['""]message['""]|window\.onmessage\s*=)|postMessage\s*\([^\n]*,\s*['""](?<target>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BrowserMessageRegex();
