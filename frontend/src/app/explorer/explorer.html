@@ -1,6 +1,6 @@
 <aside class="pane tree-pane">
   <div class="pane-header"><div><span class="eyebrow">Repository</span><strong>Explorer</strong></div><button class="quiet" (click)="api.loadTree()">↻</button></div>
-  <label class="search"><span>⌕</span><input aria-label="Filter files" placeholder="Filter files…" [ngModel]="query()" (ngModelChange)="query.set($event)" /></label>
+  <label class="search"><span>⌕</span><input aria-label="Filter files" placeholder="Filter files…" [ngModel]="query()" (ngModelChange)="onQueryChange($event)" /></label>
   <button type="button" class="explorer-review-action" (click)="reviewRequest.emit()">Review this scope →</button>
   <div class="legend"><span><i class="status fresh"></i>Fresh</span><span><i class="status stale"></i>Code</span><span><i class="status policy-drift"></i>Policy</span><span><i class="status missing"></i>Missing</span></div>
   <div class="virtual-tree" role="tree" aria-label="Repository tree" #treeContainer (scroll)="scrollTop.set($any($event.target).scrollTop)" (keydown)="onTreeKeydown($event)" (focusin)="onTreeFocusIn()" (focusout)="onTreeFocusOut($event)">
@@ -9,13 +9,14 @@
         <button type="button" class="tree-row" role="treeitem"
           [class.selected]="selectedPath() === item.node.path" [class.active]="activeId() === item.node.id"
           [attr.data-node-id]="item.node.id" [attr.aria-level]="item.node.depth + 1"
-          [attr.aria-expanded]="item.node.children.length ? expanded().has(item.node.id) : null"
+          [attr.aria-expanded]="hasChildren(item.node) ? expanded().has(item.node.id) : null"
+          [attr.aria-busy]="childrenLoading(item.node)"
           [attr.aria-selected]="selectedPath() === item.node.path" [attr.tabindex]="activeId() === item.node.id ? 0 : -1"
           [style.top.px]="item.top" [style.padding-left.px]="10 + item.node.depth * 16" (click)="onRowClick(item.node)">
           <span class="chevron" [class.open]="expanded().has(item.node.id)"
-            [title]="item.node.children.length ? 'Toggle container without opening it' : ''"
-            (click)="onChevronClick($event, item.node)">{{ item.node.children.length ? '›' : '' }}</span>
-          <span class="node-icon">{{ item.node.children.length ? '▰' : '≡' }}</span><span class="node-name">{{ item.node.name }}</span>
+            [title]="hasChildren(item.node) ? 'Toggle container without opening it' : ''"
+            (click)="onChevronClick($event, item.node)">{{ childrenLoading(item.node) ? '…' : hasChildren(item.node) ? '›' : '' }}</span>
+          <span class="node-icon">{{ hasChildren(item.node) ? '▰' : '≡' }}</span><span class="node-name">{{ item.node.name }}</span>
           @if (item.node.excluded?.length) {
             <span class="scope-exclusion-badge" [title]="exclusionTitle(item.node)">⊘ {{ item.node.excluded?.length }}</span>
           }
