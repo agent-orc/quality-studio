@@ -303,6 +303,10 @@ export class App implements OnDestroy {
   openTrace(path: string): void { this.guidelineDialogOpen.set(false); this.open(path); }
 
   async switchRepository(id: string): Promise<void> {
+    if (this.api.repositories().find(repository => repository.id === id)?.blocked) {
+      this.repositoryMenuOpen.set(false);
+      return;
+    }
     if (id === this.api.selectedRepositoryId()) {
       this.repositoryMenuOpen.set(false);
       return;
