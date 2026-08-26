@@ -40,6 +40,14 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SecurityProvisionCommand_VerifiesThePinnedExplicitBinary()
+    {
+        var exitCode = await global::QualityCli.RunAsync(["security", "provision"]);
+
+        Assert.Equal(0, exitCode);
+    }
+
+    [Fact]
     public async Task ScanAsync_RepositoryMode_AcceptsBaselineAndRedactsSecrets()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -243,7 +251,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
     private static async Task InitializeGitRepositoryAsync(string root, CancellationToken cancellationToken)
     {
-        await RunGitAsync(root, cancellationToken, "init", "--quiet");
+        await TestToolProcess.InitializeGitRepositoryAsync(root, cancellationToken);
     }
 
     private static async Task CommitAsync(string root, string message, CancellationToken cancellationToken)
@@ -254,32 +262,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
     private static async Task RunGitAsync(string root, CancellationToken cancellationToken, params string[] arguments)
     {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException("Git did not start.");
-        }
-
-        await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        await process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        Assert.Equal(0, process.ExitCode);
+        await TestToolProcess.RunGitAsync(root, arguments, cancellationToken);
     }
 
     private static async Task<string> BuildFakeGitleaksAsync(string root, CancellationToken cancellationToken)
@@ -516,7 +499,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             arguments.Add(runtimeIdentifier);
         }
 
-        await RunProcessAsync("dotnet", arguments, root, cancellationToken);
+        await TestToolProcess.RunAsync("dotnet", root, arguments, cancellationToken);
 
         var executableName = OperatingSystem.IsWindows() ? "FakeGitleaks.exe" : "FakeGitleaks";
         var executablePath = Path.Combine(publishDirectory, executableName);
@@ -526,39 +509,6 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         }
 
         return executablePath;
-    }
-
-    private static async Task RunProcessAsync(string fileName, IReadOnlyList<string> arguments, string workingDirectory, CancellationToken cancellationToken)
-    {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo(fileName)
-            {
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException($"{fileName} did not start.");
-        }
-
-        await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        await process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"{fileName} failed with exit code {process.ExitCode}.");
-        }
     }
 
     private static string? GetRuntimeIdentifier()
