@@ -25,7 +25,7 @@ public sealed record ResolvedInputs(
     IReadOnlyList<ReviewInput> Inputs,
     IReadOnlyList<InputOmission> Omissions)
 {
-    public bool Complete => Omissions.All(omission => omission.Reason == "overridden-by-project");
+    public bool Complete => Omissions.All(omission => omission.Reason is "overridden-by-project" or "disabled-by-project");
 
     public string Guidelines(string scope)
     {
@@ -75,13 +75,36 @@ public sealed class InputResolver
             globalInputsDirectory);
         var projectRoot = Path.GetFullPath(repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
-        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
+        var config = RuleConfig.Load(projectRoot);
+        var explicitlyDisabledRuleIds = RuleLibrary.Rules
+            .Where(rule => config.GetOverride(rule.Id)?.Enabled == false)
+            .Select(rule => rule.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot)
+            .Where(input => !explicitlyDisabledRuleIds.Contains(input.Id))
+            .ToArray();
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var omissions = global
+        var library = RuleLibrary.Rules
+            .Where(rule => rule.Status == "active" && config.IsEnabled(rule.Id, rule.DefaultOn) &&
+                           Applies(rule.Kinds, normalizedKind) && Applies(rule.Levels, normalizedLevel))
+            .Select(rule => ToReviewInput(rule, config.GetOverride(rule.Id)?.Severity))
+            .ToArray();
+        var globalIds = global.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var libraryEffective = library.Where(input => !globalIds.Contains(input.Id)).ToArray();
+        var globalEffective = global.Concat(libraryEffective)
+            .Where(input => !projectIds.Contains(input.Id))
+            .OrderByDescending(input => input.Priority)
+            .ThenBy(input => input.Id, StringComparer.Ordinal)
+            .ThenBy(input => input.Source, StringComparer.Ordinal)
+            .ToArray();
+        var omissions = global.Concat(libraryEffective)
             .Where(input => projectIds.Contains(input.Id))
             .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0))
             .ToList();
-        var effective = global.Where(input => !projectIds.Contains(input.Id)).Concat(project).ToArray();
+        omissions.AddRange(RuleLibrary.Rules
+            .Where(rule => explicitlyDisabledRuleIds.Contains(rule.Id))
+            .Select(rule => new InputOmission(rule.Id, RuleSource(rule), "disabled-by-project", 0)));
+        var effective = globalEffective.Concat(project).ToArray();
 
         var remaining = budgetCharacters;
         var included = new List<ReviewInput>();
@@ -119,6 +142,16 @@ public sealed class InputResolver
     }
 
     public static ReviewInput ParseFile(string path, string scope = "project") => Parse(path, scope);
+
+    private static ReviewInput ToReviewInput(RuleDefinition rule, string? severity)
+    {
+        var effectiveSeverity = severity ?? rule.Severity;
+        return new ReviewInput(rule.Id, RuleSource(rule), "global", RuleLibrary.Priority(effectiveSeverity),
+            rule.Kinds, rule.Levels, true, RuleLibrary.RenderPromptContext(rule, effectiveSeverity), string.Empty, false);
+    }
+
+    private static string RuleSource(RuleDefinition rule) =>
+        $"rules/{rule.Technology}/{rule.Id}.json";
 
     private static void RejectReparseTraversal(string root, string path)
     {

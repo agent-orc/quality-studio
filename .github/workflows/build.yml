@@ -24,6 +24,9 @@ jobs:
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
+      - name: Test deterministic rule checks
+        run: npm run test:rule-checks
+
       - name: Restore
         run: dotnet restore QualityStudio.slnx
 

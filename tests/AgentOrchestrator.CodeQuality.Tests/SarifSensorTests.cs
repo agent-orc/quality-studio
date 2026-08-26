@@ -167,6 +167,32 @@ public sealed class SarifSensorTests
         }
     }
 
+    [Fact]
+    public async Task DesignTokensCheckFixture_CitesRealRuleLibraryIds()
+    {
+        var root = CreateRepository(
+            "frontend/src/app/app.css", "frontend/src/app/explorer/explorer.css",
+            "frontend/src/app/project-dashboard/project-dashboard.css", "frontend/src/app/review-panel/review-panel.css");
+        try
+        {
+            await using var fixture = File.OpenRead(Fixture("design-tokens.sarif.json"));
+
+            var findings = await SarifSensor.ParseAsync(
+                fixture, root, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(2, findings.Count);
+            Assert.All(findings, finding => RuleLibrary.Get(finding.RuleId));
+            var literal = Assert.Single(findings, finding => finding.RuleId == "QS-NG-003");
+            Assert.Equal(FindingSeverity.Medium, literal.Severity);
+            var duplicate = Assert.Single(findings, finding => finding.RuleId == "QS-NG-004");
+            Assert.Equal(3, duplicate.Locations.Count);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static string Fixture(string name) =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "sarif", name);
 

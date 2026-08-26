@@ -1,4 +1,5 @@
 using AgentOrchestrator.CodeQuality;
+using System.Text.Json;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -13,6 +14,15 @@ public sealed class InputResolverTests : IDisposable
         global = Path.Combine(root, "global");
         Directory.CreateDirectory(global);
         Directory.CreateDirectory(Path.Combine(root, ".quality", "inputs"));
+        var overrides = RuleLibrary.Rules.Where(rule => rule.DefaultOn)
+            .ToDictionary(rule => rule.Id, _ => new { enabled = false });
+        File.WriteAllText(Path.Combine(root, ".quality", "rules.config.json"), JsonSerializer.Serialize(
+            new Dictionary<string, object>
+            {
+                ["$schema"] = RuleConfig.SchemaUri,
+                ["schemaVersion"] = 1,
+                ["overrides"] = overrides,
+            }));
     }
 
     [Fact]

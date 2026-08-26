@@ -271,9 +271,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var code = json.GetProperty("kinds").GetProperty("code");
-        var input = Assert.Single(code.GetProperty("inputs").EnumerateArray());
+        var input = Assert.Single(code.GetProperty("inputs").EnumerateArray(),
+            candidate => candidate.GetProperty("id").GetString() == "sample-rules");
         Assert.Equal("sample-rules", input.GetProperty("id").GetString());
         Assert.Equal("project", input.GetProperty("scope").GetString());
+        Assert.Contains(code.GetProperty("inputs").EnumerateArray(),
+            candidate => candidate.GetProperty("id").GetString() == "QS-NG-003");
         Assert.Empty(json.GetProperty("kinds").GetProperty("security").GetProperty("inputs").EnumerateArray());
     }
 
@@ -295,6 +298,19 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var inputs = await inputsResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Contains(inputs.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
             input => input.GetProperty("id").GetString() == "ui-created-rule");
+    }
+
+    [Fact]
+    public async Task Inputs_include_default_on_rules_without_writing_generated_files()
+    {
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync("/api/inputs", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var inputs = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains(inputs.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
+            input => input.GetProperty("id").GetString() == "QS-NG-003");
+        Assert.False(File.Exists(Path.Combine(repositoryRoot, ".quality", "inputs", "QS-NG-003.md")));
     }
 
     [Fact]

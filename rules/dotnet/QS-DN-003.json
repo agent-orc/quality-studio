@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-003",
+  "technology": "dotnet",
+  "category": "dependency-injection",
+  "title": "Singleton only for services with no per-operation state",
+  "statement": "A service is registered `AddSingleton` only when it holds no mutable state that varies per call (or protects that state itself, e.g. behind a lock or by only touching the filesystem per invocation). A collaborator whose behavior is parameterized per use - built around a specific request, agent, or run - is `AddTransient` or `AddScoped` instead.",
+  "rationale": "A singleton is constructed once and shared by every concurrent request; any field it sets from one call's input becomes visible, and possibly overwritten, by every other concurrent call. `GuidelineStore` is safely a singleton because every method takes `repositoryRoot` as a parameter and touches no shared mutable field; `GuidelineImpactAnalyzer` is `AddTransient` in the same file precisely because it is built to analyze one impact request.",
+  "severity": "high",
+  "autofixable": false,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "builder.Services.AddSingleton<GuidelineStore>();   // stateless: every method takes repositoryRoot as a parameter\nbuilder.Services.AddTransient<GuidelineImpactAnalyzer>();  // built fresh per impact analysis",
+    "caption": "Lifetime chosen by whether the service carries per-call state.",
+    "source": "src/QualityStudio.Api/Program.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "public sealed class ImpactAnalyzer\n{\n    private GuidelineDraft? _currentDraft; // set per call, read by other methods\n\n    public void SetDraft(GuidelineDraft draft) => _currentDraft = draft;\n    public Task<Result> AnalyzeAsync() => Analyze(_currentDraft!);\n}\nbuilder.Services.AddSingleton<ImpactAnalyzer>();",
+    "caption": "Per-call state on a singleton: concurrent requests overwrite each other's draft."
+  },
+  "tags": ["dependency-injection", "lifetime", "concurrency"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in the GuidelineStore/GuidelineImpactAnalyzer lifetime contrast in Program.cs." }
+  ]
+}

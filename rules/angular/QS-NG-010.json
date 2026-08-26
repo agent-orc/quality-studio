@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-010",
+  "technology": "angular",
+  "category": "change-detection",
+  "title": "Signals for component state, not manual RxJS subscribe/unsubscribe",
+  "statement": "Local component state is held in `signal()`/`computed()`, updated through `.set()`/`.update()`. A component does not `.subscribe()` to a stream to assign a plain field and then manage an `ngOnDestroy` unsubscribe by hand when a signal-based alternative (`toSignal`, or a signal fed by an existing API surface) is available.",
+  "rationale": "Manual subscriptions are a real, common leak source: a forgotten `ngOnDestroy`/`takeUntil` keeps the subscription (and everything it closes over) alive past the component's lifetime. Signals have no subscription to forget, and pair directly with OnPush (QS-NG-009): a signal write is exactly the kind of change OnPush is designed to notice. `review-panel.ts` holds its entire local state - over a dozen fields - as signals with no manual subscription anywhere in the file.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "typescript",
+    "code": "readonly handoverStatus = signal<Record<string, string>>({});\nreadonly dispositionMode = signal<'accept' | 'dismiss' | 'reopen' | null>(null);\nreadonly threadFilter = signal<'open' | 'resolved' | 'detached'>('open');",
+    "caption": "Local state as signals; no subscription to manage.",
+    "source": "frontend/src/app/review-panel/review-panel.ts"
+  },
+  "bad": {
+    "language": "typescript",
+    "code": "private sub?: Subscription;\nthreadFilter: 'open' | 'resolved' | 'detached' = 'open';\n\nngOnInit() {\n  this.sub = this.api.threadFilter$.subscribe(value => this.threadFilter = value);\n}\nngOnDestroy() {\n  this.sub?.unsubscribe();\n}",
+    "caption": "Manually managed subscription and plain-field state, easy to forget to unsubscribe."
+  },
+  "tags": ["signals", "rxjs", "memory-leak"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in review-panel.ts's exclusively signal-based local state." }
+  ]
+}
