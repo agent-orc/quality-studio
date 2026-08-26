@@ -80,7 +80,7 @@
     <p class="lede">The first package slice turns the existing Quality Studio kernel into a publishable NuGet boundary with a named-analysis facade. Agent Studio pipelines, the CLI, and CI can call the DLL directly. The Quality Studio API remains an adapter and the Angular UI remains a client of that API.</p>
     <div class="meta">
       <span><b>Status:</b> first slice implemented</span>
-      <span><b>Evidence cut:</b> 25 August 2026</span>
+      <span><b>Evidence cut:</b> 26 August 2026</span>
       <span><b>Source baseline:</b> origin/main e31089c</span>
       <span><b>Publication:</b> not performed</span>
     </div>
@@ -176,7 +176,7 @@ foreach (ReviewFinding finding in result.Findings)
       <tbody>
         <tr><td>Publishable package</td><td>Package ID/assembly/root namespace <code>AgentOrchestrator.CodeQuality</code>, version <code>0.1.0</code>, Apache-2.0, repository metadata, English package README, symbols package, and .NET 10 target.</td></tr>
         <tr><td>Stable facade</td><td>Named multi-analysis request, per-analysis configuration and scope, no-write default, QS findings, availability and provenance, discovery, cancellation, and clear unknown-name errors.</td></tr>
-        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. A temporary fixture produced 11 structured findings and the expected repository artifact.</td></tr>
+        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. An isolated source fixture produced 16 structured findings and the expected repository artifact.</td></tr>
         <tr><td>Host separation</td><td>Agent Studio HTTP client/tests and starter rule content moved to the API boundary. API routes and Angular source are unchanged.</td></tr>
         <tr><td>Release rail</td><td>CI now packs <code>.nupkg</code>/<code>.snupkg</code> and retains them as a workflow artifact. It does not publish.</td></tr>
       </tbody>
@@ -208,9 +208,9 @@ foreach (ReviewFinding finding in result.Findings)
       <li>API stable suite: 51 passed. Its machine-bound 5,000-file interaction-budget test also passed when rerun in isolation.</li>
       <li>Angular production build: succeeded with the baseline compiler, bundle-budget, and CommonJS warnings; the package split makes no frontend source change.</li>
       <li>Package: <code>AgentOrchestrator.CodeQuality.0.1.0.nupkg</code> and symbols package created; archive contains the DLL and README, with the expected NuGet dependency.</li>
-      <li>CLI proof: in-process boundary analysis produced 11 findings and a repository-owned inventory in a temporary fixture.</li>
+      <li>CLI proof: in-process boundary analysis produced 16 findings and a repository-owned inventory in an isolated source fixture.</li>
     </ul>
-    <p class="note"><b>Integration-baseline note:</b> the remote does not expose an <code>origin/develop</code> ref. The requested fresh rebase was therefore verified against the remote's active <code>origin/main</code> baseline at <code>e31089c</code>; it was clean. During concurrent full-suite execution, the existing machine-bound dashboard assertion measured 554 ms against its 150 ms budget. The same assertion passed in an immediate isolated rerun, while all 51 stable API tests passed. This timing-sensitive receipt is retained in the collected TRX files.</p>
+    <p class="note"><b>Integration-baseline note:</b> the remote does not expose an <code>origin/develop</code> ref. The requested fresh rebase was therefore verified against the remote's active <code>origin/main</code> baseline at <code>e31089c</code>; it was clean. All 51 stable API tests passed, and the existing machine-bound 5,000-file interaction-budget test passed in an isolated run. Both receipts are retained in the collected TRX files.</p>
     <h3>Next slices, not required for this proof</h3>
     <ol>
       <li>Add AGT-2655 as a package consumer and persist its transport-neutral result artifact; keep Studio gate/lane policy outside this DLL.</li>
@@ -220,7 +220,7 @@ foreach (ReviewFinding finding in result.Findings)
     </ol>
   </section>
 
-  <footer>Quality Studio · QS-91 · calm architecture record · refreshed from repository evidence on 25 August 2026</footer>
+  <footer>Quality Studio · QS-91 · calm architecture record · refreshed from repository evidence on 26 August 2026</footer>
 </main>
 </body>
 </html>
