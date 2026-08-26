@@ -152,6 +152,7 @@ export interface ImpactFinding { id: string; ruleId: string; severity: FindingSe
 export interface FileGuidelineImpact { path: string; before: ImpactFinding[]; after: ImpactFinding[]; added: ImpactFinding[]; removed: ImpactFinding[]; }
 export interface GuidelineImpact { guidelineId: string; kind: ReviewKind; files: FileGuidelineImpact[]; addedCount: number; removedCount: number; changed: boolean; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
+const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 export interface RepositoryRegistration {
   id: string;
   displayName: string;
@@ -439,22 +440,43 @@ export class QualityApi {
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
+    // Only the very first load may fall back to the remembered repository; later reloads
+    // (after onboarding, archiving, an import) must not drag the operator away from the
+    // repository they are looking at right now.
+    const firstLoad = this.repositories().length === 0;
     try {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
+      const remembered = firstLoad ? this.readLastRepositoryId() : null;
       const selected = result.repositories.some(repository => repository.id === preferredId)
         ? preferredId!
-        : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
-          ? this.selectedRepositoryId()
-          : result.defaultRepositoryId;
+        : result.repositories.some(repository => repository.id === remembered)
+          ? remembered!
+          : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
+            ? this.selectedRepositoryId()
+            : result.defaultRepositoryId;
       this.selectedRepositoryId.set(selected);
+      this.writeLastRepositoryId(selected);
     } catch (error) {
-      // A pre-registry server still exposes the legacy default endpoints.
-      this.legacyApi = true;
-      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
-      this.selectedRepositoryId.set('default');
-      console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
+      if (this.isUnreachable(error)) {
+        // Nothing answered, so there is nothing to conclude about the server's shape. Keep the
+        // registry and the selection the operator can still see instead of replacing them with a
+        // fabricated default; a retry that is still failing must not move them.
+        this.connectionState.set('offline');
+        console.warn(JSON.stringify({ event: 'qs.repositories.unreachable', reason: this.errorMessage(error) }));
+        return;
+      }
+      if (error instanceof HttpErrorResponse && error.status === 404) {
+        // A pre-registry server answers the legacy default endpoints instead.
+        this.legacyApi = true;
+        this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
+        this.selectedRepositoryId.set('default');
+        console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
+        return;
+      }
+      this.connectionState.set('preview');
+      console.warn(JSON.stringify({ event: 'qs.repositories.unavailable', reason: this.errorMessage(error) }));
     }
   }
 
@@ -462,22 +484,33 @@ export class QualityApi {
     const started = performance.now();
     const sequence = ++this.repositorySelectionSequence;
     this.selectedRepositoryId.set(id);
-    this.connectionState.set('connecting');
+    this.writeLastRepositoryId(id);
     this.file.set(null);
     this.attackCoverage.set(null);
     const treeSnapshot = this.treeSnapshots.get(id);
     const projectSnapshot = this.projectSnapshots.get(id);
-    this.tree.set(treeSnapshot ?? []);
+    const hasWarmSnapshot = treeSnapshot !== undefined && projectSnapshot !== undefined;
+    this.connectionState.set(hasWarmSnapshot ? 'live' : 'connecting');
+    if (hasWarmSnapshot) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (sequence === this.repositorySelectionSequence) this.tree.set(treeSnapshot);
+        });
+      });
+    } else {
+      this.tree.set(treeSnapshot ?? []);
+    }
     this.project.set(projectSnapshot ?? null);
     this.repositoryTransition.set({ repositoryId: id, hasSnapshot: projectSnapshot !== undefined });
     this.usage.set(emptyUsageReport());
-    await Promise.all([this.loadProjectDashboard(id), this.loadTree(id, false)]);
+    const refresh = Promise.all([this.loadProjectDashboard(id), this.loadTree(id, false)]);
+    if (!hasWarmSnapshot) await refresh;
     if (sequence !== this.repositorySelectionSequence) return;
-    const detailsLoading = Promise.all([
+    const detailsLoading = refresh.then(() => Promise.all([
       this.loadRepositoryDetails(id),
       this.loadReviewRuns(id),
       this.loadUsage(undefined, undefined, id),
-    ]);
+    ]));
     void detailsLoading.finally(() => {
       const remaining = Math.max(0, 250 - (performance.now() - started));
       setTimeout(() => {
@@ -522,7 +555,7 @@ export class QualityApi {
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
       if (repositoryId === this.selectedRepositoryId()) {
-        this.connectionState.set('preview');
+        this.connectionState.set(this.isUnreachable(error) ? 'offline' : 'preview');
         console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
       }
     }
@@ -698,7 +731,8 @@ export class QualityApi {
       this.file.set(file); this.connectionState.set('live');
     } catch (error) {
       this.file.set({ path, content: demoFile, metaDocuments: demoMeta, sizeBytes: demoFileSizeBytes, lineEnding: 'lf', encoding: 'utf-8', coverage: unknownCoverage() });
-      if (this.connectionState() !== 'live') this.connectionState.set('preview');
+      if (this.isUnreachable(error)) this.connectionState.set('offline');
+      else if (this.connectionState() !== 'live') this.connectionState.set('preview');
       console.warn(JSON.stringify({ event: 'qs.data.file-demo-fallback', path, reason: error instanceof Error ? error.message : 'API unavailable' }));
     } finally { this.loading.set(false); }
   }
@@ -716,6 +750,7 @@ export class QualityApi {
       this.projectSnapshots.set(repositoryId, project);
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.project.set(project);
+      this.connectionState.set('live');
       requestAnimationFrame(() => {
         if (repositoryId !== this.selectedRepositoryId()) return;
         const duration = performance.now() - start;
@@ -726,6 +761,7 @@ export class QualityApi {
       if (repositoryId === this.selectedRepositoryId()) {
         if (!this.projectSnapshots.has(repositoryId)) this.project.set(null);
         this.projectError.set(this.errorMessage(error));
+        this.noteConnectionFailure(error);
         console.warn(JSON.stringify({ event: 'qs.project.unavailable', repositoryId, reason: this.errorMessage(error) }));
       }
     } finally {
@@ -847,6 +883,31 @@ export class QualityApi {
       return error.error?.detail || error.error?.title || error.message;
     }
     return error instanceof Error ? error.message : 'The repository request failed.';
+  }
+
+  /** Re-runs the calls the shell needs after the API was unreachable. Each of them flips
+   *  `connectionState` back to 'live' on success, or leaves it 'offline' if nothing answers. */
+  async retryConnection(): Promise<void> {
+    await this.loadRepositories(this.selectedRepositoryId());
+    await Promise.all([this.loadProjectDashboard(), this.loadTree()]);
+  }
+
+  /** Status 0 means the browser never received a response. Reverse proxies commonly translate
+   *  the same unreachable upstream into 502/503/504, which must be equally honest in the UI. */
+  private isUnreachable(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && [0, 502, 503, 504].includes(error.status);
+  }
+
+  private noteConnectionFailure(error: unknown): void {
+    if (this.isUnreachable(error)) this.connectionState.set('offline');
+  }
+
+  private readLastRepositoryId(): string | null {
+    try { return localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY); } catch { return null; }
+  }
+
+  private writeLastRepositoryId(id: string): void {
+    try { localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id); } catch { /* storage unavailable or full */ }
   }
 
   private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {
