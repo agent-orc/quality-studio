@@ -1,6 +1,8 @@
 name: Release canary
 
 on:
+  schedule:
+    - cron: "17 3 * * 1-5"
   workflow_dispatch:
     inputs:
       run_live_review:
@@ -22,7 +24,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, quality-studio-canary]
     timeout-minutes: 75
     env:
-      CANARY_RESULTS: ${{ github.workspace }}/.canary-results
+      CANARY_RESULTS: ${{ runner.temp }}/quality-studio-canary
       CHROME_NO_SANDBOX: "1"
     steps:
       - name: Check out repository
@@ -120,7 +122,7 @@ jobs:
         run: >-
           dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj
           --configuration Release --no-build
-          --filter "Category=ExternalLive"
+          --filter "FullyQualifiedName~LiveReviewIntegrationTests"
           --logger "trx;LogFileName=live-review.trx"
           --results-directory "$CANARY_RESULTS/live-review"
 
@@ -129,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-canary-${{ github.run_id }}
-          path: ${{ github.workspace }}/.canary-results
+          path: ${{ runner.temp }}/quality-studio-canary
           if-no-files-found: error
           retention-days: 30
 
