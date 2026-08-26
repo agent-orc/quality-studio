@@ -1,6 +1,8 @@
 name: Release canary
 
 on:
+  schedule:
+    - cron: '17 3 * * 1'
   workflow_dispatch:
     inputs:
       run_live_review:
@@ -46,6 +48,9 @@ jobs:
           dotnet build QualityStudio.slnx --configuration Release --no-restore
           npm --prefix frontend ci
           npm --prefix frontend run browser:install
+
+      - name: Build production Angular candidate within budget
+        run: npm --prefix frontend run build
 
       - name: Record controlled-host metadata
         run: |
@@ -111,9 +116,15 @@ jobs:
         run: |
           if test -f "$CANARY_RESULTS/stack.pid"; then kill -TERM "$(cat "$CANARY_RESULTS/stack.pid")" || true; fi
 
+      - name: Verify live review dependency
+        id: live_dependency
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review }}
+        continue-on-error: true
+        run: command -v codex && codex --version
+
       - name: Run explicitly approved live review check
         id: live
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review && steps.live_dependency.outcome == 'success' }}
         continue-on-error: true
         env:
           QUALITY_RUN_LIVE_REVIEW: "1"
@@ -140,6 +151,7 @@ jobs:
           STACK_OUTCOME: ${{ steps.stack.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
           LIVE_OUTCOME: ${{ steps.live.outcome }}
+          LIVE_DEPENDENCY_OUTCOME: ${{ steps.live_dependency.outcome }}
           LIVE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_review }}
         run: |
           status=0
@@ -154,8 +166,13 @@ jobs:
             echo "product or machine variance: browser performance samples failed"
             status=1
           fi
-          if test "$LIVE_REQUESTED" = "true" && test "$LIVE_OUTCOME" != "success"; then
-            echo "product failed or external dependency unavailable: live review canary failed"
-            status=1
+          if test "$LIVE_REQUESTED" = "true"; then
+            if test "$LIVE_DEPENDENCY_OUTCOME" != "success"; then
+              echo "external dependency unavailable: Codex CLI is not ready"
+              status=1
+            elif test "$LIVE_OUTCOME" != "success"; then
+              echo "product failed: live review assertions failed after dependency preflight"
+              status=1
+            fi
           fi
           exit "$status"
