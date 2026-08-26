@@ -121,34 +121,62 @@ public sealed class RuleLibraryTests
     }
 
     [Fact]
-    public void SyncDefaultRules_installs_default_on_rules_and_respects_disable_overrides()
+    public void InputResolver_applies_default_on_rules_and_project_overrides_without_writes()
     {
-        var root = Path.Combine(Path.GetTempPath(), "rule-library-sync-tests", Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "rule-library-resolution-tests", Guid.NewGuid().ToString("N"));
         var disabledRuleId = RuleLibrary.Rules.First(rule => rule.DefaultOn).Id;
+        var adjustedRule = RuleLibrary.Rules.First(rule => rule.DefaultOn && rule.Id != disabledRuleId);
+        var optedInRule = RuleLibrary.Rules.First(rule => !rule.DefaultOn &&
+            rule.Kinds.Contains("code") && rule.Levels.Contains("file"));
         Directory.CreateDirectory(Path.Combine(root, ".quality"));
         File.WriteAllText(Path.Combine(root, ".quality", "rules.config.json"), $$"""
         {
           "$schema": "https://quality.studio/schemas/rule-config.v1.schema.json",
           "schemaVersion": 1,
           "overrides": {
-            "{{disabledRuleId}}": { "enabled": false, "reason": "test override" }
+            "{{disabledRuleId}}": { "enabled": false, "reason": "test override" },
+            "{{adjustedRule.Id}}": { "severity": "critical", "reason": "project impact is higher" },
+            "{{optedInRule.Id}}": { "enabled": true, "reason": "project uses this convention" }
           }
         }
         """);
         try
         {
-            var store = new GuidelineStore();
+            var resolved = new InputResolver().Resolve(root, "code", ReviewLevel.File);
+            var applicableDefaultCount = RuleLibrary.Rules.Count(rule => rule.DefaultOn &&
+                rule.Kinds.Contains("code") && rule.Levels.Contains("file"));
 
-            var firstSync = store.SyncDefaultRules(root);
-            var defaultOnCount = RuleLibrary.Rules.Count(rule => rule.DefaultOn);
-            Assert.Equal(defaultOnCount - 1, firstSync.Count(result => result.Action == "installed"));
-            var installedIds = store.List(root).Select(value => value.Id).ToHashSet(StringComparer.Ordinal);
-            Assert.DoesNotContain(disabledRuleId, installedIds);
-            Assert.Contains(RuleLibrary.Rules.First(rule => rule.DefaultOn && rule.Id != disabledRuleId).Id, installedIds);
+            Assert.Equal(applicableDefaultCount, resolved.Inputs.Count);
+            Assert.DoesNotContain(resolved.Inputs, input => input.Id == disabledRuleId);
+            Assert.Contains(resolved.Inputs, input => input.Id == optedInRule.Id);
+            Assert.Contains(resolved.Omissions,
+                omission => omission.Id == disabledRuleId && omission.Reason == "disabled-by-project");
+            var adjusted = Assert.Single(resolved.Inputs, input => input.Id == adjustedRule.Id);
+            Assert.Equal(95, adjusted.Priority);
+            Assert.Contains("Severity: critical", adjusted.Content, StringComparison.Ordinal);
+            Assert.False(Directory.Exists(Path.Combine(root, ".quality", "inputs")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
 
-            var secondSync = store.SyncDefaultRules(root);
-            Assert.All(secondSync.Where(result => result.Action != "removed"),
-                result => Assert.Equal("unchanged", result.Action));
+    [Fact]
+    public void RuleConfig_rejects_unknown_rule_ids()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rule-library-invalid-config-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, ".quality"));
+        File.WriteAllText(Path.Combine(root, ".quality", "rules.config.json"), """
+        {
+          "$schema": "https://quality.studio/schemas/rule-config.v1.schema.json",
+          "schemaVersion": 1,
+          "overrides": { "QS-NG-999": { "enabled": false } }
+        }
+        """);
+        try
+        {
+            Assert.Throws<JsonException>(() => RuleConfig.Load(root));
         }
         finally
         {

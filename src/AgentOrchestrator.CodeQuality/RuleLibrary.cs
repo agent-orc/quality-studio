@@ -4,7 +4,12 @@ using System.Text.Json.Serialization;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public sealed record RuleExample(string Language, string Code, string? Caption = null, string? Source = null);
+public sealed record RuleExample(
+    string Language,
+    string Code,
+    string? Caption = null,
+    string? Source = null,
+    string SourceRepository = "quality-studio");
 
 public sealed record RuleChangelogEntry(string Version, string Date, string Summary);
 
@@ -28,7 +33,10 @@ public sealed record RuleDefinition(
     RuleExample Bad,
     IReadOnlyList<string> Tags,
     string Version,
-    string Status = "active");
+    IReadOnlyList<RuleChangelogEntry> Changelog,
+    string Status = "active",
+    string? SupersededBy = null,
+    int SchemaVersion = 1);
 
 /// <summary>
 /// Loads the embedded rules/**/*.json tree (linked into this assembly the same way prompts/ and
@@ -51,16 +59,28 @@ public static class RuleLibrary
         Rules.SingleOrDefault(rule => string.Equals(rule.Id, id, StringComparison.Ordinal))
         ?? throw new KeyNotFoundException($"Rule '{id}' was not found in the rule library.");
 
-    public static string RenderContent(RuleDefinition rule)
+    public static string RenderContent(RuleDefinition rule, string? severity = null) =>
+        Render(rule, severity, includeExamples: true);
+
+    internal static string RenderPromptContext(RuleDefinition rule, string? severity = null) =>
+        Render(rule, severity, includeExamples: false);
+
+    private static string Render(RuleDefinition rule, string? severity, bool includeExamples)
     {
+        severity ??= rule.Severity;
+        if (!Severities.Contains(severity))
+            throw new ArgumentException($"Unsupported rule severity '{severity}'.", nameof(severity));
         var builder = new StringBuilder();
         builder.Append('[').Append(rule.Id).Append("] ").Append(rule.Title.Trim());
         builder.Append("\n\n").Append(rule.Statement.Trim());
         builder.Append("\n\nWhy this rule exists: ").Append(rule.Rationale.Trim());
-        builder.Append("\n\nSeverity: ").Append(rule.Severity)
+        builder.Append("\n\nSeverity: ").Append(severity)
             .Append(". Autofixable: ").Append(rule.Autofixable ? "yes" : "no").Append('.');
-        AppendExample(builder, "Good", rule.Good);
-        AppendExample(builder, "Avoid", rule.Bad);
+        if (includeExamples)
+        {
+            AppendExample(builder, "Good", rule.Good);
+            AppendExample(builder, "Avoid", rule.Bad);
+        }
         return builder.ToString();
     }
 
@@ -78,7 +98,7 @@ public static class RuleLibrary
         rule.Statement,
         new GuidelineDraft(rule.Id, true, Priority(rule.Severity), rule.Kinds, rule.Levels, RenderContent(rule)));
 
-    private static int Priority(string severity) => severity switch
+    internal static int Priority(string severity) => severity switch
     {
         "critical" => 95,
         "high" => 85,
@@ -131,12 +151,20 @@ public static class RuleLibrary
             string.IsNullOrWhiteSpace(rule.Statement) || string.IsNullOrWhiteSpace(rule.Rationale) ||
             string.IsNullOrWhiteSpace(rule.Version))
             throw new JsonException($"Rule resource '{source}' is missing a required field.");
+        if (rule.SchemaVersion != 1)
+            throw new JsonException($"Rule resource '{source}' has an unsupported schemaVersion.");
         if (!Severities.Contains(rule.Severity))
             throw new JsonException($"Rule resource '{source}' has an unsupported severity '{rule.Severity}'.");
         if (rule.Kinds is not { Count: > 0 } || rule.Levels is not { Count: > 0 })
             throw new JsonException($"Rule resource '{source}' requires at least one kind and one level.");
         if (rule.Good is null || rule.Bad is null)
             throw new JsonException($"Rule resource '{source}' requires both a good and a bad example.");
+        if (rule.Changelog is not { Count: > 0 })
+            throw new JsonException($"Rule resource '{source}' requires a non-empty changelog.");
+        if (rule.Status is not ("active" or "deprecated"))
+            throw new JsonException($"Rule resource '{source}' has an unsupported status '{rule.Status}'.");
+        if (rule.Status == "deprecated" && string.IsNullOrWhiteSpace(rule.SupersededBy))
+            throw new JsonException($"Deprecated rule resource '{source}' requires supersededBy.");
         if (!source.Contains("." + rule.Id + ".json", StringComparison.Ordinal))
             throw new JsonException($"Rule resource '{source}' file name must match its id '{rule.Id}'.");
     }

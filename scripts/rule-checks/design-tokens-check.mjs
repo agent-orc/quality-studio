@@ -10,7 +10,7 @@
 //   targetDir  defaults to frontend/src
 //   reportPath defaults to .quality/rule-checks/design-tokens.sarif.json
 
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,22 +22,27 @@ const HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
 // Raw px values, excluding the accepted 1px hairline-border exception (QS-NG-003).
 const RAW_PX = /(?<![\w-])(?!1px\b)\d+(?:\.\d+)?px\b/g;
 
-async function collectCssFiles(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
+async function collectCssFiles(path) {
+  const metadata = await stat(path);
+  if (metadata.isFile()) return path.endsWith('.css') ? [path] : [];
+  const entries = await readdir(path, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
-    const full = join(dir, entry.name);
+    const full = join(path, entry.name);
     if (entry.isDirectory()) files.push(...(await collectCssFiles(full)));
     else if (entry.name.endsWith('.css')) files.push(full);
   }
   return files;
 }
 
-function stripRootBlocks(content) {
+function stripIgnoredContent(content) {
   // Token declarations themselves (":root { --studio-space-1: 4px; ... }") are the source of
-  // truth, not a violation; strip every :root[...]{...} block before scanning for raw literals.
-  return content.replace(/:root(?:\[[^\]]*])?\s*\{[^}]*\}/g, (match) => ' '.repeat(match.length));
+  // truth, not a violation. Comments are not executable CSS. Replace both with same-length spaces
+  // so SARIF line and column positions still match the original source.
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, (match) => match.replace(/[^\n]/g, ' '))
+    .replace(/:root(?:\[[^\]]*])?\s*\{[^}]*\}/g, (match) => match.replace(/[^\n]/g, ' '));
 }
 
 function lineAndColumnAt(content, index) {
@@ -63,7 +68,7 @@ async function main() {
 
   for (const file of files) {
     const raw = await readFile(file, 'utf8');
-    const scanned = stripRootBlocks(raw);
+    const scanned = stripIgnoredContent(raw);
     const relativePath = relative(repositoryRoot, file).replaceAll('\\', '/');
 
     for (const match of [...findMatches(scanned, HEX_COLOR), ...findMatches(scanned, RAW_PX)]) {

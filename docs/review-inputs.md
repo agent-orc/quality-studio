@@ -25,10 +25,10 @@ original broad .NET, Angular / TypeScript, testing, and security entries, plus
 every named rule from the [rule library](concepts/rule-library.md)
 (`rules/angular/QS-NG-*.json`, `rules/dotnet/QS-DN-*.json`); installing any one of
 them copies it into `.quality/inputs` so it can be edited like any other
-guideline. The rule library's `defaultOn` rules install themselves into every
-project automatically via `POST /api/guidelines/sync-defaults`, subject to a
-project's optional `.quality/rules.config.json` overrides — see the rule library
-doc for the full default-on/override contract.
+guideline. The rule library's `defaultOn` rules are included automatically by
+input resolution for every project, without writing generated files, subject to
+the project's optional `.quality/rules.config.json` overrides - see the rule
+library doc for the full default-on/override contract.
 
 The default 12,000-character budget is configurable as `QualityStudio:InputBudgetCharacters` or with `--input-budget`. Partial and omitted content is reported by the resolver and persisted in `reviewInputs.omitted`; it is never silently dropped.
 

@@ -5,7 +5,7 @@
   "technology": "dotnet",
   "category": "dependency-injection",
   "title": "Singleton only for services with no per-operation state",
-  "statement": "A service is registered `AddSingleton` only when it holds no mutable state that varies per call (or protects that state itself, e.g. behind a lock or by only touching the filesystem per invocation). A collaborator whose behavior is parameterized per use — built around a specific request, agent, or run — is `AddTransient` or `AddScoped` instead.",
+  "statement": "A service is registered `AddSingleton` only when it holds no mutable state that varies per call (or protects that state itself, e.g. behind a lock or by only touching the filesystem per invocation). A collaborator whose behavior is parameterized per use - built around a specific request, agent, or run - is `AddTransient` or `AddScoped` instead.",
   "rationale": "A singleton is constructed once and shared by every concurrent request; any field it sets from one call's input becomes visible, and possibly overwritten, by every other concurrent call. `GuidelineStore` is safely a singleton because every method takes `repositoryRoot` as a parameter and touches no shared mutable field; `GuidelineImpactAnalyzer` is `AddTransient` in the same file precisely because it is built to analyze one impact request.",
   "severity": "high",
   "autofixable": false,

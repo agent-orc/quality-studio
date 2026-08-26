@@ -24,10 +24,10 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "false disables a defaultOn rule for this project (SyncDefaultRules removes its installed guideline file on the next sync). true re-enables a rule the project had previously disabled."
+          "description": "false excludes this rule id from project review context, including an installed same-id guideline. true includes a normally off-by-default rule automatically."
         },
         "severity": {
-          "description": "Project-local severity override, informational only in v1: it is recorded and surfaced next to the rule but the review prompt still asks the agent to use its own judgement, so it is not a hard cap or floor on reported findings.",
+          "description": "Project-local default severity. Input resolution renders it into the named rule context and uses its severity priority for budgeting; a reviewer can still adjust a concrete finding for actual impact.",
           "enum": ["critical", "high", "medium", "low", "info"]
         },
         "reason": {

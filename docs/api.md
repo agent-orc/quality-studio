@@ -142,11 +142,6 @@ curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/security-boundaries/i
 curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/QS-NG-003/install"
 # 201 and installs one named rule from rules/ (see docs/concepts/rule-library.md) as an editable copy
 
-curl -X POST "http://127.0.0.1:5127/api/guidelines/sync-defaults"
-# 200 {"results":[{"ruleId":"QS-NG-003","action":"installed"},{"ruleId":"QS-DN-002","action":"unchanged"},...]}
-# installs/updates every defaultOn rule not disabled by .quality/rules.config.json, and removes a
-# previously synced file for a rule the project has explicitly disabled. Safe to call repeatedly.
-
 curl -X POST "http://127.0.0.1:5127/api/guidelines/impact" -H "Content-Type: application/json" \
   -d '{"guideline":{"id":"api-boundaries","enabled":true,"priority":80,"kinds":["code"],"levels":["file"],"content":"Validate all public boundary input."},"samplePaths":["src/Api.cs"],"kind":"code"}'
 # 200 {"addedCount":1,"removedCount":0,"changed":true,"files":[...]}

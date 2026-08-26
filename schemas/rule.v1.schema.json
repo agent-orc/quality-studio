@@ -53,19 +53,21 @@
     },
     "defaultOn": {
       "type": "boolean",
-      "description": "Whether this rule belongs to the default-on core that GuidelineStore.SyncDefaultRules installs into every project unless a project overrides it in .quality/rules.config.json."
+      "description": "Whether InputResolver includes this rule automatically for every project unless .quality/rules.config.json overrides it."
     },
     "kinds": {
       "type": "array",
       "description": "Review kinds the rule participates in.",
       "minItems": 1,
-      "items": { "enum": ["code", "security", "performance", "all"] }
+      "items": { "enum": ["code", "security", "performance", "all"] },
+      "uniqueItems": true
     },
     "levels": {
       "type": "array",
       "description": "Review hierarchy levels the rule applies at.",
       "minItems": 1,
-      "items": { "enum": ["project", "module", "namespace", "file", "function", "all"] }
+      "items": { "enum": ["project", "module", "namespace", "file", "function", "all"] },
+      "uniqueItems": true
     },
     "good": { "$ref": "#/$defs/example" },
     "bad": { "$ref": "#/$defs/example" },
@@ -91,6 +93,7 @@
     "changelog": {
       "type": "array",
       "description": "Append-only history of substantive changes to this rule, newest first.",
+      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -103,6 +106,15 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "deprecated" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["supersededBy"] }
+    }
+  ],
   "$defs": {
     "example": {
       "type": "object",
@@ -114,10 +126,16 @@
         "caption": { "type": "string", "maxLength": 300 },
         "source": {
           "type": "string",
-          "description": "Repository-relative path the example was grounded in, when it is a real excerpt rather than illustrative.",
+          "description": "Path relative to sourceRepository that grounds a real excerpt. Omit for illustrative target-state examples.",
           "maxLength": 2000
+        },
+        "sourceRepository": {
+          "description": "Codebase in which source is resolved.",
+          "enum": ["quality-studio", "agent-studio"],
+          "default": "quality-studio"
         }
-      }
+      },
+      "dependentRequired": { "sourceRepository": ["source"] }
     }
   }
 }

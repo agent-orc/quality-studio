@@ -266,8 +266,6 @@ app.MapDelete("/api/guidelines/{guidelineId}", DeleteGuideline);
 app.MapDelete("/api/repos/{repoId}/guidelines/{guidelineId}", DeleteGuideline);
 app.MapPost("/api/guidelines/catalog/{catalogueId}/install", InstallGuideline);
 app.MapPost("/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install", InstallGuideline);
-app.MapPost("/api/guidelines/sync-defaults", SyncDefaultRules);
-app.MapPost("/api/repos/{repoId}/guidelines/sync-defaults", SyncDefaultRules);
 app.MapPost("/api/guidelines/impact", GuidelineImpact);
 app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
 app.MapGet("/api/scan", Scan);
@@ -790,12 +788,6 @@ static IResult InstallGuideline(HttpContext context, string catalogueId, Reposit
     var (_, repository) = ResolveRepository(context, registry);
     var installed = store.Install(repository.Root, catalogueId);
     return Results.Created($"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}", installed);
-}
-
-static IResult SyncDefaultRules(HttpContext context, RepositoryRegistry registry, GuidelineStore store)
-{
-    var (_, repository) = ResolveRepository(context, registry);
-    return Results.Ok(new { results = store.SyncDefaultRules(repository.Root) });
 }
 
 static async Task<IResult> GuidelineImpact(HttpContext context, GuidelineImpactRequest request,

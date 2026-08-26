@@ -73,8 +73,8 @@ diff**; Code Quality is the **standing truth of the codebase**.
 
 - Project graph may consume and visualize the hierarchy's derived upper levels;
   workspace/solution/compiler structure remains the source of truth.
-- Style-guide layer supplies the per-technology rules that reviews check against
-  — see [`docs/concepts/rule-library.md`](docs/concepts/rule-library.md) for the
+- Style-guide layer supplies the per-technology rules that reviews check against;
+  see [`docs/concepts/rule-library.md`](docs/concepts/rule-library.md) for the
   named rule format, seed sets, and default-on/override contract.
 - Retro-grading and the remote review pipeline of Agent Studio are execution paths.
 

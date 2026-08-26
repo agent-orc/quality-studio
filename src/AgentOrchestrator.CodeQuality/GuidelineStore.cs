@@ -27,9 +27,6 @@ public sealed record GuidelineCatalogueEntry(
     string Description,
     GuidelineDraft Guideline);
 
-/// <summary>One rule's outcome from <see cref="GuidelineStore.SyncDefaultRules"/>.</summary>
-public sealed record RuleSyncResult(string RuleId, string Action);
-
 public sealed partial class GuidelineStore
 {
     private static readonly HashSet<string> ReviewKinds = ["code", "security", "performance", "all", "*"];
@@ -101,55 +98,6 @@ public sealed partial class GuidelineStore
         var entry = Catalogue.SingleOrDefault(value => StringComparer.Ordinal.Equals(value.Id, catalogueId))
             ?? throw new KeyNotFoundException($"Catalogue guideline '{catalogueId}' was not found.");
         return Create(repositoryRoot, entry.Guideline);
-    }
-
-    /// <summary>
-    /// Applies the rule library's default-on core to one project: installs or updates the guideline
-    /// file for every rule whose effective enabled state (rules.config.json override, falling back to
-    /// the rule's own defaultOn) is true, and removes a previously synced file for a rule a project
-    /// has explicitly disabled. Safe to call repeatedly; a no-op when nothing changed. Rule-authored
-    /// content always wins on sync -- hand edits to a synced file are overwritten on the next call, by
-    /// design (see docs/concepts/rule-library.md#default-on-sync).
-    /// </summary>
-    public IReadOnlyList<RuleSyncResult> SyncDefaultRules(string repositoryRoot)
-    {
-        var config = RuleConfig.Load(repositoryRoot);
-        var existing = List(repositoryRoot).ToDictionary(value => value.Id, StringComparer.Ordinal);
-        var results = new List<RuleSyncResult>();
-        foreach (var rule in RuleLibrary.Rules)
-        {
-            var enabled = config.IsEnabled(rule.Id, rule.DefaultOn);
-            var draft = RuleLibrary.CatalogueEntries
-                .Single(entry => StringComparer.Ordinal.Equals(entry.Id, rule.Id)).Guideline;
-            var current = existing.GetValueOrDefault(rule.Id);
-            if (!enabled)
-            {
-                if (current is not null)
-                {
-                    Delete(repositoryRoot, rule.Id);
-                    results.Add(new RuleSyncResult(rule.Id, "removed"));
-                }
-                continue;
-            }
-            if (current is null)
-            {
-                Create(repositoryRoot, draft);
-                results.Add(new RuleSyncResult(rule.Id, "installed"));
-            }
-            else if (!string.Equals(current.Content, draft.Content, StringComparison.Ordinal) ||
-                      current.Priority != draft.Priority ||
-                      !current.Kinds.SequenceEqual(draft.Kinds, StringComparer.Ordinal) ||
-                      !current.Levels.SequenceEqual(draft.Levels, StringComparer.Ordinal))
-            {
-                Update(repositoryRoot, rule.Id, draft);
-                results.Add(new RuleSyncResult(rule.Id, "updated"));
-            }
-            else
-            {
-                results.Add(new RuleSyncResult(rule.Id, "unchanged"));
-            }
-        }
-        return results;
     }
 
     public static string Serialize(GuidelineDraft draft)

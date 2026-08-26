@@ -1,0 +1,11 @@
+:root {
+  --studio-space-2: 8px;
+  --studio-surface: #fff;
+}
+
+/* A comment containing 12px and #abc is not executable CSS. */
+.card {
+  padding: 8px;
+  border: 1px solid var(--studio-surface);
+  color: #fff;
+}

@@ -151,7 +151,6 @@ export interface GuidelineTrace { guidelineId: string; findingsCount: number; fi
 export interface ImpactFinding { id: string; ruleId: string; severity: FindingSeverity; title: string; path: string; line: number | null; }
 export interface FileGuidelineImpact { path: string; before: ImpactFinding[]; after: ImpactFinding[]; added: ImpactFinding[]; removed: ImpactFinding[]; }
 export interface GuidelineImpact { guidelineId: string; kind: ReviewKind; files: FileGuidelineImpact[]; addedCount: number; removedCount: number; changed: boolean; }
-export interface RuleSyncResult { ruleId: string; action: 'installed' | 'updated' | 'removed' | 'unchanged'; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
 export interface RepositoryRegistration {
   id: string;
@@ -806,12 +805,6 @@ export class QualityApi {
     const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.repositoryApiBase()}/guidelines/catalog/${encodeURIComponent(catalogueId)}/install`, {}));
     await this.loadTree();
     return guideline;
-  }
-
-  async syncDefaultRules(): Promise<RuleSyncResult[]> {
-    const response = await firstValueFrom(this.http.post<{ results: RuleSyncResult[] }>(`${this.repositoryApiBase()}/guidelines/sync-defaults`, {}));
-    await this.loadTree();
-    return response.results;
   }
 
   async guidelineImpact(guideline: GuidelineDraft, samplePaths: string[], kind: ReviewKind): Promise<GuidelineImpact> {

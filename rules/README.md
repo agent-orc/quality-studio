@@ -12,9 +12,9 @@ rules/
 Format, seed-set rationale, review integration, versioning, and the
 per-project override file are documented in
 [`docs/concepts/rule-library.md`](../docs/concepts/rule-library.md). Don't
-edit rule content without reading that first — `defaultOn: true` rules are
-synced automatically into every project's `.quality/inputs/` unless
-overridden in `.quality/rules.config.json`
+edit rule content without reading that first - `defaultOn: true` rules are
+included automatically in every project's review inputs unless overridden in
+`.quality/rules.config.json`
 ([`schemas/rule-config.v1.schema.json`](../schemas/rule-config.v1.schema.json)).
 
 These files are embedded into the `AgentOrchestrator.CodeQuality` assembly

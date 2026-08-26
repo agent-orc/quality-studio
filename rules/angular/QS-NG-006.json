@@ -14,8 +14,10 @@
   "levels": ["file", "module"],
   "good": {
     "language": "html",
-    "code": "<qs-badge variant=\"info\">anchor healed</qs-badge>",
-    "caption": "Target shape: one shared badge primitive, varied by input."
+    "code": "<app-count-badge [value]=\"count()\" />\n<app-count-badge [value]=\"count()\" [tone]=\"active() ? 'active' : 'default'\" />",
+    "caption": "Agent Studio's CountBadgeComponent is the canonical count pill reused by headers, tree rows, tabs and CLI rows.",
+    "source": "frontend/src/app/components/count-badge/count-badge.component.ts",
+    "sourceRepository": "agent-studio"
   },
   "bad": {
     "language": "css",

@@ -6,7 +6,7 @@
   "category": "api-shape",
   "title": "Async handlers accept and forward the request CancellationToken",
   "statement": "A minimal API handler that awaits I/O declares a `CancellationToken cancellationToken` parameter (minimal APIs bind it to the request-aborted token automatically) and passes that same token into every async call it makes, instead of `default`/`CancellationToken.None`.",
-  "rationale": "ASP.NET Core cancels the bound token when the client disconnects or the request times out. A handler that drops the token keeps doing work — file reads, review agent calls, sensor scans — for a caller that already left, wasting the exact review-agent tokens and wall-clock the rest of this codebase is careful to account for.",
+  "rationale": "ASP.NET Core cancels the bound token when the client disconnects or the request times out. A handler that drops the token keeps doing work - file reads, review agent calls, sensor scans - for a caller that already left, wasting the exact review-agent tokens and wall-clock the rest of this codebase is careful to account for.",
   "severity": "medium",
   "autofixable": false,
   "defaultOn": true,

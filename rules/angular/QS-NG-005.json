@@ -14,8 +14,10 @@
   "levels": ["file", "module"],
   "good": {
     "language": "html",
-    "code": "<qs-dialog [open]=\"repositoryDialogOpen()\" (closed)=\"repositoryDialogOpen.set(false)\">\n  <!-- feature-specific content only -->\n</qs-dialog>",
-    "caption": "Target shape: one shared dialog component owns backdrop, focus and close behavior."
+    "code": "<app-dialog\n  [title]=\"error().title\"\n  role=\"alertdialog\"\n  (closeRequest)=\"closeRequest.emit()\"\n  (backdropClick)=\"closeRequest.emit()\">\n  <!-- feature-specific content only -->\n</app-dialog>",
+    "caption": "Agent Studio's error surface reuses the shared DialogComponent, which owns backdrop, ARIA and close behavior.",
+    "source": "frontend/src/app/components/error-dialog/error-dialog.component.html",
+    "sourceRepository": "agent-studio"
   },
   "bad": {
     "language": "html",
