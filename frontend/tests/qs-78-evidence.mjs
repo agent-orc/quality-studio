@@ -144,6 +144,10 @@ try {
   record('failed-retry-keeps-place', `still on "${stillSelected}" after retrying against an unreachable API`);
 
   // Recovered connection clears the bar; the operator only has to press Retry.
+  await page.waitForFunction(() => {
+    const retry = document.querySelector('.api-offline-bar button');
+    return retry instanceof HTMLButtonElement && !retry.disabled;
+  });
   await page.unroute('**/api/**');
   await page.locator('.api-offline-bar button').click();
   await bar.waitFor({ state: 'detached', timeout: 30_000 });
