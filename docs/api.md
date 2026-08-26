@@ -139,6 +139,15 @@ curl -X POST "http://127.0.0.1:5127/api/guidelines" -H "Content-Type: applicatio
 curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/security-boundaries/install"
 # 201 and installs an editable repository copy
 
+curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/QS-NG-003/install"
+# 201 and installs one named rule from rules/ (see docs/concepts/rule-library.md) as an editable copy
+
+curl -X POST "http://127.0.0.1:5127/api/guidelines/sync-defaults"
+# 200 {"results":[{"ruleId":"QS-NG-003","action":"installed"},{"ruleId":"QS-DN-002","action":"unchanged"},...]}
+# optionally materializes/updates every effective rule under .quality/inputs and removes a
+# previously synced file for a disabled rule. Safe to call repeatedly. Reviews already resolve the
+# effective default-on set automatically; this endpoint is not required for rules to apply.
+
 curl -X POST "http://127.0.0.1:5127/api/guidelines/impact" -H "Content-Type: application/json" \
   -d '{"guideline":{"id":"api-boundaries","enabled":true,"priority":80,"kinds":["code"],"levels":["file"],"content":"Validate all public boundary input."},"samplePaths":["src/Api.cs"],"kind":"code"}'
 # 200 {"addedCount":1,"removedCount":0,"changed":true,"files":[...]}

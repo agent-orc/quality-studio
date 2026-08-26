@@ -23,7 +23,8 @@ public sealed class InputResolverTests : IDisposable
         Write(Project, "project.md", "project", "code", "file", 100, "project");
         Write(Project, "security.md", "security", "security", "file", 200, "ignored");
 
-        var result = new InputResolver().Resolve(root, "code", ReviewLevel.File, global);
+        var result = new InputResolver().Resolve(root, "code", ReviewLevel.File, global,
+            includeRuleLibraryDefaults: false);
 
         Assert.Equal(["global-high", "global-low", "project"], result.Inputs.Select(input => input.Id));
         Assert.All(result.Inputs.Take(2), input => Assert.Equal("global", input.Scope));
@@ -35,7 +36,8 @@ public sealed class InputResolverTests : IDisposable
         Write(global, "rules.md", "rules", "all", "all", 10, "global body");
         Write(Project, "rules.md", "rules", "code", "file", 1, "project body");
 
-        var result = new InputResolver().Resolve(root, "code", ReviewLevel.File, global);
+        var result = new InputResolver().Resolve(root, "code", ReviewLevel.File, global,
+            includeRuleLibraryDefaults: false);
 
         var input = Assert.Single(result.Inputs);
         Assert.Equal("project", input.Scope);
@@ -50,7 +52,8 @@ public sealed class InputResolverTests : IDisposable
         Write(global, "first.md", "first", "all", "all", 2, "123456");
         Write(global, "second.md", "second", "all", "all", 1, "abcdef");
 
-        var result = new InputResolver().Resolve(root, "performance", ReviewLevel.File, global, 8);
+        var result = new InputResolver().Resolve(root, "performance", ReviewLevel.File, global, 8,
+            includeRuleLibraryDefaults: false);
 
         Assert.Equal("123456", result.Inputs[0].IncludedContent);
         Assert.Equal("ab", result.Inputs[1].IncludedContent);
@@ -65,14 +68,39 @@ public sealed class InputResolverTests : IDisposable
         var store = new GuidelineStore();
         var created = store.Create(root, new GuidelineDraft("api-boundaries", true, 42, ["code"], ["file"], "Validate boundary input."));
 
-        var resolved = new InputResolver().Resolve(root, "code", ReviewLevel.File);
+        var resolved = new InputResolver().Resolve(root, "code", ReviewLevel.File,
+            includeRuleLibraryDefaults: false);
 
         Assert.Equal("api-boundaries.md", created.FileName);
         Assert.Equal("Validate boundary input.", Assert.Single(resolved.Inputs).IncludedContent);
         Assert.Contains("enabled: true", File.ReadAllText(Path.Combine(Project, created.FileName)), StringComparison.Ordinal);
 
         store.Update(root, created.Id, new GuidelineDraft(created.Id, false, 42, ["code"], ["file"], created.Content));
-        Assert.Empty(new InputResolver().Resolve(root, "code", ReviewLevel.File).Inputs);
+        Assert.Empty(new InputResolver().Resolve(root, "code", ReviewLevel.File,
+            includeRuleLibraryDefaults: false).Inputs);
+    }
+
+    [Fact]
+    public void Repository_config_adjusts_an_explicit_named_rule_without_requiring_sync()
+    {
+        Write(Project, "QS-NG-004.md", "QS-NG-004", "code", "file", 1, "Project-specific token guidance.");
+        File.WriteAllText(Path.Combine(root, ".quality", "rules.config.json"), """
+        {
+          "$schema": "https://quality.studio/schemas/rule-config.v1.schema.json",
+          "schemaVersion": 1,
+          "overrides": {
+            "QS-NG-004": { "severity": "high", "reason": "release policy" }
+          }
+        }
+        """);
+
+        var resolved = new InputResolver().Resolve(root, "code", ReviewLevel.File, budgetCharacters: 100_000);
+        var adjusted = Assert.Single(resolved.Inputs, input => input.Id == "QS-NG-004");
+
+        Assert.Equal(85, adjusted.Priority);
+        Assert.Contains("Project-specific token guidance.", adjusted.Content, StringComparison.Ordinal);
+        Assert.Contains("effective severity high", adjusted.Content, StringComparison.Ordinal);
+        Assert.Contains("release policy", adjusted.Content, StringComparison.Ordinal);
     }
 
     private string Project => Path.Combine(root, ".quality", "inputs");

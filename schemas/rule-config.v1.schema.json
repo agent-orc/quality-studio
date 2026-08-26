@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/rule-config.v1.schema.json",
+  "title": "Quality Studio per-project rule configuration",
+  "description": "Optional file at <repository>/.quality/rules.config.json. Lists only deviations from the rule library's shipped defaultOn set; the default set itself is not repeated here. Versioned with the code, exactly like any other reviewed file. Absence of this file means every defaultOn rule applies unmodified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/rule-config.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "overrides": {
+      "type": "object",
+      "description": "Keyed by rule id. Each entry adjusts one rule for this project only; it never adds a rule that isn't in the shipped library.",
+      "propertyNames": { "pattern": "^QS-[A-Z]{2,6}-[0-9]{3}$" },
+      "additionalProperties": { "$ref": "#/$defs/override" }
+    }
+  },
+  "$defs": {
+    "override": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "false disables the rule for this repository (including any previously materialized copy); true enables an off-by-default rule or re-enables a rule previously disabled."
+        },
+        "severity": {
+          "description": "Repository-local severity guidance. It changes prompt priority and is surfaced next to the library default, but the reviewing agent still judges each concrete finding, so it is not a hard cap or floor.",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why this project deviates from the default. Required in review so overrides stay explainable, not schema-enforced.",
+          "maxLength": 400
+        }
+      }
+    }
+  }
+}
