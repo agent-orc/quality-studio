@@ -206,9 +206,25 @@ use `--fail-under <score>` and `--fail-on <severity>`. See
 [`docs/quality-reports.md`](docs/quality-reports.md) for report semantics,
 endpoint formats, and documented exit codes.
 
+## In-process analysis package
+
+`QualityStudio.Analysis.Core` is the headless library boundary for pipeline,
+CLI, and CI consumers. Run a named analysis through the real CLI caller without
+starting the API or UI:
+
+```shell
+dotnet run --project src/quality-cli -- analyze coverage .
+dotnet run --project src/quality-cli -- analyze dependencies . --config ecosystems=dotnet
+```
+
+See the [package README](src/AgentOrchestrator.CodeQuality/README.md) for the
+programmatic surface and the
+[analysis-core decision dossier](docs/operations/analysis-core-package/index.html)
+for the package split, standalone consumers, and repository-extraction criteria.
+
 ## Repository layout
 
-- `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
+- `src/AgentOrchestrator.CodeQuality/` contains the publishable in-process analysis package.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 

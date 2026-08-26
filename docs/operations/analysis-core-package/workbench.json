@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "Quality Analysis as an In-Process Package",
+  "summary": "QS-91 inventory, target split, standalone-consumer answer, repository-extraction recommendation, and verified first slice for the publishable QualityStudio.Analysis.Core package.",
+  "entrypoint": "index.html",
+  "status": "implemented",
+  "phase": "first-slice",
+  "updatedAt": "2026-08-26T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-91"
+  ],
+  "relatedTaskKeys": [
+    "QS-90",
+    "AGT-2655"
+  ],
+  "decision": {
+    "state": "recommendation-pending-operator-confirmation",
+    "implementedDirection": "Consume Quality Studio analysis in-process through a NuGet package; keep API and UI as optional hosts.",
+    "repositoryRecommendation": "Keep the core project in the Quality Studio repository for now; do not extract without a later operator decision.",
+    "packageId": "QualityStudio.Analysis.Core",
+    "packageVersion": "0.1.0",
+    "proofConsumer": "quality-cli",
+    "evidenceLinks": [
+      "docs/operations/analysis-core-package/index.html",
+      "src/AgentOrchestrator.CodeQuality/README.md",
+      "src/AgentOrchestrator.CodeQuality/QualityAnalysisCore.cs",
+      "src/quality-cli/Program.cs"
+    ]
+  }
+}

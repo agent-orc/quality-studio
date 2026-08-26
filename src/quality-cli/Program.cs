@@ -41,6 +41,11 @@ public static class QualityCli
             return await RunReportAsync(args[1..]);
         }
 
+        if (string.Equals(args[0], "analyze", StringComparison.Ordinal))
+        {
+            return await RunAnalyzeAsync(args[1..]);
+        }
+
         if (string.Equals(args[0], "diff", StringComparison.Ordinal))
         {
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
@@ -71,6 +76,41 @@ public static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or StalenessScanException)
         {
             Console.Error.WriteLine($"quality scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunAnalyzeAsync(string[] args)
+    {
+        if (args.Length > 0 && args[0] is "-h" or "--help")
+        {
+            PrintAnalyzeUsage();
+            return 0;
+        }
+
+        try
+        {
+            var options = ParseAnalyzeArguments(args);
+            var analyses = options.Names
+                .Select(name => new NamedAnalysis(name, options.Configuration))
+                .ToArray();
+            var result = await QualityAnalysisCore.CreateDefault().RunAsync(
+                new QualityAnalysisRequest(options.Path, analyses, options.PersistMetadata));
+            var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                WriteIndented = true,
+            };
+            jsonOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+            Console.WriteLine(JsonSerializer.Serialize(result, jsonOptions));
+
+            if (result.Analyses.Any(analysis => !analysis.Available)) return 2;
+            return result.Findings.Any(finding =>
+                finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
+                                              SensorNotFoundException)
+        {
+            Console.Error.WriteLine($"quality analyze failed: {exception.Message}");
             return 2;
         }
     }
@@ -457,6 +497,44 @@ public static class QualityCli
         return new SecurityCliOptions(path, mode, range, configPath, baselinePath);
     }
 
+    private static AnalyzeCliOptions ParseAnalyzeArguments(string[] args)
+    {
+        if (args.Length == 0) throw new ArgumentException("At least one analysis name is required.");
+        var names = args[0].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (names.Length == 0 || names.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException("At least one analysis name is required.");
+
+        var path = ".";
+        var pathSet = false;
+        var persistMetadata = false;
+        var configuration = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = 1; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--config" when index + 1 < args.Length:
+                    var pair = args[++index].Split('=', 2);
+                    if (pair.Length != 2 || string.IsNullOrWhiteSpace(pair[0]))
+                        throw new ArgumentException("Analysis configuration must use key=value syntax.");
+                    configuration[pair[0]] = pair[1];
+                    break;
+                case "--persist":
+                    persistMetadata = true;
+                    break;
+                case "--config":
+                    throw new ArgumentException("Missing value for --config.");
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                        throw new ArgumentException($"Unexpected argument: {args[index]}");
+                    path = args[index];
+                    pathSet = true;
+                    break;
+            }
+        }
+
+        return new AnalyzeCliOptions(path, names, configuration, persistMetadata);
+    }
+
     private static SecurityScanMode ParseSecurityMode(string value) =>
         value.ToLowerInvariant() switch
         {
@@ -512,7 +590,10 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality analyze <name>[,<name>...] [path] [--config <key>=<value>]... [--persist]\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+
+    private static void PrintAnalyzeUsage() => Console.WriteLine(
+        "Usage:\n  quality analyze <name>[,<name>...] [path] [--config <key>=<value>]... [--persist]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
@@ -535,6 +616,12 @@ public static class QualityCli
 
     private sealed record SecurityCliOptions(string Path, SecurityScanMode Mode, string? Range,
         string? ConfigPath, string? BaselinePath);
+
+    private sealed record AnalyzeCliOptions(
+        string Path,
+        IReadOnlyList<string> Names,
+        IReadOnlyDictionary<string, string> Configuration,
+        bool PersistMetadata);
 
     private sealed record ReportCliOptions(
         string Path,
