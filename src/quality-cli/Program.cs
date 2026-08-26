@@ -41,6 +41,11 @@ public static class QualityCli
             return await RunReportAsync(args[1..]);
         }
 
+        if (string.Equals(args[0], "analyze", StringComparison.Ordinal))
+        {
+            return await RunAnalyzeAsync(args[1..]);
+        }
+
         if (string.Equals(args[0], "diff", StringComparison.Ordinal))
         {
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
@@ -71,6 +76,37 @@ public static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or StalenessScanException)
         {
             Console.Error.WriteLine($"quality scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunAnalyzeAsync(string[] args)
+    {
+        if (args.Length > 0 && args[0] is "-h" or "--help")
+        {
+            PrintAnalyzeUsage();
+            return 0;
+        }
+
+        try
+        {
+            var options = ParseAnalyzeArguments(args);
+            var result = await new QualityAnalysisCore().RunAsync(new QualityAnalysisRequest(
+                options.Path,
+                options.Analyses,
+                new QualityAnalysisConfiguration(
+                    options.RepositoryId,
+                    options.PersistEvidence,
+                    options.RuleLibraryPath)));
+            Console.WriteLine(JsonSerializer.Serialize(result, QualityFindingJson.Options));
+            if (result.Executions.Any(execution => !execution.Available)) return 2;
+            return result.Findings.Any(finding =>
+                finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
+                                              InvalidDataException or IOException or JsonException)
+        {
+            Console.Error.WriteLine($"quality analyze failed: {exception.Message}");
             return 2;
         }
     }
@@ -511,8 +547,54 @@ public static class QualityCli
         return new ReportCliOptions(path, format, outputPath, runId, failUnder, failOnSeverity);
     }
 
+    private static AnalyzeCliOptions ParseAnalyzeArguments(string[] args)
+    {
+        var path = ".";
+        var pathSet = false;
+        var analyses = new List<string>();
+        string? repositoryId = null;
+        string? ruleLibraryPath = null;
+        var persistEvidence = false;
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--analysis" when index + 1 < args.Length:
+                    analyses.Add(args[++index]);
+                    break;
+                case "--repository-id" when index + 1 < args.Length:
+                    repositoryId = args[++index];
+                    break;
+                case "--rule-library" when index + 1 < args.Length:
+                    ruleLibraryPath = args[++index];
+                    break;
+                case "--persist-evidence":
+                    persistEvidence = true;
+                    break;
+                case "--analysis" or "--repository-id" or "--rule-library":
+                    throw new ArgumentException($"Missing value for {args[index]}.");
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                        throw new ArgumentException($"Unexpected argument: {args[index]}");
+                    path = args[index];
+                    pathSet = true;
+                    break;
+            }
+        }
+
+        if (analyses.Count == 0)
+        {
+            throw new ArgumentException("At least one --analysis value is required.");
+        }
+
+        return new AnalyzeCliOptions(path, analyses, repositoryId, ruleLibraryPath, persistEvidence);
+    }
+
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality analyze [path] --analysis <boundaries|dependencies|gitleaks> [--analysis <name>]... [--repository-id <id>] [--rule-library <path>] [--persist-evidence]\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+
+    private static void PrintAnalyzeUsage() => Console.WriteLine(
+        "Usage:\n  quality analyze [path] --analysis <boundaries|dependencies|gitleaks> [--analysis <name>]... [--repository-id <id>] [--rule-library <path>] [--persist-evidence]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
@@ -543,4 +625,11 @@ public static class QualityCli
         string? RunId,
         int? FailUnder,
         string? FailOnSeverity);
+
+    private sealed record AnalyzeCliOptions(
+        string Path,
+        IReadOnlyList<string> Analyses,
+        string? RepositoryId,
+        string? RuleLibraryPath,
+        bool PersistEvidence);
 }

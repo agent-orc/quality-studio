@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace AgentOrchestrator.CodeQuality;
+namespace QualityStudio.Api;
 
 /// <summary>Configuration for handing review findings to Agent Studio.</summary>
 public sealed class AgentStudioTaskOptions
@@ -49,7 +49,10 @@ public sealed record AgentStudioProject(
     string? RepositoryPath,
     bool Archived);
 
-/// <summary>Creates normal Agent Studio tasks from selected Quality Studio findings.</summary>
+/// <summary>
+/// API-host integration that hands selected findings to Agent Studio. This HTTP concern stays
+/// outside the in-process analysis package.
+/// </summary>
 public sealed class AgentStudioTaskClient
 {
     public const string ClientIdHeader = "X-Client-Id";

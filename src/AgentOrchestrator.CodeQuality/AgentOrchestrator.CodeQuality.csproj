@@ -1,10 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
+    <PackageId>AgentOrchestrator.CodeQuality</PackageId>
+    <Version>0.1.0</Version>
+    <Title>Quality Studio Analysis Core</Title>
+    <Description>In-process repository analyses that return the Quality Studio finding model.</Description>
+    <PackageTags>quality;analysis;static-analysis;quality-studio</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/agent-orc/quality-studio</PackageProjectUrl>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="../../schemas/quality-finding.v1.schema.json" Pack="true" PackagePath="schemas/" />
   </ItemGroup>
 </Project>

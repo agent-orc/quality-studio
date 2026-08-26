@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "In-Process Analysis Core Package",
+  "summary": "Implemented package split and decision record for consuming Quality Studio analysis as an in-process .NET library. The dossier inventories the current solution, defines the stable named-analysis and finding boundary, proves quality-cli as a real caller, answers why the core is useful without the UI, and recommends keeping the core in this repository until explicit extraction criteria are met.",
+  "entrypoint": "index.html",
+  "status": "decided",
+  "phase": "implemented",
+  "updatedAt": "2026-08-26T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-91"
+  ],
+  "relatedTaskKeys": [
+    "QS-90",
+    "AGT-2655"
+  ],
+  "decision": {
+    "outcome": "keep-core-in-quality-studio-repository",
+    "state": "implemented-first-slice",
+    "decidedAt": "2026-08-26T00:00:00Z",
+    "decidedBy": "Operator architecture directive recorded in QS-91",
+    "responses": [
+      {
+        "question": "Is the analysis core useful without the Quality Studio UI?",
+        "answer": "Yes. Agent Studio pipeline steps, quality-cli, and CI consume the same in-process analysis and Quality Studio finding contracts."
+      },
+      {
+        "question": "Should the core be extracted into its own repository now?",
+        "answer": "No. Keep it in this repository until release-cadence, external-consumer, version-automation, and public-repository criteria justify the cross-repository cost."
+      }
+    ]
+  }
+}
