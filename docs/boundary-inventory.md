@@ -15,14 +15,34 @@ Run it directly with:
 quality boundaries scan .
 ```
 
+Large or latency-sensitive callers can request a deterministic page:
+
+```text
+quality boundaries scan . --max-files 500
+quality boundaries scan . --max-files 500 --after "frontend/src/app.ts"
+```
+
+`--max-files` bounds the number of source files read. `--after` resumes in
+ordinal repository-path order using the `continuationAfter` value from the
+previous page. The same options are available to registered sensor callers as
+the `maxFiles` and `after` configuration keys.
+
 It is also available through the sensor API as sensor id `boundaries`.
-Repository scans persist the inventory; path-scoped scans return a partial
-inventory without replacing the repository truth.
+Only complete repository scans persist the inventory. Path-scoped scans and
+bounded/incremental pages return partial inventories without replacing the
+repository truth. The CLI exits with code 2 for partial coverage so automation
+cannot mistake an empty page for a clean repository result.
 
 ## Contract
 
-The JSON contract is
-[`schemas/boundary-inventory.v1.schema.json`](../schemas/boundary-inventory.v1.schema.json).
+The current JSON contract is
+[`schemas/boundary-inventory.v2.schema.json`](../schemas/boundary-inventory.v2.schema.json).
+The `coverage` object records the mode, whether the result is complete, eligible
+and analyzed file counts, omitted counts grouped by reason, and the next
+continuation path. Omission examples are capped at five paths per reason so the
+metadata itself remains bounded. Files larger than 2 MiB and unreadable files
+make even an otherwise full scan explicitly incomplete.
+
 Every entry records a source location, direction, transport, reachability,
 authentication, authorization, inputs and their sources, response shape, side
 effects, rate and size limits, and repository consumers. Facts contain
@@ -38,6 +58,11 @@ The analyzers currently recognize:
   watched directories, browser `postMessage`, and common body/rate limiters.
 - Subprocess creation, outbound HTTP sinks, filesystem watchers, and literal or
   configured host bindings across supported source/configuration files.
+
+Client consumers and host reachability are indexed once per scan. Route
+matching reuses that index instead of rescanning every browser source line for
+every server endpoint, and MVC controller matching uses a non-backtracking
+expression.
 
 ## Mechanical findings
 

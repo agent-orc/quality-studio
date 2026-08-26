@@ -1,5 +1,28 @@
 # Quality Studio performance record
 
+## QS-95 boundary inventory scaling
+
+Measured 2026-08-26 on the task host with .NET 10.0.301 against the real
+Agent Studio checkout at `/home/agent/runner-work/repo`. The sensor found 1,773
+eligible files. A 30-second baseline timed out after consuming 30.16 seconds of
+CPU. A sample profile identified backtracking in MVC controller discovery;
+after that expression alone was made non-backtracking, the full scan still took
+40.31 seconds because every server endpoint rebuilt route expressions and
+rescanned every JavaScript/TypeScript line for client consumers.
+
+Controller discovery is now non-backtracking. Browser client calls and host
+reachability are indexed once per scan. The final real-repository verification
+completes in 1.87 seconds (2.08 seconds user CPU), producing 583 boundary
+entries and 917 mechanical findings. It honestly reports 1,772 of 1,773 files
+analyzed because one 19 MiB HTML artifact exceeds the 2 MiB source limit. A
+bounded 100-file page completes in 0.29 seconds and its next incremental page
+in 0.27 seconds. All three partial results name their omission reasons, do not
+replace repository truth, and exit with code 2.
+
+A regression fixture creates 1,500 source files containing ordinary test
+attributes, verifies full coverage under a 10-second host budget, and verifies
+bounded and continuation-page coverage metadata.
+
 ## QS-5 hierarchy scan budget
 
 Measured 2026-07-22 on Linux 6.8, .NET 10.0.9, Intel Core i7-8700

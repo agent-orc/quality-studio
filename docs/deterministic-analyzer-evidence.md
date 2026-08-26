@@ -90,3 +90,7 @@ Unavailable is evidence, not a clean scan. The sensor returns `available: false`
 - `tsc` exits unsuccessfully without a parseable diagnostic.
 
 Before a configured SARIF command runs, Quality Studio removes its old report. A failed analyzer therefore cannot make stale output look current.
+
+Sensor results also carry `complete` and `incompleteReason`. Security
+combination treats partial evidence as unavailable even when the underlying
+tool ran, so bounded scans cannot become clean security verdicts.

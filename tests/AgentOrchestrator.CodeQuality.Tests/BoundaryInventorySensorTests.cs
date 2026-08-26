@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Json.Schema;
@@ -75,7 +77,7 @@ public sealed class BoundaryInventorySensorTests
             var persisted = Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath);
             Assert.True(File.Exists(persisted));
             using var json = JsonDocument.Parse(await File.ReadAllTextAsync(persisted, TestContext.Current.CancellationToken));
-            Assert.Equal(1, json.RootElement.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(2, json.RootElement.GetProperty("schemaVersion").GetInt32());
         }
         finally
         {
@@ -205,11 +207,82 @@ public sealed class BoundaryInventorySensorTests
         using var generated = JsonDocument.Parse(JsonSerializer.Serialize(inventory,
             new JsonSerializerOptions(JsonSerializerDefaults.Web)));
         var schema = JsonSchema.FromText(await File.ReadAllTextAsync(
-            Path.Combine(root, "schemas", "boundary-inventory.v1.schema.json"),
+            Path.Combine(root, "schemas", "boundary-inventory.v2.schema.json"),
             TestContext.Current.CancellationToken));
         var validation = schema.Evaluate(generated.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());
+    }
+
+    [Fact]
+    public async Task Large_tree_is_linear_and_bounded_pages_are_explicitly_partial()
+    {
+        const int fileCount = 1_500;
+        const int pageSize = 125;
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-large-").FullName;
+        try
+        {
+            var body = new StringBuilder("using Xunit;\n\npublic sealed class SyntheticTests\n{\n");
+            for (var method = 0; method < 24; method++)
+                body.Append("    [Fact]\n    public void Case").Append(method).Append("() => Assert.True(true);\n\n");
+            body.Append("}\n");
+            await Task.WhenAll(Enumerable.Range(0, fileCount).Select(index =>
+                File.WriteAllTextAsync(
+                    Path.Combine(root, $"Source{index:D4}.cs"),
+                    body.ToString(),
+                    TestContext.Current.CancellationToken)));
+
+            var sensor = new BoundaryInventorySensor();
+            var stopwatch = Stopwatch.StartNew();
+            var complete = await sensor.InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false),
+                TestContext.Current.CancellationToken);
+            stopwatch.Stop();
+
+            Assert.True(complete.Coverage.Complete);
+            Assert.Equal("full", complete.Coverage.Mode);
+            Assert.Equal(fileCount, complete.Coverage.EligibleFileCount);
+            Assert.Equal(fileCount, complete.Coverage.AnalyzedFileCount);
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10),
+                $"Expected a 1,500-file scan below 10 seconds, observed {stopwatch.Elapsed}.");
+
+            var firstPage = await sensor.InventoryAsync(new SensorScanRequest(
+                root,
+                Configuration: new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.MaxFilesConfigurationKey] = pageSize.ToString(),
+                }), TestContext.Current.CancellationToken);
+
+            Assert.False(firstPage.Coverage.Complete);
+            Assert.Equal("bounded", firstPage.Coverage.Mode);
+            Assert.Equal(fileCount, firstPage.Coverage.EligibleFileCount);
+            Assert.Equal(pageSize, firstPage.Coverage.AnalyzedFileCount);
+            Assert.Equal(fileCount - pageSize, firstPage.Coverage.OmittedFileCount);
+            Assert.NotNull(firstPage.Coverage.ContinuationAfter);
+            Assert.False(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+
+            var secondPage = await sensor.InventoryAsync(new SensorScanRequest(
+                root,
+                Configuration: new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.MaxFilesConfigurationKey] = pageSize.ToString(),
+                    [BoundaryInventorySensor.AfterConfigurationKey] = firstPage.Coverage.ContinuationAfter!,
+                }), TestContext.Current.CancellationToken);
+
+            Assert.False(secondPage.Coverage.Complete);
+            Assert.Equal("incremental-bounded", secondPage.Coverage.Mode);
+            Assert.Equal(pageSize, secondPage.Coverage.AnalyzedFileCount);
+            Assert.True(string.Compare(
+                firstPage.Coverage.ContinuationAfter,
+                secondPage.Coverage.ContinuationAfter,
+                StringComparison.Ordinal) < 0);
+            Assert.Contains(secondPage.Coverage.Omissions, omission =>
+                omission.Reason == "before-continuation" && omission.Count == pageSize);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed record Widget(string Name);
