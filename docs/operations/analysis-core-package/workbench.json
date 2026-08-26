@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "In-process Analysis Core Package",
+  "summary": "Implementation dossier for the Quality Studio package split: a publishable host-independent core, one in-process CLI consumer, preserved API and UI behavior, and an explicit decision to keep the core in this repository until extraction criteria are met.",
+  "entrypoint": "index.html",
+  "status": "implemented",
+  "phase": "first-slice-complete",
+  "updatedAt": "2026-08-26T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-91",
+    "AGT-2655",
+    "QS-90"
+  ],
+  "decision": {
+    "outcome": "keep-core-in-quality-studio-repository",
+    "state": "recommended",
+    "decidedAt": "2026-08-26T00:00:00Z",
+    "decidedBy": "QS-91 implementation",
+    "responses": [
+      {
+        "question": "Is the core useful without the UI studio?",
+        "answer": "Yes. AGT-2655 pipeline steps, quality-cli, and CI are standalone consumers."
+      },
+      {
+        "question": "Should the core be extracted into its own repository now?",
+        "answer": "No. Keep it co-located until release cadence, versioning, ownership, and public-repository criteria justify the coordination cost."
+      }
+    ]
+  },
+  "artifacts": [
+    "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+    "src/AgentOrchestrator.CodeQuality/AnalysisRunner.cs",
+    "src/AgentOrchestrator.CodeQuality/PACKAGE_README.md",
+    "src/quality-cli/Program.cs",
+    "src/QualityStudio.Api/AgentStudioTaskClient.cs"
+  ]
+}

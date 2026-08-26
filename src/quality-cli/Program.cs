@@ -41,6 +41,11 @@ public static class QualityCli
             return await RunReportAsync(args[1..]);
         }
 
+        if (string.Equals(args[0], "analyze", StringComparison.Ordinal))
+        {
+            return await RunAnalyzeAsync(args[1..]);
+        }
+
         if (string.Equals(args[0], "diff", StringComparison.Ordinal))
         {
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
@@ -119,6 +124,37 @@ public static class QualityCli
                                               QualityReportException or StalenessScanException)
         {
             Console.Error.WriteLine($"quality report failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunAnalyzeAsync(string[] args)
+    {
+        if (args.Length > 0 && args[0] is "-h" or "--help")
+        {
+            PrintAnalyzeUsage();
+            return 0;
+        }
+
+        try
+        {
+            var options = ParseAnalyzeArguments(args);
+            var result = await new AnalysisRunner().RunAsync(new AnalysisRequest(
+                options.Path,
+                [new AnalysisConfiguration(options.Name, options.Settings)]));
+            var jsonOptions = new JsonSerializerOptions(QualityFindingJson.Options)
+            {
+                WriteIndented = true,
+            };
+            Console.WriteLine(JsonSerializer.Serialize(result, jsonOptions));
+            return result.Analyses.Any(analysis => !analysis.Available)
+                ? 2
+                : result.Findings.Count > 0 ? 1 : 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
+                                              SensorNotFoundException or JsonException or IOException)
+        {
+            Console.Error.WriteLine($"quality analyze failed: {exception.Message}");
             return 2;
         }
     }
@@ -511,8 +547,55 @@ public static class QualityCli
         return new ReportCliOptions(path, format, outputPath, runId, failUnder, failOnSeverity);
     }
 
+    private static AnalyzeCliOptions ParseAnalyzeArguments(string[] args)
+    {
+        string? name = null;
+        var path = ".";
+        var pathSet = false;
+        var settings = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--set" when index + 1 < args.Length:
+                {
+                    var setting = args[++index];
+                    var separator = setting.IndexOf('=', StringComparison.Ordinal);
+                    if (separator <= 0 || separator == setting.Length - 1)
+                        throw new ArgumentException("Analysis settings must use --set key=value.");
+                    if (!settings.TryAdd(setting[..separator], setting[(separator + 1)..]))
+                        throw new ArgumentException($"Analysis setting '{setting[..separator]}' is repeated.");
+                    break;
+                }
+                case "--set":
+                    throw new ArgumentException("Missing value for --set.");
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal))
+                        throw new ArgumentException($"Unexpected argument: {args[index]}");
+                    if (name is null)
+                        name = args[index];
+                    else if (!pathSet)
+                    {
+                        path = args[index];
+                        pathSet = true;
+                    }
+                    else
+                        throw new ArgumentException($"Unexpected argument: {args[index]}");
+                    break;
+            }
+        }
+
+        return new AnalyzeCliOptions(
+            name ?? throw new ArgumentException("A named analysis is required."),
+            path,
+            settings);
+    }
+
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality analyze <name> [path] [--set <key=value>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+
+    private static void PrintAnalyzeUsage() => Console.WriteLine(
+        "Usage:\n  quality analyze <name> [path] [--set <key=value>]...");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
@@ -543,4 +626,9 @@ public static class QualityCli
         string? RunId,
         int? FailUnder,
         string? FailOnSeverity);
+
+    private sealed record AnalyzeCliOptions(
+        string Name,
+        string Path,
+        IReadOnlyDictionary<string, string> Settings);
 }
