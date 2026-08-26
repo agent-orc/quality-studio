@@ -564,7 +564,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Review_endpoint_queues_and_reports_per_file_failure_without_blocking()
+    public async Task Review_endpoint_surfaces_a_typed_launch_failure_without_blocking()
     {
         using var client = application!.CreateClient();
         using var response = await client.PostAsJsonAsync("/api/review", new
@@ -598,12 +598,15 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         {
             await Task.Delay(20, TestContext.Current.CancellationToken);
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{id}", TestContext.Current.CancellationToken);
-            if (run.GetProperty("state").GetString() == "done") break;
+            if (run.GetProperty("state").GetString() is "done" or "failed") break;
         }
 
-        Assert.Equal("done", run.GetProperty("state").GetString());
+        Assert.Equal("failed", run.GetProperty("state").GetString());
+        Assert.Equal("reviewer_launch_failed", run.GetProperty("errorCode").GetString());
         Assert.Equal(1, run.GetProperty("failedFiles").GetInt32());
-        Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
+        var failedFile = Assert.Single(run.GetProperty("files").EnumerateArray());
+        Assert.Equal("failed", failedFile.GetProperty("state").GetString());
+        Assert.Equal("reviewer_launch_failed", failedFile.GetProperty("errorCode").GetString());
         using (var result = JsonDocument.Parse(await File.ReadAllTextAsync(
                    Path.Combine(runDirectory, "result.json"), TestContext.Current.CancellationToken)))
         {
