@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-002",
+  "technology": "dotnet",
+  "category": "api-shape",
+  "title": "Async handlers accept and forward the request CancellationToken",
+  "statement": "A minimal API handler that awaits I/O declares a `CancellationToken cancellationToken` parameter (minimal APIs bind it to the request-aborted token automatically) and passes that same token into every async call it makes, instead of `default`/`CancellationToken.None`.",
+  "rationale": "ASP.NET Core cancels the bound token when the client disconnects or the request times out. A handler that drops the token keeps doing work — file reads, review agent calls, sensor scans — for a caller that already left, wasting the exact review-agent tokens and wall-clock the rest of this codebase is careful to account for.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "static async Task<IResult> GuidelineImpact(HttpContext context, GuidelineImpactRequest request,\n    RepositoryRegistry registry, GuidelineImpactAnalyzer analyzer, CancellationToken cancellationToken)\n{\n    var (registration, repository) = ResolveRepository(context, registry);\n    var result = await analyzer.AnalyzeAsync(repository.Root, request, cancellationToken);\n    return Results.Ok(result);\n}",
+    "caption": "Bound CancellationToken forwarded into the async call.",
+    "source": "src/QualityStudio.Api/Program.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "static async Task<IResult> GuidelineImpact(HttpContext context, GuidelineImpactRequest request,\n    RepositoryRegistry registry, GuidelineImpactAnalyzer analyzer, CancellationToken cancellationToken)\n{\n    var (registration, repository) = ResolveRepository(context, registry);\n    var result = await analyzer.AnalyzeAsync(repository.Root, request, CancellationToken.None);\n    return Results.Ok(result);\n}",
+    "caption": "Token accepted but replaced with CancellationToken.None on the call that matters."
+  },
+  "tags": ["minimal-api", "cancellation", "async"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in the GuidelineImpact endpoint's token propagation." }
+  ]
+}

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Collections.Concurrent;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -57,13 +58,17 @@ public sealed record ResolvedInputs(
 public sealed class InputResolver
 {
     public const int DefaultBudgetCharacters = 12_000;
+    private static readonly IReadOnlyDictionary<string, RuleDefinition> KnownRules =
+        RuleLibrary.Rules.ToDictionary(rule => rule.Id, StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<(string Kind, string Level), ReviewInput[]> ShippedDefaultCache = new();
 
     public ResolvedInputs Resolve(
         string repositoryRoot,
         string kind,
         ReviewLevel level,
         string? globalInputsDirectory = null,
-        int budgetCharacters = DefaultBudgetCharacters)
+        int budgetCharacters = DefaultBudgetCharacters,
+        bool includeRuleLibraryDefaults = true)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) throw new ArgumentException("A repository root is required.", nameof(repositoryRoot));
         if (!Enum.TryParse<ReviewKind>(kind, true, out _)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
@@ -75,12 +80,42 @@ public sealed class InputResolver
             globalInputsDirectory);
         var projectRoot = Path.GetFullPath(repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
-        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
+        var explicitProject = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
+        var config = includeRuleLibraryDefaults ? RuleConfig.Load(projectRoot) : RuleConfig.Empty;
+        explicitProject = explicitProject
+            .Where(input => !includeRuleLibraryDefaults || !KnownRules.TryGetValue(input.Id, out var rule) || config.IsEnabled(rule))
+            .Select(input => includeRuleLibraryDefaults && KnownRules.TryGetValue(input.Id, out var rule)
+                ? ApplyProjectOverride(input, rule, config.GetOverride(rule.Id))
+                : input)
+            .ToArray();
+        var explicitProjectIds = explicitProject.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var applicableLibraryDefaults = includeRuleLibraryDefaults
+            ? config.Overrides.Count == 0
+                ? ShippedDefaultCache.GetOrAdd((normalizedKind, normalizedLevel), key => RuleLibrary.Rules
+                    .Where(config.IsEnabled)
+                    .Where(rule => Applies(rule.Kinds, key.Kind) && Applies(rule.Levels, key.Level))
+                    .Select(rule => ToReviewInput(rule, null))
+                    .ToArray())
+                : RuleLibrary.Rules
+                    .Where(config.IsEnabled)
+                    .Where(rule => Applies(rule.Kinds, normalizedKind) && Applies(rule.Levels, normalizedLevel))
+                    .Select(rule => ToReviewInput(rule, config.GetOverride(rule.Id)))
+                    .ToArray()
+            : [];
+        var libraryDefaults = applicableLibraryDefaults
+            .Where(input => !explicitProjectIds.Contains(input.Id))
+            .ToArray();
+        // Repository-authored inputs are intentional local guidance and must not be crowded out of
+        // the prompt budget by the shipped defaults. Each group is already priority ordered.
+        var project = explicitProject.Concat(libraryDefaults).ToArray();
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var omissions = global
             .Where(input => projectIds.Contains(input.Id))
             .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0))
             .ToList();
+        omissions.AddRange(applicableLibraryDefaults
+            .Where(input => explicitProjectIds.Contains(input.Id))
+            .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0)));
         var effective = global.Where(input => !projectIds.Contains(input.Id)).Concat(project).ToArray();
 
         var remaining = budgetCharacters;
@@ -101,6 +136,31 @@ public sealed class InputResolver
 
         return new ResolvedInputs(normalizedKind, normalizedLevel, budgetCharacters,
             budgetCharacters - remaining, included, omissions);
+    }
+
+    private static ReviewInput ToReviewInput(RuleDefinition rule, RuleOverride? projectOverride)
+    {
+        // The file-first rule retains full good/bad examples. Automatic context is deliberately
+        // compact so the complete default-on core fits without starving repository-authored rules.
+        var guideline = RuleLibrary.EffectiveGuideline(rule, projectOverride, includeExamples: false);
+        return new ReviewInput(rule.Id, $"rules/{rule.Technology}/{rule.Id}.json", "project",
+            guideline.Priority, guideline.Kinds, guideline.Levels, true, guideline.Content, string.Empty, false);
+    }
+
+    private static ReviewInput ApplyProjectOverride(
+        ReviewInput input,
+        RuleDefinition rule,
+        RuleOverride? projectOverride)
+    {
+        if (projectOverride is null ||
+            string.IsNullOrWhiteSpace(projectOverride.Severity) && string.IsNullOrWhiteSpace(projectOverride.Reason))
+            return input;
+        var effective = RuleLibrary.EffectiveGuideline(rule, projectOverride, includeExamples: false);
+        var annotation = $"Project rule override: effective severity " +
+                         $"{projectOverride.Severity ?? rule.Severity}; library default {rule.Severity}.";
+        if (!string.IsNullOrWhiteSpace(projectOverride.Reason))
+            annotation += $" Reason: {projectOverride.Reason.Trim()}.";
+        return input with { Priority = effective.Priority, Content = input.Content.Trim() + "\n\n" + annotation };
     }
 
     private static IReadOnlyList<ReviewInput> ReadDirectory(

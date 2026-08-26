@@ -115,7 +115,8 @@ public class GuidelineImpactAnalyzer
             raw.Add(new ReviewInput(draft.Id, $"draft:{draft.Id}", "project", draft.Priority,
                 draft.Kinds, draft.Levels, true, draft.Content.Trim(), string.Empty, false));
         }
-        var ordered = raw.OrderBy(value => value.Scope == "global" ? 0 : 1)
+        var ordered = raw.OrderBy(value => value.Scope == "global" ? 0 :
+                value.Source.StartsWith("rules/", StringComparison.Ordinal) ? 2 : 1)
             .ThenByDescending(value => value.Priority).ThenBy(value => value.Id, StringComparer.Ordinal).ToArray();
         var remaining = current.BudgetCharacters;
         var included = new List<ReviewInput>();
