@@ -118,30 +118,12 @@ public sealed class ProjectDashboardTests
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-studio-dashboard-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-            ArgumentList = { "init", "--quiet" },
-        })!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        TestToolProcess.InitializeGitRepositoryAsync(root).GetAwaiter().GetResult();
         return root;
     }
 
     private static void RunGit(string root, params string[] arguments)
     {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        process.Start();
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        TestToolProcess.RunGit(root, arguments);
     }
 }
