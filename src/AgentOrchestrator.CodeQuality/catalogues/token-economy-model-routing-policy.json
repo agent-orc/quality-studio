@@ -105,9 +105,6 @@
       "note": "Small favorable Claude Sonnet 5/high feature cohort; use only as an equivalent-capability provider fallback."
     },
     {
-      "canonicalId": "claude-mythos-5", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-mythos-5", "mediaCatalogModelId": "*", "trustModelId": "claude-mythos-5", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "restricted", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Project Glasswing only."
-    },
-    {
       "canonicalId": "claude-opus-4-1", "aliases": ["claude-opus-4-1-20250805"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-1", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-1", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "deprecated", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Retires 2026-08-05."
     },
     {
@@ -129,7 +126,7 @@
       "canonicalId": "claude-opus-4-5", "aliases": ["claude-opus-4-5-20251101"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-5", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
     },
     {
-      "canonicalId": "claude-sonnet-4-6", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-sonnet-4-6", "mediaCatalogModelId": "*", "trustModelId": "claude-sonnet-4-6", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-sonnet-4-6", "aliases": ["claude-sonnet-4-6-20260301"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-sonnet-4-6", "mediaCatalogModelId": "*", "trustModelId": "claude-sonnet-4-6", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
     },
     {
       "canonicalId": "claude-sonnet-4-5", "aliases": ["claude-sonnet-4-5-20250929"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-sonnet-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-sonnet-4-5", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
@@ -138,7 +135,13 @@
       "canonicalId": "claude-haiku-4-5", "aliases": ["claude-haiku-4-5-20251001"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-haiku-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-haiku-4-5", "supportedThinkingLevels": ["low", "medium"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "light", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
     },
     {
-      "canonicalId": "gpt-5.5", "aliases": [], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+      "canonicalId": "gpt-5.5", "aliases": ["gpt-5.5-2026-04-23"], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+    },
+    {
+      "canonicalId": "gpt-5.5-pro", "aliases": ["gpt-5.5-pro-2026-04-23"], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5-pro", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5-pro", "supportedThinkingLevels": ["medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the API/price catalog but not a route in policy version 2026-07-24."
+    },
+    {
+      "canonicalId": "gpt-5.5-cyber-preview", "aliases": ["gpt-5.5-cyber"], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5-cyber-preview", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5-cyber-preview", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "restricted", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Limited-preview model for separately approved defenders; catalog coverage does not make it a selectable route in policy version 2026-07-24."
     },
     {
       "canonicalId": "gpt-5", "aliases": [], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5", "mediaCatalogModelId": "*", "trustModelId": "gpt-5", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
