@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace AgentOrchestrator.CodeQuality;
+namespace QualityStudio.Api;
 
 /// <summary>Configuration for handing review findings to Agent Studio.</summary>
 public sealed class AgentStudioTaskOptions
@@ -104,9 +104,7 @@ public sealed class AgentStudioTaskClient
         var created = await response.Content.ReadFromJsonAsync<CreateTaskResponse>(JsonOptions, cancellationToken)
             .ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(created?.Id))
-        {
             throw new HttpRequestException("Agent Studio returned a successful response without a task id.");
-        }
 
         return new AgentStudioTaskResult(false, created.Id, card);
     }
@@ -115,9 +113,7 @@ public sealed class AgentStudioTaskClient
     public async Task<IReadOnlyList<AgentStudioProject>> GetProjectsAsync(CancellationToken cancellationToken = default)
     {
         if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _))
-        {
             throw new InvalidOperationException("Agent Studio target requires an absolute BaseUrl.");
-        }
 
         var endpoint = new Uri(new Uri(options.BaseUrl!.TrimEnd('/') + "/", UriKind.Absolute), "api/projects");
         using var response = await httpClient.GetAsync(endpoint, cancellationToken).ConfigureAwait(false);

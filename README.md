@@ -123,6 +123,22 @@ The default globs cover common programming and web source extensions. Repeat
 `--include` to replace them with a custom set, or select a sibling review kind
 with `--kind security` or `--kind performance`.
 
+## In-process analysis
+
+The `AgentOrchestrator.CodeQuality` project is a publishable, host-independent NuGet
+package. Server-side callers can run named analyses over a repository path without
+starting the API or UI; `quality-cli` exercises the same programmatic surface:
+
+```shell
+dotnet run --project src/quality-cli -- analyze boundaries .
+dotnet run --project src/quality-cli -- analyze sarif . \
+  --set reportPath=.quality/analyzers/results.sarif
+```
+
+The command writes the Quality Studio finding model as JSON and does not persist
+review metadata. Package usage and extension guidance are in
+[`src/AgentOrchestrator.CodeQuality/PACKAGE_README.md`](src/AgentOrchestrator.CodeQuality/PACKAGE_README.md).
+
 ## Boundary inventory
 
 Derive the repository's externally callable, host, browser, process, filesystem,
