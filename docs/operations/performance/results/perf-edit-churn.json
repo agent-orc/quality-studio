@@ -1,0 +1,519 @@
+{
+  "description": "One untracked-file edit per iteration followed by a repository-switch dashboard request, so every iteration produces a distinct Git state key.",
+  "repositoryId": "churn",
+  "trackedFiles": 349,
+  "edits": 40,
+  "latency": {
+    "statistics": {
+      "count": 40,
+      "minMs": 703.93,
+      "medianMs": 915.04,
+      "p95Ms": 2380.57,
+      "maxMs": 2539.48
+    },
+    "phaseMedianMs": {
+      "gitStatus": 8.52,
+      "scan": 688.75,
+      "reviewMetaDiscovery": 5.84,
+      "projection": 194.43
+    },
+    "samples": [
+      {
+        "edit": 1,
+        "totalMs": 1086.81,
+        "serverTiming": {
+          "git-status": 8.04,
+          "cache-wait": 0,
+          "scan": 731.55,
+          "review-meta-discovery": 4.92,
+          "projection": 340.68
+        }
+      },
+      {
+        "edit": 2,
+        "totalMs": 1105.93,
+        "serverTiming": {
+          "git-status": 9.91,
+          "cache-wait": 0,
+          "scan": 878.94,
+          "review-meta-discovery": 6.5,
+          "projection": 209.7
+        }
+      },
+      {
+        "edit": 3,
+        "totalMs": 2380.57,
+        "serverTiming": {
+          "git-status": 6.53,
+          "cache-wait": 0,
+          "scan": 1538.53,
+          "review-meta-discovery": 12.89,
+          "projection": 821.6
+        }
+      },
+      {
+        "edit": 4,
+        "totalMs": 1465.6,
+        "serverTiming": {
+          "git-status": 12.3,
+          "cache-wait": 0,
+          "scan": 1206.26,
+          "review-meta-discovery": 7,
+          "projection": 237.98
+        }
+      },
+      {
+        "edit": 5,
+        "totalMs": 1088.63,
+        "serverTiming": {
+          "git-status": 9.55,
+          "cache-wait": 0,
+          "scan": 830.06,
+          "review-meta-discovery": 6.91,
+          "projection": 238.71
+        }
+      },
+      {
+        "edit": 6,
+        "totalMs": 1212.61,
+        "serverTiming": {
+          "git-status": 22.29,
+          "cache-wait": 0,
+          "scan": 902,
+          "review-meta-discovery": 7.2,
+          "projection": 278.46
+        }
+      },
+      {
+        "edit": 7,
+        "totalMs": 1235.21,
+        "serverTiming": {
+          "git-status": 10.67,
+          "cache-wait": 0,
+          "scan": 952.69,
+          "review-meta-discovery": 6.94,
+          "projection": 263.09
+        }
+      },
+      {
+        "edit": 8,
+        "totalMs": 1186.06,
+        "serverTiming": {
+          "git-status": 12.84,
+          "cache-wait": 0,
+          "scan": 832.06,
+          "review-meta-discovery": 7.32,
+          "projection": 332.6
+        }
+      },
+      {
+        "edit": 9,
+        "totalMs": 1806.72,
+        "serverTiming": {
+          "git-status": 17.12,
+          "cache-wait": 0,
+          "scan": 1355.8,
+          "review-meta-discovery": 7.42,
+          "projection": 424.74
+        }
+      },
+      {
+        "edit": 10,
+        "totalMs": 1444.06,
+        "serverTiming": {
+          "git-status": 38.54,
+          "cache-wait": 0,
+          "scan": 1093.36,
+          "review-meta-discovery": 6.94,
+          "projection": 301.25
+        }
+      },
+      {
+        "edit": 11,
+        "totalMs": 1564.2,
+        "serverTiming": {
+          "git-status": 20.78,
+          "cache-wait": 0,
+          "scan": 1115.22,
+          "review-meta-discovery": 7.18,
+          "projection": 419.23
+        }
+      },
+      {
+        "edit": 12,
+        "totalMs": 1655.71,
+        "serverTiming": {
+          "git-status": 28.04,
+          "cache-wait": 0,
+          "scan": 1178.36,
+          "review-meta-discovery": 7.37,
+          "projection": 439.84
+        }
+      },
+      {
+        "edit": 13,
+        "totalMs": 2539.48,
+        "serverTiming": {
+          "git-status": 30.64,
+          "cache-wait": 0,
+          "scan": 1927.78,
+          "review-meta-discovery": 28,
+          "projection": 550.5
+        }
+      },
+      {
+        "edit": 14,
+        "totalMs": 1752.83,
+        "serverTiming": {
+          "git-status": 23.35,
+          "cache-wait": 0,
+          "scan": 1269.5,
+          "review-meta-discovery": 7.08,
+          "projection": 440.4
+        }
+      },
+      {
+        "edit": 15,
+        "totalMs": 1842.7,
+        "serverTiming": {
+          "git-status": 86.95,
+          "cache-wait": 0,
+          "scan": 1478.36,
+          "review-meta-discovery": 7.64,
+          "projection": 262.81
+        }
+      },
+      {
+        "edit": 16,
+        "totalMs": 2473.74,
+        "serverTiming": {
+          "git-status": 34.57,
+          "cache-wait": 0,
+          "scan": 1960.21,
+          "review-meta-discovery": 6.77,
+          "projection": 468.39
+        }
+      },
+      {
+        "edit": 17,
+        "totalMs": 1691.72,
+        "serverTiming": {
+          "git-status": 21.85,
+          "cache-wait": 0,
+          "scan": 1403.2,
+          "review-meta-discovery": 10.49,
+          "projection": 251.66
+        }
+      },
+      {
+        "edit": 18,
+        "totalMs": 1521.62,
+        "serverTiming": {
+          "git-status": 21.63,
+          "cache-wait": 0,
+          "scan": 1049.51,
+          "review-meta-discovery": 7.05,
+          "projection": 441.82
+        }
+      },
+      {
+        "edit": 19,
+        "totalMs": 1185.97,
+        "serverTiming": {
+          "git-status": 20.68,
+          "cache-wait": 0,
+          "scan": 975.09,
+          "review-meta-discovery": 6.33,
+          "projection": 178.48
+        }
+      },
+      {
+        "edit": 20,
+        "totalMs": 833.77,
+        "serverTiming": {
+          "git-status": 8.02,
+          "cache-wait": 0,
+          "scan": 667.82,
+          "review-meta-discovery": 4.66,
+          "projection": 152.06
+        }
+      },
+      {
+        "edit": 21,
+        "totalMs": 762.2,
+        "serverTiming": {
+          "git-status": 7.58,
+          "cache-wait": 0,
+          "scan": 602.63,
+          "review-meta-discovery": 4.55,
+          "projection": 146.37
+        }
+      },
+      {
+        "edit": 22,
+        "totalMs": 710.4,
+        "serverTiming": {
+          "git-status": 7.38,
+          "cache-wait": 0,
+          "scan": 544.39,
+          "review-meta-discovery": 4.58,
+          "projection": 153.03
+        }
+      },
+      {
+        "edit": 23,
+        "totalMs": 925.49,
+        "serverTiming": {
+          "git-status": 7.24,
+          "cache-wait": 0,
+          "scan": 663.63,
+          "review-meta-discovery": 4.49,
+          "projection": 248.72
+        }
+      },
+      {
+        "edit": 24,
+        "totalMs": 852.25,
+        "serverTiming": {
+          "git-status": 13.53,
+          "cache-wait": 0,
+          "scan": 637.19,
+          "review-meta-discovery": 4.16,
+          "projection": 195.6
+        }
+      },
+      {
+        "edit": 25,
+        "totalMs": 843.9,
+        "serverTiming": {
+          "git-status": 6.67,
+          "cache-wait": 0,
+          "scan": 672.54,
+          "review-meta-discovery": 6.24,
+          "projection": 157.52
+        }
+      },
+      {
+        "edit": 26,
+        "totalMs": 730.34,
+        "serverTiming": {
+          "git-status": 7.41,
+          "cache-wait": 0,
+          "scan": 565.85,
+          "review-meta-discovery": 4.54,
+          "projection": 151.56
+        }
+      },
+      {
+        "edit": 27,
+        "totalMs": 775.81,
+        "serverTiming": {
+          "git-status": 7.93,
+          "cache-wait": 0,
+          "scan": 623.85,
+          "review-meta-discovery": 4.59,
+          "projection": 137.79
+        }
+      },
+      {
+        "edit": 28,
+        "totalMs": 734.77,
+        "serverTiming": {
+          "git-status": 7.38,
+          "cache-wait": 0,
+          "scan": 558.93,
+          "review-meta-discovery": 6.15,
+          "projection": 160.89
+        }
+      },
+      {
+        "edit": 29,
+        "totalMs": 798.75,
+        "serverTiming": {
+          "git-status": 12.27,
+          "cache-wait": 0,
+          "scan": 618.48,
+          "review-meta-discovery": 4.53,
+          "projection": 162.25
+        }
+      },
+      {
+        "edit": 30,
+        "totalMs": 814.01,
+        "serverTiming": {
+          "git-status": 9.01,
+          "cache-wait": 0,
+          "scan": 619.73,
+          "review-meta-discovery": 4.22,
+          "projection": 180.06
+        }
+      },
+      {
+        "edit": 31,
+        "totalMs": 843.31,
+        "serverTiming": {
+          "git-status": 6.45,
+          "cache-wait": 0,
+          "scan": 678.8,
+          "review-meta-discovery": 4.71,
+          "projection": 152.4
+        }
+      },
+      {
+        "edit": 32,
+        "totalMs": 703.93,
+        "serverTiming": {
+          "git-status": 7.17,
+          "cache-wait": 0,
+          "scan": 553.39,
+          "review-meta-discovery": 5.53,
+          "projection": 136.85
+        }
+      },
+      {
+        "edit": 33,
+        "totalMs": 789.06,
+        "serverTiming": {
+          "git-status": 7.46,
+          "cache-wait": 0,
+          "scan": 623.12,
+          "review-meta-discovery": 4.64,
+          "projection": 152.93
+        }
+      },
+      {
+        "edit": 34,
+        "totalMs": 752.77,
+        "serverTiming": {
+          "git-status": 7.42,
+          "cache-wait": 0,
+          "scan": 603.14,
+          "review-meta-discovery": 4.5,
+          "projection": 136.68
+        }
+      },
+      {
+        "edit": 35,
+        "totalMs": 731.02,
+        "serverTiming": {
+          "git-status": 7.32,
+          "cache-wait": 0,
+          "scan": 580.31,
+          "review-meta-discovery": 4.55,
+          "projection": 137.76
+        }
+      },
+      {
+        "edit": 36,
+        "totalMs": 707.39,
+        "serverTiming": {
+          "git-status": 7.54,
+          "cache-wait": 0,
+          "scan": 556.37,
+          "review-meta-discovery": 4.6,
+          "projection": 137.87
+        }
+      },
+      {
+        "edit": 37,
+        "totalMs": 727.82,
+        "serverTiming": {
+          "git-status": 7.56,
+          "cache-wait": 0,
+          "scan": 555.79,
+          "review-meta-discovery": 4.77,
+          "projection": 158.71
+        }
+      },
+      {
+        "edit": 38,
+        "totalMs": 904.59,
+        "serverTiming": {
+          "git-status": 7.38,
+          "cache-wait": 0,
+          "scan": 698.69,
+          "review-meta-discovery": 4.39,
+          "projection": 193.26
+        }
+      },
+      {
+        "edit": 39,
+        "totalMs": 712.85,
+        "serverTiming": {
+          "git-status": 7.48,
+          "cache-wait": 0,
+          "scan": 560.86,
+          "review-meta-discovery": 4.45,
+          "projection": 139.13
+        }
+      },
+      {
+        "edit": 40,
+        "totalMs": 740.85,
+        "serverTiming": {
+          "git-status": 7.44,
+          "cache-wait": 0,
+          "scan": 566.24,
+          "review-meta-discovery": 4.49,
+          "projection": 161.6
+        }
+      }
+    ]
+  },
+  "memory": {
+    "beforeRssMiB": 336.54,
+    "afterRssMiB": 338.86,
+    "deltaMiB": 2.32,
+    "perEditKiB": 59.39,
+    "samples": [
+      {
+        "edit": 5,
+        "rssMiB": 348.75,
+        "peakRssMiB": 423.05,
+        "threads": 48
+      },
+      {
+        "edit": 10,
+        "rssMiB": 331.3,
+        "peakRssMiB": 423.05,
+        "threads": 48
+      },
+      {
+        "edit": 15,
+        "rssMiB": 344.47,
+        "peakRssMiB": 423.05,
+        "threads": 43
+      },
+      {
+        "edit": 20,
+        "rssMiB": 346.54,
+        "peakRssMiB": 423.05,
+        "threads": 43
+      },
+      {
+        "edit": 25,
+        "rssMiB": 341.77,
+        "peakRssMiB": 423.05,
+        "threads": 43
+      },
+      {
+        "edit": 30,
+        "rssMiB": 315.07,
+        "peakRssMiB": 423.05,
+        "threads": 43
+      },
+      {
+        "edit": 35,
+        "rssMiB": 358.03,
+        "peakRssMiB": 423.05,
+        "threads": 42
+      },
+      {
+        "edit": 40,
+        "rssMiB": 338.86,
+        "peakRssMiB": 423.05,
+        "threads": 42
+      }
+    ]
+  }
+}

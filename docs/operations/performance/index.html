@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio performance</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;
+    --taskbr: #4a3aa7;
+    --salvage: #eb6834;
+    --rescue: #b58500;
+    --ok: #008300;
+    --bad: #c93736;
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  /* SVG roles */
+  .s-label { fill: var(--ink-1); font: 600 13px system-ui, sans-serif; }
+  .s-sub   { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .s-lane  { stroke: var(--line); stroke-dasharray: 4 5; stroke-width: 1; }
+  .badge-bad  { fill: var(--bad-soft); stroke: var(--bad); }
+  .badge-ok   { fill: var(--ok-soft); stroke: var(--ok); }
+  .badge-warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  .building-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+  .building-block { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--surface-2); }
+  .building-block h4 { margin: 0 0 4px; font-size: 16px; }
+  .building-block p:last-child { margin-bottom: 0; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } .building-blocks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Quality Studio · performance · measured</p>
+  <h1>Quality Studio performance</h1>
+  <p class="lede">What Quality Studio actually costs on a real host and two real repositories: startup, repository switch, review-run latency, memory over a long session, and behaviour at large-repository scale. Every number below was produced by two reproducible harnesses committed with this dossier; the three dominant cost blocks are named with the evidence that identifies them and with fixes the operator can approve as slices.</p>
+  <div class="meta">
+    <span><b>Status</b> decision pending</span>
+    <span><b>Phase</b> decision ready</span>
+    <span><b>Measured</b> 2026-08-24, Release build, Local mode</span>
+    <span><b>QS commit</b> e31089c</span>
+    <span><b>Large target</b> agent-taskboard <code>ffe887a0</code>, 5,116 tracked files</span>
+  </div>
+</header>
+
+<section class="box accent">
+  <h4>Key findings</h4>
+  <p class="stx stx-part"><b>QS-54 delivered what it promised, and the promise is narrower than the operator experience.</b> Background prewarm works: host startup is unaffected by registry size, and a warm <code>/api/project</code> costs 31.87 ms on a 5,116-file repository. But the warm dashboard is only one of the two requests on the switch critical path, and the snapshot it warms is discarded by the next write to the repository.</p>
+  <ul>
+    <li><b>The repository tree <em>is</em> the switch.</b> On agent-taskboard the warm critical path is 664.89 ms, of which <code>/api/tree?path=</code> is <b>659.10 ms</b> and the dashboard QS-54 optimised is 31.87 ms. The tree returns <b>33.87 MiB</b>. The documented <code>&lt; 500 ms</code> click-to-usable contract is exceeded by the backend alone in <b>7 of 7</b> samples, before any browser work.</li>
+    <li><b>The tree emits 6.1× more file nodes than the repository has files.</b> 15,961 file nodes for 2,596 distinct paths; <code>frontend/src/dev-mode.ts</code> appears <b>12 times</b>. This is an adapter overlap, not repository size.</li>
+    <li><b>The endpoint already supports the cheap answer and nobody asks for it.</b> A conditional request returns <b>304 in 38.11 ms with 0 bytes</b>. The word <code>If-None-Match</code> does not occur anywhere in <code>frontend/src</code>.</li>
+    <li><b>Any write to the repository costs a full cold rebuild, inline.</b> An 81.95 ms <code>coverage</code> sensor scan made the next dashboard request on agent-taskboard cost <b>16,143.72 ms</b>. The prewarmer only fires at registration, never on invalidation.</li>
+    <li><b>Review preflight is synchronous and linear in subject size.</b> <code>POST /api/review/estimate</code> costs ~164 ms per subject file inside the HTTP request: <b>198,976.86 ms</b> for a 1,215-file module, before a model is consulted.</li>
+    <li><b>Memory is not the problem today.</b> 640 requests across two repositories moved resident set from 313.20 to 336.54 MiB with no monotonic trend. The unbounded structures that exist are real but did not dominate at measured scale.</li>
+    <li><b>The requested model-vs-parsing-vs-rendering split cannot be produced.</b> The review path emits no phase telemetry at all — no <code>qs.*</code> event, no <code>Server-Timing</code>, no <code>ActivitySource</code> — and the CLI review operation does not return on this host. Instrumentation is a prerequisite, not an optimisation.</li>
+  </ul>
+</section>
+
+<h2 id="contents"><span class="no">00</span>Contents</h2>
+<ul class="toc">
+  <li><a href="#method">Method, environment, and what was executed</a></li>
+  <li><a href="#baseline">Before-values: the measured baseline</a></li>
+  <li><a href="#qs54">QS-54 delivery state</a></li>
+  <li><a href="#b1">Cost block 1 — the repository tree response</a></li>
+  <li><a href="#b2">Cost block 2 — snapshot invalidation</a></li>
+  <li><a href="#b3">Cost block 3 — the synchronous review path</a></li>
+  <li><a href="#memory">Memory over a long session</a></li>
+  <li><a href="#dark">What could not be measured, and why</a></li>
+  <li><a href="#options">Options and recommendation</a></li>
+  <li><a href="#slices">Implementation slice plan</a></li>
+  <li><a href="#evidence">Evidence index and limitations</a></li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="method"><span class="no">01</span>Method, environment, and what was executed</h2>
+<p>Two harnesses were written for this dossier and are committed with it. Both start a real <code>QualityStudio.Api</code> Release build in Local mode against a registry of real Git repositories, drive the same endpoints the Angular client drives, and record the phase timings the API already reports plus the wall-clock and payload size the client would see. No Playwright interception, no fixtures, no mocks.</p>
+<table>
+  <tr><th>Harness</th><th>What it measures</th></tr>
+  <tr><td><code>scripts/perf/backend-perf.mjs</code></td><td>API startup, repository switch (critical path and deferred fan-out), review estimate scaling, deterministic sensor scans, resident-set growth over a replayed session, edit-churn latency, and sensor-induced invalidation.</td></tr>
+  <tr><td><code>scripts/perf/tree-payload-perf.mjs</code></td><td>What <code>/api/tree</code> returns: bytes, node count per hierarchy level, duplicate file paths, the conditional-request path, and a single-module subtree as the bounded alternative.</td></tr>
+</table>
+<div class="box">
+  <h4>Host and targets</h4>
+  <p>Linux 6.8.0-124-generic, Intel Core i7-8700 (12 logical CPUs), 63 GiB RAM, .NET 10.0.301, Node v22.23.1. Build configuration <b>Release</b>; <code>DOTNET_ENVIRONMENT=Production</code>; security mode <code>Local</code>; registry defaults as shipped, including <code>DefaultReviewTokenCap: 100000</code>.</p>
+  <table>
+    <tr><th>Target</th><th>Commit</th><th>Tracked files</th><th>Role</th></tr>
+    <tr><td><code>default</code> — Quality Studio</td><td><code>e31089c</code></td><td>349</td><td>Small repository, the product's own worktree</td></tr>
+    <tr><td><code>taskboard</code> — Agent Studio</td><td><code>ffe887a0</code></td><td>5,116</td><td>Large repository, mixed .NET plus Angular</td></tr>
+    <tr><td><code>churn</code> — clone of Quality Studio</td><td><code>e31089c</code></td><td>349</td><td>Edit-churn scenario only</td></tr>
+  </table>
+  <p class="dim">Every target is measured on a throwaway <code>git clone</code>. Review runs and sensors write into <code>.quality/</code>, so measuring the live worktrees would have mutated them; the clones are discarded with the temporary directory.</p>
+</div>
+<p>Repeat the measurement with:</p>
+<p class="mono">dotnet build QualityStudio.slnx -c Release<br>
+node scripts/perf/backend-perf.mjs --out &lt;dir&gt; --targets "default=&lt;quality-studio&gt;,taskboard=&lt;large-repo&gt;"<br>
+node scripts/perf/tree-payload-perf.mjs --out &lt;dir&gt; --targets "default=&lt;quality-studio&gt;,taskboard=&lt;large-repo&gt;"</p>
+
+<!-- ============================================================ -->
+<h2 id="baseline"><span class="no">02</span>Before-values: the measured baseline</h2>
+<p>These are the numbers to hold the fixes against. Unless noted, each cell is the median of the sample count given in the evidence file.</p>
+
+<h3>Startup</h3>
+<table>
+  <tr><th>Interaction</th><th>Samples</th><th>Median</th><th>Range</th><th>Reading</th></tr>
+  <tr><td>API process spawn → first <code>/health</code> 200, one repository</td><td>5</td><td><b>759.52 ms</b></td><td>614.06 – 778.25 ms</td><td>Dominated by .NET host start, not by repository work.</td></tr>
+  <tr><td>API process spawn → first <code>/health</code> 200, both repositories registered</td><td>5</td><td><b>607.09 ms</b></td><td>516.40 – 1,072.85 ms</td><td><span class="pill done">verified</span> Registry size does not delay readiness — the prewarmer is genuinely off the startup path.</td></tr>
+  <tr><td>Kestrel "Now listening" log line</td><td>5</td><td>322.29 ms</td><td>253.33 – 561.75 ms</td><td>Time to socket; the remainder is the first request's pipeline warm-up.</td></tr>
+  <tr><td>Full dev stack (<code>npm start</code>) → <code>ready: api=… web=…</code></td><td>3</td><td><b>12.36 s</b></td><td>8.28 – 13.76 s</td><td>The Angular dev server, not the API, is the operator's startup cost. Excludes <code>npm ci</code> on a clean checkout.</td></tr>
+  <tr><td>Production bundle, initial total</td><td>1</td><td><b>478.30 kB</b> raw / 121.28 kB transfer</td><td>—</td><td><span class="pill part">1.7 kB headroom</span> against the 480 kB error budget in <code>frontend/angular.json</code>.</td></tr>
+</table>
+
+<h3>Repository switch, warm snapshot</h3>
+<p>The client's critical path is <code>Promise.all([loadProjectDashboard, loadTree])</code> (<code>frontend/src/app/quality-api.ts:474</code>); the detail fan-out — scan, inputs, guidelines, risk, review runs, usage — is deferred behind it (<code>:476-480</code>). Both were measured as the client issues them.</p>
+<table>
+  <tr><th>Repository</th><th>Files</th><th><code>/api/project</code></th><th><code>/api/tree?path=</code></th><th>Critical path</th><th>Deferred fan-out</th></tr>
+  <tr><td>Quality Studio</td><td>349</td><td>18.49 ms</td><td>123.37 ms</td><td><b>124.14 ms</b> (p95 213.38)</td><td>37.18 ms</td></tr>
+  <tr><td>Agent Studio</td><td>5,116</td><td>31.87 ms</td><td><b>659.10 ms</b></td><td><b>664.89 ms</b> (p95 1,395.78)</td><td>267.17 ms</td></tr>
+</table>
+<p class="stx stx-open"><b>Contract breach.</b> <code>frontend/PERF.md</code> states <code>&lt; 500 ms</code> from repository click to a usable dashboard and tree. On agent-taskboard the <em>backend alone</em>, fully warm, took 593.63, 609.06, 631.73, 664.89, 771.66, 1,096.53 and 1,395.78 ms across seven samples. Not one sample fits, and the browser has not started rendering yet.</p>
+
+<h3>Cold snapshot construction</h3>
+<table>
+  <tr><th>Repository</th><th>Total</th><th>Git state</th><th>Hierarchy scan</th><th>Review-meta discovery</th><th>Projection</th></tr>
+  <tr><td>Quality Studio (first, includes JIT)</td><td>3,994.80 ms</td><td>31.01 ms</td><td>3,106.25 ms</td><td>37.23 ms</td><td>818.34 ms</td></tr>
+  <tr><td>Quality Studio clone (steady state)</td><td>1,902.58 ms</td><td>42.50 ms</td><td>1,204.91 ms</td><td>8.20 ms</td><td>646.86 ms</td></tr>
+  <tr><td>Agent Studio</td><td><b>23,763.55 ms</b></td><td>220.44 ms</td><td><b>20,774.26 ms</b></td><td>90.28 ms</td><td>2,678.49 ms</td></tr>
+</table>
+<p>QS-54 recorded 9,781.93 ms cold for agent-taskboard at 3,450 tracked files — 2.84 ms per file. The same repository at 5,116 files now costs 4.65 ms per file. The scan does not scale linearly with file count, and it is 87.4&nbsp;% of the cold cost.</p>
+
+<h3>Review path</h3>
+<table>
+  <tr><th>Operation</th><th>Quality Studio</th><th>Agent Studio</th></tr>
+  <tr><td><code>GET /api/sensors</code> (list plus availability probes)</td><td>2,117.15 ms</td><td>2,179.46 ms</td></tr>
+  <tr><td><code>POST /api/sensors/boundaries/scan</code></td><td>1,497.83 ms, 16 findings</td><td><span class="pill open">no response in 600,000 ms</span></td></tr>
+  <tr><td><code>POST /api/sensors/dependencies/scan</code></td><td>19,505.66 ms</td><td>44,687.69 ms, 95 findings</td></tr>
+  <tr><td><code>POST /api/sensors/gitleaks/scan</code></td><td>1,698.48 ms</td><td>9,120.16 ms</td></tr>
+  <tr><td><code>POST /api/sensors/coverage/scan</code></td><td>61.88 ms</td><td>116.61 ms</td></tr>
+  <tr><td><code>roslyn</code>, <code>sarif</code>, <code>eslint</code>, <code>tsc</code></td><td colspan="2">≤ 5.71 ms — unavailable or awaiting per-repository configuration; they do no work.</td></tr>
+  <tr><td><code>POST /api/review</code>, single-file subject → <code>202</code></td><td>235.70 ms</td><td>335.12 ms</td></tr>
+  <tr><td>Model phase</td><td colspan="2"><span class="pill open">not measurable</span> — see §08.</td></tr>
+</table>
+
+<h3>Memory</h3>
+<table>
+  <tr><th>Scenario</th><th>Requests</th><th>Baseline RSS</th><th>Final RSS</th><th>Trend</th></tr>
+  <tr><td>Session replay, unchanged Git state</td><td>640</td><td>313.20 MiB</td><td>336.54 MiB</td><td>Oscillates 324.64 – 346.92 MiB; no monotonic growth. Threads 49 → 48.</td></tr>
+  <tr><td>Edit churn, 40 distinct Git states</td><td>40</td><td>336.54 MiB</td><td>338.86 MiB</td><td>Oscillates 315.07 – 358.03 MiB. 59.39 KiB per edit, inside run-to-run noise.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="qs54"><span class="no">03</span>QS-54 delivery state</h2>
+<p>QS-54's intervention is present in <code>src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs</code> and behaves as documented. Three claims were re-checked against the current build.</p>
+<table>
+  <tr><th>QS-54 claim</th><th>Re-measured</th><th>Verdict</th></tr>
+  <tr><td>Host startup stays non-blocking while snapshots warm in the background (<code>await Task.Yield()</code>, <code>RepositorySnapshotPrewarmer.cs:52</code>)</td><td>607.09 ms to <code>/health</code> with both repositories registered versus 759.52 ms with one; registry size shows no cost</td><td><span class="pill done">holds</span></td></tr>
+  <tr><td>The operator's switch request is warm: <code>gitStatusMs</code> only, all other phases zero</td><td>Warm <code>/api/project</code>: 18.49 ms (349 files), 31.87 ms (5,116 files); <code>Server-Timing</code> reports <code>scan;dur=0.00</code>, <code>projection;dur=0.00</code></td><td><span class="pill done">holds</span></td></tr>
+  <tr><td>Click-to-usable stays under 500 ms on a real large repository</td><td>664.89 ms median, 1,395.78 ms p95, backend only, 7 of 7 samples over budget</td><td><span class="pill open">does not hold</span></td></tr>
+</table>
+<div class="box warn">
+  <h4>Why a delivered optimisation stopped covering the case</h4>
+  <p>QS-54 instrumented and cached exactly one endpoint. <code>/api/project</code> got a projection cache, a <code>Server-Timing</code> header, and the <code>qs.repository.switch.backend</code> event. <code>/api/tree</code> — the other half of the same <code>Promise.all</code> — got none of the three, so it was invisible to the QS-54 measurement and remains invisible in production telemetry today. The QS-54 browser harness used a 1,600-file synthetic TypeScript fixture whose adapter emits no function-level nodes; on a real mixed .NET repository the same endpoint returns 34,809 nodes. The optimisation is correct. Its measurement was scoped to the wrong half of the request pair.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="b1"><span class="no">04</span>Cost block 1 — the repository tree response <span class="pill open">Dominant</span></h2>
+<p><code>GET /api/tree?path=</code> serialises the entire five-level hierarchy on every call. It has no projection cache, no bounded response, and no phase telemetry. On the large repository it <em>is</em> the warm switch: 659.10 ms of a 664.89 ms critical path. The table below is the isolated probe, which measures the endpoint on its own rather than in parallel with the dashboard.</p>
+<table>
+  <tr><th>Measurement</th><th>Quality Studio (349 files)</th><th>Agent Studio (5,116 files)</th></tr>
+  <tr><td>Warm latency, median of 5</td><td>62.07 ms (57.10 – 104.45)</td><td><b>749.00 ms</b> (561.35 – 957.82)</td></tr>
+  <tr><td>Response size</td><td>1,463,779 B (1.40 MiB)</td><td><b>35,519,812 B (33.87 MiB)</b></td></tr>
+  <tr><td>Bytes per tracked file</td><td>4,194</td><td>6,943</td></tr>
+  <tr><td>Total nodes</td><td>1,464</td><td>34,809</td></tr>
+  <tr><td>Nodes by level</td><td>2 project / 7 module / 16 namespace / 144 file / 1,295 function</td><td>13 project / 28 module / 4,493 namespace / <b>15,961 file</b> / 14,314 function</td></tr>
+  <tr><td>Distinct file paths in the response</td><td>144</td><td><b>2,596</b></td></tr>
+  <tr><td>File paths emitted more than once</td><td>0</td><td><b>1,215</b> — worst case <code>frontend/src/dev-mode.ts</code>, 12 times</td></tr>
+  <tr><td>Conditional request (<code>If-None-Match</code>)</td><td>304 in 8.08 ms, 0 bytes</td><td><b>304 in 38.11 ms, 0 bytes</b></td></tr>
+  <tr><td>Single-module subtree</td><td>28.87 ms, 770,615 B</td><td>344.27 ms, 7,038,002 B</td></tr>
+  <tr><td>For comparison, <code>/api/project</code></td><td>25.66 ms, 8,797 B</td><td>47.07 ms, 15,086 B</td></tr>
+</table>
+
+<figure>
+<svg viewBox="0 0 900 260" role="img" aria-labelledby="b1-t">
+  <title id="b1-t">The warm switch critical path on agent-taskboard, by request</title>
+  <text x="20" y="26" class="s-sub">Warm repository switch, agent-taskboard (5,116 files) — backend only, median of 7</text>
+  <text x="20" y="66" class="s-label">/api/project</text>
+  <rect x="150" y="52" width="24" height="20" class="badge-ok"/>
+  <text x="186" y="67" class="t-ok">31.87 ms · 15,086 B</text>
+  <text x="20" y="112" class="s-label">/api/tree?path=</text>
+  <rect x="150" y="98" width="659" height="20" class="badge-bad"/>
+  <text x="150" y="140" class="t-bad">659.10 ms · 35,519,812 B · 34,809 nodes</text>
+  <line x1="150" y1="160" x2="150" y2="215" class="s-lane"/>
+  <line x1="650" y1="120" x2="650" y2="215" class="s-lane"/>
+  <text x="20" y="186" class="s-label">Budget</text>
+  <rect x="150" y="172" width="500" height="20" fill="none" stroke="var(--warn)" stroke-dasharray="4 4"/>
+  <text x="660" y="187" class="t-warn">&lt; 500 ms click-to-usable (frontend/PERF.md)</text>
+  <text x="20" y="232" class="s-label">If-None-Match</text>
+  <rect x="150" y="218" width="38" height="20" class="badge-ok"/>
+  <text x="200" y="233" class="t-ok">304 · 38.11 ms · 0 bytes — already implemented, never requested</text>
+</svg>
+<figcaption>The dashboard QS-54 optimised is <b>4.8&nbsp;%</b> of the pair; the tree is the rest. The endpoint already computes an <code>ETag</code> (<code>Program.cs:412-419</code>) that answers a repeat switch in 38.11 ms with an empty body — but <code>If-None-Match</code> does not appear anywhere in <code>frontend/src</code>, so the conditional path is never taken.</figcaption>
+</figure>
+
+<h3>Where the size comes from</h3>
+<p><code>RepositoryHierarchyBuilder.Build</code> (<code>RepositoryHierarchyAdapters.cs:20-46</code>) runs the .NET adapter and the Angular adapter over the same repository and concatenates their roots. The Angular adapter emits one project per discovered <code>angular.json</code> workspace project; agent-taskboard yields 13 projects, and shared sources under <code>frontend/src</code> land under each of them. The result is 15,961 file nodes for 2,596 distinct paths — <b>6.1×</b> amplification that is a property of the adapter composition, not of the repository.</p>
+<p>The handler itself adds fixed cost per request that is unrelated to the payload: <code>CoverageSnapshot.Load</code>, a <code>FindingStateStore</code> read, and a fourth <code>git</code> subprocess for <code>rev-parse --verify HEAD</code> (<code>Program.cs:411,421-422</code>) on top of the three <code>git</code> spawns <code>ComputeGitState</code> already performs (<code>RepositoryHierarchyCache.cs:86-88</code>). A single switch therefore spawns six <code>git</code> processes.</p>
+<div class="box bad">
+  <h4>The client cannot use what it is sent</h4>
+  <p>The tree view renders an overscanned 40-row window (<code>frontend/PERF.md</code>). It needs the roots plus the currently expanded paths. It is sent 34,809 nodes, retains all of them in <code>treeSnapshots</code> per repository (<code>quality-api.ts:436,519</code>) with no cap, and logs <code>nodeCount: tree.nodes.length</code> — the <em>root</em> count, 13 — so the 33.87 MiB is invisible in client telemetry as well.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="b2"><span class="no">05</span>Cost block 2 — snapshot invalidation is a full inline rebuild <span class="pill open">Dominant</span></h2>
+<p>The hierarchy snapshot is keyed by a hash of HEAD, the index, and the bytes of every dirty or untracked file (<code>RepositoryHierarchyCache.cs:84-114</code>). Any accepted write to the repository produces a new key, and the next request rebuilds the whole hierarchy and projection <em>inside that request</em>, under the per-repository lock. The prewarmer only enqueues a repository at registration and at host start (<code>RepositorySnapshotPrewarmer.cs:35-53</code>); nothing re-warms after an invalidation.</p>
+<table>
+  <tr><th>Trigger</th><th>Repository</th><th>Trigger cost</th><th>Next dashboard request</th><th>Request after that</th></tr>
+  <tr><td><code>POST /api/sensors/coverage/scan</code></td><td>Quality Studio</td><td>32.58 ms</td><td><b>833.52 ms</b> (scan 635.46, projection 182.96)</td><td>13.21 ms</td></tr>
+  <tr><td><code>POST /api/sensors/coverage/scan</code></td><td>Agent Studio</td><td>81.95 ms</td><td><b>16,143.72 ms</b> (scan 14,755.32, projection 1,298.37)</td><td>32.46 ms</td></tr>
+</table>
+<p>An <b>81.95 ms</b> sensor scan bought a <b>16.1-second</b> operator request. The sensor is doing exactly what it is designed to do — it persists its evidence under <code>.quality/</code>, which is inside the repository, which is inside the Git state.</p>
+
+<h3>The same effect from ordinary editing</h3>
+<p>Forty single-file edits on a 349-file clone, each followed by the dashboard request an operator would make:</p>
+<table>
+  <tr><th>Metric</th><th>Value</th></tr>
+  <tr><td>Median request after an edit</td><td><b>915.04 ms</b></td></tr>
+  <tr><td>p95 / max</td><td>2,380.57 ms / 2,539.48 ms</td></tr>
+  <tr><td>Phase medians</td><td>git-status 8.52 ms · <b>scan 688.75 ms</b> · review-meta-discovery 5.84 ms · <b>projection 194.43 ms</b></td></tr>
+</table>
+<p>On the 349-file repository that is a second per edit. Scaling by the cold-prewarm ratio, the same operator loop on agent-taskboard costs the 20.8-second scan measured in §02 — and the sensor experiment above confirms it empirically at 14.8 seconds.</p>
+
+<h3>Why the scan is as expensive as it is</h3>
+<p>The .NET adapter reads every C# source file <b>twice</b> per scan and evaluates the scope decision <b>twice</b> per candidate:</p>
+<table>
+  <tr><th>Location</th><th>Work</th></tr>
+  <tr><td><code>RepositoryHierarchyBuilder.cs:96</code> → <code>:167-171</code></td><td><code>ReadNamespace</code> does <code>File.ReadAllText</code> on every candidate purely to group by namespace.</td></tr>
+  <tr><td><code>RepositoryHierarchyBuilder.cs:108</code></td><td><code>File.ReadAllText</code> reads the same file again for line counting and the function-symbol regex.</td></tr>
+  <tr><td><code>RepositoryHierarchyBuilder.cs:88</code></td><td><code>Relative(root, path)</code> and <code>scope.Evaluate(...)</code> are each invoked twice inside one projection.</td></tr>
+  <tr><td><code>RepositoryHierarchyAdapters.cs:29</code> vs <code>RepositoryHierarchyBuilder.cs:26,86,158</code></td><td>The repository is enumerated once through <code>git ls-files</code> and then again through <code>Directory.EnumerateFiles</code> per project directory.</td></tr>
+</table>
+<p class="dim">The 5,000-file budget recorded in <code>PERF.md</code> for QS-5 (165 ms) was measured on a corpus of one-line files in one directory with no C# structure, so it does not bound this path. The scan cost is driven by file <em>content</em>, not file count.</p>
+
+<!-- ============================================================ -->
+<h2 id="b3"><span class="no">06</span>Cost block 3 — the synchronous review path <span class="pill open">Dominant</span></h2>
+<p><code>POST /api/review</code> and <code>POST /api/review/estimate</code> both call <code>EstimateAsync</code>, which builds the complete review prompt for every subject file in a sequential <code>foreach</code> before the HTTP response is written (<code>ReviewJobs.cs:262-312</code>). Per file it reloads the repository scope, re-resolves review inputs, loads and heals threads, loads the coverage snapshot, and spawns a blocking <code>git rev-parse</code> (<code>ReviewRunner.cs:295-325</code>). None of it is cached across files.</p>
+<table>
+  <tr><th>Repository</th><th>Subject module</th><th>Files</th><th>Estimate latency</th><th>Per file</th><th>Prompt characters</th></tr>
+  <tr><td>Quality Studio</td><td><code>src/quality-cli</code></td><td>1</td><td>702.13 ms</td><td>702.13 ms</td><td>54,249</td></tr>
+  <tr><td>Quality Studio</td><td><code>src/QualityStudio.Api</code></td><td>14</td><td>2,693.09 ms</td><td>192.36 ms</td><td>507,916</td></tr>
+  <tr><td>Quality Studio</td><td><code>frontend</code></td><td>40</td><td>8,637.15 ms</td><td>215.93 ms</td><td>784,664</td></tr>
+  <tr><td>Quality Studio</td><td><code>src/AgentOrchestrator.CodeQuality</code></td><td>57</td><td>10,657.99 ms</td><td>186.98 ms</td><td>1,647,207</td></tr>
+  <tr><td>Agent Studio</td><td><code>setup</code></td><td>11</td><td>1,824.36 ms</td><td>165.85 ms</td><td>195,862</td></tr>
+  <tr><td>Agent Studio</td><td><code>backend.Tests</code></td><td>508</td><td>74,495.39 ms</td><td>146.64 ms</td><td>12,936,206</td></tr>
+  <tr><td>Agent Studio</td><td><code>frontend</code></td><td>1,215</td><td><b>198,976.86 ms</b></td><td>163.77 ms</td><td>17,480,737</td></tr>
+</table>
+<p>The relationship is linear at roughly <b>164 ms per subject file</b>, and the endpoint is a <em>preflight</em>: it exists to show the operator a token and cost estimate before spending anything. Selecting a large module in the review dialog blocks for over three minutes on a request that consults no model. Repeating the identical request cost 197,834.48 ms — the work is not cached either.</p>
+
+<h3>The sensor sweep is repeated per file</h3>
+<p><code>GitleaksSecurityScanner</code>, <code>DependencyVulnerabilitySensor</code> and <code>BoundaryInventorySensor</code> implement <code>IReviewSensor</code> rather than <code>IDeterministicEvidenceSensor</code>, so for <code>kind == "security"</code> they are attached to the request (<code>ReviewJobs.cs:591-597</code>) and collected inside <code>PreparePromptAsync</code> — once per operation, always at <code>SensorScope.Repository</code> (<code>SecurityReviewEvidence.cs:181</code>). A security review of <i>N</i> files runs each of them <i>N</i>+1 times at full repository scope.</p>
+<table>
+  <tr><th>Sensor</th><th>One repository-scope scan, Agent Studio</th><th>Cost of an <i>N</i>=10 security review</th></tr>
+  <tr><td><code>dependencies</code></td><td>44,687.69 ms</td><td>≈ 8.2 minutes of sensor time alone</td></tr>
+  <tr><td><code>gitleaks</code></td><td>9,120.16 ms</td><td>≈ 1.7 minutes</td></tr>
+  <tr><td><code>boundaries</code></td><td>no response within 600,000 ms</td><td>the run never reaches the model</td></tr>
+</table>
+<p class="dim">The 2026-08-18 security session recorded the boundary sensor exceeding a 300-second client timeout on Agent Studio (finding N-03). This measurement extends that observation: it also does not return within 600 seconds.</p>
+
+<h3>Two configuration facts that make it worse</h3>
+<ul>
+  <li><b><code>ReviewJobs:MaxConcurrency</code> is unreachable in the shipped configuration.</b> <code>appsettings.json</code> ships <code>DefaultReviewTokenCap: 100000</code>, so <code>ResolveCap</code> always returns a cap (<code>ReviewJobs.cs:329-335</code>), so <code>item.HasCap</code> is true (<code>:728</code>), so <code>RunAsync</code> takes the strictly sequential branch (<code>:465-472</code>) and the <code>Parallel.ForEachAsync</code> branch with <code>MaxConcurrency: 2</code> (<code>:476-482</code>) never runs.</li>
+  <li><b>One review executes at a time, process-wide.</b> The queue is a single-reader channel whose reader awaits <code>RunAsync</code> inline (<code>ReviewJobs.cs:391-395</code>). <code>MaxConcurrency</code> would only ever have governed files <em>within</em> a run.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="memory"><span class="no">07</span>Memory over a long session</h2>
+<p>The honest result is that memory is not currently a cost block. Six hundred and forty requests replaying the full switch fan-out across both repositories moved the resident set from 313.20 MiB to 336.54 MiB with no monotonic trend, and forty distinct Git states added 2.32 MiB — inside the noise band of the same measurement.</p>
+<table>
+  <tr><th>Structure</th><th>Key</th><th>Eviction</th><th>Measured impact</th></tr>
+  <tr><td><code>ProjectDashboardService.cache</code> (<code>ProjectDashboard.cs:105,119</code>)</td><td><code>root + "\0" + gitState</code> — a new entry per accepted edit</td><td><span class="pill open">none</span></td><td>59.39 KiB per distinct Git state on a 349-file repository; not dominant at 40 states, unbounded in principle</td></tr>
+  <tr><td><code>ReviewJobService.runs</code> (<code>ReviewJobs.cs:127</code>)</td><td>run id, including every run recovered from disk at startup</td><td><span class="pill open">none</span> — <code>RecentRunLimit</code> truncates the response only (<code>:349-351</code>)</td><td>Not exercised; terminal runs stay resident for process lifetime</td></tr>
+  <tr><td><code>ReviewMetaIndex</code> (<code>ReviewMetaIndex.cs:9,35</code>)</td><td>repository path → live <code>FileSystemWatcher</code> plus every sidecar document</td><td><span class="pill open">only at process shutdown</span></td><td>Not exercised; archived repositories keep a watcher</td></tr>
+  <tr><td><code>RepositoryHierarchyCache.slots</code> (<code>RepositoryHierarchyCache.cs:25</code>)</td><td>repository root; one snapshot, replaced in place</td><td>self-limiting</td><td><span class="pill done">bounded</span> — correct by construction</td></tr>
+  <tr><td><code>treeSnapshots</code> / <code>projectSnapshots</code> (<code>quality-api.ts:436-437</code>)</td><td>repository id, retained after switching away</td><td><span class="pill open">none</span></td><td>Browser-side: 33.87 MiB of tree per large repository visited, never released</td></tr>
+</table>
+<p class="stx stx-part">These are worth fixing as hygiene and are cheap to fix, but they should not compete for a slot against §04-§06. The one with a measurable operator effect today is the browser-side snapshot retention, and cost block 1's fix removes most of its input.</p>
+
+<!-- ============================================================ -->
+<h2 id="dark"><span class="no">08</span>What could not be measured, and why</h2>
+<p>The task asked for a review-run latency breakdown separating model calls from parsing and rendering. That breakdown cannot be produced from the current build, and the reason is structural rather than environmental.</p>
+<div class="box bad">
+  <h4>The review path emits no phase telemetry</h4>
+  <p>There is no <code>qs.*</code> event, no <code>Server-Timing</code> header, no <code>ActivitySource</code> and no <code>Meter</code> anywhere in the review path. Two scalars exist: <code>ReviewQueued</code> (<code>ReviewJobs.cs:215-218</code>) covers the whole enqueue, and <code>ReviewCompleted</code> (<code>:501-503</code>) covers the whole run. A third, <code>ReviewRunner.cs:217</code>, fuses the model call, parsing, a second subject re-hash, a third file read, finding-identity merging and the sidecar write into a single number. The only model-isolated signal is <code>UsageRecorded.durationMs</code>, and it is reported by the CLI rather than bracketed as a phase boundary.</p>
+</div>
+<p>On top of that, the model phase did not execute here. Both queued runs reached <code>state: running</code> and stayed there with <code>usageOperations: 0</code> and <code>usage.durationMs: 0</code> — the same behaviour the 2026-08-18 session recorded as finding N-01. What the measurement <em>can</em> bound:</p>
+<table>
+  <tr><th>Phase</th><th>Status</th><th>Evidence</th></tr>
+  <tr><td>Enqueue (plan, estimate, hash, persist)</td><td><span class="pill done">measured</span></td><td>235.70 / 335.12 ms for one file; ~164 ms per file thereafter</td></tr>
+  <tr><td>Deterministic sensor sweep</td><td><span class="pill done">measured</span></td><td>§06 — 0.06 s to &gt; 600 s per sensor per scan</td></tr>
+  <tr><td>Model call</td><td><span class="pill open">dark</span></td><td>No phase boundary in code; no run completed on this host</td></tr>
+  <tr><td>Response parsing</td><td><span class="pill part">bounded by inspection</span></td><td>One <code>GeneratedRegex</code> fence scan, one <code>JsonNode.Parse</code>, one linear pass over aspects and findings (<code>ReviewResponseParser.cs:16-107</code>). O(response length); allocation noise only. Not a latency suspect — but indistinguishable from the model call in today's numbers.</td></tr>
+  <tr><td>Report rendering</td><td><span class="pill part">bounded by inspection</span></td><td>Single-file load plus <code>QualityRunReportRenderer.Render</code>. Cheap — except <code>PublishReport</code> passes <code>reportStore.LoadAll()</code> (<code>ReviewJobs.cs:1112</code>), deserialising every prior report in the repository while holding the run's gate.</td></tr>
+</table>
+<p>Slice <b>P-5</b> below closes this gap by mirroring the pattern that already works: <code>qs.repository.switch.backend</code> emits a <code>phases</code> object and a <code>Server-Timing</code> header, and that is precisely why cost block 2 could be attributed to the scan in one request.</p>
+
+<!-- ============================================================ -->
+<h2 id="options"><span class="no">09</span>Options and recommendation</h2>
+<p>Three coherent responses exist to the switch-latency breach. They are not mutually exclusive, but they differ sharply in cost and in what they concede.</p>
+<div class="building-blocks">
+  <div class="building-block">
+    <h4>Option A — Widen the budget</h4>
+    <p class="dim">Raise the click-to-usable contract from 500 ms to, say, 1,500 ms and record agent-taskboard's 664.89 ms as passing.</p>
+    <p><b>Cost:</b> nothing. <b>Concedes:</b> the contract stops being a contract. The p95 of 1,395.78 ms would still sit at the new ceiling, and the number grows with every repository the operator onboards. It also leaves the 33.87 MiB transfer and the browser-side retention untouched.</p>
+    <p class="stx stx-open">Not recommended. The budget is not the thing that is wrong.</p>
+  </div>
+  <div class="building-block">
+    <h4>Option B — Extend the QS-54 pattern to the tree</h4>
+    <p class="dim">Give <code>/api/tree</code> what <code>/api/project</code> already has: a projection cache keyed by Git state, a <code>Server-Timing</code> header, and a <code>qs.*</code> event. Warm it in the prewarmer alongside the dashboard.</p>
+    <p><b>Cost:</b> moderate, and it mirrors an accepted design. <b>Limit:</b> caching a 33.87 MiB response does not make it smaller. Serialisation and transfer remain; the win is bounded by whatever fraction of the 659.10 ms is projection rather than serialisation, and that fraction is currently unmeasured because the endpoint has no phase telemetry.</p>
+    <p class="stx stx-part">Necessary but not sufficient on its own.</p>
+  </div>
+  <div class="building-block">
+    <h4>Option C — Send less <span class="pill done">recommended</span></h4>
+    <p class="dim">Use the conditional request the endpoint already implements, remove the adapter duplication, and stop shipping subtrees the client cannot render.</p>
+    <p><b>Cost:</b> the first step is a handful of lines in <code>loadTree</code>. <b>Evidence:</b> 304 in 38.11 ms with 0 bytes, measured; 6.1× file-node amplification, measured; a 40-row render window, documented. Every step has a number attached before it is built.</p>
+    <p class="stx stx-ok">Recommended, sequenced as P-1 → P-2 → P-3 so each step is independently verifiable.</p>
+  </div>
+  <div class="building-block">
+    <h4>On cost block 2 there is no real option</h4>
+    <p class="dim">A snapshot that is invalidated by the product's own writes and never re-warmed will keep charging the operator the full rebuild. The only question is whether the rebuild is moved off the request (re-warm on invalidation) or made cheaper (single-pass build), and the answer is both — P-4 first, because it is smaller and its effect is the 16.1-second number.</p>
+  </div>
+</div>
+<div class="box accent">
+  <h4>Recommendation</h4>
+  <p>Approve <b>P-1 through P-5</b> as a single wave, in order. P-1 and P-4 are small and carry the largest measured deltas; P-2 and P-3 remove the cause rather than caching the symptom; P-5 is the prerequisite for ever answering the review-latency question that prompted this dossier. <b>P-6</b> is hygiene and can be deferred without risk. The one thing that should not be deferred is P-5: until the review path emits phases, every future review-performance claim will be as unfalsifiable as the ones this dossier had to leave open in §08.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="slices"><span class="no">10</span>Implementation slice plan</h2>
+<p>Each slice states its before-value from this dossier, the change, and an exit criterion the committed harnesses can check.</p>
+
+<h3>P-1 · Take the conditional path on the tree <span class="pill open">Approve now · smallest change, largest measured delta</span></h3>
+<ul>
+  <li><b>Before:</b> repeat warm switch to agent-taskboard = 659.10 ms of tree time and 35,519,812 bytes. Conditional request on the same snapshot = 38.11 ms and 0 bytes.</li>
+  <li><b>Change:</b> <code>QualityApi.loadTree</code> (<code>quality-api.ts:514-530</code>) already retains the previous tree per repository in <code>treeSnapshots</code>. Retain its <code>ETag</code> alongside it, send <code>If-None-Match</code>, and on <code>304</code> reuse the snapshot and mark the transition complete. Do the same for <code>loadProjectDashboard</code>, whose <code>ETag</code> is equally unused.</li>
+  <li><b>Watch out:</b> the <code>ETag</code> covers Git state, the requested path and the coverage timestamp (<code>Program.cs:412-413</code>), so a <code>304</code> is only safe for an identical <code>path</code> parameter. Key the retained tag by <code>(repositoryId, path)</code>.</li>
+  <li><b>Exit:</b> a second switch to an unchanged repository completes within 100 ms of backend time and transfers zero tree bytes; <code>tree-payload-perf.mjs</code> reports the <code>304</code> on the client path, not only on the probe.</li>
+</ul>
+
+<h3>P-2 · Emit each file once <span class="pill open">Approve now</span></h3>
+<ul>
+  <li><b>Before:</b> 15,961 file nodes for 2,596 distinct paths on agent-taskboard; <code>frontend/src/dev-mode.ts</code> emitted 12 times. Quality Studio shows 0 duplicates, so this is specific to multi-project workspaces.</li>
+  <li><b>Change:</b> in <code>RepositoryHierarchyBuilder.Build</code> (<code>RepositoryHierarchyAdapters.cs:20-46</code>), assign each repository file to exactly one owning module — most-specific project directory wins — instead of letting every discovered Angular project claim shared sources.</li>
+  <li><b>Watch out:</b> node ids are content-addressed (<code>RepositoryHierarchyBuilder.cs:193-198</code>) and appear in persisted review metadata and finding state. Changing which module owns a file changes its id. The slice must include a compatibility check against existing <code>.quality/reviews</code> sidecars, or the ids must be made ownership-independent first.</li>
+  <li><b>Exit:</b> <code>filePathsEmittedMoreThanOnce</code> is 0 for both targets; total nodes on agent-taskboard drop from 34,809; no existing review sidecar loses its anchor.</li>
+</ul>
+
+<h3>P-3 · Bound what the tree returns <span class="pill new">Approve with P-2</span></h3>
+<ul>
+  <li><b>Before:</b> 33.87 MiB delivered to a view that renders a 40-row window; a single-module subtree is already 344.27 ms and 7,038,002 bytes, so today even the narrow request is not cheap.</li>
+  <li><b>Change:</b> return roots plus one level by default and let the client request children per expanded path, or accept a depth parameter. The client's flattening and overscan logic is unchanged; only the fetch boundary moves.</li>
+  <li><b>Watch out:</b> <code>explorer.ts</code> auto-expands ancestors of the selected path, so the contract must let the client ask for a path's ancestor chain in one request or the change trades bytes for round trips.</li>
+  <li><b>Exit:</b> first tree response for agent-taskboard is under 1 MiB; the warm critical path fits the existing 500 ms contract on the 5,116-file target with margin; tree expand stays under the 50 ms budget in <code>frontend/PERF.md</code>.</li>
+</ul>
+
+<h3>P-4 · Re-warm on invalidation <span class="pill open">Approve now · owns the 16-second number</span></h3>
+<ul>
+  <li><b>Before:</b> an 81.95 ms sensor scan made the next dashboard request cost 16,143.72 ms; the request after it cost 32.46 ms. Ordinary editing costs 915.04 ms median on a 349-file repository.</li>
+  <li><b>Change:</b> re-queue a repository in <code>RepositorySnapshotPrewarmer</code> whenever the product itself writes into it — after a sensor scan that persists, after a review run publishes its sidecar — and debounce. The prewarmer already exists, is already off the request path, and already emits <code>qs.repository.prewarm</code>; only the trigger set is missing.</li>
+  <li><b>Watch out:</b> do not re-warm on every filesystem event, or a repository under active editing will rebuild continuously; debounce and coalesce, and keep the existing dedupe key (<code>RepositorySnapshotPrewarmer.cs:43-46</code>).</li>
+  <li><b>Exit:</b> the sensor-invalidation measurement shows the first request after a scan within 2× of the warm value on both targets; <code>qs.repository.prewarm</code> is emitted after a persisting scan.</li>
+</ul>
+
+<h3>P-5 · Give the review path the phases the switch path already has <span class="pill open">Approve now · prerequisite</span></h3>
+<ul>
+  <li><b>Before:</b> two scalars for the whole review; the model call, parsing, re-hash, re-read and sidecar write are fused into one number (<code>ReviewRunner.cs:217</code>). The breakdown this dossier was asked for is unavailable.</li>
+  <li><b>Change:</b> emit <code>qs.review.run.phases</code> with the same shape as <code>qs.repository.switch.backend</code> (<code>Program.cs:476-491</code>): <code>enqueueMs</code>, <code>sensorSweepMs</code>, <code>promptMs</code>, <code>modelMs</code>, <code>parseMs</code>, <code>persistMs</code>, <code>reportMs</code>. Bracket the model call in <code>ReviewAgent.RunAsync</code> explicitly rather than inferring it from CLI-reported usage.</li>
+  <li><b>And, in the same slice, stop doing the preflight in the request:</b> the estimate is 198,976.86 ms for a 1,215-file module and is not cached. Either return an estimate computed from the already-built hierarchy without rendering prompts, or move prompt rendering behind the queue and let the client poll.</li>
+  <li><b>Watch out:</b> the estimate feeds the token and cost caps, so a cheaper estimate must stay conservative in the same direction; document the new method string in the <code>estimate.method</code> field the API already returns.</li>
+  <li><b>Exit:</b> a completed review run emits one event whose phases sum to the run duration; <code>POST /api/review/estimate</code> on a 1,215-file module returns in under 2 s.</li>
+</ul>
+
+<h3>P-6 · Hygiene <span class="pill part">Defer if capacity is short</span></h3>
+<ul>
+  <li>Single-pass hierarchy build: read each source file once and evaluate the scope decision once (<code>RepositoryHierarchyBuilder.cs:88,96,108,167-171</code>). The scan is 20,774 ms of agent-taskboard's 23,764 ms cold prewarm, so this is the largest remaining lever after P-2 — it is listed here only because P-1 through P-5 have better evidence-to-effort ratios.</li>
+  <li>Bound <code>ProjectDashboardService.cache</code> (<code>ProjectDashboard.cs:105</code>) to the current Git state per repository, matching what <code>RepositoryHierarchyCache</code> already does correctly.</li>
+  <li>Evict terminal entries from <code>ReviewJobService.runs</code> and release <code>ReviewMetaIndex</code> watchers for archived repositories.</li>
+  <li>Drop retained browser snapshots for repositories that are archived or removed (<code>quality-api.ts:436-437,502</code>).</li>
+  <li>Reconcile <code>ReviewJobs:MaxConcurrency</code> with <code>DefaultReviewTokenCap</code>: today the shipped cap makes the concurrency setting unreachable. Either make the sequential branch conditional on the cap actually binding, or remove the setting so the configuration does not promise something it cannot deliver.</li>
+  <li>The frontend initial bundle is 478.30 kB against a 480 kB error budget. Not a latency problem, but the next component added to the initial chunk fails the production build.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="evidence"><span class="no">11</span>Evidence index and limitations</h2>
+<table>
+  <tr><th>Claim</th><th>Evidence under <code>results/</code></th></tr>
+  <tr><td>Host, targets, and how to reproduce</td><td><code>perf-environment.json</code></td></tr>
+  <tr><td>API startup is independent of registry size</td><td><code>perf-api-startup.json</code></td></tr>
+  <tr><td>Dev-stack startup and production bundle headroom</td><td><code>perf-frontend-startup.json</code></td></tr>
+  <tr><td>Warm switch, critical path, deferred fan-out</td><td><code>perf-repository-switch.json</code></td></tr>
+  <tr><td>Tree payload, node counts, duplicates, 304, subtree</td><td><code>perf-tree-payload.json</code></td></tr>
+  <tr><td>Cold snapshot construction per repository</td><td><code>perf-prewarm-events.json</code></td></tr>
+  <tr><td>Edit-churn latency and per-edit memory</td><td><code>perf-edit-churn.json</code></td></tr>
+  <tr><td>A sensor scan costing the next request 16.1 s</td><td><code>perf-sensor-invalidation.json</code></td></tr>
+  <tr><td>Sensor scans, enqueue latency, run state</td><td><code>perf-review-path.json</code></td></tr>
+  <tr><td>Estimate latency versus subject file count</td><td><code>perf-review-scaling.json</code></td></tr>
+  <tr><td>Resident set over 640 requests</td><td><code>perf-memory-session.json</code></td></tr>
+</table>
+<p class="dim"><b>Limitations.</b> One host, one CPU, one run per configuration except where a sample count is given; medians of 5 to 7 samples are reported, not confidence intervals. Both repositories were measured as fresh clones, so their working trees were clean at the start — a repository with many dirty files pays more in <code>ComputeGitState</code> than measured here. The model phase of a review run did not execute in this environment, so §06 covers everything the review path does <em>around</em> the model and nothing about the model itself; the parsing and rendering costs in §08 are bounded by code inspection rather than measured. Browser-side interaction budgets were not re-measured — <code>frontend/PERF.md</code> remains the reference — and the 33.87 MiB tree payload's cost inside Angular is therefore an unmeasured addition on top of the backend numbers in §02, not part of them. The expected gains in §10 are stated as exit criteria to be verified by the committed harnesses, not as predictions.</p>
+
+</main>
+</body>
+</html>
