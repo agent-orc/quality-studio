@@ -176,7 +176,7 @@ foreach (ReviewFinding finding in result.Findings)
       <tbody>
         <tr><td>Publishable package</td><td>Package ID/assembly/root namespace <code>AgentOrchestrator.CodeQuality</code>, version <code>0.1.0</code>, Apache-2.0, repository metadata, English package README, symbols package, and .NET 10 target.</td></tr>
         <tr><td>Stable facade</td><td>Named multi-analysis request, per-analysis configuration and scope, no-write default, QS findings, availability and provenance, discovery, cancellation, and clear unknown-name errors.</td></tr>
-        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. An isolated source fixture produced 16 structured findings and the expected repository artifact.</td></tr>
+        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. An isolated source fixture produced 15 structured findings and the expected repository artifact.</td></tr>
         <tr><td>Host separation</td><td>Agent Studio HTTP client/tests and starter rule content moved to the API boundary. API routes and Angular source are unchanged.</td></tr>
         <tr><td>Release rail</td><td>CI now packs <code>.nupkg</code>/<code>.snupkg</code> and retains them as a workflow artifact. It does not publish.</td></tr>
       </tbody>
@@ -204,11 +204,11 @@ foreach (ReviewFinding finding in result.Findings)
     <h2>08 · Verification and remaining work</h2>
     <ul>
       <li>Release build: succeeded with zero warnings and zero errors.</li>
-      <li>Core tests: 156 passed; one live-agent integration test skipped by its explicit opt-in guard.</li>
+      <li>Core stable suite: 155 passed; one live-agent integration test skipped by its explicit opt-in guard. The machine-bound 5,000-file hierarchy test also passed when rerun in isolation.</li>
       <li>API stable suite: 51 passed. Its machine-bound 5,000-file interaction-budget test also passed when rerun in isolation.</li>
       <li>Angular production build: succeeded with the baseline compiler, bundle-budget, and CommonJS warnings; the package split makes no frontend source change.</li>
       <li>Package: <code>AgentOrchestrator.CodeQuality.0.1.0.nupkg</code> and symbols package created; archive contains the DLL and README, with the expected NuGet dependency.</li>
-      <li>CLI proof: in-process boundary analysis produced 16 findings and a repository-owned inventory in an isolated source fixture.</li>
+      <li>CLI proof: in-process boundary analysis produced 15 findings and a repository-owned inventory in an isolated source fixture. Its exit code was 1, the documented gate result for high-severity findings.</li>
     </ul>
     <p class="note"><b>Integration-baseline note:</b> the remote does not expose an <code>origin/develop</code> ref. The requested fresh rebase was therefore verified against the remote's active <code>origin/main</code> baseline at <code>e31089c</code>; it was clean. All 51 stable API tests passed, and the existing machine-bound 5,000-file interaction-budget test passed in an isolated run. Both receipts are retained in the collected TRX files.</p>
     <h3>Next slices, not required for this proof</h3>
