@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forms | Quality Studio Style Guide</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <p class="kicker">Quality Studio style guide · Forms</p>
+    <h1>Inputs, selects, and number formats</h1>
+    <p class="lede">A field is a three-row unit: persistent label, control, then helper or validation text. Shared alignment makes dense registry forms easy to scan.</p>
+  </header>
+  <nav class="dossier-nav" aria-label="Style guide pages">
+    <a href="index.html">Overview</a>
+    <a href="buttons.html">Buttons</a>
+    <a href="forms.html" aria-current="page">Forms</a>
+    <a href="layout.html">Notices and layout</a>
+    <a href="applied-surfaces.html">Applied surfaces</a>
+  </nav>
+
+  <section>
+    <h2>Inputs, labels, and helper text</h2>
+    <p>Labels stay above controls and never depend on placeholder text. Helper text receives its own stable row below the control, starts with a capital letter, and ends with a period when it is a sentence.</p>
+    <div class="pair">
+      <article class="example do">
+        <div class="example-label">Do</div>
+        <div class="demo-surface stack"><div class="form-demo"><label for="root-path-demo">Root path</label><input id="root-path-demo" value="C:\Projects\payments" readonly><small>Existing Git repository. Relative paths resolve from the API directory.</small></div></div>
+        <p class="example-caption">The label and helper occupy predictable rows and describe one field.</p>
+      </article>
+      <article class="example dont">
+        <div class="example-label">Do not</div>
+        <div class="demo-surface stack"><div class="form-demo bad-field"><label for="root-path-bad">Root path <small>optional maybe relative</small></label><input id="root-path-bad" placeholder="Path"></div></div>
+        <p class="example-caption">Inline microcopy shifts labels off-register and a placeholder cannot replace a label.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Validation</h2>
+    <p>Reserve the helper row for validation so the form does not jump. State the accepted shape, preserve the entered value, and connect the message with <code>aria-describedby</code>.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface stack"><div class="form-demo"><label for="repo-id-good">Repository id</label><input id="repo-id-good" value="Payments Service" aria-invalid="true" style="border-color:var(--red)" readonly><small style="color:var(--red)">Use lowercase letters, numbers, and hyphens.</small></div></div><p class="example-caption">The error replaces helper copy in the same location and tells the user how to recover.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface stack"><div class="form-demo"><label for="repo-id-bad">Repository id</label><input id="repo-id-bad" value="Payments Service" readonly></div><span style="color:var(--red);font-size:11px">Invalid!</span></div><p class="example-caption">A detached generic error does not identify the accepted input or preserve rhythm.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Selects and dropdowns</h2>
+    <p>Selects use the same height, border, type size, label, helper row, and focus treatment as text inputs. Use a native select for a bounded simple list and an accessible combobox for searchable model or repository lists.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface stack"><div class="form-demo"><label for="review-kind-good">Review kind</label><select id="review-kind-good"><option>Code</option><option>Security</option><option>Performance</option></select><small>Controls which quality policy the sweep applies.</small></div></div><p class="example-caption">The select belongs to the same field grammar as every input.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface"><select aria-label="Unlabeled review type" style="height:25px;border:0;background:var(--surface-3);color:var(--ink-3)"><option>code?</option></select></div><p class="example-caption">An unlabeled, undersized dropdown breaks alignment and hides its consequence.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Token-count formatting</h2>
+    <p>Token quantities use a scaled unit in controls and compact operational summaries. The parser remains tolerant so pasted raw counts are valid. Preserve exact counts in exported evidence where precision matters.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface stack"><div class="token-example"><div class="form-demo"><label for="token-good">Default sweep token cap</label><input id="token-good" value="100k" readonly><small>Tokens. Accepts 100000, 100k, or 0.1M.</small></div><span class="unit-chip">tokens</span></div></div><p class="example-caption">The displayed value is scannable, the unit is explicit, and common pasted forms parse to the same count.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface stack"><div class="form-demo bad-field"><label for="token-bad">Default sweep token cap</label><input id="token-bad" value="100000" readonly><small>choose token or cost</small></div></div><p class="example-caption">An unscaled value and ambiguous helper force the operator to count digits and infer the unit.</p></article>
+    </div>
+    <table class="rule-table">
+      <thead><tr><th>Input</th><th>Parsed tokens</th><th>Normalized display</th></tr></thead>
+      <tbody>
+        <tr><td><code>100000</code></td><td>100,000</td><td><code>100k</code></td></tr>
+        <tr><td><code>100k</code></td><td>100,000</td><td><code>100k</code></td></tr>
+        <tr><td><code>0.1M</code></td><td>100,000</td><td><code>100k</code></td></tr>
+        <tr><td><code>1.5M</code></td><td>1,500,000</td><td><code>1.5M</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Field-row checklist</h2>
+    <ul>
+      <li>Use a visible label, even when the control also has a placeholder.</li>
+      <li>Name units in the label or helper, not only in placeholder text.</li>
+      <li>Keep related rows aligned to one control width.</li>
+      <li>Do not mix optional notes into some labels and below other controls.</li>
+      <li>Allow browser focus to reveal controls inside the owning internal scroll area.</li>
+    </ul>
+  </section>
+  <footer class="page-footer">Form patterns apply ADM-04, ADM-06, ADM-08, and ADM-09 to Quality Studio controls.</footer>
+</main>
+</body>
+</html>

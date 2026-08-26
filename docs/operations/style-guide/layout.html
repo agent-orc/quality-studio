@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notices and layout | Quality Studio Style Guide</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <p class="kicker">Quality Studio style guide · Layout</p>
+    <h1>Notices, density, and modal layout</h1>
+    <p class="lede">Layout carries hierarchy through alignment, spacing, and restrained tints. Operational content stays compact and actions remain reachable.</p>
+  </header>
+  <nav class="dossier-nav" aria-label="Style guide pages">
+    <a href="index.html">Overview</a>
+    <a href="buttons.html">Buttons</a>
+    <a href="forms.html">Forms</a>
+    <a href="layout.html" aria-current="page">Notices and layout</a>
+    <a href="applied-surfaces.html">Applied surfaces</a>
+  </nav>
+
+  <section>
+    <h2>Notice bars</h2>
+    <p>An acute notice spans the available content width. Use one status dot, one short fact, and no more than one action. Historical or resolved facts become quiet or disappear.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface" style="padding:0"><div class="notice-demo"><span class="dot"></span><span>Runner capacity is available while queued work is waiting.</span><b>Review</b></div></div><p class="example-caption">The full-width tint reads as one acute status line.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface" style="padding:0"><div class="notice-demo bad"><b>Capacity warning</b><br>There may be something to investigate in the runner queue.</div></div><p class="example-caption">Inset card chrome and narrative copy turn one fact into a competing panel.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Spacing and density</h2>
+    <p>Use the shared 4 / 8 / 12 / 16 / 24 / 32 / 48 scale. Interactive rows keep a 32 px minimum in normal admin lists. Static rows may be denser when their text remains readable.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface"><div class="spacing-demo"><div class="spacing-row">Repository identity</div><div class="spacing-row">Configuration field</div><div class="spacing-row">Review policy</div></div></div><p class="example-caption">One row height, one inset, and tokenized gaps create a quiet scan line.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface"><div class="spacing-demo"><div class="spacing-row bad">Repository identity</div><div class="spacing-row bad">Configuration field</div><div class="spacing-row bad">Review policy</div></div></div><p class="example-caption">One-off heights and insets create false hierarchy and alignment drift.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Registry modal: internal scroll and sticky footer</h2>
+    <p>Onboard and Configure repository use the standard long-form modal. The dialog is bounded to the viewport. Only the field region scrolls. The footer remains sticky and visible with Cancel and Save in every scroll position.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface"><div class="modal-demo"><header>Configure repository</header><div class="modal-scroll"><div class="mini-field"></div><div class="mini-field"></div><div class="mini-field"></div><div class="mini-field"></div></div><footer><span class="button secondary">Cancel</span><span class="button primary">Save</span></footer></div></div><p class="example-caption">Header and footer remain fixed in the bounded dialog; focus scrolls the middle region.</p></article>
+      <article class="example dont"><div class="example-label">Do not · QS-80 before</div><div class="demo-surface"><div class="modal-demo bad"><header>Configure repository</header><div class="modal-scroll"><div class="mini-field"></div><div class="mini-field"></div><div class="mini-field"></div><div class="mini-field"></div></div><footer><span class="button secondary">Cancel</span><span class="button primary">Save</span></footer></div></div><p class="example-caption">When the whole form owns overflow, lower fields and Save fall below the viewport.</p></article>
+    </div>
+
+    <h3>Behavior contract</h3>
+    <table class="rule-table">
+      <thead><tr><th>Part</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td>Dialog</td><td>Use a viewport-relative maximum height and a two-row shell below the header.</td></tr>
+        <tr><td>Field region</td><td>Use <code>overflow-y: auto</code>, <code>min-height: 0</code>, and stable scrollbar space.</td></tr>
+        <tr><td>Footer</td><td>Use a sticky trailing action row outside the field scroller. Keep Cancel and Save visible.</td></tr>
+        <tr><td>Keyboard</td><td>Keep controls in DOM order. Tabbing into a field outside the visible region must scroll that field into view without moving the footer.</td></tr>
+        <tr><td>Narrow viewport</td><td>Reduce the field viewport, not the action reachability. Preserve the same hierarchy in both themes.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Flat composition</h2>
+    <p>Do not introduce decorative cards around field groups, notices, or modal subsections. Borders remain valid for controls, the dialog boundary, the sticky footer separation, and structures such as fieldsets.</p>
+    <div class="note"><strong>No left accent bars</strong><p>Status belongs in a tint, badge, or dot. A decorative colored left border is not part of the Quality Studio admin language.</p></div>
+  </section>
+  <footer class="page-footer">Layout patterns directly apply ADM-01, ADM-02, ADM-08, and ADM-09.</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buttons | Quality Studio Style Guide</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <p class="kicker">Quality Studio style guide · Controls</p>
+    <h1>Buttons and add affordances</h1>
+    <p class="lede">Button hierarchy follows decision weight. Geometry and alignment stay stable; color and fill communicate emphasis without turning every action into a focal point.</p>
+  </header>
+  <nav class="dossier-nav" aria-label="Style guide pages">
+    <a href="index.html">Overview</a>
+    <a href="buttons.html" aria-current="page">Buttons</a>
+    <a href="forms.html">Forms</a>
+    <a href="layout.html">Notices and layout</a>
+    <a href="applied-surfaces.html">Applied surfaces</a>
+  </nav>
+
+  <section>
+    <h2>Primary</h2>
+    <p>Use one primary button for the action that commits the current decision, such as Save changes or Onboard repository. Use an action verb and keep it on the trailing edge.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface"><span class="button secondary">Cancel</span><span class="button primary">Save changes</span></div><p class="example-caption">One filled action closes the decision path.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface"><span class="button primary">Archive</span><span class="button primary">Save changes</span></div><p class="example-caption">Two primary buttons make destructive and constructive actions compete.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Secondary</h2>
+    <p>Use a neutral filled or bordered secondary button for a nearby alternative. It must remain legible and visibly interactive in both themes.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface"><span class="button secondary">Cancel</span><span class="button primary">Save</span></div><p class="example-caption">Neutral fill keeps Cancel available without competing with Save.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface"><span class="button loud-secondary">Cancel now</span><span class="button primary">Save</span></div><p class="example-caption">Accent treatment on the secondary action weakens hierarchy.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ghost</h2>
+    <p>Use a ghost button for a quiet local action that still needs a reliable hit target. Its boundary is solid when the surrounding surface does not otherwise define the target.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface"><span class="button ghost">Configure</span></div><p class="example-caption">A solid hairline and stable padding make the action read as intentional.</p></article>
+      <article class="example dont"><div class="example-label">Do not</div><div class="demo-surface"><span style="color:var(--ink-3);font-size:11px">configure maybe</span></div><p class="example-caption">Unbounded text with weak contrast does not provide a dependable control.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Add affordances</h2>
+    <p>An additive action is a ghost or secondary button with one aligned leading plus. The plus is part of the label group, not a separate badge or decoration.</p>
+    <div class="pair">
+      <article class="example do"><div class="example-label">Do</div><div class="demo-surface"><span class="button ghost"><b aria-hidden="true">+</b> Add repository</span></div><p class="example-caption">Solid boundary, centered glyph, shared baseline, and one clear label.</p></article>
+      <article class="example dont"><div class="example-label">Do not · QS-80 before</div><div class="demo-surface"><span class="button broken"><b aria-hidden="true">+</b> Add repository</span></div><p class="example-caption">Dashed framing and an off-register stray box make a normal action look broken.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Interaction states</h2>
+    <table class="rule-table">
+      <thead><tr><th>State</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td>Hover</td><td>Change background or border through theme tokens. Do not move or resize the button.</td></tr>
+        <tr><td>Focus</td><td>Show an accent focus outline with sufficient contrast. Keep the action in normal document order.</td></tr>
+        <tr><td>Disabled</td><td>Preserve the label, reduce emphasis, remove the pointer cursor, and keep the reason available in nearby form state.</td></tr>
+        <tr><td>Busy</td><td>Keep width stable and change the verb to a compact progress form, for example “Saving…”.</td></tr>
+      </tbody>
+    </table>
+  </section>
+  <footer class="page-footer">Button patterns are the control-level application of ADM-04, ADM-06, ADM-08, and ADM-09.</footer>
+</main>
+</body>
+</html>
