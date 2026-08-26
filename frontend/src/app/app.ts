@@ -11,6 +11,8 @@ import { flattenTree } from './tree-utils';
 import { UsageHistory } from './usage-history/usage-history';
 import { readFindingRoute, writeFindingRoute } from './review-navigation';
 import { reportUrlPreviewNavigation } from './url-preview-embed';
+import { formatTokenCount, parseTokenCount } from './format';
+import { RepositoryDialog } from './repository-dialog/repository-dialog';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
 const RESIZE_HANDLE_WIDTH = 6;
@@ -33,7 +35,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,6 +64,7 @@ export class App implements OnDestroy {
   readonly repositoryDialogOpen = signal(false);
   readonly editingRepositoryId = signal<string | null>(null);
   readonly repositoryError = signal('');
+  readonly repositoryTokenCapError = signal('');
   readonly repositorySaving = signal(false);
   readonly agentStudioImportDialogOpen = signal(false);
   readonly agentStudioImporting = signal(false);
@@ -88,6 +91,7 @@ export class App implements OnDestroy {
     this.api.usage().inputTokens + this.api.usage().outputTokens));
   readonly reviewKinds: ReviewKind[] = ['code', 'security', 'performance'];
   repositoryForm: RepositoryRegistrationRequest = this.emptyRepositoryForm();
+  repositoryTokenCapText = formatTokenCount(this.repositoryForm.defaultReviewTokenCap);
   guidelineForm: GuidelineForm = this.emptyGuidelineForm();
 
   // Panel visibility/width and drag state. Persisted layout is loaded once here so the
@@ -327,7 +331,9 @@ export class App implements OnDestroy {
     this.repositoryMenuOpen.set(false);
     this.editingRepositoryId.set(null);
     this.repositoryForm = this.emptyRepositoryForm();
+    this.repositoryTokenCapText = formatTokenCount(this.repositoryForm.defaultReviewTokenCap);
     this.repositoryError.set('');
+    this.repositoryTokenCapError.set('');
     this.repositoryDialogOpen.set(true);
   }
 
@@ -374,7 +380,9 @@ export class App implements OnDestroy {
       defaultReviewTokenCap: repository.defaultReviewTokenCap,
       defaultReviewCostCap: repository.defaultReviewCostCap,
     };
+    this.repositoryTokenCapText = formatTokenCount(repository.defaultReviewTokenCap);
     this.repositoryError.set('');
+    this.repositoryTokenCapError.set('');
   }
 
   toggleReviewKind(kind: ReviewKind, enabled: boolean): void {
@@ -383,14 +391,37 @@ export class App implements OnDestroy {
       : this.repositoryForm.enabledReviewKinds.filter(existing => existing !== kind);
   }
 
-  setDefaultTokenCap(value: number | null): void {
-    this.repositoryForm.defaultReviewTokenCap = value;
-    if (value !== null) this.repositoryForm.defaultReviewCostCap = null;
+  setDefaultTokenCap(value: string): void {
+    this.repositoryTokenCapText = value;
+    if (!value.trim()) {
+      this.repositoryForm.defaultReviewTokenCap = null;
+      this.repositoryTokenCapError.set('');
+      return;
+    }
+    const parsed = parseTokenCount(value);
+    if (parsed === null || parsed > 1_000_000_000) {
+      this.repositoryForm.defaultReviewTokenCap = null;
+      this.repositoryTokenCapError.set('Enter 1 to 1B tokens, for example 100k or 0.1M.');
+      return;
+    }
+    this.repositoryForm.defaultReviewTokenCap = parsed;
+    this.repositoryTokenCapError.set('');
+    this.repositoryForm.defaultReviewCostCap = null;
+  }
+
+  normalizeDefaultTokenCap(): void {
+    if (this.repositoryForm.defaultReviewTokenCap !== null) {
+      this.repositoryTokenCapText = formatTokenCount(this.repositoryForm.defaultReviewTokenCap);
+    }
   }
 
   setDefaultCostCap(value: number | null): void {
     this.repositoryForm.defaultReviewCostCap = value;
-    if (value !== null) this.repositoryForm.defaultReviewTokenCap = null;
+    if (value !== null) {
+      this.repositoryForm.defaultReviewTokenCap = null;
+      this.repositoryTokenCapText = '';
+      this.repositoryTokenCapError.set('');
+    }
   }
 
   async saveRepository(): Promise<void> {

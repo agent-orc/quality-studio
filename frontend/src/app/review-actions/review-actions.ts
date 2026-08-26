@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { QualityApi, ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../quality-api';
+import { formatTokenCount, parseTokenCount } from '../format';
 
 let reviewActionsInstance = 0;
 
@@ -34,6 +35,8 @@ export class ReviewActions {
   readonly force = signal(false);
   readonly capKind = signal<'repository' | 'tokens' | 'cost'>('repository');
   readonly capValue = signal<number | null>(null);
+  readonly tokenCapText = signal('');
+  readonly tokenCapError = signal('');
   readonly cliTypes = ['codex', 'claude', 'antigravity', 'gemini'];
   readonly fileCount = computed(() => this.countFiles(this.node()));
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
@@ -118,8 +121,25 @@ export class ReviewActions {
   }
 
   setThinkingLevel(value: string): void { this.clearPreflight(); this.thinkingLevel.set(value); }
-  setCapKind(value: 'repository' | 'tokens' | 'cost'): void { this.clearPreflight(); this.capKind.set(value); }
+  setCapKind(value: 'repository' | 'tokens' | 'cost'): void {
+    this.clearPreflight();
+    this.capKind.set(value);
+    this.capValue.set(null);
+    this.tokenCapText.set('');
+    this.tokenCapError.set('');
+  }
   setCapValue(value: number | null): void { this.clearPreflight(); this.capValue.set(value); }
+  setTokenCapValue(value: string): void {
+    this.clearPreflight();
+    this.tokenCapText.set(value);
+    const parsed = parseTokenCount(value);
+    this.capValue.set(parsed);
+    this.tokenCapError.set(value.trim() && parsed === null ? 'Use tokens such as 100k or 0.1M.' : '');
+  }
+  normalizeTokenCap(): void {
+    const value = this.capValue();
+    if (value !== null) this.tokenCapText.set(formatTokenCount(value));
+  }
   setForce(value: boolean): void { this.clearPreflight(); this.force.set(value); }
 
   modelKeydown(event: KeyboardEvent): void {
@@ -214,7 +234,7 @@ export class ReviewActions {
 
   beginNewReview(): void { this.showLauncher.set(true); this.clearPreflight(); }
 
-  formatNumber(value: number): string { return Math.round(value).toLocaleString(); }
+  formatNumber(value: number): string { return formatTokenCount(Math.round(value)); }
 
   costLabel(preflight: ReviewPreflight): string {
     const estimate = preflight.estimate;
@@ -224,7 +244,7 @@ export class ReviewActions {
   }
 
   capLabel(preflight: ReviewPreflight): string {
-    if (preflight.tokenCap !== null) return `${this.formatNumber(preflight.tokenCap)} tokens`;
+    if (preflight.tokenCap !== null) return `${formatTokenCount(preflight.tokenCap)} tokens`;
     if (preflight.costCap !== null) return `${preflight.costCap.toFixed(4)} ${preflight.estimate.currency ?? 'USD'}`;
     return 'Repository default: none';
   }
@@ -237,11 +257,12 @@ export class ReviewActions {
 
   async resumeCapped(run: ReviewRun): Promise<void> {
     const current = run.tokenCap ?? run.costCap;
-    const entered = prompt(`Raise the ${run.tokenCap !== null ? 'token' : 'cost'} cap to resume:`, current === null ? '' : String(current * 2));
+    const tokenCap = run.tokenCap !== null;
+    const entered = prompt(`Raise the ${tokenCap ? 'token' : 'cost'} cap to resume${tokenCap ? ' (tokens; k/M accepted)' : ''}:`, current === null ? '' : tokenCap ? formatTokenCount(current * 2) : String(current * 2));
     if (entered === null) return;
-    const cap = Number(entered);
-    if (!Number.isFinite(cap) || cap <= 0) return;
-    await this.api.resumeReview(run.id, run.tokenCap !== null ? { tokenCap: cap } : { costCap: cap });
+    const cap = tokenCap ? parseTokenCount(entered) : Number(entered);
+    if (cap === null || !Number.isFinite(cap) || cap <= 0) return;
+    await this.api.resumeReview(run.id, tokenCap ? { tokenCap: cap } : { costCap: cap });
   }
 
   private countFiles(node: TreeNode | undefined): number {

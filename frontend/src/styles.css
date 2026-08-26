@@ -10,6 +10,7 @@
   --studio-font-size-label: 11px; --studio-font-size-body: 13px; --studio-font-size-title: 14px; --studio-font-size-heading: 16px;
   --studio-line-height-body: 1.55; --studio-line-height-title: 1.35;
   --studio-space-1: 4px; --studio-space-2: 8px; --studio-space-3: 12px; --studio-space-4: 16px;
+  --studio-space-5: 24px; --studio-space-6: 32px; --studio-space-7: 48px;
   --studio-radius-badge: 4px; --studio-radius-card: 6px; --studio-control-hit-compact: 24px;
   --syntax-comment: color-mix(in srgb, var(--studio-fg-muted) 78%, var(--studio-fg));
   --syntax-string: color-mix(in srgb, var(--status-fresh) 68%, var(--studio-fg));
@@ -23,10 +24,15 @@
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
   --studio-radius-sm: 4px; --studio-radius-md: 6px; --studio-radius-lg: 8px; --studio-radius-pill: 999px;
-  --studio-control-sm: 28px; --studio-font-2xs: 7px; --studio-font-xs: 9px; --studio-font-sm: 10px;
+  --studio-control-sm: 28px; --studio-control-action: 32px; --studio-control-md: 34px; --studio-icon-button-size: 29px;
+  --studio-font-2xs: 7px; --studio-font-xs: 9px; --studio-font-sm: 10px;
   --studio-model-picker-width: 174px; --studio-model-menu-width: 390px; --studio-model-menu-height: 360px;
   --studio-cap-input-width: 74px; --studio-compact-control-width: 88px; --studio-compact-model-width: 112px;
   --studio-textarea-min-height: 72px;
+  --studio-modal-wide: 850px; --studio-modal-header-height: 68px; --studio-modal-body-height: 560px;
+  --studio-modal-sidebar-width: 205px; --studio-modal-footer-height: 56px;
+  --studio-modal-safe-area: calc(var(--studio-space-6) * 2); --studio-modal-padding-inline: var(--studio-space-4);
+  --studio-modal-backdrop: rgba(8, 10, 14, .62); --studio-modal-shadow: 0 18px 70px rgba(0, 0, 0, .35);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
