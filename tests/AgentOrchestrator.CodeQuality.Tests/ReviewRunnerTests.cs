@@ -879,12 +879,10 @@ public sealed class ReviewRunnerTests
 public sealed class LiveReviewIntegrationTests
 {
     [Fact]
+    [Trait("Category", "ExternalLive")]
     public async Task CodexCanReviewSmallFile_WhenExplicitlyEnabled()
     {
-        if (!string.Equals(Environment.GetEnvironmentVariable("QUALITY_RUN_LIVE_REVIEW"), "1", StringComparison.Ordinal))
-        {
-            Assert.Skip("Set QUALITY_RUN_LIVE_REVIEW=1 to run the installed Codex CLI integration.");
-        }
+        Assert.Equal("1", Environment.GetEnvironmentVariable("QUALITY_RUN_LIVE_REVIEW"));
 
         var root = RepositoryTestContext.FindRepositoryRoot();
         var result = await new ReviewRunner().ReviewAsync(new ReviewRequest(

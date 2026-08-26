@@ -14,6 +14,7 @@ const defaultWebPort = Number(process.env.QUALITY_STUDIO_PRODUCT_PORT ?? 4200);
 const defaultHost = process.env.QUALITY_STUDIO_HOST ?? '127.0.0.1';
 const defaultTimeoutMs = Number(process.env.QUALITY_STUDIO_START_TIMEOUT_MS ?? 120000);
 const npmCommand = process.env.QUALITY_STUDIO_NPM_COMMAND ?? (process.platform === 'win32' ? 'npm.cmd' : 'npm');
+const npmCommandArguments = parseCommandArguments(process.env.QUALITY_STUDIO_NPM_COMMAND_ARGUMENTS);
 
 const args = parseArgs(process.argv.slice(2));
 const state = {
@@ -69,13 +70,15 @@ async function main() {
     waitForChildExitBeforeReady(web),
   ]);
 
+  const sigint = waitForSignal('SIGINT');
+  const sigterm = waitForSignal('SIGTERM');
   state.ready = true;
   console.log(formatLog('stack', `ready: api=${apiBaseUrl} web=${webBaseUrl}`));
 
   await Promise.race([
     Promise.all([waitForChildExitAfterReady(api), waitForChildExitAfterReady(web)]),
-    waitForSignal('SIGINT'),
-    waitForSignal('SIGTERM'),
+    sigint,
+    sigterm,
   ]);
 }
 
@@ -114,7 +117,7 @@ async function ensureInstall(parsedArgs, repoRoot, frontendRoot, apiPort, webPor
   if (installState.ready) return;
 
   console.log(formatLog('install', installState.reason));
-  await runCommand('install', npmCommand, ['ci'], { cwd: frontendRoot });
+  await runCommand('install', npmCommand, [...npmCommandArguments, 'ci'], { cwd: frontendRoot });
 }
 
 function frontendInstallState(frontendRoot) {
@@ -154,6 +157,7 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
 
   return [
     npmCommand,
+    ...npmCommandArguments,
     'start',
     '--',
     '--host',
@@ -163,6 +167,19 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
     '--proxy-config',
     proxyConfig,
   ];
+}
+
+function parseCommandArguments(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed) || parsed.some(argument => typeof argument !== 'string')) {
+      throw new TypeError('expected a JSON array of strings');
+    }
+    return parsed;
+  } catch (error) {
+    throw new Error(`QUALITY_STUDIO_NPM_COMMAND_ARGUMENTS is invalid: ${error.message}`);
+  }
 }
 
 async function createProxyConfig(apiPort) {
@@ -185,16 +202,17 @@ async function startChild(name, command, options) {
     windowsHide: true,
   });
 
-  state.children.push({ name, process: child });
-  pipeLogs(name, child.stdout, 'stdout');
-  pipeLogs(name, child.stderr, 'stderr');
+  const entry = { name, process: child, output: [] };
+  state.children.push(entry);
+  pipeLogs(name, child.stdout, 'stdout', entry.output);
+  pipeLogs(name, child.stderr, 'stderr', entry.output);
   child.once('exit', (code, signal) => {
     console.log(formatLog(name, `exited code=${code ?? 'null'} signal=${signal ?? 'null'}`));
   });
   return child;
 }
 
-function pipeLogs(name, stream, channel) {
+function pipeLogs(name, stream, channel, captured = null) {
   let buffer = '';
   stream.setEncoding('utf8');
   stream.on('data', chunk => {
@@ -203,12 +221,21 @@ function pipeLogs(name, stream, channel) {
     while ((index = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, index).replace(/\r$/, '');
       buffer = buffer.slice(index + 1);
-      if (line.length > 0) console.log(formatLog(name, `${channel}: ${line}`));
+      if (line.length > 0) emitChildLog(name, channel, line, captured);
     }
   });
   stream.on('end', () => {
-    if (buffer.trim().length > 0) console.log(formatLog(name, `${channel}: ${buffer.trimEnd()}`));
+    if (buffer.trim().length > 0) emitChildLog(name, channel, buffer.trimEnd(), captured);
   });
+}
+
+function emitChildLog(name, channel, line, captured) {
+  const message = `${channel}: ${line}`;
+  console.log(formatLog(name, message));
+  if (captured) {
+    captured.push(message);
+    if (captured.length > 50) captured.shift();
+  }
 }
 
 async function runCommand(name, executable, args, options) {
@@ -243,7 +270,11 @@ async function waitForHttp(url, timeoutMs, name) {
 async function waitForChildExitBeforeReady(child) {
   return new Promise((resolvePromise, rejectPromise) => {
     child.once('exit', code => {
-      if (!state.ready) rejectPromise(new Error(`process exited during startup with code ${code ?? 'null'}`));
+      if (!state.ready) {
+        const entry = state.children.find(candidate => candidate.process === child);
+        const diagnostics = entry?.output.length ? `\nCaptured ${entry.name} output:\n${entry.output.join('\n')}` : '';
+        rejectPromise(new Error(`process exited during startup with code ${code ?? 'null'}${diagnostics}`));
+      }
       else resolvePromise();
     });
   });
