@@ -56,6 +56,8 @@ public sealed class ReviewModelCatalog
     private const string SnapshotResource =
         "AgentOrchestrator.CodeQuality.catalogues.token-economy-model-catalog.snapshot.json";
     private static readonly HashSet<string> NewRunStatuses = ["selectable", "fallbackOnly"];
+    private static readonly HashSet<string> FirstClassClaudeReviewModels =
+        ["claude-opus-5", "claude-sonnet-5"];
     private static readonly HashSet<string> KnownCliTypes = ["codex", "claude", "gemini", "antigravity"];
     private readonly Dictionary<string, ReviewModelOption> modelsByKey;
 
@@ -185,7 +187,10 @@ public sealed class ReviewModelCatalog
             "gpt-5.6-sol" when thinkingRank >= thinkingRanks["medium"] => 2,
             "gpt-5.6-terra" when thinkingRank >= thinkingRanks["medium"] => 1,
             "gpt-5.6-luna" when thinkingRank >= thinkingRanks["medium"] => 0,
+            "claude-sonnet-5" when thinkingRank >= thinkingRanks["xhigh"] => 3,
             "claude-sonnet-5" when thinkingRank >= thinkingRanks["high"] => 2,
+            "claude-opus-5" when thinkingRank >= thinkingRanks["max"] => 3,
+            "claude-opus-5" when thinkingRank >= thinkingRanks["high"] => 2,
             _ => -1,
         };
         return selectedRank < floorRank;
@@ -217,9 +222,16 @@ public sealed class ReviewModelCatalog
         var models = routingRoot.GetProperty("models").EnumerateArray().Select(model =>
         {
             var modelId = model.GetProperty("canonicalId").GetString()!;
-            var routingStatus = model.GetProperty("routingStatus").GetString()!;
+            var synchronizedRoutingStatus = model.GetProperty("routingStatus").GetString()!;
+            var routingStatus = FirstClassClaudeReviewModels.Contains(modelId)
+                ? "selectable"
+                : synchronizedRoutingStatus;
             var tier = model.GetProperty("capabilityTier").GetString()!;
-            var roles = Strings(model.GetProperty("workflowRoles"));
+            var synchronizedRoles = Strings(model.GetProperty("workflowRoles"));
+            var roles = FirstClassClaudeReviewModels.Contains(modelId) &&
+                        !synchronizedRoles.Contains("coreTask", StringComparer.Ordinal)
+                ? [.. synchronizedRoles, "coreTask"]
+                : synchronizedRoles;
             return new ReviewModelOption(
                 modelId,
                 Strings(model.GetProperty("aliases")),
@@ -230,7 +242,7 @@ public sealed class ReviewModelCatalog
                 Strings(model.GetProperty("supportedThinkingLevels")),
                 model.GetProperty("provisional").GetBoolean(),
                 model.GetProperty("evidenceStatus").GetString()!,
-                model.GetProperty("note").GetString()!,
+                ReviewQualificationNote(modelId, model.GetProperty("note").GetString()!),
                 pricedModels.GetValueOrDefault(model.GetProperty("priceCatalogId").GetString()!),
                 NewRunStatuses.Contains(routingStatus));
         }).ToArray();
@@ -258,6 +270,15 @@ public sealed class ReviewModelCatalog
         };
         return routingStatus == "fallbackOnly" ? $"Equivalent-provider fallback only. {baseline}" : baseline;
     }
+
+    private static string ReviewQualificationNote(string modelId, string synchronizedNote) => modelId switch
+    {
+        "claude-sonnet-5" =>
+            "First-class Quality Studio review route: high clears the broad-review floor; xhigh and max clear the correctness-critical floor.",
+        "claude-opus-5" =>
+            "First-class Quality Studio deep-review route: high clears the broad-review floor; max clears the correctness-critical floor.",
+        _ => synchronizedNote,
+    };
 
     private static IReadOnlyList<string> Strings(JsonElement value) =>
         value.EnumerateArray().Select(item => item.GetString()!).ToArray();
