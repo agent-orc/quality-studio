@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio archived run finding observation v1",
+  "description": "One append-only line in findings.jsonl: what one operation observed, including lifecycle state at that time. Never becomes the current lifecycle owner.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "operationId", "fingerprint", "findingId", "ruleId", "severity", "title", "locations", "state"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "fingerprint": { "$ref": "#/$defs/sha256" },
+    "findingId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+    "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] }
+  },
+  "$defs": {
+    "nullableInteger": { "type": ["integer", "null"] },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "startLine": { "$ref": "#/$defs/nullableInteger" },
+        "startColumn": { "$ref": "#/$defs/nullableInteger" },
+        "endLine": { "$ref": "#/$defs/nullableInteger" },
+        "endColumn": { "$ref": "#/$defs/nullableInteger" }
+      }
+    }
+  }
+}

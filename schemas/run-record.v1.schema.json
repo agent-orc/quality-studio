@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio archived run record v1",
+  "description": "Immutable identity, plan and configuration for one archived review run under .quality/run-history/. Create-only: never rewritten once flushed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "repositoryId", "createdAt", "unitId", "level", "path", "kind", "model", "cliType", "thinkingLevel", "force", "targets", "targetsManifestHash", "tokenCap", "costCap", "estimate", "sourceRevision"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "model": { "$ref": "#/$defs/nullableString" },
+    "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "thinkingLevel": { "$ref": "#/$defs/nullableString" },
+    "force": { "type": "boolean" },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["unitId", "name", "path", "subjectHash"],
+        "properties": {
+          "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "path": { "$ref": "#/$defs/repoPath" },
+          "subjectHash": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "targetsManifestHash": { "$ref": "#/$defs/sha256" },
+    "tokenCap": { "$ref": "#/$defs/nullableInteger" },
+    "costCap": { "$ref": "#/$defs/nullableNumber" },
+    "estimate": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["files", "operations", "inputTokens", "outputTokens", "cost", "currency", "priceStatus"],
+          "properties": {
+            "files": { "type": "integer", "minimum": 0 },
+            "operations": { "type": "integer", "minimum": 0 },
+            "inputTokens": { "type": "integer", "minimum": 0 },
+            "outputTokens": { "type": "integer", "minimum": 0 },
+            "cost": { "$ref": "#/$defs/nullableNumber" },
+            "currency": { "$ref": "#/$defs/nullableString" },
+            "priceStatus": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "sourceRevision": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commitSha", "dirty"],
+          "properties": {
+            "commitSha": { "$ref": "#/$defs/nullableString" },
+            "dirty": { "type": ["boolean", "null"] }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    }
+  }
+}

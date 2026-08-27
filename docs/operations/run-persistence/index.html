@@ -141,8 +141,8 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
-    <span><b>Phase</b> decision ready</span>
+    <span><b>Status</b> decided</span>
+    <span><b>Phase</b> implementation in progress</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
   </div>
@@ -165,6 +165,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -479,6 +480,27 @@
     <tr><td>Stable finding/grade diff precedent</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs">ChangeSetReviewService.cs</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetModels.cs">ChangeSetModels.cs</a></td></tr>
     <tr><td>Git-backed trend requires committed sidecars</td><td><a href="../../../docs/quality-reports.md">docs/quality-reports.md</a>, Git-backed trend section</td></tr>
     <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
+  </tbody>
+</table>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<p class="dim">Append-only log. Each entry records what actually landed for one approved slice; it does not revise the decision above.</p>
+
+<table>
+  <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>27 August 2026</td>
+      <td><code>QS-71</code></td>
+      <td><b>RP-1 · Contracts and archive core</b></td>
+      <td>
+        <p>Added the four v1 archive schemas (<code>schemas/run-record.v1.schema.json</code>, <code>run-operation.v1.schema.json</code>, <code>run-finding.v1.schema.json</code>, <code>run-attempt.v1.schema.json</code>) and their typed C# records plus a new <code>ReviewRunArchiveStore</code> in <a href="../../../src/QualityStudio.Api/ReviewRunArchive.cs">src/QualityStudio.Api/ReviewRunArchive.cs</a>, kept separate from the mutable <code>ReviewRunStore</code> recovery journal as recommended.</p>
+        <p>The store writes <code>run.json</code> create-only under <code>.quality/run-history/&lt;yyyy-MM&gt;/&lt;runId&gt;/</code>, appends <code>operations.jsonl</code>/<code>findings.jsonl</code> write-through, and writes one create-only <code>attempts/NNNN.json</code> per stopped attempt so a capped run that later resumes gets a second attempt record instead of an overwrite. Run-id and archive-root path confinement reuse the existing <code>PathConfinement</code> helper.</p>
+        <p>Covered by <a href="../../../tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs</a>: schema-fixture validation for all four record types, create-only overwrite rejection, two readable attempts under one capped-then-resumed run, JSONL crash-tail tolerance, and path-traversal rejection for hostile run ids.</p>
+        <p><b>Deliberately not in this slice</b> (kept in scope for RP-2/RP-3, not attempted here): wiring <code>ReviewJobs.cs</code> to allocate real <code>operationId</code>/attempt ordinals and call the new store, ledger v3, the migration/history API, run diff, and the history UI. Current routes, the live <code>/review/runs</code> endpoint and the UI are unchanged; the archive store is additive and unused by the live orchestration path until RP-2 wires it in.</p>
+        <p>Gate: <code>dotnet build QualityStudio.slnx</code> and <code>dotnet test QualityStudio.slnx</code> pass, aside from a pre-existing, load-sensitive timing flake in <code>ProjectDashboardTests.Cached_dashboard_for_5000_file_repository_is_within_interaction_budget</code> (unrelated area; reproduces on the pre-slice baseline and passes in isolation).</p>
+      </td>
+    </tr>
   </tbody>
 </table>
 
