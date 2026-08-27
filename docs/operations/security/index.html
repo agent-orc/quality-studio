@@ -141,7 +141,7 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
+      <span><b>Status</b> decided — operator blanket approval, 11 Aug 2026 (all slices S0–S6 approved; implementation tracked in <a href="#implementation">§Implementation</a>)</span>
       <span><b>Phase</b> decision ready</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,25 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <p class="dim">Living log, append-only. Each entry records the delivered slice against its dossier exit evidence; it does not restate or revise the analysis above.</p>
+
+    <div class="box">
+      <h4>27 August 2026 · QS-68 · S0 (partial)</h4>
+      <p>Delivered the first, most critical piece of F-01/R-01's "complete authorization-to-command chain": a repository-scoped hosted API client can no longer call <code>PUT /api/repos/{repoId}</code> or <code>DELETE /api/repos/{repoId}</code> for a repository it can already read. Both routes now require <code>CanRegisterRepositories</code>, the same registrar privilege already enforced for <code>POST /api/repos</code> and the Agent Studio import route (<code>Program.cs</code>, repository-mutation middleware). Because sensor <code>command</code> configuration (<code>SarifSensor.cs</code>) travels through this same <code>PUT</code> payload, this also closes the update-path half of the free-form analyzer-command injection surface for non-registrar hosted clients. Local mode is unaffected — the single-operator identity already carries wildcard registrar privilege, so the primary "trusted, local repository" use case the dossier scopes this checkout to sees no behavior change.</p>
+      <p>Also applied the run-cost "spend" rate limiter to <code>POST /api/sensors/{id}/scan</code> and its repository-scoped equivalent (previously unlimited, unlike review/handover/attack-judgement), narrowing R-03/F-03's "one very large operation before the next check" gap for the sensor execution path named in F-01.</p>
+      <p><b>Tests:</b> <code>tests/QualityStudio.Api.Tests/ApiSecurityTests.cs</code> — <code>Repository_scoped_client_cannot_change_its_own_root_or_sensor_configuration</code> (403 for a scoped client on both routes, 200 for a registrar), <code>Sensor_scans_have_per_client_spend_rate_limits</code> (second scan within the window returns 429), and an added assertion in <code>Local_mode_is_explicitly_credential_free</code> proving the local-operator <code>PUT</code> path keeps working. Full repo gate green: <code>dotnet test QualityStudio.slnx</code> — 207 passed, 1 skipped (pre-existing live-CLI integration skip), 0 failed.</p>
+      <p><b>Not in this slice — explicit follow-up, still open:</b></p>
+      <ul>
+        <li>S0 remainder: resolve a host-owned analyzer profile ID instead of accepting any <code>command</code> string at all (today a registrar can still configure one); disable command-backed analyzers by default; require Origin + anti-CSRF nonce for local mutations; fail Local-mode startup on a non-loopback bind; upgrade the Angular 20.3.26 family to a fixed 20.3 patch.</li>
+        <li>S1 — worker/sandbox boundary for review agents and sensor processes (the dossier's other Critical item, R-02).</li>
+        <li>S2 through S6 — input bounding/quarantine, end-to-end secret handling, data-only handover, hosted credential lifecycle, and the continuous supply-chain CI gate.</li>
+      </ul>
+      <p class="dim">Scope note: this delivery is intentionally one coherent slice, not the full S0-through-S6 plan, per the 27 August 2026 orchestrator scope correction — each remaining item above is tracked as its own follow-up card.</p>
+    </div>
   </section>
 </main>
 </body>

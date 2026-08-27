@@ -160,6 +160,50 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_client_cannot_change_its_own_root_or_sensor_configuration()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        using var update = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[] { new { id = "sarif", enabled = true, configuration = new Dictionary<string, string> { ["command"] = "sh -c \"id\"" } } },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+
+        using var archive = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminUpdate = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign (renamed)",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminUpdate.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sensor_scans_have_per_client_spend_rate_limits()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+
+        using var alice = CreateClient(rateApplication, "alice", AliceToken);
+        using var firstScan = await alice.PostAsync("/api/sensors/boundaries/scan", content: null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, firstScan.StatusCode);
+        using var secondScan = await alice.PostAsync("/api/sensors/boundaries/scan", content: null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondScan.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
@@ -174,6 +218,14 @@ public sealed class ApiSecurityTests : IAsyncLifetime
             path = "Sample.cs", kind = "code", model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
+
+        using var update = await client.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default (renamed)",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
     }
 
     public async ValueTask InitializeAsync()
