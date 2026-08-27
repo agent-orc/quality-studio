@@ -7,7 +7,7 @@ Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 (converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
 > Working state, 2026-08-04: the core library, the `quality` CLI, the review API
-> and the Angular browser all ship from this repository and are covered by CI;
+> and the Angular browser all ship from this repository and are covered by the required CI gate;
 > cards through QS-52 are delivered. No package is published to NuGet yet.
 > Product URL will be `agent-orchestrator.dev/quality`; the proposed final
 > core package ID and root namespace are `AgentOrchestrator.CodeQuality` (subject
@@ -211,6 +211,35 @@ endpoint formats, and documented exit codes.
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+
+## Required test baseline
+
+The pull-request gate pins .NET 10.0.301 and Node 22.23.1, restores committed lock
+files, excludes machine-bound timing checks from the routine .NET lane, builds the
+production Angular bundle under the unchanged 480 kB limit, provisions the
+Playwright Chromium version declared by the frontend lock file, runs the Angular
+specs, and provisions pinned Gitleaks before scanning. The equivalent local commands
+are:
+
+```shell
+dotnet restore QualityStudio.slnx --locked-mode
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
+cd frontend
+npm ci
+npm run browser:install
+npm run test:browser-resolver
+npm run build -- --configuration production
+npm test
+cd ..
+npm run test:required-gate
+dotnet run --project src/quality-cli --configuration Release --no-build -- security provision
+dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+```
+
+Set `CHROME_NO_SANDBOX=1` only on a controlled Linux runner that cannot use the
+Chromium sandbox. Tests carrying `Category=MachineBound` contain host timing or
+performance assertions and run outside this portable required gate.
 
 ## Minimal API
 
