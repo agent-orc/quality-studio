@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived run operation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt", "unitId", "path", "level", "state", "startedAt", "finishedAt", "providerRunId", "subjectHash", "reviewedHash", "sidecarPath", "sidecarSha256", "grade", "securityVerdict"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "$ref": "#/$defs/nullableString" },
+    "subjectHash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+    "reviewedHash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+    "sidecarPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/repoPath" }] },
+    "sidecarSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+    "grade": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/grade" }] },
+    "securityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band", "rationale"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    }
+  }
+}

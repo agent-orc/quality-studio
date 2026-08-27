@@ -165,6 +165,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -481,6 +482,17 @@
     <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
   </tbody>
 </table>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<p class="dim">Append-only record of delivered slices. Each entry is added by the implementing card once its slice merges; earlier entries are not edited.</p>
+
+<div class="box ok">
+  <h4>2026-08-27 · QS-71 · RP-1 Contracts and archive core</h4>
+  <p>Delivered the four v1 archive schemas (<code>schemas/run-record.v1.schema.json</code>, <code>run-operation.v1.schema.json</code>, <code>run-finding.v1.schema.json</code>, <code>run-attempt.v1.schema.json</code>), their typed C# records (<code>src/QualityStudio.Api/ReviewRunArchive.cs</code>), and <code>ReviewRunArchiveStore</code> (<code>src/QualityStudio.Api/ReviewRunArchiveStore.cs</code>). The store writes the tracked, create-only <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/run.json</code>, append-only <code>operations.jsonl</code> and <code>findings.jsonl</code>, and create-only <code>attempts/NNNN.json</code> with an auto-computed next ordinal so a capped run that resumes more than once keeps every stopped attempt as a separate immutable file. Repository paths are confined with the existing <code>PathConfinement</code> helper and run ids are restricted to a single path segment. Current routes, the in-memory work item model and the UI are unchanged, matching the RP-1 acceptance criteria.</p>
+  <p>Tests: <code>tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs</code> validates each fixture against its schema with <code>JsonSchema.Net</code>, asserts create-only rejection for both <code>run.json</code> and an attempt ordinal, exercises a two-attempt capped/resumed run staying fully readable, and rejects run ids that escape their directory (path separators, <code>.</code>, <code>..</code>).</p>
+  <p><b>Not in this slice (tracked as follow-up work, RP-2 through RP-5, unchanged from the approved plan):</b> the store is not yet wired into <code>ReviewJobService</code>/<code>ReviewWorkItem</code> — no operation IDs or attempt ordinals are generated on the live work item, and no dual-write happens at stopped-attempt boundaries yet (RP-2). No migration of existing <code>.quality/runs/</code> folders and no history/detail HTTP routes exist yet (RP-3). No diff endpoint (RP-4). No History/compare UI (RP-5).</p>
+  <p><b>Evidence note for the next slice:</b> since this dossier's evidence cut, an unrelated card added <code>.quality/reports/runs/&lt;runId&gt;.json</code> (<code>QualityRunReportStore</code>, <code>schemas/quality-run-report.v1.schema.json</code>), a tracked, revision-numbered canonical snapshot written at every terminal transition. It solves a different problem (one current projection per run, overwritten per revision) than this dossier's folder-per-attempt archive, and RP-1 does not depend on or duplicate it. RP-3's history/detail composition should decide deliberately whether and how the two relate rather than silently reading only one.</p>
+</div>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
 </main>
