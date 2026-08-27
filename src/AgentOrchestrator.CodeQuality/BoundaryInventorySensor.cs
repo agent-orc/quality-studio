@@ -47,7 +47,7 @@ public sealed record BoundaryLimit(string Value, IReadOnlyList<string> DerivedFr
 /// deliberately conservative: an unproved fact is recorded as unknown, never upgraded
 /// by convention or by an agent's judgement.
 /// </summary>
-public sealed partial class BoundaryInventorySensor : IReviewSensor
+public sealed partial class BoundaryInventorySensor : ISecurityEvidenceSensor
 {
     public const string SensorVersion = "1.0.0";
     public const string InventoryRelativePath = ".quality/boundaries/inventory.json";
