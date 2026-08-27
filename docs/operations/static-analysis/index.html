@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -577,7 +578,22 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. One entry per delivered slice; the decision content in sections 00–10 is source and is not rewritten. Operator approved all recommendations on 11 August 2026 (workbench key QS-W7), including slices previously marked operator-decision-gated, so every slice below is <b>decided</b>.</p>
+
+    <h3>28 August 2026 · QS-72 · S2 (part 1 of 2) — deterministic-evidence disposition and compact prompt projection <span class="pill part">partial</span></h3>
+    <p>Delivered the classification half of S2's "selective disposition matrix and compact prompt projection" for the deterministic (Roslyn/ESLint/tsc) analyzer lane. Not in this entry: the new Angular budget/<code>ngc</code>/NG8102 sensor, wiring the disposition into the review job's file/aggregate skip logic, and the equivalent compact projection for security/dependency-advisory evidence — see "Not in this entry" below.</p>
+    <ul>
+      <li><b>New</b> <code>DeterministicDisposition</code> enum (<code>Pass</code>/<code>Warn</code>/<code>Unavailable</code>/<code>Block</code>, ordered worst-to-best) and <code>DeterministicEvidenceProjection.Classify</code>/<code>ClassifySensor</code> in <code>src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs</code>: a deterministic sensor's <code>Critical</code>/<code>High</code>-severity finding classifies as <code>Block</code> (this repository's <code>TreatWarningsAsErrors</code> means a genuine build error always reaches this tier); a <code>Medium</code> finding is <code>Warn</code>; an unavailable sensor is <code>Unavailable</code> and can never resolve to <code>Pass</code> even when every other configured sensor is clean, matching the dossier's "unavailable required checks never become pass" guardrail at the classification layer (the required-vs-optional distinction itself is still S1's job).</li>
+      <li><b>Compact prompt projection:</b> <code>DeterministicEvidenceProjection.ToPromptJson</code> now emits, per sensor, <code>id</code>/<code>version</code>/<code>available</code>/<code>unavailableReason</code>/<code>disposition</code>/<code>findingCount</code>/<code>severityCounts</code> plus one entry per finding limited to <code>ruleId</code>/<code>severity</code>/<code>path</code>/<code>line</code> — never <code>title</code>, <code>description</code>, <code>recommendation</code>, or raw <code>evidence</code> text. This is the same call site the review prompt already used (<code>ReviewRunner.PreparePromptAsync</code>), so no caller changed; only what reaches the model shrank. The full findings are unaffected in the stored review sidecar (<code>deterministicEvidence</code> in the meta JSON, written separately from the prompt) so dashboards and humans keep complete detail.</li>
+      <li><b>Confirmed structurally already true, not newly built:</b> "dependency/secret findings do not suppress semantic security review" — <code>DeterministicEvidenceCollector</code> only collects <code>IDeterministicEvidenceSensor</code> sensors (Roslyn/ESLint/tsc); Gitleaks and dependency-advisory findings are security-lane evidence collected separately and were never wired to block anything.</li>
+    </ul>
+    <p><b>Tests:</b> <code>tests/AgentOrchestrator.CodeQuality.Tests/DeterministicEvidenceProjectionTests.cs</code> (11 cases: per-severity classification, worst-of aggregation across sensors, an unavailable sensor outranking a warning from another sensor, empty-evidence defaults to <code>Pass</code>, and the compact JSON shape including a direct assertion that finding title/description/recommendation/evidence text is absent). Extended the existing <code>ReviewRunnerTests.DeterministicEvidence_RemainsSeparateAndDoesNotMoveAgentGrade</code> end-to-end test with assertions that the rule id reaches the live agent prompt while the finding's description/recommendation text does not. <b>Verified:</b> <code>dotnet build -c Release</code> clean; <code>dotnet test --filter "Category!=MachineBound"</code> 213 passed / 1 skipped by design / 0 failed (202 baseline + 11 new); <code>Category=MachineBound</code> still passes.</p>
+    <p><b>Not in this entry (follow-up cards):</b> the Angular production-budget/<code>ngc</code>/NG8102 sensor (no such sensor exists in <code>src/</code> today — net-new, independent of this classification work); using <code>Classify</code> to actually skip a file's or the project aggregate's model call in <code>ReviewJobs.cs</code> (this needs a new terminal file/run state analogous to <code>failed</code>/<code>skipped</code>, which is S1's "run states/progress for blocked-preflight operations" territory — deliberately not duplicated here to avoid the churn that has cost S1's full-contract attempts several redeliveries); surfacing the aggregate disposition in the stored review metadata and Project Dashboard/API, analogous to the security lane's <code>verdict</code> field; and the equivalent compact projection for <code>SecurityEvidenceBundle.ToPromptJson()</code>, which still serializes full advisory/finding text into the security prompt today. Remaining slices per the dossier: S1 (full contract), S2 (rest, as above), S3, S4 (CA1502/CA1505 wiring, ESLint <code>complexity</code> rule, dashboard UI), S5.</p>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026 · implementation log appended 28 August 2026</footer>
 </main>
 </body>
 </html>

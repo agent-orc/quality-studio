@@ -349,6 +349,9 @@ public sealed class ReviewRunnerTests
             Assert.Contains("Judge their applicability", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("deduplicate", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("does not set or cap", agent.Prompt, StringComparison.Ordinal);
+            Assert.Contains("\"CA1822\"", agent.Prompt, StringComparison.Ordinal);
+            Assert.DoesNotContain("Member does not access instance data.", agent.Prompt, StringComparison.Ordinal);
+            Assert.DoesNotContain("Make the member static.", agent.Prompt, StringComparison.Ordinal);
         });
     }
 
