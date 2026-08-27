@@ -107,6 +107,27 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
     }
 
+    // claude-opus-5 is priced but still unsupported by the routing policy, so the operator's
+    // Claude-first attempt is refused. It must be refused as a model problem: the blanket
+    // ArgumentException mapping used to report "Invalid repository path" for a perfectly valid path.
+    [Fact]
+    public async Task Unsupported_model_is_refused_by_name_rather_than_as_a_path_error()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.cs", kind = "code", cliType = "claude",
+            model = "claude-opus-5", thinkingLevel = "max",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Invalid model selection", problem.GetProperty("title").GetString());
+        var detail = problem.GetProperty("detail").GetString();
+        Assert.Contains("claude-opus-5", detail, StringComparison.Ordinal);
+        Assert.Contains("unsupported", detail, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Review_preflight_recommends_policy_route_and_start_requires_below_floor_confirmation()
     {
