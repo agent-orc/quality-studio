@@ -313,6 +313,39 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    public async Task Security_evidence_keeps_definite_incremental_findings_blocking()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-security-finding-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "subject.cs"), """
+                var builder = WebApplication.CreateBuilder(args);
+                builder.Services.AddCors(options => options.AddPolicy("public", policy => policy.AllowAnyOrigin()));
+                var app = builder.Build();
+                app.MapGet("/subject", () => Results.Ok());
+                """, TestContext.Current.CancellationToken);
+            var collector = new SecurityEvidenceCollector(
+                new SensorRegistry([new BoundaryInventorySensor()]));
+
+            var evidence = await collector.CollectAsync(
+                root,
+                ["subject.cs"],
+                [new ReviewSensorConfiguration("boundaries")],
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(SecurityEvidenceVerdict.Block, evidence.Verdict);
+            var sensor = Assert.Single(evidence.Sensors);
+            Assert.Equal(SecurityEvidenceVerdict.Block, sensor.Verdict);
+            Assert.False(Assert.IsType<SensorScanCoverage>(sensor.Coverage).Complete);
+            Assert.Contains(sensor.Findings, finding => finding.RuleId == "boundary/permissive-cors");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task Large_synthetic_tree_scales_without_route_times_file_rescans()
     {
         const int sourceFileCount = 1500;
