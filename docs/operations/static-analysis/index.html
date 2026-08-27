@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -577,7 +577,21 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <article class="slice">
+      <header><h3>27 August 2026 · QS-72 · S1 one snapshot-bound preflight</h3><span class="pill done">delivered</span></header>
+      <p><b>Decision:</b> Option C and slices S1–S5 are decided and approved by the operator. This delivery implements S1; the remaining approved slices continue as separate follow-up cards.</p>
+      <ul>
+        <li>Added the immutable <code>PreflightResult v1</code> and snapshot contracts with canonical subject, configuration, and result hashes; required/optional availability; deterministic dispositions; and bounded prompt projection.</li>
+        <li>Moved configured deterministic and security sensor collection into the backend before review scheduling, with once-per-snapshot execution, source/config invalidation, matching-snapshot reuse, and a feature-flag rollback path.</li>
+        <li>Persisted <code>preflight.json</code> under the existing run directory, exposed it through the review-run API, included exact projected evidence in review estimates, and added visible preflight/blocked/unavailable progress states.</li>
+        <li>Added contract, orchestration, persistence, projection, cache-invalidation, required-unavailable, and selective-blocking tests. Release build and the serial CI solution test gate pass.</li>
+      </ul>
+    </article>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation · updated 27 August 2026</footer>
 </main>
 </body>
 </html>
