@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "analysis-core-package",
   "title": "In-process Analysis Core Package",
-  "summary": "Implemented the first package slice for Quality Studio analysis: a stable in-process runner, Quality Studio finding envelopes, NuGet metadata and README, a real quality-cli consumer, and removal of the Agent Studio HTTP client from the core. The core is useful without the UI. Repository extraction is explicitly deferred pending operator criteria.",
+  "summary": "Implemented the analysis package and CLI proof, then migrated the Quality Studio API generic named-sensor execution route to the same in-process facade while preserving its HTTP contract. The core is useful without the UI. Repository extraction is explicitly deferred pending operator criteria.",
   "entrypoint": "index.html",
   "status": "implemented",
-  "phase": "first-slice",
+  "phase": "api-facade-slice",
   "updatedAt": "2026-08-27T00:00:00Z",
   "sourceTaskKeys": [
     "QS-91",
@@ -27,11 +27,28 @@
       }
     ]
   },
+  "delivery": {
+    "currentSlice": "API generic named-analysis execution through QualityAnalysisRunner",
+    "completed": [
+      "publishable analysis package and stable facade",
+      "quality-cli in-process proof consumer",
+      "API generic sensor scan facade migration"
+    ],
+    "followUp": [
+      "CLI consolidation",
+      "QS-90 schema binding",
+      "package-feed publication",
+      "AGT-2655 production integration",
+      "repository extraction after operator decision"
+    ]
+  },
   "artifacts": [
     "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
     "src/AgentOrchestrator.CodeQuality/QualityAnalysisRunner.cs",
     "src/AgentOrchestrator.CodeQuality/README.md",
     "src/quality-cli/Program.cs",
-    "src/QualityStudio.Api/AgentStudioTaskClient.cs"
+    "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+    "src/QualityStudio.Api/Program.cs",
+    "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs"
   ]
 }

@@ -51,13 +51,13 @@
 <body>
 <main>
   <header>
-    <div class="kicker">Architecture decision and first slice · QS-91 · 27 August 2026</div>
+    <div class="kicker">Architecture decision and incremental delivery · QS-91 · 27 August 2026</div>
     <h1>Quality analysis belongs in the process that already owns the checkout</h1>
     <p class="lede">Agent Studio pipeline integration should reference a library, run named analyses over a repository path, and receive Quality Studio findings directly. The API remains a host and projection layer; the UI remains optional.</p>
   </header>
 
   <section class="decision">
-    <strong>Delivered decision.</strong> Package the existing analysis library as <code>QualityStudio.Analysis.Core</code>, expose a narrow in-process runner, and prove it through <code>quality-cli</code>. Keep the code in this repository for now. Extraction is a separate operator decision.
+    <strong>Delivered decision.</strong> Package the existing analysis library as <code>QualityStudio.Analysis.Core</code>, expose a narrow in-process runner, and make hosts consume that runner. The CLI proof and the API generic sensor route now share the facade. Keep the code in this repository for now. Extraction is a separate operator decision.
   </section>
 
   <h2>1. Current-state inventory</h2>
@@ -114,17 +114,26 @@
   </table>
   <p><strong>Recommendation:</strong> publish the package from this repository, integrate AGT-2655, and observe two or three release cycles. Return to the extraction decision once at least two independently deployed consumers pin package versions and the public-repository decision is recorded. Extraction itself is intentionally absent from QS-91.</p>
 
-  <h2>5. First-slice receipt</h2>
+  <h2>5. Delivery ledger</h2>
+  <h3>First slice: package and CLI proof</h3>
   <ul>
     <li><span class="status">Implemented:</span> package id <code>QualityStudio.Analysis.Core</code> version <code>0.1.0</code>, .NET 10 assembly, NuGet metadata, license/repository metadata inherited centrally, and an English package README.</li>
     <li><span class="status">Implemented:</span> <code>QualityAnalysisRunner</code> validates named analyses, executes them sequentially with cancellation, preserves availability/provenance, and returns QS finding envelopes.</li>
     <li><span class="status">Implemented:</span> <code>quality-cli</code> is a real in-process caller through <code>quality analyze</code>.</li>
     <li><span class="status">Implemented:</span> Agent Studio HTTP transport moved from the core into <code>QualityStudio.Api</code>; API routes and frontend behavior remain unchanged.</li>
-    <li><span class="pending">Deferred:</span> API-wide migration to the facade, CLI consolidation, QS-90 schema binding, package feed publication, AGT-2655 production integration, and repository extraction.</li>
+  </ul>
+
+  <h3>This delivery: API generic analysis execution through the facade</h3>
+  <ul>
+    <li><span class="status">Implemented:</span> <code>QualityStudio.Api</code> registers one <code>QualityAnalysisRunner</code> over the host's configured <code>IReviewSensor</code> set.</li>
+    <li><span class="status">Implemented:</span> <code>POST /api/sensors/{id}/scan</code> now invokes the package facade with repository id, path scope, repository sensor configuration, cancellation, and the existing metadata-persistence behavior.</li>
+    <li><span class="status">Preserved:</span> the route still returns the established <code>SensorScanResult</code> JSON contract. Unknown sensors remain 404, disabled sensors remain validation errors, and boundary scans still write their repository-owned inventory.</li>
+    <li><span class="status">Intentionally separate:</span> secret-scan summaries and attack-coverage operations keep their richer domain services. They are not generic named-analysis endpoints and forcing them through a finding-only projection would discard contract data.</li>
+    <li><span class="pending">Follow-up slices:</span> CLI consolidation, QS-90 schema binding, package-feed publication, AGT-2655 production integration, and repository extraction after an operator decision.</li>
   </ul>
 
   <h2>6. Verification and baseline note</h2>
-  <p>The Release solution build passed with no warnings or errors. The .NET core suite passed 154 tests with one explicitly opt-in live test skipped. The API suite passed 51 functional tests; its existing wall-clock dashboard assertion varied between 173 and 280 ms against a 150 ms budget under suite load, then passed unchanged when rerun alone. The CLI ran the repository boundary analysis in process, reported the analysis available, and returned 16 findings. Its exit code of 1 is the documented severity gate, not an execution failure. The NuGet package was generated and its README, metadata, dependency, and .NET 10 DLL were inspected. The unchanged frontend produced a successful production build with its existing budget and CommonJS warnings. Exact receipts and the package are stored in the task's collected results directory.</p>
+  <p>The API migration is covered by host-registration, not-found compatibility, deterministic producer provenance, normalized finding/provenance, and repository-owned boundary-inventory tests. All 54 functional API tests pass. The separate unchanged 5,000-file wall-clock assertion measured 226 ms under suite load and 206 ms alone against its 150 ms budget. The core suite passes 154 tests with its one explicitly opt-in live test skipped, and the Release solution build succeeds without warnings or errors. Exact receipts are recorded in the collected task report.</p>
   <p class="note">The requested <code>origin/develop</code> branch does not exist on the remote. The remote advertises <code>origin/main</code> as HEAD. QS-91 fetched that branch and confirmed the work was based on its exact commit before replaying the recovered slice. No conflict existed to resolve, and no substitute <code>develop</code> ref was fabricated.</p>
 </main>
 </body>

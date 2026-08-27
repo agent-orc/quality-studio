@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Analysis;
 using CodingAgentRunner.Quota;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
@@ -375,7 +376,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal(3, json.GetProperty("sensors").GetArrayLength());
+        Assert.Equal(4, json.GetProperty("sensors").GetArrayLength());
         var dependency = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
             sensor => sensor.GetProperty("id").GetString() == "dependencies");
         Assert.Equal("1.0.0", dependency.GetProperty("version").GetString());
@@ -386,6 +387,25 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             sensor => sensor.GetProperty("id").GetString() == "boundaries");
         Assert.True(boundaries.GetProperty("enabled").GetBoolean());
         Assert.True(boundaries.GetProperty("available").GetBoolean());
+    }
+
+    [Fact]
+    public void Api_registers_analysis_facade_with_the_host_sensor_set()
+    {
+        var runner = application!.Services.GetRequiredService<QualityAnalysisRunner>();
+
+        Assert.Equal(["analyzer-test", "boundaries", "dependencies", "gitleaks"], runner.AvailableAnalyses);
+    }
+
+    [Fact]
+    public async Task Unknown_sensor_scan_keeps_not_found_contract_after_facade_migration()
+    {
+        using var client = application!.CreateClient();
+
+        using var response = await client.PostAsync("/api/sensors/not-installed/scan", null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -418,6 +438,23 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal("GHSA-test-advisory", finding.GetProperty("ruleId").GetString());
         Assert.Equal("high", finding.GetProperty("severity").GetString());
         Assert.Contains("fixedVersion", finding.GetProperty("evidence").GetString());
+    }
+
+    [Fact]
+    public async Task Facade_projection_preserves_deterministic_finding_source()
+    {
+        using var client = application!.CreateClient();
+
+        using var response = await client.PostAsync("/api/sensors/analyzer-test/scan", null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var source = Assert.Single(json.GetProperty("findings").EnumerateArray()).GetProperty("source");
+        Assert.Equal("analyzer-test", source.GetProperty("sensorId").GetString());
+        Assert.Equal("fixture-compiler", source.GetProperty("producer").GetString());
+        Assert.Equal("9.0.0", source.GetProperty("producerVersion").GetString());
+        Assert.Equal(4, source.GetProperty("runIndex").GetInt32());
     }
 
     [Fact]
@@ -785,6 +822,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
                 services.AddSingleton<IReviewSensor, FakeDependencySensor>();
                 services.AddSingleton<IReviewSensor, BoundaryInventorySensor>();
+                services.AddSingleton<IReviewSensor, FakeAnalyzerSensor>();
             });
         }
     }
@@ -866,6 +904,52 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             return Task.FromResult(new SensorScanResult(true, null, [finding],
                 new SensorProvenance(Id, Version, "repository", ".", DateTime.UtcNow.ToString("O"),
                     new Dictionary<string, string> { ["npm"] = "11.4.2" })));
+        }
+    }
+
+    private sealed class FakeAnalyzerSensor : IReviewSensor
+    {
+        public string Id => "analyzer-test";
+
+        public string Version => "1.0.0";
+
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(true));
+
+        public Task<SensorScanResult> RunAsync(
+            SensorScanRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var finding = new ReviewFinding(
+                "analyzer-test-finding",
+                "analyzer",
+                FindingSeverity.Medium,
+                "Fixture diagnostic",
+                "The fixture compiler reported a diagnostic.",
+                "Correct the fixture diagnostic.",
+                [new FindingLocation("Sample.cs")],
+                "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "FIXTURE001",
+                "{\"sarifRun\":4}",
+                new FindingSource(
+                    FindingSourceKind.Deterministic,
+                    Id,
+                    "fixture-compiler",
+                    "9.0.0",
+                    4));
+            return Task.FromResult(new SensorScanResult(
+                true,
+                null,
+                [finding],
+                new SensorProvenance(
+                    Id,
+                    Version,
+                    "repository",
+                    ".",
+                    DateTime.UtcNow.ToString("O"),
+                    new Dictionary<string, string> { ["fixture-compiler"] = "9.0.0" })));
         }
     }
 }

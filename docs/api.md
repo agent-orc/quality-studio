@@ -161,6 +161,12 @@ curl -X POST "http://127.0.0.1:5127/api/findings/state" \
 # 200 {"fingerprint":"sha256:...","state":"waived",...}
 ```
 
+The generic sensor-scan route executes the named analysis in process through
+`QualityStudio.Analysis.Core` and adapts its result to the established
+`SensorScanResult` HTTP shape. Repository authorization, enablement, and response
+projection remain API-host responsibilities. Specialized secret-scan and attack-
+coverage routes retain their richer domain contracts.
+
 Finding state mutations accept `open`, `accepted`, `waived`, or `false-positive`.
 Author and reason are required; expiry is optional. `expectedTimestamp` is the state
 timestamp returned by the file response and enables optimistic concurrency. A stale

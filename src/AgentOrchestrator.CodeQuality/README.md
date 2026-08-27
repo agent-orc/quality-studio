@@ -39,6 +39,11 @@ not coupled to the package's release lifecycle. HTTP endpoints, UI hosting,
 repository registration, and Agent Studio transport clients remain outside
 this package.
 
+The Quality Studio API host registers this same runner over its configured
+sensor set. Its generic sensor-scan endpoint delegates execution to the facade
+and projects the result back to the existing HTTP response contract; HTTP path
+authorization and response shaping stay in the host.
+
 The caller owns checkout lifecycle, path authorization, process isolation,
 logging, and any persistence or later upload of results. Some named analyses
 invoke repository-configured tools; Gitleaks can resolve its pinned binary when

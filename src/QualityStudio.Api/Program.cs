@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
 using QualityStudio.Api;
+using QualityStudio.Analysis;
 using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
@@ -54,6 +55,8 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
+builder.Services.AddSingleton(serviceProvider =>
+    new QualityAnalysisRunner(serviceProvider.GetServices<IReviewSensor>()));
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
@@ -955,12 +958,16 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
 }
 
 static async Task<IResult> SensorScan(HttpContext context, string id, string? path,
-    RepositoryRegistry repositories, SensorRegistry sensors, ILogger<Program> logger,
+    RepositoryRegistry repositories, QualityAnalysisRunner analyses, ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var registration = repositories.Get(RouteRepositoryId(context));
-    var sensor = sensors.Get(id);
+    if (!analyses.AvailableAnalyses.Contains(id, StringComparer.OrdinalIgnoreCase))
+    {
+        throw new SensorNotFoundException($"Sensor '{id}' was not found.");
+    }
+
     var repositoryConfiguration = (registration.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
         .FirstOrDefault(configuration => string.Equals(configuration.Id, id, StringComparison.OrdinalIgnoreCase));
     if (repositoryConfiguration is null || !repositoryConfiguration.Enabled)
@@ -969,15 +976,74 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
     }
 
     var scope = string.IsNullOrWhiteSpace(path) ? SensorScope.Repository : SensorScope.Path;
-    var result = await sensor.RunAsync(new SensorScanRequest(
+    var analysisResult = await analyses.RunAsync(new QualityAnalysisRequest(
         registration.RootPath,
-        scope,
-        path,
-        repositoryConfiguration.Configuration), cancellationToken);
+        [new QualityAnalysisDefinition(id, repositoryConfiguration.Configuration, scope, path)],
+        registration.Id,
+        PersistMetadata: true), cancellationToken);
+    var execution = AssertSingleExecution(analysisResult);
+    var result = new SensorScanResult(
+        execution.Available,
+        execution.UnavailableReason,
+        analysisResult.Findings.Select(finding => ToReviewFinding(finding, execution)).ToArray(),
+        execution.Provenance);
     logger.LogInformation(new EventId(1202, "SensorScanCompleted"),
         "Ran sensor {SensorId} for repository {RepositoryId}; Available={Available}, Findings={FindingCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
-        sensor.Id, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);
+        execution.Name, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);
     return Results.Ok(result);
+}
+
+static QualityAnalysisExecution AssertSingleExecution(QualityAnalysisResult result) =>
+    result.Analyses.Count == 1
+        ? result.Analyses[0]
+        : throw new InvalidOperationException(
+            $"A single API sensor scan produced {result.Analyses.Count} analysis executions.");
+
+static ReviewFinding ToReviewFinding(QualityFindingEnvelope finding, QualityAnalysisExecution execution) =>
+    new(
+        finding.Id,
+        finding.Aspect,
+        finding.Severity,
+        finding.Title,
+        finding.Description,
+        finding.Recommendation,
+        finding.Locations,
+        finding.Fingerprint,
+        finding.RuleId,
+        finding.Evidence,
+        ToFindingSource(finding, execution));
+
+static FindingSource? ToFindingSource(QualityFindingEnvelope finding, QualityAnalysisExecution execution)
+{
+    if (finding.Producer.Kind != QualityFindingProducerKind.Deterministic ||
+        string.Equals(finding.Producer.Id, execution.Name, StringComparison.Ordinal) &&
+        string.Equals(finding.Producer.Version, execution.Version, StringComparison.Ordinal))
+    {
+        return null;
+    }
+
+    return new FindingSource(
+        FindingSourceKind.Deterministic,
+        execution.Name,
+        finding.Producer.Id,
+        finding.Producer.Version,
+        FindingRunIndex(finding.Evidence));
+}
+
+static int? FindingRunIndex(string? evidence)
+{
+    if (string.IsNullOrWhiteSpace(evidence)) return null;
+    try
+    {
+        using var document = JsonDocument.Parse(evidence);
+        return document.RootElement.TryGetProperty("sarifRun", out var runIndex) && runIndex.TryGetInt32(out var value)
+            ? value
+            : null;
+    }
+    catch (JsonException)
+    {
+        return null;
+    }
 }
 
 static async Task<IResult> Usage(HttpContext context, DateTimeOffset? since, string? kind,
