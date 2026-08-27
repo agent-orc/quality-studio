@@ -160,6 +160,109 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Sensor_scans_are_rate_limited_per_client()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+
+        using var alice = CreateClient(rateApplication, "alice", AliceToken);
+        using var firstScan = await alice.PostAsJsonAsync("/api/sensors/boundaries/scan", new { },
+            TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, firstScan.StatusCode);
+        using var secondScan = await alice.PostAsJsonAsync("/api/sensors/boundaries/scan", new { },
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondScan.StatusCode);
+    }
+
+    [Fact]
+    public async Task Only_a_registrar_can_mutate_or_archive_an_accessible_repository()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        using var rename = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Renamed by a non-registrar",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, rename.StatusCode);
+
+        using var archive = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminRename = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Renamed by the registrar",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminRename.StatusCode);
+    }
+
+    [Fact]
+    public async Task Command_backed_analyzer_configuration_is_rejected_by_default()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var registration = await admin.PostAsJsonAsync("/api/repos", new
+        {
+            id = "command-backed",
+            displayName = "Command backed",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "sh -c \"echo pwned\"",
+                        ["reportPath"] = ".quality/sarif/report.json",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, registration.StatusCode);
+        var problem = await registration.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Command-backed analyzer configuration is disabled", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Local_mode_mutations_reject_a_mismatched_browser_origin_but_allow_no_origin()
+    {
+        var localHost = Path.Combine(testRoot, "origin-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var client = local.CreateClient();
+
+        using var noOrigin = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, noOrigin.StatusCode);
+
+        using var matchingOriginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/review")
+        {
+            Content = JsonContent.Create(new { path = "Sample.cs", kind = "code", model = "not-in-catalogue" }),
+        };
+        matchingOriginRequest.Headers.Add("Origin", "http://localhost:4200");
+        using var matchingOrigin = await client.SendAsync(matchingOriginRequest, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, matchingOrigin.StatusCode);
+
+        using var foreignOriginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/review")
+        {
+            Content = JsonContent.Create(new { path = "Sample.cs", kind = "code" }),
+        };
+        foreignOriginRequest.Headers.Add("Origin", "https://attacker.example");
+        using var foreignOrigin = await client.SendAsync(foreignOriginRequest, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, foreignOrigin.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");

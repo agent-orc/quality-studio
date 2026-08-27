@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,22 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Each entry records what landed against the slice plan above; it does not revise the assessment in sections 01–10.</p>
+
+    <h3>2026-08-27 · QS-68 · S0 partial <span class="pill part">Part</span></h3>
+    <p>Delivered the authorization and default-posture portion of S0 (closing the direct R-01 chain), scoped as a single reviewable slice per the 2026-08-27 delivery-scope correction. Angular dependency remediation, the immutable analyzer-profile registry, and the session-bound anti-CSRF nonce remain open and are tracked as follow-ups below.</p>
+    <ul>
+      <li><b>Registrar privilege on repository mutation.</b> <code>Program.cs</code> now requires <code>CanRegisterRepositories</code> for <code>PUT /api/repos/{repoId}</code> and <code>DELETE /api/repos/{repoId}</code>, not just repository access. A hosted client scoped to one repository can no longer change its root path or sensor configuration, or archive it. Test: <code>ApiSecurityTests.Only_a_registrar_can_mutate_or_archive_an_accessible_repository</code>.</li>
+      <li><b>Command-backed analyzers disabled by default.</b> <code>RepositoryOptions.Security.AllowCommandBackedAnalyzers</code> (default <code>false</code>) is enforced in <code>RepositoryRegistry.Validate</code>: a sensor <code>Configuration</code> containing a <code>command</code> key is rejected at registration time in both Local and Hosted modes until sensors run behind the S1 worker boundary. Pre-existing persisted registries with a stored <code>command</code> key are downgraded to disabled at load time with a logged warning, rather than crashing startup. Tests: <code>ApiSecurityTests.Command_backed_analyzer_configuration_is_rejected_by_default</code>; <code>RepositoryRegistry</code> load-path covered indirectly via existing registry tests (no regression).</li>
+      <li><b>Spend limiter on sensor scans.</b> <code>/api/sensors/{id}/scan</code> and its per-repository route now carry <code>RequireRateLimiting("spend")</code>, closing the gap noted for R-03/F-01 ("scan endpoints ... not spend-rate-limited"). Test: <code>ApiSecurityTests.Sensor_scans_are_rate_limited_per_client</code>.</li>
+      <li><b>Origin check for Local-mode mutations.</b> <code>ApiSecurity.IsLocalMutationOriginValid</code> rejects state-changing requests in Local mode when a browser-supplied <code>Origin</code> header doesn't match <code>AllowedOrigins</code>; requests without an <code>Origin</code> header (CLI/tooling) are unaffected. This is the Origin half of the S0 bullet; the per-session anti-CSRF nonce is not implemented. Test: <code>ApiSecurityTests.Local_mode_mutations_reject_a_mismatched_browser_origin_but_allow_no_origin</code>.</li>
+      <li><b>Fail-fast loopback guard for Local mode.</b> <code>LocalBindingGuard.EnsureLoopbackWhenLocal</code> reads the same <code>urls</code>/<code>ASPNETCORE_URLS</code> configuration Kestrel binds from and throws at startup if Local mode (unauthenticated wildcard access) would bind to a non-loopback address. Tests: <code>LocalBindingGuardTests</code>.</li>
+    </ul>
+    <div class="stx stx-part"><b>Follow-up (not in this slice):</b> S0's remaining bullet — resolving analyzer configuration to an immutable, host-owned profile ID instead of a disable flag, plus the Angular 20.3.26→20.3.27+ dependency bump — and S1 through S6 in full (isolated worker execution, input bounding, secret-handling end-to-end, handover data-only rework, hosted credential lifecycle, continuous supply-chain CI gate). Each remains available as its own follow-up card against this same dossier.</div>
   </section>
 </main>
 </body>

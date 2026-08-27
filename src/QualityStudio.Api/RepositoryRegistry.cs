@@ -183,7 +183,7 @@ public sealed class RepositoryRegistry
                 {
                     var migrated = loaded.Select(entry => entry with
                     {
-                        Sensors = MergeSupportedSensors(entry.Sensors),
+                        Sensors = DisableUnauthorizedCommandSensors(entry.Id, MergeSupportedSensors(entry.Sensors)),
                     }).ToList();
                     foreach (var entry in migrated) ValidatePersistedEntry(entry);
                     return migrated;
@@ -287,6 +287,15 @@ public sealed class RepositoryRegistry
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
 
+        if (!legacyOptions.Security.AllowCommandBackedAnalyzers &&
+            sensors.Any(sensor => sensor.Configuration?.ContainsKey("command") == true))
+        {
+            throw new RepositoryRegistryValidationException(
+                "Command-backed analyzer configuration is disabled until sensors run behind an isolated " +
+                "worker boundary. Enable QualityStudio:Security:AllowCommandBackedAnalyzers to override.",
+                "Command-backed analyzer configuration is disabled");
+        }
+
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
         if (request.DefaultReviewTokenCap is <= 0 or > 1_000_000_000)
@@ -382,6 +391,23 @@ public sealed class RepositoryRegistry
             .Select(id => existing.TryGetValue(id, out var sensor)
                 ? sensor
                 : new RepositorySensorConfiguration(id))
+            .ToArray();
+    }
+
+    private IReadOnlyList<RepositorySensorConfiguration> DisableUnauthorizedCommandSensors(
+        string repositoryId, IReadOnlyList<RepositorySensorConfiguration> sensors)
+    {
+        if (legacyOptions.Security.AllowCommandBackedAnalyzers) return sensors;
+        return sensors
+            .Select(sensor =>
+            {
+                if (sensor.Configuration?.ContainsKey("command") != true) return sensor;
+                logger.LogWarning(new EventId(1404, "CommandBackedSensorDisabled"),
+                    "Repository {RepositoryId} sensor {SensorId} had a stored command-backed configuration; " +
+                    "disabling it because QualityStudio:Security:AllowCommandBackedAnalyzers is false",
+                    repositoryId, sensor.Id);
+                return sensor with { Enabled = false };
+            })
             .ToArray();
     }
 }

@@ -15,11 +15,15 @@ public sealed class ApiSecurity
     public const string ClientIdHeader = "X-Client-Id";
     private const string IdentityItem = "QualityStudio.Api.Identity";
     private readonly ApiSecurityOptions options;
+    private readonly IReadOnlySet<string> allowedOrigins;
     private readonly IReadOnlyList<(ApiClientIdentity Identity, byte[] CredentialHash)> clients;
 
     public ApiSecurity(IOptions<RepositoryOptions> configured)
     {
         options = configured.Value.Security;
+        allowedOrigins = configured.Value.AllowedOrigins
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (options.Mode is not (ApiSecurityOptions.LocalMode or ApiSecurityOptions.HostedMode))
             throw new InvalidOperationException("QualityStudio:Security:Mode must be Local or Hosted.");
         if (options.MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)
@@ -99,4 +103,16 @@ public sealed class ApiSecurity
 
     public bool IsMutationClientHeaderValid(HttpContext context, ApiClientIdentity identity) =>
         IsLocal || string.Equals(context.Request.Headers[ClientIdHeader].ToString(), identity.Id, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Local mode has no credential, so a browser tab on an unrelated origin could otherwise submit
+    /// state-changing requests to the local API on the operator's behalf. Requests that carry an Origin
+    /// header (every cross-origin browser request does) must match a configured origin; tooling that
+    /// omits the header (curl, scripts) is unaffected.
+    /// </summary>
+    public bool IsLocalMutationOriginValid(HttpContext context)
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        return origin.Length == 0 || allowedOrigins.Contains(origin);
+    }
 }

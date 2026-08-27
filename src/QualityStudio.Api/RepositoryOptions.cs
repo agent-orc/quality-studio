@@ -30,6 +30,13 @@ public sealed class ApiSecurityOptions
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
     public List<ApiClientOptions> Clients { get; set; } = [];
+
+    /// <summary>
+    /// Repository-configured sensors may set a "command" key that is expanded and executed as a host
+    /// process (see AnalyzerCommand.Expand). Until sensors run behind an isolated worker boundary (S1),
+    /// this stays disabled by default in both Local and Hosted modes.
+    /// </summary>
+    public bool AllowCommandBackedAnalyzers { get; set; }
 }
 
 public sealed class ApiClientOptions
