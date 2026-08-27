@@ -558,6 +558,11 @@
       <p>The slice was replayed on <code>origin/main</code> at <code>e31089c</code> without code changes. <code>dotnet build -c Release</code> succeeded with zero warnings under warnings-as-errors, and 208 of 210 solution tests passed with one skipped by design. The only failure is the pre-existing, host-speed <code>ProjectDashboardTests</code> first-visible budget assertion, which fails identically on the untouched baseline commit. Against the live API, <code>dotnet-build</code> returned available with zero findings in 5.9 seconds and ESLint returned available with the same 30 medium findings in 4.9 seconds, while <code>npm run lint</code> again reported 24 warnings and zero errors. A temporarily injected <code>CS0219</code> was normalized as one high-severity <code>compiler</code> finding at its exact repository-relative location and disappeared once the injection was reverted, which shows the sensor observes real diagnostics instead of a fixed result.</p>
     </article>
 
+    <article class="slice">
+      <header><h3>2026-08-27 · QS-86 · final verification on current origin/main</h3><span class="pill done">gate clean</span></header>
+      <p>The reviewed QS-86 feature commit was recovered with current <code>origin/main</code> commit <code>f7557fb</code> as its direct parent, so the final integration required no conflict resolution or feature rework. The Release solution build succeeded with zero warnings and zero errors; the non-machine-bound solution gate passed 207 tests with the external-live test skipped by design; and all 39 Angular browser tests passed through the lockfile-installed local <code>ng</code> entrypoint. The Angular production build succeeded with the two known NG8102 findings, while the standalone ESLint command reported 25 warnings and zero errors. In a live API run, both checks were enabled and available: <code>dotnet-build</code> returned zero findings in 4.365 seconds and ESLint returned 31 findings in 2.803 seconds. Catalog integrity and the repository security scan also passed.</p>
+    </article>
+
     <div class="box warn">
       <h4>Delivery boundary after QS-86</h4>
       <p>This slice publishes deterministic facts before model review but does not yet suppress a model operation. The next ranked work remains TypeScript/Angular compiler diagnostics and the production budget gate, followed by lint new-debt baselines, explicit complexity thresholds, snapshot-bound caching and invalidation, compact estimate parity, and matched economy evidence. Model selection and thinking-level floors are unchanged.</p>
@@ -609,7 +614,7 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: documented · phase: implementation · updated 12 August 2026 · current receipt QS-86</footer>
+  <footer>Decision dossier for QS-63 · status: documented · phase: implementation · updated 27 August 2026 · current receipt QS-86</footer>
 </main>
 </body>
 </html>
