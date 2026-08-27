@@ -2,13 +2,20 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { QualityApi, RepositoryRegistration, ResolvedInputs, TreeNode } from './quality-api';
+
+const registration = (id: string): RepositoryRegistration => ({
+  id, displayName: id, rootPath: `/repos/${id}`, globalInputsDirectory: null, inputBudgetCharacters: 12000,
+  enabledReviewKinds: ['code', 'security', 'performance'], archived: false,
+  defaultReviewTokenCap: 100000, defaultReviewCostCap: null,
+});
 
 describe('QualityApi', () => {
   let api: QualityApi;
   let http: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.removeItem('qs-last-repository');
     TestBed.configureTestingModule({
       providers: [QualityApi, provideHttpClient(), provideHttpClientTesting()],
     });
@@ -16,7 +23,10 @@ describe('QualityApi', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem('qs-last-repository');
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
@@ -78,6 +88,91 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('restores the last active repository on the first load and remembers a switch', async () => {
+    localStorage.setItem('qs-last-repository', 'beta');
+    const loading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('alpha'), registration('beta')],
+      defaultRepositoryId: 'alpha',
+    });
+    await loading;
+    expect(api.selectedRepositoryId()).toBe('beta');
+
+    // A later registry reload must keep the operator where they are, not jump back.
+    const reloading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('alpha'), registration('beta')],
+      defaultRepositoryId: 'alpha',
+    });
+    await reloading;
+    expect(api.selectedRepositoryId()).toBe('beta');
+    expect(localStorage.getItem('qs-last-repository')).toBe('beta');
+  });
+
+  it('falls back to the default repository when the remembered one is gone', async () => {
+    localStorage.setItem('qs-last-repository', 'retired');
+    const loading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush({ repositories: [registration('alpha')], defaultRepositoryId: 'alpha' });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('alpha');
+    expect(localStorage.getItem('qs-last-repository')).toBe('alpha');
+  });
+
+  it('reports the API as offline when no response arrives and recovers on retry', async () => {
+    const failing = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await failing;
+    expect(api.connectionState()).toBe('offline');
+    expect(api.connectionLabel()).toBe('API offline');
+
+    const recovering = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    await recovering;
+    expect(api.connectionState()).toBe('live');
+  });
+
+  it('keeps the visible registry and selection when a retry finds the API still unreachable', async () => {
+    const loading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('alpha'), registration('beta')],
+      defaultRepositoryId: 'alpha',
+    });
+    await loading;
+    api.selectedRepositoryId.set('beta');
+
+    const retrying = api.loadRepositories('beta');
+    http.expectOne('/api/repos').error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await retrying;
+
+    expect(api.connectionState()).toBe('offline');
+    expect(api.selectedRepositoryId()).toBe('beta');
+    expect(api.repositories().map(repository => repository.id)).toEqual(['alpha', 'beta']);
+  });
+
+  it('falls back to the legacy default when a pre-registry server answers', async () => {
+    const loading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush('missing', { status: 404, statusText: 'Not Found' });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('default');
+    expect(api.repositories().map(repository => repository.id)).toEqual(['default']);
+    // The legacy server has no registry routes, so later calls must use the unprefixed base.
+    const treeLoading = api.loadTree('default', false);
+    http.expectOne('/api/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    await treeLoading;
+  });
+
+  it('keeps the preview state when the API answers with a server error', async () => {
+    const failing = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=').flush('boom', { status: 500, statusText: 'Server Error' });
+    await failing;
+
+    expect(api.connectionState()).toBe('preview');
+    expect(api.connectionLabel()).toBe('API offline, preview data');
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
