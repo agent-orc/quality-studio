@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-26T19:55:23Z",
+  "updatedAt": "2026-08-27T01:55:16Z",
   "sourceTaskKeys": [
     "QS-62",
     "QS-71",
@@ -54,10 +54,10 @@
     "QS-85"
   ],
   "implementationState": {
-    "verifiedAt": "2026-08-26T19:55:23Z",
+    "verifiedAt": "2026-08-27T01:55:16Z",
     "verifiedByTask": "QS-85",
     "status": "documented",
-    "integrationBase": "origin/main@e31089ccd5640bb2742a25a2a08a9a3120534656",
+    "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
     "wave1": {
       "taskKey": "QS-71",
       "sourceCommits": [
@@ -91,14 +91,14 @@
         "guards": "The corrupt row and the legacy usage-only row both render but keep their Compare control disabled, so degraded provenance stays visible without becoming comparable."
       },
       "finalRound": {
-        "verifiedAt": "2026-08-26T19:55:23Z",
-        "integrationBase": "origin/main@e31089ccd5640bb2742a25a2a08a9a3120534656",
+        "verifiedAt": "2026-08-27T01:55:16Z",
+        "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
         "deliveryCommits": [
-          "8315f2d",
-          "38ed65e"
+          "38d0f45",
+          "81588c7"
         ],
-        "conflicts": "None. The preserved final QS-85 tree was restored directly onto its existing parent, current origin/main, and matches the prior final QS-85 tree exactly.",
-        "gate": "Release build passed with 0 warnings and 0 errors; 221 .NET tests passed with one intentionally skipped live-provider test; 46 of 46 Karma browser tests passed; 5 of 5 dev-stack launcher tests passed; the production frontend bundle built; the Token Economy catalogue snapshot validated; and the repository security scan passed with 0 new, accepted, block, or warn findings across 364 files.",
+        "conflicts": "One add/add script-list conflict in frontend/package.json; resolved conservatively by retaining both the QS-85 run-history evidence command and current main's URL-preview evidence command. No application-code conflict or feature rework was required.",
+        "gate": "Release build passed with 0 warnings and 0 errors; 221 .NET tests passed with one intentionally skipped live-provider test; 46 of 46 Karma browser tests passed through QS-92's path-stable local Angular CLI runner; 5 of 5 dev-stack launcher tests passed; the production frontend bundle built; the Token Economy catalogue snapshot validated; and the repository security scan passed with 0 new, accepted, block, or warn findings across 367 files.",
         "uiEvidence": "Fresh before/after screenshots were reproduced on live Angular development servers. The base has no History section; the delivery shows five rows, a three-operation detail view, a two-run diff with two grade deltas and one regression, URL-restored state, and disabled comparison for corrupt and legacy rows."
       }
     },
