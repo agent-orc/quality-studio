@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-007",
+  "technology": "angular",
+  "category": "template-hygiene",
+  "title": "Built-in control flow (@if/@for), not *ngIf/*ngFor",
+  "statement": "Templates use the built-in `@if`/`@for`/`@switch` blocks. New code does not add `*ngIf`/`*ngFor`/`*ngSwitch`, and does not import `CommonModule` just to get them.",
+  "rationale": "Built-in control flow is what the rest of the app already uses (`review-panel.html` is entirely `@if`/`@for`); it compiles to more efficient instructions than the structural-directive form and doesn't require a `CommonModule` import on an otherwise-standalone component. Mixing both forms in one codebase means a reader has to know two syntaxes for the same thing.",
+  "severity": "low",
+  "autofixable": true,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "html",
+    "code": "@if (api.reviewError()) { <div class=\"run-error\" role=\"alert\">{{ api.reviewError() }}</div> }\n@for (run of scopeRuns(); track run.id) { ... }",
+    "caption": "Built-in control flow throughout.",
+    "source": "frontend/src/app/review-panel/review-panel.html"
+  },
+  "bad": {
+    "language": "html",
+    "code": "<div *ngIf=\"api.reviewError() as error\" class=\"run-error\" role=\"alert\">{{ error }}</div>\n<ng-container *ngFor=\"let run of scopeRuns(); trackBy: trackRun\"> ... </ng-container>",
+    "caption": "Legacy structural directives requiring a CommonModule import."
+  },
+  "tags": ["control-flow", "templates"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule. autofixable: true because Angular ships an official migration schematic (ng generate @angular/core:control-flow) for this exact transform." }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-003",
+  "technology": "angular",
+  "category": "design-tokens",
+  "title": "Spacing, radius, color and type size come from --studio-* design tokens",
+  "statement": "Component stylesheets reference the `--studio-*` and `--font-*` custom properties defined once in `frontend/src/styles.css`; they do not hardcode pixel spacing/sizing, hex colors, or font sizes that a token already covers. `border: 1px solid ...` hairlines are the one accepted raw-`px` exception.",
+  "rationale": "This is the operator-observed defect class: ad-hoc styles instead of design tokens. `frontend/src/styles.css` already defines a full scale (`--studio-space-1..4`, `--studio-radius-*`, `--studio-font-size-*`, theme-aware colors under `:root[data-theme]`). Every raw literal that duplicates a token value is a value the theme system can't retheme and a reviewer can't tell apart from an intentional one-off.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "css",
+    "code": ".review-pane .finding-detail{margin:var(--studio-space-3) 0;padding:var(--studio-space-4);border:1px solid var(--studio-border);border-radius:var(--studio-radius-card);background:var(--studio-selected)}",
+    "caption": "Spacing, radius and color all sourced from tokens.",
+    "source": "frontend/src/styles.css"
+  },
+  "bad": {
+    "language": "css",
+    "code": ".topbar{height:48px;display:flex;align-items:center;padding:0 10px}\n.brand-mark{width:26px;height:26px;border-radius:6px;color:#fff;background:linear-gradient(145deg,#3c7ba6,#244a68)}",
+    "caption": "Raw px sizing and a raw hex gradient with no token equivalent.",
+    "source": "frontend/src/app/app.css"
+  },
+  "tags": ["design-tokens", "styling", "theming"],
+  "version": "1.0.1",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.1", "date": "2026-08-27", "summary": "Correct the good example's source path after the shared finding-detail styles moved to frontend/src/styles.css." },
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule; bad example is a real excerpt from the app shell's own stylesheet, contrasted with the review panel's token usage." }
+  ]
+}
