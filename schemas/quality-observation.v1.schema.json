@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "title": "Quality Studio immutable quality observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "observationId", "observedAt", "taxonomy", "subject", "profile", "producer", "evidenceStatus", "evidence", "aspects", "assessment", "findings"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-observation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "observationId": { "type": "string", "pattern": "^observation-sha256:[0-9a-f]{64}$" },
+    "observedAt": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "taxonomy": { "$ref": "#/$defs/taxonomyReference" },
+    "extensionTaxonomies": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/taxonomyReference" }
+    },
+    "subject": { "$ref": "#/$defs/subject" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "evidenceStatus": { "enum": ["available", "partial", "unavailable"] },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "aspects": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/aspect" }
+    },
+    "assessment": { "$ref": "#/$defs/assessment" },
+    "decision": { "$ref": "#/$defs/decision" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "legacy": { "$ref": "#/$defs/legacy" },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "semver": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^(?:[a-z][a-z0-9.-]*|[a-z][a-z0-9.-]*:[a-z][a-z0-9.-]*)$" },
+      "additionalProperties": true
+    },
+    "taxonomyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "version": { "$ref": "#/$defs/semver" },
+        "digest": { "$ref": "#/$defs/sha256" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "manifestHash"],
+      "properties": {
+        "unitId": { "$ref": "#/$defs/nonEmpty" },
+        "manifestHash": { "$ref": "#/$defs/sha256" },
+        "scope": { "enum": ["project", "module", "namespace", "file", "function", "task", "runtime", "unknown"] },
+        "path": { "$ref": "#/$defs/nonEmpty" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "promptHash", "reviewInputsHash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "version": { "$ref": "#/$defs/semver" },
+        "promptHash": { "$ref": "#/$defs/sha256" },
+        "reviewInputsHash": { "$ref": "#/$defs/sha256" },
+        "kind": { "$ref": "#/$defs/nonEmpty" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"] },
+        "agent": { "$ref": "#/$defs/nonEmpty" },
+        "provider": { "$ref": "#/$defs/nonEmpty" },
+        "requestedModel": { "$ref": "#/$defs/nonEmpty" },
+        "effectiveModel": { "$ref": "#/$defs/nonEmpty" },
+        "modelRevision": { "$ref": "#/$defs/nonEmpty" },
+        "thinkingLevel": { "$ref": "#/$defs/nonEmpty" },
+        "routePolicyVersion": { "$ref": "#/$defs/nonEmpty" },
+        "runId": { "$ref": "#/$defs/nonEmpty" },
+        "reviewRunId": { "$ref": "#/$defs/nonEmpty" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/nonEmpty" },
+        "symbolId": { "$ref": "#/$defs/nonEmpty" },
+        "uri": { "type": "string", "format": "uri-reference" },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startColumn": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "anyOf": [
+        { "required": ["path"] },
+        { "required": ["symbolId"] },
+        { "required": ["uri"] }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "kind": { "enum": ["source-code", "test-result", "runtime-measurement", "tool-result", "artifact", "document", "human-attestation"] },
+        "locator": { "$ref": "#/$defs/locator" },
+        "artifactReference": { "$ref": "#/$defs/nonEmpty" },
+        "summary": { "$ref": "#/$defs/nonEmpty" },
+        "contentHash": { "$ref": "#/$defs/sha256" },
+        "contentType": { "$ref": "#/$defs/nonEmpty" },
+        "payload": true,
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "anyOf": [
+        { "required": ["locator"] },
+        { "required": ["artifactReference"] },
+        { "required": ["payload"] }
+      ]
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "rationale": { "type": "string" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "assessment": {
+      "type": "string",
+      "enum": ["pass", "concern", "fail", "inconclusive", "not-applicable", "not-assessed"]
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectId", "axis", "value"],
+      "properties": {
+        "aspectId": { "type": "string", "pattern": "^(?:[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*|[a-z][a-z0-9.-]*:[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)$" },
+        "axis": { "enum": ["assessment", "change"] },
+        "value": { "$ref": "#/$defs/nonEmpty" },
+        "rationale": { "type": "string" },
+        "grade": { "$ref": "#/$defs/grade" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "policyRef"],
+      "properties": {
+        "value": { "enum": ["allow", "warn", "block", "defer"] },
+        "policyRef": { "$ref": "#/$defs/nonEmpty" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "findingSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "producerRef"],
+      "properties": {
+        "kind": { "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"] },
+        "producerRef": { "$ref": "#/$defs/nonEmpty" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationFindingId", "occurrenceFingerprint", "fingerprintAlgorithm", "ruleRef", "aspectId", "severity", "evidenceRefs", "source"],
+      "properties": {
+        "observationFindingId": { "$ref": "#/$defs/nonEmpty" },
+        "issueId": { "$ref": "#/$defs/nonEmpty" },
+        "occurrenceFingerprint": { "$ref": "#/$defs/nonEmpty" },
+        "fingerprintAlgorithm": { "$ref": "#/$defs/nonEmpty" },
+        "fingerprintAliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        },
+        "ruleRef": { "$ref": "#/$defs/nonEmpty" },
+        "aspectId": { "$ref": "#/$defs/nonEmpty" },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        },
+        "source": { "$ref": "#/$defs/findingSource" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "sourcePath", "completeness"],
+      "properties": {
+        "schema": { "$ref": "#/$defs/nonEmpty" },
+        "value": true,
+        "sourcePath": { "$ref": "#/$defs/nonEmpty" },
+        "completeness": { "enum": ["complete", "partial"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    }
+  }
+}

@@ -274,7 +274,8 @@ public sealed class ReviewRunnerTests
                 "src/Small.cs",
                 "security",
                 RepositoryRoot: root,
-                Sensors: [new ReviewSensorConfiguration(sensor.Id)]),
+                Sensors: [new ReviewSensorConfiguration(sensor.Id)],
+                ObservationWriteEnabled: true),
                 TestContext.Current.CancellationToken);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
@@ -291,6 +292,9 @@ public sealed class ReviewRunnerTests
             Assert.Matches("^sha256:[a-f0-9]{64}$", sensorReference.GetProperty("resultHash").GetString());
             Assert.Contains("\"id\": \"gitleaks\"", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("machine-produced sensor evidence", agent.Prompt, StringComparison.OrdinalIgnoreCase);
+            var observationFinding = Assert.Single(result.QualityObservation!.Findings);
+            Assert.Equal("deterministic-sensor", observationFinding.Source.Kind);
+            Assert.Equal("gitleaks", observationFinding.Source.ProducerRef);
             Assert.Single(Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories));
         });
     }
@@ -660,7 +664,10 @@ public sealed class ReviewRunnerTests
 
             Assert.Equal("run-test", Assert.Single(recorded).RunId);
             Assert.Equal("review-sweep-test", recorded[0].ReviewRunId);
-            Assert.Equal(2, recorded[0].SchemaVersion);
+            Assert.Equal(UsageLedger.CurrentSchemaVersion, recorded[0].SchemaVersion);
+            Assert.Equal("unknown", recorded[0].Provider);
+            Assert.Equal("deterministic", recorded[0].RequestedModel);
+            Assert.Equal("deterministic", recorded[0].EffectiveModel);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal("run-test", Assert.Single(report.Recent).RunId);

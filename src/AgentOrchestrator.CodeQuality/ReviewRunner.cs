@@ -24,7 +24,12 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    bool? ObservationWriteEnabled = null,
+    string? Provider = null,
+    string? RequestedModel = null,
+    string? ThinkingLevel = null,
+    string? RoutePolicyVersion = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -34,7 +39,8 @@ public sealed record ReviewResult(
     string RunId,
     ResolvedInputs Inputs,
     ReviewUsageEntry Usage,
-    ReviewObservationSnapshot? Observation = null);
+    ReviewObservationSnapshot? Observation = null,
+    QualityObservationDocument? QualityObservation = null);
 
 /// <summary>
 /// Immutable copy of the review metadata and lifecycle states observed by one sweep operation.
@@ -138,9 +144,22 @@ public sealed class ReviewRunner
                 throw;
             }
 
+            var observationWriteEnabled =
+                QualityTaxonomyConfiguration.ObservationWriteEnabled(request.ObservationWriteEnabled);
+            var observationId = observationWriteEnabled
+                ? QualityObservationFactory.CreateId(
+                    agentResult.RunId,
+                    unitId,
+                    request.Kind,
+                    "sha256:" + reviewedHash,
+                    "sha256:" + reviewInputsHash,
+                    QualityTaxonomyCatalogueStore.CoreDigest)
+                : null;
             var usage = CreateUsage(agentResult.RunId,
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
-                agentResult.EffectiveModel, startedAt, request, relativePath);
+                agentResult.EffectiveModel, startedAt, request, relativePath, observationId,
+                agentResult.Provider, agentResult.RequestedModel, agentResult.ThinkingLevel,
+                agentResult.RoutePolicyVersion);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
             if (request.Level == ReviewLevel.Project &&
@@ -171,6 +190,7 @@ public sealed class ReviewRunner
 
             var adapter = AdapterFromUnitId(unitId);
             ReviewObservationSnapshot observation;
+            QualityObservationDocument? immutableObservation = null;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -202,6 +222,12 @@ public sealed class ReviewRunner
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
+                if (observationWriteEnabled)
+                {
+                    immutableObservation = QualityObservationFactory.FromReviewMeta(meta, request, usage, _agent);
+                    await QualityObservationStore.AppendAsync(root, immutableObservation, cancellationToken)
+                        .ConfigureAwait(false);
+                }
                 await File.WriteAllTextAsync(
                     temporaryPath,
                     metadataJson,
@@ -217,7 +243,8 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
+                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation,
+                    immutableObservation),
                 observation);
         }
         catch (Exception exception)
@@ -360,12 +387,38 @@ public sealed class ReviewRunner
             .CollectAsync(root, request.DeterministicSensors, cancellationToken).ConfigureAwait(false);
     }
 
-    private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
-        new(runId, startedAt,
-            string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
-            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+    private ReviewUsageEntry CreateUsage(
+        string runId,
+        TokenUsage tokens,
+        string? effectiveModel,
+        DateTimeOffset startedAt,
+        ReviewRequest request,
+        string relativePath,
+        string? observationId = null,
+        string? provider = null,
+        string? requestedModel = null,
+        string? thinkingLevel = null,
+        string? routePolicyVersion = null)
+    {
+        var effective = Text(effectiveModel) ?? Text(_agent.Model) ?? "unknown";
+        return new ReviewUsageEntry(
+            runId,
+            startedAt,
+            effective,
+            _agent.AgentName,
+            tokens,
+            request.Kind,
+            request.Level.ToString().ToLowerInvariant(),
+            relativePath,
+            request.ReviewRunId,
+            UsageLedger.CurrentSchemaVersion,
+            Text(provider) ?? Text(request.Provider) ?? Text(_agent.Provider) ?? "unknown",
+            Text(request.RequestedModel) ?? Text(requestedModel) ?? Text(_agent.Model) ?? "unknown",
+            effective,
+            Text(thinkingLevel) ?? Text(request.ThinkingLevel) ?? Text(_agent.ThinkingLevel) ?? "unknown",
+            Text(routePolicyVersion) ?? Text(request.RoutePolicyVersion) ?? Text(_agent.RoutePolicyVersion) ?? "unknown",
+            observationId);
+    }
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {
@@ -641,6 +694,8 @@ public sealed class ReviewRunner
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static string? Text(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string Combine(string resolved, string? supplied) =>
         string.IsNullOrWhiteSpace(supplied)

@@ -141,8 +141,8 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
-      <span><b>Phase</b> decision-ready</span>
+      <span><b>Status</b> <span class="pill queued">decided</span></span>
+      <span><b>Phase</b> implementation active</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
@@ -556,6 +556,22 @@
   <section class="box accent">
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
+  </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p>The operator approved Option B and all five slices on 11 August 2026. The decision status is <b>decided</b>; no slice remains operator-decision-gated.</p>
+
+  <h3>27 August 2026 · <code>QS-76</code> · T1 contract and catalogue foundation</h3>
+  <p>Added the independently versioned <code>quality-studio/core@1.0.0</code> catalogue, strict Draft 2020-12 schemas for the catalogue and immutable observation, and C# contracts with explicit preserved extension dictionaries. Added a pure compatibility mapper for every legacy verdict and lifecycle spelling in section 8, core aspect aliases, deterministic analyzer fallback rules, and lossless typed conversion of JSON and text evidence. Readers quarantine unsupported observation or core-taxonomy majors while retaining the raw JSON; unknown same-major extension terms remain visible and round-trip without entering core aggregates.</p>
+  <p><b>Verification:</b> positive and negative schema fixtures; catalogue identity and digest checks; all section 8 mapping vectors; evidence preservation; extension round-trip; unknown-major quarantine; and strict unknown-property rejection.</p>
+
+  <h3>27 August 2026 · <code>QS-76</code> · T2 immutable observation dual-write and route provenance</h3>
+  <p>Added the append-only <code>.quality/observations/YYYY-MM.jsonl</code> store with write-through appends, repository-wide observation-ID idempotency, malformed-line tolerance, and structured quarantine of unsupported records. General reviews can dual-write through <code>QualityTaxonomy:ObservationWriteEnabled</code>; the immutable observation is appended before the existing <code>review-meta.v2</code> sidecar is replaced, so an append failure leaves the previous sidecar current. Observation IDs bind the run, unit, kind, subject hash, review-input hash, and catalogue digest. Review requests, agent results, API run manifests, v3 usage entries, and observations retain provider, requested and effective model, thinking level, routing-policy version, CLI run ID, and durable review-run ID, using explicit <code>unknown</code> values instead of inference. The API defaults observation writes and reads off independently for staged rollout.</p>
+  <p><b>Verification:</b> two forced runs with different models leave two queryable observations and one current sidecar; usage entries join by observation and run IDs; replay does not duplicate observations; malformed lines do not hide valid records; unsupported majors retain raw JSON; the default-off flag preserves existing sidecar behavior; and a blocked observation append cannot replace the current sidecar.</p>
+
+  <section class="box warn">
+    <h4>Approved work not included in this delivery</h4>
+    <p>T3, T4, and T5 remain approved and are not decision-gated. They were not started here because each depends on the preceding slice and requires a separate clean delivery across lifecycle reconciliation, report/dashboard reducers, domain protocols, and migration CLI behavior. In priority order the remaining work is: append-only issue lifecycle and explicit producer correction (T3), observation-backed projections and per-model aggregates (T4), then domain adapters and the idempotent migration tool (T5).</p>
   </section>
 </main>
 </body>

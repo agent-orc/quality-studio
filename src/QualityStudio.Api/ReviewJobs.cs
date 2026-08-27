@@ -119,6 +119,13 @@ public sealed class ReviewJobsOptions
     public int RecentRunLimit { get; set; } = 30;
 }
 
+public sealed class QualityTaxonomyOptions
+{
+    public const string SectionName = "QualityTaxonomy";
+    public bool ObservationWriteEnabled { get; set; }
+    public bool ObservationReadEnabled { get; set; }
+}
+
 public sealed class ReviewJobService : BackgroundService
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
@@ -135,11 +142,12 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private readonly QualityTaxonomyOptions taxonomyOptions;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
-        ReviewModelCatalog modelCatalog)
+        ReviewModelCatalog modelCatalog, IOptions<QualityTaxonomyOptions> taxonomyOptions)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -150,6 +158,7 @@ public sealed class ReviewJobService : BackgroundService
         this.dashboards = dashboards;
         this.sensorRegistry = sensorRegistry;
         this.modelCatalog = modelCatalog;
+        this.taxonomyOptions = taxonomyOptions.Value;
     }
 
     public async Task<ReviewRunResponse> EnqueueAsync(
@@ -202,7 +211,10 @@ public sealed class ReviewJobService : BackgroundService
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            ProviderForCli(cliType),
+            string.IsNullOrWhiteSpace(request.Model) ? "unknown" : request.Model.Trim(),
+            recommendation.PolicyVersion);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -595,8 +607,20 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            ObservationWriteEnabled: taxonomyOptions.ObservationWriteEnabled,
+            Provider: item.Provider,
+            RequestedModel: item.RequestedModel,
+            ThinkingLevel: item.ThinkingLevel,
+            RoutePolicyVersion: item.RoutePolicyVersion);
     }
+
+    private static string ProviderForCli(string cliType) => cliType switch
+    {
+        "codex" => "openai",
+        "claude" or "claude-code" => "anthropic",
+        _ => "unknown",
+    };
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {
@@ -719,6 +743,9 @@ public sealed class ReviewJobService : BackgroundService
         public string? Model => manifest.Model;
         public string? ThinkingLevel => manifest.ThinkingLevel;
         public string CliType => manifest.CliType;
+        public string Provider => manifest.Provider;
+        public string RequestedModel => manifest.RequestedModel;
+        public string RoutePolicyVersion => manifest.RoutePolicyVersion;
         public bool Force => manifest.Force;
         public DateTimeOffset CreatedAt => manifest.CreatedAt;
         public DateTimeOffset? StartedAt { get; private set; }
