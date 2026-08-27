@@ -141,8 +141,8 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
+      <span><b>Status</b> decided (operator pauschal approval, 2026-08-11)</span>
+      <span><b>Phase</b> implementation in progress</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,18 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Each entry records a delivered slice against the plan in §08; this section does not revise the assessment, options, or exit criteria above.</p>
+
+    <div class="box ok">
+      <h4>2026-08-27 · QS-68 · S0 (partial) — close the repository-item authorization gap</h4>
+      <p>Delivered the first exit-bar item of S0: <code>PUT /api/repos/{repoId}</code> and <code>DELETE /api/repos/{repoId}</code> now require registrar privilege (<code>ApiClientIdentity.CanRegisterRepositories</code>), matching the check already applied to <code>POST /api/repos</code> and the Agent Studio import route. Previously a client scoped only to repository A (F-01) could call <code>PUT /api/repos/A</code> to rewrite that repository's <code>RootPath</code>, <code>GlobalInputsDirectory</code>, and <code>Sensors</code> command configuration, or <code>DELETE /api/repos/A</code> to archive it — the exact chain the dossier names in F-01/R-01. This closes the repository root, global-input, and sensor-configuration mutation gap named in S0's first bullet, plus the archive-mutation gap, in one change since all three are carried by the same <code>RepositoryRegistrationRequest</code> payload.</p>
+      <p><b>Changed:</b> <code>src/QualityStudio.Api/Program.cs</code> (mutation-authorization middleware now treats the <code>/api/repos/{repoId}</code> route pattern on PUT/DELETE the same as repository registration for privilege purposes). <b>Tests:</b> <code>tests/QualityStudio.Api.Tests/ApiSecurityTests.cs</code> — new <code>Repository_scoped_client_cannot_reconfigure_or_archive_its_own_repository</code> proves a repo-scoped, non-registrar client (including an attempted sensor command rewrite) is rejected with 403 on both routes while a registrar client can still update and archive. Verified red-then-green: the new test fails against the pre-fix middleware and passes after. Full gate green: <code>dotnet build QualityStudio.slnx -c Release</code> and <code>dotnet test QualityStudio.slnx -c Release --filter "Category!=MachineBound"</code> (204 passed, 1 pre-existing live-integration skip), plus <code>quality-cli security scan .</code> clean.</p>
+      <p><b>Not in this delivery — remaining S0 items (follow-up slices):</b> resolving sensor <code>command</code> configuration to a host-owned immutable analyzer-profile allowlist and disabling command-backed analyzers by default (F-01's second half); applying the spend limiter to <code>/api/sensors/{id}/scan</code>; an Origin header + per-session anti-CSRF nonce check for local mutations; failing startup when Local mode binds a non-loopback address; and the Angular 20.3.26→20.3.27+ dependency bump. S1–S6 (worker isolation, input bounding, secret handling, handover data-only contract, credential lifecycle, continuous supply-chain gate) are untouched and remain queued in priority order.</p>
+    </div>
   </section>
 </main>
 </body>

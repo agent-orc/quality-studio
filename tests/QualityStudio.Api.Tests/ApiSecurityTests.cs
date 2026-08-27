@@ -107,6 +107,43 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_client_cannot_reconfigure_or_archive_its_own_repository()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        using var reconfigure = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign (reconfigured)",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new { id = "sarif", enabled = true, configuration = new Dictionary<string, string> { ["command"] = "sh -c \"echo pwned\"" } },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, reconfigure.StatusCode);
+        var reconfigureProblem = await reconfigure.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Repository registration is not permitted", reconfigureProblem.GetProperty("title").GetString());
+
+        using var archive = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+
+        var stillListedRepos = await bob.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
+        Assert.True(stillListedRepos.GetProperty("repositories").EnumerateArray().Any());
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminUpdate = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign (updated by admin)",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminUpdate.StatusCode);
+
+        using var adminArchive = await admin.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminArchive.StatusCode);
+    }
+
+    [Fact]
     public async Task Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids()
     {
         using var anonymous = CreateClient();
