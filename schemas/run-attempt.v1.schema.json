@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived run attempt record v1",
+  "description": "Create-only snapshot of one stopped attempt (done/failed/cancelled/capped) under a logical run. A capped run that resumes later adds another attempt and never rewrites an earlier one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness",
+    "archivedAt", "totalFiles", "completedFiles", "failedFiles", "skippedFiles",
+    "usage", "priceStatus", "errorCodes", "usageLedgerMonths"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "$ref": "#/$defs/nullableDateTime" },
+    "finishedAt": { "$ref": "#/$defs/nullableDateTime" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "totalFiles": { "type": "integer", "minimum": 0 },
+    "completedFiles": { "type": "integer", "minimum": 0 },
+    "failedFiles": { "type": "integer", "minimum": 0 },
+    "skippedFiles": { "type": "integer", "minimum": 0 },
+    "usage": { "$ref": "#/$defs/tokens" },
+    "costSpent": { "$ref": "#/$defs/nullableNumber" },
+    "currency": { "$ref": "#/$defs/nullableString" },
+    "priceStatus": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+    "tokenCap": { "$ref": "#/$defs/nullableInteger" },
+    "costCap": { "$ref": "#/$defs/nullableNumber" },
+    "stopReason": { "$ref": "#/$defs/nullableString" },
+    "usageLedgerMonths": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "nullableDateTime": { "type": ["string", "null"], "format": "date-time" },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

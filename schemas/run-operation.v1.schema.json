@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived run operation record v1",
+  "description": "One append-only line in operations.jsonl connecting plan, output, token usage and findings for a single review operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt",
+    "path", "level", "state"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "$ref": "#/$defs/nullableDateTime" },
+    "finishedAt": { "$ref": "#/$defs/nullableDateTime" },
+    "providerRunId": { "$ref": "#/$defs/nullableString" },
+    "subjectHash": { "$ref": "#/$defs/nullableSha256" },
+    "reviewInputHash": { "$ref": "#/$defs/nullableSha256" },
+    "sidecarPath": { "$ref": "#/$defs/nullableString" },
+    "sidecarSha256": { "$ref": "#/$defs/nullableSha256" },
+    "gradeScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+    "gradeBand": { "enum": ["A", "B", "C", "D", "F", null] },
+    "securityVerdict": { "enum": ["pass", "warn", "block", "unavailable", null] }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableDateTime": { "type": ["string", "null"], "format": "date-time" },
+    "nullableSha256": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$" }
+  }
+}

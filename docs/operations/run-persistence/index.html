@@ -141,7 +141,7 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
+    <span><b>Status</b> decided</span>
     <span><b>Phase</b> decision ready</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
@@ -165,6 +165,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation log</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -483,6 +484,21 @@
 </table>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
+
+<h2 id="implementation"><span class="no">11</span>Implementation log</h2>
+<p class="dim">Append-only. Each entry records what landed for one delivered slice; it does not revise the decisions above.</p>
+
+<div class="box ok">
+  <h4>2026-08-27 &middot; QS-71 &middot; RP-1 · Contracts and archive core (landed)</h4>
+  <ul>
+    <li>Added the four v1 archive schemas approved in <a href="#contract">Recommended file contract</a>: <code>schemas/run-record.v1.schema.json</code>, <code>schemas/run-operation.v1.schema.json</code>, <code>schemas/run-finding.v1.schema.json</code> and <code>schemas/run-attempt.v1.schema.json</code>, each carrying <code>$schema</code> and a const <code>schemaVersion</code> per the contract invariants.</li>
+    <li>Added matching typed records (<code>RunRecord</code>, <code>RunOperationRecord</code>, <code>RunFindingRecord</code>, <code>RunAttemptRecord</code>) and a new <code>ReviewRunArchiveStore</code> in <code>src/QualityStudio.Api/ReviewRunArchive.cs</code>, kept separate from the existing <code>ReviewRunStore</code> recovery journal as directed by the likely-touch-points list.</li>
+    <li>The store writes <code>run.json</code> and each <code>attempts/NNNN.json</code> create-only, appends <code>operations.jsonl</code>/<code>findings.jsonl</code> write-through, computes the next create-only attempt ordinal per run, tolerates an incomplete trailing JSONL line the same way the existing recovery journal does, and confines every run id against path traversal.</li>
+    <li>Routes, the operational <code>/review/runs</code> endpoint and the UI are unchanged; nothing yet calls the archive store from the live run path &mdash; that dual-write wiring is RP-2's scope, not RP-1's.</li>
+    <li>Tests: <code>tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs</code> validates all four schema fixtures, asserts create-only rejects overwrite for both <code>run.json</code> and an <code>attempts/NNNN.json</code> collision, asserts repository-path confinement for a traversal and a nested run id, verifies two stopped attempts (capped then done) under one run remain independently readable in ordinal order, and verifies a malformed trailing JSONL line does not hide earlier readable operation records. Full repository gate (<code>dotnet build</code> / <code>dotnet test</code> across both test projects) is green: 212 passed, 1 pre-existing skip (live-integration test gated behind an explicit opt-in env var), 0 failed.</li>
+    <li><b>Deferred to RP-2 (not attempted this slice):</b> capturing <code>ReviewExecutionResult</code> instead of discarding it, actually appending operation/finding rows and writing an attempt record from the live <code>ReviewWorkItem</code> stop boundary, adding <code>operationId</code>/<code>attempt</code> to new usage-ledger rows, and the v3 ledger schema. RP-3 (recovery migration and history API), RP-4 (deterministic run diff) and RP-5 (history/compare UI) remain fully unimplemented and are unblocked follow-up cards once RP-2 lands.</li>
+  </ul>
+</div>
 </main>
 </body>
 </html>
