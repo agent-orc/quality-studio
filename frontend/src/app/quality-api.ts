@@ -45,7 +45,9 @@ export interface FindingStateCounts { open: number; accepted: number; waived: nu
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
 export interface FindingSource { kind: 'deterministic'; sensorId: string; producer: string; producerVersion?: string; runIndex?: number; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; ignored?: boolean; locations: FindingLocation[]; }
+export interface FindingSuppression { fingerprint: string; findingId: string; path: string; ruleId: string; title: string; severity: FindingSeverity; reason: string; author: string; createdAt: string; expiresAt?: string | null; }
+export interface FindingSuppressionMutationRequest { path: string; kind: ReviewKind; fingerprint: string; author: string; reason: string; expiresAt?: string | null; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
@@ -429,6 +431,7 @@ export class QualityApi {
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
   readonly reviewRuns = signal<ReviewRun[]>([]);
   readonly scopeRules = signal<ScopeRulesResponse>({ schema: '', rules: [] });
+  readonly ignoredFindings = signal<FindingSuppression[]>([]);
   readonly usage = signal<UsageReport>(emptyUsageReport());
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
@@ -750,6 +753,26 @@ export class QualityApi {
     console.info(JSON.stringify({ event: 'qs.finding.state-mutated', fingerprint: request.fingerprint, path: request.path, state: request.state }));
     return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
       .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  async loadIgnoredFindings(): Promise<FindingSuppression[]> {
+    const response = await firstValueFrom(this.http.get<{ ignored: FindingSuppression[] }>(`${this.repositoryApiBase()}/findings/ignored`));
+    this.ignoredFindings.set(response.ignored);
+    return response.ignored;
+  }
+
+  async ignoreFinding(request: FindingSuppressionMutationRequest): Promise<FindingSuppression> {
+    const result = await firstValueFrom(this.http.post<FindingSuppression>(`${this.repositoryApiBase()}/findings/ignore`, request));
+    await Promise.all([this.loadFile(request.path), this.loadIgnoredFindings()]);
+    console.info(JSON.stringify({ event: 'qs.finding.ignored', fingerprint: request.fingerprint, path: request.path }));
+    return result;
+  }
+
+  async restoreFinding(fingerprint: string, author: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.repositoryApiBase()}/findings/unignore`, { fingerprint, author }));
+    const path = this.file()?.path;
+    await Promise.all([path ? this.loadFile(path) : Promise.resolve(), this.loadIgnoredFindings()]);
+    console.info(JSON.stringify({ event: 'qs.finding.restored', fingerprint }));
   }
 
   async loadScopeRules(): Promise<ScopeRulesResponse> {

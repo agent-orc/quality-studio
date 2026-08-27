@@ -511,6 +511,87 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Finding_ignore_action_hides_the_finding_and_restore_reverses_it()
+    {
+        var fingerprint = "sha256:" + new string('e', 64);
+        var findingId = "finding-" + new string('e', 64);
+        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        Directory.CreateDirectory(metadataDirectory);
+        var metadataPath = Path.Combine(metadataDirectory, "file.ignore-test.review-meta.code.json");
+        var metadata = new JsonObject
+        {
+            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
+            ["reviewedAt"] = "2026-07-22T09:00:00.000Z",
+            ["kind"] = "code",
+            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
+            ["grade"] = new JsonObject { ["score"] = 60, ["band"] = "D", ["rationale"] = "One finding." },
+            ["summary"] = "One finding.",
+            ["findings"] = new JsonArray(new JsonObject
+            {
+                ["id"] = findingId,
+                ["fingerprint"] = fingerprint,
+                ["ruleId"] = "correctness.test",
+                ["aspect"] = "correctness",
+                ["severity"] = "medium",
+                ["title"] = "Noisy generated-code finding",
+                ["description"] = "A finding used by the API test.",
+                ["recommendation"] = "Review it.",
+                ["locations"] = new JsonArray(new JsonObject { ["path"] = "Sample.cs" }),
+            }),
+        };
+        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+
+        try
+        {
+            using var client = application!.CreateClient();
+            var before = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var findingBefore = Assert.Single(Assert.Single(before.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.False(findingBefore.GetProperty("ignored").GetBoolean());
+
+            using var ignoreResponse = await client.PostAsJsonAsync("/api/findings/ignore", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                author = "Ada",
+                reason = "Generated client is replaced from the upstream schema.",
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, ignoreResponse.StatusCode);
+
+            var afterIgnore = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var findingAfterIgnore = Assert.Single(Assert.Single(afterIgnore.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.True(findingAfterIgnore.GetProperty("ignored").GetBoolean());
+            Assert.Equal(60, afterIgnore.GetProperty("metaDocuments")[0].GetProperty("grade").GetProperty("score").GetInt32());
+
+            var ignored = await client.GetFromJsonAsync<JsonElement>("/api/findings/ignored", TestContext.Current.CancellationToken);
+            var ignoredEntry = Assert.Single(ignored.GetProperty("ignored").EnumerateArray());
+            Assert.Equal(fingerprint, ignoredEntry.GetProperty("fingerprint").GetString());
+            Assert.Equal("Ada", ignoredEntry.GetProperty("author").GetString());
+
+            using var unignoreResponse = await client.PostAsJsonAsync("/api/findings/unignore",
+                new { fingerprint, author = "Ada" }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, unignoreResponse.StatusCode);
+
+            var afterRestore = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var findingAfterRestore = Assert.Single(Assert.Single(afterRestore.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.False(findingAfterRestore.GetProperty("ignored").GetBoolean());
+
+            using var repeatUnignore = await client.PostAsJsonAsync("/api/findings/unignore",
+                new { fingerprint, author = "Ada" }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NotFound, repeatUnignore.StatusCode);
+        }
+        finally
+        {
+            File.Delete(metadataPath);
+            var suppressionsPath = Path.Combine(repositoryRoot, FindingSuppressionStore.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(suppressionsPath)) File.Delete(suppressionsPath);
+        }
+    }
+
+    [Fact]
     public async Task Usage_returns_filtered_ledger_aggregates_and_recent_entries()
     {
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);

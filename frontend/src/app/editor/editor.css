@@ -31,6 +31,13 @@
 .finding-marker.medium{--finding-marker-color:var(--studio-severity-medium)}
 .finding-marker.low{--finding-marker-color:var(--studio-severity-low)}
 .finding-marker.info{--finding-marker-color:var(--studio-severity-info)}
+mark.finding-span{--span-color:var(--status-stale);padding:0;border-radius:2px;background:color-mix(in srgb,var(--span-color) 24%,transparent);box-shadow:inset 0 -2px 0 0 var(--span-color)}
+mark.finding-span.critical{--span-color:var(--studio-severity-critical)}
+mark.finding-span.high{--span-color:var(--studio-severity-high)}
+mark.finding-span.medium{--span-color:var(--studio-severity-medium)}
+mark.finding-span.low{--span-color:var(--studio-severity-low)}
+mark.finding-span.info{--span-color:var(--studio-severity-info)}
+mark.finding-span.selected-span{background:color-mix(in srgb,var(--span-color) 46%,transparent);box-shadow:inset 0 -2px 0 0 var(--span-color),0 0 0 1px var(--span-color)}
 .comment-add{flex:none;width:18px;height:18px;margin:2px 0 0 2px;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;color:transparent;font:700 12px var(--font-ui);cursor:pointer}.code-line:hover .comment-add,.comment-add:focus-visible{border-color:var(--studio-border);background:var(--studio-bg-elevated);color:var(--studio-accent)}
 .inline-thread,.inline-composer{position:absolute;left:48px;right:12px;box-sizing:border-box;border-left:3px solid var(--studio-accent);background:var(--studio-bg-surface);font:10px/1.4 var(--font-ui);overflow:hidden}.inline-thread.resolved{border-left-color:var(--studio-fg-dim);opacity:.82}.inline-thread.healed{border-left-color:var(--status-fresh)}
 .thread-summary{width:100%;height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;border:0;border-bottom:1px solid var(--studio-border-soft);background:transparent;color:var(--studio-fg-muted);text-align:left;cursor:pointer}.thread-summary b{color:var(--studio-fg)}.thread-summary time{margin-left:auto;color:var(--studio-fg-dim);font-size:8px}.thread-icon{color:var(--studio-accent);font:700 13px var(--font-mono)}.thread-summary .severity,.anchor-badge{padding:2px 5px;border-radius:3px;background:var(--studio-bg-elevated);font-size:7px;font-style:normal;text-transform:uppercase}.anchor-badge{color:var(--status-fresh)}

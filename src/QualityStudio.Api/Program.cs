@@ -324,6 +324,12 @@ app.MapPost("/api/threads", MutateThread);
 app.MapPost("/api/repos/{repoId}/threads", MutateThread);
 app.MapPost("/api/findings/state", MutateFindingState);
 app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
+app.MapGet("/api/findings/ignored", IgnoredFindings);
+app.MapGet("/api/repos/{repoId}/findings/ignored", IgnoredFindings);
+app.MapPost("/api/findings/ignore", IgnoreFinding);
+app.MapPost("/api/repos/{repoId}/findings/ignore", IgnoreFinding);
+app.MapPost("/api/findings/unignore", UnignoreFinding);
+app.MapPost("/api/repos/{repoId}/findings/unignore", UnignoreFinding);
 
 app.Run();
 
@@ -507,6 +513,7 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
     var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var suppressions = new FindingSuppressionStore(repository.Root).Read();
     var coverage = CoverageProjection.ForPath(
         CoverageSnapshot.Load(repository.Root),
         CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD"),
@@ -515,7 +522,7 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     logger.LogInformation(new EventId(1101, "FileLoaded"),
         "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}) in {ElapsedMilliseconds} ms",
         relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
-    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates),
+    return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates, suppressions),
         bytes.LongLength, lineEnding, encoding, coverage));
 }
 
@@ -616,6 +623,60 @@ static async Task<IResult> MutateFindingState(HttpContext context, FindingStateM
         "Set finding {FindingFingerprint} to {FindingState} for {FilePath} in repository {RepositoryId} by {Author}; ElapsedMilliseconds={ElapsedMilliseconds}",
         updated.Fingerprint, FindingStateStore.StateName(updated.State), relative, registration.Id, updated.Author, stopwatch.ElapsedMilliseconds);
     return Results.Ok(updated);
+}
+
+static IResult IgnoredFindings(HttpContext context, RepositoryRegistry registry)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var ignored = new FindingSuppressionStore(repository.Root).Read().Values
+        .OrderByDescending(item => item.CreatedAt).ToArray();
+    return Results.Ok(new FindingSuppressionsResponse(ignored));
+}
+
+static async Task<IResult> IgnoreFinding(HttpContext context, FindingSuppressionMutationRequest request,
+    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var relative = repository.NormalizeRelativePath(request.Path);
+    var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    FindingSuppression suppression;
+    using (var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken)))
+    {
+        var finding = metadata.RootElement.GetProperty("findings").EnumerateArray().FirstOrDefault(candidate =>
+            candidate.TryGetProperty("fingerprint", out var value) && value.GetString() == request.Fingerprint);
+        if (finding.ValueKind == JsonValueKind.Undefined)
+            throw new KeyNotFoundException($"Finding '{request.Fingerprint}' was not found in the selected review.");
+        suppression = new FindingSuppression(
+            request.Fingerprint,
+            finding.GetProperty("id").GetString()!,
+            finding.GetProperty("locations")[0].GetProperty("path").GetString()!,
+            finding.GetProperty("ruleId").GetString()!,
+            finding.GetProperty("title").GetString()!,
+            finding.GetProperty("severity").GetString()!,
+            request.Reason,
+            request.Author,
+            DateTimeOffset.UtcNow,
+            request.ExpiresAt);
+    }
+
+    var saved = new FindingSuppressionStore(repository.Root).Add(suppression);
+    logger.LogInformation(new EventId(1502, "FindingIgnored"),
+        "Ignored finding {FindingFingerprint} for {FilePath} in repository {RepositoryId} by {Author}; ElapsedMilliseconds={ElapsedMilliseconds}",
+        saved.Fingerprint, relative, registration.Id, saved.Author, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(saved);
+}
+
+static IResult UnignoreFinding(HttpContext context, FindingSuppressionRemovalRequest request,
+    RepositoryRegistry registry, ILogger<Program> logger)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    if (!new FindingSuppressionStore(repository.Root).Remove(request.Fingerprint))
+        throw new KeyNotFoundException($"Ignored finding '{request.Fingerprint}' was not found.");
+    logger.LogInformation(new EventId(1503, "FindingRestored"),
+        "Restored ignored finding {FindingFingerprint} in repository {RepositoryId} by {Author}",
+        request.Fingerprint, registration.Id, request.Author);
+    return Results.Ok();
 }
 
 static async Task<IResult> MutateThread(HttpContext context, ThreadMutationRequest request,

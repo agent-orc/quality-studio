@@ -13,7 +13,10 @@ public sealed record FindingStateCounts(int Open, int Accepted, int Waived, int 
 
 public static class FindingStateProjection
 {
-    public static JsonObject Apply(JsonObject metadata, IReadOnlyDictionary<string, FindingStateRecord> states)
+    public static JsonObject Apply(
+        JsonObject metadata,
+        IReadOnlyDictionary<string, FindingStateRecord> states,
+        IReadOnlyDictionary<string, FindingSuppression>? suppressions = null)
     {
         var result = metadata.DeepClone().AsObject();
         var counts = FindingStateCounts.Empty;
@@ -27,6 +30,8 @@ public static class FindingStateProjection
                 : null;
             var effective = state?.State ?? FindingState.Open;
             finding["state"] = FindingStateStore.StateName(effective);
+            if (suppressions is not null)
+                finding["ignored"] = fingerprint is not null && suppressions.ContainsKey(fingerprint);
             if (state is not null)
             {
                 finding["stateAuthor"] = state.Author;
