@@ -405,6 +405,7 @@ public sealed class ReviewJobService : BackgroundService
         var recovered = 0;
         foreach (var registration in repositories.List())
         {
+            if (registration.Blocked) continue;
             var store = new ReviewRunStore(registration.RootPath);
             foreach (var stored in store.LoadAll((directory, exception) =>
                          logger.LogError(new EventId(1511, "ReviewRunRecoveryFailed"), exception,
