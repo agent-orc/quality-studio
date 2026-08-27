@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-005",
+  "technology": "angular",
+  "category": "component-reuse",
+  "title": "One shared dialog component, not a hand-rolled backdrop per feature",
+  "statement": "A modal/dialog surface is built once as a shared component and reused; a feature does not add its own `<div class=\"...-backdrop\">` plus bespoke open/close signal wiring when an existing dialog pattern already does the same job.",
+  "rationale": "This is the operator-observed defect class: no component reuse. `app.html` currently defines the same backdrop-plus-panel structure independently three times (`guideline-dialog`, `repository-dialog`, `agent-studio-dialog`), each with its own `(click)=\"...set(false)\"` handler and its own CSS. A focus trap, escape-to-close, or `aria-modal` fix has to be applied three times and will drift.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file", "module"],
+  "good": {
+    "language": "html",
+    "code": "<qs-dialog [open]=\"repositoryDialogOpen()\" (closed)=\"repositoryDialogOpen.set(false)\">\n  <!-- feature-specific content only -->\n</qs-dialog>",
+    "caption": "Target shape: one shared dialog component owns backdrop, focus and close behavior."
+  },
+  "bad": {
+    "language": "html",
+    "code": "<div class=\"dialog-backdrop\" (click)=\"guidelineDialogOpen.set(false)\"> ... </div>\n<!-- elsewhere in the same file -->\n<div class=\"dialog-backdrop\" (click)=\"repositoryDialogOpen.set(false)\"> ... </div>\n<!-- elsewhere in the same file -->\n<div class=\"dialog-backdrop\" (click)=\"closeAgentStudioImportDialog()\"> ... </div>",
+    "caption": "Three independent hand-rolled backdrops in the same template.",
+    "source": "frontend/src/app/app.html"
+  },
+  "tags": ["component-reuse", "dialog", "duplication"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule; bad example is a real excerpt (three occurrences) from app.html." }
+  ]
+}
