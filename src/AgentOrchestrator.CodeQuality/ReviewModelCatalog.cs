@@ -106,6 +106,9 @@ public sealed class ReviewModelCatalog
     public ReviewModelSelection Resolve(string? cliType, string? model, string? thinkingLevel)
     {
         var cli = NormalizeCli(cliType);
+        // The CLI reaches rejection messages that the API echoes to the caller, so it is held to the
+        // same identifier rule as the model and thinking level rather than being reflected verbatim.
+        RequireSafeIdentifier(cli, "CLI type");
         var requestedModel = Text(model);
         var requestedThinking = Text(thinkingLevel);
         if (requestedModel is null)
