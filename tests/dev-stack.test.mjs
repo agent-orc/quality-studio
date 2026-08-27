@@ -16,16 +16,14 @@ test('launcher bootstraps a clean checkout, starts both services, and can restar
   const frontendRoot = join(repoRoot, 'frontend');
   const marker = join(sandbox, 'install-count.txt');
   const apiScript = join(sandbox, 'api.mjs');
-  const webScript = join(sandbox, 'web.mjs');
   const npmStub = join(sandbox, 'npm.mjs');
   const [firstApiPort, firstWebPort, secondApiPort, secondWebPort] = await reservePorts(4);
   await mkdir(frontendRoot, { recursive: true });
   await writeFile(apiScript, serviceScript('api-ready'));
-  await writeFile(webScript, serviceScript('web-ready'));
   await writeFile(npmStub, nodeNpmStub());
 
   const first = await runLauncher({
-    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', String(firstApiPort), '--web-port', String(firstWebPort)],
+    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--api-port', String(firstApiPort), '--web-port', String(firstWebPort)],
     env: { ...process.env, QUALITY_STUDIO_MARKER_FILE: marker, QUALITY_STUDIO_NPM_COMMAND: npmStub },
   });
   assert.match(first.stdout, new RegExp(`ready: api=http://127\\.0\\.0\\.1:${firstApiPort} web=http://127\\.0\\.0\\.1:${firstWebPort}`));
@@ -35,7 +33,7 @@ test('launcher bootstraps a clean checkout, starts both services, and can restar
   await writeFile(join(frontendRoot, 'node_modules', '.bin', 'ng'), '');
 
   const second = await runLauncher({
-    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', String(secondApiPort), '--web-port', String(secondWebPort)],
+    args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--api-port', String(secondApiPort), '--web-port', String(secondWebPort)],
     env: { ...process.env, QUALITY_STUDIO_MARKER_FILE: marker, QUALITY_STUDIO_NPM_COMMAND: npmStub },
   });
   assert.match(second.stdout, new RegExp(`ready: api=http://127\\.0\\.0\\.1:${secondApiPort} web=http://127\\.0\\.0\\.1:${secondWebPort}`));
@@ -244,7 +242,20 @@ async function waitForReady(child, output) {
 function nodeNpmStub() {
   return `
 import { appendFile } from 'node:fs/promises';
-await appendFile(process.env.QUALITY_STUDIO_MARKER_FILE, process.argv.slice(2).join(' ') + '\\n');
+import http from 'node:http';
+const args = process.argv.slice(2);
+if (args[0] === 'ci') {
+  await appendFile(process.env.QUALITY_STUDIO_MARKER_FILE, 'ci\\n');
+} else if (args[0] === 'start') {
+  const port = Number(args[args.indexOf('--port') + 1]);
+  const server = http.createServer((_request, response) => {
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end('<html><body>web-ready</body></html>');
+  });
+  server.listen(port, '127.0.0.1');
+} else {
+  process.exitCode = 2;
+}
 `;
 }
 
