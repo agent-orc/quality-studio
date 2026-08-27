@@ -47,6 +47,7 @@ describe('ReviewPanel session flow', () => {
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
+    compareRuns: jasmine.createSpy('compareRuns'),
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
@@ -59,7 +60,7 @@ describe('ReviewPanel session flow', () => {
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
+      api.resumeReview, api.loadRunReport, api.loadRunTrend, api.compareRuns]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -210,5 +211,42 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+  });
+
+  it('opens a baseline and candidate comparison with an explicit interpretation boundary', async () => {
+    const run = {
+      id: 'candidate', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code', state: 'done',
+      model: 'candidate-model', thinkingLevel: 'high', cliType: 'codex', completedFiles: 1, totalFiles: 1,
+      failedFiles: 0, skippedFiles: 0, errors: [], usageOperations: 0, usage: { inputTokens: 0, outputTokens: 0,
+        cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0 }, costSpent: null, currency: null,
+      stopReason: null, deviation: null, createdAt: '2026-08-11T08:00:00Z',
+    } as any;
+    api.reviewRuns.set([run]);
+    api.loadRunReport.and.resolveTo({ run: { id: 'candidate', revision: 1, completeness: 'complete', state: 'done',
+      cliType: 'codex', model: 'candidate-model', thinkingLevel: 'high' }, subject: { manifestHash: 'sha256:candidate' },
+      execution: { reviewed: 1, reusedFresh: 0 }, summary: { score: 88, grade: 'B', partialReason: null, findings: { total: 1 } }, observations: [] } as any);
+    api.loadRunTrend.and.resolveTo({ points: [
+      { runId: 'candidate', revision: 1, finishedAt: '2026-08-11T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 88, grade: 'B', activeFindings: 1 },
+      { runId: 'baseline', revision: 1, finishedAt: '2026-08-10T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 72, grade: 'C', activeFindings: 2 },
+    ], nextCursor: null } as any);
+    api.compareRuns.and.resolveTo({
+      baseline: { runId: 'baseline', revision: 1, finishedAt: '2026-08-10T08:00:00Z', score: 72, grade: 'C', activeFindings: 2,
+        activeBySeverity: {}, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, cliType: 'codex', model: 'baseline-model', thinkingLevel: 'medium', subjectManifestHash: 'sha256:baseline', reviewInputsHash: null, durationMs: 1000, inputTokens: 100, outputTokens: 20, cost: null, currency: null },
+      candidate: { runId: 'candidate', revision: 1, finishedAt: '2026-08-11T08:00:00Z', score: 88, grade: 'B', activeFindings: 1,
+        activeBySeverity: {}, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, cliType: 'codex', model: 'candidate-model', thinkingLevel: 'high', subjectManifestHash: 'sha256:candidate', reviewInputsHash: null, durationMs: 900, inputTokens: 120, outputTokens: 25, cost: null, currency: null },
+      subjectChanged: true, reviewInputsChanged: null, routeChanged: true,
+      interpretation: 'Compare outcomes only; do not attribute the delta to the model.',
+      counts: { new: 1, unchanged: 1, resolved: 1, dispositionChanged: 1 },
+      findings: [{ fingerprint: `sha256:${'d'.repeat(64)}`, change: 'new', title: 'New finding', severity: 'high', baselineState: null, candidateState: 'open', locations: [{ path: 'src/A.cs', startLine: 8, startColumn: 1, endLine: 8, endColumn: 4 }] }],
+    } as any);
+
+    await component.openRun(run);
+    await component.openComparison();
+    fixture.detectChanges();
+
+    expect(api.compareRuns).toHaveBeenCalledWith('baseline', 'candidate');
+    expect(fixture.nativeElement.querySelector('.comparison-warning').textContent).toContain('do not attribute');
+    expect(fixture.nativeElement.querySelector('.comparison-delta-heading').textContent).toContain('1 disposition changed');
+    expect(fixture.nativeElement.querySelector('.comparison-finding').textContent).toContain('New finding');
   });
 });
