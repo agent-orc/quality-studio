@@ -73,18 +73,6 @@ export class Editor {
     }
     return map;
   });
-  readonly rangesByLine = computed(() => {
-    const map = new Map<number, FindingSpanRange[]>();
-    const path = this.api.file()?.path;
-    for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
-      if (location.path !== path || !location.range) continue;
-      const fingerprint = finding.fingerprint ?? finding.id;
-      for (let line = location.range.start.line; line <= location.range.end.line; line++) {
-        map.set(line, [...(map.get(line) ?? []), { fingerprint, start: location.range.start, end: location.range.end }]);
-      }
-    }
-    return map;
-  });
   readonly threadsByLine = computed(() => {
     const map = new Map<number, ReviewThread[]>();
     const path = this.api.file()?.path;
@@ -253,9 +241,12 @@ export class Editor {
       : [{ text, kind: 'plain' } satisfies TokenSpan];
   }
 
-  segmentedLine(line: number, text: string): SegmentedSpan[] {
-    const ranges = this.rangesByLine().get(line);
-    if (!ranges?.length) return this.tokensForLine(line, text).map(token => ({ ...token, state: 'plain', fingerprints: [] }));
+  segmentedLine(line: number, text: string, findings: ReviewFinding[]): SegmentedSpan[] {
+    const path = this.api.file()?.path;
+    const ranges: FindingSpanRange[] = [];
+    for (const finding of findings) for (const location of finding.locations) {
+      if (location.path === path && location.range) ranges.push({ fingerprint: finding.fingerprint ?? finding.id, ...location.range });
+    }
     const selected = this.selectedFinding();
     return segmentLineTokens(this.tokensForLine(line, text), line, text, ranges, selected ? selected.fingerprint ?? selected.id : null);
   }
@@ -265,10 +256,7 @@ export class Editor {
   }
 
   segmentAriaLabel(segment: SegmentedSpan, line: number): string | null {
-    if (segment.state === 'plain') return null;
-    return segment.state === 'overlap'
-      ? `Overlapping findings at line ${line}: ${segment.text}`
-      : `Selected finding span at line ${line}: ${segment.text}`;
+    return segment.state === 'plain' ? null : `${segment.state} finding span at line ${line}: ${segment.text}`;
   }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
