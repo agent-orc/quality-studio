@@ -294,6 +294,13 @@ export interface RepositoryTransition {
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
 const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
 
+// The tree ETag covers Git state, the requested path and the coverage timestamp, so a retained
+// validator is only replayable against the identical path parameter.
+const treeCacheKey = (repositoryId: string, path: string): string => `${repositoryId} ${path}`;
+const conditionalHeaders = (etag: string | undefined): Record<string, string> | undefined =>
+  etag ? { 'If-None-Match': etag } : undefined;
+const isNotModified = (error: unknown): boolean => error instanceof HttpErrorResponse && error.status === 304;
+
 const demoFile = `using System.Diagnostics;
 using AgentOrchestrator.CodeQuality;
 
@@ -435,6 +442,11 @@ export class QualityApi {
   readonly focusedThreadId = signal<string | null>(null);
   private readonly treeSnapshots = new Map<string, TreeNode[]>();
   private readonly projectSnapshots = new Map<string, ProjectDashboard>();
+  // Validators for the snapshots above. /api/tree and /api/project already answer 304 to
+  // If-None-Match; retaining the ETag is what lets a re-switch take that path. The tree tag
+  // covers the requested path as well as Git state, so it is keyed by (repository, path).
+  private readonly treeEtags = new Map<string, string>();
+  private readonly projectEtags = new Map<string, string>();
   private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -514,16 +526,32 @@ export class QualityApi {
   async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true): Promise<void> {
     const base = this.repositoryApiBase(repositoryId);
     const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
+    const cacheKey = treeCacheKey(repositoryId, '');
     try {
-      const tree = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`));
-      this.treeSnapshots.set(repositoryId, tree.nodes);
+      // Only revalidate when the matching body is still retained, so a 304 always has a snapshot to answer with.
+      const retained = this.treeSnapshots.get(repositoryId);
+      const response = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`,
+        { observe: 'response', headers: conditionalHeaders(retained && this.treeEtags.get(cacheKey)) }));
+      const nodes = response.body?.nodes ?? [];
+      this.treeSnapshots.set(repositoryId, nodes);
+      this.retainEtag(this.treeEtags, cacheKey, response.headers.get('ETag'));
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.tree.set(tree.nodes); this.connectionState.set('live');
-      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
+      this.tree.set(nodes); this.connectionState.set('live');
+      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', repositoryId, nodeCount: nodes.length, source: 'api' }));
     } catch (error) {
-      if (repositoryId === this.selectedRepositoryId()) {
-        this.connectionState.set('preview');
-        console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
+      const unchanged = isNotModified(error) ? this.treeSnapshots.get(repositoryId) : undefined;
+      if (unchanged) {
+        if (repositoryId === this.selectedRepositoryId()) {
+          this.tree.set(unchanged); this.connectionState.set('live');
+          console.info(JSON.stringify({ event: 'qs.data.tree-loaded', repositoryId, nodeCount: unchanged.length, source: 'not-modified' }));
+        }
+      } else {
+        // A validator that outlived its snapshot would loop on 304s; drop it so the retry is unconditional.
+        this.treeEtags.delete(cacheKey);
+        if (repositoryId === this.selectedRepositoryId()) {
+          this.connectionState.set('preview');
+          console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
+        }
       }
     }
     if (detailsLoading) await detailsLoading;
@@ -711,9 +739,7 @@ export class QualityApi {
       this.projectError.set('');
     }
     const start = performance.now();
-    try {
-      const project = await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase(repositoryId)}/project`));
-      this.projectSnapshots.set(repositoryId, project);
+    const settle = (project: ProjectDashboard) => {
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.project.set(project);
       requestAnimationFrame(() => {
@@ -722,15 +748,34 @@ export class QualityApi {
         performance.measure('qs.project.first-interactive', { start, end: performance.now(), detail: { budget: 150, repositoryId } });
         console.info(JSON.stringify({ event: 'qs.project.first-interactive', repositoryId, durationMs: +duration.toFixed(2), budgetMs: 150, withinBudget: duration < 150 }));
       });
+    };
+    try {
+      const retained = this.projectSnapshots.get(repositoryId);
+      const response = await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase(repositoryId)}/project`,
+        { observe: 'response', headers: conditionalHeaders(retained && this.projectEtags.get(repositoryId)) }));
+      const project = response.body!;
+      this.projectSnapshots.set(repositoryId, project);
+      this.retainEtag(this.projectEtags, repositoryId, response.headers.get('ETag'));
+      settle(project);
     } catch (error) {
-      if (repositoryId === this.selectedRepositoryId()) {
-        if (!this.projectSnapshots.has(repositoryId)) this.project.set(null);
-        this.projectError.set(this.errorMessage(error));
-        console.warn(JSON.stringify({ event: 'qs.project.unavailable', repositoryId, reason: this.errorMessage(error) }));
+      const unchanged = isNotModified(error) ? this.projectSnapshots.get(repositoryId) : undefined;
+      if (unchanged) {
+        settle(unchanged);
+      } else {
+        this.projectEtags.delete(repositoryId);
+        if (repositoryId === this.selectedRepositoryId()) {
+          if (!this.projectSnapshots.has(repositoryId)) this.project.set(null);
+          this.projectError.set(this.errorMessage(error));
+          console.warn(JSON.stringify({ event: 'qs.project.unavailable', repositoryId, reason: this.errorMessage(error) }));
+        }
       }
     } finally {
       if (repositoryId === this.selectedRepositoryId()) this.projectLoading.set(false);
     }
+  }
+
+  private retainEtag(store: Map<string, string>, key: string, etag: string | null): void {
+    if (etag) store.set(key, etag); else store.delete(key);
   }
 
   async createTask(request: HandoverRequest): Promise<HandoverResult> {

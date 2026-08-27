@@ -84,6 +84,10 @@ try {
     const transitionEvents = events.filter(event => event.event === 'qs.repository.transition-visible');
     const usableEvents = events.filter(event => event.event === 'qs.repository.switch.usable');
     const projectEvents = events.filter(event => event.event === 'qs.project.first-interactive');
+    // QS-78 P-1: the third switch returns to an unchanged repository, so the client must
+    // revalidate instead of re-downloading the tree it already holds.
+    const treeEvents = events.filter(event => event.event === 'qs.data.tree-loaded');
+    const revalidatedTreeLoads = treeEvents.filter(event => event.source === 'not-modified');
     const result = {
       measuredAt: new Date().toISOString(),
       browser: await browser.version(),
@@ -93,6 +97,8 @@ try {
       transitionEvents,
       usableEvents,
       projectEvents,
+      treeEvents,
+      revalidatedTreeLoads: revalidatedTreeLoads.length,
       prewarmEvent: apiLines.find(line => line.includes('"event":"qs.repository.prewarm"') && line.includes('"repositoryId":"realistic"'))?.trim() ?? null,
     };
     await writeFile(resolve(resultsRoot, 'project-switch-perf.json'), JSON.stringify(result, null, 2));
@@ -101,7 +107,8 @@ try {
     const realisticProjectEvents = projectEvents.filter(event => event.repositoryId === 'realistic');
     if (transitionEvents.length < 3 || transitionEvents.some(event => event.durationMs >= transitionBudgetMs) ||
         usableEvents.length < 3 || usableEvents.some(event => event.durationMs >= usableBudgetMs) ||
-        realisticProjectEvents.length < 2 || realisticProjectEvents.some(event => event.durationMs >= 150)) process.exitCode = 1;
+        realisticProjectEvents.length < 2 || realisticProjectEvents.some(event => event.durationMs >= 150) ||
+        revalidatedTreeLoads.length < 1) process.exitCode = 1;
   } finally {
     await browser.close();
   }
