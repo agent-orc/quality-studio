@@ -107,6 +107,53 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_repository_scoped_client_cannot_reconfigure_or_archive_its_own_repository()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+        var updateRequest = new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new { id = "sarif", enabled = true, configuration = new Dictionary<string, string> { ["command"] = "sh -c \"echo pwned\"" } },
+            },
+        };
+        using var update = await alice.PutAsJsonAsync("/api/repos/default", updateRequest, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+
+        using var archive = await alice.DeleteAsync("/api/repos/default", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminUpdate = await admin.PutAsJsonAsync("/api/repos/default", updateRequest, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminUpdate.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sensor_scans_and_client_scans_share_the_per_client_spend_rate_limit()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+
+        using var alice = CreateClient(rateApplication, "alice", AliceToken);
+        using var firstScan = await alice.GetAsync("/api/scan", TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, firstScan.StatusCode);
+        using var secondScan = await alice.GetAsync("/api/scan", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondScan.StatusCode);
+
+        using var bob = CreateClient(rateApplication, "bob", BobToken);
+        using var firstSensorScan = await bob.PostAsync("/api/repos/foreign/sensors/coverage/scan", content: null, TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, firstSensorScan.StatusCode);
+        using var secondSensorScan = await bob.PostAsync("/api/repos/foreign/sensors/coverage/scan", content: null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondSensorScan.StatusCode);
+    }
+
+    [Fact]
     public async Task Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids()
     {
         using var anonymous = CreateClient();

@@ -141,8 +141,8 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
+      <span><b>Status</b> decided (operator pauschal approval, 2026-08-11) — implementation in progress</span>
+      <span><b>Phase</b> implementation in progress</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,29 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Each entry records the date, source task key, and what actually landed against the slice's stated exit evidence. Earlier sections above are the assessment as reviewed and are not rewritten by delivery entries.</p>
+
+    <div class="box ok">
+      <h4>2026-08-27 · QS-68 · S0 (partial) — close the authorization-to-command chain</h4>
+      <p>Operator gave a blanket approval of the dossier on 2026-08-11 (all slices, including previously operator-decision-gated ones); delivery proceeds one reviewable slice at a time. This entry covers three of S0's four bullets; the remainder is listed as follow-up below.</p>
+      <ul>
+        <li><b>Registrar privilege on repository root/global-input/sensor/archive mutations.</b> <code>PUT /api/repos/{repoId}</code> and <code>DELETE /api/repos/{repoId}</code> now require <code>identity.CanRegisterRepositories</code> (<code>Program.cs</code> security middleware, alongside the existing <code>POST /api/repos</code> check). Previously a client scoped to only its own repository could call <code>PUT /api/repos/{repoId}</code> to change that repository's root path, global-inputs directory, or sensor command configuration — the exact chain described in finding F-01. <code>GlobalInputsDirectory</code> and <code>Sensors</code> are both fields of the same registration request, so both are covered by this one gate. Test: <code>ApiSecurityTests.A_repository_scoped_client_cannot_reconfigure_or_archive_its_own_repository</code>.</li>
+        <li><b>Spend limiter applied to sensor and client scans.</b> <code>POST /api/sensors/{id}/scan</code>, <code>GET /api/scan</code>, and <code>GET /api/security/scan</code> (plus their <code>/api/repos/{repoId}/...</code> variants) now carry <code>.RequireRateLimiting("spend")</code>, matching the existing policy already applied to <code>/api/review</code> and <code>/api/handover</code>. Test: <code>ApiSecurityTests.Sensor_scans_and_client_scans_share_the_per_client_spend_rate_limit</code>.</li>
+        <li><b>Angular patch upgrade.</b> <code>@angular/common|compiler|core|forms|platform-browser|router|compiler-cli</code> bumped from the locked 20.3.26 to 20.3.30 (latest published 20.3.x at assessment time), with the lockfile fully regenerated. <code>npm audit --omit=dev</code> now reports 0 high/critical (previously 6 high: GHSA-jhpw-976m-542j, GHSA-jj27-h5hq-8x99); the full-tree audit is also clean. Verified via <code>npx ng build</code> and the existing Karma unit suite (39/39 passing).</li>
+      </ul>
+      <p><b>Verification:</b> <code>dotnet build QualityStudio.slnx</code> and <code>dotnet test QualityStudio.slnx</code> green (one pre-existing, unrelated timing-sensitive perf test — <code>ProjectDashboardTests.Cached_dashboard_for_5000_file_repository_is_within_interaction_budget</code> — flakes under host load in this environment independent of this change, confirmed by running it in isolation and rerunning the full suite).</p>
+      <p><b>Not in this delivery (explicitly deferred, not silently dropped):</b></p>
+      <ul>
+        <li>S0 bullet 2's core: rejecting free-form analyzer <code>command</code> strings and resolving a host-owned analyzer-profile ID to an immutable executable/argument template. This needs a new profile-registry schema and is sized closer to S1's worker-boundary work than a same-slice add-on. <code>SarifSensor.cs</code> still executes repository-configured commands; the registrar gate above at least closes who can set that configuration.</li>
+        <li>S0 bullet 3's remainder: Origin + per-session anti-CSRF nonce for local mutations, and fail-startup when Local mode binds a non-loopback address. No session/nonce infrastructure exists yet in the API; adding it needs its own reviewable slice.</li>
+        <li>S0's "preferably split immutable host-owned root/sensor configuration from repo-scoped display settings" — the registry (<code>RepositoryRegistry.cs</code>) still stores both in one flat <code>RepositoryRegistration</code> record. The registrar gate above enforces the same access outcome without the schema split.</li>
+        <li>S6 (continuous supply-chain gate): CI (<code>.github/workflows/build.yml</code>) still does not run <code>npm ci</code>, a frontend build/test, or an npm/NuGet advisory check, so the Angular fix above is not yet regression-gated in CI. Follow-up slice.</li>
+      </ul>
+    </div>
   </section>
 </main>
 </body>

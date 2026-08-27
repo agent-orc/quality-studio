@@ -181,7 +181,9 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryRootMutation = (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)) &&
+        context.GetEndpoint() is RouteEndpoint { RoutePattern.RawText: "/api/repos/{repoId}" };
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryRootMutation)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -268,18 +270,18 @@ app.MapPost("/api/guidelines/catalog/{catalogueId}/install", InstallGuideline);
 app.MapPost("/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install", InstallGuideline);
 app.MapPost("/api/guidelines/impact", GuidelineImpact);
 app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
-app.MapGet("/api/scan", Scan);
-app.MapGet("/api/repos/{repoId}/scan", Scan);
-app.MapGet("/api/security/scan", SecurityScan);
-app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
+app.MapGet("/api/scan", Scan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/scan", Scan).RequireRateLimiting("spend");
+app.MapGet("/api/security/scan", SecurityScan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan).RequireRateLimiting("spend");
 app.MapGet("/api/security/attack-coverage", AttackCoverage);
 app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage);
 app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
