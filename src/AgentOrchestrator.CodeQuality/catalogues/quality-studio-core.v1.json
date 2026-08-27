@@ -1,0 +1,124 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1.0.0",
+  "description": "Stable semantic kernel for Quality Studio observations.",
+  "axes": [
+    {
+      "id": "producer-kind",
+      "description": "The kind of actor that produced a result; absence never means agent.",
+      "order": 0,
+      "terms": [
+        { "id": "agent", "description": "A model-backed reviewing agent.", "order": 0, "aliases": [], "deprecated": false },
+        { "id": "deterministic-sensor", "description": "A deterministic analyzer, scanner, or measurement tool.", "order": 1, "aliases": ["deterministic"], "deprecated": false },
+        { "id": "human", "description": "A human reviewer or attestor.", "order": 2, "aliases": [], "deprecated": false },
+        { "id": "imported", "description": "A result imported from a legacy contract.", "order": 3, "aliases": [], "deprecated": false },
+        { "id": "unknown", "description": "Producer kind is unavailable or cannot be established safely.", "order": 4, "aliases": [], "deprecated": false }
+      ]
+    },
+    {
+      "id": "evidence-status",
+      "description": "Coverage and availability of evidence, independent from assessment.",
+      "order": 1,
+      "terms": [
+        { "id": "available", "description": "Expected evidence is available.", "order": 0, "aliases": [], "deprecated": false },
+        { "id": "partial", "description": "Some expected evidence is missing or incomplete.", "order": 1, "aliases": [], "deprecated": false },
+        { "id": "unavailable", "description": "Expected evidence could not be obtained.", "order": 2, "aliases": [], "deprecated": false }
+      ]
+    },
+    {
+      "id": "assessment",
+      "description": "What the evidence establishes for a review or aspect.",
+      "order": 2,
+      "terms": [
+        { "id": "pass", "description": "The assessed expectation is satisfied.", "order": 0, "aliases": ["good"], "deprecated": false },
+        { "id": "concern", "description": "Evidence establishes a concern without a conclusive failure.", "order": 1, "aliases": ["mixed"], "deprecated": false },
+        { "id": "fail", "description": "The assessed expectation is not satisfied.", "order": 2, "aliases": ["finding", "concerning"], "deprecated": false },
+        { "id": "inconclusive", "description": "The available evidence cannot support a conclusive assessment.", "order": 3, "aliases": ["undetermined", "unknown"], "deprecated": false },
+        { "id": "not-applicable", "description": "The expectation does not apply to the subject.", "order": 4, "aliases": [], "deprecated": false },
+        { "id": "not-assessed", "description": "The applicable expectation has not yet been assessed.", "order": 5, "aliases": ["not-yet-checked"], "deprecated": false }
+      ]
+    },
+    {
+      "id": "change",
+      "description": "Direction of an observed before-and-after quality delta.",
+      "order": 3,
+      "terms": [
+        { "id": "improved", "description": "Observed quality improved.", "order": 0, "aliases": [], "deprecated": false },
+        { "id": "regressed", "description": "Observed quality regressed.", "order": 1, "aliases": ["regression"], "deprecated": false },
+        { "id": "mixed", "description": "Observed changes include both improvements and regressions.", "order": 2, "aliases": [], "deprecated": false },
+        { "id": "unchanged", "description": "The assessment is unchanged.", "order": 3, "aliases": ["neutral"], "deprecated": false },
+        { "id": "no-observed-delta", "description": "No quality delta was observed.", "order": 4, "aliases": ["no-quality-delta"], "deprecated": false },
+        { "id": "inconclusive", "description": "The available evidence cannot establish a change direction.", "order": 5, "aliases": [], "deprecated": false }
+      ]
+    },
+    {
+      "id": "decision",
+      "description": "Optional policy disposition; never a raw evidence assessment.",
+      "order": 4,
+      "terms": [
+        { "id": "allow", "description": "Policy permits the subject to proceed.", "order": 0, "aliases": [], "deprecated": false },
+        { "id": "warn", "description": "Policy permits proceeding with a warning.", "order": 1, "aliases": [], "deprecated": false },
+        { "id": "block", "description": "Policy prevents the subject from proceeding.", "order": 2, "aliases": [], "deprecated": false },
+        { "id": "defer", "description": "Policy defers disposition until more evidence or review exists.", "order": 3, "aliases": [], "deprecated": false }
+      ]
+    },
+    {
+      "id": "severity",
+      "description": "Impact severity; scoring weights remain policy-owned.",
+      "order": 5,
+      "terms": [
+        { "id": "critical", "description": "Critical impact requiring immediate attention.", "order": 0, "aliases": [], "deprecated": false },
+        { "id": "high", "description": "High impact.", "order": 1, "aliases": [], "deprecated": false },
+        { "id": "medium", "description": "Medium impact.", "order": 2, "aliases": [], "deprecated": false },
+        { "id": "low", "description": "Low impact.", "order": 3, "aliases": [], "deprecated": false },
+        { "id": "info", "description": "Informational impact.", "order": 4, "aliases": [], "deprecated": false }
+      ]
+    },
+    {
+      "id": "lifecycle",
+      "description": "Issue lifecycle state stored in lifecycle events, not observations.",
+      "order": 6,
+      "terms": [
+        { "id": "open", "description": "The issue is active.", "order": 0, "aliases": [], "deprecated": false },
+        { "id": "accepted-risk", "description": "The issue risk was explicitly accepted.", "order": 1, "aliases": ["accepted"], "deprecated": false },
+        { "id": "waived", "description": "The issue was explicitly waived.", "order": 2, "aliases": [], "deprecated": false },
+        { "id": "false-positive", "description": "The issue was explicitly judged not to represent a defect.", "order": 3, "aliases": ["falsePositive"], "deprecated": false },
+        { "id": "resolved", "description": "The issue was explicitly or policy-backed resolved.", "order": 4, "aliases": [], "deprecated": false }
+      ]
+    },
+    {
+      "id": "evidence-kind",
+      "description": "The semantic kind of evidence supporting an assessment or finding.",
+      "order": 7,
+      "terms": [
+        { "id": "source-code", "description": "Source code or a source location.", "order": 0, "aliases": [], "deprecated": false },
+        { "id": "test-result", "description": "A test execution result.", "order": 1, "aliases": [], "deprecated": false },
+        { "id": "runtime-measurement", "description": "A runtime measurement or trace.", "order": 2, "aliases": [], "deprecated": false },
+        { "id": "tool-result", "description": "Structured or textual output from a tool.", "order": 3, "aliases": [], "deprecated": false },
+        { "id": "artifact", "description": "A stored artifact reference.", "order": 4, "aliases": [], "deprecated": false },
+        { "id": "document", "description": "A document or documentation reference.", "order": 5, "aliases": [], "deprecated": false },
+        { "id": "human-attestation", "description": "A statement made by a human.", "order": 6, "aliases": [], "deprecated": false }
+      ]
+    }
+  ],
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "description": "Functional correctness of code.", "order": 0, "aliases": ["correctness"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "code.architecture", "title": "Architecture", "description": "Code architecture and design quality.", "order": 1, "aliases": ["architecture"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.general", "title": "Security", "description": "General security quality.", "order": 2, "aliases": ["security"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.secrets", "title": "Secrets", "description": "Secret and credential exposure.", "order": 3, "aliases": ["secrets"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.dependencies", "title": "Dependencies", "description": "Dependency security and supply-chain risk.", "order": 4, "aliases": ["dependencies"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "description": "Identity, authentication, and authorization controls.", "order": 5, "aliases": ["authentication-authorization"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.input-validation", "title": "Input validation", "description": "Validation and safe handling of untrusted input.", "order": 6, "aliases": ["input-validation"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.configuration-iac", "title": "Configuration and infrastructure", "description": "Secure configuration and infrastructure-as-code.", "order": 7, "aliases": ["configuration-iac"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "description": "Externally reachable or trust-crossing boundaries.", "order": 8, "aliases": ["boundaries"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.business-logic", "title": "Business logic", "description": "Business-logic security invariants and abuse cases.", "order": 9, "aliases": [], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "security.attack-coverage", "title": "Attack coverage", "description": "Coverage of applicable attack scenarios.", "order": 10, "aliases": [], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "performance.general", "title": "Performance", "description": "General performance quality.", "order": 11, "aliases": ["performance"], "deprecated": false, "allowedAxes": ["assessment"] },
+    { "id": "change.risk", "title": "Change risk", "description": "Risk introduced or removed by a change.", "order": 12, "aliases": ["risk"], "deprecated": false, "allowedAxes": ["change", "assessment"] },
+    { "id": "change.test-evidence", "title": "Test evidence", "description": "Test evidence supporting a change.", "order": 13, "aliases": ["test-evidence"], "deprecated": false, "allowedAxes": ["change", "assessment"] },
+    { "id": "change.scope-discipline", "title": "Scope discipline", "description": "Discipline and coherence of change scope.", "order": 14, "aliases": ["scope-discipline"], "deprecated": false, "allowedAxes": ["change", "assessment"] },
+    { "id": "change.architecture-drift", "title": "Architecture drift", "description": "Architectural drift introduced or removed by a change.", "order": 15, "aliases": ["architecture-drift"], "deprecated": false, "allowedAxes": ["change", "assessment"] }
+  ]
+}

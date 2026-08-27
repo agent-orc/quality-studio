@@ -167,6 +167,58 @@ public sealed class ReviewResponseParserTests
 public sealed class ReviewRunnerTests
 {
     [Fact]
+    public async Task ReviewAsync_DualWritesImmutablePerModelObservationsIdempotently()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var first = await new ReviewRunner(new RoutedFakeAgent("run-model-a", "model-a", "provider-a", "high"))
+                .ReviewAsync(new ReviewRequest(
+                    "src/Small.cs",
+                    RepositoryRoot: root,
+                    ReviewRunId: "review-sweep-taxonomy",
+                    ObservationWriteEnabled: true,
+                    RoutePolicyVersion: "2026-07-24"), TestContext.Current.CancellationToken);
+            var second = await new ReviewRunner(new RoutedFakeAgent("run-model-b", "model-b", "provider-b", "xhigh"))
+                .ReviewAsync(new ReviewRequest(
+                    "src/Small.cs",
+                    RepositoryRoot: root,
+                    ReviewRunId: "review-sweep-taxonomy",
+                    ObservationWriteEnabled: true,
+                    RoutePolicyVersion: "2026-07-24"), TestContext.Current.CancellationToken);
+
+            var observations = await QualityObservationStore.ReadAllAsync(
+                root, TestContext.Current.CancellationToken);
+            var usage = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(first.MetaPath, second.MetaPath);
+            Assert.Equal(2, observations.Count);
+            Assert.Equal(["model-a", "model-b"],
+                observations.Select(item => item.Producer.EffectiveModel).Order(StringComparer.Ordinal));
+            Assert.Equal(["run-model-a", "run-model-b"],
+                observations.Select(item => item.Producer.RunId).Order(StringComparer.Ordinal));
+            Assert.All(observations, item => Assert.Equal("review-sweep-taxonomy", item.Producer.ReviewRunId));
+            Assert.Equal(2, usage.Runs);
+            Assert.All(observations, item => Assert.Contains(usage.Recent,
+                entry => entry.RunId == item.Producer.RunId));
+            Assert.NotEqual(first.QualityObservationId, second.QualityObservationId);
+
+            using var current = JsonDocument.Parse(await File.ReadAllTextAsync(
+                second.MetaPath, TestContext.Current.CancellationToken));
+            Assert.Equal("model-b", current.RootElement.GetProperty("reviewer").GetProperty("model").GetString());
+            Assert.False(current.RootElement.GetProperty("reviewer").TryGetProperty(
+                "provider", out var providerElement));
+            Assert.Equal(JsonValueKind.Undefined, providerElement.ValueKind);
+
+            Assert.False(await QualityObservationStore.AppendAsync(
+                root, observations[0], TestContext.Current.CancellationToken));
+            var ledgerPath = QualityObservationStore.GetLedgerPath(root, observations[0].ObservedAt);
+            await File.AppendAllTextAsync(ledgerPath, "{malformed\n", TestContext.Current.CancellationToken);
+            Assert.Equal(2, (await QualityObservationStore.ReadAllAsync(
+                root, TestContext.Current.CancellationToken)).Count);
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesFreshQs3Metadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -814,6 +866,30 @@ public sealed class ReviewRunnerTests
             return Task.FromResult(new ReviewAgentResult("run-test", $"```json\n{_response}\n```",
                 new TokenUsage(120, 34, 56, 7, 890), _model));
         }
+    }
+
+    private sealed class RoutedFakeAgent(
+        string runId,
+        string model,
+        string provider,
+        string thinkingLevel) : IReviewAgent
+    {
+        public string AgentName => "test-agent";
+        public string? Model => model;
+        public string? Provider => provider;
+        public string? ThinkingLevel => thinkingLevel;
+
+        public Task<ReviewAgentResult> RunAsync(
+            string prompt,
+            string workingDirectory,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ReviewAgentResult(
+                runId,
+                $"```json\n{ReviewResponseParserTests.ValidResponse}\n```",
+                new TokenUsage(120, 34, 56, 7, 890),
+                model,
+                provider,
+                thinkingLevel));
     }
 
     private sealed class FailingAgent : IReviewAgent

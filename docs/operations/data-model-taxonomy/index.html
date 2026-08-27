@@ -141,7 +141,7 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Status</b> <span class="pill queued">decided</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
@@ -557,6 +557,12 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <h3>2026-08-27 · <code>QS-76</code> · T1 contract and catalogue foundation</h3>
+  <p>Added the versioned taxonomy and immutable-observation JSON Schemas, the embedded <code>quality-studio/core@1.0.0</code> catalogue, typed C# contracts with explicit and legacy-extension preservation, unsupported-major quarantine with raw-data retention, and pure compatibility adapters covering every mapping in section 8. Existing review writers and v1/v2 sidecars remain unchanged.</p>
+  <h3>2026-08-27 · <code>QS-76</code> · T2 immutable observation dual-write and route provenance</h3>
+  <p>Added a gated append-only monthly observation ledger with write-through persistence, exact idempotency keys, malformed-line tolerance, and general-review dual-write before current-sidecar projection. Observations retain requested and effective model, provider, thinking level, route-policy version, review and agent run IDs, subject/profile hashes, taxonomy digest, mapped aspects, findings, and grade-derived assessments. The compatibility sidecar remains the default projection and its serialized shape is unchanged.</p>
 </main>
 </body>
 </html>
