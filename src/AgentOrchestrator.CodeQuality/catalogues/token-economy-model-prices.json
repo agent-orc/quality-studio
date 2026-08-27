@@ -1,57 +1,92 @@
 [
   {
-    "modelId": "claude-fable-5", "vendor": "anthropic",
+    "modelId": "claude-fable-5", "displayName": "Claude Fable 5", "vendor": "anthropic",
     "history": [{ "inputPerMTok": 10.00, "outputPerMTok": 50.00, "cacheReadPerMTok": 1.00, "cacheWritePerMTok": 12.50, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
   },
   {
-    "modelId": "claude-mythos-5", "vendor": "anthropic", "note": "Project Glasswing only; same pricing as Claude Fable 5.",
-    "history": [{ "inputPerMTok": 10.00, "outputPerMTok": 50.00, "cacheReadPerMTok": 1.00, "cacheWritePerMTok": 12.50, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+    "modelId": "claude-opus-5", "displayName": "Claude Opus 5", "vendor": "anthropic",
+    "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic pricing: https://www.anthropic.com/pricing (retrieved 2026-08-18); cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input per Anthropic's documented cache multipliers.", "note": "No dated snapshot alias is registered yet: no reported run has surfaced one (unlike claude-sonnet-4-6, see its 'claude-sonnet-4-6-20260301' alias). Add one here the same way if/when a dated id is observed as unresolved." }]
   },
   {
-    "modelId": "claude-opus-5", "vendor": "anthropic",
-    "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
-  },
-  {
-    "modelId": "claude-sonnet-5", "vendor": "anthropic",
+    "modelId": "claude-sonnet-5", "displayName": "Claude Sonnet 5", "vendor": "anthropic",
     "history": [
-      { "inputPerMTok": 2.00, "outputPerMTok": 10.00, "cacheReadPerMTok": 0.20, "cacheWritePerMTok": 2.50, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "validTo": "2026-08-31T23:59:59.9999999Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "note": "Introductory pricing, in effect through 2026-08-31 (UTC)." },
-      { "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "2026-09-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "note": "Standard pricing (introductory period ended 2026-08-31)." }
+      { "inputPerMTok": 2.00, "outputPerMTok": 10.00, "cacheReadPerMTok": 0.20, "cacheWritePerMTok": 2.50, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "validTo": "2026-08-31T23:59:59.9999999Z", "source": "Anthropic pricing: https://www.anthropic.com/pricing (retrieved 2026-08-18); cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input per Anthropic's documented cache multipliers.", "note": "Introductory pricing, in effect through 2026-08-31 (UTC)." },
+      { "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "2026-09-01T00:00:00Z", "source": "Anthropic pricing: https://www.anthropic.com/pricing (retrieved 2026-08-18); cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input per Anthropic's documented cache multipliers.", "note": "Standard pricing (introductory period ended 2026-08-31). No dated snapshot alias is registered yet: no reported run has surfaced one (unlike claude-sonnet-4-6, see its 'claude-sonnet-4-6-20260301' alias). Add one here the same way if/when a dated id is observed as unresolved." }
     ]
   },
   {
-    "modelId": "claude-opus-4-8", "vendor": "anthropic",
+    "modelId": "claude-opus-4-8", "displayName": "Claude Opus 4.8", "vendor": "anthropic",
     "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
   },
   {
-    "modelId": "claude-opus-4-7", "vendor": "anthropic",
+    "modelId": "claude-opus-4-7", "displayName": "Claude Opus 4.7", "vendor": "anthropic",
     "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
   },
   {
-    "modelId": "claude-opus-4-6", "vendor": "anthropic",
+    "modelId": "claude-opus-4-6", "displayName": "Claude Opus 4.6", "vendor": "anthropic",
     "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
   },
   {
-    "modelId": "claude-opus-4-5", "vendor": "anthropic", "aliases": ["claude-opus-4-5-20251101"],
+    "modelId": "claude-opus-4-5", "displayName": "Claude Opus 4.5", "vendor": "anthropic", "aliases": ["claude-opus-4-5-20251101"],
     "history": [{ "inputPerMTok": 5.00, "outputPerMTok": 25.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "unconfirmed": true, "note": "Opus-tier rate assumed; confirm against the Anthropic pricing page." }]
   },
-  { "modelId": "claude-opus-4-1", "vendor": "anthropic", "aliases": ["claude-opus-4-1-20250805"], "note": "Deprecated (retires 2026-08-05). Priced on a different, higher tier than Opus 4.5+; number not confirmed here." },
+  { "modelId": "claude-opus-4-1", "displayName": "Claude Opus 4.1", "vendor": "anthropic", "aliases": ["claude-opus-4-1-20250805"], "note": "Deprecated (retires 2026-08-05). Priced on a different, higher tier than Opus 4.5+; number not confirmed here." },
   {
-    "modelId": "claude-sonnet-4-6", "vendor": "anthropic",
-    "history": [{ "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
+    "modelId": "claude-sonnet-4-6", "displayName": "Claude Sonnet 4.6", "vendor": "anthropic", "aliases": ["claude-sonnet-4-6-20260301"],
+    "history": [{ "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic pricing: https://www.anthropic.com/pricing (retrieved 2026-08-18); cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input per Anthropic's documented cache multipliers.", "note": "Consuming CLIs report the dated snapshot id 'claude-sonnet-4-6-20260301' rather than the bare id; the alias keeps ComputeCost from resolving to UnknownModel for those recorded runs." }]
   },
   {
-    "modelId": "claude-sonnet-4-5", "vendor": "anthropic", "aliases": ["claude-sonnet-4-5-20250929"],
+    "modelId": "claude-sonnet-4-5", "displayName": "Claude Sonnet 4.5", "vendor": "anthropic", "aliases": ["claude-sonnet-4-5-20250929"],
     "history": [{ "inputPerMTok": 3.00, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.30, "cacheWritePerMTok": 3.75, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)", "unconfirmed": true, "note": "Sonnet-tier rate assumed; confirm against the Anthropic pricing page." }]
   },
   {
-    "modelId": "claude-haiku-4-5", "vendor": "anthropic", "aliases": ["claude-haiku-4-5-20251001"],
+    "modelId": "claude-haiku-4-5", "displayName": "Claude Haiku 4.5", "vendor": "anthropic", "aliases": ["claude-haiku-4-5-20251001"],
     "history": [{ "inputPerMTok": 1.00, "outputPerMTok": 5.00, "cacheReadPerMTok": 0.10, "cacheWritePerMTok": 1.25, "currency": "USD", "validFrom": "0001-01-01T00:00:00Z", "source": "Anthropic published pricing (cache-read = 0.1x input, cache-write = 5-min-TTL 1.25x input)" }]
   },
-  { "modelId": "gpt-5.6-luna", "vendor": "openai", "aliases": ["luna"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
-  { "modelId": "gpt-5.6-terra", "vendor": "openai", "aliases": ["terra"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
-  { "modelId": "gpt-5.6-sol", "vendor": "openai", "aliases": ["gpt-5.6", "sol"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
-  { "modelId": "gpt-5.4-mini", "vendor": "openai", "aliases": ["mini"], "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
-  { "modelId": "gpt-5.5", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
-  { "modelId": "gpt-5", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
-  { "modelId": "gpt-5-codex", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." }
+  {
+    "modelId": "gpt-5.6-luna", "displayName": "GPT-5.6 Luna", "vendor": "openai", "aliases": ["luna"],
+    "history": [
+      { "inputPerMTok": 1.00, "outputPerMTok": 6.00, "cacheReadPerMTok": 0.10, "cacheWritePerMTok": 1.25, "currency": "USD", "validFrom": "2026-06-26T00:00:00Z", "validTo": "2026-07-29T23:59:59.9999999Z", "source": "OpenAI GPT-5.6 preview pricing: https://openai.com/index/previewing-gpt-5-6-sol/ (retrieved 2026-08-09)", "note": "Limited-preview launch pricing. Standard API pricing for requests with at most 272K input tokens; longer contexts use a higher tier that this flat-rate catalog cannot represent." },
+      { "inputPerMTok": 0.20, "outputPerMTok": 1.20, "cacheReadPerMTok": 0.02, "cacheWritePerMTok": 0.25, "currency": "USD", "validFrom": "2026-07-30T00:00:00Z", "source": "OpenAI standard API pricing and 2026-07-30 price-change notice: https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/changelog#july-2026 (retrieved 2026-08-09)", "note": "OpenAI reduced Luna pricing by 80% on 2026-07-30. Standard API pricing for requests with at most 272K input tokens; longer contexts use a higher tier that this flat-rate catalog cannot represent." }
+    ]
+  },
+  {
+    "modelId": "gpt-5.6-terra", "displayName": "GPT-5.6 Terra", "vendor": "openai", "aliases": ["terra"],
+    "history": [
+      { "inputPerMTok": 2.50, "outputPerMTok": 15.00, "cacheReadPerMTok": 0.25, "cacheWritePerMTok": 3.125, "currency": "USD", "validFrom": "2026-06-26T00:00:00Z", "validTo": "2026-07-29T23:59:59.9999999Z", "source": "OpenAI GPT-5.6 preview pricing: https://openai.com/index/previewing-gpt-5-6-sol/ (retrieved 2026-08-09)", "note": "Limited-preview launch pricing. Standard API pricing for requests with at most 272K input tokens; longer contexts use a higher tier that this flat-rate catalog cannot represent." },
+      { "inputPerMTok": 2.00, "outputPerMTok": 12.00, "cacheReadPerMTok": 0.20, "cacheWritePerMTok": 2.50, "currency": "USD", "validFrom": "2026-07-30T00:00:00Z", "source": "OpenAI standard API pricing and 2026-07-30 price-change notice: https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/changelog#july-2026 (retrieved 2026-08-09)", "note": "OpenAI reduced Terra pricing by 20% on 2026-07-30. Standard API pricing for requests with at most 272K input tokens; longer contexts use a higher tier that this flat-rate catalog cannot represent." }
+    ]
+  },
+  {
+    "modelId": "gpt-5.6-sol", "displayName": "GPT-5.6 Sol", "vendor": "openai", "aliases": ["gpt-5.6", "sol"],
+    "history": [
+      { "inputPerMTok": 5.00, "outputPerMTok": 30.00, "cacheReadPerMTok": 0.50, "cacheWritePerMTok": 6.25, "currency": "USD", "validFrom": "2026-06-26T00:00:00Z", "source": "OpenAI GPT-5.6 preview and current standard API pricing: https://openai.com/index/previewing-gpt-5-6-sol/; https://developers.openai.com/api/docs/pricing (retrieved 2026-08-09)", "note": "Effective from the limited-preview launch. Standard API pricing for requests with at most 272K input tokens; longer contexts use a higher tier that this flat-rate catalog cannot represent." }
+    ]
+  },
+  {
+    "modelId": "gpt-5.4-mini", "displayName": "GPT-5.4 Mini", "vendor": "openai", "aliases": ["mini"],
+    "history": [
+      { "inputPerMTok": 0.75, "outputPerMTok": 4.50, "cacheReadPerMTok": 0.075, "currency": "USD", "validFrom": "2026-03-17T00:00:00Z", "source": "OpenAI launch and standard API pricing: https://openai.com/index/introducing-gpt-5-4-mini-and-nano/; https://developers.openai.com/api/docs/pricing (retrieved 2026-08-09)", "note": "The standard API table publishes no separate cache-write rate; ModelPriceCatalog therefore applies its documented uncached-input fallback to reported cache-write tokens." }
+    ]
+  },
+  {
+    "modelId": "gpt-5.5", "displayName": "GPT-5.5", "vendor": "openai", "aliases": ["gpt-5.5-2026-04-23"],
+    "history": [
+      { "inputPerMTok": 5.00, "outputPerMTok": 30.00, "cacheReadPerMTok": 0.50, "currency": "USD", "validFrom": "2026-04-24T00:00:00Z", "source": "OpenAI API release changelog, model page, and standard API pricing: https://developers.openai.com/api/docs/changelog#april-2026; https://developers.openai.com/api/docs/models/gpt-5.5; https://developers.openai.com/api/docs/pricing (retrieved 2026-08-11)", "note": "Effective from the public API release. Standard API pricing for requests with at most 272K input tokens; longer contexts use a higher tier that this flat-rate catalog cannot represent. The standard API table publishes no separate cache-write rate, so reported cache-write tokens use the catalog's documented uncached-input fallback." }
+    ]
+  },
+  {
+    "modelId": "gpt-5.5-pro", "displayName": "GPT-5.5 Pro", "vendor": "openai", "aliases": ["gpt-5.5-pro-2026-04-23"],
+    "history": [
+      { "inputPerMTok": 30.00, "outputPerMTok": 180.00, "currency": "USD", "validFrom": "2026-04-24T00:00:00Z", "source": "OpenAI API release changelog, model page, and standard API pricing: https://developers.openai.com/api/docs/changelog#april-2026; https://developers.openai.com/api/docs/models/gpt-5.5-pro; https://developers.openai.com/api/docs/pricing (retrieved 2026-08-11)", "note": "Effective from the public API release. GPT-5.5 Pro has no cached-input discount. Standard API pricing for requests with at most 272K input tokens; longer contexts use a higher tier that this flat-rate catalog cannot represent." }
+    ]
+  },
+  {
+    "modelId": "gpt-5.5-cyber-preview", "displayName": "GPT-5.5 Cyber (Preview)", "vendor": "openai", "aliases": ["gpt-5.5-cyber"],
+    "history": [
+      { "inputPerMTok": 12.50, "outputPerMTok": 75.00, "cacheReadPerMTok": 1.25, "currency": "USD", "validFrom": "2026-05-07T00:00:00Z", "source": "OpenAI limited-preview launch, API model-id support article, and standard cyber-model pricing: https://openai.com/index/gpt-5-5-with-trusted-access-for-cyber/; https://help.openai.com/en/articles/20001259; https://developers.openai.com/api/docs/pricing#cyber-models (retrieved 2026-08-11)", "note": "Limited preview for separately approved defenders. OpenAI's pricing table labels this rate gpt-5.5-cyber while the API support article names the callable preview id gpt-5.5-cyber-preview. The table publishes no separate cache-write rate, so reported cache-write tokens use the catalog's documented uncached-input fallback." }
+    ]
+  },
+  { "modelId": "gpt-5", "displayName": "GPT-5", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." },
+  { "modelId": "gpt-5-codex", "displayName": "GPT-5 Codex", "vendor": "openai", "note": "Pricing not yet published in this catalog; resolves to NoPriceForDate rather than a guessed rate." }
 ]
