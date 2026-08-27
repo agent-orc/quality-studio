@@ -1,0 +1,7 @@
+# Code metrics thresholds for CA1502/CA1505 (docs/operations/static-analysis/index.html, slice S4).
+# Initial thresholds match the analyzer defaults, recorded against the measured distribution on
+# this checkout (src/ only, tests excluded per the S4 no-test-noise acceptance rule): 17 symbols
+# currently breach CA1502 at this threshold; 2 breach CA1505 (both in QualityStudio.Api/Program.cs,
+# whose top-level-statement Main aggregates the whole startup pipeline into one synthetic method).
+CA1502: 25
+CA1505: 10

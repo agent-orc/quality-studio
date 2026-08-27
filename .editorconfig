@@ -1,0 +1,8 @@
+root = true
+
+# Complexity thresholds (docs/operations/static-analysis/index.html, slice S4).
+# Warnings only: they are project-review priority signals, not model or build blockers.
+# Scoped to src/ so test code doesn't produce complexity noise by default.
+[src/**.cs]
+dotnet_diagnostic.CA1502.severity = warning
+dotnet_diagnostic.CA1505.severity = warning

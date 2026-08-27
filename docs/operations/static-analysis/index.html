@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> decided</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -577,7 +578,24 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. The operator gave blanket approval for all recommendations in this dossier on 11 August 2026 (workbench key QS-W7); prior operator-decision-gated slices are approved. This dossier's decision content above is not edited by delivery entries&mdash;only this log and the header/footer status are updated as slices land.</p>
+
+    <article class="slice">
+      <header><h3>2026-08-27 · QS-72 · S4 (partial: .NET complexity thresholds)</h3><span class="pill part">delivered</span></header>
+      <p><b>Landed:</b> Enabled <code>CA1502</code> (cyclomatic complexity) and <code>CA1505</code> (maintainability index) as warnings for <code>src/**.cs</code> via a new root <code>.editorconfig</code>, with thresholds recorded in a new root <code>CodeMetricsConfig.txt</code> (<code>CA1502: 25</code>, <code>CA1505: 10</code> &mdash; the analyzer defaults, chosen after measuring the current distribution). <code>Directory.Build.props</code> wires the config file as an <code>AdditionalFiles</code> item and adds <code>CA1502;CA1505</code> to <code>WarningsNotAsErrors</code> so these findings stay warnings, not build blockers, per this dossier's disposition policy. Test code is excluded from the rule scope so existing test methods do not produce complexity noise (S4 acceptance: "no generated/test noise unless explicitly included").</p>
+      <p><b>Measured effect:</b> at these thresholds the checkout currently surfaces 17 <code>CA1502</code> findings and 2 <code>CA1505</code> findings in <code>src/</code> (the two CA1505 findings are both in <code>QualityStudio.Api/Program.cs</code>, whose top-level-statement <code>Main</code> aggregates the whole startup pipeline into one synthetic method). <code>dotnet build</code> stays green (0 errors); regression coverage added in <code>tests/AgentOrchestrator.CodeQuality.Tests/ComplexityThresholdConfigurationTests.cs</code> guards the wiring (rule scope, threshold values, and the non-blocking configuration) against accidental removal.</p>
+      <p><b>Not in this delivery (follow-up slices, tracked separately per the one-slice-per-card scope correction):</b></p>
+      <ul>
+        <li>ESLint's built-in <code>complexity</code> rule for the Angular/TypeScript lane (depends on S3 pinning ESLint, which is not yet done).</li>
+        <li>Feeding the complexity distribution and top-N breached symbols into the existing Project Dashboard/hotspot response (remaining S4 scope).</li>
+        <li>S1 (snapshot-bound preflight contract and orchestration), S2 (compiler/package/budget gates and CI coverage for the Angular lane), the rest of S3 (ESLint/Prettier pinning and style baselines), and S5 (economy evidence and rollout) are unimplemented; S2's Angular production build is a known-failing budget check today (14.94 kB over budget per section 02.3) and must not be added to CI as a blocking step until that is addressed or explicitly deferred as part of S2.</li>
+      </ul>
+    </article>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: decision ready · updated 11 August 2026 · implementation log updated 27 August 2026</footer>
 </main>
 </body>
 </html>
