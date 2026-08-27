@@ -78,6 +78,10 @@ jobs:
 
       - name: Frontend unit tests
         working-directory: frontend
+        # ubuntu-latest (24.04) restricts unprivileged user namespaces via AppArmor, so the
+        # Chrome sandbox aborts with "No usable sandbox!". Use the runner's documented opt-out.
+        env:
+          CHROME_NO_SANDBOX: '1'
         run: npm test
 
       - name: Frontend production dependency audit
