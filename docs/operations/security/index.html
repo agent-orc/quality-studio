@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs-77-decision">QS-77 boot resilience and AllowedRoots decision</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,28 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs-77-decision">
+    <h2><span class="no">11</span>QS-77 · Boot resilience and the AllowedRoots policy decision</h2>
+    <div class="box bad">
+      <h4>11 August 2026 · QS-77 · Incident</h4>
+      <p>The S0/S3-adjacent hardening that shipped after this dossier narrowed the tracked <code>QualityStudio:AllowedRoots</code> in <code>src/QualityStudio.Api/appsettings.json</code> to <code>../..</code> only. The persisted registry at <code>&lt;content root&gt;/.quality-studio/repositories.json</code> still contained a legitimately onboarded Agent Studio checkout one directory level further up — cross-repository review of the Agent Studio codebase is a core use case documented in the <a href="../studio-integration/index.html">studio-integration dossier</a>. <code>RepositoryRegistry</code>'s constructor called <code>ValidatePersistedEntry</code> for every persisted entry and threw <code>RepositoryRegistryValidationException("A registered repository is outside the configured allowed roots.")</code> for that entry — a message naming neither the offending path nor the configured roots. Because <code>RepositorySnapshotPrewarmer</code> is resolved as a hosted service during host startup, the unhandled constructor exception took the entire API down: no repository could be reviewed, not only the poisoned one. An operator applied an emergency fix by extending <code>AllowedRoots</code> with a second relative entry, <code>../../..</code>, so both persisted entries validate.</p>
+    </div>
+    <div class="box ok">
+      <h4>27 August 2026 · QS-77 · Delivered</h4>
+      <ul>
+        <li>A persisted entry that fails startup validation (outside the allowed roots, or its directory no longer exists) is now quarantined instead of thrown: <code>RepositoryRegistry.Quarantine</code> (<code>RepositoryRegistry.cs:329</code>) catches the validation failure inside <code>LoadOrSeed</code>, logs a <code>Warning</code>-level <code>RepositoryQuarantined</code> event naming the path and the resolved allowed roots, and records the reason on the entry's new <code>BlockedReason</code> field instead of aborting startup. Every other entry loads normally.</li>
+        <li><code>EnsureAllowedDirectory</code> (<code>RepositoryRegistry.cs:360</code>) now includes the offending path and the full resolved allowed-roots list in every exception/log message it raises — repository root, global inputs directory, and the persisted-entry check all share this one method. The public HTTP surface is unchanged: <code>Program.cs</code>'s exception handler still returns only the existing generic <code>PublicTitle</code>, never the detailed message, so this does not reopen the path-disclosure the existing <code>Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure</code> test guards against.</li>
+        <li>A quarantined entry is excluded from use: <code>RepositoryRegistry.Get</code> (<code>RepositoryRegistry.cs:81</code>) takes a new <code>includeBlocked</code> parameter, defaulted to <code>false</code>, so every repository-scoped route in <code>Program.cs</code> and the aggregate <code>/api/report</code> resolve it as not-found. It still appears in <code>GET /api/repos</code> with its block reason attached — listing does not filter on <code>BlockedReason</code> — and the Angular repository switcher and repository-settings dialog render it as blocked instead of letting an operator silently select a dead repository. Editing the entry with a corrected path clears the quarantine on successful re-validation; archiving remains available too.</li>
+        <li>Tests: <code>RepositoryRegistryQuarantineTests</code> boots the host with one in-root and one out-of-root persisted entry, and asserts the host starts, the out-of-root entry is quarantined and visible with a path-naming reason, the in-root entry is unaffected, and the quarantined entry's operational routes return 404.</li>
+      </ul>
+    </div>
+    <div class="box accent">
+      <h4>27 August 2026 · QS-77 · AllowedRoots policy — decided</h4>
+      <p><b>Decision: keep the relative <code>AllowedRoots</code> list, extended by the operator's emergency <code>../../..</code> entry, as the tracked dev-machine posture.</b> <code>appsettings.json</code> now lists <code>["../..", "../../.."]</code>. Both entries are relative to the API content root, not absolute maintainer paths, so this is not the QS-53/<a href="#risks">R-09</a> class of leak: the tracked file still discloses nothing about where any checkout physically lives on a given machine, only that Quality Studio and one further sibling directory level are reviewable. The <code>docs/api.md</code> guidance that machine-specific paths do not belong in <code>appsettings.json</code> targets absolute, host-specific paths — the QS-53 incident — and does not cover this relative sibling-directory convention.</p>
+      <p>The alternative considered was computing <code>AllowedRoots</code> from the platform project registry at runtime instead of static configuration. Quality Studio already has a narrower version of that idea: <code>POST /api/repos/import-from-agent-studio</code> (<code>Program.cs:1189-1271</code>) reads Agent Studio's project list and onboards each project's repository path as a registration, subject to the existing <code>AllowedRoots</code> check. Extending that so the confinement boundary itself — not just which paths may be registered — is computed from an external service response was rejected for this card: it would make the one control standing between a registrar privilege escalation (<a href="#findings">F-01</a>) and host command execution depend on the availability and correctness of a second networked service, which is a larger, separately reviewable change than boot resilience. Revisit once S0's registrar-privilege split (<a href="#slices">S0</a>) lands and Agent Studio's project registry has its own hardened contract.</p>
+    </div>
   </section>
 </main>
 </body>

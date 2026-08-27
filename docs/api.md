@@ -21,10 +21,14 @@ dotnet run --project src/QualityStudio.Api
 ```
 
 `QualityStudio:RepositoryRoot` defaults to `../..` relative to the API content root.
-The same repository is the only allowed root by default. Deployments that register
-repositories below another neutral host root must supply it through configuration,
-for example `QualityStudio__AllowedRoots__0=/srv/source` in the host environment;
-machine-specific paths do not belong in `appsettings.json`.
+`QualityStudio:AllowedRoots` defaults to `["../..", "../../.."]`, both relative to the
+API content root: the repository itself, and one further sibling directory level for
+onboarding a neighboring checkout such as the Agent Studio project used for cross-repo
+review (see `docs/operations/security/index.html#qs-77-decision`). Deployments that
+register repositories below another neutral host root must supply it through
+configuration, for example `QualityStudio__AllowedRoots__0=/srv/source` in the host
+environment; machine-specific *absolute* paths do not belong in `appsettings.json` —
+relative roots checked out alongside this repository are fine to track.
 On first start it seeds the repository with id `default`; existing single-repository
 deployments therefore need no configuration change. CORS origins are configured with
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
@@ -32,9 +36,18 @@ the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
 Repository registrations are server-owned state persisted at
 `<API content root>/.quality-studio/repositories.json`. Each entry stores its id,
 display name, normalized root path, optional global inputs directory, input character
-budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
-there are no environment-specific registry copies. Repository roots must be existing
-directories with a `.git` directory or worktree `.git` file.
+budget, enabled review kinds, sensor enablement/configuration, archive state, and a
+`blockedReason`. This is the single canonical registry; there are no
+environment-specific registry copies. Repository roots must be existing directories
+with a `.git` directory or worktree `.git` file.
+
+If `AllowedRoots` is later narrowed and a persisted entry falls outside it (or its
+directory disappears), the API does not fail to start: that entry is quarantined,
+`blockedReason` is set to a message naming the path and the configured allowed roots,
+and every repository-scoped route treats it as not found. It still appears in
+`GET /api/repos` so an operator can see why it is blocked and fix it with
+`PUT /api/repos/{repoId}`, which clears `blockedReason` once the corrected path
+revalidates.
 
 ## Repository registry
 
