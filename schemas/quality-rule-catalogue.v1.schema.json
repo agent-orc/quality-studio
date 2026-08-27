@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-rule-catalogue.v1.schema.json",
+  "title": "Quality Studio rule catalogue",
+  "description": "Generated from rules/**/*.md by scripts/build-rule-catalogue.mjs. Do not hand-edit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "catalogueVersion", "entries"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "catalogueVersion": { "type": "string", "minLength": 1 },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "https://quality.studio/schemas/quality-rule.v1.schema.json" }
+    }
+  }
+}

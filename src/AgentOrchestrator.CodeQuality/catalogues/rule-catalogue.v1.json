@@ -1,0 +1,350 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-rule-catalogue.v1.schema.json",
+  "schemaVersion": 1,
+  "catalogueVersion": "1.0.0",
+  "entries": [
+    {
+      "id": "QS-DN-001",
+      "version": "1.0.0",
+      "title": "Expose HTTP routes as typed minimal-API delegates, not ad-hoc controllers",
+      "technology": ".NET",
+      "category": "api-shape",
+      "kinds": [
+        "code"
+      ],
+      "severity": "low",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Add new HTTP endpoints as `app.MapGet`/`MapPost`/`MapPut`/`MapDelete` delegates\nwith strongly typed parameters resolved from DI and route/query binding, in\nthe same minimal-API style as the rest of `QualityStudio.Api`, rather than\nintroducing an MVC controller class or an untyped `HttpContext`-only handler.",
+      "rationale": "`QualityStudio.Api` is entirely minimal APIs; adding a controller-based\nendpoint would introduce a second routing model with different filter,\nmodel-binding, and testing conventions that the rest of the project doesn't\nuse, for no behavioral benefit. Typed parameters (`bool? includeArchived`,\n`RepositoryRegistry registry`) let the framework do the binding and null\nchecks that a raw `HttpContext.Request.Query[\"...\"]` read would otherwise\nrequire by hand.",
+      "goodExample": "```csharp\n// Program.cs:212\napp.MapGet(\"/api/repos\", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,\n    RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>\n{\n    var repositories = registry.List(includeArchived == true)\n        .Where(repository => security.Identity(context).CanAccess(repository.Id))\n        .ToArray();\n    return Results.Ok(new { repositories });\n});\n```",
+      "badExample": "```csharp\napp.MapGet(\"/api/repos\", (HttpContext context) =>\n{\n    var includeArchived = context.Request.Query[\"includeArchived\"] == \"true\";\n    var registry = context.RequestServices.GetRequiredService<RepositoryRegistry>();\n    return Results.Ok(registry.List(includeArchived));\n    // no typed binding, no injected ApiSecurity check, resolves services by hand\n});\n```"
+    },
+    {
+      "id": "QS-DN-002",
+      "version": "1.0.0",
+      "title": "Check access at the endpoint, not deep inside a service",
+      "technology": ".NET",
+      "category": "api-shape",
+      "kinds": [
+        "code",
+        "security"
+      ],
+      "severity": "critical",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Every endpoint that returns or mutates repository-scoped data resolves\n`ApiSecurity` and checks `security.Identity(context).CanAccess(...)` before\nreturning data, filtering a list, or performing the mutation — at the\nendpoint delegate, not several calls deep inside a service that has no way\nto know which caller it's serving.",
+      "rationale": "An authorization check placed deep inside a shared service is easy to miss\nfor the next endpoint that calls the same service, because nothing at the\ncall site signals that the check is the service's responsibility rather than\nthe caller's. Checking at the boundary — where the caller's identity is\nnaturally in scope as `HttpContext` — means every new endpoint has an\nunmissable, uniform place to put the check, and a reviewer can verify\nauthorization by reading the endpoint alone.",
+      "goodExample": "```csharp\n// Program.cs:212\napp.MapGet(\"/api/repos\", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,\n    RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>\n{\n    var repositories = registry.List(includeArchived == true)\n        .Where(repository => security.Identity(context).CanAccess(repository.Id))\n        .ToArray();\n    return Results.Ok(new { repositories });\n});\n```",
+      "badExample": "```csharp\napp.MapGet(\"/api/repos/{repoId}/risk\", (string repoId, RepositoryRegistry registry) =>\n    Results.Ok(registry.GetRisk(repoId)));\n    // no ApiSecurity check at all — relies on GetRisk() to enforce access,\n    // but GetRisk() has no HttpContext and cannot know who is asking\n```"
+    },
+    {
+      "id": "QS-DN-003",
+      "version": "1.0.0",
+      "title": "Register a service by its concrete type unless it needs to vary",
+      "technology": ".NET",
+      "category": "di-patterns",
+      "kinds": [
+        "code"
+      ],
+      "severity": "low",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Register a new service with `AddSingleton<TConcrete>()` (or `AddTransient`/\n`AddScoped`) using its concrete class, not an `IThing`/`ThingImpl` pair,\nunless the service either has more than one runtime implementation or is\nconsumed as part of an injected collection.",
+      "rationale": "Most services in `QualityStudio.Api` (`InputResolver`, `GuidelineStore`,\n`AttackCatalogueResolver`, `ProjectDashboardService`, ...) are registered by\nconcrete type — there is exactly one implementation, and an interface would\nbe pure indirection with nothing to swap. The codebase reserves interfaces\nfor the two cases where they earn their cost: a fan-in collection resolved\npolymorphically (`IReviewSensor`, registered from seven different concrete\nsensor types and injected as `IEnumerable<IReviewSensor>`), and a component\nmeant to be genuinely swappable (`IReviewExecutorFactory` /\n`ReviewExecutorFactory`). Introducing an interface for every new service \"for\ntestability\" when the concrete class is already easy to construct in a test\njust adds a file and a name to keep in sync for no isolation benefit.",
+      "goodExample": "```csharp\n// Program.cs:34-36 — one implementation each, registered concretely\nbuilder.Services.AddSingleton<InputResolver>();\nbuilder.Services.AddSingleton<GuidelineStore>();\nbuilder.Services.AddTransient<GuidelineImpactAnalyzer>();\n```",
+      "badExample": "```csharp\npublic interface IInputResolver { ResolvedInputs Resolve(...); }\npublic sealed class InputResolver : IInputResolver { /* only implementation, ever */ }\nbuilder.Services.AddSingleton<IInputResolver, InputResolver>();\n// no second implementation, nothing consumes IInputResolver polymorphically —\n// the interface adds a layer of indirection with no corresponding decision point\n```"
+    },
+    {
+      "id": "QS-DN-004",
+      "version": "1.0.0",
+      "title": "Use an interface when a service is collected polymorphically or must be swappable",
+      "technology": ".NET",
+      "category": "di-patterns",
+      "kinds": [
+        "code"
+      ],
+      "severity": "low",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "When a new capability has (or will predictably have) more than one runtime\nimplementation that callers should treat uniformly — either because the\ncontainer injects all of them as a collection, or because a factory decides\nwhich one to use — define an interface and register each concrete type\nagainst it, following the `IReviewSensor` pattern.",
+      "rationale": "The counterpart to [QS-DN-003](../dotnet/QS-DN-003-register-concrete-by-default.md):\nthis codebase's sensors (`GitleaksSecurityScanner`, `DependencyVulnerabilitySensor`,\n`BoundaryInventorySensor`, `CoverageSensor`, `SarifSensor`, `RoslynAnalyzerSensor`,\n`EslintAnalyzerSensor`, `TypeScriptAnalyzerSensor`) all implement `IReviewSensor`\nand are registered as that interface specifically so the review pipeline can\ndepend on `IEnumerable<IReviewSensor>` and run \"every sensor\" without knowing\nthe concrete list. Without the interface, adding a ninth sensor would require\nediting every call site that enumerates sensors by hand instead of just\nadding one more `AddSingleton<IReviewSensor>(...)` registration.",
+      "goodExample": "```csharp\n// Program.cs:48-55 — eight concrete sensors, one collected interface\nbuilder.Services.AddSingleton<IReviewSensor>(sp => sp.GetRequiredService<GitleaksSecurityScanner>());\nbuilder.Services.AddSingleton<IReviewSensor>(sp => sp.GetRequiredService<DependencyVulnerabilitySensor>());\nbuilder.Services.AddSingleton<IReviewSensor>(sp => sp.GetRequiredService<RoslynAnalyzerSensor>());\n// consumed elsewhere as IEnumerable<IReviewSensor>, with no per-sensor call sites to update\n```",
+      "badExample": "```csharp\npublic sealed class SensorRunner\n{\n    // adding a sensor here means finding and editing this constructor and every\n    // caller that lists sensors by name, instead of adding one DI registration\n    public SensorRunner(GitleaksSecurityScanner a, DependencyVulnerabilitySensor b,\n        BoundaryInventorySensor c, CoverageSensor d) { /* ... */ }\n}\n```"
+    },
+    {
+      "id": "QS-DN-005",
+      "version": "1.0.0",
+      "title": "Accept and propagate CancellationToken through async call chains",
+      "technology": ".NET",
+      "category": "async-hygiene",
+      "kinds": [
+        "code"
+      ],
+      "severity": "high",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "A public `async Task`/`async Task<T>` method that does I/O takes a\n`CancellationToken cancellationToken` parameter and passes it to every async\ncall it makes, rather than swallowing it with `CancellationToken.None` or\n`default` partway down the chain.",
+      "rationale": "A token that stops propagating partway down a call chain silently defeats\ncancellation for everything below that point: a request abort, a timeout, or\na shutdown signal stops cutting work short exactly where the token was\ndropped, and the caller has no way to see that from the method signature. The\npublic async methods in `RepositoryRegistry` (`CreateAsync`, `UpdateAsync`,\n`ArchiveAsync`) all thread the token through to their own async work\n(`PersistAsync(cancellationToken)`); that's the shape every new async method\nin this codebase should match.",
+      "goodExample": "```csharp\n// RepositoryRegistry.cs:91\npublic async Task<RepositoryRegistration> CreateAsync(\n    RepositoryRegistrationRequest request, CancellationToken cancellationToken)\n{\n    // ...\n    await PersistAsync(cancellationToken).ConfigureAwait(false);\n    return registration;\n}\n```",
+      "badExample": "```csharp\npublic async Task<RepositoryRegistration> CreateAsync(\n    RepositoryRegistrationRequest request, CancellationToken cancellationToken)\n{\n    // ...\n    await PersistAsync(CancellationToken.None).ConfigureAwait(false);\n    // the caller's cancellation/timeout can no longer stop the persist step\n}\n```"
+    },
+    {
+      "id": "QS-DN-006",
+      "version": "1.0.0",
+      "title": "Only bridge sync-to-async at a genuine synchronous entry point",
+      "technology": ".NET",
+      "category": "async-hygiene",
+      "kinds": [
+        "code"
+      ],
+      "severity": "high",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Do not call `.Result`, `.Wait()`, or `.GetAwaiter().GetResult()` on a task\nfrom within code that is itself already `async`. The pattern is only\nacceptable at a genuinely synchronous entry point that has no async caller\nabove it to propagate `await` to (a CLI `Main`, or a narrow static helper\ncalled only from such entry points) — and even there, prefer making the\nentry point `async Task` instead when the surrounding API allows it.",
+      "rationale": "Blocking on a task from inside an async call chain is the classic ASP.NET/UI\ndeadlock: the blocked thread can be the same one the awaited continuation\nneeds to resume on, so the call never returns under load even though it\nworks fine in a quick manual test. This codebase has exactly two current\nuses of `.GetAwaiter().GetResult()`, and both are narrow, defensible cases:\n`quality/Program.cs`'s CLI entry point (there is no async `Main` caller above\nit to propagate to) and `GitPlumbing.RequireRepository`, a synchronous helper\ncalled from non-async constructors. Neither is called from within already-\nrunning async code — that distinction, not the mere presence of\n`GetAwaiter().GetResult()`, is what a review of a new use of this pattern\nneeds to verify.",
+      "goodExample": "```csharp\n// GitPlumbing.cs:172 — a synchronous helper with no async caller to propagate to\npublic static string RequireRepository(string path)\n{\n    var top = RunAsync(root, [\"rev-parse\", \"--show-toplevel\"], CancellationToken.None)\n        .GetAwaiter().GetResult().Trim();\n    return Path.GetFullPath(top);\n}\n```",
+      "badExample": "```csharp\npublic async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)\n{\n    // blocking inside an already-async method: can deadlock the request thread\n    var validated = ValidateRemoteAsync(request).GetAwaiter().GetResult();\n    return await PersistAsync(validated, cancellationToken);\n}\n```"
+    },
+    {
+      "id": "QS-DN-007",
+      "version": "1.0.0",
+      "title": "Use TestContext's cancellation token and clean up fixtures in finally",
+      "technology": ".NET",
+      "category": "test-structure",
+      "kinds": [
+        "code"
+      ],
+      "severity": "medium",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "An async xUnit test that performs I/O passes `TestContext.Current.CancellationToken`\nto it (not `default`/`CancellationToken.None`), and any temporary fixture it\ncreates on disk is deleted in a `finally` block so a failing assertion still\nleaves the temp directory clean.",
+      "rationale": "`TestContext.Current.CancellationToken` is xUnit v3's per-test cancellation\ntoken — it's what makes a test actually stop promptly when the run is\ncancelled or times out, instead of leaking a task that keeps running after\nthe test framework has already reported a result. A `finally`-guarded\n`Directory.Delete(root, true)` guarantees a fixture doesn't outlive one test\nand pollute the next, or accumulate across a full test-suite run, even when\nthe test fails partway through.",
+      "goodExample": "```csharp\n// ProjectDashboardTests.cs\nvar root = TemporaryRepository();\ntry\n{\n    await File.WriteAllTextAsync(Path.Combine(root, \"App\", \"App.csproj\"), \"...\",\n        TestContext.Current.CancellationToken);\n    // ...assertions...\n}\nfinally\n{\n    Directory.Delete(root, true);\n}\n```",
+      "badExample": "```csharp\nvar root = TemporaryRepository();\nawait File.WriteAllTextAsync(Path.Combine(root, \"App\", \"App.csproj\"), \"...\", CancellationToken.None);\nvar dashboard = new ProjectDashboardService().Get(root, hierarchy);\nAssert.Equal(5, dashboard.Metrics.FileCount);\nDirectory.Delete(root, true);\n// an assertion failure above skips this line — root is left on disk for every failed run\n```"
+    },
+    {
+      "id": "QS-DN-008",
+      "version": "1.0.0",
+      "title": "Name each [Fact] after the observable behavior it proves",
+      "technology": ".NET",
+      "category": "test-structure",
+      "kinds": [
+        "code"
+      ],
+      "severity": "low",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Give each `[Fact]` a name that states the observable behavior being verified\n(`Structural_metrics_match_known_fixture_repository`), and keep one behavior\nper test rather than asserting several unrelated outcomes in one method\nbecause they happen to share setup.",
+      "rationale": "A behavior-named test tells a reader what broke from the test name alone in\na CI failure list, before opening the file. `ProjectDashboardTests` follows\nthis consistently — `Structural_metrics_match_known_fixture_repository`,\n`Cached_dashboard_for_5000_file_repository_is_within_interaction_budget` —\neach name states a claim the test body then proves. A name like `Test1` or\n`DashboardWorks` forces the reader back into the test body (or the failure\nstack trace) to find out what actually failed.",
+      "goodExample": "```csharp\n[Fact]\npublic async Task Structural_metrics_match_known_fixture_repository()\n{\n    // ...\n    Assert.Equal(5, dashboard.Metrics.FileCount);\n    Assert.Equal(2, dashboard.Metrics.FolderCount);\n}\n```",
+      "badExample": "```csharp\n[Fact]\npublic async Task Test1()\n{\n    // asserts file count, folder count, coverage percent, AND dependency\n    // edges in one method — a failure here says nothing about which of the\n    // four unrelated claims broke until you read the whole body\n}\n```"
+    },
+    {
+      "id": "QS-NG-001",
+      "version": "1.0.0",
+      "title": "Declare component I/O with the signal input()/output() functions",
+      "technology": "Angular",
+      "category": "component-structure",
+      "kinds": [
+        "code"
+      ],
+      "severity": "low",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Declare a component's inputs and outputs with the `input()`/`input.required()`\nand `output()` functions, not the `@Input()`/`@Output()` decorators.",
+      "rationale": "Signal inputs are readable as plain signals (composable with `computed()` and\n`effect()` without a manual `ngOnChanges`), make \"required\" a compile-time\nproperty via `input.required<T>()` instead of a runtime convention, and avoid\nthe decorator-plus-`EventEmitter` boilerplate. Mixing both styles in the same\ncodebase forces every reader to check which convention a given component\nuses before they can safely consume it.",
+      "goodExample": "```ts\n// review-actions.ts\nexport class ReviewActions {\n  readonly node = input<TreeNode | undefined>();\n  readonly activeKind = input.required<ReviewKind>();\n  readonly compact = input(false);\n  readonly kindSelect = output<ReviewKind>();\n}\n```",
+      "badExample": "```ts\nexport class ReviewActions {\n  @Input() node?: TreeNode;\n  @Input() activeKind!: ReviewKind;\n  @Input() compact = false;\n  @Output() kindSelect = new EventEmitter<ReviewKind>();\n}\n```"
+    },
+    {
+      "id": "QS-NG-002",
+      "version": "1.0.0",
+      "title": "Keep non-trivial templates and styles in their own files",
+      "technology": "Angular",
+      "category": "component-structure",
+      "kinds": [
+        "code"
+      ],
+      "severity": "low",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Use `templateUrl`/`styleUrl` pointing at sibling `.html`/`.css` files for any\ncomponent whose markup or styling is more than a couple of lines; reserve\ninline `template`/`styles` strings for genuinely trivial components.",
+      "rationale": "Inline template/style strings lose syntax highlighting, formatting, and\ntemplate-language tooling (Angular language service diagnostics) in most\neditors, and turn a component's `.ts` file into an unreviewable wall of\nescaped markup once it grows past a few lines. Every feature component in\nthis codebase already follows the file-per-concern split; a new component\nthat inlines a large template is the one that stands out for the wrong\nreason during review.",
+      "goodExample": "```ts\n// review-actions.ts\n@Component({\n  selector: 'qs-review-actions',\n  imports: [FormsModule],\n  templateUrl: './review-actions.html',\n  styleUrl: './review-actions.css',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n})\nexport class ReviewActions { /* ... */ }\n```",
+      "badExample": "```ts\n@Component({\n  selector: 'qs-review-actions',\n  template: `\n    <div class=\"active-run-meta\">...\n    <!-- forty more lines of inline markup, unformatted, unhighlighted -->\n    </div>\n  `,\n  styles: [`.active-run-meta { display: flex; /* ... dozens more rules ... */ }`],\n})\nexport class ReviewActions { /* ... */ }\n```"
+    },
+    {
+      "id": "QS-NG-003",
+      "version": "1.0.0",
+      "title": "Color with design tokens, never hard-coded hex or rgb values",
+      "technology": "Angular",
+      "category": "design-tokens",
+      "kinds": [
+        "code"
+      ],
+      "severity": "high",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Reference an existing `--studio-*` (or `--status-*`) custom property from\n`frontend/src/styles.css` for every color, background, and border value in a\ncomponent stylesheet. Do not write a literal hex/rgb color, and do not\nintroduce a new one-off custom property that duplicates a token that already\nexists.",
+      "rationale": "`styles.css` already defines a full palette, including semantic severity\ncolors (`--studio-severity-critical`, `--studio-severity-high`,\n`--studio-severity-medium`, `--studio-severity-low`, `--studio-severity-info`)\nwith light and dark theme values. A hard-coded hex bypasses both the dark\ntheme override block and any future palette change, and is the exact defect\nclass this rule exists to stop: `project-dashboard.css` defines a `.severity`\nbadge that hard-codes `#ef7777`/`#dca85c`/`#71aeda` for critical/high, medium,\nand low/info respectively, one line away from the `--studio-severity-*`\ntokens that already express the same four severities and already have dark\ntheme values — the token was available and unused.",
+      "goodExample": "```css\n/* what the .severity rule should read, using the tokens that already exist */\n.severity.critical, .severity.high { color: var(--studio-severity-high); }\n.severity.medium { color: var(--studio-severity-medium); }\n.severity.low, .severity.info { color: var(--studio-severity-info); }\n```",
+      "badExample": "```css\n/* project-dashboard.css:11 (as shipped) */\n.severity.critical, .severity.high { color: #ef7777; }\n.severity.medium { color: #dca85c; }\n.severity.low, .severity.info { color: #71aeda; }\n```"
+    },
+    {
+      "id": "QS-NG-004",
+      "version": "1.0.0",
+      "title": "Space and round with the spacing/radius token scale",
+      "technology": "Angular",
+      "category": "design-tokens",
+      "kinds": [
+        "code"
+      ],
+      "severity": "medium",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Use `var(--studio-space-1..4)` (or `--space-1..6`) for padding, margin, and\ngap, and `var(--studio-radius-sm|md|lg|badge|card|pill)` for border-radius,\ninstead of raw pixel literals.",
+      "rationale": "`styles.css` defines a small, deliberate spacing and radius scale\n(`--studio-space-1: 4px` through `--studio-space-4: 16px`;\n`--studio-radius-sm/md/lg/badge/card/pill`) precisely so spacing stays\nconsistent across panes without every component picking its own numbers.\nSeveral existing stylesheets already do this correctly (`.finding-detail`,\n`.scope-manager` in `styles.css` use `var(--studio-space-*)` throughout), but\nnewer feature CSS reverts to raw pixels — e.g. `app.css` and\n`attack-coverage.css` mix `padding: 9px`, `border-radius: 5px` alongside\ntoken-based rules in the same file. A raw `7px` next to a token-based `8px`\ntwo rules later is not a deliberate design choice, it is drift.",
+      "goodExample": "```css\n/* styles.css, .finding-detail */\n.review-pane .finding-detail {\n  margin: var(--studio-space-3) 0;\n  padding: var(--studio-space-4);\n  border-radius: var(--studio-radius-card);\n}\n```",
+      "badExample": "```css\n/* app.css:33, raw pixels alongside token-based rules elsewhere in the same file */\n.form-error {\n  padding: 9px;\n  border-radius: 5px;\n}\n```"
+    },
+    {
+      "id": "QS-NG-005",
+      "version": "1.0.0",
+      "title": "Extract a repeated UI fragment into a shared component, not copy-pasted markup",
+      "technology": "Angular",
+      "category": "component-reuse",
+      "kinds": [
+        "code"
+      ],
+      "severity": "high",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "When the same UI fragment (markup plus its behavior) appears in two or more\nfeature components, extract it into a shared standalone component rather\nthan duplicating the template and CSS in each place it's needed.",
+      "rationale": "Duplicated markup drifts: a fix or a11y improvement applied to one copy is\neasy to forget in the others. This codebase currently has no `shared/`\ncomponent directory at all (`frontend/src/app/` only contains feature\ndirectories — `attack-coverage/`, `editor/`, `explorer/`,\n`project-dashboard/`, `review-actions/`, `review-panel/`, `usage-history/`),\nso every reusable fragment introduced so far has been re-expressed as\nfeature-local CSS instead of a shared component. The severity badge is a\nconcrete example: `project-dashboard.css` (`.severity`) and the coverage\nverdict styling in `attack-coverage.css` (`.verdict-pass`, `.verdict-finding`,\n`.cell-flag`) both independently re-implement \"a small colored status pill,\"\neach with its own markup and its own color mapping, instead of one\n`qs-severity-badge` component both features render.",
+      "goodExample": "```ts\n// a new shared/severity-badge/severity-badge.ts, referenced by any feature\n@Component({\n  selector: 'qs-severity-badge',\n  templateUrl: './severity-badge.html',\n  styleUrl: './severity-badge.css',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n})\nexport class SeverityBadge {\n  readonly severity = input.required<'critical' | 'high' | 'medium' | 'low' | 'info'>();\n}\n```",
+      "badExample": "```css\n/* project-dashboard.css and attack-coverage.css each define their own\n   independent \"colored status pill\" instead of sharing one component */\n.severity { padding: 2px 4px; border-radius: 3px; text-transform: uppercase; }\n.verdict-pass { background: color-mix(in srgb, var(--status-fresh) 18%, transparent); }\n```"
+    },
+    {
+      "id": "QS-NG-006",
+      "version": "1.0.0",
+      "title": "Reuse existing global style primitives before defining parallel ones",
+      "technology": "Angular",
+      "category": "component-reuse",
+      "kinds": [
+        "code"
+      ],
+      "severity": "medium",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Before adding a new CSS class for a common element (an icon button, a status\ndot, a card surface), check `styles.css` for an existing global primitive\n(`.icon-button`, `.status`, `.pane`, `.pane-header`) that already covers the\ncase, and reuse or extend it instead of defining a new class with the same\npurpose in a feature stylesheet.",
+      "rationale": "`styles.css` explicitly documents this intent — its comment above `.pane`\nreads \"Shared workbench primitives reused across shell panes (Explorer,\nEditor, ReviewPanel)\" — but the follow-through is inconsistent: `app.css`\ndefines its own `.primary-button`/`.secondary-button`/`.danger-button` set\nwith their own height, padding, and border-radius values rather than\nbuilding on `.icon-button`'s existing 29px control sizing, and several\nfeature files re-declare \"a small rounded control\" (`.risk-matrix span`,\n`.hotspot-row`) with one-off dimensions instead of the token-based\n`--studio-control-hit-compact` / `--studio-control-sm` sizes already used\nelsewhere for exactly that purpose.",
+      "goodExample": "```css\n/* styles.css already defines the compact control sizing token */\n.review-pane .finding-controls select,\n.review-pane .finding-controls button {\n  min-height: var(--studio-control-hit-compact);\n}\n```",
+      "badExample": "```css\n/* app.css defines a new, differently-sized button family instead of\n   extending .icon-button / the existing control-height tokens */\n.primary-button, .secondary-button, .danger-button {\n  height: 32px;\n  padding: 0 12px;\n  border-radius: 5px;\n}\n```"
+    },
+    {
+      "id": "QS-NG-007",
+      "version": "1.0.0",
+      "title": "Use the built-in @if/@for control flow, not *ngIf/*ngFor",
+      "technology": "Angular",
+      "category": "template-hygiene",
+      "kinds": [
+        "code"
+      ],
+      "severity": "low",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Write conditional and repeated template content with the built-in `@if`,\n`@else if`, `@else`, and `@for`/`track` blocks. Do not introduce the\n`*ngIf`/`*ngFor` structural directives.",
+      "rationale": "The built-in control flow does not require importing `CommonModule` or the\nindividual directives, catches a missing `track` expression at compile time\nfor `@for`, and is measurably faster to parse for the Angular compiler than\nstructural directives. Every template in this codebase already uses `@if`/\n`@for` exclusively (`review-actions.html`, `attack-coverage.html`,\n`project-dashboard.html`, and the rest) — there is not a single `*ngIf` or\n`*ngFor` left in the frontend — so this rule mainly guards against\nregression, e.g. a contributor pasting an example from older Angular\ndocumentation.",
+      "goodExample": "```html\n<!-- review-actions.html -->\n@if (run.state === 'queued' || run.state === 'running') {\n  <button type=\"button\" (click)=\"api.pauseReview(run.id)\">Pause</button>\n}\n@for (kind of reviewKinds; track kind) {\n  <option [value]=\"kind\">{{ kind }}</option>\n}\n```",
+      "badExample": "```html\n<button type=\"button\" *ngIf=\"run.state === 'queued' || run.state === 'running'\"\n  (click)=\"api.pauseReview(run.id)\">Pause</button>\n<option *ngFor=\"let kind of reviewKinds\" [value]=\"kind\">{{ kind }}</option>\n```"
+    },
+    {
+      "id": "QS-NG-008",
+      "version": "1.0.0",
+      "title": "Prefer signals and host bindings over manual subscribe()/addEventListener",
+      "technology": "Angular",
+      "category": "template-hygiene",
+      "kinds": [
+        "code"
+      ],
+      "severity": "medium",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "When a component needs to react to a DOM or observable event, prefer a\ndeclarative `host` binding or an Angular primitive (`toSignal`, `effect`)\nover a manual `addEventListener`/`.subscribe()` call in the constructor or\n`ngOnInit`. If a manual subscription is genuinely required, it must be torn\ndown (an `AbortController`, a `DestroyRef`-scoped cleanup, or the\n`host`-binding form that Angular tears down itself).",
+      "rationale": "A manual subscription that isn't paired with explicit teardown leaks a\nlistener every time the component is created and destroyed — a slow memory\nand event-storm leak that is invisible in a quick manual test and only shows\nup under sustained use. Angular's `host` binding form (used by\n`ReviewActions` for outside-click detection) is torn down automatically with\nthe component, which removes the failure mode entirely rather than relying\non every future editor of the file remembering to clean up.",
+      "goodExample": "```ts\n// review-actions.ts — host binding, torn down automatically with the component\n@Component({\n  selector: 'qs-review-actions',\n  host: { '(document:pointerdown)': 'closeOnOutsidePointer($event)' },\n})\nexport class ReviewActions { /* ... */ }\n```",
+      "badExample": "```ts\nexport class ReviewActions {\n  constructor() {\n    document.addEventListener('pointerdown', this.closeOnOutsidePointer.bind(this));\n    // never removed: this listener outlives every destroyed instance of the component\n  }\n}\n```"
+    },
+    {
+      "id": "QS-NG-009",
+      "version": "1.0.0",
+      "title": "Every component sets ChangeDetectionStrategy.OnPush",
+      "technology": "Angular",
+      "category": "change-detection",
+      "kinds": [
+        "code"
+      ],
+      "severity": "high",
+      "autofixable": false,
+      "tier": "core",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "Every `@Component` explicitly sets `changeDetection: ChangeDetectionStrategy.OnPush`.\nDo not rely on the default (`Default`) strategy.",
+      "rationale": "`OnPush` skips a component's change-detection pass unless one of its\n`input()` signals changes, an event handler inside it fires, or a signal it\nreads updates — which is what makes signal-based state (`signal`, `computed`)\nactually cheap at scale. Leaving a component on the default strategy means\nevery zone tick re-checks that component's whole template regardless of\nwhether anything it depends on changed, and mixing strategies in the same\ntree makes performance behavior inconsistent and hard to reason about.\nEvery one of this codebase's eight components (`app`, `review-actions`,\n`project-dashboard`, `usage-history`, `attack-coverage`, `review-panel`,\n`editor`, `explorer`) already sets `OnPush`; that consistency is worth\nprotecting deliberately rather than by accident.",
+      "goodExample": "```ts\n// review-panel.ts\n@Component({\n  selector: 'qs-review-panel',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n})\nexport class ReviewPanel { /* ... */ }\n```",
+      "badExample": "```ts\n@Component({\n  selector: 'qs-new-feature',\n  // no changeDetection set — defaults to CheckAlways, breaking the\n  // OnPush-everywhere assumption the rest of the app relies on\n})\nexport class NewFeature { /* ... */ }\n```"
+    },
+    {
+      "id": "QS-NG-010",
+      "version": "1.0.0",
+      "title": "Drive updates through signals, not manual markForCheck()/detectChanges()",
+      "technology": "Angular",
+      "category": "change-detection",
+      "kinds": [
+        "code"
+      ],
+      "severity": "medium",
+      "autofixable": false,
+      "tier": "extended",
+      "status": "active",
+      "since": "2026-08-27",
+      "statement": "In application code (not test specs), update component state through\n`signal.set()`/`signal.update()` and let Angular's `OnPush` dependency\ntracking re-render, instead of calling `ChangeDetectorRef.markForCheck()` or\n`ApplicationRef.tick()` from an async callback that mutates a plain field.",
+      "rationale": "`markForCheck()`/`detectChanges()` calls from application code are almost\nalways a symptom that some state update is happening outside Angular's\nreactivity graph (a plain class field mutated inside a `setTimeout` or a\nnon-Angular event callback), which is exactly what `OnPush` plus signals is\nmeant to make unnecessary — the fix is to make the state itself a signal, not\nto manually force a re-render around it. This codebase currently has zero\n`markForCheck`/`detectChanges` calls in application code (`fixture.detectChanges()`\nappears only in `*.spec.ts` test files, which is the correct, expected use in\na `TestBed` harness); a new manual call in a component or service is a\nregression against that baseline, not a neutral addition.",
+      "goodExample": "```ts\n// review-actions.ts — async state flows through a signal; OnPush re-renders itself\nreadonly starting = signal(false);\n\nasync startReview() {\n  this.starting.set(true);\n  await this.api.startReview(request);\n  this.starting.set(false);\n}\n```",
+      "badExample": "```ts\nexport class ReviewActions {\n  starting = false;\n  constructor(private readonly cdr: ChangeDetectorRef) {}\n\n  async startReview() {\n    this.starting = true;\n    this.cdr.markForCheck();\n    await this.api.startReview(request);\n    this.starting = false;\n    this.cdr.markForCheck();\n  }\n}\n```"
+    }
+  ]
+}

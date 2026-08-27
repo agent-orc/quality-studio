@@ -210,6 +210,7 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
+- `rules/` contains Quality Studio's named rule library (Angular and C#/.NET seed sets). See [`rules/README.md`](rules/README.md) for the rule format, default-on core vs project overrides, and review integration.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 
 ## Minimal API

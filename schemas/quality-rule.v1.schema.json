@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-rule.v1.schema.json",
+  "title": "Quality Studio rule",
+  "description": "One named rule from the rules/ tree, as compiled from a rule markdown file's frontmatter and body into a catalogue entry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "version", "title", "technology", "category", "kinds",
+    "severity", "autofixable", "tier", "status", "since",
+    "statement", "rationale", "goodExample", "badExample"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^QS-[A-Z]{2,4}-[0-9]{3}$" },
+    "version": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "technology": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "kinds": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["code", "security", "performance"] }
+    },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "autofixable": { "type": "boolean" },
+    "tier": { "enum": ["core", "extended"] },
+    "status": { "enum": ["active", "deprecated"] },
+    "since": { "type": "string", "format": "date" },
+    "statement": { "type": "string", "minLength": 1 },
+    "rationale": { "type": "string", "minLength": 1 },
+    "goodExample": { "type": "string", "minLength": 1 },
+    "badExample": { "type": "string", "minLength": 1 }
+  }
+}

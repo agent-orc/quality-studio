@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-rules-config.v1.schema.json",
+  "title": "Quality Studio project rule overrides",
+  "description": "Project-repository config at .quality/rules.json. Adjusts enabled/severity for individual rules from the QS rule catalogue (see rules/README.md). Repository-wide scope in v1; overrides cannot redefine a rule's content, only enabled and/or severity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "overrides"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "overrides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/override" }
+    }
+  },
+  "$defs": {
+    "override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "reason"],
+      "anyOf": [
+        { "required": ["enabled"] },
+        { "required": ["severity"] }
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^QS-[A-Z]{2,4}-[0-9]{3}$" },
+        "enabled": { "type": "boolean" },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

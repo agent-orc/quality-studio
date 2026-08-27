@@ -7,6 +7,8 @@
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
-    "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs"
+    "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs",
+    "rules:check": "node scripts/build-rule-catalogue.mjs --check",
+    "rules:build": "node scripts/build-rule-catalogue.mjs"
   }
 }
