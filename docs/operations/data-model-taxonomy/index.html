@@ -141,13 +141,18 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
     </div>
   </header>
+
+  <section class="box ok">
+    <h4>Decision recorded</h4>
+    <p>The operator approved Option B and slices T1-T5 in full on 11 August 2026 (blanket approval, <code>agt-2621-qs-w4-blanket-approval-20260811</code>). Implementation is tracked in <a href="#implementation">section 14</a>, one append-only entry per delivered slice.</p>
+  </section>
 
   <section class="box accent">
     <h4>Recommendation</h4>
@@ -169,6 +174,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -557,6 +563,26 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only. One entry per delivered slice; do not edit or remove prior entries. Each implementation card delivers one coherent slice.</p>
+
+  <h3>2026-08-27 &middot; <code>QS-76</code> &middot; T1. Contract and catalogue foundation <span class="pill done">delivered</span></h3>
+  <ul>
+    <li>Added <code>schemas/quality-taxonomy.v1.schema.json</code> (term-catalogue structure) and <code>schemas/quality-observation.v1.schema.json</code> (the section&nbsp;7 immutable observation contract).</li>
+    <li>Added the core term catalogue as a built-in embedded resource, <code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code>, conforming to the taxonomy schema and carrying <code>quality-studio/core@1.0.0</code>: all axes and terms from section&nbsp;6 (producer kind, evidence status, assessment, change, decision, severity, lifecycle, evidence kind) and the initial aspect catalogue with its documented migration aliases.</li>
+    <li>Added C# contract types: <code>QualityTaxonomy.cs</code> (axis enums, catalogue types, <code>QualityTaxonomyCatalogue</code> resolver with a SHA-256 catalogue digest and a major-version support check that never discards raw data on an unknown major) and <code>QualityObservationContract.cs</code> (the observation record tree, with an explicit <code>Extensions</code> dictionary via <code>[JsonExtensionData]</code> so root <code>extensions</code> and legacy <code>x-*</code> members round-trip exactly).</li>
+    <li>Added <code>LegacyTaxonomyMapping.cs</code>, a pure mapping library implementing every row of the section&nbsp;8 compatibility table (security verdict, flow verdict, attack verdict, change summary, change-aspect verdict, and both finding-state spellings, including the <code>false-positive</code>/<code>falsePositive</code> and <code>accepted</code>/<code>accepted-risk</code> drift from finding F8).</li>
+    <li>No existing writer, sidecar, or report changed. This slice is purely additive: new schemas, a new embedded catalogue, new contract types, and a pure mapping library, exercised by new tests only.</li>
+  </ul>
+  <p><b>Tests:</b> <code>QualityTaxonomyContractTests</code> (core catalogue validates against the taxonomy schema; malformed catalogues fail validation; digest is deterministic; major-version check), <code>QualityObservationContractTests</code> (example observation validates against the observation schema and round-trips; extensions and <code>x-*</code> fields survive round-trip; unsupported structural <code>schemaVersion</code> is rejected; an unknown core taxonomy major is flagged via <code>HasSupportedCoreTaxonomy</code> without the observation being discarded; fixtures missing a required field fail schema validation), <code>LegacyTaxonomyMappingTests</code> (one case per section&nbsp;8 table row). <code>dotnet build</code> and <code>dotnet test</code> for <code>AgentOrchestrator.CodeQuality.Tests</code> are green (213 passed, 1 skipped live-integration test, pre-existing).</p>
+  <p><b>Follow-up (not delivered by this card, each becomes its own implementation card):</b></p>
+  <ul>
+    <li><b>T2</b> &mdash; immutable observation dual-write from <code>ReviewRunner</code>, full route provenance on review requests/usage, behind <code>QualityTaxonomy:ObservationWriteEnabled</code>. Depends on T1.</li>
+    <li><b>T3</b> &mdash; typed evidence and producer provenance on findings, <code>issueId</code> plus versioned occurrence fingerprints, append-only lifecycle events. Depends on T2.</li>
+    <li><b>T4</b> &mdash; observation-backed <code>QualityReportBuilder</code>/dashboard projections and per-model records, behind <code>QualityTaxonomy:ObservationReadEnabled</code>. Depends on T3.</li>
+    <li><b>T5</b> &mdash; domain adapters (security, change, flow, attack coverage) emitting common observations, plus the <code>quality taxonomy migrate --dry-run|--apply</code> tool. Depends on T4.</li>
+  </ul>
 </main>
 </body>
 </html>
