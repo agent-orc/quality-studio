@@ -141,7 +141,7 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
+    <span><b>Status</b> decided</span>
     <span><b>Phase</b> decision ready</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
@@ -165,6 +165,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -483,6 +484,33 @@
 </table>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<p class="dim">Append-only log. Entries record what landed against the approved slice plan; they do not revise the recommendation above.</p>
+
+<div class="box ok">
+  <h4>2026-08-27 &middot; QS-71 &middot; RP-1 &middot; Contracts and archive core (delivered)</h4>
+  <p>Added the four <code>run-record.v1</code>/<code>run-operation.v1</code>/<code>run-finding.v1</code>/<code>run-attempt.v1</code> JSON schemas under <code>schemas/</code>, matching typed C# records, and <code>ReviewRunArchiveStore</code> in <code>src/QualityStudio.Api/ReviewRunArchiveStore.cs</code>. The store writes the tracked archive at <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/</code>: a create-only <code>run.json</code>, append-only <code>operations.jsonl</code> and <code>findings.jsonl</code>, and one create-only <code>attempts/NNNN.json</code> per stopped attempt. It is additive and inert: <code>ReviewRunStore</code>, existing routes, the frontend and the recovery journal are unchanged.</p>
+  <ul>
+    <li>Every document carries <code>$schema</code> and <code>schemaVersion</code> per the contract invariant.</li>
+    <li>Create-only writes reject overwrite (<code>FileMode.CreateNew</code>); append-only writers tolerate a crash-truncated final JSONL line the same way <code>ReviewRunStore.AppendProgress</code> does.</li>
+    <li>Run ids are validated against path separators before any directory is touched; the month bucket is computed from the record's own <code>createdAt</code>, never from caller-supplied path segments.</li>
+    <li>Reader loads a run's manifest plus every attempt (ordered), all operations and all findings, so a capped run that later resumes has both attempt snapshots readable from a clean clone.</li>
+    <li>Tests: <code>tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs</code> &mdash; schema-fixture validation for all four documents, create-only overwrite rejection, two-attempt readability, unknown-run and append-before-create handling, and run-id path-confinement. Full solution gate (<code>dotnet build</code> Release + <code>dotnet test --filter "Category!=MachineBound"</code>) is green.</li>
+  </ul>
+  <p><b>Deliberately not in this slice:</b> RP-1's scope note also names "operation IDs/attempt ordinals on in-memory work items" (<code>ReviewWorkItem</code> in <code>ReviewJobs.cs</code>). Wiring real operation-id allocation and attempt-ordinal tracking into the live run loop has no caller until RP-2 starts writing to the archive during execution &mdash; adding it now would be unused state ahead of its consumer. It is folded into the RP-2 follow-up below instead of landed as dead code here.</p>
+</div>
+
+<div class="box warn">
+  <h4>Remaining slices (not yet started)</h4>
+  <ul>
+    <li><b>RP-2 &middot; Dual-write and ledger v3.</b> Capture <code>ReviewExecutionResult</code>, allocate real operation ids/attempt ordinals on <code>ReviewWorkItem</code> and call <code>ReviewRunArchiveStore</code> at each stopped boundary; extend the usage ledger to v3.</li>
+    <li><b>RP-3 &middot; Recovery migration and history API.</b> Idempotent backfill of present <code>.quality/runs</code> folders, history reader, cursor/filter/detail routes.</li>
+    <li><b>RP-4 &middot; Deterministic run diff.</b> Comparability classification and scope/input/execution/grade/verdict/finding/economy deltas.</li>
+    <li><b>RP-5 &middot; History and compare UI.</b> Paged history surface, filters, detail drawer, two-run compare.</li>
+  </ul>
+  <p>Per the 2026-08-11 operator blanket approval, none of these are decision-gated; they are sequenced follow-up work, each landing as its own card/slice on top of RP-1.</p>
+</div>
 </main>
 </body>
 </html>
