@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-26T19:55:23Z",
+  "updatedAt": "2026-08-27T18:50:00Z",
   "sourceTaskKeys": [
     "QS-62",
     "QS-71",
@@ -100,6 +100,16 @@
         "conflicts": "None. The preserved final QS-85 tree was restored directly onto its existing parent, current origin/main, and matches the prior final QS-85 tree exactly.",
         "gate": "Release build passed with 0 warnings and 0 errors; 221 .NET tests passed with one intentionally skipped live-provider test; 46 of 46 Karma browser tests passed; 5 of 5 dev-stack launcher tests passed; the production frontend bundle built; the Token Economy catalogue snapshot validated; and the repository security scan passed with 0 new, accepted, block, or warn findings across 364 files.",
         "uiEvidence": "Fresh before/after screenshots were reproduced on live Angular development servers. The base has no History section; the delivery shows five rows, a three-operation detail view, a two-run diff with two grade deltas and one regression, URL-restored state, and disabled comparison for corrupt and legacy rows."
+      },
+      "recoveryRound": {
+        "verifiedAt": "2026-08-27T18:50:00Z",
+        "priorBranchState": "An automated delivery loop repeatedly tried to rebase this branch onto a non-existent origin/develop ref, failed, and reset the branch to two dossier commits plus one unrelated salvage commit (f7557fb, QS-88 URL-preview evidence).",
+        "recoverySource": "backup/QS-85-final-before-rebase-20260827 (commits 8315f2d, 38ed65e, 7641eec), whose parent e31089c is the same commit the working branch also descends from.",
+        "conflicts": "One, in frontend/package.json: both f7557fb and the preserved delivery independently appended a new evidence:* npm script after the same line. Resolved by keeping both scripts.",
+        "gate": "Release build 0 warnings/0 errors; dotnet test 221/221 runnable tests passed (1 intentionally skipped live-provider test); frontend production build succeeded; 46/46 Karma browser tests passed; 5/5 dev-stack launcher tests passed on Linux; Token Economy catalogue snapshot valid.",
+        "securityReview": "Independent security-focused review of the full recovered diff (archive path handling, new history/diff HTTP routes, JSON deserialization, git-commit handling in the diff engine, new frontend components) found no high-confidence vulnerabilities: run IDs are server-generated and path-confined, and no new HTTP-controlled parameter reaches a filesystem path.",
+        "uiEvidence": "Regenerated from scratch against two live Angular dev servers (f7557fb for before, recovered branch for after) using npm run evidence:run-history; reproduced the same five rows/one corrupt/one legacy/three operations/two grade deltas/one regression numbers as the 24/26 August rounds, with both degraded rows' Compare controls confirmed disabled.",
+        "conclusion": "No dossier decision or feature behavior changed. The repeated loss was caused by the automation targeting a non-existent origin/develop ref, not by a defect in the implementation."
       }
     },
     "nextSlice": {
@@ -107,5 +117,5 @@
       "reason": "All five approved run-persistence dossier slices are delivered and documented."
     }
   },
-  "editedBy": "QS-85 implementation verification"
+  "editedBy": "QS-85 implementation verification (recovery round, 2026-08-27)"
 }
