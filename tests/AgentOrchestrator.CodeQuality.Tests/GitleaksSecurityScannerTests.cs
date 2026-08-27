@@ -40,6 +40,13 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Security_provision_command_verifies_the_pinned_binary_before_the_scan_lane()
+    {
+        Assert.Equal(0, await global::QualityCli.RunAsync(["security", "provision"]));
+        Assert.Equal(2, await global::QualityCli.RunAsync(["security", "provision", "unexpected"]));
+    }
+
+    [Fact]
     public async Task ScanAsync_RepositoryMode_AcceptsBaselineAndRedactsSecrets()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
