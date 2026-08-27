@@ -141,10 +141,11 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
+    <span><b>Status</b> decided</span>
     <span><b>Phase</b> decision ready</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
+    <span><b>Operator approval</b> 11 August 2026, blanket approval, all slices RP-1 through RP-5</span>
   </div>
 </header>
 
@@ -165,6 +166,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation log</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -466,6 +468,37 @@
   <h4>Deliberately deferred</h4>
   <p>Cross-repository analytics, raw transcript retention, remote object storage, a database index, retention compaction and universal pass/fail policy are not required for run durability or two-run diffing. Add them only after archive size and query measurements show a concrete need.</p>
 </div>
+
+<h2 id="implementation"><span class="no">11</span>Implementation log</h2>
+<p class="dim">Append-only. Each entry records a delivered slice; earlier entries are never edited or removed.</p>
+
+<table>
+  <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>27 August 2026</td>
+      <td><code>QS-71</code></td>
+      <td><b>RP-1 · Contracts and archive core</b> (partial)</td>
+      <td>
+        Added the four v1 run-history JSON schemas (<code>run-record.v1</code>, <code>run-operation.v1</code>,
+        <code>run-finding.v1</code>, <code>run-attempt.v1</code>) under <code>schemas/</code>, matching typed C#
+        records, and <code>ReviewRunArchiveStore</code> in
+        <a href="../../../src/QualityStudio.Api/ReviewRunArchive.cs">src/QualityStudio.Api/ReviewRunArchive.cs</a>.
+        The store writes <code>run.json</code> create-only, appends <code>operations.jsonl</code> and
+        <code>findings.jsonl</code>, and creates one immutable <code>attempts/NNNN.json</code> per stopped attempt
+        under <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/</code>, confining <code>runId</code> and month
+        path segments the same way <code>ReviewRunStore</code> confines run ids. Existing routes, the recovery
+        journal and the UI are unchanged. Covered by
+        <a href="../../../tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs">ReviewRunArchiveStoreTests.cs</a>:
+        schema-fixture validation, create-only overwrite rejection, two readable attempts under one
+        capped/resumed run, and rejected path-traversal run ids.
+        <b>Not yet done</b> (deferred to RP-2, where they become meaningful): allocating real
+        <code>operationId</code>/attempt-ordinal values on <code>ReviewWorkItem</code> and wiring the store into
+        <code>ReviewJobs.cs</code> as a dual-write. RP-2 through RP-5 remain open follow-up slices.
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 <h3>Evidence register</h3>
 <table>

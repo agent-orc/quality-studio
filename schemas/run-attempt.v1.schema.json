@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio run archive attempt record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "attempt", "outcome", "completeness", "startedAt", "finishedAt", "archivedAt", "counts", "cumulativeCounts", "usage", "errorCodes", "cap", "estimateDeviation", "usageLedgerMonths", "summary"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "counts": { "$ref": "#/$defs/counts" },
+    "cumulativeCounts": { "$ref": "#/$defs/counts" },
+    "usage": { "$ref": "#/$defs/usage" },
+    "errorCodes": { "type": "array", "items": { "type": "string", "maxLength": 4000 } },
+    "cap": { "$ref": "#/$defs/cap" },
+    "estimateDeviation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/estimateDeviation" }] },
+    "usageLedgerMonths": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
+    "summary": { "$ref": "#/$defs/summary" }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed", "reusedFresh", "failed", "skipped", "cancelled"],
+      "properties": {
+        "reviewed": { "type": "integer", "minimum": 0 },
+        "reusedFresh": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs", "cost", "currency", "priceStatus"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "cost": { "type": ["number", "null"] },
+        "currency": { "type": ["string", "null"] },
+        "priceStatus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit", "outcome", "reason"],
+      "properties": {
+        "tokenLimit": { "type": ["integer", "null"] },
+        "costLimit": { "type": ["number", "null"] },
+        "outcome": { "enum": ["not-configured", "within-cap", "reached"] },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "estimateDeviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokensPercent", "outputTokensPercent", "costPercent"],
+      "properties": {
+        "inputTokensPercent": { "type": ["number", "null"] },
+        "outputTokensPercent": { "type": ["number", "null"] },
+        "costPercent": { "type": ["number", "null"] }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowestGradeScore", "lowestGradeBand", "worstSecurityVerdict", "activeFindingCount", "highestActiveSeverity"],
+      "properties": {
+        "lowestGradeScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "lowestGradeBand": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "worstSecurityVerdict": { "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindingCount": { "type": "integer", "minimum": 0 },
+        "highestActiveSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  }
+}

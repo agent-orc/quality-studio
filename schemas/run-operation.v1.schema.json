@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio run archive operation record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "operationId", "ordinal", "attempt", "unitId", "level", "path", "state", "startedAt", "finishedAt", "providerRunId", "reviewedHash", "sidecarPath", "sidecarSha256", "grade", "securityVerdict", "observedAt"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"], "maxLength": 200 },
+    "reviewedHash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+    "sidecarPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/repoPath" }] },
+    "sidecarSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+    "grade": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/grade" }] },
+    "securityVerdict": { "enum": ["pass", "warn", "block", "unavailable", null] },
+    "observedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] }
+      }
+    }
+  }
+}
