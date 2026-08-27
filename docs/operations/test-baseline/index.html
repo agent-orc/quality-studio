@@ -180,6 +180,7 @@
     <li><a href="#slices">Implementation slices</a></li>
     <li><a href="#green">Definition of green</a></li>
     <li><a href="#evidence">Evidence ledger</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 
   <h2 id="decision"><span class="no">01</span>Decision requested</h2>
@@ -546,6 +547,24 @@
   <div class="box">
     <h4>Evidence limits</h4>
     <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
+  </div>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <div class="box accent">
+    <h4>Operator decision, 11 August 2026: decided</h4>
+    <p>The operator approved every recommendation in this dossier as a blanket decision, including slices previously marked operator-decision-gated. Option B and Slices 1 through 5 are accepted as one ordered improvement wave; delivery proceeds slice by slice, one clean, tested slice per card.</p>
+  </div>
+  <div class="box ok">
+    <h4>2026-08-27 &middot; QS-75 &middot; Slice 1, Truthful required gate &mdash; delivered</h4>
+    <p>The production Angular bundle no longer needs a code fix: incremental lazy-loading already brought the initial chunk to <b>478.30 kB</b>, inside the existing 480 kB budget, so the budget was kept as-is rather than raised.</p>
+    <ul>
+      <li><code>.github/workflows/build.yml</code> now triggers on <code>pull_request</code> against <code>main</code> as well as <code>push</code>, pins <code>.NET 10.0.301</code> and <code>Node 22.23.1</code> (matching the release canary), and adds distinct steps for frontend install, the production Angular build, pinned Chromium provisioning, and the Angular test suite &mdash; in addition to the existing filtered (<code>Category!=MachineBound</code>) .NET tests and security scan.</li>
+      <li><code>frontend/package.json</code> gained a <code>browser:install</code> script (<code>playwright-core install --with-deps chromium</code>) so both the PR gate and the pre-existing release canary provision the same pinned Chromium the same way.</li>
+      <li><code>frontend/tests/run-tests.mjs</code> now falls back to the Playwright-managed Chromium (via <code>playwright-core</code>'s <code>executablePath()</code>) when no <code>CHROME_BIN</code> override and no system browser are found, so the Angular test command is portable across hosts without a manual environment variable. Verified locally: 39 of 39 Jasmine cases pass with no <code>CHROME_BIN</code> set.</li>
+      <li><code>README.md</code>'s repository-layout claim now names everything <code>build.yml</code> actually runs, and points machine-bound and performance checks at the release canary workflow instead of implying they are absent.</li>
+    </ul>
+    <p>Verified locally before delivery: <code>dotnet build</code> + filtered <code>dotnet test</code> (155 + 47 pass, 1 opt-in skip), <code>dotnet run ... security scan .</code> (352 files, 0 findings), <code>npm run build</code> in <code>frontend/</code> (478.30 kB, exit 0), and <code>npm test</code> in <code>frontend/</code> (39 pass) without any pre-set <code>CHROME_BIN</code>.</p>
+    <p><b>Not in this slice</b> (queued, unchanged from the plan above): Slice 2 host/fixture repair (the <code>npm.cmd</code> dev-stack fixture is still Windows-only and still fails on Linux), Slice 3 portability taxonomy audit, Slice 4 coverage generation and priority-gap tests, and Slice 5 upkeep of the release canary this slice unblocks (the canary's pre-existing <code>browser:install</code> reference now resolves). Each remains its own follow-up card.</p>
   </div>
 </main>
 </body>

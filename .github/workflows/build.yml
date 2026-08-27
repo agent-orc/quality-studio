@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,14 +14,23 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      CHROME_NO_SANDBOX: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up .NET
+      - name: Set up .NET 10.0.301
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.301
+
+      - name: Set up Node 22.23.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
@@ -39,3 +50,19 @@ jobs:
 
       - name: Security scan
         run: dotnet run --project src/quality-cli -- security scan .
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Angular production bundle
+        working-directory: frontend
+        run: npm run build
+
+      - name: Provision pinned Chromium
+        working-directory: frontend
+        run: npm run browser:install
+
+      - name: Angular tests
+        working-directory: frontend
+        run: npm test
