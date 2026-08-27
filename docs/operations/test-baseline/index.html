@@ -143,7 +143,7 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> decided (operator blanket approval, 2026-08-11)</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
@@ -180,6 +180,7 @@
     <li><a href="#slices">Implementation slices</a></li>
     <li><a href="#green">Definition of green</a></li>
     <li><a href="#evidence">Evidence ledger</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 
   <h2 id="decision"><span class="no">01</span>Decision requested</h2>
@@ -546,6 +547,34 @@
   <div class="box">
     <h4>Evidence limits</h4>
     <p>This is a source-grounded decision dossier, not a coverage report. No line or branch percentage is claimed because the repository does not generate one. Live external systems were not invoked. The current commit was tested locally on Linux with .NET 10.0.301, Node 22.23.1, npm 10.9.8, and Playwright Chromium 151.</p>
+  </div>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. Each entry records what a card actually shipped against the slices above; it does not revise the analysis or decision recorded in sections 01&ndash;10.</p>
+
+  <div class="box ok">
+    <h4>2026-08-27 &mdash; QS-75 &mdash; Slice 1, &ldquo;Truthful required gate&rdquo;: CI closes the frontend gap</h4>
+    <p>The operator granted blanket approval for all recommendations on 2026-08-11 (recorded in <code>workbench.json</code>); this entry delivers the first slice under that approval. Delivered as one coherent, tested change (a prior loop tick had already landed the production-bundle fix and the <code>Category!=MachineBound</code> filter separately; this slice completes the rest of Slice 1):</p>
+    <ul>
+      <li>Pinned <code>.NET 10.0.301</code> and <code>Node 22.23.1</code> in <a href="../../../.github/workflows/build.yml"><code>.github/workflows/build.yml</code></a> (previously <code>10.0.x</code> and no Node setup at all).</li>
+      <li>Added a <code>pull_request</code> trigger so the gate actually runs on PRs, not only on push to <code>main</code>.</li>
+      <li>Added the missing frontend lane to the required gate: <code>npm ci</code>, the production Angular build (verified 478.30&nbsp;kB, still under the existing 480&nbsp;kB budget &mdash; the budget itself was not raised), pinned-Chromium provisioning, and the Angular unit tests, all as distinctly named steps.</li>
+      <li>Fixed the &ldquo;missing prerequisite contract&rdquo; defect in <a href="../../../frontend/tests/run-tests.mjs"><code>frontend/tests/run-tests.mjs</code></a>: browser resolution now falls back to the cached Playwright Chromium resolved via <code>playwright-core</code> when no system Chrome/Edge is installed, instead of only searching fixed system paths. Added a new <code>npm run browser:install</code> script (also reused by the pre-existing <code>release-canary.yml</code>, which referenced that script name but never defined it) and unit tests for the resolution logic in <a href="../../../frontend/tests/run-tests.browser-resolution.test.mjs"><code>frontend/tests/run-tests.browser-resolution.test.mjs</code></a> (<code>npm run test:scripts</code>).</li>
+      <li>Verified the security scan step already provides explicit, pinned Gitleaks 8.24.2 provisioning with its own distinct step name; no change needed there.</li>
+      <li>README's &ldquo;covered by CI&rdquo; claim for the Angular browser is now accurate given the above; no wording change was required.</li>
+    </ul>
+    <p>Evidence: local clean-checkout simulation of the full new gate order (catalog check, restore/build, portable .NET tests: 202 passed / 1 skipped, frontend install, production build, Chromium provisioning, Angular tests: 39 passed, frontend script tests: 6 passed, security scan: pass) all green on this commit.</p>
+  </div>
+
+  <div class="box warn">
+    <h4>Follow-up: remaining slices, not delivered by QS-75</h4>
+    <p>Per the standing single-slice-per-delivery scope for this card, the following are intentionally left for their own follow-up cards:</p>
+    <ul>
+      <li><b>Slice 2, Host and fixture repair</b> &mdash; the <code>npm.cmd</code> fixture in <a href="../../../tests/dev-stack.test.mjs"><code>tests/dev-stack.test.mjs</code></a> is still Windows-specific and still fails with <code>EACCES</code> on Linux; the dev-stack suite is still not split into dedicated Linux/Windows CI jobs.</li>
+      <li><b>Slice 3, Honest portability taxonomy</b> &mdash; the ten process-spawning xUnit classes have not been audited/faked/classified beyond the two existing <code>MachineBound</code> methods.</li>
+      <li><b>Slice 4, Coverage generation and priority gaps</b> &mdash; no Cobertura/lcov generation, no coverage ratchet, and the listed high-risk API/Angular surfaces still lack direct tests.</li>
+      <li><b>Slice 5, Release canary and upkeep</b> &mdash; <code>.github/workflows/release-canary.yml</code> already exists and is substantially built out (machine-bound samples, real-stack browser performance, optional live-review canary, evidence upload), landed by a sibling card outside this entry; it was not touched here except that this slice supplied the <code>browser:install</code> script it was already calling.</li>
+    </ul>
   </div>
 </main>
 </body>
