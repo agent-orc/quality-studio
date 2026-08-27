@@ -1,0 +1,87 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "extensionTaxonomies": [],
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/example",
+    "manifestHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "reviewInputsHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "producer": {
+    "kind": "agent",
+    "agent": "codex",
+    "provider": "openai",
+    "requestedModel": "test-model-a",
+    "effectiveModel": "test-model-a",
+    "thinkingLevel": "high",
+    "routePolicyVersion": "2026-07-24",
+    "runId": "quality-run-1",
+    "reviewRunId": "review-run-1",
+    "extensions": {
+      "com.acme:attempt": 2
+    }
+  },
+  "evidenceStatus": "available",
+  "evidence": [
+    {
+      "id": "ev-1",
+      "kind": "source-code",
+      "locator": {
+        "path": "src/Example.cs",
+        "symbolId": "M:Example.Run"
+      },
+      "summary": "Unchecked value reaches the dereference.",
+      "contentHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "aspects": [
+    {
+      "aspectId": "code.correctness",
+      "assessment": "fail",
+      "rationale": "One high-severity defect is evidenced.",
+      "grade": {
+        "score": 68,
+        "band": "D"
+      },
+      "extensions": {
+        "com.acme:confidence": 0.93
+      }
+    }
+  ],
+  "assessment": "fail",
+  "findings": [
+    {
+      "observationFindingId": "of-1",
+      "issueId": "issue-null-deref",
+      "occurrenceFingerprint": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "fingerprintAlgorithm": "quality-studio-occurrence-v2",
+      "ruleRef": "built-in/code.correctness.null-deref@1",
+      "aspectId": "code.correctness",
+      "severity": "high",
+      "evidenceRefs": ["ev-1"],
+      "source": {
+        "kind": "agent",
+        "producerRef": "self"
+      }
+    }
+  ],
+  "extensions": {
+    "com.acme:review-context": {
+      "ticket": "ACME-42"
+    }
+  },
+  "x-legacy-root": {
+    "preserved": true
+  }
+}

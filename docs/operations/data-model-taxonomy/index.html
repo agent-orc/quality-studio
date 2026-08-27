@@ -141,7 +141,7 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
@@ -556,6 +556,12 @@
   <section class="box accent">
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
+  </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <section class="box ok">
+    <h4>2026-08-27 · QS-76 · T1 Contract and catalogue foundation</h4>
+    <p>Delivered the independently versioned <code>quality-studio/core@1.0.0</code> catalogue, taxonomy and observation v1 JSON Schemas, strict C# contract readers that preserve explicit and legacy extensions and quarantine unknown majors with their raw JSON, and pure mappings for every legacy value in section 8. Schema fixtures, mapping conformance vectors, extension round-trip checks, and catalogue-gated aggregation tests cover the slice. Production writers remain unchanged; T2 through T5 remain follow-up slices.</p>
   </section>
 </main>
 </body>

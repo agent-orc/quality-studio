@@ -1,0 +1,38 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "silentlyDropped": true
+  },
+  "extensionTaxonomies": [],
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/example",
+    "manifestHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "reviewInputsHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "producer": {
+    "kind": "unknown",
+    "agent": "unknown",
+    "provider": "unknown",
+    "requestedModel": "unknown",
+    "effectiveModel": "unknown",
+    "thinkingLevel": "unknown",
+    "routePolicyVersion": "unknown",
+    "runId": "unknown",
+    "reviewRunId": "unknown"
+  },
+  "evidenceStatus": "unavailable",
+  "evidence": [],
+  "aspects": [],
+  "assessment": "inconclusive",
+  "findings": []
+}

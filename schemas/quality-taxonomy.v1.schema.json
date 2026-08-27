@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "title": "Quality Studio taxonomy catalogue v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "id", "version", "description", "axes", "aspects"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "id": { "$ref": "#/$defs/catalogueId" },
+    "version": { "$ref": "#/$defs/semver" },
+    "description": { "$ref": "#/$defs/description" },
+    "axes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/axis" }
+    },
+    "aspects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/aspect" }
+    },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "catalogueId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]*(?:/[a-z][a-z0-9.-]*)?$",
+      "maxLength": 200
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "termId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 100
+    },
+    "aspectId": {
+      "type": "string",
+      "pattern": "^(?:[a-z][a-z0-9.-]*\\.[a-z][a-z0-9.-]*|[a-z][a-z0-9.-]*:[a-z][a-z0-9.-]*)$",
+      "maxLength": 200
+    },
+    "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9.-]*:[a-z][a-z0-9.-]*$" },
+      "additionalProperties": true
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "order", "terms"],
+      "properties": {
+        "id": { "$ref": "#/$defs/termId" },
+        "description": { "$ref": "#/$defs/description" },
+        "order": { "type": "integer", "minimum": 0 },
+        "terms": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/term" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "order", "aliases", "deprecated"],
+      "properties": {
+        "id": { "$ref": "#/$defs/termId" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "$ref": "#/$defs/description" },
+        "order": { "type": "integer", "minimum": 0 },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+        },
+        "deprecated": { "type": "boolean" },
+        "replacement": { "$ref": "#/$defs/termId" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "deprecated": { "const": true } }, "required": ["deprecated"] },
+          "then": { "required": ["replacement"] },
+          "else": { "not": { "required": ["replacement"] } }
+        }
+      ]
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "order", "aliases", "deprecated", "allowedAxes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/aspectId" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "$ref": "#/$defs/description" },
+        "order": { "type": "integer", "minimum": 0 },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "deprecated": { "type": "boolean" },
+        "replacement": { "$ref": "#/$defs/aspectId" },
+        "allowedAxes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/termId" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "deprecated": { "const": true } }, "required": ["deprecated"] },
+          "then": { "required": ["replacement"] },
+          "else": { "not": { "required": ["replacement"] } }
+        }
+      ]
+    }
+  }
+}

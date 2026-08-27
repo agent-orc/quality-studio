@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "title": "Quality Studio immutable observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-[a-z0-9.-]+$": true
+  },
+  "required": [
+    "$schema", "schemaVersion", "observationId", "taxonomy", "extensionTaxonomies",
+    "subject", "profile", "producer", "evidenceStatus", "evidence", "aspects", "findings"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-observation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "observationId": { "type": "string", "pattern": "^observation-sha256:[a-f0-9]{64}$" },
+    "taxonomy": { "$ref": "#/$defs/taxonomyReference" },
+    "extensionTaxonomies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/taxonomyReference" }
+    },
+    "subject": { "$ref": "#/$defs/subject" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "evidenceStatus": { "$ref": "#/$defs/evidenceStatus" },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "aspects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/aspectObservation" }
+    },
+    "assessment": { "$ref": "#/$defs/assessment" },
+    "change": { "$ref": "#/$defs/change" },
+    "decision": { "$ref": "#/$defs/decision" },
+    "policyRef": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "legacy": { "$ref": "#/$defs/legacy" },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "anyOf": [
+    { "required": ["assessment"] },
+    { "required": ["change"] }
+  ],
+  "dependentRequired": {
+    "decision": ["policyRef"]
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9.-]*:[a-z][a-z0-9.-]*$" },
+      "additionalProperties": true
+    },
+    "termValue": {
+      "type": "string",
+      "pattern": "^(?:[a-z][a-z0-9-]*|[a-z][a-z0-9.-]*:[a-z][a-z0-9.-]*)$",
+      "maxLength": 200
+    },
+    "taxonomyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9.-]*(?:/[a-z][a-z0-9.-]*)?$",
+          "maxLength": 200
+        },
+        "version": { "$ref": "#/$defs/semver" },
+        "digest": { "$ref": "#/$defs/sha256" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "manifestHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "manifestHash": { "$ref": "#/$defs/sha256" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "promptHash", "reviewInputsHash"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]+$", "maxLength": 200 },
+        "version": { "$ref": "#/$defs/semver" },
+        "promptHash": { "$ref": "#/$defs/sha256" },
+        "reviewInputsHash": { "$ref": "#/$defs/sha256" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "agent", "provider", "requestedModel", "effectiveModel", "thinkingLevel",
+        "routePolicyVersion", "runId", "reviewRunId"
+      ],
+      "properties": {
+        "kind": { "$ref": "#/$defs/termValue" },
+        "agent": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "provider": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "requestedModel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "effectiveModel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "routePolicyVersion": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "runId": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "reviewRunId": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "evidenceStatus": { "$ref": "#/$defs/termValue" },
+    "assessment": { "$ref": "#/$defs/termValue" },
+    "change": { "$ref": "#/$defs/termValue" },
+    "decision": { "$ref": "#/$defs/termValue" },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{1,127}$" },
+        "kind": { "$ref": "#/$defs/termValue" },
+        "locator": { "$ref": "#/$defs/evidenceLocator" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "contentHash": { "$ref": "#/$defs/sha256" },
+        "mediaType": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "rawContent": true,
+        "originalText": { "type": "string", "maxLength": 1000000 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "evidenceLocator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "symbolId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "artifactRef": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "anyOf": [
+        { "required": ["path"] },
+        { "required": ["artifactRef"] }
+      ]
+    },
+    "aspectObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectId", "rationale"],
+      "properties": {
+        "aspectId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9.-]*\\.[a-z][a-z0-9.-]*|[a-z][a-z0-9.-]*:[a-z][a-z0-9.-]*)$",
+          "maxLength": 200
+        },
+        "assessment": { "$ref": "#/$defs/assessment" },
+        "change": { "$ref": "#/$defs/change" },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "grade": { "$ref": "#/$defs/grade" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "oneOf": [
+        { "required": ["assessment"], "not": { "required": ["change"] } },
+        { "required": ["change"], "not": { "required": ["assessment"] } }
+      ]
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observationFindingId", "occurrenceFingerprint", "fingerprintAlgorithm", "ruleRef",
+        "aspectId", "severity", "evidenceRefs", "source"
+      ],
+      "properties": {
+        "observationFindingId": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{1,127}$" },
+        "issueId": { "type": "string", "pattern": "^issue-[a-z0-9._-]{1,200}$" },
+        "occurrenceFingerprint": { "$ref": "#/$defs/sha256" },
+        "fingerprintAlgorithm": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "ruleRef": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "aspectId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9.-]*\\.[a-z][a-z0-9.-]*|[a-z][a-z0-9.-]*:[a-z][a-z0-9.-]*)$",
+          "maxLength": 200
+        },
+        "severity": { "$ref": "#/$defs/termValue" },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "source": { "$ref": "#/$defs/findingSource" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "findingSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "producerRef"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/termValue" },
+        "producerRef": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "value", "sourcePath", "completeness"],
+      "properties": {
+        "schema": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "value": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "sourcePath": { "$ref": "#/$defs/repoPath" },
+        "completeness": { "$ref": "#/$defs/termValue" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    }
+  }
+}
