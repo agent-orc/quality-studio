@@ -55,6 +55,33 @@ The first picker choice is always Runner default. Choosing it sends no model or 
 override, preserving prior behavior. A selected thinking level is validated against the
 model policy and passed to CodingAgentRunner's first-class `ThinkingLevel` request field.
 
+## Correctness-floor ladder
+
+`IsBelowCorrectnessFloor` compares an explicit route against the recommended hard floor
+using a ladder read from the synchronized policy, not from a model list in C#:
+
+- every `routes` entry whose `workflowRole` is `coreTask` contributes its `modelId`,
+  `thinkingLevel`, and `rank`; a selection qualifies at that rank when it names the same
+  model at that thinking level or stronger;
+- every `providerFallbacks` entry qualifies its `modelId` at the strongest rank among the
+  `forRouteIds` it is declared for, after removing `notForRouteIds`; and
+- a model the policy qualifies for no core-task route ranks below every floor above the
+  lightest one.
+
+`forRouteIds` is an allow-list, and that is what keeps an equivalent-provider fallback
+honest: `claude-sonnet-5` is declared only for `terra-medium` and `sol-medium`, so it
+satisfies the broad-contract floor and never the correctness-critical one, at any thinking
+level. `notForRouteIds` is redundant against the current policy — the two lists do not
+overlap — and is applied only so a future policy that contradicts itself resolves in the
+restrictive direction. Price and quota still contribute no downward adjustment.
+
+Route ids are the join between this ladder and `Recommend`, which still names its score
+bands and floors in code. That join is checked when the catalog loads: a policy missing any
+route the recommender can name is a load-time failure rather than a floor that silently
+ranks zero, and an unrecognized floor id reports below-floor rather than skipping the gate.
+Adding a model to the ladder stays a catalog sync; adding a *route* still needs a code
+change here.
+
 ## Evidence artifact
 
 Every durable review directory contains `result.json` beside `manifest.json`,
