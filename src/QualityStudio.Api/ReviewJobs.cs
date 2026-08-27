@@ -117,11 +117,28 @@ public sealed class ReviewJobsOptions
     public const string SectionName = "ReviewJobs";
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
+
+    /// <summary>
+    /// How long a run may sit in a terminal state (cancelled, failed, capped, done) while
+    /// its attempt is still marked active before the queue reader gives up waiting on it
+    /// and moves on to the next queued run. Guards against a reviewer process that ignores
+    /// its cancellation token and never lets <c>RunAsync</c> return (see N-01).
+    /// </summary>
+    public int ReclaimGraceSeconds { get; set; } = 30;
 }
+
+/// <summary>Point-in-time visibility into the review queue reader, so a wedge is observable instead of silent.</summary>
+public sealed record ReviewQueueHealth(
+    int QueuedCount,
+    int RunningCount,
+    double? OldestRunningAgeSeconds,
+    string? ReaderParkedRunId,
+    double? ReaderParkedSeconds);
 
 public sealed class ReviewJobService : BackgroundService
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
+    private static readonly TimeSpan ReclaimPollInterval = TimeSpan.FromMilliseconds(250);
     private readonly Channel<ReviewWorkItem> queue = Channel.CreateUnbounded<ReviewWorkItem>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
     private readonly ConcurrentDictionary<string, ReviewWorkItem> runs = new(StringComparer.Ordinal);
@@ -135,6 +152,9 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private readonly object readerGate = new();
+    private string? readerParkedRunId;
+    private DateTimeOffset? readerParkedSince;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
@@ -391,13 +411,98 @@ public sealed class ReviewJobService : BackgroundService
             await foreach (var item in queue.Reader.ReadAllAsync(stoppingToken))
             {
                 if (item.State != "queued") continue;
-                await RunAsync(item, stoppingToken).ConfigureAwait(false);
+                await SuperviseAsync(item, stoppingToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             logger.LogInformation(new EventId(1506, "ReviewQueueStopped"), "Review queue stopped with the API host");
         }
+    }
+
+    /// <summary>
+    /// Runs one queued item while keeping the single-reader channel loop free to advance.
+    /// <see cref="RunAsync"/> is started but is not the only thing this awaits: once the run
+    /// reaches a terminal state (typically via <see cref="ReviewWorkItem.Cancel"/>), a reviewer
+    /// that ignores its cancellation token and never returns must not be allowed to wedge every
+    /// later run behind it (N-01). Past <see cref="ReviewJobsOptions.ReclaimGraceSeconds"/> of
+    /// terminal-but-still-attempting, this detaches from the run — it keeps executing (and, once
+    /// it does return, still updates the durable record) — and lets the reader move on.
+    /// </summary>
+    private async Task SuperviseAsync(ReviewWorkItem item, CancellationToken stoppingToken)
+    {
+        lock (readerGate)
+        {
+            readerParkedRunId = item.Id;
+            readerParkedSince = DateTimeOffset.UtcNow;
+        }
+        try
+        {
+            var runTask = RunAsync(item, stoppingToken);
+            while (true)
+            {
+                var winner = await Task.WhenAny(runTask, Task.Delay(ReclaimPollInterval, CancellationToken.None))
+                    .ConfigureAwait(false);
+                if (winner == runTask)
+                {
+                    await runTask.ConfigureAwait(false);
+                    return;
+                }
+                // Evaluated unconditionally, even once host shutdown has requested stoppingToken:
+                // a reviewer that ignores cancellation must not turn a shutdown into a 30s stall
+                // while BackgroundService waits on this method to return.
+                if (!ReviewRunStore.IsTerminal(item.State) || !item.AttemptActive || item.FinishedAt is not { } finishedAt)
+                    continue;
+                var stuckFor = DateTimeOffset.UtcNow - finishedAt;
+                if (stuckFor < TimeSpan.FromSeconds(Math.Max(1, options.ReclaimGraceSeconds))) continue;
+
+                logger.LogError(new EventId(1513, "ReviewRunReclaimed"),
+                    "Review {ReviewRunId} stayed terminal ({ReviewRunState}) without releasing its attempt for {StuckSeconds:F0}s; " +
+                    "reclaiming the queue reader so later runs can proceed. The stuck operation keeps running in the background.",
+                    item.Id, item.State, stuckFor.TotalSeconds);
+                _ = runTask.ContinueWith(
+                    completed => LogReclaimedRunOutcome(item, completed),
+                    CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                return;
+            }
+        }
+        finally
+        {
+            lock (readerGate)
+            {
+                if (readerParkedRunId == item.Id)
+                {
+                    readerParkedRunId = null;
+                    readerParkedSince = null;
+                }
+            }
+        }
+    }
+
+    private void LogReclaimedRunOutcome(ReviewWorkItem item, Task completed)
+    {
+        if (completed.IsFaulted)
+            logger.LogWarning(new EventId(1514, "ReviewReclaimedRunFaulted"), completed.Exception,
+                "Previously reclaimed review {ReviewRunId} finally completed with a fault", item.Id);
+        else
+            logger.LogInformation(new EventId(1514, "ReviewReclaimedRunFinished"),
+                "Previously reclaimed review {ReviewRunId} finally released its attempt", item.Id);
+    }
+
+    /// <summary>Oldest running age and how long the reader has been parked on one run — a silent wedge otherwise looks identical to a busy queue.</summary>
+    public ReviewQueueHealth QueueHealth()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var running = runs.Values.Where(run => run.State == "running").ToArray();
+        var oldestRunningAge = running.Length == 0
+            ? (double?)null
+            : running.Max(run => (now - (run.StartedAt ?? now)).TotalSeconds);
+        var queuedCount = runs.Values.Count(run => run.State == "queued");
+        string? parkedId;
+        DateTimeOffset? parkedSince;
+        lock (readerGate) { parkedId = readerParkedRunId; parkedSince = readerParkedSince; }
+        return new ReviewQueueHealth(queuedCount, running.Length, oldestRunningAge,
+            parkedId, parkedSince is { } since ? (now - since).TotalSeconds : null);
     }
 
     private void RecoverRuns()
@@ -726,6 +831,7 @@ public sealed class ReviewJobService : BackgroundService
         public string State { get { lock (gate) return state; } }
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
+        public bool AttemptActive { get { lock (gate) return attemptActive; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
 
         public void PrepareForRecovery()

@@ -130,6 +130,73 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Server_advances_the_queue_past_a_cancelled_run_that_ignores_cancellation()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new WedgedExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                fake, options => options.ReclaimGraceSeconds = 1);
+            using var client = application.CreateClient();
+
+            using var firstResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = "test-agent",
+            }, cancellationToken);
+            firstResponse.EnsureSuccessStatusCode();
+            var firstId = (await firstResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken))
+                .GetProperty("id").GetString()!;
+
+            // The wedged executor has been entered — the run is genuinely stuck inside
+            // RunAsync, not merely queued. "running" is set before the executor is invoked,
+            // so poll StartedCount separately instead of asserting it right after the state.
+            await WaitForStateAsync(client, firstId, "running", cancellationToken);
+            await WaitForCountAsync(() => fake.StartedCount, 1, cancellationToken);
+            Assert.Equal(1, fake.StartedCount);
+
+            using var cancelResponse = await client.DeleteAsync($"/api/review/runs/{firstId}", cancellationToken);
+            cancelResponse.EnsureSuccessStatusCode();
+            var cancelled = await cancelResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal("cancelled", cancelled.GetProperty("state").GetString());
+
+            using var secondResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Second.cs",
+                kind = "code",
+                cliType = "test-agent",
+            }, cancellationToken);
+            secondResponse.EnsureSuccessStatusCode();
+            var secondId = (await secondResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken))
+                .GetProperty("id").GetString()!;
+
+            // Without the reclaim fix this never happens: the first run's fake CLI call
+            // ignores cancellation and never returns, so the single-reader queue would
+            // stay parked on it forever and the second run would never leave "queued".
+            var second = await WaitForStateAsync(client, secondId, "running", cancellationToken, maxAttempts: 400);
+            Assert.Equal("running", second.GetProperty("state").GetString());
+            await WaitForCountAsync(() => fake.StartedCount, 2, cancellationToken);
+            Assert.Equal(2, fake.StartedCount);
+
+            var health = await client.GetFromJsonAsync<JsonElement>("/api/review/queue-health", cancellationToken);
+            Assert.True(health.GetProperty("runningCount").GetInt32() >= 1);
+
+            // Cancel the second run too: it is wedged in the fake executor just like the
+            // first, and leaving it "running" would make host shutdown wait out the full
+            // ASP.NET shutdown timeout instead of the reclaim path exercised above.
+            using var secondCancel = await client.DeleteAsync($"/api/review/runs/{secondId}", cancellationToken);
+            secondCancel.EnsureSuccessStatusCode();
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Server_reports_fresh_file_and_aggregate_skips_and_force_bypasses_them()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -480,16 +547,24 @@ public sealed class ReviewRunStoreTests
         HttpClient client,
         string runId,
         string expected,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int maxAttempts = 100)
     {
         JsonElement run = default;
-        for (var attempt = 0; attempt < 100; attempt++)
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{runId}", cancellationToken);
             if (run.GetProperty("state").GetString() == expected) return run;
             await Task.Delay(20, cancellationToken);
         }
         return run;
+    }
+
+    private static async Task WaitForCountAsync(
+        Func<int> current, int expected, CancellationToken cancellationToken, int maxAttempts = 150)
+    {
+        for (var attempt = 0; current() < expected && attempt < maxAttempts; attempt++)
+            await Task.Delay(20, cancellationToken);
     }
 
     private static ReviewExecutionResult CapturedExecution(
@@ -621,8 +696,9 @@ public sealed class ReviewRunStoreTests
 
         public string ProgressPath(string runId) => Path.Combine(Store.RunsPath, runId, "progress.jsonl");
 
-        public TestApplication CreateApplication(IReviewExecutorFactory? executorFactory = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory);
+        public TestApplication CreateApplication(
+            IReviewExecutorFactory? executorFactory = null, Action<ReviewJobsOptions>? configureOptions = null) =>
+            new(RepositoryRoot, HostRoot, executorFactory, configureOptions);
 
         public void Dispose()
         {
@@ -637,7 +713,8 @@ public sealed class ReviewRunStoreTests
     }
 
     private sealed class TestApplication(
-        string repositoryRoot, string contentRoot, IReviewExecutorFactory? executorFactory) : WebApplicationFactory<Program>
+        string repositoryRoot, string contentRoot, IReviewExecutorFactory? executorFactory,
+        Action<ReviewJobsOptions>? configureOptions = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -657,6 +734,8 @@ public sealed class ReviewRunStoreTests
                     services.RemoveAll<IReviewExecutorFactory>();
                     services.AddSingleton(executorFactory);
                 }
+                if (configureOptions is not null)
+                    services.Configure(configureOptions);
             });
         }
     }
@@ -693,6 +772,34 @@ public sealed class ReviewRunStoreTests
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
                 return CapturedExecution(request, skippedFresh: false, operation);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Simulates a reviewer CLI operation that never returns and ignores its cancellation
+    /// token entirely (N-01: a wedged claude process that a DELETE cancel cannot unblock).
+    /// Every call hangs on the same never-completing task so the queue reader's only way
+    /// forward is the reclaim-after-terminal-grace path in <c>ReviewJobService</c>.
+    /// </summary>
+    private sealed class WedgedExecutorFactory : IReviewExecutorFactory
+    {
+        private int startedCount;
+        public int StartedCount => startedCount;
+
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver, Action<ReviewUsageEntry> usageRecorded) =>
+            new WedgedExecutor(this);
+
+        private sealed class WedgedExecutor(WedgedExecutorFactory owner) : IReviewExecutor
+        {
+            public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                Interlocked.Increment(ref owner.startedCount);
+                return new TaskCompletionSource<ReviewExecutionResult>().Task;
             }
         }
     }

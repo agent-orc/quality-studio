@@ -315,6 +315,7 @@ app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/resume", ResumeReview);
 app.MapDelete("/api/review/runs/{id}", CancelReview);
 app.MapDelete("/api/repos/{repoId}/review/runs/{id}", CancelReview);
+app.MapGet("/api/review/queue-health", (ReviewJobService jobs) => Results.Ok(jobs.QueueHealth()));
 
 app.MapGet("/api/handover", HandoverConfiguration);
 app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration);

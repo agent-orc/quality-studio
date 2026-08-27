@@ -137,6 +137,12 @@ public sealed class ReviewRunner
                     startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
                 throw;
             }
+            catch (ReviewAgentRunTimeoutException exception)
+            {
+                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
+                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
+                throw;
+            }
 
             var usage = CreateUsage(agentResult.RunId,
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),

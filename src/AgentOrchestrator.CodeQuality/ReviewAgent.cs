@@ -37,22 +37,40 @@ public sealed class ReviewAgentRunCanceledException(
     public string? EffectiveModel { get; } = effectiveModel;
 }
 
+/// <summary>
+/// Thrown when the CLI process produced no activity for longer than the watchdog's
+/// per-phase budget and was killed. Distinguishes a silently reclaimed run from a
+/// clean cancellation or a CLI-reported failure (see N-01: a hung claude CLI process
+/// previously left the review queue wedged forever with no diagnostic at all).
+/// </summary>
+public sealed class ReviewAgentRunTimeoutException(
+    string runId, TokenUsage usage, string? effectiveModel, string detail)
+    : Exception($"The coding agent run produced no activity and was reclaimed by the watchdog: {detail}")
+{
+    public string RunId { get; } = runId;
+    public TokenUsage Usage { get; } = usage;
+    public string? EffectiveModel { get; } = effectiveModel;
+}
+
 public sealed class CodingAgentReviewAgent : IReviewAgent
 {
     private readonly string _cliType;
     private readonly string? _thinkingLevel;
     private readonly CliRunner _runner;
     private readonly Action<string, CliRunEvent>? _eventObserver;
+    private readonly WatchdogPolicy _watchdogPolicy;
 
     public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
         CliOptions? options = null,
-        Action<string, CliRunEvent>? eventObserver = null)
+        Action<string, CliRunEvent>? eventObserver = null,
+        WatchdogPolicy? watchdogPolicy = null)
     {
         _cliType = cliType;
         _thinkingLevel = thinkingLevel;
         Model = model;
         _runner = new CliRunner(options ?? new CliOptions());
         _eventObserver = eventObserver;
+        _watchdogPolicy = watchdogPolicy ?? WatchdogPolicy.Default;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
 
@@ -70,6 +88,17 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _runner.Get(_cliType);
+        string? hungDetail = null;
+        void ObserveHung(string hungRunId, RunPhase phase, double silenceSeconds)
+        {
+            if (hungRunId == runId)
+                hungDetail = $"no activity for {silenceSeconds:F0}s while in phase {phase}";
+        }
+        // The CLI runner ships a phase-aware watchdog (RunWatchdog) but leaves it opt-in;
+        // without attaching it here, a claude process that never emits another event after
+        // spawning hangs the review forever with nothing to kill it (see N-01).
+        using var watchdog = RunWatchdog.Attach(driver, _watchdogPolicy, autoStop: true);
+        watchdog.OnHung += ObserveHung;
         try
         {
             await foreach (var runEvent in driver.StreamAsync(new CliRunRequest
@@ -101,8 +130,14 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             var failed = BuildUsage(metrics, stopwatch);
             throw new ReviewAgentRunException(runId, failed.Usage, failed.Model, exception);
         }
+        finally
+        {
+            watchdog.OnHung -= ObserveHung;
+        }
 
         var completed = BuildUsage(metrics, stopwatch);
+        if (hungDetail is not null)
+            throw new ReviewAgentRunTimeoutException(runId, completed.Usage, completed.Model, hungDetail);
         return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
     }
 
