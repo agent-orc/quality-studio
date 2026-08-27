@@ -216,12 +216,12 @@ app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, Repository
         .Where(repository => security.Identity(context).CanAccess(repository.Id))
         .ToArray();
     prewarmer.QueueAll(repositories);
+    var defaultRepository = repositories.FirstOrDefault(repository =>
+        repository.Id == RepositoryRegistry.DefaultRepositoryId && repository.QuarantineReason is null);
     return Results.Ok(new
     {
         repositories,
-        defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
-            ? RepositoryRegistry.DefaultRepositoryId
-            : null,
+        defaultRepositoryId = defaultRepository?.Id,
     });
 });
 
@@ -999,7 +999,8 @@ static async Task<IResult> Report(HttpContext context, string? format,
     var stopwatch = Stopwatch.StartNew();
     var requestedId = RouteRepositoryId(context);
     var registrations = requestedId is null
-        ? registry.List().Where(repository => security.Identity(context).CanAccess(repository.Id)).ToArray()
+        ? registry.List().Where(repository => repository.QuarantineReason is null &&
+                                               security.Identity(context).CanAccess(repository.Id)).ToArray()
         : [registry.Get(requestedId)];
     if (registrations.Length == 0) throw new KeyNotFoundException("No accessible repositories were found.");
 

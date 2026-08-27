@@ -403,7 +403,7 @@ public sealed class ReviewJobService : BackgroundService
     private void RecoverRuns()
     {
         var recovered = 0;
-        foreach (var registration in repositories.List())
+        foreach (var registration in repositories.List().Where(registration => registration.QuarantineReason is null))
         {
             var store = new ReviewRunStore(registration.RootPath);
             foreach (var stored in store.LoadAll((directory, exception) =>

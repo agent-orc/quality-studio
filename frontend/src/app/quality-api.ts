@@ -162,6 +162,7 @@ export interface RepositoryRegistration {
   archived: boolean;
   defaultReviewTokenCap: number | null;
   defaultReviewCostCap: number | null;
+  quarantineReason: string | null;
 }
 export interface RepositoryRegistrationRequest {
   id?: string;
@@ -440,19 +441,21 @@ export class QualityApi {
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
-      const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
+      const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string | null }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
-      const selected = result.repositories.some(repository => repository.id === preferredId)
+      const isUsable = (id: string | null | undefined) =>
+        id != null && result.repositories.some(repository => repository.id === id && !repository.quarantineReason);
+      const selected = isUsable(preferredId)
         ? preferredId!
-        : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
+        : isUsable(this.selectedRepositoryId())
           ? this.selectedRepositoryId()
-          : result.defaultRepositoryId;
+          : (result.defaultRepositoryId ?? result.repositories.find(repository => !repository.quarantineReason)?.id ?? this.selectedRepositoryId());
       this.selectedRepositoryId.set(selected);
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
-      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
+      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null, quarantineReason: null }]);
       this.selectedRepositoryId.set('default');
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }

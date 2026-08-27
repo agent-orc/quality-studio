@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs77">QS-77 · Boot resilience and AllowedRoots decision</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,20 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs77">
+    <h2><span class="no">11</span>QS-77 · Boot resilience and AllowedRoots decision <span class="pill done">Resolved 2026-08-11</span></h2>
+    <p><b>Incident.</b> On 2026-08-11 the API failed to boot: the <code>RepositoryRegistry</code> constructor throws <code>RepositoryRegistryValidationException</code> from <code>LoadOrSeed</code> whenever a persisted registry entry (<code>.quality-studio/repositories.json</code>) fails <code>EnsureAllowedDirectory</code>. The persisted registry legitimately contained the Agent Studio checkout — cross-repo reviewing is a deliberate, existing use case (see <a href="../studio-integration/index.html">the studio-integration dossier</a>) — but the QS-68 hardening had narrowed tracked <code>AllowedRoots</code> to a single <code>../..</code> entry, one level short of that checkout. The thrown message named neither the offending path nor the configured roots, which made the failure undiagnosable from logs alone.</p>
+    <p><b>Immediate operator healing (shipped with this entry).</b> <code>src/QualityStudio.Api/appsettings.json</code> now lists both <code>../..</code> and <code>../../..</code> under <code>QualityStudio:AllowedRoots</code>, so the existing checkout and the sibling Agent Studio checkout both validate.</p>
+    <p><b>Decision — Option A: keep the relative, tracked-config posture (dev-machine posture), not a platform-registry-derived one.</b> Two options were on the table: (A) keep hand-maintained, relative <code>AllowedRoots</code> entries in tracked <code>appsettings.json</code>, or (B) derive allowed roots at boot from the platform's project registry (no local config). This entry chooses <b>Option A</b> and keeps it deliberate rather than incidental:</p>
+    <ul>
+      <li>Relative entries (<code>../..</code>, <code>../../..</code>) do not reproduce <b>R-09</b> or <b>F-07</b> (§04, §05): those describe an <i>absolute, maintainer-specific</i> path (e.g. <code>../../../agent-taskboard-devspace</code> as one literal directory name) that discloses host topology and widens the roots to a directory no other clone of this repository has. A relative traversal depth is a portable convention about checkout layout, not a leak of one operator's filesystem.</li>
+      <li>Option B would introduce a new boot-time dependency on Agent Studio's project API existing and answering before the <code>RepositoryRegistry</code> singleton — itself a dependency of most of the API surface — can construct. That coupling is not justified today and was not built.</li>
+      <li>The tracked-config policy recommended in F-07 (§05) still applies unchanged: reject <i>absolute</i> maintainer paths and machine-specific directory names in tracked <code>AllowedRoots</code>. Relative sibling-checkout traversal depth is exempt from that policy by this decision.</li>
+    </ul>
+    <p><b>Structural fix, independent of the roots decision.</b> Because the roots policy can legitimately change (new sibling checkouts, future Option B), a persisted registry entry falling outside the current roots must never crash the host again. <code>RepositoryRegistry.LoadOrSeed</code> now quarantines a persisted entry that fails validation instead of throwing: the entry is kept with a non-null <code>QuarantineReason</code>, excluded from prewarming, review-run recovery, and the multi-repository report, refused by <code>Get</code>/<code>Access</code> for any operation, but still returned by <code>List</code> so the registry UI can show it as blocked with its reason (<code>src/QualityStudio.Api/RepositoryRegistry.cs</code>, <code>QuarantineIfInvalid</code>). <code>EnsureAllowedDirectory</code> now includes the offending path and the full configured allowed-roots list in every exception and the boot-time warning log (<code>RepositoryQuarantined</code>, event 1404) it feeds — the failure mode from this incident is diagnosable directly from the log line without attaching a debugger.</p>
+    <p class="dim">Evidence: <code>src/QualityStudio.Api/RepositoryRegistry.cs</code> (<code>LoadOrSeed</code>, <code>QuarantineIfInvalid</code>, <code>EnsureAllowedDirectory</code>, <code>Get</code>/<code>Find</code>); <code>src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs</code> (<code>Queue</code>); <code>src/QualityStudio.Api/ReviewJobs.cs</code> (<code>RecoverRuns</code>); <code>src/QualityStudio.Api/Program.cs</code> (<code>Report</code>); <code>src/QualityStudio.Api/appsettings.json</code>; <code>tests/QualityStudio.Api.Tests/RepositoryRegistryTests.cs</code>.</p>
   </section>
 </main>
 </body>

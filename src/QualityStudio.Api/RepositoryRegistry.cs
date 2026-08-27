@@ -14,7 +14,8 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    string? QuarantineReason = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -79,6 +80,19 @@ public sealed class RepositoryRegistry
 
     public RepositoryRegistration Get(string? id, bool includeArchived = false)
     {
+        var entry = Find(id, includeArchived);
+        if (entry.QuarantineReason is not null)
+        {
+            throw new RepositoryRegistryValidationException(
+                $"Repository '{entry.Id}' is quarantined and cannot be used: {entry.QuarantineReason}",
+                "Repository is quarantined");
+        }
+
+        return entry;
+    }
+
+    private RepositoryRegistration Find(string? id, bool includeArchived = false)
+    {
         var resolvedId = string.IsNullOrWhiteSpace(id) ? DefaultRepositoryId : id;
         return entries.FirstOrDefault(entry =>
                    string.Equals(entry.Id, resolvedId, StringComparison.OrdinalIgnoreCase) &&
@@ -116,7 +130,7 @@ public sealed class RepositoryRegistry
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = Get(id, includeArchived: true);
+            var existing = Find(id, includeArchived: true);
             if (existing.Archived)
             {
                 throw new RepositoryRegistryValidationException("Archived repositories cannot be edited.");
@@ -144,7 +158,7 @@ public sealed class RepositoryRegistry
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = Get(id, includeArchived: true);
+            var existing = Find(id, includeArchived: true);
             if (existing.Archived)
             {
                 return existing;
@@ -155,9 +169,11 @@ public sealed class RepositoryRegistry
                 throw new RepositoryRegistryValidationException("The default repository cannot be archived because legacy API routes depend on it.");
             }
 
-            if (entries.Count(entry => !entry.Archived) <= 1)
+            var otherUsableEntries = entries.Count(entry =>
+                !entry.Archived && entry.QuarantineReason is null && entry.Id != existing.Id);
+            if (existing.QuarantineReason is null && otherUsableEntries == 0)
             {
-                throw new RepositoryRegistryValidationException("The last active repository cannot be archived.");
+                throw new RepositoryRegistryValidationException("The last usable repository cannot be archived.");
             }
 
             var archived = existing with { Archived = true };
@@ -184,8 +200,8 @@ public sealed class RepositoryRegistry
                     var migrated = loaded.Select(entry => entry with
                     {
                         Sensors = MergeSupportedSensors(entry.Sensors),
-                    }).ToList();
-                    foreach (var entry in migrated) ValidatePersistedEntry(entry);
+                        QuarantineReason = null,
+                    }).Select(QuarantineIfInvalid).ToList();
                     return migrated;
                 }
             }
@@ -326,32 +342,64 @@ public sealed class RepositoryRegistry
     private void ValidatePersistedEntry(RepositoryRegistration entry)
     {
         if (!Directory.Exists(entry.RootPath))
-            throw new InvalidOperationException("A registered repository is unavailable.");
+            throw new InvalidOperationException(Describe("A registered repository is unavailable.", entry.RootPath));
         EnsureAllowedDirectory(entry.RootPath, "A registered repository is outside the configured allowed roots.");
         if (entry.GlobalInputsDirectory is not null)
         {
             if (!Directory.Exists(entry.GlobalInputsDirectory))
-                throw new InvalidOperationException("A registered global inputs directory is unavailable.");
+                throw new InvalidOperationException(
+                    Describe("A registered global inputs directory is unavailable.", entry.GlobalInputsDirectory));
             EnsureAllowedDirectory(entry.GlobalInputsDirectory,
                 "A registered global inputs directory is outside the configured allowed roots.");
         }
     }
 
+    private RepositoryRegistration QuarantineIfInvalid(RepositoryRegistration entry)
+    {
+        try
+        {
+            ValidatePersistedEntry(entry);
+            return entry;
+        }
+        // A persisted entry must never crash boot: any failure here — including path-length, permission,
+        // or race-condition failures surfaced as IOException/UnauthorizedAccessException — is quarantined.
+        catch (Exception exception) when (exception is RepositoryRegistryValidationException
+            or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            // exception.Message carries the offending path and the full allowed-roots list for diagnosis;
+            // it is logged only. QuarantineReason is served to API clients, so it must stay as path-free
+            // as PublicTitle everywhere else in this class.
+            logger.LogWarning(new EventId(1405, "RepositoryQuarantined"),
+                "Quarantined repository {RepositoryId} at boot because it failed validation: {ValidationFailure}",
+                entry.Id, exception.Message);
+            var publicReason = exception is RepositoryRegistryValidationException validation
+                ? validation.PublicTitle
+                : "Repository directory is unavailable";
+            return entry with { QuarantineReason = publicReason };
+        }
+    }
+
+    private string Describe(string message, string path) =>
+        $"{message} Path: '{path}'. Allowed roots: [{string.Join(", ", allowedRoots)}].";
+
     private void EnsureAllowedDirectory(string path, string internalMessage)
     {
         var allowedRoot = allowedRoots.FirstOrDefault(root => PathConfinement.IsWithin(root, path));
         if (allowedRoot is null)
-            throw new RepositoryRegistryValidationException(internalMessage,
-                internalMessage.Contains("inputs", StringComparison.OrdinalIgnoreCase)
-                    ? "Global inputs directory is outside the allowed roots"
-                    : "Repository path is outside the allowed roots");
+        {
+            var publicTitle = internalMessage.Contains("inputs", StringComparison.OrdinalIgnoreCase)
+                ? "Global inputs directory is outside the allowed roots"
+                : "Repository path is outside the allowed roots";
+            throw new RepositoryRegistryValidationException(Describe(internalMessage, path), publicTitle);
+        }
+
         try
         {
             PathConfinement.RejectReparseTraversal(allowedRoot, path);
         }
         catch (ArgumentException exception)
         {
-            throw new RepositoryRegistryValidationException(internalMessage,
+            throw new RepositoryRegistryValidationException(Describe(internalMessage, path),
                 "Configured path traverses a symbolic link or junction", exception);
         }
     }
