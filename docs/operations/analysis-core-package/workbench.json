@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "In-process Analysis Core Package",
+  "summary": "Implemented the first package slice for Quality Studio analysis: a stable in-process runner, Quality Studio finding envelopes, NuGet metadata and README, a real quality-cli consumer, and removal of the Agent Studio HTTP client from the core. The core is useful without the UI. Repository extraction is explicitly deferred pending operator criteria.",
+  "entrypoint": "index.html",
+  "status": "implemented",
+  "phase": "first-slice",
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-91",
+    "AGT-2655",
+    "QS-90"
+  ],
+  "decision": {
+    "outcome": "keep-core-in-quality-studio-repository",
+    "state": "operator-decision-required-for-extraction",
+    "recommendation": "Do not extract the analysis core repository now. Publish and consume the package from this repository first; reconsider extraction when independent cadence, stable semantic versioning, release ownership, and public-repository policy justify the cross-repository cost.",
+    "responses": [
+      {
+        "question": "Is the analysis core useful without the UI studio?",
+        "answer": "Yes. Agent Studio pipeline steps (AGT-2655), quality-cli, and CI can run named analyses over an existing checkout and consume Quality Studio finding envelopes in process."
+      },
+      {
+        "question": "Should the core be extracted into its own repository now?",
+        "answer": "No. Keep the package in this repository for the first slice and wait for an explicit operator decision against the documented extraction criteria."
+      }
+    ]
+  },
+  "delivery": {
+    "currentSlice": "Publishable in-process analysis package with one quality-cli proof consumer",
+    "completed": [
+      "NuGet project metadata and English package README",
+      "stable named-analysis runner returning Quality Studio finding envelopes",
+      "quality-cli in-process proof command",
+      "Agent Studio HTTP transport moved out of the core package"
+    ],
+    "followUp": [
+      "API-wide migration to the package facade",
+      "quality and quality-cli consolidation",
+      "QS-90 rule-library schema binding",
+      "package-feed publication automation",
+      "AGT-2655 production pipeline integration",
+      "repository extraction after operator decision"
+    ]
+  },
+  "verification": {
+    "releaseBuild": "passed with 0 warnings and 0 errors",
+    "ciProfile": "155 core passed, 1 opt-in live test skipped; 51 API passed",
+    "machineBoundApiBenchmark": "passed when run in isolation",
+    "sharedWorkerBenchmarkNote": "The unchanged 150 ms wall-clock test measured 175 ms and 282 ms in full-suite runs; all functional cases passed",
+    "package": "QualityStudio.Analysis.Core.0.1.0.nupkg inspected with README and net10.0 DLL",
+    "cliProof": "boundaries available, 0 findings, exit 0 on empty proof checkout",
+    "frontendBuild": "passed with existing warnings",
+    "frontendTests": "runner exited successfully after reporting no Chrome-compatible binary"
+  },
+  "artifacts": [
+    "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+    "src/AgentOrchestrator.CodeQuality/QualityAnalysisRunner.cs",
+    "src/AgentOrchestrator.CodeQuality/README.md",
+    "src/quality-cli/Program.cs",
+    "src/QualityStudio.Api/AgentStudioTaskClient.cs"
+  ]
+}
