@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -100,6 +100,90 @@ describe('QualityApi', () => {
     expect(result.skipped).toBe(1);
     expect(result.results[0].status).toBe('imported');
     expect(result.results[1].reason).toBe('Already registered.');
+  });
+
+  describe('remembering the last active repository', () => {
+    const registrationsResponse = {
+      repositories: [
+        { id: 'default', displayName: 'Default repository', rootPath: '/repos/default', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: null, defaultReviewCostCap: null },
+        { id: 'agent-studio', displayName: 'Agent Studio', rootPath: '/repos/agent-studio', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: null, defaultReviewCostCap: null },
+      ],
+      defaultRepositoryId: 'default',
+    };
+
+    afterEach(() => localStorage.removeItem('qs-last-repository'));
+
+    it('restores the remembered repository on the first load', async () => {
+      localStorage.setItem('qs-last-repository', 'agent-studio');
+      const loading = api.loadRepositories(null);
+      http.expectOne('/api/repos').flush(registrationsResponse);
+      await loading;
+
+      expect(api.selectedRepositoryId()).toBe('agent-studio');
+    });
+
+    it('lets an explicit preferred repository win over the remembered one', async () => {
+      localStorage.setItem('qs-last-repository', 'agent-studio');
+      const loading = api.loadRepositories('default');
+      http.expectOne('/api/repos').flush(registrationsResponse);
+      await loading;
+
+      expect(api.selectedRepositoryId()).toBe('default');
+    });
+
+    it('falls back to the registry default when the remembered repository no longer exists', async () => {
+      localStorage.setItem('qs-last-repository', 'archived-away');
+      const loading = api.loadRepositories(null);
+      http.expectOne('/api/repos').flush(registrationsResponse);
+      await loading;
+
+      expect(api.selectedRepositoryId()).toBe('default');
+    });
+
+    it('does not drag a later reload back to the remembered repository', async () => {
+      const initialLoad = api.loadRepositories(null);
+      http.expectOne('/api/repos').flush(registrationsResponse);
+      await initialLoad;
+
+      localStorage.setItem('qs-last-repository', 'agent-studio');
+      const reload = api.loadRepositories(null);
+      http.expectOne('/api/repos').flush(registrationsResponse);
+      await reload;
+
+      expect(api.selectedRepositoryId()).toBe('default');
+    });
+
+    it('remembers a manually selected repository for the next load', async () => {
+      const initialLoad = api.loadRepositories(null);
+      http.expectOne('/api/repos').flush(registrationsResponse);
+      await initialLoad;
+
+      const switching = api.selectRepository('agent-studio');
+      expect(localStorage.getItem('qs-last-repository')).toBe('agent-studio');
+
+      http.expectOne('/api/repos/agent-studio/project').flush({
+        generatedAt: '2026-08-27T10:00:00Z', grades: [], findings: { open: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, byReviewState: { fresh: 0, stale: 0 }, path: '.' },
+        staleness: { fresh: 0, stale: 0, missing: 0, total: 0, path: '.' }, reviewCoverage: { reviewedFiles: 0, totalFiles: 0, percent: 0, path: '.' },
+        testCoverage: { status: 'unavailable', linePercent: null, coveredLines: 0, totalLines: 0, source: null, path: '.' },
+        metrics: { fileCount: 0, folderCount: 0, bytes: 0, lines: 0, languages: [], fileSizeDistribution: [], folderSizeDistribution: [], duplicationCandidates: [], dependencyEdges: [] },
+        hotspots: [],
+      } as ProjectDashboard);
+      http.expectOne('/api/repos/agent-studio/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+      await new Promise(resolve => setTimeout(resolve));
+
+      http.expectOne('/api/repos/agent-studio/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
+      http.expectOne('/api/repos/agent-studio/inputs').flush({ kinds: {} });
+      http.expectOne('/api/repos/agent-studio/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
+      http.expectOne('/api/repos/agent-studio/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+      http.expectOne('/api/repos/agent-studio/review/runs').flush({ runs: [] });
+      http.expectOne(request => request.url === '/api/repos/agent-studio/usage').flush({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
+      await new Promise(resolve => setTimeout(resolve));
+
+      http.expectOne('/api/repos/agent-studio/handover').flush({ targetConfigured: false, dryRun: true });
+      await switching;
+
+      expect(localStorage.getItem('qs-last-repository')).toBe('agent-studio');
+    });
   });
 
   it('loads repository usage and global provider quotas', async () => {

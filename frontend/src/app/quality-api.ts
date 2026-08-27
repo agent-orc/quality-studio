@@ -291,6 +291,7 @@ export interface RepositoryTransition {
   hasSnapshot: boolean;
 }
 
+const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
 const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
 
@@ -439,16 +440,24 @@ export class QualityApi {
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
+    // Only the very first load may fall back to the remembered repository; later reloads
+    // (after onboarding, archiving, an import) must not drag the operator away from the
+    // repository they are looking at right now.
+    const firstLoad = this.repositories().length === 0;
     try {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
+      const remembered = firstLoad ? this.readLastRepositoryId() : null;
       const selected = result.repositories.some(repository => repository.id === preferredId)
         ? preferredId!
-        : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
-          ? this.selectedRepositoryId()
-          : result.defaultRepositoryId;
+        : result.repositories.some(repository => repository.id === remembered)
+          ? remembered!
+          : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
+            ? this.selectedRepositoryId()
+            : result.defaultRepositoryId;
       this.selectedRepositoryId.set(selected);
+      this.writeLastRepositoryId(selected);
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
@@ -462,6 +471,7 @@ export class QualityApi {
     const started = performance.now();
     const sequence = ++this.repositorySelectionSequence;
     this.selectedRepositoryId.set(id);
+    this.writeLastRepositoryId(id);
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
@@ -851,5 +861,13 @@ export class QualityApi {
 
   private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {
     return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(repositoryId)}`;
+  }
+
+  private readLastRepositoryId(): string | null {
+    try { return localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY); } catch { return null; }
+  }
+
+  private writeLastRepositoryId(id: string): void {
+    try { localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id); } catch { /* storage unavailable or full */ }
   }
 }
