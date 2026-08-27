@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs-77-addendum">Addendum · QS-77 boot resilience and the AllowedRoots decision</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,30 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs-77-addendum">
+    <h2><span class="no">11</span>Addendum · QS-77 boot resilience and the AllowedRoots decision</h2>
+    <div class="meta">
+      <span><b>Date</b> 2026-08-27</span>
+      <span><b>Trigger</b> 2026-08-11 boot incident, root-caused and resolved in QS-77</span>
+      <span><b>Relates to</b> R-09, F-07</span>
+    </div>
+
+    <div class="box bad">
+      <h4>Incident</h4>
+      <p>The QS-68 hardening pass narrowed <code>QualityStudio:AllowedRoots</code> to a single relative entry, <code>../..</code>. The persisted repository registry (<code>.quality-studio/repositories.json</code>, gitignored, host-local) still contained an entry for the operator's Agent Studio checkout — a sibling directory one level further up, registered because cross-repo reviewing (reviewing Agent Studio from Quality Studio and vice versa) is an established use case. <code>RepositoryRegistry</code>'s constructor validated every persisted entry during <code>LoadOrSeed</code> and threw <code>RepositoryRegistryValidationException("A registered repository is outside the configured allowed roots.")</code> for the out-of-root entry, straight out of the constructor. Because the registry is a required singleton, the whole API failed to boot. The thrown message named neither the offending path nor the configured roots, so the only way to diagnose it was to read source.</p>
+    </div>
+
+    <h3>Decision 1 · AllowedRoots stays relative, extended to cover the sibling-checkout layout</h3>
+    <p><span class="pill done">Decided</span></p>
+    <p><code>src/QualityStudio.Api/appsettings.json</code> now lists two relative entries: <code>../..</code> (the Quality Studio checkout itself) and <code>../../..</code> (the parent directory that holds sibling checkouts, including Agent Studio, on a development machine laid out that way). This is deliberately <b>not</b> a repeat of the QS-53 regression that F-07 documents: QS-53 added an absolute, maintainer-specific path (<code>../../../agent-taskboard-devspace</code>) that named one person's directory layout and one specific repository. <code>../../..</code> names no repository and no username; it only widens the confinement boundary by one directory level to match a layout convention (sibling checkouts under a common parent) that this project's cross-repo reviewing use case already depends on. R-09's risk — disclosure of host topology and an widened selectable-repository set — is accepted at the same Low/Medium rating for this specific, non-maintainer-specific relative entry; it would re-trigger if anyone adds an absolute or otherwise machine-identifying path, which the S3 tracked-config policy (still open) is the durable fix for.</p>
+    <p>The alternative considered was deriving allowed roots from the platform project registry instead of local configuration, removing the local <code>AllowedRoots</code> setting entirely. That is a larger architectural change (a new dependency from Quality Studio's boot path onto the platform registry's availability) and is deferred; it is not required to resolve this incident and does not, by itself, fix the underlying problem this addendum's second decision addresses — that a persisted entry can always drift out of whatever roots are configured, however they are sourced.</p>
+
+    <h3>Decision 2 · One poisoned registry entry quarantines, and no longer takes the API down</h3>
+    <p><span class="pill done">Decided and implemented</span></p>
+    <p>Widening <code>AllowedRoots</code> fixes today's specific entry, but the underlying availability defect — any single persisted entry that fails re-validation (a removed root, a future <code>AllowedRoots</code> narrowing, a manually edited registry file) crashes the constructor and takes down every repository, not just the bad one — was still open. <code>RepositoryRegistry</code> no longer throws out of <code>LoadOrSeed</code> for a persisted entry that fails validation. It quarantines that entry (<code>Blocked = true</code>, with a <code>BlockedReason</code> string), logs a <code>RepositoryQuarantined</code> warning that names the offending path and the full configured <code>AllowedRoots</code> list, and boots normally with every other entry available. <code>RepositoryRegistry.Get</code> excludes blocked entries from ordinary use (repository access, tree/file reads, reviews, multi-repo reports) so a quarantined entry cannot silently serve stale or unauthorized content, while <code>GET /api/repos</code> still lists it — with its <code>blocked</code>/<code>blockedReason</code> fields — so the operator sees and can correct it from the repository dialog instead of finding a dead API. Every <code>EnsureAllowedDirectory</code> violation, at boot or on a live mutation request, now composes its message from one shared helper that always includes the offending path and the full allowed-roots list, closing the diagnosability gap the 2026-08-11 incident exposed.</p>
+    <div class="stx stx-ok"><b>Exit evidence:</b> <code>tests/QualityStudio.Api.Tests/RepositoryRegistryTests.cs</code> — a persisted out-of-root entry boots successfully and is quarantined and visible; an in-root sibling entry is unaffected; the quarantine warning and the live validation exception both contain the offending path and the allowed-roots list; a blocked entry is excluded from <code>Get</code> by default but remains reachable with <code>includeBlocked: true</code> for administrative repair.</div>
   </section>
 </main>
 </body>

@@ -147,7 +147,16 @@
         <nav class="repository-list" aria-label="Configured repositories">
           @for (repository of api.repositories(); track repository.id) {
             <button type="button" [class.active]="repository.id === editingRepositoryId()" (click)="editRepository(repository)">
-              <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+              <strong>
+                {{ repository.displayName }}
+                @if (repository.blocked) {
+                  <span class="status blocked" [attr.title]="'Blocked: ' + repository.blockedReason"></span>
+                }
+              </strong>
+              <small>{{ repository.id }}</small>
+              @if (repository.blocked) {
+                <small class="blocked-reason">{{ repository.blockedReason }}</small>
+              }
             </button>
           }
           <button class="add-repository" type="button" (click)="onboardRepository()">+ Add repository</button>
