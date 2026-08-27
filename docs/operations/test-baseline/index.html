@@ -592,6 +592,10 @@
         <td>2026-08-24</td><td><code>QS-89</code></td><td><b>Integration refresh</b></td>
         <td>Replayed the keep-green wave onto the current integration tip. Integration had meanwhile landed the release-canary workflow independently and had deliberately retired its cron schedule and kept a workspace-relative results path; that integration version was kept verbatim, so the canary is manual-only and the earlier ledger wording was corrected. Integration had also replaced the required workflow's pull-request trigger with tag and manual dispatch triggers, which was likewise kept; the coarse <code>Category!=MachineBound</code> filter it introduced was superseded by the named lane scripts, which preserve that exclusion and additionally separate portable from controlled tool-bound runs. Re-verified locally on .NET 10.0.301, Node 22.23.1, npm 10.9.8, Playwright Chromium 149: 205 required .NET tests across the two lanes, 41 Angular specs, 5 dev-stack and 10 repository-contract checks, all passing with zero skips; the coverage ratchet held on all eleven scopes and the pinned Gitleaks scan reported no findings.</td>
       </tr>
+      <tr>
+        <td>2026-08-27</td><td><code>QS-89</code></td><td><b>Delivery</b></td>
+        <td>The runner branch's tip (<code>f7557fb</code>) was already an ancestor of the 2026-08-24 integration-refresh commit, so delivery was a plain fast-forward with no further conflict resolution. Re-verified the full required-gate sequence locally on the same pinned toolchain (.NET 10.0.301, Node 22.23.1, npm 10.9.8, Playwright Chromium 149): catalog check, 10 repository-contract checks, 138 portable and 67 controlled tool-bound .NET tests (205 total), 41 Angular specs, the coverage ratchet across all eleven scopes, a zero-finding pinned Gitleaks scan, 5 dev-stack host-integration checks, and a clean production Angular build. No skips, no feature changes.</td>
+      </tr>
     </tbody>
   </table>
 </main>

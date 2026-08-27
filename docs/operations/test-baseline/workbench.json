@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-24T09:30:00Z",
+  "updatedAt": "2026-08-27T16:30:00Z",
   "sourceTaskKeys": [
     "QS-66"
   ],
@@ -57,8 +57,8 @@
   "implementation": {
     "state": "documented",
     "latestTaskKey": "QS-89",
-    "updatedAt": "2026-08-24T09:30:00Z",
-    "summary": "Wave 2 enforces named test lanes, shared process fixtures, zero-selection failure, an honest external-live boundary, and a scoped fast pre-review target. Replayed onto the current integration tip on 2026-08-24, keeping integration's manual-only release canary and required-gate triggers."
+    "updatedAt": "2026-08-27T16:30:00Z",
+    "summary": "Wave 2 enforces named test lanes, shared process fixtures, zero-selection failure, an honest external-live boundary, and a scoped fast pre-review target. Replayed onto the current integration tip on 2026-08-24, keeping integration's manual-only release canary and required-gate triggers. Delivered as a plain fast-forward on 2026-08-27 with the full required-gate sequence re-verified locally end to end."
   },
   "editedBy": "Operator, recorded by AGT-2621"
 }
