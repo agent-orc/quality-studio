@@ -2,7 +2,23 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+
+const treeNode = (name: string): TreeNode => ({ id: name, name, level: 'repository', path: '.', kinds: {}, children: [] });
+
+const dashboard = (fileCount: number): ProjectDashboard => ({
+  generatedAt: '2026-08-27T10:00:00Z',
+  grades: [],
+  findings: { open: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, byReviewState: { fresh: 0, stale: 0 }, path: '.' },
+  staleness: { fresh: 0, stale: 0, missing: 0, total: 0, path: '.' },
+  reviewCoverage: { reviewedFiles: 0, totalFiles: 0, percent: 0, path: '.' },
+  testCoverage: { status: 'reported', linePercent: 0, coveredLines: 0, totalLines: 0, source: 'coverage.xml', path: '.' },
+  metrics: {
+    fileCount, folderCount: 0, bytes: 0, lines: 0, languages: [],
+    fileSizeDistribution: [], folderSizeDistribution: [], duplicationCandidates: [], dependencyEdges: [],
+  },
+  hotspots: [],
+} as ProjectDashboard);
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -78,6 +94,101 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('revalidates an unchanged tree with If-None-Match and reuses the retained snapshot', async () => {
+    const nodes = [treeNode('Quality Studio')];
+
+    const cold = api.loadTree('default', false);
+    const first = http.expectOne('/api/repos/default/tree?path=');
+    expect(first.request.headers.has('If-None-Match')).toBeFalse();
+    first.flush({ nodes }, { headers: { ETag: '"tree-1"' } });
+    await cold;
+
+    const warm = api.loadTree('default', false);
+    const second = http.expectOne('/api/repos/default/tree?path=');
+    expect(second.request.headers.get('If-None-Match')).toBe('"tree-1"');
+    second.flush(null, { status: 304, statusText: 'Not Modified' });
+    await warm;
+
+    expect(api.tree()).toEqual(nodes);
+    expect(api.connectionState()).toBe('live');
+  });
+
+  it('replaces the retained tree when the repository changed under the validator', async () => {
+    const cold = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [treeNode('before')] }, { headers: { ETag: '"tree-1"' } });
+    await cold;
+
+    const changed = api.loadTree('default', false);
+    const second = http.expectOne('/api/repos/default/tree?path=');
+    expect(second.request.headers.get('If-None-Match')).toBe('"tree-1"');
+    second.flush({ nodes: [treeNode('after')] }, { headers: { ETag: '"tree-2"' } });
+    await changed;
+
+    expect(api.tree().map(node => node.name)).toEqual(['after']);
+
+    // The newly issued validator, not the superseded one, is replayed next.
+    const warm = api.loadTree('default', false);
+    const third = http.expectOne('/api/repos/default/tree?path=');
+    expect(third.request.headers.get('If-None-Match')).toBe('"tree-2"');
+    third.flush(null, { status: 304, statusText: 'Not Modified' });
+    await warm;
+
+    expect(api.tree().map(node => node.name)).toEqual(['after']);
+  });
+
+  it('never replays one repository validator against another', async () => {
+    const cold = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [treeNode('default')] }, { headers: { ETag: '"tree-1"' } });
+    await cold;
+
+    const other = api.loadTree('realistic', false);
+    const request = http.expectOne('/api/repos/realistic/tree?path=');
+    expect(request.request.headers.has('If-None-Match')).toBeFalse();
+    request.flush({ nodes: [] satisfies TreeNode[] });
+    await other;
+  });
+
+  it('revalidates the project dashboard and keeps the retained snapshot on 304', async () => {
+    const snapshot = dashboard(5116);
+
+    const cold = api.loadProjectDashboard('default');
+    const first = http.expectOne('/api/repos/default/project');
+    expect(first.request.headers.has('If-None-Match')).toBeFalse();
+    first.flush(snapshot, { headers: { ETag: '"project-1"' } });
+    await cold;
+
+    const warm = api.loadProjectDashboard('default');
+    const second = http.expectOne('/api/repos/default/project');
+    expect(second.request.headers.get('If-None-Match')).toBe('"project-1"');
+    second.flush(null, { status: 304, statusText: 'Not Modified' });
+    await warm;
+
+    expect(api.project()?.metrics.fileCount).toBe(5116);
+    expect(api.projectError()).toBe('');
+    expect(api.projectLoading()).toBeFalse();
+  });
+
+  it('reports a real dashboard failure instead of silently reusing the snapshot', async () => {
+    const cold = api.loadProjectDashboard('default');
+    http.expectOne('/api/repos/default/project').flush(dashboard(12), { headers: { ETag: '"project-1"' } });
+    await cold;
+
+    const failing = api.loadProjectDashboard('default');
+    http.expectOne('/api/repos/default/project').flush('boom', { status: 500, statusText: 'Server Error' });
+    await failing;
+
+    expect(api.projectError()).not.toBe('');
+
+    // The validator is dropped after a failure, so recovery re-fetches a full body.
+    const recovery = api.loadProjectDashboard('default');
+    const retry = http.expectOne('/api/repos/default/project');
+    expect(retry.request.headers.has('If-None-Match')).toBeFalse();
+    retry.flush(dashboard(12), { headers: { ETag: '"project-2"' } });
+    await recovery;
+
+    expect(api.projectError()).toBe('');
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
