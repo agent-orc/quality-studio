@@ -17,6 +17,8 @@ Prefer cancellation-aware asynchronous APIs on request paths.
 
 `kinds` and `levels` accept comma-separated bracket lists; `all` applies everywhere. Singular `kind` and `level` are also accepted. Higher priority inputs are injected first. Applicable global inputs precede project inputs, while a project input with the same `id` replaces its global counterpart.
 
+A third, lower-precedence tier — **built-in** — precedes global when an `InputResolver` is constructed with a [`RuleLibrary`](rules.md) (every live call site does this by default). Built-in inputs are the named rule library's default-on rules; a global or project input with the same `id` replaces the built-in one, the same way project replaces global. See [`rules.md`](rules.md) for the rule format, the default-on core, and the `.quality/rules.json` override contract.
+
 `enabled` defaults to `true`. The Guidelines workspace in Quality Studio creates,
 edits, enables/disables, and deletes these files directly. Changes are ordinary
 repository working-tree changes: Quality Studio does not hide them in application
