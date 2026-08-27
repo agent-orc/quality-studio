@@ -1,0 +1,25 @@
+# QS-59 status
+
+Status: decision pending
+Phase: decision-ready
+Primary deliverable: `/home/agent/runner-work/PROJ-016/worktrees/QS-59/docs/operations/performance/index.html`
+
+Base reconciliation: the configured origin has no `develop` ref; `origin/HEAD` advertises `origin/main`. A fresh fetch on 2026-08-27 showed the task branch already equal to `origin/main` at `f7557fb`. The eight source files this dossier's claims depend on (`RepositorySnapshotPrewarmer.cs`, `RepositoryHierarchyCache.cs`, `ProjectDashboard.cs`, `ApiContracts.cs`, `quality-api.ts`, `Program.cs`, `app.ts`, `project-switch-perf.mjs`) are byte-for-byte unchanged between the original measurement base `59941d8` (2026-08-11) and current `f7557fb` (2026-08-24) — confirmed with `git diff --stat` per path. The measured numbers below therefore still describe the current code; only unrelated documentation, CI, and other QS dossiers advanced in between. The dossier text and this file were updated in place to cite the current base rather than re-running the live/benchmark harnesses, per the orchestrator's final-round instruction to redeliver without feature rework.
+
+QS-54 is verified as delivered on product base `59941d8`: `git cherry` marked its result commit `26fd785` as patch-equivalent, and 10 of its 18 files were byte-identical (ledger: `qs54-delivery-state.json`, regenerated this run against `f7557fb`). Direct inspection and the unchanged-file check above confirm the hierarchy cache, prewarmer, dashboard cache, stale-while-revalidate UI, phase telemetry, tests, and browser harness are all still present at the current base.
+
+Measured conclusions (from the 2026-08-12 measurement pass on product base `59941d8`; unaffected by the intervening rebases):
+
+- Real 3,927-file startup is live at 627.65 ms median but not usable until 9.584 s median because the first request waits behind cold prewarming.
+- The warm root tree is 29,119,333 bytes and project-plus-tree takes 267.02 ms median / 683.61 ms p95, missing the 500 ms p95 contract.
+- One live review took 14.939 s; the model call was 14.586 s (97.64%). Strict parsing was 0.1059 ms median.
+- Review terminal state took 1,692.74 ms median to become visible because of polling; terminal-response-to-visible was 277.13 ms in the current refresh path.
+- Anonymous RSS retained 13,512 KiB (+22.86%) after 100 Git-state invalidations, consistent with the unbounded dashboard cache.
+
+Recommendation: approve lazy tree transport, persisted verified startup snapshots, push review-run events with phase telemetry, and bounded projection retention. No model/thinking override is proposed because the repository still has no prompt-named routing-policy document at `f7557fb`.
+
+Verification this run:
+
+- `scripts/collect-performance-dossier.mjs` re-run against `f7557fb`: regenerated `qs54-delivery-state.json` (same 10 identical / 8 evolved / 0 missing counts as the original pass), `style-verification.json` (dossier style block SHA-256 `4e1f500e…` matches Agent Taskboard's `docs/operations/haertung-verteilte-ausfuehrung/index.html` exactly), and a fresh render screenshot. See `results/collect-run.json` for the raw script output.
+- `dotnet build QualityStudio.slnx -c Release` on `f7557fb` with this delivery's changes applied: build succeeded, 0 warnings, 0 errors (~8.6 s).
+- The original full measurement pass (backend startup/switch/memory probes, live review, Angular unit/API/core test suites, production bundle build) was not re-run — the source files it measured are unchanged since `59941d8` (see base reconciliation above), and the orchestrator's final-round steer scoped this delivery to rebase-and-redeliver only. Their prior results (156 core / 48 API / 39 Angular tests passing, bundle at 478.30 kB against 480 kB) are reported as-measured on 2026-08-12 and are not re-verified against `f7557fb` in this run.
