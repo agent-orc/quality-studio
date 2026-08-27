@@ -61,3 +61,47 @@ The browser contract is `< 100 ms` to a visible transition and `< 500 ms` to a
 usable dashboard and tree. The 500 ms bound gives measured headroom above the
 295.8 ms real large-repository run while remaining far below the previous
 multi-second path. See `frontend/PERF.md` for the reproducible browser harness.
+
+## QS-78 persisted cross-restart snapshot (dossier slice P2)
+
+QS-54's prewarmer removed cold scan/projection work from an operator's request
+*within a running process*, but every fresh `dotnet` process still paid the
+full scan, projection, and sensor-availability probe again — the QS-59
+performance dossier's decision-in-one-page table records this as "initial
+usable state ... fails" at 9.584 s median for the real 3,927-file repository.
+This slice adds a small on-disk store (`RepositorySnapshotStore`, under
+`.quality-studio/cache/repositories/<repoId>.json` in the API's own content
+root, never inside a registered repository) that persists the verified
+hierarchy snapshot, dashboard projection, and sensor-availability results, and
+restores them on the next process start when the repository's Git state and
+the registry entry are byte-identical (`RepositoryCacheState` hashes HEAD,
+index, dirty/untracked content, global inputs, and the full registration —
+id, root, sensors, budgets — into one fingerprint; any change forces a cold
+rebuild, so this never weakens the existing correctness invalidation).
+`RepositorySensorAvailabilityCache` applies the same repo-state + registry-entry
+key to the sensor availability probes that `GET /api/repos/{id}/sensors`
+performs on every switch, which is the "sensor init" half of this slice.
+
+Measured 2026-08-27 on Linux 6.8, .NET 10.0.301 (Release), Node 22.23.1,
+against the real Agent Studio repository (`/home/agent/runner-work/PROJ-002/repo`,
+3,927 tracked files, HEAD `9af1a848`). Reproduce with
+`node scripts/measure-project-switch-cache.mjs`; raw output is
+`results/agent-studio-switch-cache.json`.
+
+| Scenario | Process → health | Process → project+tree | Background prewarm scan+projection+sensor-init |
+| --- | ---: | ---: | ---: |
+| Cold process, no persisted snapshot (today's every-restart cost) | 515.90 ms | 5,609.95 ms | 6,818.03 ms (scan 4,396.69 + projection 857.81 + sensor-init 1,298.52) |
+| Same repository, next process restart, with a valid persisted snapshot from the run above | 812.29 ms | 1,689.40 ms | 122.95 ms (scan 0 + projection 0.01 + sensor-init 0; only the git-status/registry-fingerprint recheck remains: 26.99 + 93.53 ms) |
+
+A process restart against a previously-visited, unchanged repository goes from
+5,609.95 ms to 1,689.40 ms to become usable (3.3x), and the background work the
+prewarmer would otherwise redo drops from 6,818.03 ms to 122.95 ms (55.5x),
+because scan and sensor-init are now exactly 0 ms on the restored path. The
+in-memory warm-switch path (already-running process, repeat request) is
+unaffected and remains 234.82–742.46 ms median 468.56 ms in this run, gated by
+the known separate 29 MB recursive tree payload (dossier slice P1, not part of
+this delivery). `RepositorySnapshotCacheTests` covers restore, and invalidation
+on a changed registry entry, a dirty working tree, and a new HEAD; a corrupt
+persisted file falls back to a cold rebuild rather than serving stale or
+crashing. `ApiSmokeTests.Project_reuses_the_scan_and_projection_caches_on_a_warm_repeat_switch`
+guards the existing in-memory warm path at the HTTP level.

@@ -133,6 +133,17 @@ public sealed class ProjectDashboardService
             Stopwatch.GetElapsedTime(started).TotalMilliseconds);
     }
 
+    /// <summary>Seeds a previously verified dashboard projection for this repository and Git state.</summary>
+    public void Seed(string repositoryPath, RepositoryHierarchySnapshot snapshot, ProjectDashboardResponse dashboard)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(dashboard);
+        var root = Path.GetFullPath(repositoryPath);
+        var key = root + "\0" + snapshot.GitState;
+        cache[key] = dashboard;
+    }
+
     public string ArchitectureReviewContext(
         string repositoryPath,
         RepositoryHierarchySnapshot snapshot)
