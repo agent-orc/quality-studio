@@ -8,7 +8,7 @@ public sealed class ReviewModelCatalogTests
     public void Snapshot_exposes_token_economy_provenance_and_capability_annotations()
     {
         Assert.Equal("agent-orc/token-economy", catalog.Snapshot.SourceRepository);
-        Assert.Equal("28568bc197c109c60b9699901e655d783c09b82f", catalog.Snapshot.SourceCommit);
+        Assert.Equal("7c0ce918a4039710f5a9628372ef071d1d101290", catalog.Snapshot.SourceCommit);
         Assert.Equal("2026-07-24", catalog.Snapshot.PolicyVersion);
 
         var sol = Assert.Single(catalog.Snapshot.Models, model => model.ModelId == "gpt-5.6-sol");
@@ -17,14 +17,15 @@ public sealed class ReviewModelCatalogTests
         Assert.Equal("selectable", sol.RoutingStatus);
         Assert.Contains("correctness-critical", sol.Suitability, StringComparison.Ordinal);
         Assert.Contains("xhigh", sol.SupportedThinkingLevels);
-        Assert.False(sol.PriceAvailable);
+        Assert.True(sol.PriceAvailable);
         Assert.True(sol.AvailableForNewRuns);
     }
 
     [Theory]
     [InlineData("claude-opus-4-1", "deprecated")]
-    [InlineData("claude-mythos-5", "restricted")]
+    [InlineData("gpt-5.5-cyber-preview", "restricted")]
     [InlineData("gpt-5.5", "unsupported")]
+    [InlineData("claude-opus-5", "unsupported")]
     public void Non_routable_catalog_models_are_visible_as_evidence_but_rejected_for_new_runs(
         string modelId, string routingStatus)
     {
@@ -114,5 +115,51 @@ public sealed class ReviewModelCatalogTests
         var small = catalog.Recommend("code", ReviewLevel.File, 1);
         Assert.True(catalog.IsBelowCorrectnessFloor(
             catalog.Resolve("codex", "gpt-5.6-luna", "low"), small));
+    }
+
+    [Fact]
+    public void Provider_fallback_qualifies_only_at_the_routes_it_is_declared_for()
+    {
+        var security = catalog.Recommend("security", ReviewLevel.File, 1);
+        var broad = catalog.Recommend("code", ReviewLevel.Project, 20);
+        var sonnet = catalog.Resolve("claude", "claude-sonnet-5", "max");
+
+        // claude-sonnet-5-high is declared for terra-medium and sol-medium only, so the strongest
+        // thinking level the model supports still does not reach the sol-xhigh security floor.
+        Assert.Equal("sol-medium", broad.CorrectnessFloor);
+        Assert.False(catalog.IsBelowCorrectnessFloor(sonnet, broad));
+        Assert.Equal("sol-xhigh", security.CorrectnessFloor);
+        Assert.True(catalog.IsBelowCorrectnessFloor(sonnet, security));
+    }
+
+    [Fact]
+    public void Unrecognized_correctness_floor_reports_below_floor_rather_than_skipping_the_gate()
+    {
+        var recommendation = catalog.Recommend("security", ReviewLevel.File, 1) with
+        {
+            CorrectnessFloor = "sol-xhigh-renamed-upstream",
+        };
+
+        Assert.True(catalog.IsBelowCorrectnessFloor(
+            catalog.Resolve("codex", "gpt-5.6-sol", "xhigh"), recommendation));
+    }
+
+    // Pins the upstream routing gap that keeps the operator's Claude-first policy unrunnable:
+    // Token Economy still ships claude-opus-5 as unsupported with no workflow role, so the policy
+    // qualifies it for no core-task route and it can neither start a run nor clear any floor above
+    // the lightest. Promoting it upstream fails this test, which is the signal to re-sync and
+    // record a run on the promoted route.
+    [Fact]
+    public void Claude_opus_5_is_priced_but_not_yet_qualified_by_the_routing_policy()
+    {
+        var opus = catalog.Find("claude-opus-5")!;
+
+        Assert.Equal("unsupported", opus.RoutingStatus);
+        Assert.False(opus.AvailableForNewRuns);
+        Assert.True(opus.PriceAvailable);
+
+        var broad = catalog.Recommend("code", ReviewLevel.Project, 20);
+        Assert.True(catalog.IsBelowCorrectnessFloor(
+            new ReviewModelSelection("claude", "claude-opus-5", "max", true), broad));
     }
 }
