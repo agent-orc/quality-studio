@@ -195,13 +195,15 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
                 .ToArray();
             var partial = result.Coverage is { Complete: false };
-            var verdict = !result.Available || partial
+            var verdict = !result.Available
                 ? SecurityEvidenceVerdict.Unavailable
                 : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
                     ? SecurityEvidenceVerdict.Block
                     : findings.Length > 0
                         ? SecurityEvidenceVerdict.Warn
-                        : SecurityEvidenceVerdict.Pass;
+                        : partial
+                            ? SecurityEvidenceVerdict.Unavailable
+                            : SecurityEvidenceVerdict.Pass;
             var draft = new SecuritySensorEvidence(
                 result.Provenance.SensorId,
                 result.Provenance.SensorVersion,
