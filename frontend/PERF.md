@@ -30,6 +30,46 @@ The backend prewarm phase measured 169.58 ms total for 1,603 tracked fixture
 files (18.20 ms Git state, 45.46 ms hierarchy scan, 3.80 ms review-meta
 discovery, and 102.07 ms projection).
 
+QS-78 took the conditional path on the switch pair on 2026-08-27 (dossier slice
+P-1). `/api/tree` and `/api/project` already computed a Git-state `ETag` and
+answered `304` to `If-None-Match`, but the word `If-None-Match` did not occur
+anywhere in `frontend/src`, so every re-switch re-downloaded a tree the client
+was still holding. `loadTree` and `loadProjectDashboard` now retain the
+validator next to the snapshot they already kept per repository and replay it;
+on `304` the retained snapshot is reused and the transition completes.
+
+Measured against a throwaway clone of the real agent-taskboard repository
+(commit `ffe887a0`, 5,116 tracked files) with a Release API in Local mode,
+median of 7 samples, via `scripts/perf/switch-conditional-perf.mjs`:
+
+| Repository switch, agent-taskboard | Critical path | Transferred | Status |
+| --- | ---: | ---: | --- |
+| Cold — first switch, nothing retained | 2,397.75 ms | 33.89 MiB | 200 |
+| Warm re-switch, before P-1 (unconditional) | 960.51 ms | 33.89 MiB | 200 |
+| Warm re-switch, after P-1 (conditional) | **84.20 ms** | **0 B** | 304 |
+
+The warm re-switch is 11.4× faster and transfers 35,534,898 fewer bytes. It now
+fits the `< 500 ms` click-to-usable contract with margin on the 5,116-file
+target, where the dossier recorded 7 of 7 samples over budget. The cold switch
+is unchanged by this slice — it has no validator to send, and the tree is still
+33.89 MiB; that is what slices P-2 and P-3 address.
+
+The client path is verified, not only the probe: `npm run perf`'s second stage
+asserts `revalidatedTreeLoads >= 1`, and the `qs.data.tree-loaded` event now
+carries `repositoryId` and a `source` of `api` or `not-modified`. Its three
+switches measured 15.1/16.2/22.4 ms to a visible transition and 126.2/30.9/44.9
+ms to usable, with both return switches served from `not-modified`.
+
+A validator is only sent when the matching body is still retained, so a `304`
+always has a snapshot to answer with; the tree tag is keyed by repository *and*
+requested path because the ETag covers the path, and a validator is dropped
+whenever a request fails so recovery re-fetches a full body.
+
+This slice costs 0.88 kB of the production initial bundle (478.30 kB → 479.18
+kB against the 480 kB error budget). The remaining 0.82 kB of headroom is not
+enough for the next change to the initial chunk; raising or splitting that
+budget is dossier slice P-6 and is now the binding constraint.
+
 The new contracts are `< 100 ms` from repository click to a visibly painted
 transition and `< 500 ms` from click to a usable fresh dashboard and tree. The
 usable budget is based on the 131.3 ms deterministic real-backend run and the
@@ -46,7 +86,19 @@ review-metadata, and projection phases.
 2. Run `npm run perf` in `frontend/`.
 3. The first Playwright stage intercepts the file API with a deterministic payload and review metadata, plus a bounded dashboard projection reporting 5,000 repository files. It protects the existing tree, file, aspect, and dashboard contracts.
 4. The second stage launches its own real API and Angular proxy, creates and commits the realistic fixture repositories, waits for the registered-repository background prewarm, and performs three repository switches without API response interception. It writes `project-switch-perf.json` and light/dark transition screenshots to `JOB_RESULTS_DIR` (or `frontend/evidence` when the variable is absent).
-5. The command exits non-zero if any existing budget, the 100 ms transition budget, the 500 ms usable-content budget, snapshot feedback, or file-refetch assertion fails.
+5. The command exits non-zero if any existing budget, the 100 ms transition budget, the 500 ms usable-content budget, snapshot feedback, the file-refetch assertion, or the QS-78 revalidated-tree-load assertion fails.
+
+For the backend half of the switch pair against a real repository, build the
+API in Release and run from the repository root:
+
+```
+npm run perf:switch -- --target <path-to-git-repository> [--out <dir>] [--samples 7]
+```
+
+It clones the target, waits for the background prewarm, then issues the client's
+`Promise.all([/api/project, /api/tree?path=])` cold, unconditionally, and with
+`If-None-Match`, writing `switch-conditional-perf.json` to `JOB_RESULTS_DIR`
+(or `results/`). It exits non-zero if the conditional samples are not `304`.
 
 The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-content`, `qs.review.aspect-switch`, `qs.repository.transition-visible`, and `qs.repository.switch.usable`, including `durationMs`, `budgetMs`, and `withinBudget`. API fallback and tree load use `qs.data.demo-fallback`, `qs.data.file-demo-fallback`, and `qs.data.tree-loaded`.
 
