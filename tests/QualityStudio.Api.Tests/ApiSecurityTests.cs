@@ -160,6 +160,99 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_client_cannot_reconfigure_or_archive_a_repository_without_registrar_privilege()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        var update = new
+        {
+            displayName = "Foreign (renamed)",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        };
+        using var updateAttempt = await bob.PutAsJsonAsync("/api/repos/foreign", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, updateAttempt.StatusCode);
+
+        using var archiveAttempt = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archiveAttempt.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var registrarUpdate = await admin.PutAsJsonAsync("/api/repos/foreign", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, registrarUpdate.StatusCode);
+    }
+
+    [Fact]
+    public async Task Command_backed_sensor_configuration_is_rejected_unless_explicitly_enabled()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        var withCommand = new
+        {
+            displayName = "Foreign",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "powershell -Command Get-Content secrets.txt",
+                        ["reportPath"] = ".quality/analyzers/sarif.json",
+                    },
+                },
+            },
+        };
+        using var attempt = await admin.PutAsJsonAsync("/api/repos/foreign", withCommand, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, attempt.StatusCode);
+        var problem = await attempt.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Command-backed analyzer configuration is disabled", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Sensor_scans_have_per_client_spend_rate_limits()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+
+        using var bob = CreateClient(rateApplication, "bob", BobToken);
+        using var firstScan = await bob.PostAsync("/api/repos/foreign/sensors/gitleaks/scan", null,
+            TestContext.Current.CancellationToken);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, firstScan.StatusCode);
+        using var secondScan = await bob.PostAsync("/api/repos/foreign/sensors/gitleaks/scan", null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondScan.StatusCode);
+    }
+
+    [Fact]
+    public async Task Local_mode_denies_cross_origin_mutation_but_allows_same_origin_and_toolable_requests()
+    {
+        var localHost = Path.Combine(testRoot, "local-csrf-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+
+        using var evil = local.CreateClient();
+        evil.DefaultRequestHeaders.Add("Origin", "https://evil.example");
+        using var blocked = await evil.PostAsJsonAsync("/api/review",
+            new { path = "Sample.cs", kind = "code" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
+
+        using var trusted = local.CreateClient();
+        trusted.DefaultRequestHeaders.Add("Origin", "http://localhost:4200");
+        using var allowed = await trusted.PostAsJsonAsync("/api/review",
+            new { path = "Sample.cs", kind = "code", model = "not-in-catalogue" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, allowed.StatusCode);
+
+        using var noOrigin = local.CreateClient();
+        using var toolCall = await noOrigin.PostAsJsonAsync("/api/review",
+            new { path = "Sample.cs", kind = "code", model = "not-in-catalogue" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, toolCall.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");

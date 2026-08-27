@@ -141,12 +141,13 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
+      <span><b>Status</b> decided</span>
+      <span><b>Phase</b> implementation in progress</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
     </div>
+    <p class="dim">Operator approval (2026-08-11): Option C and slices S0–S6 approved in full, including slices previously marked operator-decision-gated. See <a href="#implementation">§11 Implementation</a> for delivery status.</p>
   </header>
 
   <section class="box bad" aria-labelledby="decision">
@@ -168,6 +169,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -462,6 +464,31 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Each entry records the delivery date, card key, and what landed against the S0–S6 slice plan in §08. This dossier's own recommendations and risk register are not rewritten by these entries.</p>
+
+    <h3>2026-08-27 · QS-68 · S0 (partial) — close the authorization-to-command chain</h3>
+    <p><span class="pill part">Partially delivered</span></p>
+    <p>Delivered the authorization half of S0, scoped to the pieces that close R-01 without touching sensor execution code that a concurrently-landed sibling change (a host-authored default ESLint sensor) also depends on:</p>
+    <ul>
+      <li>Repository root, global-input, and sensor <b>mutations</b> (<code>PUT</code>/<code>DELETE /api/repos/{repoId}</code>) now require registrar privilege (<code>ApiClientIdentity.CanRegisterRepositories</code>), not merely per-repository access. A repo-scoped client (e.g. one registered only for repository A) can no longer reconfigure A's sensor execution profile or archive it. <code>src/QualityStudio.Api/Program.cs</code>.</li>
+      <li>Explicit, caller-supplied sensor <code>command</code> configuration is rejected by default (<code>QualityStudio:Security:AllowCommandBackedAnalyzers</code>, default <code>false</code>) at repository create/update validation. This is scoped to <code>request.Sensors</code> specifically so the host's own deterministic, non-attacker-influenced sensor defaults are unaffected. <code>src/QualityStudio.Api/RepositoryOptions.cs</code>, <code>src/QualityStudio.Api/RepositoryRegistry.cs</code>.</li>
+      <li>Sensor scan requests (<code>POST /api/sensors/{id}/scan</code>) now carry the same per-client spend rate limit as review and handover requests.</li>
+      <li>Local mode now rejects state-changing requests that carry a cross-origin <code>Origin</code> header not in <code>AllowedOrigins</code>, closing the drive-by CSRF path described in F-06 (a malicious page open in the operator's browser could otherwise submit a blind cross-origin mutation against the loopback API).</li>
+      <li>Tests: <code>tests/QualityStudio.Api.Tests/ApiSecurityTests.cs</code> (registrar-gated mutation, command-backed sensor rejection, sensor-scan rate limiting, cross-origin mutation rejection).</li>
+    </ul>
+    <p><b>Deliberately not included in this delivery</b> (tracked as follow-up slices, not silently dropped):</p>
+    <ul>
+      <li>Runtime (sensor-execution-time) enforcement of the command-backed-analyzer kill switch inside <code>SarifSensor</code>/<code>AnalyzerSensors</code>/<code>TypeScriptAnalyzerSensor</code>. An earlier version of this change added it, but it was reverted after discovering it would also block the sibling static-analysis dossier's newly-shipped, host-authored default ESLint sensor (which legitimately runs a fixed, non-configurable <code>node .../eslint.js</code> command). Registration-time validation remains the enforced, tested boundary for this delivery; closing the gap for already-persisted legacy sensor configurations needs a follow-up that can distinguish host-authored commands from caller-supplied ones at execution time too.</li>
+      <li>Resolving a host-owned analyzer profile ID to an immutable executable/argument template (the full replacement for free-form <code>command</code> strings).</li>
+      <li>Non-loopback startup guard for Local mode.</li>
+      <li>Angular 20.3.26 → 20.3.27+ patch upgrade (production npm audit high/critical fix).</li>
+      <li>S1–S6 remain entirely undelivered.</li>
+    </ul>
+    <p class="dim">Working-tree note: this delivery landed in a checkout that a concurrent sibling card (static-analysis dossier work: <code>DotNetBuildSensor</code>, default ESLint sensor, dependency upgrades) was also writing to. An initial attempt at this slice was lost to a `git stash` collision across the two concurrent processes and was reconstructed from scratch against the sibling's already-landed changes; the reconstruction is what is described above and is what generated the "deliberately not included" ESLint conflict note.</p>
   </section>
 </main>
 </body>
