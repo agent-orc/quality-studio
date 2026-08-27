@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "quality-studio-performance",
+  "title": "Quality Studio performance",
+  "summary": "Verifies QS-54's repository-prewarm delivery is live in the current commit and reuses its measured cold/warm numbers, then names three grounded gaps: review-run latency has no model-call/parsing/persistence phase split (and zero completed operational runs exist to even validate a total against), the hierarchy and dashboard caches have no eviction path and grow with every distinct repository state ever observed, and the single-reader prewarm queue has no aggregate signal once repository counts or sizes exceed the largest measured fixture (3,450 files). Proposes three small, additive, independently shippable slices — phase logging, archive-triggered cache eviction, an aggregate queue-drained event — as the next measurement step, none of which touch the working QS-54 design.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "sourceTaskKeys": ["QS-59"]
+}

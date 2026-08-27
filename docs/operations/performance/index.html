@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio performance</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;
+    --taskbr: #4a3aa7;
+    --salvage: #eb6834;
+    --rescue: #b58500;
+    --ok: #008300;
+    --bad: #c93736;
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --taskbr: #9085e9;
+      --salvage: #e5723f;
+      --rescue: #d0a02a;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 80px;
+    background: var(--surface-1);
+    color: var(--ink-1);
+    font: 16px/1.6 system-ui, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px; margin-bottom: 8px;
+  }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  p.dim { color: var(--ink-2); }
+  .box {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); padding: 18px 22px; margin: 20px 0;
+  }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 26px 0; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 10px; max-width: 86ch; }
+  figcaption b { color: var(--ink-1); }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  .t-bad  { fill: var(--bad);  font: 600 12px system-ui, sans-serif; }
+  .t-ok   { fill: var(--ok);   font: 600 12px system-ui, sans-serif; }
+  .t-warn { fill: var(--warn); font: 600 12px system-ui, sans-serif; }
+  .stx { margin:10px 0 0; padding:7px 12px; border-radius:8px; font-size:13px; border:1px solid; }
+  .stx-ok { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); background:var(--ok-soft); color:var(--ok); }
+  .stx-part { border-color:color-mix(in srgb, var(--warn) 35%, var(--line)); background:var(--warn-soft); color:var(--warn); }
+  .stx-open { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); background:var(--bad-soft); color:var(--bad); }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Quality Studio · performance · run-grounded</p>
+  <h1>Quality Studio performance: cost blocks and next measurements</h1>
+  <p class="lede">Where the real numbers already are (QS-5, QS-54, the frontend budgets), where they are
+  missing (startup, review-run phases, memory growth, large-repo limits beyond 3,450 files), and the three
+  highest-leverage cost blocks the evidence points to — with a slice plan small enough to ship without
+  re-opening QS-54's design.</p>
+  <div class="meta">
+    <span><b>Status</b> decision pending</span>
+    <span><b>Phase</b> decision ready</span>
+    <span><b>Session</b> 2026-08-27, static code + evidence review</span>
+    <span><b>QS commit</b> <code>f7557fb</code></span>
+  </div>
+</header>
+
+<h2><span class="no">00</span>Contents</h2>
+<ul class="toc">
+  <li><a href="#headline">The measurable result</a></li>
+  <li><a href="#startup">Startup cost</a></li>
+  <li><a href="#switch">Project switch — QS-54 verified live</a></li>
+  <li><a href="#review">Review-run latency breakdown</a></li>
+  <li><a href="#memory">Memory growth over long sessions</a></li>
+  <li><a href="#largerepo">Large-repo behavior</a></li>
+  <li><a href="#top3">Top 3 cost blocks</a></li>
+  <li><a href="#options">Options and recommendation</a></li>
+  <li><a href="#slices">Implementation slice plan</a></li>
+  <li><a href="#evidence">Evidence index and limitations</a></li>
+</ul>
+
+<h2 id="headline"><span class="no">01</span>The measurable result</h2>
+<p>Two of the five requested measurements already exist as real, current-code-verified numbers
+(<a href="#switch">project switch</a>, and the file-size dimension of <a href="#largerepo">large-repo
+behavior</a>). Three do not exist anywhere in the repository today — <a href="#startup">process
+startup</a>, a phase split for <a href="#review">review-run latency</a>, and any
+<a href="#memory">memory-growth</a> measurement — and this dossier does not invent numbers for them.
+Instead it reports the structural evidence (code paths, cache classes, instrumentation gaps) that explains
+<em>why</em> they are unmeasured and what the cheapest next measurement would be.</p>
+<div class="box accent">
+  <h4>The honest scope of &ldquo;before-values&rdquo;</h4>
+  <p>Every millisecond figure below is either quoted from <code>PERF.md</code> / <code>frontend/PERF.md</code>
+  (both re-verified against the current commit) or newly derived by reading the instrumentation code that
+  produces those figures. Where no instrumentation exists, the section says so explicitly instead of
+  estimating a number that nobody measured.</p>
+</div>
+
+<h2 id="startup"><span class="no">02</span>Startup cost</h2>
+<p class="stx stx-open"><b>Status:</b> unmeasured. No timing evidence exists for API cold start, DI
+container build, or the Angular bundle's initial load.</p>
+<p>Nothing in <code>PERF.md</code>, <code>frontend/PERF.md</code>, <code>docs/</code>, or <code>scripts/</code>
+times process startup, DI graph construction, or the Angular bootstrap path (verified by grep across all
+four locations). The one relevant fact in the code is a design decision, not a measurement: the
+QS-54 prewarmer is explicitly built to avoid adding to startup latency —
+<code>RepositorySnapshotPrewarmer.ExecuteAsync</code> opens with <code>await Task.Yield()</code> before
+touching any repository, with the comment <i>&ldquo;Keep host startup non-blocking: the API becomes
+reachable while snapshots warm in the background&rdquo;</i> (<code>src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs:51</code>).
+That is good design intent, but it is not evidence that startup is fast &mdash; only that the largest known
+per-repository cost (hierarchy scan) was deliberately kept off the startup critical path.</p>
+<p>Frontend bundle budgets are enforced (350&nbsp;KB warning / 480&nbsp;KB error, per
+<code>frontend/PERF.md:68</code>), which bounds bytes shipped but was never converted into a bootstrap-time
+measurement in the existing Playwright harness.</p>
+
+<h2 id="switch"><span class="no">03</span>Project switch — QS-54 verified live in the current commit</h2>
+<p class="stx stx-ok"><b>Status:</b> delivered and still active. The mandate asked to verify QS-54's delivery
+state before building on it — it is real, wired, and unreverted at <code>f7557fb</code>.</p>
+<ul>
+  <li><code>RepositorySnapshotPrewarmer : BackgroundService</code> exists at
+      <code>src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs:10</code> and emits the
+      <code>qs.repository.prewarm</code> event with a <code>phases</code> object
+      (<code>gitStatusMs</code>, <code>scanMs</code>, <code>reviewMetaDiscoveryMs</code>,
+      <code>projectionMs</code>) at lines 70&ndash;84.</li>
+  <li>DI wiring is present: <code>builder.Services.AddSingleton&lt;RepositorySnapshotPrewarmer&gt;()</code>
+      and <code>AddHostedService(...)</code> at <code>src/QualityStudio.Api/Program.cs:29&ndash;30</code>.
+      New/updated registrations are queued into the same prewarmer at three call sites in
+      <code>Program.cs</code> (create/update/other lifecycle events).</li>
+  <li>The operator-facing switch path emits the matching <code>qs.repository.switch.backend</code> event
+      plus a <code>Server-Timing</code> header with the same four phases, from the project-dashboard
+      handler in <code>Program.cs:470&ndash;489</code>.</li>
+</ul>
+<table>
+  <tr><th>Repository</th><th>Files</th><th>State</th><th>Total</th><th>Dominant phase</th></tr>
+  <tr><td>quality-studio (<code>0d03986</code>)</td><td>135</td><td>cold, before prewarm</td><td>874.90&nbsp;ms</td><td>scan 743.20&nbsp;ms (85%)</td></tr>
+  <tr><td>quality-studio (<code>0d03986</code>)</td><td>135</td><td>warm</td><td>5.52&nbsp;ms</td><td>&mdash;</td></tr>
+  <tr><td>agent-taskboard (<code>32bf8983</code>)</td><td>3,450</td><td>cold, before prewarm</td><td>9,781.93&nbsp;ms</td><td>scan 8,272.84&nbsp;ms (84.6%)</td></tr>
+  <tr><td>agent-taskboard (<code>32bf8983</code>)</td><td>3,450</td><td>warm</td><td>17.60&nbsp;ms</td><td>&mdash;</td></tr>
+  <tr><td>quality-studio</td><td>135</td><td>operator request after prewarm</td><td>5.30&nbsp;ms</td><td>&mdash;</td></tr>
+  <tr><td>agent-taskboard</td><td>3,450</td><td>operator request after prewarm</td><td>18.00&nbsp;ms</td><td>&mdash;</td></tr>
+</table>
+<p class="dim">Reproduced from <code>PERF.md</code> (QS-54, measured 2026-08-08). The browser-visible contract
+is &lt;100&nbsp;ms to a visible transition and &lt;500&nbsp;ms to a usable dashboard; the real-backend
+measurement was 131.3&nbsp;ms first switch / 73.3&nbsp;ms return switch (<code>frontend/PERF.md:21&ndash;31</code>).</p>
+<div class="box warn">
+  <h4>What QS-54 did not close</h4>
+  <p>Prewarm moves the cold cost off the <em>operator's</em> click, it does not remove the cold cost. The
+  prewarm queue is a single-reader <code>Channel</code>
+  (<code>RepositorySnapshotPrewarmer.cs:12&ndash;13</code>): registrations are warmed one at a time, so total
+  time-to-fully-warm for N large repositories still scales linearly, and it is currently invisible &mdash;
+  only a per-repository <code>qs.repository.prewarm</code> event exists, not an aggregate &ldquo;queue
+  drained after Xms for N repos&rdquo; signal. A repository that changes Git state after its initial warm
+  (a new commit, a branch switch) re-pays the same cold cost on the next request that observes the new
+  state, because the cache keys on <code>GitState</code> (<code>RepositoryHierarchyCache.cs:44&ndash;52</code>)
+  — this is correct invalidation, but it means &ldquo;warm&rdquo; is a moving target on active repositories,
+  not a one-time cost.</p>
+</div>
+
+<h2 id="review"><span class="no">04</span>Review-run latency breakdown</h2>
+<p class="stx stx-open"><b>Status:</b> the model-call / parsing / rendering split the mandate asked for does
+not exist in the code. Only two coarser numbers are instrumented, and neither is currently populated with
+real data on this host.</p>
+<p>A review run (<code>ReviewJobs.RunAsync</code>) wraps a single <code>Stopwatch</code> around the entire
+run &mdash; deterministic-sensor collection, every per-file model call, and the aggregate rollup &mdash; and
+logs one total on completion: <code>&ldquo;Completed review {ReviewRunId} ... in {ElapsedMilliseconds}
+ms&rdquo;</code> (<code>src/QualityStudio.Api/ReviewJobs.cs:448</code> starts the timer,
+<code>:501&ndash;503</code> logs it). A second, coarser number — <code>usage.DurationMs</code> — is
+self-reported by the CLI subprocess per operation and persisted to the monthly usage ledger
+(<code>ReviewJobs.cs:864</code>; ledger format in <code>docs/usage-telemetry.md</code>). Neither splits
+model-call time from our own response-parsing or finding-persistence time; there is no
+<code>Stopwatch</code> anywhere inside <code>RunFileAsync</code> or around the parse/persist step.</p>
+<p>One structural cost driver <em>is</em> visible without new instrumentation: per-file reviews run through
+<code>Parallel.ForEachAsync</code> with <code>MaxDegreeOfParallelism = Math.Clamp(options.MaxConcurrency, 1,
+16)</code>, and <code>MaxConcurrency</code> defaults to <b>2</b>
+(<code>ReviewJobs.cs:118</code>, used at <code>:479</code>). A module-level review of, say, 24 files runs
+effectively 12-deep even before any single file's latency is known — so total run time is bounded below by
+<code>fileCount / 2 × (single-file latency)</code> regardless of where that single-file latency goes.</p>
+<div class="box bad">
+  <h4>No completed run exists on this host to measure end-to-end, either</h4>
+  <p>The sibling <a href="../quality-concept/index.html">quality concept dossier</a> (2026-08-18 session)
+  found that all seven review runs dispatched on this host that day completed with <b>0</b> operations, 0
+  findings, 0 tokens — the review path itself did not return
+  (<code>docs/operations/quality-concept/index.html</code>, finding N-01 in the companion security
+  dossier). The <code>review-runs-*.json</code> evidence files under that dossier's <code>results/</code>
+  show every file entry as <code>&ldquo;state&rdquo;: &ldquo;cancelled&rdquo;</code> with
+  <code>startedAt: null</code>. This dossier cannot report a real review-run latency number, phase-split or
+  not, until that operational gap closes — reporting one would mean fabricating it.</p>
+</div>
+
+<h2 id="memory"><span class="no">05</span>Memory growth over long sessions</h2>
+<p class="stx stx-open"><b>Status:</b> no measurement exists, but the code shows unbounded growth by
+construction — this is a structural finding, not a benchmarked number.</p>
+<p>Both caches introduced for QS-54 are process-lifetime <code>ConcurrentDictionary</code>s with no
+eviction path:</p>
+<ul>
+  <li><code>RepositoryHierarchyCache.slots</code> — <code>ConcurrentDictionary&lt;string, CacheSlot&gt;</code>
+      keyed by repository root, populated via <code>GetOrAdd</code>
+      (<code>src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:25,47</code>). Each slot holds a
+      full immutable hierarchy snapshot for that repository's current Git state.</li>
+  <li><code>ProjectDashboardService.cache</code> — the same pattern, keyed on
+      <code>root + GitState</code> (<code>src/QualityStudio.Api/ProjectDashboard.cs:105,117&ndash;118</code>),
+      holding a full dashboard projection.</li>
+</ul>
+<p>Neither class contains <code>TryRemove</code>, <code>Clear</code>, a TTL, <code>IMemoryCache</code>, or a
+size limit anywhere (grepped both files; zero matches). Archiving a repository only sets a soft
+<code>Archived = true</code> flag on the registry entry (<code>src/QualityStudio.Api/RepositoryRegistry.cs:163</code>)
+— nothing notifies either cache, so an archived repository's snapshot and dashboard projection stay resident
+for the rest of the process lifetime. Growth is bounded by <b>the number of distinct
+<code>(repositoryRoot, GitState)</code> pairs ever observed</b>, not by the number of currently-registered
+repositories. On a long-lived host that cycles through many repositories, or one repository churning
+through many commits under active development, each new Git state adds a new resident entry that is never
+reclaimed.</p>
+<p class="dim">No existing test or harness exercises this path — there is no long-session or many-repository
+soak test in <code>tests/</code> to attach a real growth-rate number to. That gap is itself part of
+<a href="#slices">slice 2</a> below.</p>
+
+<h2 id="largerepo"><span class="no">06</span>Large-repo behavior</h2>
+<p class="stx stx-part"><b>Status:</b> real up to 3,450 files (the largest fixture ever measured); nothing
+beyond that is evidence, only arithmetic extrapolation, labeled as such.</p>
+<table>
+  <tr><th>Files</th><th>Repository</th><th>Cold scan</th><th>Cold projection</th><th>ms / file (scan)</th></tr>
+  <tr><td>135</td><td>quality-studio</td><td>743.20&nbsp;ms</td><td>99.25&nbsp;ms</td><td>5.50</td></tr>
+  <tr><td>1,603</td><td>fixture target (frontend harness)</td><td>45.46&nbsp;ms<sup>*</sup></td><td>102.07&nbsp;ms</td><td>0.028<sup>*</sup></td></tr>
+  <tr><td>3,450</td><td>agent-taskboard</td><td>8,272.84&nbsp;ms</td><td>1,418.01&nbsp;ms</td><td>2.40</td></tr>
+  <tr><td>5,000</td><td>generic fixture (QS-5, one flat directory)</td><td>165&nbsp;ms total (scan + hierarchy + review-meta)</td><td>&mdash;</td><td>0.033</td></tr>
+</table>
+<p class="dim"><sup>*</sup>The 1,603-file fixture (<code>frontend/PERF.md:29&ndash;31</code>) is a
+Playwright-generated repository with shallow nested TypeScript sources, not a real large codebase like
+agent-taskboard — its low per-file cost reflects fixture shape, not a general scaling law. The 5,000-file
+QS-5 fixture (<code>PERF.md</code>, root section) is 5,000 one-line files in a single flat directory, also
+not representative of a deep real tree. <b>The 3,450-file agent-taskboard row is the only large,
+realistically-structured repository ever measured</b>, and per-file scan cost there (2.40&nbsp;ms/file) is
+roughly 90&times; the flat-fixture rate — directory depth and file count both drive scan cost, and only the
+real repository's ratio should be trusted for extrapolation.</p>
+<div class="box warn">
+  <h4>Extrapolation, not a measurement</h4>
+  <p>Scaling agent-taskboard's 2.40&nbsp;ms/file linearly to a hypothetical 10,000-file repository projects
+  to roughly <b>24&nbsp;seconds</b> of cold scan time (and proportionally longer if directory depth grows
+  faster than file count, which the flat-fixture comparison above suggests it does). No repository this
+  large has ever been measured, and no timeout, pagination, or degradation code exists anywhere in
+  <code>RepositoryHierarchyCache</code> or the hierarchy builder (grepped for &ldquo;timeout&rdquo;,
+  &ldquo;pagination&rdquo;, bounded <code>.Take(</code> calls — zero matches). A 24-second cold prewarm is
+  tolerable today only because QS-54 keeps it off the operator's request path; it is not tolerable if it
+  also blocks every other queued repository behind it in the single-reader prewarm queue (see
+  <a href="#switch">§03</a>).</p>
+</div>
+
+<h2 id="top3"><span class="no">07</span>Top 3 cost blocks</h2>
+<table>
+  <tr><th>#</th><th>Cost block</th><th>Evidence</th><th>Why it ranks here</th></tr>
+  <tr>
+    <td><b>1</b></td>
+    <td>Review-run latency is a black box</td>
+    <td>One <code>Stopwatch</code> around the whole run (<code>ReviewJobs.cs:448,501&ndash;503</code>); no
+        phase split; zero completed operational runs to even validate the total against
+        (quality-concept N-01).</td>
+    <td>This is the core product path — every review costs real LLM $ (a comparable estimate in the sibling
+        dossier: ~$1.21 for one 24-file module-scope security review) — and today nobody can tell whether
+        that cost lives in the model call, our parsing, or persistence. Every other optimization on this
+        path is a guess until this is instrumented.</td>
+  </tr>
+  <tr>
+    <td><b>2</b></td>
+    <td>Unbounded hierarchy/dashboard caches</td>
+    <td><code>RepositoryHierarchyCache.slots</code> and <code>ProjectDashboardService.cache</code>: no
+        <code>TryRemove</code>/TTL/size-limit anywhere; archival doesn't evict
+        (<code>RepositoryRegistry.cs:163</code>).</td>
+    <td>Direct, code-certain answer to the &ldquo;memory growth over long sessions&rdquo; ask. Low
+        probability of mattering on a small fixed repo set, but unbounded by construction on any host that
+        registers/re-scans many repositories or many Git states over time — and there is currently no
+        alarm that would surface it before it does.</td>
+  </tr>
+  <tr>
+    <td><b>3</b></td>
+    <td>Sequential prewarm queue at scale</td>
+    <td>Single-reader <code>Channel</code> (<code>RepositorySnapshotPrewarmer.cs:12&ndash;13</code>); no
+        aggregate &ldquo;time to fully warm&rdquo; signal; extrapolated 24&nbsp;s cold scan for a 10k-file
+        repo would serialize behind every other queued registration.</td>
+    <td>QS-54 already fixed the operator-visible half of this problem — this is the residual, and it only
+        bites at repository counts/sizes the fixtures haven't tested. Ranked third because it is a
+        real but currently unobserved risk, not an active symptom.</td>
+  </tr>
+</table>
+
+<h2 id="options"><span class="no">08</span>Options and recommendation</h2>
+<h3>For cost block 1 — review-run phase visibility</h3>
+<table>
+  <tr><th>Option</th><th>Effort</th><th>Trade-off</th></tr>
+  <tr><td>A. Do nothing until operational runs return (blocked on the security concept's M-1)</td><td>none</td><td>Keeps the black box; every future review-latency decision stays a guess even after M-1 lands, because the instrumentation still won't exist.</td></tr>
+  <tr><td><b>B. Add phase-level <code>Stopwatch</code>s now, independent of M-1</b> (recommended)</td><td>small</td><td>Additive only — mirrors the existing <code>qs.repository.switch.backend</code>/<code>qs.repository.prewarm</code> pattern already shipped for QS-54, so it's a proven shape, not a new convention. Produces real data the moment M-1 lets any run complete.</td></tr>
+  <tr><td>C. Rebuild the review pipeline around a tracing library (OpenTelemetry spans)</td><td>large</td><td>Right long-term shape, but far more than this gap needs; defer until phase counts prove worth the investment.</td></tr>
+</table>
+<h3>For cost block 2 — cache growth</h3>
+<table>
+  <tr><th>Option</th><th>Effort</th><th>Trade-off</th></tr>
+  <tr><td>A. Generic LRU / <code>IMemoryCache</code> with a size cap on both caches</td><td>medium</td><td>General fix, but risks evicting a hot, actively-switched repository's snapshot under memory pressure — reintroducing the cold-path cost QS-54 just removed.</td></tr>
+  <tr><td><b>B. Evict on archival, leave the active-repo case unbounded</b> (recommended)</td><td>small</td><td>Matches the actual risk: the registry already tracks archival as a lifecycle event (<code>RepositoryRegistry.cs:163</code>); wiring the existing event to <code>TryRemove</code> on both caches removes the only currently-reachable unbounded-growth path (repeated archive/re-register cycles) without touching the hot path.</td></tr>
+  <tr><td>C. Ignore until a soak test shows real growth</td><td>none</td><td>Defensible short-term given no measured harm yet, but leaves a known-unbounded structure with zero alarm if usage patterns change.</td></tr>
+</table>
+<h3>For cost block 3 — prewarm queue at scale</h3>
+<table>
+  <tr><th>Option</th><th>Effort</th><th>Trade-off</th></tr>
+  <tr><td>A. Parallelize the prewarm queue (multiple readers)</td><td>medium</td><td>Shortens total warm-up time but multiplies concurrent cold-scan I/O load; needs a concurrency cap to avoid starving the API's own request handling during startup.</td></tr>
+  <tr><td><b>B. Add an aggregate <code>qs.repository.prewarm.queue-drained</code> event first</b> (recommended)</td><td>small</td><td>Per-repository events already exist (<code>RepositorySnapshotPrewarmer.cs:70&ndash;84</code>); summing them into one queue-depth/total-duration event is nearly free and turns §07's extrapolation into a real number the first time a large registered set is observed. Do this before deciding whether A is even needed.</td></tr>
+</table>
+
+<h2 id="slices"><span class="no">09</span>Implementation slice plan</h2>
+<div class="box ok">
+  <h4>Slice 1 — Review-run phase instrumentation (cost block 1, option B)</h4>
+  <p>Add <code>Stopwatch</code>s around three existing phases inside <code>ReviewJobs.RunAsync</code> /
+  <code>RunFileAsync</code>: deterministic-evidence collection (already a separate call,
+  <code>ReviewJobs.cs:456&ndash;464</code>), the per-file model call
+  (<code>CreateRunner(item).ReviewIfNeededAsync</code>, <code>:534</code>), and result
+  persistence/aggregation. Emit a new <code>qs.review.run.phase</code> structured log event per file,
+  matching the JSON shape already used for <code>qs.repository.prewarm</code>. No behavior change, no new
+  dependency. <span class="pill queued">first slice — unblocks measurement of everything else on this
+  path</span></p>
+</div>
+<div class="box ok">
+  <h4>Slice 2 — Evict caches on repository archival (cost block 2, option B)</h4>
+  <p>Give <code>RepositoryHierarchyCache</code> and <code>ProjectDashboardService</code> an
+  <code>Evict(string repositoryRoot)</code> method and call it from
+  <code>RepositoryRegistry</code>'s existing archive path (<code>RepositoryRegistry.cs:163</code>), right
+  after the <code>Archived = true</code> write. Bounded blast radius: only fires on an explicit operator
+  action that already exists.</p>
+</div>
+<div class="box ok">
+  <h4>Slice 3 — Aggregate prewarm-queue signal (cost block 3, option B)</h4>
+  <p>Track queue depth and cumulative duration across <code>RepositorySnapshotPrewarmer.ExecuteAsync</code>'s
+  processing loop and log one <code>qs.repository.prewarm.queue-drained</code> event
+  (<code>{queuedCount, totalDurationMs, largestSingleMs}</code>) when the channel empties. Turns §06's
+  extrapolation into a real number the next time a realistically large repository set is registered, and is
+  the evidence needed before deciding whether queue parallelization (option A) is worth its concurrency
+  risk.</p>
+</div>
+<p class="dim">All three slices are additive-only (new events, new eviction call, no removed behavior), each
+independently shippable, and none touches the QS-54 prewarm/cache design that is already verified working.
+Recommended order is 1 → 2 → 3: slice 1 has the highest leverage (unblocks the core product's cost
+visibility) and the lowest risk (pure logging).</p>
+
+<h2 id="evidence"><span class="no">10</span>Evidence index and limitations</h2>
+<table>
+  <tr><th>Claim</th><th>Evidence</th></tr>
+  <tr><td>QS-54 prewarmer present, wired, unreverted</td><td><code>src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs</code>, <code>src/QualityStudio.Api/Program.cs:29&ndash;30,470&ndash;489</code></td></tr>
+  <tr><td>Repository-switch cold/warm numbers</td><td><code>PERF.md</code> (QS-54 section), <code>frontend/PERF.md:21&ndash;31</code></td></tr>
+  <tr><td>Hierarchy scan / dashboard cost, 5,000-file and 135-file fixtures</td><td><code>PERF.md</code> (QS-5 and QS-54 sections)</td></tr>
+  <tr><td>No cache eviction path</td><td><code>src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs</code>, <code>src/QualityStudio.Api/ProjectDashboard.cs:105&ndash;118</code>, <code>src/QualityStudio.Api/RepositoryRegistry.cs:163</code> (grepped for eviction/TTL/size-limit — no matches)</td></tr>
+  <tr><td>No review-run phase split; single end-to-end stopwatch</td><td><code>src/QualityStudio.Api/ReviewJobs.cs:448,479,501&ndash;503,864</code></td></tr>
+  <tr><td>Zero completed operational review runs on this host</td><td><a href="../quality-concept/index.html">docs/operations/quality-concept/index.html</a>, <code>docs/operations/quality-concept/results/review-runs-*.json</code></td></tr>
+  <tr><td>No timeout/pagination for large repositories</td><td>grep across <code>src/AgentOrchestrator.CodeQuality/</code> for &ldquo;timeout&rdquo;, &ldquo;pagination&rdquo;, bounded <code>.Take(</code> — no matches</td></tr>
+</table>
+<p class="dim"><b>Limitations.</b> This dossier is a static-evidence review, not a new measurement run — no
+API process was started, no repository was scanned live, and no Playwright harness was re-executed during
+this session; every millisecond figure is a direct quote of an existing, dated measurement in
+<code>PERF.md</code> / <code>frontend/PERF.md</code>, re-verified only against the code that produced it
+(class names, DI wiring, line numbers), not re-run. The 10,000-file extrapolation in §06 and the
+&ldquo;$1.21&rdquo; review-cost figure quoted in §07 are both explicitly labeled estimates carried from
+elsewhere, not measurements taken here. Startup, review-run phases, and memory growth remain genuinely
+unmeasured; §09's slices exist to close exactly that gap, not to substitute for it.</p>
+
+</main>
+</body>
+</html>
