@@ -1,41 +1,98 @@
 name: Build
 
+# This job is the deterministic, clean-checkout gate. Host timing and live-service
+# checks belong to the release canary so they cannot mask a product regression.
+
 on:
+  pull_request:
   push:
     branches: [main]
-    tags: ['v*.*.*']
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  DOTNET_VERSION: "10.0.301"
+  NODE_VERSION: "22.23.1"
+  GITLEAKS_VERSION: "8.24.2"
+
 jobs:
-  build-and-test:
+  portable:
+    name: Portable gate
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CHROME_NO_SANDBOX: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up .NET
+      - name: Set up .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
-      - name: Restore
+      - name: Install frontend dependencies from the lock file
+        run: npm --prefix frontend ci
+
+      - name: Provision pinned Chromium
+        run: npm --prefix frontend run browser:install
+
+      - name: Provision pinned Gitleaks ${{ env.GITLEAKS_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          release="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$RUNNER_TEMP/$asset" "$release/$asset"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$RUNNER_TEMP/checksums.txt" \
+            "$release/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          expected="$(awk -v asset="$asset" '$2 == asset { print; found++ } END { exit found == 1 ? 0 : 1 }' \
+            "$RUNNER_TEMP/checksums.txt")"
+          (cd "$RUNNER_TEMP" && printf '%s\n' "$expected" | sha256sum --check --strict -)
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/gitleaks" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks/gitleaks"
+          test "$("$RUNNER_TEMP/gitleaks/gitleaks" version)" = "$GITLEAKS_VERSION"
+          echo "QUALITY_GITLEAKS_PATH=$RUNNER_TEMP/gitleaks/gitleaks" >> "$GITHUB_ENV"
+
+      - name: Restore .NET solution
         run: dotnet restore QualityStudio.slnx
 
-      - name: Build
+      - name: Build .NET solution (Release)
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
-      - name: Test
+      - name: Run portable .NET tests
         run: >-
           dotnet test QualityStudio.slnx
           --configuration Release
           --no-build
           --filter "Category!=MachineBound"
 
-      - name: Security scan
-        run: dotnet run --project src/quality-cli -- security scan .
+      - name: Verify browser resolution tooling
+        run: npm --prefix frontend run test:tooling
+
+      - name: Build production Angular bundle
+        run: npm --prefix frontend run build
+
+      - name: Run Angular tests
+        run: npm --prefix frontend test
+
+      - name: Run repository security scan
+        run: >-
+          dotnet run --project src/quality-cli --configuration Release --no-build --
+          security scan .

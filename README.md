@@ -210,7 +210,33 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` is the required portable gate for pull requests and
+  pushes to `main`.
+
+## Required portable gate
+
+The required job starts from a clean checkout and provisions its declared toolchain:
+.NET 10.0.301, Node 22.23.1, the Chromium version paired with the locked
+`playwright-core` package, and Gitleaks 8.24.2. The production bundle retains its
+480 kB initial error budget.
+
+These are the corresponding local checks:
+
+```shell
+dotnet restore QualityStudio.slnx
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
+npm --prefix frontend ci
+npm --prefix frontend run browser:install
+npm --prefix frontend run test:tooling
+npm --prefix frontend run build
+npm --prefix frontend test
+dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+```
+
+`frontend test` uses `CHROME_BIN` when explicitly set, then the provisioned
+Playwright Chromium, then a system Chrome-compatible browser. A configured but missing
+`CHROME_BIN` is an error rather than a silent fallback.
 
 ## Minimal API
 
