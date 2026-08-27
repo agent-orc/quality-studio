@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived review operation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt", "unitId", "path", "level", "state", "startedAt", "finishedAt", "providerRunId", "reviewedHash", "inputHash", "resultSidecar", "reviewedAt", "verdict", "grade", "errorCode", "error"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/id" },
+    "operationId": { "$ref": "#/$defs/id" },
+    "ordinal": { "type": "integer", "minimum": 1 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "providerRunId": { "$ref": "#/$defs/nullableString" },
+    "reviewedHash": { "$ref": "#/$defs/hash" },
+    "inputHash": { "$ref": "#/$defs/hash" },
+    "resultSidecar": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/repoPath" }] },
+    "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+    "verdict": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/verdict" }] },
+    "grade": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/grade" }] },
+    "errorCode": { "$ref": "#/$defs/nullableString" },
+    "error": { "$ref": "#/$defs/nullableString" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "nullableString": { "type": ["string", "null"] },
+    "hash": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }] },
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$" },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "value": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band", "rationale"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "rationale": { "$ref": "#/$defs/nullableString" }
+      }
+    }
+  }
+}

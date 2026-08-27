@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived review attempt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness", "startedAt", "finishedAt", "archivedAt", "attemptTotals", "cumulativeTotals", "errorCodes", "tokenCap", "costCap", "estimateDeviation", "ledgerMonths", "operationIds", "aggregateState", "qualitySummary"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/id" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 9999 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "attemptTotals": { "$ref": "#/$defs/totals" },
+    "cumulativeTotals": { "$ref": "#/$defs/totals" },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+    "tokenCap": { "$ref": "#/$defs/nullableInteger" },
+    "costCap": { "$ref": "#/$defs/nullableNumber" },
+    "estimateDeviation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/deviation" }] },
+    "ledgerMonths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
+    "operationIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "aggregateState": { "$ref": "#/$defs/nullableString" },
+    "qualitySummary": { "$ref": "#/$defs/qualitySummary" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"], "minimum": 0 },
+    "nullableNumber": { "type": ["number", "null"] },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "outputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operations", "completed", "failed", "skipped", "usage", "cost", "currency", "priceStatus"],
+      "properties": {
+        "operations": { "type": "integer", "minimum": 0 },
+        "completed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "usage": { "$ref": "#/$defs/tokens" },
+        "cost": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "priceStatus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokensPercent", "outputTokensPercent", "costPercent"],
+      "properties": {
+        "inputTokensPercent": { "$ref": "#/$defs/nullableNumber" },
+        "outputTokensPercent": { "$ref": "#/$defs/nullableNumber" },
+        "costPercent": { "$ref": "#/$defs/nullableNumber" }
+      }
+    },
+    "qualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowestScore", "lowestGrade", "worstSecurityVerdict", "activeFindings", "highestSeverity"],
+      "properties": {
+        "lowestScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "lowestGrade": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "worstSecurityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindings": { "type": "integer", "minimum": 0 },
+        "highestSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  }
+}

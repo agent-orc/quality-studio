@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio archived finding observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "fingerprint", "id", "ruleId", "severity", "title", "locations", "state"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/id" },
+    "operationId": { "$ref": "#/$defs/id" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+    "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "nullableInteger": { "type": ["integer", "null"], "minimum": 1 },
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$" },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "startLine": { "$ref": "#/$defs/nullableInteger" },
+        "startColumn": { "$ref": "#/$defs/nullableInteger" },
+        "endLine": { "$ref": "#/$defs/nullableInteger" },
+        "endColumn": { "$ref": "#/$defs/nullableInteger" }
+      }
+    }
+  }
+}

@@ -141,7 +141,7 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
+    <span><b>Status</b> decided</span>
     <span><b>Phase</b> decision ready</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
@@ -466,6 +466,19 @@
   <h4>Deliberately deferred</h4>
   <p>Cross-repository analytics, raw transcript retention, remote object storage, a database index, retention compaction and universal pass/fail policy are not required for run durability or two-run diffing. Add them only after archive size and query measurements show a concrete need.</p>
 </div>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<table>
+  <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>27 August 2026</td>
+      <td><code>QS-71</code></td>
+      <td><b>RP-1 · Contracts and archive core</b></td>
+      <td>Added the four v1 JSON schemas and typed archive records; added the backend-owned <code>ReviewRunArchiveStore</code> with monthly repository-confined paths, create-only run/attempt documents, append-only operation/finding streams, and typed reads across multiple attempts; added stable operation IDs and attempt ordinals to recovery work items; added schema, immutability, confinement, recovery-identity, and capped/resumed readability tests. Operator approval is recorded as decided. Existing routes and UI are unchanged.</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3>Evidence register</h3>
 <table>

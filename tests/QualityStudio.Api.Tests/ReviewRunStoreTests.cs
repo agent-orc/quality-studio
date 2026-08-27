@@ -77,6 +77,14 @@ public sealed class ReviewRunStoreTests
             Assert.Equal(2, completedReport.Run.Revision);
             Assert.Equal("complete", completedReport.Run.Completeness);
             Assert.Equal(3, completedReport.Observations.Count);
+            var runDirectory = Path.Combine(fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!);
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
+                Path.Combine(runDirectory, "manifest.json"), cancellationToken));
+            Assert.Equal(["operation-0001", "operation-0002"], manifest.RootElement.GetProperty("targets")
+                .EnumerateArray().Select(target => target.GetProperty("operationId").GetString()));
+            using var status = JsonDocument.Parse(await File.ReadAllTextAsync(
+                Path.Combine(runDirectory, "status.json"), cancellationToken));
+            Assert.Equal(2, status.RootElement.GetProperty("attempt").GetInt32());
             Assert.Equal(3, completedReport.Execution.Reviewed);
             Assert.All(completedReport.Observations, observation => Assert.True(observation.ProducedByRun));
             Assert.DoesNotContain(fixture.RepositoryRoot, QualityRunReportJson.Serialize(completedReport),

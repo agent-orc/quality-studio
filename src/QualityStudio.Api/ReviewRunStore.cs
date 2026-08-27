@@ -6,7 +6,12 @@ namespace QualityStudio.Api;
 
 public sealed record ReviewRunPlanNode(string Id, string Name, string Path);
 
-public sealed record ReviewRunPlanTarget(string Id, string Name, string Path, string SubjectHash);
+public sealed record ReviewRunPlanTarget(
+    string Id,
+    string Name,
+    string Path,
+    string SubjectHash,
+    string? OperationId = null);
 
 public sealed record ReviewRunEstimate(
     int Files,
@@ -47,7 +52,9 @@ public sealed record ReviewRunFileTransition(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     string RunId,
-    string? Error);
+    string? Error,
+    string? OperationId = null,
+    int Attempt = 1);
 
 public sealed record ReviewRunStatus(
     string RunId,
@@ -69,7 +76,8 @@ public sealed record ReviewRunStatus(
     string PriceStatus = "unknownModel",
     int SkippedFiles = 0,
     string? AggregateState = null,
-    string? StopReason = null);
+    string? StopReason = null,
+    int Attempt = 1);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so
@@ -137,9 +145,11 @@ public sealed class ReviewRunStore
         var directory = RunDirectory(manifest.RunId);
         Directory.CreateDirectory(directory);
         WriteCreateOnly(Path.Combine(directory, "manifest.json"), JsonSerializer.Serialize(manifest, JsonOptions) + Environment.NewLine);
-        foreach (var target in manifest.Targets)
+        for (var index = 0; index < manifest.Targets.Count; index++)
         {
-            AppendProgress(new ReviewRunFileTransition(target.Path, "queued", null, null, manifest.RunId, null));
+            var target = manifest.Targets[index];
+            AppendProgress(new ReviewRunFileTransition(target.Path, "queued", null, null, manifest.RunId, null,
+                target.OperationId ?? $"operation-{index + 1:D4}"));
         }
         WriteStatus(status);
         WriteResult(manifest, status);
