@@ -1,0 +1,12 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.props" />
+
+  <!-- Static-analysis dossier S4: complexity thresholds are findings, not build blockers. -->
+  <PropertyGroup>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1502;CA1505</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)CodeMetricsConfig.txt" />
+  </ItemGroup>
+</Project>

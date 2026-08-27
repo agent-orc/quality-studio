@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided — operator blanket approval, 11 August 2026 (workbench key QS-W7)</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -204,6 +204,7 @@
       <li><a href="#economy">Cost, benefit, and token economy</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
+      <li><a href="#implementation-log">Implementation log</a></li>
       <li><a href="#sources">Evidence sources</a></li>
     </ol>
   </nav>
@@ -549,8 +550,33 @@
     </ol>
   </section>
 
+  <section id="implementation-log">
+    <h2><span class="no">10</span>Implementation log</h2>
+    <p class="dim">Append-only. One entry per delivered slice; do not edit or remove prior entries. Each delivery under card QS-72 implements exactly one slice (2026-08-27 orchestrator scope correction).</p>
+
+    <article class="slice">
+      <header><h3>S4 (partial) · Complexity thresholds for .NET production code</h3><span class="pill done">delivered 2026-08-27 · QS-72</span></header>
+      <p><b>What landed:</b> Enabled CA1502 (cyclomatic complexity, default threshold 25) and CA1505 (maintainability index, default threshold 10) as warnings, scoped to <code>src/**.cs</code> only. Test code is out of scope for this delivery.</p>
+      <ul>
+        <li>Root <code>.editorconfig</code> (new): sets <code>dotnet_diagnostic.CA1502.severity</code> and <code>dotnet_diagnostic.CA1505.severity</code> to <code>warning</code> for <code>src/**.cs</code>.</li>
+        <li><code>src/CodeMetricsConfig.txt</code> (new): declares the documented default thresholds (<code>CA1502: 25</code>, <code>CA1505: 10</code>) explicitly.</li>
+        <li><code>src/Directory.Build.props</code> (new, imports the root file): wires <code>CodeMetricsConfig.txt</code> as <code>AdditionalFiles</code> and adds CA1502/CA1505 to <code>WarningsNotAsErrors</code> so the repository's <code>TreatWarningsAsErrors</code> policy does not turn these findings into build breaks.</li>
+        <li>Config-contract tests in <code>tests/AgentOrchestrator.CodeQuality.Tests/ComplexityThresholdConfigurationTests.cs</code> assert the config files exist and are wired as described.</li>
+        <li><b>Measured result on this checkout:</b> <code>dotnet build -c Release -t:Rebuild</code> is stable across two consecutive runs at 19 warnings (17 CA1502, 2 CA1505) and 0 errors; no grade cap is introduced.</li>
+      </ul>
+      <p><b>Deliberately not in this delivery (follow-up slices, in dossier priority order):</b></p>
+      <ul>
+        <li><b>S4 remainder:</b> ESLint's <code>complexity</code> rule (needs S3's pinned ESLint first) and feeding complexity/hotspot findings into <code>ProjectDashboard</code>.</li>
+        <li><b>S1</b> (largest slice): the <code>PreflightResult v1</code> contract and moving all deterministic/security sensor collection to run once per <code>ReviewJobService</code> sweep instead of per file.</li>
+        <li><b>S2:</b> compiler/package/budget disposition gates and CI coverage for the Angular stack. Known blocker: <code>ng build --configuration production</code> currently fails its checked-in bundle budget by 14.94 kB; this must not be added as a blocking CI step until the budget is fixed or the step is explicitly scoped non-blocking.</li>
+        <li><b>S3:</b> pinning ESLint and Prettier (currently no config/binaries after <code>npm ci</code>), flat config, and changed-line style baselines for both stacks.</li>
+        <li><b>S5:</b> economy/usage evidence and staged rollout, which depends on S1–S4 being live.</li>
+      </ul>
+    </article>
+  </section>
+
   <section id="sources">
-    <h2><span class="no">10</span>Evidence sources and provenance</h2>
+    <h2><span class="no">11</span>Evidence sources and provenance</h2>
     <div class="box">
       <h4>Primary repository evidence</h4>
       <ul class="source-list">
@@ -577,7 +603,7 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <footer>Decision dossier for QS-63 · status: decided (operator blanket approval 11 Aug 2026) · phase: implementation in progress under QS-72 · updated 27 August 2026</footer>
 </main>
 </body>
 </html>

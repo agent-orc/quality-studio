@@ -1,0 +1,9 @@
+root = true
+
+# Static-analysis dossier S4 (docs/operations/static-analysis/index.html#slices):
+# enable CA1502 (cyclomatic complexity) and CA1505 (maintainability index) as
+# warnings for production .NET code. Test code is intentionally out of scope
+# for this slice.
+[src/**.cs]
+dotnet_diagnostic.CA1502.severity = warning
+dotnet_diagnostic.CA1505.severity = warning
