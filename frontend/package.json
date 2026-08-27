@@ -6,6 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
+    "browser:install": "playwright-core install chromium",
+    "test:unit": "node --test tests/browser-resolver.test.mjs",
     "test": "node ./tests/run-tests.mjs",
     "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
