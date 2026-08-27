@@ -116,8 +116,9 @@ export class ReviewPanel {
     const location = finding.locations[locationIndex];
     if (!location) return 'Location unavailable';
     if (this.activeState() === 'stale' || !location.range) return `${location.path} · source changed`;
-    const end = location.range.end.line === location.range.start.line ? '' : `-${location.range.end.line}`;
-    return `${location.path}:${location.range.start.line}${end}`;
+    const { start, end } = location.range;
+    const span = end.line === start.line ? `${start.line}:${start.column}` : `${start.line}:${start.column}-${end.line}:${end.column}`;
+    return `${location.path}:${span}`;
   }
 
   focusThread(thread: ReviewThread): void { this.api.focusedThreadId.set(thread.id); }
