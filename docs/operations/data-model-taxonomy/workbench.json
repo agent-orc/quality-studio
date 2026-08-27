@@ -5,8 +5,8 @@
   "summary": "Code-grounded assessment of finding, evidence, verdict, aspect, lifecycle, and per-model history contracts; recommends an independently versioned core catalogue and immutable quality observations with a five-slice migration.",
   "entrypoint": "index.html",
   "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:17Z",
+  "phase": "implementation",
+  "updatedAt": "2026-08-27T10:01:14Z",
   "sourceTaskKeys": [
     "QS-67"
   ],
@@ -49,6 +49,15 @@
   },
   "relatedTaskKeys": [
     "QS-76"
+  ],
+  "implementation": [
+    {
+      "date": "2026-08-27",
+      "cardKey": "QS-76",
+      "slice": "T1",
+      "status": "delivered",
+      "summary": "Core taxonomy and observation schemas, catalogue, typed contracts, extension preservation, legacy mappings, and conformance tests."
+    }
   ],
   "editedBy": "Operator, recorded by AGT-2621"
 }
