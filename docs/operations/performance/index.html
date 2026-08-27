@@ -233,6 +233,11 @@
   </table>
   <p>The large-repo project request's <code>Server-Timing</code> attributes 4,790.90–10,407.72 ms to <code>cache-wait</code>: the request waits behind the background prewarmer's per-repository cache lock. The matching cold scans took 5,020.27–10,819.74 ms; projection added 867.51–3,070.55 ms. QS-54 made later requests warm, but the first session after every API restart still pays nearly the same work, with substantial host variance.</p>
 
+  <section class="box warn">
+    <h4>Unmeasured: boot cost now scales with the whole registered fleet, not one repository</h4>
+    <p>Code-level review (not a new live measurement) found that <code>RepositorySnapshotPrewarmer.ExecuteAsync</code> yields once for host liveness and then calls <code>QueueAll(registry.List())</code> (<code>src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs:49–53</code>): every non-archived registered repository is enqueued on an unbounded <code>Channel</code> at every process start, not only when an operator switches to it. The two-repository numbers above are the per-repository unit cost; on a host with <code>N</code> registered repositories the same cold scan work fires <code>N</code> times immediately after boot, single-reader-sequential through the channel, with no concurrency cap and no priority for the repository the operator opens first. Separately, <code>ReviewJobService.ExecuteAsync</code> calls <code>RecoverRuns()</code> synchronously before it drains its own queue (<code>src/QualityStudio.Api/ReviewJobs.cs:386–423</code>): it iterates every registered repository and loads every durable review-run manifest from disk via <code>ReviewRunStore.LoadAll</code>. Neither path carries a stopwatch — the only related log line, <code>EventId 1507 ReviewRunsRecovered</code>, reports a count, not a duration. This dossier's fleet-wide boot cost is therefore not quantified; the two-repository numbers above are a lower bound for any host running more than one registered repository.</p>
+  </section>
+
   <h3>The real tree exceeds the switch contract even when the cache is warm</h3>
   <table>
     <thead><tr><th>Response</th><th>Payload</th><th>Client time</th><th>Evidence</th></tr></thead>
@@ -290,6 +295,10 @@
     </tbody>
   </table>
   <p>Anonymous RSS fluctuates with GC, peaks at +17,092 KiB after 90 invalidations, and remains +13,512 KiB above baseline at the final sample. This matches the code risk: <code>ProjectDashboardService.cache</code> is a process-lifetime <code>ConcurrentDictionary</code> keyed by <code>root + GitState</code> and has no eviction. Every new dirty state retains another projection. The hierarchy cache itself replaces one snapshot per root; the dashboard cache retains all prior states. The measured request cost across the invalidation run was 117.06 ms median, 143.62 ms p95.</p>
+  <div class="box warn">
+    <h4>The dashboard cache is not the only unbounded store, and archiving does not clear any of them</h4>
+    <p>Code-level review found three further process-lifetime stores with the same shape, none exercised by the 100-state probe above because that probe never archives a repository. <code>ReviewJobService.runs</code> is a <code>ConcurrentDictionary&lt;string, ReviewWorkItem&gt;</code> that gains an entry on every enqueue (<code>src/QualityStudio.Api/ReviewJobs.cs:209</code>) and on boot recovery (<code>ReviewJobs.cs:423</code>); <code>grep</code> for a matching removal in that file finds none, so it retains one <code>ReviewWorkItem</code> — with its own per-file progress and observation state — per review run ever started, for the life of the process; <code>List(repositoryId)</code> only bounds what a query returns (<code>RecentRunLimit</code>, default 30), not what is retained. <code>RepositoryHierarchyCache.slots</code> (<code>src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:25,47</code>) keeps one slot per distinct repository root ever scanned, with no removal call anywhere in the file. <code>ReviewMetaIndex.repositories</code> (<code>src/QualityStudio.Api/ReviewMetaIndex.cs:9,24</code>) keeps one live <code>FileSystemWatcher</code> plus an indexed-document dictionary per root, disposed only when the whole DI container tears down (<code>ReviewMetaIndex.cs:20–21</code>), never per repository. <code>RepositoryRegistry.ArchiveAsync</code> (<code>src/QualityStudio.Api/RepositoryRegistry.cs:142–166</code>) only flips the registry's <code>Archived</code> flag and persists it; it does not touch the dashboard cache, the hierarchy slots, the review-meta watchers, or the review-run history. A long session that registers and archives many repositories retains all four stores at their peak size.</p>
+  </div>
 
   <h2 id="blocks"><span class="no">07</span>Top three cost blocks</h2>
   <div class="building-blocks">
@@ -314,9 +323,9 @@
       <div class="stx stx-open">Load one tree level at a time.</div>
     </section>
     <section class="building-block">
-      <h4>Resource risk · retained projections</h4>
-      <p><b>+13.20 MiB</b> anonymous RSS after 100 states. Not ranked by immediate latency, but it is deterministic code debt and a small bounded fix.</p>
-      <div class="stx stx-part">Keep current and previous state only.</div>
+      <h4>Resource risk · four unbounded stores</h4>
+      <p><b>+13.20 MiB</b> anonymous RSS after 100 states, from the dashboard cache alone. Code review found three further unbounded stores with the same shape — review-run history, hierarchy-cache slots, and per-repository file watchers — none cleared when a repository is archived. Not ranked by immediate latency, but it is deterministic code debt and a small bounded fix.</p>
+      <div class="stx stx-part">Bound and archive-clear all four stores, not just the dashboard cache.</div>
     </section>
   </div>
 
@@ -349,13 +358,14 @@
   </ul>
   <p><b>Expected gain:</b> terminal-to-visible from 1,692.74 ms median to below 100 ms p95 (&gt;94% reduction) by eliminating the polling schedule and moving the current 277.13 ms response/refresh/render path behind first paint. Single-call model time is expected to remain provider-bound until phase data supports a correctness-safe optimization. <b>Acceptance:</b> five controlled completions, reconnect fallback, duplicate/out-of-order transition tests, and proof that refresh requests begin after the terminal state is visible.</p>
 
-  <h3>Slice P4 — Bounded projection retention</h3>
+  <h3>Slice P4 — Bounded retention across all four unbounded stores</h3>
   <ul>
-    <li>Replace <code>root + GitState</code> accumulation with a per-root slot holding the current projection and at most one previous state needed by in-flight readers.</li>
-    <li>Remove slots when a registry entry is archived or its root changes. Add observable cache entry count and estimated retained bytes.</li>
+    <li>Replace <code>ProjectDashboardService.cache</code>'s <code>root + GitState</code> accumulation with a per-root slot holding the current projection and at most one previous state needed by in-flight readers.</li>
+    <li>Give <code>RepositoryRegistry.ArchiveAsync</code> a single fan-out hook that every per-repository store subscribes to, then use it to remove the archived root's slot from <code>RepositoryHierarchyCache.slots</code>, dispose and drop its entry from <code>ReviewMetaIndex.repositories</code> (this stops a live <code>FileSystemWatcher</code> per archived repository, not only a cache), and bound <code>ReviewJobService.runs</code> to the same <code>RecentRunLimit</code> window it already reports instead of retaining every run for process lifetime.</li>
+    <li>Add an observable entry count and estimated retained bytes per store so growth is visible before it needs a live-memory probe to find.</li>
     <li>Bound frontend project/tree snapshots to currently registered repositories and clear archived ids.</li>
   </ul>
-  <p><b>Expected gain:</b> eliminate the observed +13,512 KiB retained growth. <b>Acceptance:</b> the same 100-state probe ends within 5% of baseline anonymous RSS after GC opportunity, cache cardinality remains bounded, and no stale state is served.</p>
+  <p><b>Expected gain:</b> eliminate the observed +13,512 KiB dashboard-cache growth and remove the three further unbounded stores identified in §7, so long-session growth is bounded by currently-registered repositories rather than by every repository ever opened or archived. <b>Acceptance:</b> the same 100-state probe ends within 5% of baseline anonymous RSS after GC opportunity; a new archive-and-reopen probe (register, review, archive, repeat N times) shows bounded cardinality in all four stores and no leaked <code>FileSystemWatcher</code> handles; no stale state is served.</p>
 
   <h2 id="options"><span class="no">09</span>Options and decision</h2>
   <table>
@@ -386,7 +396,7 @@
       <tr><td><code>style-verification.json</code></td><td>Byte-for-byte identity of this document's style block and the requested Agent Taskboard reference</td></tr>
     </tbody>
   </table>
-  <p>Collected artifacts live in <code>/home/agent/runner-work/tasks/QS-59/results</code>. Reproduction entrypoints are <code>scripts/performance-dossier.mjs</code>, <code>scripts/review-latency-dossier.mjs</code>, <code>scripts/review-render-dossier.mjs</code>, <code>scripts/PerformanceDossierProbe</code>, and <code>scripts/collect-performance-dossier.mjs</code>. Existing source evidence is in <a href="../../../PERF.md">PERF.md</a>, <a href="../../../frontend/PERF.md">frontend/PERF.md</a>, <a href="../../../src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs">RepositorySnapshotPrewarmer.cs</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs">RepositoryHierarchyCache.cs</a>, <a href="../../../src/QualityStudio.Api/ProjectDashboard.cs">ProjectDashboard.cs</a>, <a href="../../../src/QualityStudio.Api/ApiContracts.cs">ApiContracts.cs</a>, and <a href="../../../frontend/src/app/quality-api.ts">quality-api.ts</a>.</p>
+  <p>Collected artifacts live in <code>/home/agent/runner-work/tasks/QS-59/results</code>. Reproduction entrypoints are <code>scripts/performance-dossier.mjs</code>, <code>scripts/review-latency-dossier.mjs</code>, <code>scripts/review-render-dossier.mjs</code>, <code>scripts/PerformanceDossierProbe</code>, and <code>scripts/collect-performance-dossier.mjs</code>. Existing source evidence is in <a href="../../../PERF.md">PERF.md</a>, <a href="../../../frontend/PERF.md">frontend/PERF.md</a>, <a href="../../../src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs">RepositorySnapshotPrewarmer.cs</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs">RepositoryHierarchyCache.cs</a>, <a href="../../../src/QualityStudio.Api/ProjectDashboard.cs">ProjectDashboard.cs</a>, <a href="../../../src/QualityStudio.Api/ApiContracts.cs">ApiContracts.cs</a>, <a href="../../../frontend/src/app/quality-api.ts">quality-api.ts</a>, <a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>, <a href="../../../src/QualityStudio.Api/ReviewMetaIndex.cs">ReviewMetaIndex.cs</a>, and <a href="../../../src/QualityStudio.Api/RepositoryRegistry.cs">RepositoryRegistry.cs</a>.</p>
 </main>
 </body>
 </html>
