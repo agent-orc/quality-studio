@@ -183,7 +183,7 @@ public sealed class RepositoryRegistry
                 {
                     var migrated = loaded.Select(entry => entry with
                     {
-                        Sensors = MergeSupportedSensors(entry.Sensors),
+                        Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
                     }).ToList();
                     foreach (var entry in migrated) ValidatePersistedEntry(entry);
                     return migrated;
@@ -205,7 +205,7 @@ public sealed class RepositoryRegistry
             ValidateOptionalDirectory(legacyOptions.GlobalInputsDirectory, root),
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
-            DefaultSensors(),
+            DefaultSensors(root),
             DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
@@ -264,7 +264,7 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException("Select at least one supported review kind: code, security, or performance.");
         }
 
-        var requestedSensors = request.Sensors ?? DefaultSensors();
+        var requestedSensors = request.Sensors ?? DefaultSensors(root);
         if (requestedSensors.Any(sensor => string.IsNullOrWhiteSpace(sensor.Id)))
         {
             throw new RepositoryRegistryValidationException("Every sensor configuration requires an id.");
@@ -370,19 +370,58 @@ public sealed class RepositoryRegistry
     private static StringComparer PathComparer =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
-    private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
-        supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
+    private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors(string root) =>
+        supportedSensors.Select(id => DefaultSensor(id, root)).ToArray();
 
     private IReadOnlyList<RepositorySensorConfiguration> MergeSupportedSensors(
-        IReadOnlyList<RepositorySensorConfiguration>? configured)
+        IReadOnlyList<RepositorySensorConfiguration>? configured,
+        string root)
     {
         var existing = (configured ?? Array.Empty<RepositorySensorConfiguration>())
             .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
         return supportedSensors
             .Select(id => existing.TryGetValue(id, out var sensor)
-                ? sensor
-                : new RepositorySensorConfiguration(id))
+                ? MergeDefaultConfiguration(sensor, DefaultSensor(id, root))
+                : DefaultSensor(id, root))
             .ToArray();
+    }
+
+    private static RepositorySensorConfiguration MergeDefaultConfiguration(
+        RepositorySensorConfiguration configured,
+        RepositorySensorConfiguration fallback)
+    {
+        if (configured.Configuration is not null ||
+            configured.Id is not ("eslint" or "roslyn" or "sarif" or "tsc"))
+            return configured;
+        return fallback with { Enabled = configured.Enabled && fallback.Enabled };
+    }
+
+    private static RepositorySensorConfiguration DefaultSensor(string id, string root) => id switch
+    {
+        "dotnet-build" => new RepositorySensorConfiguration(id, DotNetBuildSensor.HasTarget(root)),
+        "eslint" => EslintDefault(id, root),
+        "roslyn" or "sarif" or "tsc" => new RepositorySensorConfiguration(id, Enabled: false),
+        _ => new RepositorySensorConfiguration(id),
+    };
+
+    private static RepositorySensorConfiguration EslintDefault(string id, string root)
+    {
+        var frontend = Path.Combine(root, "frontend");
+        var configuration = Path.Combine(frontend, "eslint.config.mjs");
+        var manifest = Path.Combine(frontend, "package.json");
+        if (!File.Exists(configuration) || !File.Exists(manifest))
+            return new RepositorySensorConfiguration(id, Enabled: false);
+        return new RepositorySensorConfiguration(
+            id,
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["workingDirectory"] = ".",
+                ["reportPath"] = ".quality/preflight/eslint.sarif",
+                ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . " +
+                              "--config frontend/eslint.config.mjs " +
+                              "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
+                              "--output-file {reportPath}",
+            });
     }
 }
 
