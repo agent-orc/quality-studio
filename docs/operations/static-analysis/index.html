@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided · approved 11 August 2026</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -577,7 +578,22 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <article class="slice">
+      <header><h3>27 August 2026 · QS-72 · S1 delivered</h3><span class="pill done">implemented</span></header>
+      <p><b>One snapshot-bound preflight landed.</b> The API now collects configured deterministic and security sensors once per source/configuration/tool identity, persists <code>preflight.json</code> in the existing run directory, projects compact subject-specific facts into execution and estimate prompts, and exposes preflight state and evidence through the review-run API.</p>
+      <ul>
+        <li>Required unavailable checks produce a visible <code>blocked-preflight</code> terminal state; optional unavailable checks remain visible without becoming a false pass.</li>
+        <li>Source, analyzer configuration, security baseline, or probed tool-version changes invalidate cached facts before the next model operation.</li>
+        <li>Unconfigured analyzer integrations are disabled by default; the <code>UseSnapshotPreflight</code> feature flag preserves the rollback path.</li>
+        <li>Tests cover stable hashes, one execution per unchanged sweep, persistence/recovery, exact estimate projection, bounded/redacted prompt context, blocking, and invalidation.</li>
+      </ul>
+      <p class="dim">Operator approval is recorded as decided. Under the one-slice delivery correction, S2–S5 remain follow-up work and were not included in QS-72.</p>
+    </article>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation · updated 27 August 2026</footer>
 </main>
 </body>
 </html>
