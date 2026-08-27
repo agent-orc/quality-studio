@@ -8,22 +8,62 @@ Quality Studio treats analyzer output as prior machine evidence, not as an agent
 
 The prompt asks the agent to judge applicability, deduplicate and prioritise these facts instead of repeating them. The stored `grade`, rationale and aspects remain the agent's statement; analyzer evidence does not change or cap the score. The review UI and generated quality report label analyzer findings with their deterministic source.
 
-## Repository configuration
+## Host-owned analyzer profiles
 
-Analyzer commands are repository-specific entries in the existing `sensors` array. Commands are launched directly, without a shell. The placeholders `{repositoryRoot}`, `{target}` and `{reportPath}` are expanded inside individual arguments. `reportPath` and an optional `workingDirectory` must remain inside the repository.
+Repositories cannot provide analyzer commands. The API host defines immutable analyzer
+profiles under `QualityStudio:AnalyzerProfiles`; a repository registration may select
+only a profile id whose `SensorId` matches the sensor. Command-backed sensors (`sarif`,
+`roslyn`, `eslint`, and `tsc`) are disabled by default and cannot be enabled without a
+configured profile. Requests containing a free-form `configuration.command` are
+rejected.
 
-### Generic SARIF 2.1.0
-
-The `sarif` sensor accepts a report from any producer. `command` is optional when another process has already created the report.
+Profiles keep the executable and argument template in operator-controlled deployment
+configuration. Commands are launched directly, without a shell. The placeholders
+`{repositoryRoot}`, `{target}` and `{reportPath}` are expanded inside individual
+arguments. `ReportPath` and an optional `WorkingDirectory` must remain inside the
+repository. For example:
 
 ```json
 {
-  "id": "sarif",
-  "enabled": true,
-  "configuration": {
-    "command": "custom-analyzer --sarif {reportPath}",
-    "reportPath": ".quality/analyzers/custom.sarif"
+  "QualityStudio": {
+    "AnalyzerProfiles": {
+      "roslyn-standard": {
+        "SensorId": "roslyn",
+        "Executable": "dotnet",
+        "Arguments": [
+          "build",
+          "QualityStudio.slnx",
+          "--no-restore",
+          "-p:ErrorLog={reportPath};version=2.1"
+        ],
+        "ReportPath": ".quality/analyzers/roslyn.sarif"
+      }
+    }
   }
+}
+```
+
+The repository registration selects that profile without receiving command authority:
+
+```json
+{
+  "id": "roslyn",
+  "enabled": true,
+  "profileId": "roslyn-standard"
+}
+```
+
+### Generic SARIF 2.1.0
+
+The `sarif` sensor accepts a report from any producer. Its host profile names the
+approved producer executable and report path.
+
+```json
+{
+  "SensorId": "sarif",
+  "Executable": "custom-analyzer",
+  "Arguments": ["--sarif", "{reportPath}"],
+  "ReportPath": ".quality/analyzers/custom.sarif"
 }
 ```
 
@@ -33,12 +73,10 @@ The importer maps every run independently, resolves driver and extension rule me
 
 ```json
 {
-  "id": "roslyn",
-  "enabled": true,
-  "configuration": {
-    "command": "dotnet build QualityStudio.slnx --no-restore -p:ErrorLog={reportPath};version=2.1",
-    "reportPath": ".quality/analyzers/roslyn.sarif"
-  }
+  "SensorId": "roslyn",
+  "Executable": "dotnet",
+  "Arguments": ["build", "QualityStudio.slnx", "--no-restore", "-p:ErrorLog={reportPath};version=2.1"],
+  "ReportPath": ".quality/analyzers/roslyn.sarif"
 }
 ```
 
@@ -50,13 +88,11 @@ ESLint needs a SARIF formatter already installed in that repository:
 
 ```json
 {
-  "id": "eslint",
-  "enabled": true,
-  "configuration": {
-    "command": "npx --no-install eslint . --format @microsoft/eslint-formatter-sarif --output-file {reportPath}",
-    "reportPath": ".quality/analyzers/eslint.sarif",
-    "workingDirectory": "frontend"
-  }
+  "SensorId": "eslint",
+  "Executable": "npx",
+  "Arguments": ["--no-install", "eslint", ".", "--format", "@microsoft/eslint-formatter-sarif", "--output-file", "{reportPath}"],
+  "ReportPath": ".quality/analyzers/eslint.sarif",
+  "WorkingDirectory": "frontend"
 }
 ```
 
@@ -68,14 +104,12 @@ TypeScript does not emit SARIF itself. The `tsc` sensor captures non-pretty comp
 
 ```json
 {
-  "id": "tsc",
-  "enabled": true,
-  "configuration": {
-    "command": "npx --no-install tsc --noEmit --pretty false",
-    "reportPath": ".quality/analyzers/tsc.txt",
-    "workingDirectory": "frontend",
-    "producerVersion": "5.9.2"
-  }
+  "SensorId": "tsc",
+  "Executable": "npx",
+  "Arguments": ["--no-install", "tsc", "--noEmit", "--pretty", "false"],
+  "ReportPath": ".quality/analyzers/tsc.txt",
+  "WorkingDirectory": "frontend",
+  "ProducerVersion": "5.9.2"
 }
 ```
 
