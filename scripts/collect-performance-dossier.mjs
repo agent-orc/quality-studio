@@ -81,7 +81,7 @@ await writeFile(resolve(resultsRoot, 'style-verification.json'), JSON.stringify(
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(resolve(frontendRoot, 'node_modules/playwright-core'));
-const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN || chromium.executablePath(), headless: true, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN || chromium.executablePath(), headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
   await page.goto(pathToFileURL(dossierPath).href, { waitUntil: 'load' });
