@@ -47,4 +47,3 @@ the caller does not supply one.
 The package currently targets .NET 10 and uses the existing
 `AgentOrchestrator.CodeQuality` model namespace for compatibility. The stable
 orchestration facade lives in `QualityStudio.Analysis`.
-

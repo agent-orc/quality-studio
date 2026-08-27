@@ -159,4 +159,3 @@ public sealed class AgentStudioTaskClient
 
     private sealed record CreateTaskResponse(string Id);
 }
-

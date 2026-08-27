@@ -47,8 +47,8 @@
   "verification": {
     "releaseBuild": "passed with 0 warnings and 0 errors",
     "ciProfile": "155 core passed, 1 opt-in live test skipped; 51 API passed",
+    "machineBoundCoreBenchmark": "passed when run in isolation",
     "machineBoundApiBenchmark": "passed when run in isolation",
-    "sharedWorkerBenchmarkNote": "The unchanged 150 ms wall-clock test measured 175 ms and 282 ms in full-suite runs; all functional cases passed",
     "package": "QualityStudio.Analysis.Core.0.1.0.nupkg inspected with README and net10.0 DLL",
     "cliProof": "boundaries available, 0 findings, exit 0 on empty proof checkout",
     "frontendBuild": "passed with existing warnings",
