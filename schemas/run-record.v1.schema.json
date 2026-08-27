@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio run archive record v1",
+  "description": "Immutable identity, plan and configuration for one archived review run. Written create-only to .quality/run-history/YYYY-MM/<runId>/run.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "runId",
+    "repositoryId",
+    "node",
+    "level",
+    "kind",
+    "createdAt",
+    "targets",
+    "configuration",
+    "sourceRevision"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json"
+    },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "node": { "$ref": "#/$defs/node" },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "createdAt": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "targets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/target" }
+    },
+    "configuration": { "$ref": "#/$defs/configuration" },
+    "cap": { "$ref": "#/$defs/cap" },
+    "estimate": { "$ref": "#/$defs/estimate" },
+    "promptHash": { "$ref": "#/$defs/sha256String" },
+    "effectiveInputHash": { "$ref": "#/$defs/sha256String" },
+    "sourceRevision": { "$ref": "#/$defs/sourceRevision" }
+  },
+  "$defs": {
+    "sha256String": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "path": { "$ref": "#/$defs/repoPath" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "subjectHash"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "subjectHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cliType", "force"],
+      "properties": {
+        "model": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+        "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "thinkingLevel": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+        "force": { "type": "boolean" }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokenCap": { "type": ["integer", "null"], "minimum": 1 },
+        "costCap": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operations", "inputTokens", "outputTokens", "priceStatus"],
+      "properties": {
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "cost": { "type": ["number", "null"] },
+        "currency": { "type": ["string", "null"], "minLength": 1, "maxLength": 10 },
+        "priceStatus": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "sourceRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dirty"],
+      "properties": {
+        "commitSha": { "type": ["string", "null"], "pattern": "^[a-f0-9]{40}$" },
+        "dirty": { "type": "boolean" }
+      }
+    }
+  }
+}

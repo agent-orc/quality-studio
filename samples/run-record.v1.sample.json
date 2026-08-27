@@ -1,0 +1,46 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-2026-08-27-0001",
+  "repositoryId": "quality-studio",
+  "node": {
+    "id": "qs-v1/dotnet/module/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "path": "src/QualityStudio.Api"
+  },
+  "level": "module",
+  "kind": "code",
+  "createdAt": "2026-08-27T10:15:00Z",
+  "targets": [
+    {
+      "path": "src/QualityStudio.Api/ReviewJobs.cs",
+      "subjectHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "subjectHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "configuration": {
+    "model": "claude-sonnet-5",
+    "cliType": "codex",
+    "thinkingLevel": "high",
+    "force": false
+  },
+  "cap": {
+    "tokenCap": 500000
+  },
+  "estimate": {
+    "operations": 2,
+    "inputTokens": 12000,
+    "outputTokens": 4000,
+    "cost": 1.23,
+    "currency": "USD",
+    "priceStatus": "priced"
+  },
+  "promptHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "effectiveInputHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "sourceRevision": {
+    "commitSha": "3e0b6559faa700183a16e2ffda1a522fd75c9aa6",
+    "dirty": false
+  }
+}

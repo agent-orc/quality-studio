@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-2026-08-27-0001",
+  "operationId": "run-2026-08-27-0001:0001:abc123",
+  "ordinal": 0,
+  "attempt": 1,
+  "unitId": "qs-v1/dotnet/file/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "unitPath": "src/QualityStudio.Api/ReviewJobs.cs",
+  "level": "file",
+  "state": "done",
+  "startedAt": "2026-08-27T10:15:05Z",
+  "finishedAt": "2026-08-27T10:15:42Z",
+  "providerRunId": "provider-run-1",
+  "reviewedHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "inputHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "resultSidecarPath": ".quality/reviews/aaaa/aaaa.review-meta.code.json",
+  "verdict": {
+    "type": "grade",
+    "grade": {
+      "score": 88,
+      "band": "B"
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-2026-08-27-0001",
+  "attemptNumber": 1,
+  "outcome": "capped",
+  "completeness": "partial",
+  "startedAt": "2026-08-27T10:15:00Z",
+  "finishedAt": "2026-08-27T10:16:00Z",
+  "counters": {
+    "totalFiles": 2,
+    "completedFiles": 1,
+    "failedFiles": 0,
+    "skippedFiles": 1
+  },
+  "cumulativeCounters": {
+    "totalFiles": 2,
+    "completedFiles": 1,
+    "failedFiles": 0,
+    "skippedFiles": 1
+  },
+  "spend": {
+    "usage": {
+      "inputTokens": 6000,
+      "outputTokens": 2000,
+      "cachedInputTokens": 0,
+      "reasoningOutputTokens": 0,
+      "durationMs": 15000
+    },
+    "costSpent": 0.61,
+    "currency": "USD",
+    "priceStatus": "priced"
+  },
+  "cumulativeSpend": {
+    "usage": {
+      "inputTokens": 6000,
+      "outputTokens": 2000,
+      "cachedInputTokens": 0,
+      "reasoningOutputTokens": 0,
+      "durationMs": 15000
+    },
+    "costSpent": 0.61,
+    "currency": "USD",
+    "priceStatus": "priced"
+  },
+  "errorCodes": [],
+  "cap": {
+    "tokenCap": 8000
+  },
+  "estimateDeviation": {
+    "inputTokensPercent": -10.5,
+    "outputTokensPercent": 5.2,
+    "costPercent": null,
+    "note": "Actuals ran below the estimate."
+  },
+  "ledgerReferences": [
+    "2026-08"
+  ],
+  "qualitySummary": {
+    "lowestGrade": {
+      "score": 88,
+      "band": "B"
+    },
+    "worstSecurityVerdict": null,
+    "activeFindingCount": 1,
+    "highestActiveSeverity": "medium"
+  },
+  "stopReason": "Token cap of 8,000 reached after 8,000 tokens."
+}

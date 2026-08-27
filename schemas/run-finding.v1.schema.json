@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio run archive finding observation v1",
+  "description": "One append-only line in findings.jsonl recording what an operation observed, including lifecycle state at that time. Never becomes the current lifecycle owner.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "runId",
+    "operationId",
+    "findingId",
+    "fingerprint",
+    "ruleId",
+    "severity",
+    "title",
+    "locations",
+    "observedState",
+    "observedAt"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json"
+    },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "findingId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "locations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/location" }
+    },
+    "observedState": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+    "observedAt": { "type": "string", "format": "date-time", "pattern": "Z$" }
+  },
+  "$defs": {
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "range": { "$ref": "#/$defs/range" },
+        "symbolId": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio run archive operation record v1",
+  "description": "One append-only line in operations.jsonl for a completed or failed review operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "runId",
+    "operationId",
+    "ordinal",
+    "attempt",
+    "unitId",
+    "unitPath",
+    "level",
+    "state",
+    "finishedAt",
+    "verdict"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json"
+    },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "unitPath": { "$ref": "#/$defs/repoPath" },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time", "pattern": "Z$" },
+    "finishedAt": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "providerRunId": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "reviewedHash": { "$ref": "#/$defs/sha256StringOrNull" },
+    "inputHash": { "$ref": "#/$defs/sha256StringOrNull" },
+    "resultSidecarPath": { "type": ["string", "null"], "minLength": 1 },
+    "error": { "type": ["string", "null"], "minLength": 1, "maxLength": 4000 },
+    "verdict": { "$ref": "#/$defs/verdict" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "verdict": { "properties": { "type": { "const": "grade" } }, "required": ["type"] } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": { "verdict": { "required": ["grade"] } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "verdict": { "properties": { "type": { "const": "security" } }, "required": ["type"] } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": { "verdict": { "required": ["securityVerdict"] } }
+      }
+    }
+  ],
+  "$defs": {
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "sha256StringOrNull": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["grade", "security", "none"] },
+        "grade": { "$ref": "#/$defs/grade" },
+        "securityVerdict": { "enum": ["pass", "warn", "block", "unavailable"] }
+      }
+    }
+  }
+}
