@@ -141,8 +141,8 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
-      <span><b>Phase</b> decision-ready</span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
+      <span><b>Phase</b> implementation (see <a href="#implementation">section 14</a>)</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation log</a></li>
     </ul>
   </nav>
 
@@ -557,6 +558,22 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation log</h2>
+  <p class="dim">Append-only. The operator granted blanket approval for every recommendation in this dossier on 11 August 2026, including slices previously marked operator-decision-gated; status recorded in <code>workbench.json</code> is <code>decided</code>.</p>
+
+  <h3>2026-08-27 — <code>QS-76</code> — T1 delivered</h3>
+  <p><b>Scope delivered:</b> the contract and catalogue foundation slice (section 10, T1). No writer was changed; this slice is purely additive.</p>
+  <ul>
+    <li><code>schemas/quality-taxonomy.v1.schema.json</code> — envelope for the independently versioned <code>quality-studio/core</code> term catalogue (producer kind, evidence status, assessment, change, decision, severity, lifecycle, evidence kind axes, plus the initial core aspect catalogue).</li>
+    <li><code>schemas/quality-observation.v1.schema.json</code> — envelope for the immutable observation contract from section 7, including a typed <code>extensions</code> object and legacy root <code>x-*</code> pattern properties.</li>
+    <li><code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code> — the <code>quality-studio/core@1.0.0</code> catalogue data, pinning the exact terms and migration aliases from section 6.</li>
+    <li><code>QualityTaxonomyCatalogue.cs</code> — embedded-resource loader, contract validation, and SHA-256 catalogue digest computation.</li>
+    <li><code>QualityObservationContract.cs</code> — C# observation contract types, a serializer/parser that preserves <code>extensions</code> and legacy <code>x-*</code> keys through a round trip, and quarantines an unsupported schema or taxonomy major without discarding the raw document (section 12 invariant). Includes a minimal <code>QualityObservationAggregation</code> helper that excludes extension aspects from core aggregation until a matching extension catalogue is installed.</li>
+    <li><code>LegacyTaxonomyMapper.cs</code> — pure mapping functions covering every row of the section 8 compatibility table (security/flow/attack verdicts, change summary and aspect verdicts, finding-state aliases, and evidence-string typing).</li>
+  </ul>
+  <p><b>Tests:</b> <code>QualityTaxonomyContractTests</code> (schema positive/negative fixtures, catalogue digest stability, extension round trip, unsupported-major quarantine, core-aggregation exclusion) and <code>LegacyTaxonomyMapperTests</code> (one conformance vector per section 8 row). Full repository build and test suite green at delivery time.</p>
+  <p><b>Not in this delivery (tracked as follow-up slices, each its own card):</b> T2 immutable observation dual-write and route provenance, T3 typed evidence/provenance/lifecycle v2, T4 observation-backed projections and per-model records, T5 domain adapters and the <code>quality taxonomy migrate</code> tool. T1 was sized to land as one coherent, independently reviewable slice per the delivery constraint in effect for this card; T2 depends on T1 and is next in priority order.</p>
 </main>
 </body>
 </html>

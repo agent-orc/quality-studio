@@ -1,0 +1,83 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "taxonomyId": "quality-studio/core",
+  "version": "1.0.0",
+  "axes": {
+    "producerKind": [
+      { "id": "agent", "description": "A coding agent or reviewing model produced the result." },
+      { "id": "deterministic-sensor", "description": "A deterministic tool or analyzer produced the result without model judgement." },
+      { "id": "human", "description": "A person produced or attested the result directly." },
+      { "id": "imported", "description": "The result was migrated from a legacy contract and its original producer kind could not be established with certainty." },
+      { "id": "unknown", "description": "The producer kind could not be determined. Never defaulted to agent." }
+    ],
+    "evidenceStatus": [
+      { "id": "available", "description": "The full evidence expected by the review profile was collected." },
+      { "id": "partial", "description": "Some but not all expected evidence was collected." },
+      { "id": "unavailable", "description": "No evidence could be collected for this observation." }
+    ],
+    "assessment": [
+      { "id": "pass", "description": "The evidence establishes that the subject meets the aspect." },
+      { "id": "concern", "description": "The evidence raises a qualified concern short of a failure." },
+      { "id": "fail", "description": "The evidence establishes that the subject does not meet the aspect." },
+      { "id": "inconclusive", "description": "The evidence does not support a pass or fail determination." },
+      { "id": "not-applicable", "description": "The aspect does not apply to this subject." },
+      { "id": "not-assessed", "description": "The aspect was not evaluated for this observation." }
+    ],
+    "change": [
+      { "id": "improved", "description": "The comparison shows the subject improved." },
+      { "id": "regressed", "description": "The comparison shows the subject regressed." },
+      { "id": "mixed", "description": "The comparison shows both improvement and regression." },
+      { "id": "unchanged", "description": "The comparison shows no material change." },
+      { "id": "no-observed-delta", "description": "No comparable prior observation exists to measure a delta." },
+      { "id": "inconclusive", "description": "The comparison could not determine direction." }
+    ],
+    "decision": [
+      { "id": "allow", "description": "Policy permits proceeding without restriction." },
+      { "id": "warn", "description": "Policy permits proceeding but records a warning." },
+      { "id": "block", "description": "Policy prevents proceeding until resolved." },
+      { "id": "defer", "description": "Policy defers the decision to a later or human review." }
+    ],
+    "severity": [
+      { "id": "critical", "description": "Immediate, severe impact." },
+      { "id": "high", "description": "Significant impact requiring prompt attention." },
+      { "id": "medium", "description": "Moderate impact." },
+      { "id": "low", "description": "Minor impact." },
+      { "id": "info", "description": "Informational; no direct impact." }
+    ],
+    "lifecycle": [
+      { "id": "open", "description": "The issue is unresolved and awaiting action." },
+      { "id": "accepted-risk", "description": "The issue is known and its risk was explicitly accepted.", "aliases": ["accepted"] },
+      { "id": "waived", "description": "The issue was explicitly waived." },
+      { "id": "false-positive", "description": "The issue was determined not to be real.", "aliases": ["falsePositive"] },
+      { "id": "resolved", "description": "The issue was fixed and verified resolved." }
+    ],
+    "evidenceKind": [
+      { "id": "source-code", "description": "A located excerpt of reviewed source code." },
+      { "id": "test-result", "description": "A test execution result." },
+      { "id": "runtime-measurement", "description": "A measurement captured from a running system." },
+      { "id": "tool-result", "description": "Structured output from a deterministic tool, such as JSON or SARIF." },
+      { "id": "artifact", "description": "A stored artifact reference, such as a report or log file." },
+      { "id": "document", "description": "A document reference, such as a specification or guideline." },
+      { "id": "human-attestation", "description": "A statement attested by a person." }
+    ]
+  },
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "migrationAlias": "correctness" },
+    { "id": "code.architecture", "title": "Architecture", "migrationAlias": "architecture" },
+    { "id": "security.general", "title": "Security", "migrationAlias": "security" },
+    { "id": "security.secrets", "title": "Secrets", "migrationAlias": "secrets" },
+    { "id": "security.dependencies", "title": "Dependencies", "migrationAlias": "dependencies" },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "migrationAlias": "authentication-authorization" },
+    { "id": "security.input-validation", "title": "Input validation", "migrationAlias": "input-validation" },
+    { "id": "security.configuration-iac", "title": "Configuration and infrastructure as code", "migrationAlias": "configuration-iac" },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "migrationAlias": "boundaries" },
+    { "id": "security.business-logic", "title": "Business logic" },
+    { "id": "security.attack-coverage", "title": "Attack coverage" },
+    { "id": "performance.general", "title": "Performance", "migrationAlias": "performance" },
+    { "id": "change.risk", "title": "Change risk", "migrationAlias": "risk" },
+    { "id": "change.test-evidence", "title": "Change test evidence", "migrationAlias": "test-evidence" },
+    { "id": "change.scope-discipline", "title": "Change scope discipline", "migrationAlias": "scope-discipline" },
+    { "id": "change.architecture-drift", "title": "Change architecture drift", "migrationAlias": "architecture-drift" }
+  ]
+}
