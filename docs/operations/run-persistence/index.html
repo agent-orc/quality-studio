@@ -141,9 +141,9 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> documented</span>
+    <span><b>Status</b> decided</span>
     <span><b>Phase</b> implementation verified</span>
-    <span><b>Evidence cut</b> 24 August 2026</span>
+    <span><b>Evidence cut</b> 27 August 2026</span>
     <span><b>Source</b> QS-62</span>
   </div>
 </header>
@@ -514,6 +514,9 @@
 <p><b>Gate.</b> The Release build is clean (0 warnings, 0 errors); 221 .NET tests pass across two assemblies with one intentionally skipped live-provider test; the production frontend bundle builds; 46 of 46 Karma browser tests pass; 5 of 5 dev-stack launcher tests pass on Linux, exercising the cross-platform npm stub this card introduced; and the Token Economy catalogue snapshot is valid.</p>
 <p><b>Durability.</b> Beyond the test suite, an archive was written through the production <code>ReviewRunArchiveStore</code> into a repository holding no <code>.quality/runs</code> recovery journal. One API process served the run, its operation, finding, grade and token-ledger spend from <code>/api/review/history</code>; that process was stopped and a second, independent process served byte-identical facts, so the record survives a real restart on tracked files alone. Corrupting an attempt document surfaced the row with <code>errorCode: history-corrupt</code> instead of hiding it, and restoring the file restored the run. Git records the archive as four diffable tracked files under a month partition.</p>
 <p><b>UI evidence.</b> Before/after captures of the same production bundle and fixtures are retained with the QS-85 task results as <code>qs-85-run-history-before.png</code> and <code>qs-85-run-history-after.png</code>: the base revision has no archived-history surface, while the delivered branch shows five archived rows including a visible corrupt row and a legacy usage-only row, the run-detail drawer, and the two-run comparison.</p>
+
+<h3>27 August 2026 · QS-71 · RP-1 through RP-5 final redelivery</h3>
+<p><b>Rebased onto current main and re-verified without feature rework.</b> The complete approved slice set is based directly on <code>origin/main</code> at <code>f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7</code>; the retained implementation applied without conflicts. The dossier status remains <code>decided</code> per the operator's blanket approval. The local gate passed with a clean Release build, 221 passing .NET tests and one explicitly skipped live-provider test, a successful production frontend build, 46 of 46 Angular tests, 5 of 5 dev-stack tests, a valid model-catalog snapshot, and a passing repository security scan.</p>
 </main>
 </body>
 </html>
