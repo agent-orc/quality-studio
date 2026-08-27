@@ -1,4 +1,5 @@
 using System.Text;
+using System.ComponentModel;
 using CodingAgentRunner;
 using CodingAgentRunner.Abstractions;
 using CodingAgentRunner.Events;
@@ -19,12 +20,18 @@ public interface IReviewAgent
 public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null);
 
 public sealed class ReviewAgentRunException(
-    string runId, TokenUsage usage, string? effectiveModel, Exception innerException)
+    string runId, TokenUsage usage, string? effectiveModel, Exception innerException, string? errorCode = null)
     : Exception($"The coding agent run failed: {innerException.Message}", innerException)
 {
     public string RunId { get; } = runId;
     public TokenUsage Usage { get; } = usage;
     public string? EffectiveModel { get; } = effectiveModel;
+    public string ErrorCode { get; } = errorCode ?? (SpawnFailure(innerException)
+        ? "reviewer_spawn_failed"
+        : "reviewer_cli_failed");
+
+    private static bool SpawnFailure(Exception exception) => exception is Win32Exception or FileNotFoundException ||
+        exception.InnerException is not null && SpawnFailure(exception.InnerException);
 }
 
 public sealed class ReviewAgentRunCanceledException(
@@ -46,15 +53,23 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
 
     public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
         CliOptions? options = null,
-        Action<string, CliRunEvent>? eventObserver = null)
+        Action<string, CliRunEvent>? eventObserver = null,
+        Microsoft.Extensions.Logging.ILogger? logger = null)
     {
         _cliType = cliType;
         _thinkingLevel = thinkingLevel;
         Model = model;
-        _runner = new CliRunner(options ?? new CliOptions());
+        _runner = new CliRunner(options ?? DefaultOptions(), logger);
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
+
+    private static CliOptions DefaultOptions() => new()
+    {
+        // Review prompts routinely exceed both Windows' command-line limit and Linux's
+        // per-argument limit. Stdin also keeps repository content out of process listings.
+        ClaudePromptTransport = ClaudePromptTransport.Stdin,
+    };
 
     public string AgentName => _cliType;
 
@@ -70,6 +85,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _runner.Get(_cliType);
+        string? turnFailure = null;
         try
         {
             await foreach (var runEvent in driver.StreamAsync(new CliRunRequest
@@ -85,6 +101,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             {
                 metrics.Observe(runEvent);
                 _eventObserver?.Invoke(_cliType, runEvent);
+                if (runEvent is CliRunEvent.TurnFailed failed) turnFailure = failed.Reason;
                 if (runEvent is CliRunEvent.OutputDelta delta)
                 {
                     output.Append(delta.Text);
@@ -103,7 +120,30 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
 
         var completed = BuildUsage(metrics, stopwatch);
-        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+        var response = output.ToString();
+        var authenticationFailure = response.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
+            response.Contains("authentication_failed", StringComparison.OrdinalIgnoreCase) ||
+            turnFailure?.Contains("not logged in", StringComparison.OrdinalIgnoreCase) == true ||
+            turnFailure?.Contains("authentication", StringComparison.OrdinalIgnoreCase) == true;
+        if (authenticationFailure)
+        {
+            throw new ReviewAgentRunException(
+                runId,
+                completed.Usage,
+                completed.Model,
+                new InvalidOperationException("Claude reviewer authentication failed. Run `claude /login` for the API host user."),
+                "reviewer_authentication_failed");
+        }
+        if (!string.IsNullOrWhiteSpace(turnFailure))
+        {
+            throw new ReviewAgentRunException(
+                runId,
+                completed.Usage,
+                completed.Model,
+                new InvalidOperationException(turnFailure),
+                "reviewer_cli_failed");
+        }
+        return new ReviewAgentResult(runId, response, completed.Usage, completed.Model);
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,

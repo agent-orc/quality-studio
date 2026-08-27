@@ -363,6 +363,64 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Cancelled_run_releases_non_cooperative_operation_and_next_run_advances()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new FirstOperationNeverCompletesExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(executor, attachTimeoutSeconds: 30);
+            using var client = application.CreateClient();
+
+            var firstId = await StartFileReviewAsync(client, cancellationToken);
+            await WaitForStateAsync(client, firstId, "running", cancellationToken);
+            var secondId = await StartFileReviewAsync(client, cancellationToken);
+
+            using var cancel = await client.DeleteAsync($"/api/review/runs/{firstId}", cancellationToken);
+            cancel.EnsureSuccessStatusCode();
+
+            var first = await WaitForStateAsync(client, firstId, "cancelled", cancellationToken);
+            var second = await WaitForStateAsync(client, secondId, "done", cancellationToken);
+            Assert.Equal("cancelled", first.GetProperty("state").GetString());
+            Assert.Equal("done", second.GetProperty("state").GetString());
+            Assert.Equal(2, executor.OperationCount);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Dead_reviewer_is_reclaimed_with_typed_error_and_queue_advances()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new FirstOperationNeverCompletesExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(executor, attachTimeoutSeconds: 0.1);
+            using var client = application.CreateClient();
+
+            var firstId = await StartFileReviewAsync(client, cancellationToken);
+            var secondId = await StartFileReviewAsync(client, cancellationToken);
+
+            var first = await WaitForStateAsync(client, firstId, "failed", cancellationToken);
+            var second = await WaitForStateAsync(client, secondId, "done", cancellationToken);
+            Assert.Equal("reviewer_start_timeout", first.GetProperty("errorCode").GetString());
+            var file = Assert.Single(first.GetProperty("files").EnumerateArray());
+            Assert.Equal("failed", file.GetProperty("state").GetString());
+            Assert.Equal("reviewer_start_timeout", file.GetProperty("errorCode").GetString());
+            Assert.Equal("done", second.GetProperty("state").GetString());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Terminal_run_is_loaded_but_not_resumed()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -490,6 +548,21 @@ public sealed class ReviewRunStoreTests
             await Task.Delay(20, cancellationToken);
         }
         return run;
+    }
+
+    private static async Task<string> StartFileReviewAsync(HttpClient client, CancellationToken cancellationToken)
+    {
+        using var response = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "test-agent",
+            model = "claude-sonnet-5",
+            force = true,
+        }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        return accepted.GetProperty("id").GetString()!;
     }
 
     private static ReviewExecutionResult CapturedExecution(
@@ -621,8 +694,10 @@ public sealed class ReviewRunStoreTests
 
         public string ProgressPath(string runId) => Path.Combine(Store.RunsPath, runId, "progress.jsonl");
 
-        public TestApplication CreateApplication(IReviewExecutorFactory? executorFactory = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory);
+        public TestApplication CreateApplication(
+            IReviewExecutorFactory? executorFactory = null,
+            double? attachTimeoutSeconds = null) =>
+            new(RepositoryRoot, HostRoot, executorFactory, attachTimeoutSeconds);
 
         public void Dispose()
         {
@@ -637,17 +712,26 @@ public sealed class ReviewRunStoreTests
     }
 
     private sealed class TestApplication(
-        string repositoryRoot, string contentRoot, IReviewExecutorFactory? executorFactory) : WebApplicationFactory<Program>
+        string repositoryRoot,
+        string contentRoot,
+        IReviewExecutorFactory? executorFactory,
+        double? attachTimeoutSeconds) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(contentRoot);
-            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                var settings = new Dictionary<string, string?>
                 {
                     ["QualityStudio:RepositoryRoot"] = repositoryRoot,
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
-                }));
+                };
+                if (attachTimeoutSeconds.HasValue)
+                    settings["ReviewJobs:ReviewerAttachTimeoutSeconds"] =
+                        attachTimeoutSeconds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                configuration.AddInMemoryCollection(settings);
+            });
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<QuotaService>();
@@ -741,6 +825,36 @@ public sealed class ReviewRunStoreTests
             {
                 lock (requests) requests.Add(request);
                 return Task.FromResult(CapturedExecution(request, skippedFresh: false));
+            }
+        }
+    }
+
+    private sealed class FirstOperationNeverCompletesExecutorFactory : IReviewExecutorFactory
+    {
+        private int operationCount;
+        public int OperationCount => operationCount;
+
+        public IReviewExecutor Create(
+            string cliType,
+            string? model,
+            string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver,
+            Action<ReviewUsageEntry> usageRecorded) => new Executor(this);
+
+        private sealed class Executor(FirstOperationNeverCompletesExecutorFactory owner) : IReviewExecutor
+        {
+            public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                var operation = Interlocked.Increment(ref owner.operationCount);
+                if (operation == 1)
+                {
+                    return new TaskCompletionSource<ReviewExecutionResult>(
+                        TaskCreationOptions.RunContinuationsAsynchronously).Task;
+                }
+                return Task.FromResult(CapturedExecution(request, skippedFresh: false, operation));
             }
         }
     }
