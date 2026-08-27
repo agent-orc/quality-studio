@@ -1,1 +1,6 @@
-[]
+[
+  {
+    "Fingerprint": "docs/concept.md:generic-api-key:1536",
+    "Note": "docs/concept.md documents a 64-hex content-derived review 'unit-key', not a credential. See docs/operations/security/index.html F-04. Accepted 2026-08-27 (QS-81)."
+  }
+]

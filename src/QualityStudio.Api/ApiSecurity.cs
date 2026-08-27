@@ -69,6 +69,7 @@ public sealed class ApiSecurity
     public long MaxRequestBodyBytes => options.MaxRequestBodyBytes;
     public int MaxConcurrentRequests => options.MaxConcurrentRequests;
     public int SpendRequestsPerMinute => options.SpendRequestsPerMinute;
+    public bool AllowCommandBackedAnalyzers => options.AllowCommandBackedAnalyzers;
 
     public ApiClientIdentity? Authenticate(HttpContext context)
     {

@@ -141,11 +141,12 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
+      <span><b>Status</b> decision pending; slices in progress</span>
       <span><b>Phase</b> decision ready</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
+      <span><b>Implementation log</b> <a href="#implementation">§11, updated 2026-08-27</a></span>
     </div>
   </header>
 
@@ -168,6 +169,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -283,14 +285,14 @@
     <table>
       <thead><tr><th>ID</th><th>Risk</th><th>L × I</th><th>Class</th><th>Mitigation slice</th></tr></thead>
       <tbody>
-        <tr><td><b>R-01</b></td><td>Repo-scoped API client configures and triggers a host-executed analyzer command.</td><td>4 × 5 = 20</td><td><span class="pill open">Critical</span></td><td>S0, then S1</td></tr>
+        <tr><td><b>R-01</b></td><td>Repo-scoped API client configures and triggers a host-executed analyzer command.</td><td>4 × 5 = 20</td><td><span class="pill part">Critical, partly closed</span></td><td>S0, then S1</td></tr>
         <tr><td><b>R-02</b></td><td>Prompt-injected repository content reaches a tool-capable agent with shared operator CLI context and repository-root working directory.</td><td>4 × 5 = 20</td><td><span class="pill open">Critical</span></td><td>S1</td></tr>
         <tr><td><b>R-03</b></td><td>Unbounded files, aggregates, sidecars, and individual model operations exhaust memory, time, or spend.</td><td>4 × 4 = 16</td><td><span class="pill open">High</span></td><td>S2</td></tr>
-        <tr><td><b>R-04</b></td><td>Source secrets are quoted into review metadata or handover prompts that the configured Gitleaks policy excludes.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S3</td></tr>
+        <tr><td><b>R-04</b></td><td>Source secrets are quoted into review metadata or handover prompts that the configured Gitleaks policy excludes.</td><td>3 × 4 = 12</td><td><span class="pill part">High, partly closed</span></td><td>S3</td></tr>
         <tr><td><b>R-05</b></td><td>Model-authored finding text becomes an instruction-bearing downstream Agent Studio task prompt after one UI action.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S4</td></tr>
         <tr><td><b>R-06</b></td><td>Static hosted bearer credentials lack expiry, live revocation, and auditable key identity.</td><td>3 × 4 = 12</td><td><span class="pill open">High</span></td><td>S5</td></tr>
         <tr><td><b>R-07</b></td><td>Unchecked, repository-owned review sidecars cause memory/availability pressure or misleading UI state.</td><td>4 × 3 = 12</td><td><span class="pill open">High</span></td><td>S2, S4</td></tr>
-        <tr><td><b>R-08</b></td><td>Known Angular advisories remain in the production lock, while dependency and frontend gates are absent from CI.</td><td>2 × 4 = 8</td><td><span class="pill new">Medium</span></td><td>S0, S6</td></tr>
+        <tr><td><b>R-08</b></td><td>Known Angular advisories remain in the production lock, while dependency and frontend gates are absent from CI.</td><td>2 × 4 = 8</td><td><span class="pill done">Medium, closed</span></td><td>S0, S6</td></tr>
         <tr><td><b>R-09</b></td><td>A maintainer-specific AllowedRoots entry is shipped again, exposing host topology and widening selectable repositories.</td><td>2 × 3 = 6</td><td><span class="pill new">Medium</span></td><td>S0, S3</td></tr>
       </tbody>
     </table>
@@ -367,7 +369,7 @@
     <h2><span class="no">08</span>Implementation slices</h2>
     <p>Each slice is independently reviewable and carries explicit exit evidence. Effort is an engineering estimate, not elapsed calendar time.</p>
 
-    <h3>S0 · Close the authorization-to-command chain <span class="pill open">Approve now · 1–2 days</span></h3>
+    <h3>S0 · Close the authorization-to-command chain <span class="pill part">Partly closed · see §11</span></h3>
     <ul>
       <li>Require registrar privilege for repository root, global input, sensor, and archive mutations; preferably split immutable host-owned root/sensor configuration from repo-scoped display settings.</li>
       <li>Reject free-form analyzer commands. Resolve a host-owned analyzer profile ID to an immutable executable and argument template. Disable command-backed analyzers by default in Hosted and Local modes until S1.</li>
@@ -394,7 +396,7 @@
     </ul>
     <div class="stx stx-part"><b>Exit:</b> oversized file/aggregate fixtures produce a stable 413/422 before agent launch; a valid-but-huge or schema-invalid sidecar cannot raise steady-state memory, break the tree, or enter handover; cap tests prove no single operation starts above remaining budget.</div>
 
-    <h3>S3 · Make secret handling end-to-end <span class="pill queued">2–3 days</span></h3>
+    <h3>S3 · Make secret handling end-to-end <span class="pill part">Partly closed · see §11</span></h3>
     <ul>
       <li>Add an explicit “never reproduce credentials; cite location/type only” review rule, then independently run redaction/DLP over model output before logs, persistence, rendering, or handover.</li>
       <li>Replace the blanket <code>.quality/reviews</code> Gitleaks exclusion with a safe metadata scan or dedicated redactor. Add an all-ref CI scan with a narrow, reviewed suppression for the documented unit-key false positive.</li>
@@ -419,7 +421,7 @@
     </ul>
     <div class="stx stx-part"><b>Exit:</b> expired, wrong-audience, revoked, wrong-repository, and wrong-role credentials fail; revocation takes effect within the declared bound without restart; audit records identify the key and authorization decision.</div>
 
-    <h3>S6 · Establish a continuous supply-chain gate <span class="pill queued">1–2 days</span></h3>
+    <h3>S6 · Establish a continuous supply-chain gate <span class="pill part">Partly closed · see §11</span></h3>
     <ul>
       <li>CI runs <code>npm ci</code>, frontend build/unit tests, and a production audit that fails on high/critical. Retain a separate full-tree audit so dev-only findings remain visible.</li>
       <li>CI runs NuGet vulnerable-package checks for the solution and out-of-solution spike, generates an SBOM, and records advisory-query timestamps.</li>
@@ -462,6 +464,45 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">This section is updated by each hardening slice as it ships. It records what actually merged to <code>main</code>, not what a card intended — see the note on QS-68 below for why that distinction matters here.</p>
+
+    <div class="box warn">
+      <h4>QS-68 (wave 1, dated 2026-08-27 in its own commit message) never reached <code>main</code></h4>
+      <p>QS-68's commit <code>4c69128</code> ("S0 partial") and its docs-only follow-ups only exist on an abandoned <code>agent-studio/quarantine/…</code>/<code>salvage/…</code> ref; <code>git merge-base --is-ancestor 4c69128 main</code> is false. Re-checking dossier claims against the actual code in this checkout (not against prior commit messages) before starting wave 2 showed several S0 exit criteria were still unmet. Wave 2 (QS-81, below) re-implements the registrar-privilege and command-backed-analyzer parts of S0 directly against current <code>main</code>.</p>
+    </div>
+
+    <h3>QS-81 (wave 2, 2026-08-27)</h3>
+    <p>Selected the three highest likelihood×impact gaps that were both still open and tractable in one slice: the sharpest remaining piece of R-01 (S0), R-08's missing CI dependency-advisory gate (S6), and R-04's missing onboarding-time secret scan (S3). All three are covered by new or extended tests in <code>tests/QualityStudio.Api.Tests/ApiSecurityTests.cs</code> and <code>tests/AgentOrchestrator.CodeQuality.Tests/GitleaksSecurityScannerTests.cs</code>.</p>
+
+    <h4>S0 · authorization-to-command chain — partly closed</h4>
+    <ul>
+      <li><b>Closed:</b> <code>PUT</code>/<code>DELETE /api/repos/{repoId}</code> (root path and sensor configuration mutation) now require <code>identity.CanRegisterRepositories</code>, not just repository access (<code>Program.cs</code> auth middleware). Previously a client scoped only to repository A could rewrite A's sensor <code>command</code> configuration.</li>
+      <li><b>Closed:</b> command-backed analyzers (<code>SarifSensor</code>/Roslyn/ESLint/TypeScript, which all resolve a repo-configured <code>command</code> string to an executable) are rejected at scan time unless <code>QualityStudio:Security:AllowCommandBackedAnalyzers</code> is explicitly set — default is disabled, matching the dossier's "disable by default" instruction. This does not yet replace free-form commands with host-owned analyzer profile IDs; that remains open.</li>
+      <li><b>Closed:</b> sensor scan routes (<code>POST /api/sensors/{id}/scan</code>) now carry the same <code>spend</code> rate limit as review/handover.</li>
+      <li><b>Closed (R-08 side effect):</b> Angular bumped 20.3.26 → 20.3.30 (regenerated <code>frontend/package-lock.json</code>); production <code>npm audit --omit=dev</code> is 0 findings (was 6 high).</li>
+      <li><b>Still open:</b> Origin/anti-CSRF check for Local-mode mutations; startup rejection of a non-loopback Local-mode binding. Not attempted this slice.</li>
+    </ul>
+
+    <h4>S6 · continuous supply-chain gate — partly closed</h4>
+    <p><code>.github/workflows/build.yml</code> now installs Node, runs <code>npm --prefix frontend ci</code>, builds the frontend, runs the Angular unit test suite headlessly (<code>CHROME_NO_SANDBOX=1</code>, matching the pattern already used by <code>release-canary.yml</code>), and gates on <code>npm audit --omit=dev --audit-level=high</code> (fails the build on high/critical) plus a non-failing full-tree audit uploaded as an artifact. Added <code>dotnet list package --vulnerable --include-transitive</code> for both the solution and the out-of-solution <code>spikes/code-graph</code> project, failing the build if either reports a vulnerable package. <b>Still open:</b> SBOM generation; pinning GitHub Actions to immutable commit SHAs (currently pinned by tag); a CI policy that rejects a QS-53-style tracked <code>AllowedRoots</code> diff.</p>
+
+    <h4>S3 · secret handling — onboarding coverage added, plus two scanner bugs fixed</h4>
+    <p>Registering a repository (<code>POST /api/repos</code>, and each project created via <code>POST /api/repos/import-from-agent-studio</code>) now runs a Gitleaks scan of the new root immediately, with <code>PersistMetadata: true</code> so findings land as <code>.quality/reviews/files/*.review-meta.security.json</code> sidecars the same way any other review finding does, and logs a structured warning when the verdict is <code>block</code>/<code>warn</code>. Previously a newly onboarded repository was invisible to secret scanning until an operator manually triggered one.</p>
+    <div class="box bad">
+      <h4>Two pre-existing correctness bugs in <code>GitleaksSecurityScanner</code> were found and fixed while building this</h4>
+      <p>Writing a regression test for the onboarding scan (a real PEM-shaped fixture that <em>should</em> be detected) surfaced that the scanner had never actually read real Gitleaks output for <code>Repository</code>/<code>Range</code>/<code>Staged</code> mode scans:</p>
+      <ol>
+        <li><b>Malformed CLI flag.</b> <code>RunScanAsync</code> passed <code>--redact</code> and <code>100</code> as two separate argv tokens. Gitleaks 8.24.2's <code>--redact</code> takes an optional value (<code>--redact[=percentage]</code>); with flags placed before the <code>dir</code>/<code>git</code> subcommand (as this code does), the CLI parser treats <code>100</code> as a stray positional and exits with <code>unknown command "100" for "gitleaks"</code> — a fatal usage error. The code treated exit code 1 as the normal "leaks found" outcome and never checked for this, so the failure was silently swallowed as "0 findings, pass" on every single real invocation. Fixed by passing the single token <code>--redact=100</code>.</li>
+        <li><b><code>--report-path</code> was never passed.</b> Gitleaks only writes its JSON report to a file given via <code>--report-path</code>; without it, stdout carries only human-readable log lines, not the report. <code>RunScanAsync</code> read only stdout, so <code>ParseOutput</code> always received empty input and returned zero findings regardless of what Gitleaks actually found. Fixed by generating a temp report path, passing it, and reading that file after the process exits (falling back to stdout so the existing fake-binary-based unit tests, which print JSON directly to stdout, keep passing unchanged).</li>
+        <li><b>Absolute vs. relative <code>File</code> paths.</b> Once (1) and (2) were fixed, findings were detected but never persisted: the <code>dir</code> target argument was the absolute repository root, and Gitleaks echoes that argument style back in each finding's <code>File</code> field, so <code>PersistFindingsAsync</code>'s relative-path containment check silently dropped every finding. Since <code>WorkingDirectory</code> is already the repository root, passing <code>.</code> instead of the absolute path makes Gitleaks report (and the app persist) genuinely repository-relative paths.</li>
+      </ol>
+      <p>Net effect: every prior "clean" Repository/Range/Staged-mode scan against a real (non-test-double) Gitleaks binary — including the dossier's own "current and task-range repository scans returned zero findings" evidence in §05 F-04 — reflects this masked failure, not an actual absence of matches. The one true finding surfaced once fixed is the same content-derived <code>docs/concept.md</code> "unit-key" false positive already documented in F-04; it is now suppressed via <code>.quality/security/gitleaks.baseline.json</code> by exact fingerprint (<code>docs/concept.md:generic-api-key:1536</code>) rather than left undetected.</p>
+    </div>
+    <p><b>Still open:</b> redaction/DLP over model review output before persistence/handover; replacing the blanket <code>.quality/reviews</code>/<code>.quality/security</code> Gitleaks path exclusion with a safe scan; an all-ref history scan in CI.</p>
   </section>
 </main>
 </body>

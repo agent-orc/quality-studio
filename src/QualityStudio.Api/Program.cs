@@ -181,7 +181,10 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryMutationRoute = repositoryId is not null &&
+        string.Equals(path, $"/api/repos/{repositoryId}", StringComparison.OrdinalIgnoreCase) &&
+        (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryMutationRoute)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -226,10 +229,12 @@ app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, Repository
 });
 
 app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry,
-    RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
+    RepositorySnapshotPrewarmer prewarmer, GitleaksSecurityScanner scanner, ILogger<Program> logger,
+    CancellationToken cancellationToken) =>
 {
     var created = await registry.CreateAsync(request, cancellationToken);
     prewarmer.Queue(created);
+    await RunOnboardingSecretScanAsync(created, scanner, logger, cancellationToken);
     return Results.Created($"/api/repos/{created.Id}", created);
 });
 
@@ -278,8 +283,8 @@ app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).R
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
@@ -955,7 +960,7 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
 }
 
 static async Task<IResult> SensorScan(HttpContext context, string id, string? path,
-    RepositoryRegistry repositories, SensorRegistry sensors, ILogger<Program> logger,
+    RepositoryRegistry repositories, SensorRegistry sensors, ApiSecurity security, ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
@@ -966,6 +971,13 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
     if (repositoryConfiguration is null || !repositoryConfiguration.Enabled)
     {
         throw new RepositoryRegistryValidationException($"Sensor '{id}' is not enabled for repository '{registration.Id}'.");
+    }
+    if (!security.AllowCommandBackedAnalyzers &&
+        (repositoryConfiguration.Configuration?.ContainsKey("command") == true))
+    {
+        throw new RepositoryRegistryValidationException(
+            $"Sensor '{id}' is configured with a command-backed analyzer, which is disabled.",
+            "Command-backed analyzers are disabled");
     }
 
     var scope = string.IsNullOrWhiteSpace(path) ? SensorScope.Repository : SensorScope.Path;
@@ -1189,6 +1201,7 @@ static async Task<IResult> Handover(
 static async Task<IResult> ImportFromAgentStudio(
     RepositoryRegistry registry,
     AgentStudioTaskClient client,
+    GitleaksSecurityScanner scanner,
     ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
@@ -1251,6 +1264,7 @@ static async Task<IResult> ImportFromAgentStudio(
                 null,
                 null), cancellationToken);
             knownPaths.Add(created.RootPath);
+            await RunOnboardingSecretScanAsync(created, scanner, logger, cancellationToken);
             results.Add(new AgentStudioImportResultResponse(
                 project.Id, project.DisplayName, created.RootPath, "imported", created.Id, null));
         }
@@ -1268,6 +1282,29 @@ static async Task<IResult> ImportFromAgentStudio(
         "Imported {ImportedCount} repositories from Agent Studio ({SkippedCount} skipped, {FailedCount} failed, {ProjectCount} projects seen) in {ElapsedMilliseconds} ms",
         imported, skipped, failed, projects.Count, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new AgentStudioImportResponse(results, imported, skipped, failed));
+}
+
+static async Task RunOnboardingSecretScanAsync(
+    RepositoryRegistration created, GitleaksSecurityScanner scanner, ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    var result = await scanner.ScanAsync(
+        new SecurityScanRequest(created.RootPath, PersistMetadata: true), cancellationToken);
+    var eventId = new EventId(1405, "RepositoryOnboardingSecretScanCompleted");
+    var message = "Ran onboarding secret scan for newly registered repository {RepositoryId}; " +
+                  "Verdict={Verdict}, NewFindings={NewFindings}, BlockFindings={BlockFindings}";
+    if (result.Report.Verdict is SecurityVerdict.Block or SecurityVerdict.Warn)
+    {
+        logger.LogWarning(eventId, message,
+            created.Id, result.Report.Verdict.ToString().ToLowerInvariant(),
+            result.Report.NewFindings, result.Report.BlockFindings);
+    }
+    else
+    {
+        logger.LogInformation(eventId, message,
+            created.Id, result.Report.Verdict.ToString().ToLowerInvariant(),
+            result.Report.NewFindings, result.Report.BlockFindings);
+    }
 }
 
 static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRepository(

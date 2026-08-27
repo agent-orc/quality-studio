@@ -20,6 +20,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     private string RepositoryRoot => Path.Combine(testRoot, "default");
     private string ForeignRepositoryRoot => Path.Combine(testRoot, "foreign");
     private string OutsideRoot => Path.Combine(testRoot, "outside");
+    private string OnboardRoot => Path.Combine(testRoot, "onboard");
     private string HostRoot => Path.Combine(testRoot, "host");
     private HostedApplication? application;
 
@@ -160,6 +161,88 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_identity_cannot_mutate_or_delete_its_own_repository_root_or_sensors()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        using var update = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            id = "foreign",
+            displayName = "Renamed",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[] { new { id = "sarif", enabled = true, configuration = new Dictionary<string, string> { ["command"] = "sh -c \"echo pwned\"", ["reportPath"] = "report.sarif" } } },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+
+        using var delete = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, delete.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminUpdate = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            id = "foreign",
+            displayName = "Foreign",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminUpdate.StatusCode);
+    }
+
+    [Fact]
+    public async Task Command_backed_sensors_are_rejected_unless_explicitly_allowed()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var configure = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            id = "foreign",
+            displayName = "Foreign",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "sh -c \"echo pwned\"",
+                        ["reportPath"] = "report.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, configure.StatusCode);
+
+        using var bob = CreateClient("bob", BobToken);
+        using var scan = await bob.PostAsync("/api/repos/foreign/sensors/sarif/scan", content: null,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, scan.StatusCode);
+        var problem = await scan.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Command-backed analyzers are disabled", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Registering_a_repository_runs_a_secret_scan_without_a_separate_scan_call()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var registration = await admin.PostAsJsonAsync("/api/repos", new
+        {
+            id = "onboarded",
+            displayName = "Onboarded",
+            rootPath = OnboardRoot,
+            enabledReviewKinds = new[] { "code", "security" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
+
+        var sidecars = Directory.GetFiles(
+            Path.Combine(OnboardRoot, ".quality", "reviews", "files"), "*.review-meta.security.json");
+        var sidecar = Assert.Single(sidecars);
+        Assert.Contains("gitleaks", await File.ReadAllTextAsync(sidecar, TestContext.Current.CancellationToken),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
@@ -178,17 +261,25 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        foreach (var directory in new[] { RepositoryRoot, ForeignRepositoryRoot, OutsideRoot, HostRoot })
+        foreach (var directory in new[] { RepositoryRoot, ForeignRepositoryRoot, OutsideRoot, OnboardRoot, HostRoot })
             Directory.CreateDirectory(directory);
         await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, "Sample.cs"), "namespace Sample; public sealed class Subject;");
         await File.WriteAllTextAsync(Path.Combine(ForeignRepositoryRoot, "Foreign.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(ForeignRepositoryRoot, "Foreign.cs"), "namespace Foreign; public sealed class Secret;");
+        await File.WriteAllTextAsync(Path.Combine(OnboardRoot, "Onboard.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        // Hex-encoded so this fixture's own PEM marker text is not a literal, contiguous match that
+        // this repository's own Gitleaks CI gate would flag when scanning this test source file.
+        await File.WriteAllBytesAsync(Path.Combine(OnboardRoot, "private-key.pem"), Convert.FromHexString(
+            "2D2D2D2D2D424547494E2050524956415445204B45592D2D2D2D2D0A4D494945765149424144414E" +
+            "42676B71686B6947397730424151454641415343424B63776767536A41674541416F494241514466" +
+            "6978747572656F6E626F6172640A2D2D2D2D2D454E442050524956415445204B45592D2D2D2D2D0A"));
         await RunGitAsync(RepositoryRoot);
         await RunGitAsync(ForeignRepositoryRoot);
         await RunGitAsync(OutsideRoot);
+        await RunGitAsync(OnboardRoot);
         WriteRegistry(HostRoot);
-        application = new HostedApplication(RepositoryRoot, ForeignRepositoryRoot, HostRoot, spendRequestsPerMinute: 100);
+        application = new HostedApplication(RepositoryRoot, ForeignRepositoryRoot, HostRoot, spendRequestsPerMinute: 100, OnboardRoot);
     }
 
     public async ValueTask DisposeAsync()
@@ -240,14 +331,14 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(0, process.ExitCode);
     }
 
-    private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute)
+    private sealed class HostedApplication(string root, string foreignRoot, string contentRoot,
+        int spendRequestsPerMinute, string? extraAllowedRoot = null)
         : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(contentRoot);
-            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
+            var configurationValues = new Dictionary<string, string?>
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
@@ -269,7 +360,12 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",
                     ["AgentStudio:DryRun"] = "true",
-                }));
+                };
+            if (extraAllowedRoot is not null)
+            {
+                configurationValues["QualityStudio:AllowedRoots:2"] = extraAllowedRoot;
+            }
+            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(configurationValues));
         }
 
         private static string Hash(string credential) =>

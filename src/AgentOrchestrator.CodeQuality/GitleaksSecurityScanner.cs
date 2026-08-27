@@ -427,10 +427,15 @@ public class GitleaksSecurityScanner : IReviewSensor
         };
         process.StartInfo.ArgumentList.Add("--no-banner");
         process.StartInfo.ArgumentList.Add("--no-color");
-        process.StartInfo.ArgumentList.Add("--redact");
-        process.StartInfo.ArgumentList.Add("100");
+        // --redact takes an optional value (`--redact[=percentage]`); passed as two tokens, gitleaks'
+        // flag parser treats "100" as a stray positional and fails with "unknown command 100" before
+        // the "dir"/"git" subcommand (appended below) is even parsed. The single-token form is required.
+        process.StartInfo.ArgumentList.Add("--redact=100");
         process.StartInfo.ArgumentList.Add("--report-format");
         process.StartInfo.ArgumentList.Add("json");
+        var reportPath = Path.Combine(Path.GetTempPath(), $"quality-studio-gitleaks-{Guid.NewGuid():N}.json");
+        process.StartInfo.ArgumentList.Add("--report-path");
+        process.StartInfo.ArgumentList.Add(reportPath);
         process.StartInfo.ArgumentList.Add("--exit-code");
         process.StartInfo.ArgumentList.Add("1");
         if (!string.IsNullOrWhiteSpace(configPath))
@@ -448,7 +453,12 @@ public class GitleaksSecurityScanner : IReviewSensor
         {
             case SecurityScanMode.Repository:
                 process.StartInfo.ArgumentList.Add("dir");
-                process.StartInfo.ArgumentList.Add(root);
+                // WorkingDirectory is already `root`; scan "." rather than the absolute path so
+                // gitleaks reports File as repository-relative. An absolute dir argument makes
+                // gitleaks report absolute File paths, which NormalizeRelativePath's TrimStart('/')
+                // does not turn back into a path under `root`, so persisted findings silently
+                // fail their containment check and are dropped instead of written.
+                process.StartInfo.ArgumentList.Add(".");
                 break;
             case SecurityScanMode.Range:
                 process.StartInfo.ArgumentList.Add("git");
@@ -483,7 +493,27 @@ public class GitleaksSecurityScanner : IReviewSensor
             throw new SecurityScannerUnavailableException($"Gitleaks exited with code {process.ExitCode}.");
         }
 
-        return ParseOutput(stdout) with { FilesScanned = scannedFiles };
+        // Real gitleaks writes its JSON report only to --report-path; stdout carries log lines, not
+        // the report. A test double may ignore --report-path and print JSON to stdout instead, so
+        // prefer the report file but fall back to stdout when no file was produced.
+        var reportContent = stdout;
+        if (File.Exists(reportPath))
+        {
+            try
+            {
+                var fileContent = await File.ReadAllTextAsync(reportPath, cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(fileContent))
+                {
+                    reportContent = fileContent;
+                }
+            }
+            finally
+            {
+                try { File.Delete(reportPath); } catch (IOException) { }
+            }
+        }
+
+        return ParseOutput(reportContent) with { FilesScanned = scannedFiles };
     }
 
     private async Task<SecurityScanOutput> ScanStagedAsync(
