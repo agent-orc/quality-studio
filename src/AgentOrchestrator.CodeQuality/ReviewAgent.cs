@@ -4,6 +4,9 @@ using CodingAgentRunner.Abstractions;
 using CodingAgentRunner.Events;
 using CodingAgentRunner.Execution;
 using CodingAgentRunner.Metrics;
+using CodingAgentRunner.Model;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -39,20 +42,35 @@ public sealed class ReviewAgentRunCanceledException(
 
 public sealed class CodingAgentReviewAgent : IReviewAgent
 {
+    private static readonly TimeSpan DefaultAttachTimeout = TimeSpan.FromSeconds(90);
+
     private readonly string _cliType;
     private readonly string? _thinkingLevel;
     private readonly CliRunner _runner;
     private readonly Action<string, CliRunEvent>? _eventObserver;
+    private readonly ILogger _logger;
+    private readonly TimeSpan _attachTimeout;
+    private readonly WatchdogPolicy _watchdogPolicy;
 
     public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
         CliOptions? options = null,
-        Action<string, CliRunEvent>? eventObserver = null)
+        Action<string, CliRunEvent>? eventObserver = null,
+        ILogger? logger = null,
+        TimeSpan? attachTimeout = null,
+        WatchdogPolicy? watchdogPolicy = null)
     {
         _cliType = cliType;
         _thinkingLevel = thinkingLevel;
         Model = model;
-        _runner = new CliRunner(options ?? new CliOptions());
+        _logger = logger ?? NullLogger.Instance;
+        _runner = new CliRunner(options ?? new CliOptions(), _logger);
         _eventObserver = eventObserver;
+        // Covers the gap RunWatchdog structurally cannot see: it only starts tracking a
+        // run once the driver's OnStarted fires, so a hang before that (pre-spawn health
+        // check, process spawn itself) has no budget without this. Once attached,
+        // per-phase silence budgets in _watchdogPolicy take over.
+        _attachTimeout = attachTimeout ?? DefaultAttachTimeout;
+        _watchdogPolicy = watchdogPolicy ?? WatchdogPolicy.Default;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
 
@@ -70,25 +88,68 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _runner.Get(_cliType);
+        using var watchdog = RunWatchdog.Attach(driver, _watchdogPolicy, autoStop: true);
+        var attachTimedOut = false;
+
+        var enumerator = driver.StreamAsync(new CliRunRequest
+        {
+            RunId = runId,
+            Prompt = prompt,
+            WorkingDirectory = workingDirectory,
+            Model = Model,
+            ThinkingLevel = _thinkingLevel,
+            PermissionMode = "read-only",
+            ContextMode = "shared",
+        }, cancellationToken).GetAsyncEnumerator(cancellationToken);
+
         try
         {
-            await foreach (var runEvent in driver.StreamAsync(new CliRunRequest
+            // MoveNextAsync on an async-iterator-backed IAsyncEnumerable can run
+            // synchronously up to its first internal await, which would let a blocking
+            // pre-spawn prefix starve Task.WhenAny before the race even begins. Task.Run
+            // forces that first call onto a pool thread so the attach-timeout can win.
+            // The delay is deliberately NOT linked to cancellationToken: a real caller
+            // cancellation is observed by firstMoveNext itself (the enumerator was built
+            // with this token), which then wins the race and is reported as a cancel, not
+            // a timeout. Linking both here would race two cancellation-driven completions
+            // and could misreport a real cancel as "did not attach".
+            var firstMoveNext = Task.Run(() => enumerator.MoveNextAsync().AsTask(), cancellationToken);
+            var attachWinner = await Task.WhenAny(firstMoveNext, Task.Delay(_attachTimeout))
+                .ConfigureAwait(false);
+
+            if (attachWinner != firstMoveNext)
             {
-                RunId = runId,
-                Prompt = prompt,
-                WorkingDirectory = workingDirectory,
-                Model = Model,
-                ThinkingLevel = _thinkingLevel,
-                PermissionMode = "read-only",
-                ContextMode = "shared",
-            }, cancellationToken))
+                _logger.LogError(
+                    "Review run {RunId} ({CliType}) did not attach within {TimeoutSeconds}s of dispatch; treating as a dead run",
+                    runId, _cliType, _attachTimeout.TotalSeconds);
+                // The enumerator only allows one MoveNextAsync/DisposeAsync in flight at a
+                // time, so disposing here (with firstMoveNext still outstanding) would throw
+                // and mask the timeout below. Let it settle first, on its own.
+                attachTimedOut = true;
+                _ = firstMoveNext.ContinueWith(
+                    static (task, state) => ((IAsyncDisposable)state!).DisposeAsync(),
+                    enumerator, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                throw new TimeoutException(
+                    $"{_cliType} reviewer did not attach (no run-started signal) within {_attachTimeout.TotalSeconds}s.");
+            }
+
+            var hasCurrent = await firstMoveNext.ConfigureAwait(false);
+            while (hasCurrent)
             {
+                var runEvent = enumerator.Current;
                 metrics.Observe(runEvent);
                 _eventObserver?.Invoke(_cliType, runEvent);
                 if (runEvent is CliRunEvent.OutputDelta delta)
                 {
                     output.Append(delta.Text);
                 }
+                if (runEvent is CliRunEvent.RunEnded { Outcome: RunOutcome.Stopped, Reason: "Watchdog" })
+                {
+                    throw new TimeoutException(
+                        $"{_cliType} reviewer was stopped by the watchdog (no activity within its phase budget).");
+                }
+
+                hasCurrent = await enumerator.MoveNextAsync().ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
@@ -100,6 +161,11 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         {
             var failed = BuildUsage(metrics, stopwatch);
             throw new ReviewAgentRunException(runId, failed.Usage, failed.Model, exception);
+        }
+        finally
+        {
+            if (!attachTimedOut)
+                await enumerator.DisposeAsync().ConfigureAwait(false);
         }
 
         var completed = BuildUsage(metrics, stopwatch);

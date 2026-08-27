@@ -893,4 +893,42 @@ public sealed class LiveReviewIntegrationTests
         Assert.True(File.Exists(result.MetaPath));
     }
 
+    /// <summary>
+    /// QS-93 M-1 regression: the dossier's finding was 7 <c>cliType=claude</c> runs stuck
+    /// at 0 operations/0 findings/0 tokens, one held "running" for 16 minutes with no
+    /// reviewer process attached. This does not assert the review succeeds (a real
+    /// environment's claude CLI health — auth, install — is outside this repo's control)
+    /// — it asserts the run always resolves, inside the watchdog's bound, to either a
+    /// completed review or a typed, known exception from this pipeline (the reviewer's own
+    /// run, or response parsing/validation once the reviewer did produce a reply). A hang
+    /// past the bound, or an untyped exception, is exactly the regression this guards against.
+    /// </summary>
+    [Fact]
+    public async Task ClaudeReviewerAttaches_WhenExplicitlyEnabled()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("QUALITY_RUN_LIVE_REVIEW"), "1", StringComparison.Ordinal))
+        {
+            Assert.Skip("Set QUALITY_RUN_LIVE_REVIEW=1 to run the installed Claude CLI integration.");
+        }
+
+        var root = RepositoryTestContext.FindRepositoryRoot();
+        var runner = new ReviewRunner(agent: new CodingAgentReviewAgent(cliType: "claude"));
+        var request = new ReviewRequest("src/AgentOrchestrator.CodeQuality/StalenessState.cs", RepositoryRoot: root);
+
+        var attempt = runner.ReviewAsync(request, TestContext.Current.CancellationToken);
+        var winner = await Task.WhenAny(attempt, Task.Delay(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.Same(attempt, winner);
+
+        if (attempt.IsFaulted)
+        {
+            var inner = attempt.Exception!.InnerException;
+            Assert.True(
+                inner is ReviewAgentRunException or ReviewResponseException or ReviewRunException,
+                $"expected a typed pipeline exception, got {inner?.GetType().FullName}: {inner?.Message}");
+        }
+        else
+        {
+            Assert.True(File.Exists((await attempt).MetaPath));
+        }
+    }
 }
