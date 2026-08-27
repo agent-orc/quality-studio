@@ -628,12 +628,16 @@ public sealed class ReviewJobService : BackgroundService
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
         private int usageOperations;
+        private int currentAttempt;
         private long? tokenCap;
         private decimal? costCap;
         private decimal? costSpent;
         private string? currency;
         private string priceStatus;
         private string? aggregateState;
+        private string? aggregateOperationId;
+        private int? aggregateAttempt;
+        private int? aggregateOrdinal;
         private string? stopReason;
         private bool attemptActive;
         private bool resumePending;
@@ -662,22 +666,24 @@ public sealed class ReviewJobService : BackgroundService
             Node = new HierarchyNode(manifest.Node.Id, manifest.Node.Name, level, manifest.Node.Path);
             Files = manifest.Targets.Select(target =>
                 new HierarchyNode(target.Id, target.Name, ReviewLevel.File, target.Path)).ToArray();
-            progress = manifest.Targets.ToDictionary(
-                target => target.Path,
-                target => new MutableFileProgress(target.Path),
-                StringComparer.Ordinal);
+            progress = manifest.Targets.Select((target, index) => new MutableFileProgress(target.Path, index + 1))
+                .ToDictionary(file => file.Path, StringComparer.Ordinal);
             state = status?.State ?? "queued";
             StartedAt = status?.StartedAt;
             FinishedAt = status?.FinishedAt;
             errors = status?.Errors.ToList() ?? [];
             usageOperations = status?.UsageOperations ?? 0;
             usage = status?.Usage ?? new TokenUsage(null, null, null, null, 0);
+            currentAttempt = status?.Attempt ?? 0;
             tokenCap = status?.TokenCap ?? manifest.TokenCap;
             costCap = status?.CostCap ?? manifest.CostCap;
             costSpent = status?.CostSpent ?? (status is null && manifest.Estimate?.Cost is not null ? 0m : null);
             currency = status?.Currency ?? manifest.Estimate?.Currency;
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
+            aggregateOperationId = status?.AggregateOperationId;
+            aggregateAttempt = status?.AggregateAttempt;
+            aggregateOrdinal = status?.AggregateOrdinal;
             stopReason = status?.StopReason;
             if (transitions is not null)
             {
@@ -689,6 +695,9 @@ public sealed class ReviewJobService : BackgroundService
                     file.StartedAt = transition.StartedAt;
                     file.FinishedAt = transition.FinishedAt;
                     file.Error = transition.Error;
+                    file.OperationId = transition.OperationId;
+                    file.Attempt = transition.Attempt;
+                    if (transition.Ordinal.HasValue) file.Ordinal = transition.Ordinal.Value;
                 }
                 foreach (var file in progress.Values.Where(file => file.State == "failed" && file.Error is not null))
                 {
@@ -746,6 +755,7 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate)
             {
                 if (state != "queued") throw new InvalidOperationException($"Review '{Id}' is not queued.");
+                if (currentAttempt == 0) currentAttempt = 1;
                 state = "running";
                 StartedAt ??= DateTimeOffset.UtcNow;
                 FinishedAt = null;
@@ -774,6 +784,8 @@ public sealed class ReviewJobService : BackgroundService
                 file.StartedAt = DateTimeOffset.UtcNow;
                 file.FinishedAt = null;
                 file.Error = null;
+                file.OperationId ??= "operation-" + Guid.NewGuid().ToString("N");
+                file.Attempt ??= currentAttempt;
                 Append(file);
                 return true;
             }
@@ -834,6 +846,9 @@ public sealed class ReviewJobService : BackgroundService
             {
                 if (state != "running" || aggregateState != "queued") return false;
                 aggregateState = "running";
+                aggregateOperationId ??= "operation-" + Guid.NewGuid().ToString("N");
+                aggregateAttempt ??= currentAttempt;
+                aggregateOrdinal ??= Files.Count + 1;
                 PersistStatus();
                 return true;
             }
@@ -992,7 +1007,13 @@ public sealed class ReviewJobService : BackgroundService
                     costCap = newCostCap;
                     if (CapReached()) throw new ArgumentException("The replacement cap must be higher than the run's current spend.");
                     foreach (var file in progress.Values.Where(file => file.State == "skipped")) RequeueFileCore(file);
-                    if (aggregateState == "skipped") aggregateState = "queued";
+                    if (aggregateState == "skipped")
+                    {
+                        aggregateState = "queued";
+                        aggregateOperationId = null;
+                        aggregateAttempt = null;
+                    }
+                    currentAttempt = Math.Max(1, currentAttempt) + 1;
                     stopReason = null;
                 }
                 attemptCancellation.Dispose();
@@ -1078,7 +1099,8 @@ public sealed class ReviewJobService : BackgroundService
         }
 
         private void AppendProgress(MutableFileProgress file) => store.AppendProgress(
-            new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error));
+            new ReviewRunFileTransition(file.Path, file.State, file.StartedAt, file.FinishedAt, Id, file.Error,
+                file.OperationId, file.Attempt, file.Ordinal));
 
         private void CaptureObservation(string operationId, ReviewObservationSnapshot? snapshot)
         {
@@ -1125,7 +1147,7 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason, currentAttempt, aggregateOperationId, aggregateAttempt, aggregateOrdinal);
         }
 
         private static bool IsCompletedFileState(string fileState) =>
@@ -1157,13 +1179,16 @@ public sealed class ReviewJobService : BackgroundService
         private static long? Add(long? left, long? right) =>
             left.HasValue || right.HasValue ? (left ?? 0) + (right ?? 0) : null;
 
-        private sealed class MutableFileProgress(string path)
+        private sealed class MutableFileProgress(string path, int ordinal)
         {
             public string Path { get; } = path;
+            public int Ordinal { get; set; } = ordinal;
             public string State { get; set; } = "queued";
             public DateTimeOffset? StartedAt { get; set; }
             public DateTimeOffset? FinishedAt { get; set; }
             public string? Error { get; set; }
+            public string? OperationId { get; set; }
+            public int? Attempt { get; set; }
         }
     }
 }

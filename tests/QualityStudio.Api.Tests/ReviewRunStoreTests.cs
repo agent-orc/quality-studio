@@ -122,6 +122,21 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+
+            var durable = Assert.Single(fixture.Store.LoadAll(), stored =>
+                stored.Manifest.RunId == accepted.GetProperty("id").GetString());
+            var fileOperations = durable.Progress.Where(transition => transition.State == "running").ToArray();
+            Assert.Equal(2, fileOperations.Length);
+            Assert.Equal([1, 2], fileOperations.Select(transition => transition.Attempt));
+            Assert.Equal([1, 2], fileOperations.Select(transition => transition.Ordinal));
+            Assert.All(fileOperations, transition =>
+                Assert.StartsWith("operation-", transition.OperationId, StringComparison.Ordinal));
+            Assert.Equal(2, fileOperations.Select(transition => transition.OperationId)
+                .Distinct(StringComparer.Ordinal).Count());
+            Assert.Equal(2, durable.Status.Attempt);
+            Assert.StartsWith("operation-", durable.Status.AggregateOperationId, StringComparison.Ordinal);
+            Assert.Equal(2, durable.Status.AggregateAttempt);
+            Assert.Equal(3, durable.Status.AggregateOrdinal);
         }
         finally
         {
@@ -340,11 +355,13 @@ public sealed class ReviewRunStoreTests
         {
             var stored = fixture.CreateRun("mid-file", "queued");
             fixture.Store.AppendProgress(new ReviewRunFileTransition(
-                "Sample.cs", "running", DateTimeOffset.UtcNow, null, stored.Manifest.RunId, null));
+                "Sample.cs", "running", DateTimeOffset.UtcNow, null, stored.Manifest.RunId, null,
+                "operation-recovered", 1, 1));
             fixture.Store.WriteStatus(stored.Status with
             {
                 State = "running",
                 StartedAt = DateTimeOffset.UtcNow,
+                Attempt = 1,
             });
             await File.AppendAllTextAsync(fixture.ProgressPath(stored.Manifest.RunId), "{\"path\":", cancellationToken);
 
@@ -353,8 +370,17 @@ public sealed class ReviewRunStoreTests
             var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
 
             Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
-            var transitions = fixture.Store.LoadAll().Single().Progress.Select(progress => progress.State).ToArray();
+            var reloaded = fixture.Store.LoadAll().Single();
+            var transitions = reloaded.Progress.Select(progress => progress.State).ToArray();
             Assert.Equal(["queued", "running", "queued", "running", "failed"], transitions);
+            var identified = reloaded.Progress.Where(progress => progress.OperationId is not null).ToArray();
+            Assert.NotEmpty(identified);
+            Assert.All(identified, progress =>
+            {
+                Assert.Equal("operation-recovered", progress.OperationId);
+                Assert.Equal(1, progress.Attempt);
+                Assert.Equal(1, progress.Ordinal);
+            });
         }
         finally
         {
