@@ -1427,6 +1427,14 @@
     },
     {
       "tool": "eslint",
+      "path": "frontend/tests/url-preview-embed-evidence.mjs",
+      "line": 132,
+      "column": 6,
+      "rule": "no-useless-escape",
+      "fingerprint": "sha256:f597421734c226604a60603a62679438b228e0574145ea185af1ed9b1ec2acd7"
+    },
+    {
+      "tool": "eslint",
       "path": "scripts/dev-stack.mjs",
       "line": 1,
       "column": 10,
