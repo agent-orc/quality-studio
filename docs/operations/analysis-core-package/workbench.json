@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-core-package",
+  "title": "In-process analysis core package",
+  "summary": "Implemented first slice and architecture decision record for consuming Quality Studio analysis as a DLL: a publishable AgentOrchestrator.CodeQuality package, stable named-analysis API, real quality-cli consumer, clean HTTP-host boundary, rule-content boundary, and repository-extraction criteria.",
+  "entrypoint": "index.html",
+  "status": "implemented",
+  "phase": "first-slice-delivered",
+  "updatedAt": "2026-08-27T06:45:00Z",
+  "sourceTaskKeys": [
+    "QS-91"
+  ],
+  "relatedTaskKeys": [
+    "QS-90",
+    "AGT-2655"
+  ],
+  "decision": {
+    "outcome": "keep-core-in-repository",
+    "state": "recommended",
+    "preparedAt": "2026-08-27T06:45:00Z",
+    "preparedBy": "Codex",
+    "responses": [
+      {
+        "question": "Is the core useful without the UI studio?",
+        "answer": "Yes. Agent Studio AGT-2655 pipeline steps, quality-cli, and CI are named standalone consumers."
+      },
+      {
+        "question": "Should the core be extracted into its own repository now?",
+        "answer": "No. Keep it in the Quality Studio repository until independent cadence, public-repository policy, and cross-repository versioning benefits outweigh 0-PR integration costs."
+      }
+    ]
+  }
+}

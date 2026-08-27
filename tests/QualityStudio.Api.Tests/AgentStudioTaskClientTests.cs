@@ -1,9 +1,10 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using AgentOrchestrator.CodeQuality;
+using QualityStudio.Api;
+using Xunit;
 
-namespace AgentOrchestrator.CodeQuality.Tests;
+namespace QualityStudio.Api.Tests;
 
 public sealed class AgentStudioTaskClientTests
 {
@@ -21,8 +22,7 @@ public sealed class AgentStudioTaskClientTests
         {
             Content = new StringContent("{\"id\":\"qs-cache-hierarchy\"}", Encoding.UTF8, "application/json"),
         });
-        var options = Configured(dryRun: false);
-        var client = new AgentStudioTaskClient(new HttpClient(handler), options);
+        var client = new AgentStudioTaskClient(new HttpClient(handler), Configured(dryRun: false));
 
         var result = await client.CreateTaskAsync(Finding, TestContext.Current.CancellationToken);
 
@@ -83,7 +83,8 @@ public sealed class AgentStudioTaskClientTests
             new HttpClient(new RecordingHandler(new HttpResponseMessage(HttpStatusCode.OK))),
             new AgentStudioTaskOptions());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetProjectsAsync(TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            client.GetProjectsAsync(TestContext.Current.CancellationToken));
     }
 
     private static AgentStudioTaskOptions Configured(bool? dryRun = null) => new()

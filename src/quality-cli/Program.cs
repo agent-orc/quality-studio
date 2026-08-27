@@ -46,6 +46,11 @@ public static class QualityCli
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
         }
 
+        if (string.Equals(args[0], "analyze", StringComparison.Ordinal))
+        {
+            return await RunAnalyzeAsync(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -71,6 +76,53 @@ public static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or StalenessScanException)
         {
             Console.Error.WriteLine($"quality scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunAnalyzeAsync(string[] args)
+    {
+        if (args.Length > 0 && args[0] is "-h" or "--help")
+        {
+            PrintAnalyzeUsage();
+            return 0;
+        }
+
+        try
+        {
+            var options = ParseAnalyzeArguments(args);
+            var runner = QualityAnalysisRunner.CreateDefault();
+            var stopwatch = Stopwatch.StartNew();
+            var result = await runner.RunAsync(new QualityAnalysisRequest(
+                options.Path,
+                options.Analyses,
+                options.TargetPath is null ? SensorScope.Repository : SensorScope.Path,
+                options.TargetPath,
+                options.PersistMetadata));
+
+            foreach (var analysis in result.Analyses)
+            {
+                var status = analysis.Available ? "available" : "unavailable";
+                Console.WriteLine(
+                    $"quality analyze: {analysis.Name} | {status} | {analysis.Findings.Count} findings | {stopwatch.ElapsedMilliseconds} ms");
+                if (analysis.UnavailableReason is not null)
+                    Console.WriteLine($"unavailable: {analysis.UnavailableReason}");
+                foreach (var finding in analysis.Findings)
+                {
+                    var location = finding.Locations.FirstOrDefault();
+                    Console.WriteLine(
+                        $"{finding.Severity.ToString().ToLowerInvariant(),-8} {location?.Path ?? "."}:{location?.Range?.Start.Line} {finding.RuleId} {finding.Title}");
+                }
+            }
+
+            if (result.Analyses.Any(analysis => !analysis.Available)) return 2;
+            return result.Findings.Any(finding =>
+                finding.Severity is FindingSeverity.Critical or FindingSeverity.High) ? 1 : 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or
+                                              SensorNotFoundException or IOException)
+        {
+            Console.Error.WriteLine($"quality analyze failed: {exception.Message}");
             return 2;
         }
     }
@@ -357,6 +409,70 @@ public static class QualityCli
             globalInputsDirectory, budgetCharacters, explainInputs);
     }
 
+    private static AnalyzeCliOptions ParseAnalyzeArguments(string[] args)
+    {
+        var path = ".";
+        string? targetPath = null;
+        var persistMetadata = false;
+        var pathSet = false;
+        var names = new List<string>();
+        var configurations = new Dictionary<string, Dictionary<string, string>>(
+            StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--analysis" when index + 1 < args.Length:
+                    names.Add(args[++index]);
+                    break;
+                case "--target" when index + 1 < args.Length:
+                    targetPath = args[++index];
+                    break;
+                case "--set" when index + 1 < args.Length:
+                    var assignment = args[++index];
+                    var colon = assignment.IndexOf(':');
+                    var equals = assignment.IndexOf('=', colon + 1);
+                    if (colon <= 0 || equals <= colon + 1 || equals == assignment.Length - 1)
+                        throw new ArgumentException(
+                            "Analysis configuration must use <analysis>:<key>=<value>.");
+                    var analysis = assignment[..colon];
+                    var key = assignment[(colon + 1)..equals];
+                    var value = assignment[(equals + 1)..];
+                    if (!configurations.TryGetValue(analysis, out var configuration))
+                    {
+                        configuration = new Dictionary<string, string>(StringComparer.Ordinal);
+                        configurations[analysis] = configuration;
+                    }
+                    configuration[key] = value;
+                    break;
+                case "--persist":
+                    persistMetadata = true;
+                    break;
+                case "--analysis" or "--target" or "--set":
+                    throw new ArgumentException($"Missing value for {args[index]}.");
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                        throw new ArgumentException($"Unexpected argument: {args[index]}");
+                    path = args[index];
+                    pathSet = true;
+                    break;
+            }
+        }
+
+        if (names.Count == 0)
+            throw new ArgumentException("At least one --analysis <name> is required.");
+        var unknownConfiguration = configurations.Keys.FirstOrDefault(configured =>
+            !names.Contains(configured, StringComparer.OrdinalIgnoreCase));
+        if (unknownConfiguration is not null)
+            throw new ArgumentException(
+                $"Configuration was supplied for unselected analysis '{unknownConfiguration}'.");
+
+        var analyses = names.Select(name => new QualityAnalysisSelection(
+            name,
+            configurations.TryGetValue(name, out var configuration) ? configuration : null)).ToArray();
+        return new AnalyzeCliOptions(path, targetPath, persistMetadata, analyses);
+    }
+
     private static void PrintInputExplanation(ResolvedInputs resolved)
     {
         Console.WriteLine($"quality review inputs: kind {resolved.Kind} | level {resolved.Level} | budget {resolved.IncludedCharacters}/{resolved.BudgetCharacters} characters");
@@ -512,7 +628,10 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality analyze [path] --analysis <name> [--analysis <name>] [--target <relative-path>] [--set <analysis>:<key>=<value>] [--persist]\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+
+    private static void PrintAnalyzeUsage() => Console.WriteLine(
+        "Usage:\n  quality analyze [path] --analysis <name> [--analysis <name>] [--target <relative-path>] [--set <analysis>:<key>=<value>] [--persist]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
@@ -532,6 +651,12 @@ public static class QualityCli
 
     private sealed record ReviewCliOptions(string File, string Kind, string? GlobalInputsDirectory,
         int BudgetCharacters, bool ExplainInputs);
+
+    private sealed record AnalyzeCliOptions(
+        string Path,
+        string? TargetPath,
+        bool PersistMetadata,
+        IReadOnlyList<QualityAnalysisSelection> Analyses);
 
     private sealed record SecurityCliOptions(string Path, SecurityScanMode Mode, string? Range,
         string? ConfigPath, string? BaselinePath);
