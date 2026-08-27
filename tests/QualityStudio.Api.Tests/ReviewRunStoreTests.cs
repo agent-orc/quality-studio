@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -444,6 +445,42 @@ public sealed class ReviewRunStoreTests
             response.EnsureSuccessStatusCode();
             var resumed = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
             Assert.Equal("failed", Assert.Single(resumed.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Pause_and_cancel_routes_expose_durable_lifecycle_transitions()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateRun("pause-cancel", "paused");
+            await using var application = fixture.CreateApplication();
+            using var client = application.CreateClient();
+
+            using var pausedResponse = await client.PostAsJsonAsync(
+                $"/api/review/runs/{stored.Manifest.RunId}/pause", new { }, cancellationToken);
+            pausedResponse.EnsureSuccessStatusCode();
+            var paused = await pausedResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal("paused", paused.GetProperty("state").GetString());
+
+            using var cancelledResponse = await client.DeleteAsync(
+                $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
+            cancelledResponse.EnsureSuccessStatusCode();
+            var cancelled = await cancelledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal("cancelled", cancelled.GetProperty("state").GetString());
+
+            using var resumeResponse = await client.PostAsJsonAsync(
+                $"/api/review/runs/{stored.Manifest.RunId}/resume", new { }, cancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, resumeResponse.StatusCode);
+            using var persisted = JsonDocument.Parse(await File.ReadAllTextAsync(
+                Path.Combine(fixture.Store.RunsPath, stored.Manifest.RunId, "status.json"), cancellationToken));
+            Assert.Equal("cancelled", persisted.RootElement.GetProperty("state").GetString());
         }
         finally
         {
