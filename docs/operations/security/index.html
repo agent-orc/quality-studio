@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#allowedroots-decision">Decision log · AllowedRoots policy</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,18 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="allowedroots-decision">
+    <h2><span class="no">11</span>Decision log · AllowedRoots policy</h2>
+
+    <h3>D-01 · 2026-08-27 · Keep relative AllowedRoots; add boot-time quarantine <span class="pill done">Decided · R-09</span></h3>
+    <p>On 2026-08-11 the API failed to boot: <code>RepositoryRegistry</code>'s constructor threw <code>RepositoryRegistryValidationException("A registered repository is outside the configured allowed roots")</code> while replaying the persisted registry, because the persisted registry legitimately referenced the Agent Studio checkout (see the <a href="../studio-integration/index.html">Quality Studio and Agent Studio integration dossier</a> — cross-repo review of that checkout is a core use case) and <code>AllowedRoots</code> had been narrowed to <code>../..</code> only.</p>
+    <p><b>Decision:</b> keep the relative-root posture from F-07/R-09 — <code>AllowedRoots</code> stays a small, tracked, relative list (<code>../..</code>, now joined by <code>../../..</code> to admit sibling checkouts) rather than switching to an operator-supplied absolute path or deriving roots from a platform project registry. This is recorded as the accepted <b>dev-machine posture</b>: a single operator reviewing sibling repositories on one machine, not a hosted multi-tenant boundary. R-09's mitigation (a tracked-config policy that rejects machine-specific/absolute AllowedRoots entries, slice S3) still applies to this wider list — <code>../../..</code> is relative and machine-independent, so admitting it does not reopen the QS-53 regression F-07 describes.</p>
+    <p>This decision does not by itself resolve R-09's residual risk (a wider relative root still expands the set of selectable repositories); it only restores availability. The durable fix is the boot behavior in D-02, which makes a future AllowedRoots narrowing — intentional or accidental — a visible, recoverable state instead of an outage.</p>
+
+    <h3>D-02 · 2026-08-27 · A persisted entry outside AllowedRoots is quarantined, not fatal <span class="pill done">Implemented · R-09, F-03</span></h3>
+    <p><code>RepositoryRegistry.LoadOrSeed</code> no longer throws when a persisted entry fails allowed-root validation. Each persisted entry is re-checked against the current <code>AllowedRoots</code> on every boot; a failing entry is marked <code>Blocked</code> with a <code>BlockReason</code> that names the offending path and the full allowed-roots list, a <code>RepositoryQuarantined</code> warning is logged, and the entry is excluded from <code>Get</code>/<code>Access</code> — every review, sensor, and file operation — while remaining visible, and editable, through <code>GET /api/repos</code> and the repository registry UI. Startup completes and the rest of the registry is unaffected. This closes the specific instance of F-03's "oversized or structurally surprising valid JSON is not quarantined" gap for the repository registry: a persisted entry that no longer satisfies policy is now a quarantined, correctable state rather than a full-host crash.</p>
   </section>
 </main>
 </body>

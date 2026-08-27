@@ -999,7 +999,7 @@ static async Task<IResult> Report(HttpContext context, string? format,
     var stopwatch = Stopwatch.StartNew();
     var requestedId = RouteRepositoryId(context);
     var registrations = requestedId is null
-        ? registry.List().Where(repository => security.Identity(context).CanAccess(repository.Id)).ToArray()
+        ? registry.List().Where(repository => !repository.Blocked && security.Identity(context).CanAccess(repository.Id)).ToArray()
         : [registry.Get(requestedId)];
     if (registrations.Length == 0) throw new KeyNotFoundException("No accessible repositories were found.");
 

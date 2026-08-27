@@ -36,6 +36,14 @@ budget, enabled review kinds, sensor enablement/configuration, and archive state
 there are no environment-specific registry copies. Repository roots must be existing
 directories with a `.git` directory or worktree `.git` file.
 
+A persisted entry that no longer resolves under `AllowedRoots` (for example after a
+narrower `AllowedRoots` deployment, or a moved/deleted checkout) is quarantined at boot
+rather than failing startup: it is marked `blocked: true` with a `blockReason` naming the
+offending path and the configured allowed roots, a `RepositoryQuarantined` warning is
+logged, and it is excluded from every review, sensor, and file operation while remaining
+visible (and editable via `PUT /api/repos/{repoId}`) in `GET /api/repos`. Fixing the entry's
+`rootPath` or widening `AllowedRoots` and restarting clears the quarantine automatically.
+
 ## Repository registry
 
 ```shell
