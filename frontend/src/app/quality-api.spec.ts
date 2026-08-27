@@ -2,13 +2,20 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { QualityApi, RepositoryRegistration, ResolvedInputs, TreeNode } from './quality-api';
+
+const registration = (id: string): RepositoryRegistration => ({
+  id, displayName: id, rootPath: `/repos/${id}`, globalInputsDirectory: null, inputBudgetCharacters: 12000,
+  enabledReviewKinds: ['code', 'security', 'performance'], archived: false,
+  defaultReviewTokenCap: 100000, defaultReviewCostCap: null,
+});
 
 describe('QualityApi', () => {
   let api: QualityApi;
   let http: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.removeItem('qs-last-repository');
     TestBed.configureTestingModule({
       providers: [QualityApi, provideHttpClient(), provideHttpClientTesting()],
     });
@@ -16,7 +23,10 @@ describe('QualityApi', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem('qs-last-repository');
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
@@ -78,6 +88,67 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('restores the last active repository only on the initial registry load', async () => {
+    localStorage.setItem('qs-last-repository', 'beta');
+    const loading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('alpha'), registration('beta')],
+      defaultRepositoryId: 'alpha',
+    });
+    await loading;
+    expect(api.selectedRepositoryId()).toBe('beta');
+
+    api.selectedRepositoryId.set('alpha');
+    const reloading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('alpha'), registration('beta')],
+      defaultRepositoryId: 'alpha',
+    });
+    await reloading;
+
+    expect(api.selectedRepositoryId()).toBe('alpha');
+    expect(localStorage.getItem('qs-last-repository')).toBe('alpha');
+  });
+
+  it('lets an explicit repository preference override remembered state', async () => {
+    localStorage.setItem('qs-last-repository', 'beta');
+    const loading = api.loadRepositories('alpha');
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('alpha'), registration('beta')],
+      defaultRepositoryId: 'beta',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('alpha');
+    expect(localStorage.getItem('qs-last-repository')).toBe('alpha');
+  });
+
+  it('falls back to the default repository when the remembered one no longer exists', async () => {
+    localStorage.setItem('qs-last-repository', 'retired');
+    const loading = api.loadRepositories(null);
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('default'), registration('alpha')],
+      defaultRepositoryId: 'alpha',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('alpha');
+    expect(localStorage.getItem('qs-last-repository')).toBe('alpha');
+  });
+
+  it('remembers an operator repository switch', async () => {
+    spyOn(api, 'loadProjectDashboard').and.resolveTo();
+    spyOn(api, 'loadTree').and.resolveTo();
+    spyOn(api as never, 'loadRepositoryDetails' as never).and.resolveTo();
+    spyOn(api, 'loadReviewRuns').and.resolveTo();
+    spyOn(api, 'loadUsage').and.resolveTo();
+
+    await api.selectRepository('beta');
+
+    expect(api.selectedRepositoryId()).toBe('beta');
+    expect(localStorage.getItem('qs-last-repository')).toBe('beta');
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {

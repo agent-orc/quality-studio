@@ -27,6 +27,13 @@ Keyboard shortcuts:
 - `Ctrl+B` — toggle the Explorer
 - `Ctrl+Alt+B` — toggle the Review panel
 
+## Repository restoration
+
+The shell stores the last active repository ID in `localStorage` under
+`qs-last-repository` and restores it on the next start. An explicit `?repo=` URL parameter takes
+precedence. If the remembered repository is no longer registered, the API-provided default is
+selected and stored instead.
+
 ## Embedded URL preview contract
 
 When the shell runs inside an iframe, every selected repository, path, or
