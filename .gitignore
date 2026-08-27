@@ -24,3 +24,6 @@ TestResults/
 !/.quality/usage/
 !/.quality/usage/*.jsonl
 /.dev-stack.log
+
+# Deterministic sensor scan output is regenerated every review sweep, never durable history.
+.quality/analyzers/

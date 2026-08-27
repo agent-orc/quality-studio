@@ -183,7 +183,7 @@ public sealed class RepositoryRegistry
                 {
                     var migrated = loaded.Select(entry => entry with
                     {
-                        Sensors = MergeSupportedSensors(entry.Sensors),
+                        Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
                     }).ToList();
                     foreach (var entry in migrated) ValidatePersistedEntry(entry);
                     return migrated;
@@ -205,7 +205,7 @@ public sealed class RepositoryRegistry
             ValidateOptionalDirectory(legacyOptions.GlobalInputsDirectory, root),
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
-            DefaultSensors(),
+            DefaultSensors(root),
             DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
@@ -264,7 +264,7 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException("Select at least one supported review kind: code, security, or performance.");
         }
 
-        var requestedSensors = request.Sensors ?? DefaultSensors();
+        var requestedSensors = request.Sensors ?? DefaultSensors(root);
         if (requestedSensors.Any(sensor => string.IsNullOrWhiteSpace(sensor.Id)))
         {
             throw new RepositoryRegistryValidationException("Every sensor configuration requires an id.");
@@ -370,18 +370,18 @@ public sealed class RepositoryRegistry
     private static StringComparer PathComparer =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
-    private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors() =>
-        supportedSensors.Select(id => new RepositorySensorConfiguration(id)).ToArray();
+    private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors(string root) =>
+        supportedSensors.Select(id => SensorDefaults.Configure(id, root)).ToArray();
 
     private IReadOnlyList<RepositorySensorConfiguration> MergeSupportedSensors(
-        IReadOnlyList<RepositorySensorConfiguration>? configured)
+        IReadOnlyList<RepositorySensorConfiguration>? configured, string root)
     {
         var existing = (configured ?? Array.Empty<RepositorySensorConfiguration>())
             .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
         return supportedSensors
             .Select(id => existing.TryGetValue(id, out var sensor)
                 ? sensor
-                : new RepositorySensorConfiguration(id))
+                : SensorDefaults.Configure(id, root))
             .ToArray();
     }
 }
