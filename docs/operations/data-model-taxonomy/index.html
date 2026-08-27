@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -557,6 +558,29 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. Each entry records what landed for one approval-ready slice from section 10; this section does not revise the decision recorded above.</p>
+
+  <h3>2026-08-27 — QS-76 — T1. Contract and catalogue foundation <span class="pill done">done</span></h3>
+  <p>Delivered the T1 scope exactly as approved: new schemas, the core catalogue, C# contract types, and a pure legacy mapping library. No writer was changed; <code>review-meta.v1/v2</code>, the security/flow/attack/change contracts, and the finding-state store are untouched and still produce byte-identical output.</p>
+  <ul>
+    <li><code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code> — structural contracts for the core taxonomy catalogue and the immutable observation document from section 7.</li>
+    <li><code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code> — the <code>quality-studio/core@1.0.0</code> catalogue: all eight canonical axes from section 6 with their exact terms (including the <code>accepted</code> and <code>falsePositive</code> lifecycle aliases), and the sixteen-entry initial aspect catalogue with migration aliases.</li>
+    <li><code>QualityTaxonomyContract.cs</code> — typed axes/terms/aspects, a digest-pinning <code>QualityTaxonomyReference</code>, and <code>QualityTaxonomyCatalogue.IsKnownAspect</code>, which is what keeps an unrecognized extension aspect id from being silently treated as core.</li>
+    <li><code>QualityObservationContract.cs</code> — the observation record types from section 7, an <code>Extensions</code> dictionary that round-trips explicit extension data (not the legacy root <code>x-*</code> convention), and <code>QualityObservationJson.Parse</code>, which quarantines an unsupported <code>schemaVersion</code> major without discarding the raw document or inferring a verdict.</li>
+    <li><code>QualityTaxonomyLegacyMapping.cs</code> — one deterministic, pure mapping function per row of the section 8 compatibility table (security/flow/attack/change verdicts, change-aspect strings, finding-state spellings including the <code>false-positive</code>/<code>falsePositive</code> drift, and legacy evidence-string classification).</li>
+    <li>72 new tests across <code>QualityTaxonomyContractTests</code>, <code>QualityObservationContractTests</code>, and <code>QualityTaxonomyLegacyMappingTests</code>: schema-positive fixtures, full round-trip, one conformance vector per section 8 row, the unsupported-major quarantine, and the known/unknown-aspect aggregation proof required by T1's acceptance criteria.</li>
+  </ul>
+  <p><b>Verification:</b> <code>dotnet build QualityStudio.slnx</code> and <code>dotnet test QualityStudio.slnx</code> are green for the touched projects (229/229 in <code>AgentOrchestrator.CodeQuality.Tests</code>, 1 pre-existing skip). A pre-existing, unrelated timing-budget test in <code>QualityStudio.Api.Tests</code> (<code>ProjectDashboardTests.Cached_dashboard_for_5000_file_repository_is_within_interaction_budget</code>) is flaky under full-solution parallel load and passes in isolation; it does not touch any file this slice changed.</p>
+  <p><b>Follow-up (not delivered by QS-76, scoped as their own cards):</b></p>
+  <ul>
+    <li>T2. Immutable observation dual-write and full route provenance — depends on T1.</li>
+    <li>T3. Typed evidence, producer provenance, and issue lifecycle v2 — depends on T2.</li>
+    <li>T4. Observation-backed projections and per-model records — depends on T3.</li>
+    <li>T5. Domain adapters and migration tool — depends on T4.</li>
+  </ul>
+  <p class="dim">Note for whoever picks up T2: this working tree carried a stashed, uncommitted, and unverified partial T1+T2 attempt from an earlier session (<code>git stash list</code> → <code>QS-76-partial-T1-T2-before-complete-lineage</code>). It was not built on for this delivery because its writer-wiring scope conflicts with T1's "do not change writers" boundary and its state was never confirmed green; it is left in the stash, untouched, for inspection rather than discarded.</p>
 </main>
 </body>
 </html>

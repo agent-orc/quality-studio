@@ -1,0 +1,109 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0"
+  },
+  "axes": {
+    "producerKind": {
+      "description": "Always explicit. Absence never means agent.",
+      "terms": [
+        { "id": "agent" },
+        { "id": "deterministic-sensor" },
+        { "id": "human" },
+        { "id": "imported" },
+        { "id": "unknown" }
+      ]
+    },
+    "evidenceStatus": {
+      "description": "Describes coverage only. It is not a pass or block.",
+      "terms": [
+        { "id": "available" },
+        { "id": "partial" },
+        { "id": "unavailable" }
+      ]
+    },
+    "assessment": {
+      "description": "Describes what the evidence establishes for a review or aspect.",
+      "terms": [
+        { "id": "pass" },
+        { "id": "concern" },
+        { "id": "fail" },
+        { "id": "inconclusive" },
+        { "id": "not-applicable" },
+        { "id": "not-assessed" }
+      ]
+    },
+    "change": {
+      "description": "Used only for before/after comparisons.",
+      "terms": [
+        { "id": "improved" },
+        { "id": "regressed" },
+        { "id": "mixed" },
+        { "id": "unchanged" },
+        { "id": "no-observed-delta" },
+        { "id": "inconclusive" }
+      ]
+    },
+    "decision": {
+      "description": "Optional policy output with a required policyRef. Never supplied by a raw finding.",
+      "terms": [
+        { "id": "allow" },
+        { "id": "warn" },
+        { "id": "block" },
+        { "id": "defer" }
+      ]
+    },
+    "severity": {
+      "description": "Retains current ordering and meaning; scoring weights stay in policy.",
+      "terms": [
+        { "id": "critical" },
+        { "id": "high" },
+        { "id": "medium" },
+        { "id": "low" },
+        { "id": "info" }
+      ]
+    },
+    "lifecycle": {
+      "description": "Lives in lifecycle events, not observations.",
+      "terms": [
+        { "id": "open" },
+        { "id": "accepted-risk", "aliases": ["accepted"] },
+        { "id": "waived" },
+        { "id": "false-positive", "aliases": ["falsePositive"] },
+        { "id": "resolved" }
+      ]
+    },
+    "evidenceKind": {
+      "description": "Each item has a locator or artifact reference, summary, and digest when content is available.",
+      "terms": [
+        { "id": "source-code" },
+        { "id": "test-result" },
+        { "id": "runtime-measurement" },
+        { "id": "tool-result" },
+        { "id": "artifact" },
+        { "id": "document" },
+        { "id": "human-attestation" }
+      ]
+    }
+  },
+  "aspects": [
+    { "id": "code.correctness", "source": "Code prompt and sample", "migrationAlias": "correctness" },
+    { "id": "code.architecture", "source": "Required project code aspect", "migrationAlias": "architecture" },
+    { "id": "security.general", "source": "File security prompt", "migrationAlias": "security" },
+    { "id": "security.secrets", "source": "Project security profile", "migrationAlias": "secrets" },
+    { "id": "security.dependencies", "source": "Project profile and dependency sensor", "migrationAlias": "dependencies" },
+    { "id": "security.authentication-authorization", "source": "Project security profile", "migrationAlias": "authentication-authorization" },
+    { "id": "security.input-validation", "source": "Project security profile", "migrationAlias": "input-validation" },
+    { "id": "security.configuration-iac", "source": "Project security profile", "migrationAlias": "configuration-iac" },
+    { "id": "security.boundary-exposure", "source": "Boundary inventory", "migrationAlias": "boundaries" },
+    { "id": "security.business-logic", "source": "Deep-flow review" },
+    { "id": "security.attack-coverage", "source": "Attack matrix" },
+    { "id": "performance.general", "source": "Performance prompt", "migrationAlias": "performance" },
+    { "id": "change.risk", "source": "Change judgement", "migrationAlias": "risk" },
+    { "id": "change.test-evidence", "source": "Change judgement", "migrationAlias": "test-evidence" },
+    { "id": "change.scope-discipline", "source": "Change judgement", "migrationAlias": "scope-discipline" },
+    { "id": "change.architecture-drift", "source": "Change judgement", "migrationAlias": "architecture-drift" }
+  ]
+}
