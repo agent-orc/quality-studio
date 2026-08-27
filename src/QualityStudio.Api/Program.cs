@@ -305,6 +305,12 @@ app.MapGet("/api/review/runs", ReviewRuns);
 app.MapGet("/api/repos/{repoId}/review/runs", ReviewRuns);
 app.MapGet("/api/review/runs/trend", ReviewRunTrend);
 app.MapGet("/api/repos/{repoId}/review/runs/trend", ReviewRunTrend);
+app.MapGet("/api/review/runs/compare", ReviewRunCompare);
+app.MapGet("/api/repos/{repoId}/review/runs/compare", ReviewRunCompare);
+app.MapGet("/api/review/runs/retention", ReviewRunRetention);
+app.MapGet("/api/repos/{repoId}/review/runs/retention", ReviewRunRetention);
+app.MapGet("/api/review/runs/pins", ReviewRunPins);
+app.MapGet("/api/repos/{repoId}/review/runs/pins", ReviewRunPins);
 app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
@@ -315,6 +321,10 @@ app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/resume", ResumeReview);
 app.MapDelete("/api/review/runs/{id}", CancelReview);
 app.MapDelete("/api/repos/{repoId}/review/runs/{id}", CancelReview);
+app.MapPost("/api/review/runs/{id}/pin", PinReviewRun);
+app.MapPost("/api/repos/{repoId}/review/runs/{id}/pin", PinReviewRun);
+app.MapDelete("/api/review/runs/{id}/pin", UnpinReviewRun);
+app.MapDelete("/api/repos/{repoId}/review/runs/{id}/pin", UnpinReviewRun);
 
 app.MapGet("/api/handover", HandoverConfiguration);
 app.MapGet("/api/repos/{repoId}/handover", HandoverConfiguration);
@@ -1133,6 +1143,66 @@ static IResult ReviewRunTrend(
     var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
     return Results.Ok(QualityRunTrendBuilder.Build(
         reports, kind, scopeUnitId, level, cursor, limit ?? 30));
+}
+
+static IResult ReviewRunCompare(HttpContext context, string baselineId, string candidateId, RepositoryRegistry registry)
+{
+    if (string.IsNullOrWhiteSpace(baselineId) || string.IsNullOrWhiteSpace(candidateId))
+        throw new ArgumentException("Run comparison requires baselineId and candidateId.");
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new QualityRunReportStore(repository.RootPath);
+    var (baselineResponse, baselineSnapshot) = LoadForComparison(store, repository.Id, baselineId);
+    var (candidateResponse, candidateSnapshot) = LoadForComparison(store, repository.Id, candidateId);
+    var comparison = baselineSnapshot is not null && candidateSnapshot is not null
+        ? QualityRunComparer.Compare(baselineSnapshot, candidateSnapshot)
+        : null;
+    return Results.Ok(new ReviewRunCompareResponse(
+        comparison is null ? "unavailable" : "available", baselineResponse, candidateResponse, comparison));
+}
+
+static (ReviewRunCompareSnapshotResponse Response, QualityRunReportDocument? Snapshot) LoadForComparison(
+    QualityRunReportStore store, string repositoryId, string runId)
+{
+    var result = store.LoadSafely(runId);
+    if (result.Status == QualityRunSnapshotStatus.Found &&
+        string.Equals(result.Report!.Run.RepositoryId, repositoryId, StringComparison.OrdinalIgnoreCase))
+        return (new ReviewRunCompareSnapshotResponse(runId, "found", null), result.Report);
+    if (result.Status == QualityRunSnapshotStatus.Corrupt)
+        return (new ReviewRunCompareSnapshotResponse(runId, "corrupt", result.Error), null);
+    return (new ReviewRunCompareSnapshotResponse(runId, "missing", null), null);
+}
+
+static IResult ReviewRunRetention(HttpContext context, RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var size = new QualityRunReportStore(repository.RootPath).MeasureSize();
+    var pinned = new QualityRunReportPinStore(repository.RootPath).Load();
+    return Results.Ok(new ReviewRunRetentionResponse(
+        size.Count, size.TotalBytes, size.AverageBytes, pinned.Count, QualityRunReportStore.DefaultRetentionKeep));
+}
+
+static IResult ReviewRunPins(HttpContext context, RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var pinned = new QualityRunReportPinStore(repository.RootPath).Load();
+    return Results.Ok(new ReviewRunPinsResponse(pinned.Order(StringComparer.Ordinal).ToArray()));
+}
+
+static IResult PinReviewRun(HttpContext context, string id, RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new QualityRunReportStore(repository.RootPath);
+    var (_, snapshot) = LoadForComparison(store, repository.Id, id);
+    if (snapshot is null) throw new FileNotFoundException($"Review run report '{id}' was not found.");
+    var pinned = new QualityRunReportPinStore(repository.RootPath).Pin(id);
+    return Results.Ok(new ReviewRunPinsResponse(pinned.Order(StringComparer.Ordinal).ToArray()));
+}
+
+static IResult UnpinReviewRun(HttpContext context, string id, RepositoryRegistry registry)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    var pinned = new QualityRunReportPinStore(repository.RootPath).Unpin(id);
+    return Results.Ok(new ReviewRunPinsResponse(pinned.Order(StringComparer.Ordinal).ToArray()));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
