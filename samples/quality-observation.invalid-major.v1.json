@@ -1,0 +1,28 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 2,
+  "observationId": "observation-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/src/C.cs",
+    "manifestHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:0000000000000000000000000000000000000000000000000000000000000f",
+    "reviewInputsHash": "sha256:0000000000000000000000000000000000000000000000000000000000000e"
+  },
+  "producer": { "kind": "unknown" },
+  "evidenceStatus": "unavailable",
+  "evidence": [],
+  "aspects": [
+    { "aspectId": "code.correctness", "assessment": "not-assessed" }
+  ],
+  "assessment": "not-assessed",
+  "findings": []
+}

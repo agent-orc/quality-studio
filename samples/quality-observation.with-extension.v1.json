@@ -1,0 +1,39 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "x-legacy-note": "Imported from a pre-taxonomy sidecar.",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+  },
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/src/B.cs",
+    "manifestHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "reviewInputsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "producer": {
+    "kind": "deterministic-sensor",
+    "provider": "com.acme:resilience-scanner"
+  },
+  "evidenceStatus": "available",
+  "evidence": [],
+  "aspects": [
+    {
+      "aspectId": "com.acme:resilience.backpressure",
+      "assessment": "concern",
+      "rationale": "An extension catalogue term is used because this build has no adapter for it."
+    }
+  ],
+  "assessment": "concern",
+  "findings": [],
+  "extensions": {
+    "com.acme:resilience.backpressure": { "detected": true, "catalogueVersion": "1.0.0" }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 2,
+  "id": "quality-studio/core",
+  "version": "2.0.0",
+  "axes": [
+    { "id": "severity", "terms": [{ "id": "high", "title": "High", "description": "Significant impact." }] }
+  ],
+  "aspects": []
+}

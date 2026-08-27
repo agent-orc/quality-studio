@@ -141,8 +141,8 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
-      <span><b>Phase</b> decision-ready</span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
+      <span><b>Phase</b> implementation
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -556,6 +557,45 @@
   <section class="box accent">
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
+  </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. Each row records what a card actually shipped, not what section 10 planned; see the linked slice for scope.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>2026-08-28</td>
+        <td><code>QS-76</code></td>
+        <td><a href="#slices">T1 — Contract and catalogue foundation</a> <span class="pill done">done</span></td>
+        <td>
+          Added <code>schemas/quality-taxonomy.v1.schema.json</code> and
+          <code>schemas/quality-observation.v1.schema.json</code>; the core catalogue
+          <code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code>
+          (<code>quality-studio/core@1.0.0</code>, 8 axes, 16 namespaced aspects with the section-6
+          migration aliases, two adapter-only aspects with no legacy alias); C# contract types
+          <code>QualityTaxonomyContract.cs</code> (catalogue loader, digest, alias lookup) and
+          <code>QualityObservationContract.cs</code> (envelope matching section 7, with a typed
+          <code>extensions</code> dictionary plus <code>[JsonExtensionData]</code> so legacy root
+          <code>x-*</code> keys and unrecognized fields round-trip instead of being dropped); and a
+          pure <code>QualityTaxonomyLegacyMapping.cs</code> covering every row of the section-8
+          compatibility table, including both false-positive spellings and the JSON/plain-text
+          evidence-string split. Positive and negative fixtures under <code>samples/</code> plus 61
+          new unit tests (schema validation, round-trip, extension preservation, unsupported-major
+          rejection, every legacy mapping row). No writer changed — <code>ReviewRunner</code> and
+          the other existing writers are untouched, so no production output changed; the full
+          repository test gate stayed green (<code>dotnet build</code> / <code>dotnet test</code>,
+          265 tests passed, 1 pre-existing skip).
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <section class="box warn">
+    <h4>Not yet implemented</h4>
+    <p>T2 (observation dual-write and full route provenance), T3 (typed evidence, producer
+    provenance, and issue lifecycle v2), T4 (observation-backed projections and per-model records),
+    and T5 (domain adapters and the migration tool) remain open. Each depends on the previous slice
+    and is sized for its own scoped, tested card.</p>
   </section>
 </main>
 </body>

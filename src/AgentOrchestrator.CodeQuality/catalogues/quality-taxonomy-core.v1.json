@@ -1,0 +1,115 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1.0.0",
+  "axes": [
+    {
+      "id": "producerKind",
+      "description": "Identifies who or what produced an observation or finding. Always explicit; absence never means agent.",
+      "terms": [
+        { "id": "agent", "title": "Agent", "description": "An LLM-driven reviewer produced this record." },
+        { "id": "deterministic-sensor", "title": "Deterministic sensor", "description": "A non-model tool or analyzer produced this record." },
+        { "id": "human", "title": "Human", "description": "A human reviewer or operator produced this record." },
+        { "id": "imported", "title": "Imported", "description": "This record was migrated from a legacy contract without re-derivation." },
+        { "id": "unknown", "title": "Unknown", "description": "The producer could not be determined and must not be assumed." }
+      ]
+    },
+    {
+      "id": "evidenceStatus",
+      "description": "Describes evidence coverage only. It is not a pass or block decision.",
+      "terms": [
+        { "id": "available", "title": "Available", "description": "The evidence needed for the assessment was collected." },
+        { "id": "partial", "title": "Partial", "description": "Some but not all expected evidence was collected." },
+        { "id": "unavailable", "title": "Unavailable", "description": "No usable evidence was collected." }
+      ]
+    },
+    {
+      "id": "assessment",
+      "description": "Describes what the evidence establishes for a review or aspect.",
+      "terms": [
+        { "id": "pass", "title": "Pass", "description": "The evidence establishes conformance." },
+        { "id": "concern", "title": "Concern", "description": "The evidence raises a qualified concern short of failure." },
+        { "id": "fail", "title": "Fail", "description": "The evidence establishes non-conformance." },
+        { "id": "inconclusive", "title": "Inconclusive", "description": "The evidence collected does not support a determination." },
+        { "id": "not-applicable", "title": "Not applicable", "description": "The aspect does not apply to this subject." },
+        { "id": "not-assessed", "title": "Not assessed", "description": "The aspect was not evaluated in this observation." }
+      ]
+    },
+    {
+      "id": "change",
+      "description": "Used only for before/after comparisons.",
+      "terms": [
+        { "id": "improved", "title": "Improved", "description": "The change made this aspect better." },
+        { "id": "regressed", "title": "Regressed", "description": "The change made this aspect worse." },
+        { "id": "mixed", "title": "Mixed", "description": "The change improved some evidence and regressed other evidence." },
+        { "id": "unchanged", "title": "Unchanged", "description": "The change left this aspect the same." },
+        { "id": "no-observed-delta", "title": "No observed delta", "description": "No comparable prior observation exists." },
+        { "id": "inconclusive", "title": "Inconclusive", "description": "The comparison evidence does not support a determination." }
+      ]
+    },
+    {
+      "id": "decision",
+      "description": "Optional policy output with a required policyRef. Never supplied by a raw finding.",
+      "terms": [
+        { "id": "allow", "title": "Allow", "description": "Policy permits proceeding." },
+        { "id": "warn", "title": "Warn", "description": "Policy flags a concern but does not block." },
+        { "id": "block", "title": "Block", "description": "Policy prevents proceeding." },
+        { "id": "defer", "title": "Defer", "description": "Policy defers the decision to a later or human review." }
+      ]
+    },
+    {
+      "id": "severity",
+      "description": "Retains current ordering and meaning; scoring weights stay in policy.",
+      "terms": [
+        { "id": "critical", "title": "Critical", "description": "Immediate, severe impact." },
+        { "id": "high", "title": "High", "description": "Significant impact." },
+        { "id": "medium", "title": "Medium", "description": "Moderate impact." },
+        { "id": "low", "title": "Low", "description": "Limited impact." },
+        { "id": "info", "title": "Info", "description": "Informational only." }
+      ]
+    },
+    {
+      "id": "lifecycle",
+      "description": "Lives in lifecycle events, not observations.",
+      "terms": [
+        { "id": "open", "title": "Open", "description": "The issue is open and unresolved." },
+        { "id": "accepted-risk", "title": "Accepted risk", "description": "The issue is acknowledged and accepted.", "aliases": ["accepted"] },
+        { "id": "waived", "title": "Waived", "description": "The issue is waived under a documented exception." },
+        { "id": "false-positive", "title": "False positive", "description": "The issue does not represent a real defect.", "aliases": ["falsePositive"] },
+        { "id": "resolved", "title": "Resolved", "description": "The issue has been fixed." }
+      ]
+    },
+    {
+      "id": "evidenceKind",
+      "description": "Each item has a locator or artifact reference, summary, and digest when content is available.",
+      "terms": [
+        { "id": "source-code", "title": "Source code", "description": "Evidence drawn directly from source code." },
+        { "id": "test-result", "title": "Test result", "description": "Evidence drawn from a test execution." },
+        { "id": "runtime-measurement", "title": "Runtime measurement", "description": "Evidence drawn from observed runtime behavior." },
+        { "id": "tool-result", "title": "Tool result", "description": "Structured machine output from a deterministic tool." },
+        { "id": "artifact", "title": "Artifact", "description": "A referenced build or repository artifact." },
+        { "id": "document", "title": "Document", "description": "Freeform textual evidence, such as prose review commentary." },
+        { "id": "human-attestation", "title": "Human attestation", "description": "A human statement offered as evidence." }
+      ]
+    }
+  ],
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "description": "Functional correctness of the reviewed code.", "aliases": ["correctness"] },
+    { "id": "code.architecture", "title": "Architecture", "description": "Structural and architectural soundness of the reviewed code.", "aliases": ["architecture"] },
+    { "id": "security.general", "title": "Security", "description": "General security posture of the reviewed subject.", "aliases": ["security"] },
+    { "id": "security.secrets", "title": "Secrets", "description": "Handling of credentials and secret material.", "aliases": ["secrets"] },
+    { "id": "security.dependencies", "title": "Dependencies", "description": "Third-party dependency and supply-chain risk.", "aliases": ["dependencies"] },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "description": "Identity, authentication, and authorization controls.", "aliases": ["authentication-authorization"] },
+    { "id": "security.input-validation", "title": "Input validation", "description": "Validation and sanitization of untrusted input.", "aliases": ["input-validation"] },
+    { "id": "security.configuration-iac", "title": "Configuration and infrastructure as code", "description": "Security of configuration and infrastructure-as-code artifacts.", "aliases": ["configuration-iac"] },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "description": "Exposure and hardening of external-facing boundaries.", "aliases": ["boundaries"] },
+    { "id": "security.business-logic", "title": "Business logic abuse", "description": "Resistance of business logic to abuse and bypass, as assessed by deep-flow review." },
+    { "id": "security.attack-coverage", "title": "Attack coverage", "description": "Coverage of catalogued attack scenarios against boundaries." },
+    { "id": "performance.general", "title": "Performance", "description": "General performance characteristics of the reviewed subject.", "aliases": ["performance"] },
+    { "id": "change.risk", "title": "Change risk", "description": "Overall risk introduced by a change.", "aliases": ["risk"] },
+    { "id": "change.test-evidence", "title": "Change test evidence", "description": "Adequacy of test evidence accompanying a change.", "aliases": ["test-evidence"] },
+    { "id": "change.scope-discipline", "title": "Change scope discipline", "description": "Whether a change stays within its intended scope.", "aliases": ["scope-discipline"] },
+    { "id": "change.architecture-drift", "title": "Change architecture drift", "description": "Architectural drift introduced by a change.", "aliases": ["architecture-drift"] }
+  ]
+}
