@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
@@ -16,10 +17,15 @@ public sealed class ApiSecurity
     private const string IdentityItem = "QualityStudio.Api.Identity";
     private readonly ApiSecurityOptions options;
     private readonly IReadOnlyList<(ApiClientIdentity Identity, byte[] CredentialHash)> clients;
+    private readonly IReadOnlyList<string> allowedOrigins;
 
     public ApiSecurity(IOptions<RepositoryOptions> configured)
     {
         options = configured.Value.Security;
+        allowedOrigins = configured.Value.AllowedOrigins
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .Select(origin => origin.Trim().TrimEnd('/'))
+            .ToArray();
         if (options.Mode is not (ApiSecurityOptions.LocalMode or ApiSecurityOptions.HostedMode))
             throw new InvalidOperationException("QualityStudio:Security:Mode must be Local or Hosted.");
         if (options.MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)
@@ -99,4 +105,38 @@ public sealed class ApiSecurity
 
     public bool IsMutationClientHeaderValid(HttpContext context, ApiClientIdentity identity) =>
         IsLocal || string.Equals(context.Request.Headers[ClientIdHeader].ToString(), identity.Id, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Rejects a state-changing request that a foreign browser origin initiated. Browser CORS policy is advisory
+    /// for the caller, so a same-origin decision has to be taken on the server before the endpoint runs.
+    /// </summary>
+    public bool IsMutationOriginAllowed(HttpContext context)
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        if (string.IsNullOrEmpty(origin)) return true;
+        if (string.Equals(origin, "null", StringComparison.Ordinal)) return false;
+        if (allowedOrigins.Contains(origin.TrimEnd('/'), StringComparer.OrdinalIgnoreCase)) return true;
+        return Uri.TryCreate(origin, UriKind.Absolute, out var parsed) &&
+               context.Request.Host.HasValue &&
+               string.Equals(parsed.Authority, context.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Local mode grants wildcard registrar authority without a credential, so it may only ever be reachable from
+    /// the loopback interface. A non-loopback binding is a configuration error, not a runtime warning.
+    /// </summary>
+    public static string? DescribeNonLoopbackBinding(IEnumerable<string> urls)
+    {
+        foreach (var url in urls.Where(url => !string.IsNullOrWhiteSpace(url)))
+        {
+            if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var parsed))
+                return $"Local mode cannot verify the loopback binding of '{url.Trim()}'.";
+            var host = parsed.Host;
+            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)) continue;
+            if (IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address)) continue;
+            return $"Local mode binds the non-loopback address '{host}'.";
+        }
+
+        return null;
+    }
 }

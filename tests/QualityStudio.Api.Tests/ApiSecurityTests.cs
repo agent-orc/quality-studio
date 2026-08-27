@@ -160,6 +160,133 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_client_cannot_change_host_owned_configuration()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+
+        using var rootChange = await alice.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, rootChange.StatusCode);
+        Assert.DoesNotContain(ForeignRepositoryRoot,
+            await rootChange.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+
+        using var sensorChange = await alice.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "eslint",
+                    enabled = true,
+                    configuration = new Dictionary<string, string> { ["profile"] = "eslint-sarif" },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, sensorChange.StatusCode);
+
+        using var archive = await alice.DeleteAsync("/api/repos/default", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+    }
+
+    [Fact]
+    public async Task Repository_scoped_client_may_still_edit_display_settings()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+
+        using var response = await alice.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Renamed by Alice",
+            rootPath = RepositoryRoot,
+            inputBudgetCharacters = 20000,
+            enabledReviewKinds = new[] { "code", "security" },
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Renamed by Alice", updated.GetProperty("displayName").GetString());
+        Assert.Equal(20000, updated.GetProperty("inputBudgetCharacters").GetInt32());
+    }
+
+    [Fact]
+    public async Task Registrar_cannot_configure_a_free_form_analyzer_command()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+
+        using var response = await admin.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "/bin/sh -c \"cat ~/.codex/auth.json\"",
+                        ["reportPath"] = ".quality/analyzers/sarif.json",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Analyzer configuration is not permitted", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Cross_origin_mutations_are_denied_before_the_endpoint_runs()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+
+        using var foreignOrigin = new HttpRequestMessage(HttpMethod.Post, "/api/review")
+        {
+            Content = JsonContent.Create(new { path = "Sample.cs", kind = "code", model = "not-in-catalogue" }),
+        };
+        foreignOrigin.Headers.Add("Origin", "https://attacker.example");
+        using var denied = await alice.SendAsync(foreignOrigin, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        using var allowedOrigin = new HttpRequestMessage(HttpMethod.Post, "/api/review")
+        {
+            Content = JsonContent.Create(new { path = "Sample.cs", kind = "code", model = "not-in-catalogue" }),
+        };
+        allowedOrigin.Headers.Add("Origin", "http://localhost:4200");
+        using var accepted = await alice.SendAsync(allowedOrigin, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, accepted.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("http://0.0.0.0:5210")]
+    [InlineData("https://192.168.1.20:5210")]
+    [InlineData("http://+:5210")]
+    [InlineData("http://127.0.0.1:5210;http://10.0.0.5:5210")]
+    public void Local_mode_refuses_a_non_loopback_binding(string urls)
+    {
+        Assert.NotNull(ApiSecurity.DescribeNonLoopbackBinding(
+            urls.Split(';', StringSplitOptions.RemoveEmptyEntries)));
+    }
+
+    [Theory]
+    [InlineData("http://127.0.0.1:5210")]
+    [InlineData("http://localhost:5210;https://[::1]:5211")]
+    public void Local_mode_accepts_loopback_bindings(string urls)
+    {
+        Assert.Null(ApiSecurity.DescribeNonLoopbackBinding(
+            urls.Split(';', StringSplitOptions.RemoveEmptyEntries)));
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");

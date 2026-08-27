@@ -5,21 +5,24 @@ using System.Text.Json;
 
 namespace AgentOrchestrator.CodeQuality;
 
-/// <summary>Runs an optional repository-owned command and ingests its SARIF 2.1.0 report.</summary>
+/// <summary>Runs an optional host-owned analyzer profile and ingests its SARIF 2.1.0 report.</summary>
 public sealed class SarifSensor : IDeterministicEvidenceSensor
 {
     public const string SensorVersion = "1.0.0";
     private readonly ISensorCommandRunner commandRunner;
+    private readonly AnalyzerProfileCatalog profiles;
     private readonly string id;
 
-    public SarifSensor(ISensorCommandRunner? commandRunner = null) : this("sarif", commandRunner)
+    public SarifSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+        : this("sarif", commandRunner, profiles)
     {
     }
 
-    internal SarifSensor(string id, ISensorCommandRunner? commandRunner)
+    internal SarifSensor(string id, ISensorCommandRunner? commandRunner, AnalyzerProfileCatalog? profiles = null)
     {
         this.id = id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
+        this.profiles = profiles ?? AnalyzerProfileCatalog.Disabled;
     }
 
     public string Id => id;
@@ -67,19 +70,11 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             return Unavailable(request, exception.Message);
         }
 
-        if (configuration.TryGetValue("command", out var configuredCommand) &&
-            !string.IsNullOrWhiteSpace(configuredCommand))
+        var resolution = profiles.Resolve(Id, configuration);
+        if (resolution.IsRejected) return Unavailable(request, resolution.RejectionReason!);
+        if (resolution.Profile is { } profile)
         {
-            IReadOnlyList<string> command;
-            try
-            {
-                command = AnalyzerCommand.Expand(
-                    configuredCommand, root, target, reportPath);
-            }
-            catch (ArgumentException exception)
-            {
-                return Unavailable(request, exception.Message);
-            }
+            var command = AnalyzerCommand.Expand(profile, root, target, reportPath);
 
             try
             {
@@ -637,58 +632,22 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
 
 internal static class AnalyzerCommand
 {
+    /// <summary>
+    /// Materialises a host-owned profile into an argument vector. The executable comes from the profile and the
+    /// substituted values are already confined to the repository, so no shell parsing is involved.
+    /// </summary>
     public static IReadOnlyList<string> Expand(
-        string command,
+        AnalyzerProfile profile,
         string repositoryRoot,
         string target,
-        string reportPath)
-    {
-        var arguments = Split(command);
-        return arguments.Select(argument => argument
-            .Replace("{repositoryRoot}", repositoryRoot, StringComparison.Ordinal)
-            .Replace("{target}", target, StringComparison.Ordinal)
-            .Replace("{reportPath}", reportPath, StringComparison.Ordinal))
-            .ToArray();
-    }
-
-    public static IReadOnlyList<string> Split(string command)
-    {
-        if (string.IsNullOrWhiteSpace(command)) throw new ArgumentException("Analyzer command cannot be empty.");
-        var result = new List<string>();
-        var current = new StringBuilder();
-        char? quote = null;
-        for (var index = 0; index < command.Length; index++)
-        {
-            var character = command[index];
-            if (character == '\\' && quote == '"' && index + 1 < command.Length &&
-                command[index + 1] is '"' or '\\')
-            {
-                current.Append(command[++index]);
-                continue;
-            }
-            if (character is '"' or '\'')
-            {
-                if (quote == character) quote = null;
-                else if (quote is null) quote = character;
-                else current.Append(character);
-                continue;
-            }
-            if (char.IsWhiteSpace(character) && quote is null)
-            {
-                if (current.Length > 0)
-                {
-                    result.Add(current.ToString());
-                    current.Clear();
-                }
-                continue;
-            }
-            current.Append(character);
-        }
-        if (quote is not null) throw new ArgumentException("Analyzer command contains an incomplete quote.");
-        if (current.Length > 0) result.Add(current.ToString());
-        if (result.Count == 0) throw new ArgumentException("Analyzer command cannot be empty.");
-        return result;
-    }
+        string reportPath) =>
+        [
+            profile.Executable,
+            .. profile.Arguments.Select(argument => argument
+                .Replace("{repositoryRoot}", repositoryRoot, StringComparison.Ordinal)
+                .Replace("{target}", target, StringComparison.Ordinal)
+                .Replace("{reportPath}", reportPath, StringComparison.Ordinal)),
+        ];
 
     public static string ContainedPath(string root, string value)
     {

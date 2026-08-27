@@ -42,17 +42,20 @@ public sealed class RepositoryRegistry
     private readonly RepositoryOptions legacyOptions;
     private readonly string[] allowedRoots;
     private readonly IReadOnlyList<string> supportedSensors;
+    private readonly AnalyzerProfileCatalog analyzerProfiles;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
     private readonly SemaphoreSlim gate = new(1, 1);
     private List<RepositoryRegistration> entries;
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
-        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex)
+        SensorRegistry sensors, AnalyzerProfileCatalog analyzerProfiles, ILogger<RepositoryRegistry> logger,
+        ReviewMetaIndex metaIndex)
     {
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
+        this.analyzerProfiles = analyzerProfiles;
         this.logger = logger;
         this.metaIndex = metaIndex;
         if (legacyOptions.AllowedRoots.Length == 0)
@@ -111,7 +114,12 @@ public sealed class RepositoryRegistry
         }
     }
 
-    public async Task<RepositoryRegistration> UpdateAsync(string id, RepositoryRegistrationRequest request, CancellationToken cancellationToken)
+    /// <param name="hostOwnedConfigurationAllowed">
+    /// Whether the caller may change the repository root, the global inputs directory, or sensor execution
+    /// configuration. A repository-scoped client may only edit display settings.
+    /// </param>
+    public async Task<RepositoryRegistration> UpdateAsync(string id, RepositoryRegistrationRequest request,
+        bool hostOwnedConfigurationAllowed, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
@@ -122,10 +130,13 @@ public sealed class RepositoryRegistry
                 throw new RepositoryRegistryValidationException("Archived repositories cannot be edited.");
             }
 
+            var sensors = request.Sensors ?? existing.Sensors;
+            if (!hostOwnedConfigurationAllowed) EnsureHostOwnedConfigurationUnchanged(existing, request, sensors);
+
             var updated = Validate(request with
             {
                 Id = existing.Id,
-                Sensors = request.Sensors ?? existing.Sensors,
+                Sensors = sensors,
             }, existing.Id);
             entries[entries.IndexOf(existing)] = updated;
             await PersistAsync(cancellationToken);
@@ -287,6 +298,12 @@ public sealed class RepositoryRegistry
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
 
+        foreach (var sensor in sensors)
+        {
+            if (analyzerProfiles.Validate(sensor.Id, sensor.Configuration) is { } rejection)
+                throw new RepositoryRegistryValidationException(rejection, "Analyzer configuration is not permitted");
+        }
+
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
         if (request.DefaultReviewTokenCap is <= 0 or > 1_000_000_000)
@@ -321,6 +338,61 @@ public sealed class RepositoryRegistry
                 "Global inputs directory does not exist");
         EnsureAllowedDirectory(resolved, "Global inputs directory is outside the configured allowed roots.");
         return resolved;
+    }
+
+    /// <summary>
+    /// Compares only normalised values, never the filesystem, so an unprivileged caller cannot use the outcome to
+    /// probe which paths exist or which roots are allowed.
+    /// </summary>
+    private void EnsureHostOwnedConfigurationUnchanged(
+        RepositoryRegistration existing,
+        RepositoryRegistrationRequest request,
+        IReadOnlyList<RepositorySensorConfiguration>? sensors)
+    {
+        if (!string.IsNullOrWhiteSpace(request.RootPath) &&
+            !PathComparer.Equals(ResolvePath(request.RootPath, contentRoot), existing.RootPath))
+        {
+            throw new RepositoryPrivilegeException("Changing the repository root requires registrar privilege.");
+        }
+
+        var requestedInputs = string.IsNullOrWhiteSpace(request.GlobalInputsDirectory)
+            ? null
+            : ResolvePath(request.GlobalInputsDirectory, existing.RootPath);
+        if (!PathComparer.Equals(requestedInputs ?? string.Empty, existing.GlobalInputsDirectory ?? string.Empty))
+        {
+            throw new RepositoryPrivilegeException(
+                "Changing the global inputs directory requires registrar privilege.");
+        }
+
+        if (!SensorsEquivalent(sensors, existing.Sensors))
+        {
+            throw new RepositoryPrivilegeException(
+                "Changing sensor execution configuration requires registrar privilege.");
+        }
+    }
+
+    private static bool SensorsEquivalent(
+        IReadOnlyList<RepositorySensorConfiguration>? requested,
+        IReadOnlyList<RepositorySensorConfiguration>? existing)
+    {
+        var left = requested ?? [];
+        var right = existing ?? [];
+        if (left.Count != right.Count) return false;
+        return left.Zip(right).All(pair =>
+            string.Equals(pair.First.Id.Trim(), pair.Second.Id, StringComparison.OrdinalIgnoreCase) &&
+            pair.First.Enabled == pair.Second.Enabled &&
+            ConfigurationEquivalent(pair.First.Configuration, pair.Second.Configuration));
+    }
+
+    private static bool ConfigurationEquivalent(
+        IReadOnlyDictionary<string, string>? requested,
+        IReadOnlyDictionary<string, string>? existing)
+    {
+        var left = requested ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        var right = existing ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        return left.Count == right.Count &&
+               left.All(entry => right.TryGetValue(entry.Key, out var value) &&
+                                 string.Equals(entry.Value, value, StringComparison.Ordinal));
     }
 
     private void ValidatePersistedEntry(RepositoryRegistration entry)
@@ -385,6 +457,9 @@ public sealed class RepositoryRegistry
             .ToArray();
     }
 }
+
+/// <summary>Raised when a repository-scoped client attempts to change host-owned repository configuration.</summary>
+public sealed class RepositoryPrivilegeException(string message) : Exception(message);
 
 public sealed class RepositoryRegistryValidationException : Exception
 {

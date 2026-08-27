@@ -60,22 +60,76 @@ public sealed class SarifSensorTests
     }
 
     [Fact]
-    public async Task MissingAnalyzer_IsAnExplicitUnavailableResult()
+    public async Task RepositoryConfiguredCommand_IsRefusedInsteadOfExecuted()
     {
         var root = CreateRepository("src/a.ts");
+        var runner = new RecordingRunner();
         try
         {
-            var result = await new SarifSensor(new MissingCommandRunner()).RunAsync(
-                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
-                {
-                    ["command"] = "missing-analyzer --sarif {reportPath}",
-                    ["reportPath"] = ".quality/analyzers/missing.sarif",
-                }),
-                TestContext.Current.CancellationToken);
+            var result = await new SarifSensor(runner, new AnalyzerProfileCatalog(commandProfilesEnabled: true))
+                .RunAsync(
+                    new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                    {
+                        ["command"] = "/bin/sh -c \"cat ~/.config/credentials\"",
+                        ["reportPath"] = ".quality/analyzers/missing.sarif",
+                    }),
+                    TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Equal(AnalyzerProfileCatalog.CommandRejectionReason, result.UnavailableReason);
+            Assert.Empty(result.Findings);
+            Assert.Empty(runner.Executables);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task MissingAnalyzerExecutable_IsAnExplicitUnavailableResult()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var result = await new EslintAnalyzerSensor(
+                    new MissingCommandRunner(), new AnalyzerProfileCatalog(commandProfilesEnabled: true))
+                .RunAsync(
+                    new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                    {
+                        ["profile"] = "eslint-sarif",
+                        ["reportPath"] = ".quality/analyzers/eslint.sarif",
+                    }),
+                    TestContext.Current.CancellationToken);
 
             Assert.False(result.Available);
             Assert.Contains("unavailable", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
             Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task CommandProfiles_AreDisabledUntilTheWorkerBoundaryExists()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        var runner = new RecordingRunner();
+        try
+        {
+            var result = await new EslintAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["profile"] = "eslint-sarif",
+                    ["reportPath"] = ".quality/analyzers/eslint.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Equal(AnalyzerProfileCatalog.CommandProfilesDisabledReason, result.UnavailableReason);
+            Assert.Empty(runner.Executables);
         }
         finally
         {
@@ -142,14 +196,16 @@ public sealed class SarifSensorTests
         var root = CreateRepository("frontend/src/app.ts");
         try
         {
-            var sensor = new TypeScriptAnalyzerSensor(new RecordedRunner(
+            var runner = new RecordedRunner(
                 2,
-                "src/app.ts(7,11): error TS2322: Type 'string' is not assignable to type 'number'.\n"));
+                "src/app.ts(7,11): error TS2322: Type 'string' is not assignable to type 'number'.\n");
+            var sensor = new TypeScriptAnalyzerSensor(
+                runner, new AnalyzerProfileCatalog(commandProfilesEnabled: true));
 
             var result = await sensor.RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
-                    ["command"] = "npx --no-install tsc --noEmit --pretty false",
+                    ["profile"] = "tsc-noemit",
                     ["reportPath"] = ".quality/analyzers/tsc.txt",
                     ["workingDirectory"] = "frontend",
                     ["producerVersion"] = "5.9.2",
@@ -160,6 +216,7 @@ public sealed class SarifSensorTests
             Assert.Equal("TS2322", Assert.Single(result.Findings).RuleId);
             Assert.True(File.Exists(Path.Combine(root, ".quality", "analyzers", "tsc.txt")));
             Assert.Equal("5.9.2", result.Provenance.ToolVersions["typescript"]);
+            Assert.Equal("npx", Assert.Single(runner.Executables));
         }
         finally
         {
@@ -194,11 +251,31 @@ public sealed class SarifSensorTests
 
     private sealed class RecordedRunner(int exitCode, string output) : ISensorCommandRunner
     {
+        public List<string> Executables { get; } = [];
+
         public Task<SensorCommandResult> RunAsync(
             string executable,
             IReadOnlyList<string> arguments,
             string workingDirectory,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(new SensorCommandResult(exitCode, output, string.Empty));
+            CancellationToken cancellationToken = default)
+        {
+            Executables.Add(executable);
+            return Task.FromResult(new SensorCommandResult(exitCode, output, string.Empty));
+        }
+    }
+
+    private sealed class RecordingRunner : ISensorCommandRunner
+    {
+        public List<string> Executables { get; } = [];
+
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default)
+        {
+            Executables.Add(executable);
+            return Task.FromResult(new SensorCommandResult(0, string.Empty, string.Empty));
+        }
     }
 }

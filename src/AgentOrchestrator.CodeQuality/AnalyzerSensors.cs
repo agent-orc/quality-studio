@@ -16,13 +16,14 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
         string id,
         string executable,
         string[] versionArguments,
-        ISensorCommandRunner? commandRunner)
+        ISensorCommandRunner? commandRunner,
+        AnalyzerProfileCatalog? profiles = null)
     {
         Id = id;
         this.executable = executable;
         this.versionArguments = versionArguments;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
-        sarif = new SarifSensor(id, this.commandRunner);
+        sarif = new SarifSensor(id, this.commandRunner, profiles);
     }
 
     public string Id { get; }
@@ -62,16 +63,16 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
 
 public sealed class RoslynAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("roslyn", "dotnet", ["--version"], commandRunner)
+    public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+        : base("roslyn", "dotnet", ["--version"], commandRunner, profiles)
     {
     }
 }
 
 public sealed class EslintAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("eslint", "npx", ["--no-install", "eslint", "--version"], commandRunner)
+    public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+        : base("eslint", "npx", ["--no-install", "eslint", "--version"], commandRunner, profiles)
     {
     }
 }
@@ -80,9 +81,13 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
 {
     public const string SensorVersion = "1.0.0";
     private readonly ISensorCommandRunner commandRunner;
+    private readonly AnalyzerProfileCatalog profiles;
 
-    public TypeScriptAnalyzerSensor(ISensorCommandRunner? commandRunner = null) =>
+    public TypeScriptAnalyzerSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+    {
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
+        this.profiles = profiles ?? AnalyzerProfileCatalog.Disabled;
+    }
 
     public string Id => "tsc";
     public string Version => SensorVersion;
@@ -118,9 +123,12 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         var root = Path.GetFullPath(request.RepositoryRoot);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var configuration = request.Configuration ?? new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!configuration.TryGetValue("command", out var configuredCommand) ||
-            string.IsNullOrWhiteSpace(configuredCommand))
-            return Unavailable(request, "tsc analyzer configuration requires command.");
+        var resolution = profiles.Resolve(Id, configuration);
+        if (resolution.IsRejected) return Unavailable(request, resolution.RejectionReason!);
+        if (resolution.Profile is not { } profile)
+            return Unavailable(request,
+                "tsc analyzer configuration requires a host-owned profile: " +
+                string.Join(", ", profiles.For(Id).Select(candidate => candidate.Id)) + ".");
         if (!configuration.TryGetValue("reportPath", out var configuredReport) ||
             string.IsNullOrWhiteSpace(configuredReport))
             return Unavailable(request, "tsc analyzer configuration requires reportPath.");
@@ -141,7 +149,7 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
                 : Directory.Exists(target) ? target : Path.GetDirectoryName(target)!;
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "tsc workingDirectory must be an existing repository directory.");
-            command = AnalyzerCommand.Expand(configuredCommand, root, target, reportPath);
+            command = AnalyzerCommand.Expand(profile, root, target, reportPath);
         }
         catch (ArgumentException exception)
         {

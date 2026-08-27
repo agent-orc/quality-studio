@@ -141,8 +141,8 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
+      <span><b>Status</b> decided</span>
+      <span><b>Phase</b> in implementation — S0 delivered</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,48 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p>Append-only. One entry per delivered slice; the assessment above is the source and is not rewritten by delivery.</p>
+
+    <h3>2026-08-27 · QS-68 · S0 delivered <span class="pill done">Complete</span></h3>
+    <p>The operator approved every recommendation on 2026-08-11, so the dossier status moves from <i>decision pending</i> to <i>decided</i>. S0 closes the authorization-to-command chain behind F-01 and the containment half of R-01, R-08, and R-09.</p>
+    <table>
+      <thead><tr><th>S0 item</th><th>What landed</th><th>Regression evidence</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Registrar privilege for host-owned configuration</b></td>
+          <td><code>RepositoryRegistry.UpdateAsync</code> takes an explicit <code>hostOwnedConfigurationAllowed</code> flag. A repository-scoped client may change display settings only; the repository root, the global inputs directory, and sensor execution configuration raise <code>RepositoryPrivilegeException</code> → 403. The comparison reads normalised values only, never the filesystem, so a refusal cannot be used to probe which paths exist. Archiving (<code>DELETE /api/repos/{id}</code>) now requires registrar privilege, checked after the existing access check so a foreign repository still answers 404.</td>
+          <td><code>ApiSecurityTests.Repository_scoped_client_cannot_change_host_owned_configuration</code>, <code>…_may_still_edit_display_settings</code></td>
+        </tr>
+        <tr>
+          <td><b>Host-owned analyzer profiles</b></td>
+          <td>New <code>AnalyzerProfileCatalog</code> owns the only executables Studio will start (<code>dotnet-build-sarif</code>, <code>eslint-sarif</code>, <code>tsc-noemit</code>). Repository sensor configuration selects a profile by id through <code>profile</code>; the <code>command</code> key is refused at registration and at scan time, and the free-form command splitter is deleted rather than hardened. The generic <code>sarif</code> sensor has no executable profile at all and only ingests an existing report. Command-backed profiles stay disabled unless <code>QualityStudio:Security:AllowCommandAnalyzerProfiles</code> is set, which is the S1 gate.</td>
+          <td><code>AnalyzerProfileTests</code> (6 cases), <code>SarifSensorTests.RepositoryConfiguredCommand_IsRefusedInsteadOfExecuted</code>, <code>…CommandProfiles_AreDisabledUntilTheWorkerBoundaryExists</code>, <code>ApiSecurityTests.Registrar_cannot_configure_a_free_form_analyzer_command</code></td>
+        </tr>
+        <tr>
+          <td><b>Spend limiter, origin check, loopback binding</b></td>
+          <td>Sensor scans and the Gitleaks-backed security scan now carry the <code>spend</code> rate-limiting policy. State-changing requests carrying a foreign <code>Origin</code> are refused with 403 before the endpoint runs, because browser CORS policy is advisory for the caller. Local mode fails startup when a configured Kestrel address is not loopback, and an address it cannot parse is treated as non-loopback.</td>
+          <td><code>ApiSecurityTests.Cross_origin_mutations_are_denied_before_the_endpoint_runs</code>, <code>…Local_mode_refuses_a_non_loopback_binding</code>, <code>…Local_mode_accepts_loopback_bindings</code></td>
+        </tr>
+        <tr>
+          <td><b>Angular advisory upgrade</b></td>
+          <td>The Angular 20.3.26 family moved to 20.3.30 through <code>ng update</code>. <code>npm audit --omit=dev</code> reports 0 vulnerabilities, closing <a href="https://github.com/advisories/GHSA-jhpw-976m-542j">GHSA-jhpw-976m-542j</a> and <a href="https://github.com/advisories/GHSA-jj27-h5hq-8x99">GHSA-jj27-h5hq-8x99</a>. The lock diff is confined to the seven Angular packages.</td>
+          <td><code>npm run build</code> succeeds; <code>npm audit --omit=dev</code> is clean</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="box warn">
+      <h4>Carried forward from S0</h4>
+      <ul>
+        <li>The <b>per-session anti-CSRF nonce</b> named alongside the Origin check is not implemented. Origin enforcement satisfies the stated exit condition, but a nonce additionally covers a request that arrives without an <code>Origin</code> header. It needs a token the browser client can carry cross-origin, so it belongs with the S5 credential lifecycle rather than with S0's containment work.</li>
+        <li><b>Frontend unit tests were not executed</b> for the Angular upgrade: the Angular test runner needs a Chrome-compatible browser binary, which this environment does not provide. The failure occurs before any test runs and is independent of the upgrade. Build and production audit were executed. CI still does not run the frontend at all; that gap is S6.</li>
+        <li>The dependency <b>dev tree</b> still reports advisories (3 moderate, 7 high in build tooling). Per section 06 these are deliberately not hidden behind the production threshold and remain S6 work.</li>
+      </ul>
+    </div>
+    <p class="dim">Not started: S1–S6. Gate A is now met for the S0 half; hosted mode remains blocked until initial S6 lands, and untrusted repository review remains blocked until S1 and S2.</p>
   </section>
 </main>
 </body>

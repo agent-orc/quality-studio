@@ -29,6 +29,13 @@ public sealed class ApiSecurityOptions
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
+
+    /// <summary>
+    /// Permits sensors to start the executables of host-owned analyzer profiles. Off until review workers are
+    /// isolated, because an analyzer process inherits the Studio host identity, environment, and network.
+    /// </summary>
+    public bool AllowCommandAnalyzerProfiles { get; set; }
+
     public List<ApiClientOptions> Clients { get; set; } = [];
 }
 

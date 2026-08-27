@@ -41,6 +41,9 @@ builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
 builder.Services.AddSingleton<AttackCoverageService>();
 builder.Services.AddSingleton<CoverageSensor>();
+builder.Services.AddSingleton(serviceProvider => new AnalyzerProfileCatalog(
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryOptions>>()
+        .Value.Security.AllowCommandAnalyzerProfiles));
 builder.Services.AddSingleton<SarifSensor>();
 builder.Services.AddSingleton<RoslynAnalyzerSensor>();
 builder.Services.AddSingleton<EslintAnalyzerSensor>();
@@ -105,6 +108,8 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var (status, title) = exception switch
     {
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
+        RepositoryPrivilegeException => (StatusCodes.Status403Forbidden,
+            "Host-owned repository configuration requires registrar privilege"),
         RepositoryRegistryValidationException validation => (StatusCodes.Status400BadRequest, validation.PublicTitle),
         SensorNotFoundException => (StatusCodes.Status404NotFound, "Sensor not found"),
         KeyNotFoundException => (StatusCodes.Status404NotFound, "Repository not found"),
@@ -130,6 +135,12 @@ app.UseCors("dev-frontend");
 app.UseRouting();
 
 var apiSecurity = app.Services.GetRequiredService<ApiSecurity>();
+if (apiSecurity.IsLocal &&
+    ApiSecurity.DescribeNonLoopbackBinding(ConfiguredUrls(app.Configuration)) is { } binding)
+{
+    throw new InvalidOperationException(
+        $"{binding} Configure QualityStudio:Security:Mode=Hosted with credentials to serve a non-loopback address.");
+}
 if (apiSecurity.RequireHttps)
 {
     app.UseHsts();
@@ -174,6 +185,13 @@ app.Use(async (context, next) =>
                 title: "A matching X-Client-Id is required for mutations").ExecuteAsync(context);
             return;
         }
+
+        if (!apiSecurity.IsMutationOriginAllowed(context))
+        {
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "Cross-origin mutations are not permitted").ExecuteAsync(context);
+            return;
+        }
     }
 
     var path = context.Request.Path.Value ?? string.Empty;
@@ -200,6 +218,16 @@ app.Use(async (context, next) =>
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
+        return;
+    }
+
+    // Archiving retires a host-owned registration, so it belongs with registration rather than with repository use.
+    if (HttpMethods.IsDelete(context.Request.Method) && repositoryId is not null &&
+        string.Equals(path.TrimEnd('/'), $"/api/repos/{repositoryId}", StringComparison.OrdinalIgnoreCase) &&
+        !identity.CanRegisterRepositories)
+    {
+        await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+            title: "Archiving a repository requires registrar privilege").ExecuteAsync(context);
         return;
     }
 
@@ -235,10 +263,12 @@ app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, Reposito
 
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
 
-app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
-    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
+app.MapPut("/api/repos/{repoId}", async (HttpContext context, string repoId, RepositoryRegistrationRequest request,
+    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, ApiSecurity security,
+    CancellationToken cancellationToken) =>
 {
-    var updated = await registry.UpdateAsync(repoId, request, cancellationToken);
+    var updated = await registry.UpdateAsync(repoId, request,
+        security.Identity(context).CanRegisterRepositories, cancellationToken);
     prewarmer.Queue(updated);
     return Results.Ok(updated);
 });
@@ -270,16 +300,16 @@ app.MapPost("/api/guidelines/impact", GuidelineImpact);
 app.MapPost("/api/repos/{repoId}/guidelines/impact", GuidelineImpact);
 app.MapGet("/api/scan", Scan);
 app.MapGet("/api/repos/{repoId}/scan", Scan);
-app.MapGet("/api/security/scan", SecurityScan);
-app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan);
+app.MapGet("/api/security/scan", SecurityScan).RequireRateLimiting("spend");
+app.MapGet("/api/repos/{repoId}/security/scan", SecurityScan).RequireRateLimiting("spend");
 app.MapGet("/api/security/attack-coverage", AttackCoverage);
 app.MapGet("/api/repos/{repoId}/security/attack-coverage", AttackCoverage);
 app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
@@ -1276,6 +1306,21 @@ static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRep
     var id = RouteRepositoryId(context);
     var registration = registry.Get(id);
     return (registration, registry.Access(registration.Id));
+}
+
+/// <summary>Every address Kestrel was asked to serve, from the command line, environment, or Kestrel endpoints.</summary>
+static IEnumerable<string> ConfiguredUrls(IConfiguration configuration)
+{
+    var urls = configuration["urls"] ?? configuration["ASPNETCORE_URLS"] ?? string.Empty;
+    foreach (var url in urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        yield return url;
+    }
+
+    foreach (var endpoint in configuration.GetSection("Kestrel:Endpoints").GetChildren())
+    {
+        if (endpoint["Url"] is { Length: > 0 } endpointUrl) yield return endpointUrl;
+    }
 }
 
 static string? RouteRepositoryId(HttpContext context) =>
