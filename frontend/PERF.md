@@ -40,6 +40,37 @@ shows the last known per-repository snapshot with an explicit updating notice.
 With no browser snapshot, a skeleton names the Git-state, repository-scan,
 review-metadata, and projection phases.
 
+## QS-78 conditional re-switch (`/api/tree`, `/api/project`)
+
+`/api/tree` and `/api/project` already computed a Git-state `ETag` and
+answered `304 Not Modified` to `If-None-Match` (`Program.cs:414-419,461-465`),
+but `QualityApi.loadTree`/`loadProjectDashboard` never sent the header or read
+the response `ETag`, so every re-switch to an already-open repository repeated
+the full fetch. `QualityApi` now retains the last `ETag` per repository
+(`treeETags`, `projectETags`), sends `If-None-Match` on the next request for
+that repository, and reuses the retained `treeSnapshots`/`projectSnapshots`
+entry on `304` instead of re-parsing a response body.
+
+Measured 2026-08-27 on Linux 6.8, .NET 10.0.301, against a real
+`QualityStudio.Api` Release build and a freshly committed 1,600-file fixture
+repository (the same "realistic fixture" `project-switch-perf.mjs` already
+uses in place of a real large workspace), median of 7 samples per
+configuration:
+
+| Endpoint | Before (repeated full `GET`) | After (`GET` + `If-None-Match`) |
+| --- | ---: | ---: |
+| `/api/tree` | 49.52 ms, 1,616,219 bytes | 9.99 ms, 0 bytes (304) |
+| `/api/project` | 9.94 ms, 5,239 bytes | 9.17 ms, 0 bytes (304) |
+
+The full sample set is in `perf-project-switch-conditional-get.json` under the
+job's results directory. The tree endpoint is where this matters: a 33 MiB
+`/api/tree` response on a large real repository (see the QS-59 performance
+dossier) now costs the client 0 bytes and a sub-10 ms round trip on every
+unchanged re-switch instead of paying full transfer and re-parse every time.
+`qs.data.tree-loaded` and `qs.project.first-interactive` now carry a `cache:
+'hit' | 'miss'` field so a `304` reuse is distinguishable from a fresh fetch
+in the existing event log.
+
 ## Repeat the automated measurement
 
 1. Run `npm start` (the harness defaults to `http://127.0.0.1:4200`; set `QS_URL` to use another URL).

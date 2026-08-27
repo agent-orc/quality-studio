@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -162,5 +162,54 @@ describe('QualityApi', () => {
 
     expect(api.runReportUrl('run / 1', 'sarif')).toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=sarif');
     expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
+  });
+
+  it('revalidates the tree with the stored ETag and reuses the cached snapshot on a 304', async () => {
+    const nodes: TreeNode[] = [{ id: 'a', name: 'a.ts', level: 'file', path: 'a.ts', kinds: {}, children: [] }];
+
+    const first = api.loadTree('default', false);
+    const firstRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(firstRequest.request.headers.has('If-None-Match')).toBeFalse();
+    firstRequest.flush({ nodes }, { headers: { ETag: '"tree-v1"' } });
+    await first;
+    expect(api.tree()).toEqual(nodes);
+
+    const second = api.loadTree('default', false);
+    const secondRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(secondRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    secondRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await second;
+    expect(api.tree()).toEqual(nodes);
+  });
+
+  it('revalidates the project dashboard with the stored ETag and reuses the cached snapshot on a 304', async () => {
+    const dashboard: ProjectDashboard = {
+      generatedAt: '2026-08-27T10:00:00Z',
+      grades: [],
+      findings: { open: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, byReviewState: { fresh: 0, stale: 0 }, path: '.' },
+      staleness: { fresh: 1, stale: 0, missing: 0, total: 1, path: '.' },
+      reviewCoverage: { reviewedFiles: 1, totalFiles: 1, percent: 100, path: '.' },
+      testCoverage: { status: 'reported', linePercent: 80, coveredLines: 8, totalLines: 10, source: 'coverage.xml', path: '.' },
+      metrics: {
+        fileCount: 349, folderCount: 20, bytes: 10000, lines: 2,
+        languages: [], fileSizeDistribution: [], folderSizeDistribution: [],
+        duplicationCandidates: [], dependencyEdges: [],
+      },
+      hotspots: [],
+    };
+
+    const first = api.loadProjectDashboard('default');
+    const firstRequest = http.expectOne('/api/repos/default/project');
+    expect(firstRequest.request.headers.has('If-None-Match')).toBeFalse();
+    firstRequest.flush(dashboard, { headers: { ETag: '"project-v1"' } });
+    await first;
+    expect(api.project()).toEqual(dashboard);
+
+    const second = api.loadProjectDashboard('default');
+    const secondRequest = http.expectOne('/api/repos/default/project');
+    expect(secondRequest.request.headers.get('If-None-Match')).toBe('"project-v1"');
+    secondRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await second;
+    expect(api.project()).toEqual(dashboard);
   });
 });

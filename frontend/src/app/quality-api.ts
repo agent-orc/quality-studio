@@ -435,6 +435,8 @@ export class QualityApi {
   readonly focusedThreadId = signal<string | null>(null);
   private readonly treeSnapshots = new Map<string, TreeNode[]>();
   private readonly projectSnapshots = new Map<string, ProjectDashboard>();
+  private readonly treeETags = new Map<string, string>();
+  private readonly projectETags = new Map<string, string>();
   private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -514,14 +516,28 @@ export class QualityApi {
   async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true): Promise<void> {
     const base = this.repositoryApiBase(repositoryId);
     const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
+    const etagKey = repositoryId + '::';
+    const knownETag = this.treeETags.get(etagKey);
     try {
-      const tree = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`));
-      this.treeSnapshots.set(repositoryId, tree.nodes);
+      const response = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`, {
+        observe: 'response',
+        headers: knownETag ? { 'If-None-Match': knownETag } : {},
+      }));
+      const etag = response.headers.get('ETag');
+      if (etag) this.treeETags.set(etagKey, etag);
+      const nodes = response.body!.nodes;
+      this.treeSnapshots.set(repositoryId, nodes);
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.tree.set(tree.nodes); this.connectionState.set('live');
-      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
+      this.tree.set(nodes); this.connectionState.set('live');
+      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: nodes.length, source: 'api', cache: 'miss' }));
     } catch (error) {
-      if (repositoryId === this.selectedRepositoryId()) {
+      if (error instanceof HttpErrorResponse && error.status === 304) {
+        const cached = this.treeSnapshots.get(repositoryId) ?? [];
+        if (repositoryId === this.selectedRepositoryId()) {
+          this.tree.set(cached); this.connectionState.set('live');
+        }
+        console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: cached.length, source: 'api', cache: 'hit' }));
+      } else if (repositoryId === this.selectedRepositoryId()) {
         this.connectionState.set('preview');
         console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
       }
@@ -711,19 +727,33 @@ export class QualityApi {
       this.projectError.set('');
     }
     const start = performance.now();
+    const knownETag = this.projectETags.get(repositoryId);
+    const reportFirstInteractive = (cache: 'hit' | 'miss') => requestAnimationFrame(() => {
+      if (repositoryId !== this.selectedRepositoryId()) return;
+      const duration = performance.now() - start;
+      performance.measure('qs.project.first-interactive', { start, end: performance.now(), detail: { budget: 150, repositoryId } });
+      console.info(JSON.stringify({ event: 'qs.project.first-interactive', repositoryId, durationMs: +duration.toFixed(2), budgetMs: 150, withinBudget: duration < 150, cache }));
+    });
     try {
-      const project = await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase(repositoryId)}/project`));
+      const response = await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase(repositoryId)}/project`, {
+        observe: 'response',
+        headers: knownETag ? { 'If-None-Match': knownETag } : {},
+      }));
+      const etag = response.headers.get('ETag');
+      if (etag) this.projectETags.set(repositoryId, etag);
+      const project = response.body!;
       this.projectSnapshots.set(repositoryId, project);
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.project.set(project);
-      requestAnimationFrame(() => {
-        if (repositoryId !== this.selectedRepositoryId()) return;
-        const duration = performance.now() - start;
-        performance.measure('qs.project.first-interactive', { start, end: performance.now(), detail: { budget: 150, repositoryId } });
-        console.info(JSON.stringify({ event: 'qs.project.first-interactive', repositoryId, durationMs: +duration.toFixed(2), budgetMs: 150, withinBudget: duration < 150 }));
-      });
+      reportFirstInteractive('miss');
     } catch (error) {
-      if (repositoryId === this.selectedRepositoryId()) {
+      if (error instanceof HttpErrorResponse && error.status === 304) {
+        const cached = this.projectSnapshots.get(repositoryId) ?? null;
+        if (repositoryId === this.selectedRepositoryId()) {
+          this.project.set(cached);
+          reportFirstInteractive('hit');
+        }
+      } else if (repositoryId === this.selectedRepositoryId()) {
         if (!this.projectSnapshots.has(repositoryId)) this.project.set(null);
         this.projectError.set(this.errorMessage(error));
         console.warn(JSON.stringify({ event: 'qs.project.unavailable', repositoryId, reason: this.errorMessage(error) }));
