@@ -7,6 +7,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -107,6 +108,59 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_administration_requires_registrar_and_analyzers_use_host_owned_profiles()
+    {
+        var registration = new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code", "security" },
+            sensors = new object[]
+            {
+                new { id = "sarif", enabled = true, profileId = "trusted-sarif" },
+            },
+        };
+        using var alice = CreateClient("alice", AliceToken);
+        using var forbiddenUpdate = await alice.PutAsJsonAsync(
+            "/api/repos/default", registration, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenUpdate.StatusCode);
+        using var forbiddenArchive = await alice.DeleteAsync(
+            "/api/repos/default", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenArchive.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var commandInjection = await admin.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "security" },
+            sensors = new object[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new
+                    {
+                        command = "pwsh -Command Get-ChildItem Env:",
+                        reportPath = ".quality/analyzers/result.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, commandInjection.StatusCode);
+
+        using var accepted = await admin.PutAsJsonAsync(
+            "/api/repos/default", registration, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        var stored = await accepted.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var sensor = Assert.Single(stored.GetProperty("sensors").EnumerateArray());
+        Assert.Equal("trusted-sarif", sensor.GetProperty("profileId").GetString());
+        Assert.StartsWith("dotnet ", sensor.GetProperty("configuration").GetProperty("command").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids()
     {
         using var anonymous = CreateClient();
@@ -157,6 +211,14 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         using var secondHandover = await bob.PostAsJsonAsync("/api/repos/foreign/handover", handover,
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.TooManyRequests, secondHandover.StatusCode);
+
+        using var admin = CreateClient(rateApplication, "admin", AdminToken);
+        using var firstSensorScan = await admin.PostAsync(
+            "/api/sensors/boundaries/scan", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, firstSensorScan.StatusCode);
+        using var secondSensorScan = await admin.PostAsync(
+            "/api/sensors/boundaries/scan", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondSensorScan.StatusCode);
     }
 
     [Fact]
@@ -174,6 +236,54 @@ public sealed class ApiSecurityTests : IAsyncLifetime
             path = "Sample.cs", kind = "code", model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
+    }
+
+    [Fact]
+    public async Task Local_mutations_require_allowed_origin_and_session_nonce()
+    {
+        var localHost = Path.Combine(testRoot, "csrf-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var unprotected = ((WebApplicationFactory<Program>)local).CreateClient();
+        using var missingProtection = await unprotected.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, missingProtection.StatusCode);
+
+        using var protectedClient = local.CreateClient();
+        protectedClient.DefaultRequestHeaders.Remove("Origin");
+        protectedClient.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "http://attacker.invalid");
+        using var crossOrigin = await protectedClient.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, crossOrigin.StatusCode);
+
+        using var tamperedClient = local.CreateClient();
+        tamperedClient.DefaultRequestHeaders.Remove(ApiSecurity.AntiCsrfHeader);
+        tamperedClient.DefaultRequestHeaders.TryAddWithoutValidation(ApiSecurity.AntiCsrfHeader, "tampered");
+        using var tamperedNonce = await tamperedClient.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, tamperedNonce.StatusCode);
+    }
+
+    [Fact]
+    public void Local_mode_rejects_non_loopback_bindings()
+    {
+        var options = Options.Create(new RepositoryOptions
+        {
+            AllowedOrigins = ["http://localhost:4200"],
+            Security = new ApiSecurityOptions { Mode = ApiSecurityOptions.LocalMode },
+        });
+        var security = new ApiSecurity(options);
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { ["urls"] = "http://0.0.0.0:5127" }).Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => security.ValidateLocalBindings(configuration));
+        Assert.Contains("loopback", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     public async ValueTask InitializeAsync()
@@ -265,6 +375,13 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:Security:Clients:2:CredentialSha256"] = Hash(AdminToken),
                     ["QualityStudio:Security:Clients:2:Repositories:0"] = "*",
                     ["QualityStudio:Security:Clients:2:CanRegisterRepositories"] = "true",
+                    ["QualityStudio:AnalyzerProfiles:trusted-sarif:SensorId"] = "sarif",
+                    ["QualityStudio:AnalyzerProfiles:trusted-sarif:Executable"] = "dotnet",
+                    ["QualityStudio:AnalyzerProfiles:trusted-sarif:Arguments:0"] = "tool",
+                    ["QualityStudio:AnalyzerProfiles:trusted-sarif:Arguments:1"] = "run",
+                    ["QualityStudio:AnalyzerProfiles:trusted-sarif:Arguments:2"] = "--output",
+                    ["QualityStudio:AnalyzerProfiles:trusted-sarif:Arguments:3"] = "{reportPath}",
+                    ["QualityStudio:AnalyzerProfiles:trusted-sarif:ReportPath"] = ".quality/analyzers/result.sarif",
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",
@@ -278,6 +395,8 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     private sealed class LocalApplication(string root, string contentRoot) : WebApplicationFactory<Program>
     {
+        public new HttpClient CreateClient() => LocalApiClient.Create(this);
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(contentRoot);
