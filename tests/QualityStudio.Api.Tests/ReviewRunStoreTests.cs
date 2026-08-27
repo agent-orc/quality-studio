@@ -18,6 +18,284 @@ namespace QualityStudio.Api.Tests;
 public sealed class ReviewRunStoreTests
 {
     [Fact]
+    public async Task Snapshot_preflight_runs_configured_sensor_once_and_persists_the_exact_estimate_evidence()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        var sensor = new CountingPreflightSensor(available: true);
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "security",
+                cliType = "test-agent",
+                model = "test-model",
+                tokenCap = 100_000,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var runId = accepted.GetProperty("id").GetString()!;
+
+            var completed = await WaitForStateAsync(client, runId, "done", cancellationToken);
+
+            Assert.Equal(1, sensor.RunCount);
+            Assert.Equal("done", completed.GetProperty("preflightState").GetString());
+            Assert.Equal(1, completed.GetProperty("preflightChecks").GetInt32());
+            Assert.Equal(0, completed.GetProperty("preflightUnavailableChecks").GetInt32());
+            Assert.Matches("^sha256:[a-f0-9]{64}$", completed.GetProperty("preflightResultHash").GetString());
+            Assert.True(completed.GetProperty("preflightDurationMs").GetInt64() >= 0);
+            Assert.Equal(3, executor.Requests.Count);
+            Assert.All(executor.Requests, request => Assert.Single(request.PreflightEvidence!));
+            Assert.True(File.Exists(Path.Combine(fixture.Store.RunsPath, runId, "preflight.json")));
+            var stored = fixture.Store.LoadAll().Single(run => run.Manifest.RunId == runId);
+            Assert.NotNull(stored.Preflight);
+            Assert.True(stored.Status.PreflightCacheHits >= 1);
+            var persisted = await client.GetFromJsonAsync<JsonElement>(
+                $"/api/review/runs/{runId}/preflight", cancellationToken);
+            Assert.Equal(runId, persisted.GetProperty("runId").GetString());
+            Assert.Single(persisted.GetProperty("results").EnumerateArray());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Required_unavailable_preflight_blocks_every_model_operation_without_a_false_pass()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        var sensor = new CountingPreflightSensor(available: false);
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "security",
+                cliType = "test-agent",
+                model = "test-model",
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            var blocked = await WaitForStateAsync(
+                client, accepted.GetProperty("id").GetString()!, "blocked-preflight", cancellationToken);
+
+            Assert.Equal(1, sensor.RunCount);
+            Assert.Equal("blocked", blocked.GetProperty("preflightState").GetString());
+            Assert.Equal(1, blocked.GetProperty("preflightUnavailableChecks").GetInt32());
+            Assert.Equal(2, blocked.GetProperty("blockedFiles").GetInt32());
+            Assert.Empty(executor.Requests);
+            Assert.All(blocked.GetProperty("files").EnumerateArray(),
+                file => Assert.Equal("blocked-preflight", file.GetProperty("state").GetString()));
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Source_mutation_invalidates_preflight_before_the_next_model_operation()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        const string repositoryWideInput = "snapshot-input.txt";
+        await File.WriteAllTextAsync(
+            Path.Combine(fixture.RepositoryRoot, repositoryWideInput), "initial", cancellationToken);
+        var executor = new MutatingExecutorFactory(fixture.RepositoryRoot, repositoryWideInput);
+        var sensor = new CountingPreflightSensor(available: true);
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "test-model",
+                tokenCap = 100_000,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(2, sensor.RunCount);
+            Assert.Equal(3, executor.PreflightHashes.Count);
+            Assert.NotEqual(executor.PreflightHashes[0], executor.PreflightHashes[1]);
+            Assert.Equal(executor.PreflightHashes[1], executor.PreflightHashes[2]);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Build_configuration_mutation_invalidates_preflight_before_the_next_model_operation()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(fixture.RepositoryRoot, "CodeMetricsConfig.txt"),
+            "# FORMAT: 2\nCA1502: 25\n", cancellationToken);
+        var executor = new MutatingExecutorFactory(fixture.RepositoryRoot, "CodeMetricsConfig.txt");
+        var sensor = new CountingPreflightSensor(available: true);
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "test-model",
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(2, sensor.RunCount);
+            Assert.NotEqual(executor.PreflightHashes[0], executor.PreflightHashes[1]);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Security_baseline_mutation_invalidates_preflight_before_the_next_model_operation()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var baselinePath = Path.Combine(".quality", "security", "gitleaks.baseline.json");
+        Directory.CreateDirectory(Path.Combine(fixture.RepositoryRoot, ".quality", "security"));
+        await File.WriteAllTextAsync(Path.Combine(fixture.RepositoryRoot, baselinePath), "{\"findings\":[]}",
+            cancellationToken);
+        var executor = new MutatingExecutorFactory(fixture.RepositoryRoot, baselinePath);
+        var sensor = new CountingPreflightSensor(available: true);
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "security",
+                cliType = "test-agent",
+                model = "test-model",
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(2, sensor.RunCount);
+            Assert.NotEqual(executor.PreflightHashes[0], executor.PreflightHashes[1]);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Affected_subject_gate_blocks_only_the_matching_file_and_aggregate()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        var sensor = new BlockingPreflightSensor(
+            PreflightGateDisposition.BlockAffectedSubjects, "Sample.cs");
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "test-model",
+                tokenCap = 100_000,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            var completed = await WaitForStateAsync(
+                client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal("blocked-preflight", completed.GetProperty("aggregateState").GetString());
+            Assert.Equal(1, completed.GetProperty("blockedFiles").GetInt32());
+            Assert.Equal("blocked-preflight", completed.GetProperty("files").EnumerateArray()
+                .Single(file => file.GetProperty("path").GetString() == "Sample.cs")
+                .GetProperty("state").GetString());
+            Assert.Single(executor.Requests);
+            Assert.Equal("Second.cs", executor.Requests[0].FilePath);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Project_performance_gate_blocks_only_the_aggregate()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var executor = new CapturingExecutorFactory();
+        var sensor = new BlockingPreflightSensor(
+            PreflightGateDisposition.BlockProjectPerformance, "angular.json");
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                executor, useSnapshotPreflight: true, preflightSensor: sensor);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "performance",
+                cliType = "test-agent",
+                model = "test-model",
+                tokenCap = 100_000,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            var completed = await WaitForStateAsync(
+                client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal("blocked-preflight", completed.GetProperty("aggregateState").GetString());
+            Assert.Equal(0, completed.GetProperty("blockedFiles").GetInt32());
+            Assert.Equal(2, executor.Requests.Count);
+            Assert.All(executor.Requests, request => Assert.Equal(ReviewLevel.File, request.Level));
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -483,12 +761,14 @@ public sealed class ReviewRunStoreTests
         CancellationToken cancellationToken)
     {
         JsonElement run = default;
-        for (var attempt = 0; attempt < 100; attempt++)
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        do
         {
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{runId}", cancellationToken);
             if (run.GetProperty("state").GetString() == expected) return run;
             await Task.Delay(20, cancellationToken);
         }
+        while (DateTimeOffset.UtcNow < deadline);
         return run;
     }
 
@@ -621,8 +901,11 @@ public sealed class ReviewRunStoreTests
 
         public string ProgressPath(string runId) => Path.Combine(Store.RunsPath, runId, "progress.jsonl");
 
-        public TestApplication CreateApplication(IReviewExecutorFactory? executorFactory = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory);
+        public TestApplication CreateApplication(
+            IReviewExecutorFactory? executorFactory = null,
+            bool useSnapshotPreflight = false,
+            IReviewSensor? preflightSensor = null) =>
+            new(RepositoryRoot, HostRoot, executorFactory, useSnapshotPreflight, preflightSensor);
 
         public void Dispose()
         {
@@ -637,7 +920,11 @@ public sealed class ReviewRunStoreTests
     }
 
     private sealed class TestApplication(
-        string repositoryRoot, string contentRoot, IReviewExecutorFactory? executorFactory) : WebApplicationFactory<Program>
+        string repositoryRoot,
+        string contentRoot,
+        IReviewExecutorFactory? executorFactory,
+        bool useSnapshotPreflight,
+        IReviewSensor? preflightSensor) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -647,11 +934,19 @@ public sealed class ReviewRunStoreTests
                 {
                     ["QualityStudio:RepositoryRoot"] = repositoryRoot,
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
+                    ["ReviewJobs:MaxConcurrency"] = "1",
+                    ["ReviewJobs:UseSnapshotPreflight"] = useSnapshotPreflight.ToString(),
                 }));
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<QuotaService>();
                 services.AddSingleton(new QuotaService([]));
+                if (preflightSensor is not null)
+                {
+                    services.RemoveAll<IReviewSensor>();
+                    services.RemoveAll<SensorRegistry>();
+                    services.AddSingleton(new SensorRegistry([preflightSensor]));
+                }
                 if (executorFactory is not null)
                 {
                     services.RemoveAll<IReviewExecutorFactory>();
@@ -741,6 +1036,114 @@ public sealed class ReviewRunStoreTests
             {
                 lock (requests) requests.Add(request);
                 return Task.FromResult(CapturedExecution(request, skippedFresh: false));
+            }
+        }
+    }
+
+    private sealed class CountingPreflightSensor(bool available) : ISecurityEvidenceSensor
+    {
+        private int runCount;
+
+        public int RunCount => runCount;
+        public string Id => "gitleaks";
+        public string Version => "1.0.0";
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(available, available ? null : "fixture unavailable"));
+
+        public Task<SensorScanResult> RunAsync(
+            SensorScanRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref runCount);
+            return Task.FromResult(new SensorScanResult(
+                available,
+                available ? null : "fixture unavailable",
+                [],
+                new SensorProvenance(
+                    Id,
+                    Version,
+                    "repository",
+                    ".",
+                    DateTimeOffset.UtcNow.ToString("O"),
+                    new Dictionary<string, string> { [Id] = Version })));
+        }
+    }
+
+    private sealed class BlockingPreflightSensor(
+        PreflightGateDisposition disposition,
+        string path) : IDeterministicEvidenceSensor, ISelectivePreflightGateSensor
+    {
+        public string Id => "gitleaks";
+        public string Version => "1.0.0";
+        public PreflightGateDisposition GateDisposition => disposition;
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
+
+        public bool HasBlockingFindings(SensorScanResult result) => result.Findings.Count > 0;
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(true));
+
+        public Task<SensorScanResult> RunAsync(
+            SensorScanRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var finding = new ReviewFinding(
+                "blocking-fixture",
+                "compiler",
+                FindingSeverity.High,
+                "Blocking fixture",
+                "The fixture makes this operation invalid.",
+                "Fix the fixture.",
+                [new FindingLocation(path, new FindingRange(
+                    new FindingPosition(1, 1), new FindingPosition(1, 1)))],
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "FIXTURE",
+                Source: new FindingSource(FindingSourceKind.Deterministic, Id, Id, Version));
+            return Task.FromResult(new SensorScanResult(true, null, [finding],
+                new SensorProvenance(Id, Version, "repository", ".", DateTimeOffset.UtcNow.ToString("O"),
+                    new Dictionary<string, string>())));
+        }
+    }
+
+    private sealed class MutatingExecutorFactory(
+        string repositoryRoot,
+        string mutationPath = "Second.cs") : IReviewExecutorFactory
+    {
+        private readonly List<string> preflightHashes = [];
+        private readonly string mutationPath = mutationPath;
+        private int operations;
+
+        public IReadOnlyList<string> PreflightHashes
+        {
+            get
+            {
+                lock (preflightHashes) return preflightHashes.ToArray();
+            }
+        }
+
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver,
+            Action<ReviewUsageEntry> usageRecorded) => new MutatingExecutor(this, repositoryRoot);
+
+        private sealed class MutatingExecutor(MutatingExecutorFactory owner, string repositoryRoot) : IReviewExecutor
+        {
+            public async Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request,
+                bool force,
+                CancellationToken cancellationToken)
+            {
+                var hash = Assert.Single(request.PreflightEvidence!).ResultHash;
+                lock (owner.preflightHashes) owner.preflightHashes.Add(hash);
+                if (Interlocked.Increment(ref owner.operations) == 1)
+                {
+                    await File.AppendAllTextAsync(
+                        Path.Combine(repositoryRoot, owner.mutationPath),
+                        Environment.NewLine + "// changed during sweep",
+                        cancellationToken);
+                }
+                return new ReviewExecutionResult(false, null);
             }
         }
     }

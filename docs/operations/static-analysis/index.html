@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -182,7 +182,7 @@
   </header>
 
   <section class="box accent" aria-labelledby="approval-title">
-    <h4 id="approval-title">Approval requested</h4>
+    <h4 id="approval-title">Decision recorded</h4>
     <p><b>Approve a selective, snapshot-bound preflight in the API/backend before every review sweep.</b> Run configured checks once, persist their facts separately, skip only the model operation whose subject is invalid, and send compact context only when judgement is still useful. Keep the selected model and thinking-level correctness floor unchanged. Add Node CI coverage, changed-line style baselines, explicit complexity thresholds, and matched token measurements.</p>
   </section>
 
@@ -463,7 +463,7 @@
     <h2><span class="no">08</span>Implementation slices</h2>
 
     <article class="slice">
-      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill queued">approve first</span></header>
+      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill done">delivered</span></header>
       <p><b>Scope:</b> Introduce <code>PreflightResult v1</code> by extending the sensor result/provenance contract. Move all deterministic and security collection to <code>ReviewJobService</code> before file scheduling; execute each configured check once; cache by subject/config/tool hashes; persist under the existing run directory; project findings by subject.</p>
       <ul>
         <li>Default-enable only sensors with complete repository configuration; required versus optional is explicit.</li>
@@ -577,7 +577,22 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <article class="slice">
+      <header><h3>27 August 2026 · QS-72 · S1 one snapshot-bound preflight</h3><span class="pill done">delivered</span></header>
+      <p>Quality Studio now collects configured deterministic and security sensors once for an exact repository snapshot before review scheduling. The backend normalizes immutable <code>PreflightResult v1</code> facts with subject, configuration, tool, and result hashes; distinguishes pass, findings, blocked, unavailable, and failed; and treats required and optional availability explicitly.</p>
+      <ul>
+        <li>Preflight snapshots are persisted atomically as <code>.quality/runs/&lt;run-id&gt;/preflight.json</code>, restored with durable runs, and exposed through the review-run API.</li>
+        <li>Review estimates and executions use the same compact, subject-projected facts. Security and deterministic sensors no longer run once per file when snapshot preflight is enabled.</li>
+        <li>Source or configuration mutation invalidates the cached snapshot before the next operation. Run and file progress expose preflight, unavailable, and blocked-preflight states; a feature flag retains the legacy collection path for rollback.</li>
+        <li>New repository defaults enable only configuration-complete security, boundary, and coverage checks; analyzer sensors remain disabled until repository command/report configuration is supplied.</li>
+        <li>S2 compiler/package/budget commands, S3 lint/style baselines, S4 complexity metrics, and S5 economy rollout remain follow-up slices.</li>
+      </ul>
+    </article>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation · updated 27 August 2026</footer>
 </main>
 </body>
 </html>
