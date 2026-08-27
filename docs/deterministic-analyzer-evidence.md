@@ -36,13 +36,15 @@ The importer maps every run independently, resolves driver and extension rule me
   "id": "roslyn",
   "enabled": true,
   "configuration": {
-    "command": "dotnet build QualityStudio.slnx --no-restore -p:ErrorLog={reportPath};version=2.1",
+    "command": "dotnet build QualityStudio.slnx --no-restore -p:ErrorLog={reportPath}%2Cversion=2.1",
     "reportPath": ".quality/analyzers/roslyn.sarif"
   }
 }
 ```
 
 The configured command decides which project, target frameworks and analyzer set are built. A non-zero build exit is accepted when it still produced a readable SARIF report, because analyzer diagnostics commonly accompany a failed build.
+
+`ErrorLog`'s SARIF version must stay part of one MSBuild property value: `-p:` splits on `;` to set multiple properties, so a semicolon after `{reportPath}` silently defines an unused `version` property and drops the SARIF version request. A literal comma does not work either — on the pinned .NET 10 SDK, `dotnet build -p:ErrorLog={reportPath},version=2.1` still produces the legacy SARIF 1.0.0 report, because the SDK's `Csc` MSBuild task does not propagate the version suffix from a plain property value. The `%2C` percent-escape above is required for the version request to actually reach the compiler on that SDK; `SensorDefaults.Configure` (`src/QualityStudio.Api/SensorDefaults.cs`) generates this exact command when it default-enables `roslyn`. `roslyn` only accepts SARIF 2.1.0 reports and correctly reports `unavailable` for anything else, including SARIF 1.0.0, so a dropped version request never produces a false pass.
 
 ### ESLint
 
