@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class CoverageSensorTests
 {
     [Fact]
@@ -124,9 +126,7 @@ public sealed class CoverageSensorTests
         {
             Root = Directory.CreateTempSubdirectory("quality-studio-churn-").FullName;
             Directory.CreateDirectory(Path.Combine(Root, "src"));
-            Run("init", "--quiet");
-            Run("config", "user.email", "fixture@example.test");
-            Run("config", "user.name", "Fixture");
+            GitTestRepository.Initialize(Root);
         }
 
         public string Root { get; }
@@ -143,31 +143,8 @@ public sealed class CoverageSensorTests
             RunWithDate(timestamp, "commit", "--quiet", "-m", timestamp);
         }
 
-        private void Run(params string[] arguments) => RunCore(null, arguments);
-        private void RunWithDate(string date, params string[] arguments) => RunCore(date, arguments);
-
-        private void RunCore(string? date, params string[] arguments)
-        {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo("git")
-                {
-                    WorkingDirectory = Root,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            if (date is not null)
-            {
-                process.StartInfo.Environment["GIT_AUTHOR_DATE"] = date;
-                process.StartInfo.Environment["GIT_COMMITTER_DATE"] = date;
-            }
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            process.WaitForExit();
-            Assert.Equal(0, process.ExitCode);
-        }
+        private void Run(params string[] arguments) => GitTestRepository.Run(Root, arguments);
+        private void RunWithDate(string date, params string[] arguments) => GitTestRepository.RunAt(Root, date, arguments);
 
         public void Dispose() => TestDirectory.Delete(Root);
     }
