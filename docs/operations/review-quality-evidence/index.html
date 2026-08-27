@@ -177,7 +177,7 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-61</span>
@@ -653,6 +653,11 @@
         <li><b>Verification performed:</b> <code>npm test</code> (Karma/Jasmine, 47/47 passing, headless Chromium) and a manual run of the evidence script against a live <code>ng serve</code> instance of this worktree, confirmed against the rendered screenshots in both themes.</li>
       </ul>
     </article>
+
+    <div class="box ok">
+      <h4>2026-08-27 &middot; QS-70 &middot; S1 final integration</h4>
+      <p><b>What landed:</b> S1 was rebased onto current <code>origin/main</code> and its exact-span projection was compacted without changing the selected/overlap contract: finding membership and ranges now share one per-line projection, unmarked syntax spans retain their original token shape, and selected/overlap treatments resolve directly from the central Studio accent and severity tokens. The production Angular build remains inside the unchanged 480 kB hard budget at 479.92 kB. The final verification retained 47 passing Angular tests, 202 passing portable .NET tests with one opt-in live test skipped, and refreshed light/dark exact-span screenshots.</p>
+    </div>
 
     <div class="box warn">
       <h4>S2&ndash;S5: assessed, not attempted this round</h4>

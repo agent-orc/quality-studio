@@ -11,7 +11,7 @@ describe('finding span segmentation', () => {
   it('returns the tokens unchanged, tagged plain, when no range touches the line', () => {
     const tokens = plain('const value = 1;');
     const segments = segmentLineTokens(tokens, 4, 'const value = 1;', [], null);
-    expect(segments).toEqual(tokens.map(token => ({ ...token, state: 'plain', fingerprints: [] })));
+    expect(segments).toBe(tokens);
   });
 
   it('splits a single-line range out of a wider token and marks it selected', () => {
@@ -19,10 +19,9 @@ describe('finding span segmentation', () => {
     const range: FindingSpanRange = { fingerprint: 'sha256:a', start: { line: 4, column: 15 }, end: { line: 4, column: 18 } };
     const segments = segmentLineTokens(plain(text), 4, text, [range], 'sha256:a');
     expect(textOf(segments)).toBe(text);
-    expect(segments.map(segment => segment.state)).toEqual(['plain', 'selected', 'plain']);
+    expect(segments.map(segment => segment.state)).toEqual([undefined, 'selected', undefined]);
     const selected = segments.find(segment => segment.state === 'selected')!;
     expect(selected.text).toBe('null');
-    expect(selected.fingerprints).toEqual(['sha256:a']);
   });
 
   it('selects to end of line on the start line and from column 1 on the end line of a multi-line range', () => {
@@ -35,7 +34,7 @@ describe('finding span segmentation', () => {
     expect(textOf(startSegments)).toBe(startLine);
     expect(startSegments.at(-1)!.state).toBe('selected');
     expect(startSegments.at(-1)!.text).toBe(startLine.slice(4));
-    expect(startSegments[0].state).toBe('plain');
+    expect(startSegments[0].state).toBeUndefined();
 
     const middleSegments = segmentLineTokens(plain(middleLine), 9, middleLine, [range], 'sha256:b');
     expect(middleSegments.every(segment => segment.state === 'selected')).toBeTrue();
@@ -44,7 +43,7 @@ describe('finding span segmentation', () => {
     const endSegments = segmentLineTokens(plain(endLine), 10, endLine, [range], 'sha256:b');
     expect(endSegments[0].state).toBe('selected');
     expect(endSegments[0].text).toBe(endLine.slice(0, 3));
-    expect(endSegments.at(-1)!.state).toBe('plain');
+    expect(endSegments.at(-1)!.state).toBeUndefined();
   });
 
   it('indexes columns as UTF-16 code units so multi-byte characters segment at the right boundary', () => {
@@ -75,7 +74,6 @@ describe('finding span segmentation', () => {
     expect(textOf(segments)).toBe(text);
     const overlap = segments.find(segment => segment.state === 'overlap')!;
     expect(overlap.text).toBe('a && b) ');
-    expect(overlap.fingerprints).toEqual(['sha256:outer', 'sha256:inner']);
     const selectedOnly = segments.find(segment => segment.state === 'selected')!;
     expect(selectedOnly.text).toBe('if (');
   });
@@ -88,7 +86,7 @@ describe('finding span segmentation', () => {
     expect(textOf(segments)).toBe(text);
     for (const segment of segments) {
       if (segment.kind === 'string') continue;
-      expect(segment.state).toBe('plain');
+      expect(segment.state).toBeUndefined();
     }
     expect(segments.some(segment => segment.kind === 'string' && segment.state === 'selected')).toBeTrue();
   });
@@ -96,6 +94,6 @@ describe('finding span segmentation', () => {
   it('returns an empty-line token list untouched', () => {
     const range: FindingSpanRange = { fingerprint: 'sha256:f', start: { line: 1, column: 1 }, end: { line: 2, column: 1 } };
     const segments = segmentLineTokens(plain(''), 1, '', [range], 'sha256:f');
-    expect(segments).toEqual([{ text: '', kind: 'plain', state: 'plain', fingerprints: [] }]);
+    expect(segments).toEqual([{ text: '', kind: 'plain' }]);
   });
 });
