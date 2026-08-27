@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-26T19:55:23Z",
+  "updatedAt": "2026-08-27T19:03:00Z",
   "sourceTaskKeys": [
     "QS-62",
     "QS-71",
@@ -54,10 +54,10 @@
     "QS-85"
   ],
   "implementationState": {
-    "verifiedAt": "2026-08-26T19:55:23Z",
+    "verifiedAt": "2026-08-27T19:03:00Z",
     "verifiedByTask": "QS-85",
     "status": "documented",
-    "integrationBase": "origin/main@e31089ccd5640bb2742a25a2a08a9a3120534656",
+    "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
     "wave1": {
       "taskKey": "QS-71",
       "sourceCommits": [
@@ -100,12 +100,26 @@
         "conflicts": "None. The preserved final QS-85 tree was restored directly onto its existing parent, current origin/main, and matches the prior final QS-85 tree exactly.",
         "gate": "Release build passed with 0 warnings and 0 errors; 221 .NET tests passed with one intentionally skipped live-provider test; 46 of 46 Karma browser tests passed; 5 of 5 dev-stack launcher tests passed; the production frontend bundle built; the Token Economy catalogue snapshot validated; and the repository security scan passed with 0 new, accepted, block, or warn findings across 364 files.",
         "uiEvidence": "Fresh before/after screenshots were reproduced on live Angular development servers. The base has no History section; the delivery shows five rows, a three-operation detail view, a two-run diff with two grade deltas and one regression, URL-restored state, and disabled comparison for corrupt and legacy rows."
+      },
+      "recoveryRound": {
+        "verifiedAt": "2026-08-27T19:03:00Z",
+        "note": "Between the 2026-08-26 finalRound and this round, the QS-85 runner branch was reset to an older checkpoint (f7557fb, 2026-08-24) that does not contain the RP-1..RP-5 delivery, and no origin/develop branch exists in this repository. This is at least the fourth time the verified run-persistence delivery has had to be restored from a backup ref after disappearing from the integration branch between rounds (see backup/QS-85-final-before-rebase-20260827 and the repeated feat(run-persistence) commits across QS-85/QS-89/QS-91/QS-94/QS-95 branches in git history); the loss happens outside this task's control (branch reset between orchestrator rounds), not from a real merge conflict.",
+        "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
+        "restoredFrom": "backup/QS-85-final-before-rebase-20260827 (commits 8315f2d/38ed65e/7641eec, verified 2026-08-26)",
+        "deliveryCommits": [
+          "eeb0ae6",
+          "acbe01e",
+          "d0bf5ae"
+        ],
+        "conflicts": "One trivial additive conflict in frontend/package.json (two evidence-script entries added independently on each side, both kept alphabetically). No feature code conflicts.",
+        "gate": "Release build passed with 0 warnings and 0 errors. 32/32 persistence-specific .NET tests passed; full suite is 220 passed, 1 skipped (intentional live-provider test), 1 failed (ProjectDashboardTests timing budget, a pre-existing unrelated perf test confirmed flaky under load - passes in isolation, untouched by this delivery). 46 of 46 Karma browser tests passed (via Playwright's bundled Chromium with CHROME_NO_SANDBOX=1, since no system Chrome is installed in this runner). 5 of 5 dev-stack launcher tests passed. Production frontend bundle built. Token Economy catalogue snapshot valid. Repository security scan passed with 0 new/accepted/block/warn findings across 367 files.",
+        "uiEvidence": "Before/after screenshots reproduced fresh: 'before' captured against a separate worktree checked out at f7557fb (historySection count 0, no History UI); 'after' captured against the delivered code (historySection count 1, 5 archived rows with 1 corrupt and 1 legacy-usage-only, 3-operation detail drawer, 2-run compare with 2 grade deltas and 1 regression, corrupt/legacy rows rendered but Compare disabled)."
       }
     },
     "nextSlice": {
       "status": "none",
-      "reason": "All five approved run-persistence dossier slices are delivered and documented."
+      "reason": "All five approved run-persistence dossier slices are delivered and documented. The only outstanding risk is the recurring loss of the merged state between orchestrator rounds (see recoveryRound above), which is a platform/merge-pipeline concern, not a remaining implementation slice."
     }
   },
-  "editedBy": "QS-85 implementation verification"
+  "editedBy": "QS-85 implementation verification (recovery round, 2026-08-27)"
 }
