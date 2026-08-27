@@ -121,6 +121,17 @@ public sealed class ApiSecurityTests : IAsyncLifetime
             },
         };
         using var alice = CreateClient("alice", AliceToken);
+        using var forbiddenCreate = await alice.PostAsJsonAsync("/api/repos", new
+        {
+            id = "unauthorized",
+            displayName = "Unauthorized",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenCreate.StatusCode);
+        using var forbiddenImport = await alice.PostAsync(
+            "/api/repos/import-from-agent-studio", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenImport.StatusCode);
         using var forbiddenUpdate = await alice.PutAsJsonAsync(
             "/api/repos/default", registration, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenUpdate.StatusCode);
