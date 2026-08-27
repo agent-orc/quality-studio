@@ -456,7 +456,7 @@ static IResult ProjectDashboard(
     var hierarchy = hierarchyCache.GetMeasured(
         repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
     var snapshot = hierarchy.Snapshot;
-    var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0project-dashboard-v1")))}\"";
+    var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0project-dashboard-v2")))}\"";
     context.Response.Headers.ETag = etag;
     if (context.Request.Headers.IfNoneMatch.Any(value => value!.Split(',').Select(candidate => candidate.Trim())
             .Any(candidate => candidate == "*" || StringComparer.Ordinal.Equals(candidate, etag))))

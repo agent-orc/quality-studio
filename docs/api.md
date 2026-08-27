@@ -97,7 +97,11 @@ curl "http://127.0.0.1:5127/api/tree?path=" -H 'If-None-Match: "..."'
 curl "http://127.0.0.1:5127/api/project"
 # 200 {"grades":[...],"findings":{...},"staleness":{...},"reviewCoverage":{...},
 #      "testCoverage":{...},"metrics":{"languages":[...],"dependencyEdges":[...]},
-#      "hotspots":[...]}
+#      "hotspots":[...],
+#      "complexity":{"rule":"CA1502","threshold":25,"configHash":"sha256:...",
+#                    "analyzedFiles":75,"analyzedSymbols":966,"excludedFiles":33,
+#                    "skippedFiles":0,"breaches":12,"maxComplexity":36,
+#                    "averageComplexity":4.63,"distribution":[...],"topBreaches":[...]}}
 
 curl "http://127.0.0.1:5127/api/file?path=src/QualityStudio.Api/appsettings.json"
 # 200 {"path":"src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[]}

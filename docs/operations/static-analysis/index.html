@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -577,7 +578,34 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. One entry per delivered slice; the decision content in sections 00–10 is source and is not rewritten. Operator approved all recommendations on 11 August 2026, so every slice below is <b>decided</b>.</p>
+
+    <h3>27 August 2026 · QS-72 · S4 (part 1 of 2) — complexity as a thresholded dashboard metric <span class="pill part">partial</span></h3>
+    <p>Delivered the half of S4 the slice describes as “feed distributions and breached top-N symbols into the existing Project Dashboard/hotspot response”. The CA1502/CA1505 <code>CodeMetricsConfig.txt</code> build wiring and the ESLint <code>complexity</code> rule are <b>not</b> in this entry — see “Not in this entry” below.</p>
+    <ul>
+      <li><b>New</b> <code>src/QualityStudio.Api/ComplexityMetrics.cs</code>: <code>ProjectComplexityMetricsResponse</code>, <code>ProjectComplexityBreachResponse</code>, <code>ComplexityAnalysisOptions</code> (threshold 25, generated/test held out unless explicitly included), and <code>CSharpComplexityScanner</code>, which measures cyclomatic complexity over a <b>Roslyn syntax tree</b> (<code>Microsoft.CodeAnalysis.CSharp</code>, parse-only — no compilation, no MSBuild workspace).</li>
+      <li><b>Wired</b> into <code>ProjectDashboard.cs</code> as a new <code>Complexity</code> member of <code>ProjectDashboardResponse</code>, computed from the file read that already happens in <code>ReadFileMetric</code>. Dashboard ETag salt bumped <code>project-dashboard-v1</code> → <code>v2</code>; the TypeScript mirror in <code>frontend/src/app/quality-api.ts</code> and the <code>/api/project</code> sample in <code>docs/api.md</code> were updated to match.</li>
+      <li><b>Threshold chosen after recording the distribution</b>, as the slice requires. Measured on this checkout: 75 analysed C# files, 966 symbols, 33 held out, 0 skipped; buckets 1–5: 698, 6–10: 167, 11–15: 64, 16–25: 25, &gt; 25: 12; max 36, mean 4.63. A threshold of 25 marks 12 symbols (~1.2%). Bucket edges are derived from the threshold and a threshold below 16 is rejected, so the top bucket and the breach list always describe the same symbols — not merely at the default.</li>
+      <li><b>Provenance:</b> every finding carries <code>rule</code> (CA1502), the threshold, and a <code>configHash</code>. A breach <code>fingerprint</code> hashes <em>file + overload-qualified symbol</em>, excluding the line, so moving code down a file is not new debt while two overloads remain distinct identities.</li>
+      <li><b>Accounting is closed:</b> every <code>.cs</code> file is reported as analysed, deliberately held out, or visibly <code>skippedFiles</code> (too large to read, or the read failed). A file can no longer vanish from the projection.</li>
+      <li><b>Guardrails honoured:</b> complexity never caps a grade (regression test compares the grade projection of two repositories differing only by a breaching file); raw metrics stay out of prompts (test asserts the architecture prompt contains no symbol, rule, or metric text).</li>
+    </ul>
+    <div class="box warn">
+      <h4>Why a parser, not pattern matching — and what the metric still is not</h4>
+      <p>This was first built as a dependency-free text scanner, justified on the dashboard’s 150&nbsp;ms projection budget. Review measurement retired that justification: the scanner silently dropped every member whose return type was a nested generic (<code>Task&lt;IReadOnlyList&lt;T&gt;&gt;</code> — 27 declarations in <code>src/</code>, exactly the long async orchestration methods most likely to breach), named tuple-returning members after a modifier (twelve symbols repo-wide literally called <code>static</code>, two pairs sharing a fingerprint), mis-attributed members after a nested type, and blanked an entire file to zero symbols on a verbatim string opening <code>@&quot;&quot;&quot;</code>. Those are not tuning gaps; they are the failure mode of matching text against a grammar. On the parser they are impossible by construction, and enabling it surfaced a real breach the text scanner never saw (<code>AttackCoverageService.RefreshDeterministicAsync</code>, complexity 29).</p>
+      <p>What it still is not: a <em>compilation</em>. Complexity is counted from syntax, so it is a faithful cyclomatic count of the code as written, not CA1502’s IL-based metric — the two agree closely but need not agree exactly, and the build-time analyzer remains the gate of record once the CA1502 wiring lands. Regions excluded by conditional compilation are not measured, because the parser sees them as inactive text rather than code.</p>
+    </div>
+    <div class="box">
+      <h4>Cost, measured rather than asserted</h4>
+      <p>An earlier draft of this entry claimed the <code>MachineBound</code> 5,000-file interaction-budget test as evidence the projection stayed in budget. That claim was vacuous — that fixture is 5,000 <code>.txt</code> files and analyses no C# at all. Measured instead against <code>origin/main</code> on this repository, three consecutive projections each: <b>baseline 322 / 152 / 142&nbsp;ms</b>, <b>with this change 545 / 132 / 127&nbsp;ms</b>. Steady state is <em>faster</em> than before, because the per-file read/hash/parse pass is now parallel with ordered results; the first projection in a fresh process costs about +220&nbsp;ms one-time for Roslyn JIT and the first parse of every file. Measurement is memoised on file content, so a rebuild after an edit re-parses only what changed rather than all 75 files.</p>
+    </div>
+    <p><b>Tests:</b> <code>tests/QualityStudio.Api.Tests/ProjectComplexityMetricsTests.cs</code> (33 cases, including the declaration shapes that defeated the text scanner — tuple returns, nested generics, operators, <code>ref struct</code>, record primary constructors, nested-type attribution — plus overload identity, branches interpolated into strings, formatting-independent ternaries, the threshold/bucket invariant at two thresholds, hold-out, cross-run determinism, no-grade-cap, and prompt exclusion) plus wire-contract assertions in <code>ApiSmokeTests</code>. <b>Verified:</b> <code>dotnet build -c Release</code> clean; <code>dotnet test --filter "Category!=MachineBound"</code> 235 passed / 1 skipped by design / 0 failed (202 before this change, +33); the <code>MachineBound</code> interaction-budget test still passes; <code>tsc --noEmit</code> clean for the frontend mirror.</p>
+    <p><b>Not in this entry (follow-up cards):</b> CA1502/CA1505 via <code>CodeMetricsConfig.txt</code> + <code>Directory.Build.props</code>; the ESLint <code>complexity</code> rule, which needs S3’s ESLint pinning to exist first; surfacing the metric in the Angular dashboard UI; and making <code>IncludeGenerated</code>/<code>IncludeTests</code> reachable by an operator (today they are exercised by tests but the dashboard always passes the defaults). Remaining slices: S1 (rest), S2 (backend disposition matrix), S3, S5.</p>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026 · implementation log appended 27 August 2026</footer>
 </main>
 </body>
 </html>

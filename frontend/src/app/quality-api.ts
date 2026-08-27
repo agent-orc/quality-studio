@@ -275,6 +275,23 @@ export interface ProjectStructuralMetrics {
   dependencyEdges: ProjectDependencyEdge[];
 }
 export interface ProjectHotspot { path: string; churn: number; grade: number | null; findings: number; findingsPerKloc: number; risk: number; }
+export interface ProjectComplexityBreach {
+  symbol: string; path: string; line: number; complexity: number; rule: string; fingerprint: string;
+}
+export interface ProjectComplexityMetrics {
+  rule: string;
+  threshold: number;
+  configHash: string;
+  analyzedFiles: number;
+  analyzedSymbols: number;
+  excludedFiles: number;
+  skippedFiles: number;
+  breaches: number;
+  maxComplexity: number;
+  averageComplexity: number;
+  distribution: ProjectDistributionBucket[];
+  topBreaches: ProjectComplexityBreach[];
+}
 export interface ProjectDashboard {
   generatedAt: string;
   grades: ProjectGrade[];
@@ -284,6 +301,7 @@ export interface ProjectDashboard {
   testCoverage: ProjectTestCoverage;
   metrics: ProjectStructuralMetrics;
   hotspots: ProjectHotspot[];
+  complexity: ProjectComplexityMetrics;
 }
 
 export interface RepositoryTransition {

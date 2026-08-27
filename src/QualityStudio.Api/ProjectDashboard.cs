@@ -17,7 +17,8 @@ public sealed record ProjectDashboardResponse(
     ProjectReviewCoverageResponse ReviewCoverage,
     ProjectTestCoverageResponse TestCoverage,
     ProjectStructuralMetricsResponse Metrics,
-    IReadOnlyList<ProjectHotspotResponse> Hotspots);
+    IReadOnlyList<ProjectHotspotResponse> Hotspots,
+    ProjectComplexityMetricsResponse Complexity);
 
 public sealed record ProjectGradeResponse(
     string Kind, string State, int? Score, string? Band, string Path);
@@ -161,8 +162,13 @@ public sealed class ProjectDashboardService
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
         var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
+        var complexityOptions = ComplexityAnalysisOptions.Default;
+        // Reading, hashing and parsing a file is pure and independent per path; AsOrdered keeps the
+        // result sequence identical to the sequential one, so the projection stays deterministic.
         var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
+            .AsParallel()
+            .AsOrdered()
+            .Select(path => ReadFileMetric(root, path, complexityOptions))
             .ToArray();
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
@@ -190,7 +196,14 @@ public sealed class ProjectDashboardService
             ReadTestCoverage(root, repositoryFiles.Select(file => file.Path),
                 hierarchyFiles.FirstOrDefault()?.Path ?? projectPath),
             metrics,
-            hotspots);
+            hotspots,
+            CSharpComplexityScanner.Aggregate(
+                repositoryFiles
+                    .Where(file => file.Complexity is not null)
+                    .Select(file => (file.Path, file.Complexity!)),
+                repositoryFiles.Count(file => file.ComplexityState == ComplexityFileState.HeldOut),
+                repositoryFiles.Count(file => file.ComplexityState == ComplexityFileState.Skipped),
+                complexityOptions));
     }
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(
@@ -485,13 +498,18 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(string root, string path)
+    private static FileMetric ReadFileMetric(string root, string path, ComplexityAnalysisOptions complexity)
     {
         var absolute = Path.Combine(root, Native(path));
         var info = new FileInfo(absolute);
         var language = Languages.GetValueOrDefault(Path.GetExtension(path));
         var lines = 0;
         string? duplicateFingerprint = null;
+        IReadOnlyList<MemberComplexity>? members = null;
+        var isCSharp = Path.GetExtension(path).Equals(".cs", StringComparison.OrdinalIgnoreCase);
+        // A C# file starts out accountable: it only stays "skipped" if it is too large to read or
+        // the read fails, and either way it must remain visible in the projection.
+        var state = isCSharp ? ComplexityFileState.Skipped : ComplexityFileState.NotCSharp;
         if (TextExtensions.Contains(Path.GetExtension(path)) && info.Length <= 4 * 1024 * 1024)
         {
             try
@@ -505,10 +523,20 @@ public sealed class ProjectDashboardService
                         .Split('\n').Select(line => line.TrimEnd()));
                     duplicateFingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
                 }
+                if (isCSharp)
+                {
+                    if (complexity.Includes(CSharpComplexityScanner.Classify(path, text)))
+                    {
+                        members = CSharpComplexityScanner.Scan(text);
+                        state = ComplexityFileState.Analyzed;
+                    }
+                    else state = ComplexityFileState.HeldOut;
+                }
             }
             catch (IOException) { }
         }
-        return new FileMetric(path, info.Length, lines, language, duplicateFingerprint);
+        return new FileMetric(
+            path, info.Length, lines, language, duplicateFingerprint, members, state);
     }
 
     private static IReadOnlyList<string> EnumerateRepositoryFiles(string root)
@@ -607,6 +635,24 @@ public sealed class ProjectDashboardService
         return normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, comparison);
     }
 
+    /// <summary>
+    /// Why a C# file did or did not contribute complexity. A file that could not be read is
+    /// <see cref="Skipped"/> rather than silently absent, so the counts always add up.
+    /// </summary>
+    private enum ComplexityFileState
+    {
+        NotCSharp,
+        Analyzed,
+        HeldOut,
+        Skipped,
+    }
+
     private sealed record FileMetric(
-        string Path, long Bytes, int Lines, string? Language, string? DuplicateFingerprint);
+        string Path,
+        long Bytes,
+        int Lines,
+        string? Language,
+        string? DuplicateFingerprint,
+        IReadOnlyList<MemberComplexity>? Complexity,
+        ComplexityFileState ComplexityState);
 }

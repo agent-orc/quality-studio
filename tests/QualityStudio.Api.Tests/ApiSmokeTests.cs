@@ -72,6 +72,16 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(3, dashboard.GetProperty("grades").GetArrayLength());
         Assert.Equal(3, dashboard.GetProperty("metrics").GetProperty("fileCount").GetInt32());
         Assert.True(dashboard.GetProperty("hotspots").GetArrayLength() <= 30);
+        var complexity = dashboard.GetProperty("complexity");
+        Assert.Equal("CA1502", complexity.GetProperty("rule").GetString());
+        Assert.Equal(25, complexity.GetProperty("threshold").GetInt32());
+        Assert.StartsWith("sha256:", complexity.GetProperty("configHash").GetString(), StringComparison.Ordinal);
+        Assert.Equal(5, complexity.GetProperty("distribution").GetArrayLength());
+        Assert.True(complexity.GetProperty("topBreaches").GetArrayLength() <= 20);
+        // Every C# file is accounted for: analysed, deliberately held out, or visibly skipped.
+        Assert.Equal(0, complexity.GetProperty("skippedFiles").GetInt32());
+        Assert.Equal(1, complexity.GetProperty("analyzedFiles").GetInt32());
+        Assert.Equal(1, complexity.GetProperty("analyzedSymbols").GetInt32());
 
         using var cachedRequest = new HttpRequestMessage(HttpMethod.Get, "/api/project");
         cachedRequest.Headers.TryAddWithoutValidation("If-None-Match", response.Headers.ETag.Tag);
