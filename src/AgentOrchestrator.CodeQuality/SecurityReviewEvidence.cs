@@ -30,6 +30,19 @@ public sealed record SecurityEvidenceBundle(
     public static SecurityEvidenceBundle Empty { get; } =
         new(SecurityEvidenceVerdict.Pass, Array.Empty<SecuritySensorEvidence>());
 
+    /// <summary>
+    /// Reduces per-sensor verdicts to one bundle verdict. Unavailable outranks every other value so
+    /// a check that could not run can never be presented as a clean result.
+    /// </summary>
+    internal static SecurityEvidenceVerdict Aggregate(IReadOnlyList<SecuritySensorEvidence> sensors) =>
+        sensors.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Unavailable)
+            ? SecurityEvidenceVerdict.Unavailable
+            : sensors.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Block)
+                ? SecurityEvidenceVerdict.Block
+                : sensors.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Warn)
+                    ? SecurityEvidenceVerdict.Warn
+                    : SecurityEvidenceVerdict.Pass;
+
     public string ToPromptJson()
     {
         var root = new JsonObject
@@ -134,33 +147,44 @@ public sealed record SecurityEvidenceBundle(
 
 public sealed class SecurityEvidenceCollector(SensorRegistry registry)
 {
+    /// <summary>
+    /// Collects repository-scope evidence and narrows it to <paramref name="subjectPaths"/> in one
+    /// step. Prefer <see cref="CollectRepositoryAsync"/> plus
+    /// <see cref="SecurityEvidenceProjection.ForSubjects"/> when more than one operation shares the
+    /// same source snapshot, so each sensor runs once per sweep instead of once per subject.
+    /// </summary>
     public async Task<SecurityEvidenceBundle> CollectAsync(
         string repositoryRoot,
         IReadOnlyList<string> subjectPaths,
         IReadOnlyList<ReviewSensorConfiguration> configurations,
         CancellationToken cancellationToken = default)
     {
-        var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath)
-            .ToHashSet(StringComparer.Ordinal);
+        var repository = await CollectRepositoryAsync(repositoryRoot, configurations, cancellationToken)
+            .ConfigureAwait(false);
+        return SecurityEvidenceProjection.ForSubjects(repository, subjectPaths);
+    }
+
+    /// <summary>
+    /// Runs each configured security sensor exactly once at repository scope. The returned bundle is
+    /// unprojected: every finding the sensors reported is retained so a single collection can serve
+    /// every subject in the sweep.
+    /// </summary>
+    public async Task<SecurityEvidenceBundle> CollectRepositoryAsync(
+        string repositoryRoot,
+        IReadOnlyList<ReviewSensorConfiguration> configurations,
+        CancellationToken cancellationToken = default)
+    {
         var tasks = configurations
             .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(configuration => CollectSensorAsync(repositoryRoot, subjects, configuration, cancellationToken))
+            .Select(configuration => CollectSensorAsync(repositoryRoot, configuration, cancellationToken))
             .ToArray();
         var evidence = await Task.WhenAll(tasks).ConfigureAwait(false);
         var ordered = evidence.OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
-        var verdict = ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Unavailable)
-            ? SecurityEvidenceVerdict.Unavailable
-            : ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Block)
-                ? SecurityEvidenceVerdict.Block
-                : ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Warn)
-                    ? SecurityEvidenceVerdict.Warn
-                    : SecurityEvidenceVerdict.Pass;
-        return new SecurityEvidenceBundle(verdict, ordered);
+        return new SecurityEvidenceBundle(SecurityEvidenceBundle.Aggregate(ordered), ordered);
     }
 
     private async Task<SecuritySensorEvidence> CollectSensorAsync(
         string repositoryRoot,
-        IReadOnlySet<string> subjectPaths,
         ReviewSensorConfiguration configuration,
         CancellationToken cancellationToken)
     {
@@ -182,31 +206,18 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 Configuration: configuration.Configuration,
                 PersistMetadata: false), cancellationToken).ConfigureAwait(false);
             var findings = result.Findings
-                .Select(finding => finding with
-                {
-                    Locations = finding.Locations.Where(location =>
-                        subjectPaths.Contains(SecurityEvidenceBundle.NormalizePath(location.Path))).ToArray(),
-                })
-                .Where(finding => finding.Locations.Count > 0)
                 .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
                 .ToArray();
-            var verdict = !result.Available
-                ? SecurityEvidenceVerdict.Unavailable
-                : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
-                    ? SecurityEvidenceVerdict.Block
-                    : findings.Length > 0
-                        ? SecurityEvidenceVerdict.Warn
-                        : SecurityEvidenceVerdict.Pass;
             var draft = new SecuritySensorEvidence(
                 result.Provenance.SensorId,
                 result.Provenance.SensorVersion,
                 string.Empty,
                 result.Available,
                 result.UnavailableReason,
-                verdict,
+                SecurityEvidenceProjection.Verdict(result.Available, findings),
                 result.Provenance.ToolVersions,
                 findings);
-            return draft with { ResultHash = Hash(draft) };
+            return draft with { ResultHash = SecurityEvidenceHash.Compute(draft) };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -229,10 +240,17 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             SecurityEvidenceVerdict.Unavailable,
             new Dictionary<string, string>(),
             Array.Empty<ReviewFinding>());
-        return draft with { ResultHash = Hash(draft) };
+        return draft with { ResultHash = SecurityEvidenceHash.Compute(draft) };
     }
+}
 
-    private static string Hash(SecuritySensorEvidence evidence)
+/// <summary>
+/// Canonical content hash for one sensor result. Collection and subject projection share it so a
+/// projected result carries a hash of what the model actually sees, not of the repository-wide scan.
+/// </summary>
+internal static class SecurityEvidenceHash
+{
+    internal static string Compute(SecuritySensorEvidence evidence)
     {
         var canonical = new JsonObject
         {
@@ -291,6 +309,144 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             return evidence;
         }
     }
+}
+
+/// <summary>
+/// Narrows repository-wide security evidence to the subjects of one review operation. This is a
+/// pure in-memory filter: it never runs a sensor, so a sweep can project one collection across every
+/// file it reviews.
+/// </summary>
+public static class SecurityEvidenceProjection
+{
+    public static SecurityEvidenceBundle ForSubjects(
+        SecurityEvidenceBundle repository,
+        IReadOnlyList<string> subjectPaths)
+    {
+        var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath)
+            .ToHashSet(StringComparer.Ordinal);
+        var projected = repository.Sensors
+            .Select(sensor => Project(sensor, subjects))
+            .OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal)
+            .ToArray();
+        return new SecurityEvidenceBundle(SecurityEvidenceBundle.Aggregate(projected), projected);
+    }
+
+    private static SecuritySensorEvidence Project(
+        SecuritySensorEvidence sensor,
+        IReadOnlySet<string> subjects)
+    {
+        var findings = sensor.Findings
+            .Select(finding => finding with
+            {
+                Locations = finding.Locations.Where(location =>
+                    subjects.Contains(SecurityEvidenceBundle.NormalizePath(location.Path))).ToArray(),
+            })
+            .Where(finding => finding.Locations.Count > 0)
+            .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+            .ToArray();
+        var draft = sensor with
+        {
+            Findings = findings,
+            Verdict = Verdict(sensor.Available, findings),
+            ResultHash = string.Empty,
+        };
+        return draft with { ResultHash = SecurityEvidenceHash.Compute(draft) };
+    }
+
+    /// <summary>
+    /// Derives one sensor verdict. A sensor that could not run stays
+    /// <see cref="SecurityEvidenceVerdict.Unavailable"/> whatever its finding list looks like, so an
+    /// empty projection can never be mistaken for a clean check.
+    /// </summary>
+    internal static SecurityEvidenceVerdict Verdict(
+        bool available,
+        IReadOnlyList<ReviewFinding> findings) =>
+        !available
+            ? SecurityEvidenceVerdict.Unavailable
+            : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
+                ? SecurityEvidenceVerdict.Block
+                : findings.Count > 0
+                    ? SecurityEvidenceVerdict.Warn
+                    : SecurityEvidenceVerdict.Pass;
+}
+
+/// <summary>
+/// Repository-wide security evidence captured once per sweep, bound to the source state and sensor
+/// configuration it was collected under. <see cref="Matches"/> is what stops a sweep from reusing a
+/// snapshot that no longer describes the tree being reviewed.
+/// </summary>
+public sealed record SecurityPreflightSnapshot(
+    SecurityEvidenceBundle Repository,
+    string SourceFingerprint,
+    string ConfigurationFingerprint,
+    DateTimeOffset CapturedAt)
+{
+    public bool Matches(string sourceFingerprint, string configurationFingerprint) =>
+        string.Equals(SourceFingerprint, sourceFingerprint, StringComparison.Ordinal) &&
+        string.Equals(ConfigurationFingerprint, configurationFingerprint, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Fingerprints the working tree: the resolved commit plus the porcelain status, so both a new
+    /// commit and an uncommitted edit invalidate a snapshot. When git cannot answer, the source state
+    /// is unverifiable, so this returns a value that never repeats — a snapshot taken outside a git
+    /// working tree is therefore never reused and the sweep falls back to fresh collection.
+    /// </summary>
+    public static string FingerprintSource(string repositoryRoot)
+    {
+        var commit = CoverageSensor.GitValue(repositoryRoot, "rev-parse", "--verify", "HEAD");
+        var status = CoverageSensor.GitValue(repositoryRoot, "status", "--porcelain");
+        return commit is null || status is null
+            ? $"unverifiable:{Guid.NewGuid():n}"
+            : Fingerprint($"{commit}\n{SourceStatus(status)}");
+    }
+
+    /// <summary>
+    /// Drops the review's own outputs from the working-tree status. A sweep writes sidecars and run
+    /// artifacts while it runs; counting those as source mutation would invalidate the snapshot after
+    /// the first reviewed file and silently restore per-file scanning.
+    /// </summary>
+    internal static string SourceStatus(string status) => string.Join('\n', status
+        .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+        .Where(line => !IsReviewArtifact(StatusPath(line))));
+
+    private static string StatusPath(string statusLine)
+    {
+        var path = statusLine.Length > 3 ? statusLine[3..].Trim() : statusLine.Trim();
+        var rename = path.LastIndexOf(" -> ", StringComparison.Ordinal);
+        if (rename >= 0) path = path[(rename + 4)..];
+        return path.Trim('"').Replace('\\', '/');
+    }
+
+    /// <summary>
+    /// Review output lives in a <c>.quality</c> directory at any depth (git reports it as an
+    /// untracked directory rather than as the individual sidecars) or is named
+    /// <c>*.review-meta.*</c>.
+    /// </summary>
+    private static bool IsReviewArtifact(string path) =>
+        path.Contains(".review-meta.", StringComparison.Ordinal) ||
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Any(segment => segment.Equals(".quality", StringComparison.Ordinal));
+
+    public static string FingerprintConfiguration(IReadOnlyList<ReviewSensorConfiguration> configurations)
+    {
+        var canonical = new JsonArray(configurations
+            .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(configuration => configuration.Id, StringComparer.Ordinal)
+            .Select(configuration => (JsonNode)new JsonObject
+            {
+                ["id"] = configuration.Id,
+                ["configuration"] = configuration.Configuration is null
+                    ? null
+                    : new JsonObject(configuration.Configuration
+                        .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                        .Select(pair => KeyValuePair.Create<string, JsonNode?>(pair.Key, pair.Value))),
+            })
+            .ToArray());
+        return Fingerprint(canonical.ToJsonString());
+    }
+
+    private static string Fingerprint(string value) =>
+        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 }
 
 public static class SecurityReviewCombiner

@@ -462,6 +462,7 @@ public sealed class ReviewJobService : BackgroundService
                         .ToArray(),
                     linked.Token)
                 .ConfigureAwait(false);
+            item.SecurityPreflight = await CollectSecurityPreflightAsync(item, linked.Token).ConfigureAwait(false);
             if (item.HasCap)
             {
                 foreach (var file in item.PendingFiles())
@@ -588,15 +589,44 @@ public sealed class ReviewJobService : BackgroundService
             AggregateControls: item.AggregateControls,
             AggregateExclusions: item.AggregateExclusions,
             ReviewRunId: item.Id,
-            Sensors: item.Kind == "security"
-                ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
-                    .Where(sensor => sensor.Enabled &&
-                                     sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
-                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
-                    .ToArray()
-                : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            Sensors: item.Kind == "security" ? SecuritySensorConfigurations(item) : null,
+            DeterministicEvidence: item.DeterministicEvidence,
+            SecurityPreflight: item.SecurityPreflight);
     }
+
+    /// <summary>
+    /// Runs the security sensors once for the whole sweep. Without this each reviewed file triggered
+    /// its own repository-wide scan (a full Gitleaks pass and dependency audit per file); the sweep
+    /// now scans once and projects the result onto each subject.
+    /// </summary>
+    private async Task<SecurityPreflightSnapshot?> CollectSecurityPreflightAsync(
+        ReviewWorkItem item,
+        CancellationToken cancellationToken)
+    {
+        if (item.Kind != "security") return null;
+        var configurations = SecuritySensorConfigurations(item);
+        if (configurations.Count == 0) return null;
+        var root = item.Repository.RootPath;
+        var repository = await new SecurityEvidenceCollector(sensorRegistry)
+            .CollectRepositoryAsync(root, configurations, cancellationToken).ConfigureAwait(false);
+        return new SecurityPreflightSnapshot(
+            repository,
+            SecurityPreflightSnapshot.FingerprintSource(root),
+            SecurityPreflightSnapshot.FingerprintConfiguration(configurations),
+            DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>
+    /// The security-lane sensors for one sweep: every enabled repository sensor that is not already
+    /// covered by the deterministic analyzer lane. Preflight collection and each file request read
+    /// this same list so the snapshot's configuration fingerprint matches what the request declares.
+    /// </summary>
+    private IReadOnlyList<ReviewSensorConfiguration> SecuritySensorConfigurations(ReviewWorkItem item) =>
+        (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
+            .Where(sensor => sensor.Enabled &&
+                             sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
+            .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+            .ToArray();
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {
@@ -727,6 +757,8 @@ public sealed class ReviewJobService : BackgroundService
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+
+        public SecurityPreflightSnapshot? SecurityPreflight { get; set; }
 
         public void PrepareForRecovery()
         {

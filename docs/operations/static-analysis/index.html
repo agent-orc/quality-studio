@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -577,7 +578,27 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p>Append-only record of what has been delivered against the slice plan in section 08. Sections 00–10 hold the decision and are not rewritten here. The operator approved all recommendations on 11 August 2026, so every slice is <b>decided</b>; entries below record delivery, not approval.</p>
+
+    <article class="slice">
+      <header><h3>27 August 2026 · QS-72 · S1 (partial) · Snapshot-bound security preflight</h3><span class="pill part">delivered</span></header>
+      <p><b>What landed.</b> Security sensor collection moved from once-per-file to once-per-sweep, matching the shape the deterministic analyzer lane already used. Before this change a security sweep ran a full repository-scope scan for <em>every</em> reviewed file — a complete Gitleaks pass plus dependency audit per file — and then discarded all findings outside that one subject. The sweep now scans once and projects the result onto each subject.</p>
+      <ul>
+        <li><code>SecurityEvidenceCollector.CollectRepositoryAsync</code> runs each configured sensor once at repository scope and returns the unprojected bundle. The existing <code>CollectAsync</code> is now a composition of that plus projection, so single-operation callers are unchanged.</li>
+        <li><code>SecurityEvidenceProjection.ForSubjects</code> narrows a repository bundle to one operation's subjects as a pure in-memory filter, recomputing the per-sensor verdict and <code>resultHash</code> so provenance describes what the model actually saw rather than the repository-wide scan.</li>
+        <li>A sensor that could not run stays <code>unavailable</code> through projection whatever its finding list looks like, so a subject with no projected findings can never read as a clean check.</li>
+        <li><code>SecurityPreflightSnapshot</code> binds the collection to the source state and sensor configuration it was taken under. <code>ReviewJobService</code> captures one snapshot per sweep; <code>ReviewRunner</code> reuses it only while it still matches and otherwise falls back to fresh collection, so a stale result is never served.</li>
+        <li>The source fingerprint is the resolved commit plus the working-tree status, with the review's own outputs (<code>*.review-meta.*</code> and any <code>.quality</code> directory) excluded. Counting the sweep's own sidecars as source mutation would have invalidated the snapshot after the first reviewed file and silently restored per-file scanning. Outside a git working tree the source state is unverifiable, so the snapshot is deliberately never reused.</li>
+      </ul>
+      <p><b>Tests.</b> <code>tests/AgentOrchestrator.CodeQuality.Tests/SecurityPreflightTests.cs</code> (15 cases) covers once-per-sweep invocation against a counting sensor, the per-subject scan count it replaces, subject projection, the unavailable-never-pass guarantee, per-subject result hashing, equivalence between projected and directly collected evidence, snapshot invalidation on source mutation and on configuration change, artifact-versus-source fingerprinting, and fallback to fresh collection on a stale snapshot. <code>tests/QualityStudio.Api.Tests/SecurityPreflightSweepTests.cs</code> adds the sweep-level acceptance case: a real <code>POST /api/review</code> security run over two files plus the aggregate invokes the sensor exactly once. That test fakes only the review agent and keeps a real <code>ReviewRunner</code>, because replacing the executor factory would sit above the code path under test and make the assertion vacuous; disabling the reuse branch makes it fail, and removing the git working tree from the fixture raises the count to four (one preflight plus one per operation), which measures the behaviour this slice removes.</p>
+      <p><b>Verified.</b> <code>dotnet build -c Release</code> clean (0 warnings, 0 errors); <code>dotnet test --filter "Category!=MachineBound"</code> 218 passed / 1 skipped by design / 0 failed, against a 202-passing baseline on the same checkout.</p>
+      <p><b>Not in this entry.</b> S1 also asks for a persisted <code>PreflightResult v1</code> artifact under the run directory, explicit required-versus-optional sensor enablement, preflight run states and progress, and the exact static prompt projection in <code>/api/review/estimate</code>. Those remain open; this entry delivers the once-per-sweep collection, subject projection, and snapshot binding only. The deterministic analyzer lane was already once-per-sweep and was not changed.</p>
+    </article>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation in progress · updated 27 August 2026</footer>
 </main>
 </body>
 </html>
