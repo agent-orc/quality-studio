@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-005",
+  "technology": "dotnet",
+  "category": "async-hygiene",
+  "title": "Library code awaits with ConfigureAwait(false)",
+  "statement": "Async methods in `AgentOrchestrator.CodeQuality` (the reusable core library, as opposed to ASP.NET Core request-handling code in `QualityStudio.Api`) call `.ConfigureAwait(false)` on every `await` of a library-internal or BCL task.",
+  "rationale": "The core package is documented as usable standalone ('the package stays usable standalone... write meta JSONs, drive the CLI runner'), which means its async methods can run under a host with a capturing `SynchronizationContext`. `ConfigureAwait(false)` keeps the continuation off that context, avoiding needless context-switch overhead and a class of deadlocks in synchronous-over-asynchronous callers outside this repo's own ASP.NET Core host, where it is unnecessary but harmless.",
+  "severity": "low",
+  "autofixable": true,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken)\n    .ConfigureAwait(false);\nvar sensorEvidence = await CollectSensorEvidenceAsync(request, root, subjectPaths, cancellationToken)\n    .ConfigureAwait(false);",
+    "caption": "Every await in the review pipeline uses ConfigureAwait(false).",
+    "source": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken);\nvar sensorEvidence = await CollectSensorEvidenceAsync(request, root, subjectPaths, cancellationToken);",
+    "caption": "Same awaits without ConfigureAwait(false) in library code."
+  },
+  "tags": ["async", "configureawait", "library-design"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in ReviewRunner.cs's consistent ConfigureAwait(false) usage. autofixable: true (a Roslyn analyzer/codefix such as CA2007 can insert it mechanically)." }
+  ]
+}

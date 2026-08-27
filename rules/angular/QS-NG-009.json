@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-009",
+  "technology": "angular",
+  "category": "change-detection",
+  "title": "Components opt into OnPush change detection",
+  "statement": "Every `@Component` sets `changeDetection: ChangeDetectionStrategy.OnPush`. A component omitting it falls back to the default strategy, which re-checks the whole subtree on any event anywhere in the app.",
+  "rationale": "The editor view has a stated hard performance goal ('rock-solid, extremely fast'). Default change detection walks every component's template on every zone event, which does not scale as panels (explorer, editor, review-panel) grow; OnPush plus signal-based state (QS-NG-010) checks a component only when its own inputs or signals actually change.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code", "performance"],
+  "levels": ["file"],
+  "good": {
+    "language": "typescript",
+    "code": "@Component({\n  selector: 'qs-review-panel',\n  templateUrl: './review-panel.html',\n  styleUrl: './review-panel.css',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n})\nexport class ReviewPanel { /* ... */ }",
+    "caption": "Explicit OnPush.",
+    "source": "frontend/src/app/review-panel/review-panel.ts"
+  },
+  "bad": {
+    "language": "typescript",
+    "code": "@Component({\n  selector: 'qs-new-panel',\n  templateUrl: './new-panel.html',\n  styleUrl: './new-panel.css',\n})\nexport class NewPanel { /* ... */ }",
+    "caption": "changeDetection omitted: silently falls back to full-subtree default checking."
+  },
+  "tags": ["change-detection", "performance"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in the review panel's explicit OnPush and the product's stated editor performance goal." }
+  ]
+}

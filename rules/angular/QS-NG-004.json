@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-004",
+  "technology": "angular",
+  "category": "design-tokens",
+  "title": "Extend the token scale in styles.css instead of repeating a magic number",
+  "statement": "When a needed value (a spacing step, a control height, a radius) does not yet exist as a `--studio-*` token, add it once to `:root` in `frontend/src/styles.css` and consume it everywhere; do not copy the same raw literal into two or more component stylesheets.",
+  "rationale": "A value repeated across files with no shared source is a de facto ad-hoc token nobody can find or rename; the next change to it means a repo-wide grep instead of a one-line edit. `styles.css` already centralizes `--studio-control-hit-compact`, `--studio-textarea-min-height` and similar app-specific sizes for exactly this reason.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file", "module"],
+  "good": {
+    "language": "css",
+    "code": ":root{\n  --studio-control-hit-compact: 24px;\n}\n/* consumed identically everywhere a compact control needs the same hit target */\n.finding-controls button{min-height:var(--studio-control-hit-compact)}\n.disposition-actions button{flex:1;min-height:var(--studio-control-sm)}",
+    "caption": "One named token, consumed wherever the value is needed.",
+    "source": "frontend/src/styles.css"
+  },
+  "bad": {
+    "language": "css",
+    "code": "/* review-panel.css */\n.finding-controls button{min-height:24px}\n\n/* project-dashboard.css */\n.refresh-status button{min-height:24px}\n\n/* explorer.css */\n.tree-row button{min-height:24px}",
+    "caption": "The same hit-target height copied by value into three unrelated stylesheets."
+  },
+  "tags": ["design-tokens", "styling", "duplication"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, complementing QS-NG-003 with the duplicate-magic-number angle of the same defect class." }
+  ]
+}
