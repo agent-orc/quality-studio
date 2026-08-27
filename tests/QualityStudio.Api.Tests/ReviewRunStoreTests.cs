@@ -425,6 +425,62 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Cancelled_run_that_never_unwinds_is_reclaimed_so_the_queue_advances()
+    {
+        // QS-93 M-1: a reviewer whose process ignores cancellation entirely (the N-01
+        // dossier defect) must not wedge the single-reader queue behind it forever —
+        // a cancelled attempt gets a grace period, then the queue abandons it and moves on.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var stuck = new StuckExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(stuck, cancelReclaimGraceSeconds: 1);
+            using var client = application.CreateClient();
+
+            using var firstResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = "test-agent",
+            }, cancellationToken);
+            firstResponse.EnsureSuccessStatusCode();
+            var first = await firstResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var firstId = first.GetProperty("id").GetString()!;
+            await WaitForStateAsync(client, firstId, "running", cancellationToken);
+            await stuck.StartedFile.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+
+            using var cancelResponse = await client.DeleteAsync($"/api/review/runs/{firstId}", cancellationToken);
+            cancelResponse.EnsureSuccessStatusCode();
+
+            using var secondResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Second.cs",
+                kind = "code",
+                cliType = "test-agent",
+            }, cancellationToken);
+            secondResponse.EnsureSuccessStatusCode();
+            var second = await secondResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var secondId = second.GetProperty("id").GetString()!;
+
+            // The grace period is 1s; give it generous headroom before declaring the queue wedged.
+            var advanced = await WaitForStateAsync(client, secondId, "running", cancellationToken);
+            Assert.Equal("running", advanced.GetProperty("state").GetString());
+
+            var cancelled = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{firstId}", cancellationToken);
+            Assert.Equal("cancelled", cancelled.GetProperty("state").GetString());
+
+            // Cancel the second run too so its stuck attempt doesn't hold up host shutdown.
+            using var cancelSecond = await client.DeleteAsync($"/api/review/runs/{secondId}", cancellationToken);
+            cancelSecond.EnsureSuccessStatusCode();
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Terminal_run_is_loaded_but_not_resumed()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -685,8 +741,9 @@ public sealed class ReviewRunStoreTests
 
         public TestApplication CreateApplication(
             IReviewExecutorFactory? executorFactory = null,
-            IReviewSensor? deterministicSensor = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory, deterministicSensor);
+            IReviewSensor? deterministicSensor = null,
+            double? cancelReclaimGraceSeconds = null) =>
+            new(RepositoryRoot, HostRoot, executorFactory, deterministicSensor, cancelReclaimGraceSeconds);
 
         public void Dispose()
         {
@@ -704,7 +761,8 @@ public sealed class ReviewRunStoreTests
         string repositoryRoot,
         string contentRoot,
         IReviewExecutorFactory? executorFactory,
-        IReviewSensor? deterministicSensor) : WebApplicationFactory<Program>
+        IReviewSensor? deterministicSensor,
+        double? cancelReclaimGraceSeconds = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -728,6 +786,11 @@ public sealed class ReviewRunStoreTests
                 {
                     services.RemoveAll<IReviewSensor>();
                     services.AddSingleton(deterministicSensor);
+                }
+                if (cancelReclaimGraceSeconds.HasValue)
+                {
+                    services.PostConfigure<ReviewJobsOptions>(options =>
+                        options.CancelReclaimGraceSeconds = cancelReclaimGraceSeconds.Value);
                 }
             });
         }
@@ -856,6 +919,32 @@ public sealed class ReviewRunStoreTests
             {
                 var operation = force ? Interlocked.Increment(ref owner.agentCalls) : 0;
                 return Task.FromResult(CapturedExecution(request, skippedFresh: !force, operation));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Mirrors the N-01 dossier defect: a reviewer that never returns and ignores its
+    /// <see cref="CancellationToken"/> entirely (the third-party CLI's pre-spawn health
+    /// probe blocks a whole OS thread on a synchronous pipe read, outside any token's
+    /// reach). Used to prove <c>ReviewJobService</c>'s cancel-reclaim advances the queue
+    /// past a stuck attempt instead of waiting on it forever.
+    /// </summary>
+    private sealed class StuckExecutorFactory : IReviewExecutorFactory
+    {
+        public TaskCompletionSource StartedFile { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver, Action<ReviewUsageEntry> usageRecorded) => new StuckExecutor(this);
+
+        private sealed class StuckExecutor(StuckExecutorFactory owner) : IReviewExecutor
+        {
+            public async Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request, bool force, CancellationToken cancellationToken)
+            {
+                owner.StartedFile.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, CancellationToken.None);
+                throw new InvalidOperationException("unreachable");
             }
         }
     }
