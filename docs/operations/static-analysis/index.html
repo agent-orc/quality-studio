@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation-log">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -575,6 +576,20 @@
       <h4>Prompt-enrichment provenance gap</h4>
       <p>This Quality Studio checkout does not contain <code>AGENTS.md</code>, <code>docs/start/README.md</code>, <code>docs/start/contribution-and-style-guide.html</code>, <code>docs/system/domains/model-routing-policy.md</code>, or the named style-reference page. The shared contribution guide, routing policy, and exact reference style block were consulted from the neighboring canonical Agent Taskboard checkout. Product claims and measurements above are grounded in this Quality Studio checkout.</p>
     </div>
+  </section>
+
+  <section id="implementation-log">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p>Append-only. Recorded by the delivering card; does not alter the decision, options, or slice scope above. Operator approved all S1&ndash;S5 recommendations blanket on 11 August 2026 (workbench key QS-W7); the 27 August 2026 orchestrator scope correction requires one fully tested slice per delivery, not the full plan at once.</p>
+    <article class="slice">
+      <header><h3>QS-72 &middot; 27 August 2026 &middot; S2 partial &mdash; Angular/Node CI build lane</h3><span class="pill part">partial</span></header>
+      <ul>
+        <li><b>Landed:</b> <code>.github/workflows/build.yml</code> gained a Node/Angular lane beside the existing .NET lane: <code>actions/setup-node@v4</code> (Node 22, npm-cached on <code>frontend/package-lock.json</code>), <code>npm ci</code> in <code>frontend/</code>, a fast <code>tsc --noEmit</code> pass, <code>ng build --configuration production</code> (Angular template compiler plus the checked-in bundle budgets), and <code>npm audit</code>. Per the section 05 disposition table, the compiler and budget steps block the job on error and pass through warnings unmodified; <code>npm audit</code> runs with <code>continue-on-error: true</code> since dependency advisories are standalone findings, not a build gate, until a consumer exists. New test: <code>tests/check-ci-workflow.test.mjs</code> (<code>npm run test:ci-workflow</code>) asserts step presence, ordering, and that only the audit step is non-blocking.</li>
+        <li><b>Verified:</b> each added command run locally outside CI &mdash; <code>npm ci</code>, <code>tsc --noEmit -p tsconfig.app.json</code> (clean), <code>ng build --configuration production</code> (exit 0; four pre-existing budget *warnings*, initial bundle at 478.30&nbsp;kB against a 350&nbsp;kB warning / 480&nbsp;kB error budget &mdash; passes today but has almost no headroom left, unrelated to this slice and not fixed here), <code>npm audit</code> (exit 1, 17 advisories, confirms the step needed <code>continue-on-error</code>). <code>dotnet build</code> clean, <code>dotnet test --filter "Category!=MachineBound"</code> 202/203 passed (1 skipped by design). Root <code>node --test tests/*.mjs</code>: the new test passes; the pre-existing 2-failure <code>dev-stack.test.mjs</code> flake reproduces identically on a clean stash of this same checkout, confirming it predates and is unrelated to this change.</li>
+        <li><b>Not in this slice (deliberately excluded):</b> Karma unit tests (<code>npm test</code> / <code>ng test</code>) were not added to CI &mdash; this sandbox has no Chrome/Chromium binary, so headless-browser behavior could not be verified before landing a shared-infra change. The section 06 <code>PreflightResult v1</code> disposition-matrix/compact-prompt-projection contract that full S2 calls for is not implemented; it is S1 groundwork (<code>SensorScanResult</code> extension) that has not landed yet, so building S2's backend projection on top of it now would be premature. Both remain open S2 follow-up work, alongside all of S1, S3, S4, and S5.</li>
+        <li><b>Process note for the operator:</b> this is the third distinct slice attempt recorded against this card (an S4-partial config landed and was lost from the checkout 3 times; an S3 slice landed 27 August 2026 and was already gone &mdash; clean tree, this dossier back to no log section &mdash; on this same day's pickup). The recurrence across two different slices points at a platform pipeline/salvage issue for this card rather than a content problem; see the many <code>backup/QS-72-*</code> and <code>agent-studio/salvage/.../QS-72/*</code> branches. Worth a platform-side look if this slice is also missing on the next pickup.</li>
+      </ul>
+    </article>
   </section>
 
   <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>

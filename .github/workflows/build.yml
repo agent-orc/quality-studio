@@ -21,8 +21,32 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend type check
+        working-directory: frontend
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Frontend build (Angular compiler + production budgets)
+        working-directory: frontend
+        run: npx ng build --configuration production
+
+      - name: Frontend dependency audit
+        working-directory: frontend
+        run: npm audit
+        continue-on-error: true
 
       - name: Restore
         run: dotnet restore QualityStudio.slnx
