@@ -63,3 +63,16 @@ top-level `model`, `thinkingLevel`, and `cli` fields for Token Economy evidence 
 Missing overrides are explicit as `runner-default` and `model-default`; they are not
 silently inferred. The artifact also includes scope, state, timestamps, counts, usage,
 cost status, and stop reason.
+
+## Quality Studio review qualification
+
+The synchronized Token Economy files remain byte-for-byte snapshots, including the
+Claude 5-family prices added by TE-44. Quality Studio additionally qualifies
+`claude-sonnet-5` and `claude-opus-5` as first-class selectable review models at the
+API boundary. This is a review-product qualification, not a rewrite of Token Economy's
+source files.
+
+The hard-floor equivalences are deliberately explicit: Sonnet 5/high and Opus 5/high
+clear the broad-review (`sol-medium`) floor; Sonnet 5/xhigh or max and Opus 5/max clear
+the correctness-critical (`sol-xhigh`) floor. Lower levels remain below those floors,
+and price or quota never reduces them.
