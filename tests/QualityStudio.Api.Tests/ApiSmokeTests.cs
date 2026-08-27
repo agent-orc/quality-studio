@@ -271,9 +271,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var code = json.GetProperty("kinds").GetProperty("code");
-        var input = Assert.Single(code.GetProperty("inputs").EnumerateArray());
+        var input = Assert.Single(code.GetProperty("inputs").EnumerateArray(),
+            candidate => candidate.GetProperty("id").GetString() == "sample-rules");
         Assert.Equal("sample-rules", input.GetProperty("id").GetString());
         Assert.Equal("project", input.GetProperty("scope").GetString());
+        Assert.Contains(code.GetProperty("inputs").EnumerateArray(),
+            candidate => candidate.GetProperty("id").GetString() == "QS-NG-003");
         Assert.Empty(json.GetProperty("kinds").GetProperty("security").GetProperty("inputs").EnumerateArray());
     }
 
@@ -295,6 +298,35 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var inputs = await inputsResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Contains(inputs.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
             input => input.GetProperty("id").GetString() == "ui-created-rule");
+    }
+
+    [Fact]
+    public async Task Sync_defaults_installs_default_on_rules_and_is_idempotent()
+    {
+        using var client = application!.CreateClient();
+
+        using var automaticInputs = await client.GetAsync("/api/inputs", TestContext.Current.CancellationToken);
+        var automatic = await automaticInputs.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains(automatic.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
+            input => input.GetProperty("id").GetString() == "QS-NG-003");
+        Assert.False(File.Exists(Path.Combine(repositoryRoot, ".quality", "inputs", "QS-NG-003.md")));
+
+        using var first = await client.PostAsync("/api/guidelines/sync-defaults", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var firstJson = await first.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var results = firstJson.GetProperty("results").EnumerateArray().ToArray();
+        Assert.Contains(results, result => result.GetProperty("action").GetString() == "installed");
+        Assert.Contains(results, result => result.GetProperty("ruleId").GetString() == "QS-NG-003");
+
+        using var installedInputs = await client.GetAsync("/api/inputs", TestContext.Current.CancellationToken);
+        var inputs = await installedInputs.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains(inputs.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray(),
+            input => input.GetProperty("id").GetString() == "QS-NG-003");
+
+        using var second = await client.PostAsync("/api/guidelines/sync-defaults", null, TestContext.Current.CancellationToken);
+        var secondJson = await second.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.All(secondJson.GetProperty("results").EnumerateArray(),
+            result => Assert.Equal("unchanged", result.GetProperty("action").GetString()));
     }
 
     [Fact]

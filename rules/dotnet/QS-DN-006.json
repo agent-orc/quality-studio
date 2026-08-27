@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-006",
+  "technology": "dotnet",
+  "category": "async-hygiene",
+  "title": "CancellationToken is threaded through the whole call chain, never swallowed",
+  "statement": "A method that accepts a `CancellationToken` passes that same token to every async call it makes; it does not call an inner async method with `default`, `CancellationToken.None`, or no token argument when the inner method offers one.",
+  "rationale": "A token stops mattering the moment one link in the chain drops it: everything downstream of that call becomes uncancellable even though the outer caller still looks cancellable. `ReviewRunner.PreparePromptAsync` takes one token and threads it into every collection step (sensor evidence, deterministic evidence, subject content) rather than re-deriving or dropping it.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": true,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "private async Task<PreparedPrompt> PreparePromptAsync(ReviewRequest request, CancellationToken cancellationToken)\n{\n    var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken)\n        .ConfigureAwait(false);\n    var sensorEvidence = await CollectSensorEvidenceAsync(request, root, subjectPaths, cancellationToken)\n        .ConfigureAwait(false);\n    ...\n}",
+    "caption": "One token, threaded through every downstream call.",
+    "source": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "private async Task<PreparedPrompt> PreparePromptAsync(ReviewRequest request, CancellationToken cancellationToken)\n{\n    var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, CancellationToken.None);\n    var sensorEvidence = await CollectSensorEvidenceAsync(request, root, subjectPaths, cancellationToken);\n    ...\n}",
+    "caption": "One of two downstream calls silently drops the caller's token."
+  },
+  "tags": ["async", "cancellation"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in ReviewRunner.cs's end-to-end token propagation." }
+  ]
+}

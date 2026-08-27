@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-DN-008",
+  "technology": "dotnet",
+  "category": "test-structure",
+  "title": "Filesystem tests use a per-test GUID temp directory, cleaned up in finally",
+  "statement": "A test that writes to the filesystem creates its own directory under `Path.Combine(Path.GetTempPath(), \"<suite>-tests\", Guid.NewGuid().ToString(\"N\"))`, does its work inside a `try`, and deletes that directory in a `finally`. Tests do not write to a fixed repository-relative path.",
+  "rationale": "xUnit runs test classes in parallel by default; a fixed path shared by two tests is a race, and a test that throws before cleanup leaves permanent litter in the repo or temp directory. The GUID-per-test pattern already used in `GuidelineImpactAnalyzerTests` makes every test's filesystem footprint disjoint and self-cleaning even on failure.",
+  "severity": "medium",
+  "autofixable": false,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "csharp",
+    "code": "var root = Path.Combine(Path.GetTempPath(), \"quality-impact-tests\", Guid.NewGuid().ToString(\"N\"));\nDirectory.CreateDirectory(Path.Combine(root, \".quality\", \"inputs\"));\ntry\n{\n    // ... test body ...\n}\nfinally\n{\n    Directory.Delete(root, true);\n}",
+    "caption": "Isolated, GUID-suffixed temp root with guaranteed cleanup.",
+    "source": "tests/AgentOrchestrator.CodeQuality.Tests/GuidelineImpactAnalyzerTests.cs"
+  },
+  "bad": {
+    "language": "csharp",
+    "code": "Directory.CreateDirectory(\"./tmp-guideline-test\");\nawait File.WriteAllTextAsync(\"./tmp-guideline-test/Sample.cs\", \"class Sample { }\\n\");\n// no cleanup, no isolation from a concurrently running copy of the same test",
+    "caption": "Fixed relative path, shared across runs, never cleaned up."
+  },
+  "tags": ["testing", "filesystem", "isolation"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, grounded in GuidelineImpactAnalyzerTests.cs's temp-directory lifecycle." }
+  ]
+}

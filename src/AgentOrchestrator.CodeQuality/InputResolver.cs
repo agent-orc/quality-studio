@@ -75,8 +75,21 @@ public sealed class InputResolver
             globalInputsDirectory);
         var projectRoot = Path.GetFullPath(repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
-        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
-        var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var ruleConfig = RuleConfig.Load(projectRoot);
+        var projectFiles = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot)
+            .Where(input => !ruleConfig.IsExplicitlyDisabled(input.Id))
+            .ToArray();
+        var projectFileIds = projectFiles.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var project = ReadDefaultRules(ruleConfig, normalizedKind, normalizedLevel)
+            .Where(input => !projectFileIds.Contains(input.Id))
+            .Concat(projectFiles)
+            .OrderByDescending(input => input.Priority)
+            .ThenBy(input => input.Id, StringComparer.Ordinal)
+            .ThenBy(input => input.Source, StringComparer.Ordinal)
+            .ToArray();
+        var projectIds = project.Select(input => input.Id)
+            .Concat(ruleConfig.Overrides.Where(value => value.Value.Enabled == false).Select(value => value.Key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var omissions = global
             .Where(input => projectIds.Contains(input.Id))
             .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0))
@@ -101,6 +114,27 @@ public sealed class InputResolver
 
         return new ResolvedInputs(normalizedKind, normalizedLevel, budgetCharacters,
             budgetCharacters - remaining, included, omissions);
+    }
+
+    private static IReadOnlyList<ReviewInput> ReadDefaultRules(RuleConfig config, string kind, string level)
+    {
+        return RuleLibrary.Rules
+            .Where(rule => rule.Status == "active" && config.IsEnabled(rule.Id, rule.DefaultOn))
+            .Select(rule => (Rule: rule, Draft: RuleLibrary.CreateGuidelineDraft(
+                rule, config.EffectiveSeverity(rule), config.OverrideReason(rule.Id), includeExamples: false)))
+            .Where(value => Applies(value.Draft.Kinds, kind) && Applies(value.Draft.Levels, level))
+            .Select(value => new ReviewInput(
+                value.Rule.Id,
+                $"rules/{value.Rule.Technology}/{value.Rule.Id}.json",
+                "project",
+                value.Draft.Priority,
+                value.Draft.Kinds,
+                value.Draft.Levels,
+                true,
+                value.Draft.Content,
+                string.Empty,
+                false))
+            .ToArray();
     }
 
     private static IReadOnlyList<ReviewInput> ReadDirectory(

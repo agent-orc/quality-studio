@@ -1,0 +1,32 @@
+{
+  "$schema": "https://quality.studio/schemas/rule.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "QS-NG-008",
+  "technology": "angular",
+  "category": "template-hygiene",
+  "title": "@for tracks a stable identity, never the index, for reorderable or filtered lists",
+  "statement": "`@for` loops over data that can reorder, filter, or have items inserted/removed track a stable field on the item (an id), not `$index` and not the whole object reference when the object is recreated on every emission.",
+  "rationale": "`track $index` (or an unstable object identity) makes Angular reuse the DOM node for a position instead of for an item: as soon as the list reorders or filters, form inputs, focus, `signal()`-backed local component state and animations attach to the wrong row. `track run.id` is correct because a run keeps its id across every re-render regardless of position.",
+  "severity": "high",
+  "autofixable": false,
+  "defaultOn": false,
+  "kinds": ["code"],
+  "levels": ["file"],
+  "good": {
+    "language": "html",
+    "code": "@for (run of scopeRuns(); track run.id) {\n  <button (click)=\"selectRun(run)\">{{ run.id }}</button>\n}",
+    "caption": "Tracks the run's stable id.",
+    "source": "frontend/src/app/review-panel/review-panel.html"
+  },
+  "bad": {
+    "language": "html",
+    "code": "@for (run of scopeRuns() | filterActive; track $index) {\n  <button (click)=\"selectRun(run)\">{{ run.id }}</button>\n}",
+    "caption": "Tracking by index on a filtered list: rows silently swap identity when the filter changes."
+  },
+  "tags": ["control-flow", "templates", "correctness"],
+  "version": "1.0.0",
+  "status": "active",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-08-23", "summary": "Initial rule, split out from QS-NG-007 because index-tracking is a correctness bug rather than a style preference." }
+  ]
+}
