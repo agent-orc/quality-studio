@@ -388,6 +388,8 @@ const demoMeta: ReviewMetaDocument[] = [
   },
 ];
 
+const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
+
 @Injectable({ providedIn: 'root' })
 export class QualityApi {
   private readonly http = inject(HttpClient);
@@ -443,12 +445,16 @@ export class QualityApi {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
-      const selected = result.repositories.some(repository => repository.id === preferredId)
-        ? preferredId!
+      // No explicit preference (no ?repo= link and no in-session selection yet): restore the
+      // operator's last active project so app start never forces a manual re-selection.
+      const remembered = preferredId ?? localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
+      const selected = result.repositories.some(repository => repository.id === remembered)
+        ? remembered!
         : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
           ? this.selectedRepositoryId()
           : result.defaultRepositoryId;
       this.selectedRepositoryId.set(selected);
+      localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, selected);
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
@@ -462,6 +468,7 @@ export class QualityApi {
     const started = performance.now();
     const sequence = ++this.repositorySelectionSequence;
     this.selectedRepositoryId.set(id);
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);

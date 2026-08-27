@@ -2,13 +2,21 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { QualityApi, RepositoryRegistration, ResolvedInputs, TreeNode } from './quality-api';
+
+const LAST_REPOSITORY_KEY = 'qs-last-repository';
+
+const registration = (id: string): RepositoryRegistration => ({
+  id, displayName: id, rootPath: `/repos/${id}`, globalInputsDirectory: null, inputBudgetCharacters: 12000,
+  enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: null, defaultReviewCostCap: null,
+});
 
 describe('QualityApi', () => {
   let api: QualityApi;
   let http: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.removeItem(LAST_REPOSITORY_KEY);
     TestBed.configureTestingModule({
       providers: [QualityApi, provideHttpClient(), provideHttpClientTesting()],
     });
@@ -16,7 +24,10 @@ describe('QualityApi', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(LAST_REPOSITORY_KEY);
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
@@ -162,5 +173,62 @@ describe('QualityApi', () => {
 
     expect(api.runReportUrl('run / 1', 'sarif')).toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=sarif');
     expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
+  });
+
+  it('restores the last active repository from local storage when no preference is given', async () => {
+    localStorage.setItem(LAST_REPOSITORY_KEY, 'agent-studio');
+
+    const loading = api.loadRepositories();
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('default'), registration('agent-studio')],
+      defaultRepositoryId: 'default',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('agent-studio');
+  });
+
+  it('prefers an explicit preferred repository (deep link) over the remembered one', async () => {
+    localStorage.setItem(LAST_REPOSITORY_KEY, 'agent-studio');
+
+    const loading = api.loadRepositories('default');
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('default'), registration('agent-studio')],
+      defaultRepositoryId: 'default',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('default');
+    expect(localStorage.getItem(LAST_REPOSITORY_KEY)).toBe('default');
+  });
+
+  it('falls back to the registry default when the remembered repository no longer exists', async () => {
+    // Neither the remembered id nor the session's unstarted 'default' selection is registered,
+    // so only the registry's own default can resolve the switch.
+    localStorage.setItem(LAST_REPOSITORY_KEY, 'archived-away');
+
+    const loading = api.loadRepositories();
+    http.expectOne('/api/repos').flush({
+      repositories: [registration('agent-studio'), registration('other')],
+      defaultRepositoryId: 'agent-studio',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('agent-studio');
+    expect(localStorage.getItem(LAST_REPOSITORY_KEY)).toBe('agent-studio');
+  });
+
+  it('remembers a repository as soon as it is explicitly selected', async () => {
+    const switching = api.selectRepository('agent-studio');
+
+    expect(localStorage.getItem(LAST_REPOSITORY_KEY)).toBe('agent-studio');
+
+    let pending = http.match(() => true);
+    while (pending.length) {
+      pending.forEach(request => request.flush({}));
+      await new Promise(resolve => setTimeout(resolve));
+      pending = http.match(() => true);
+    }
+    await switching;
   });
 });
