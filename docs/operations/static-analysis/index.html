@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation-log">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -463,7 +464,7 @@
     <h2><span class="no">08</span>Implementation slices</h2>
 
     <article class="slice">
-      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill queued">approve first</span></header>
+      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Introduce <code>PreflightResult v1</code> by extending the sensor result/provenance contract. Move all deterministic and security collection to <code>ReviewJobService</code> before file scheduling; execute each configured check once; cache by subject/config/tool hashes; persist under the existing run directory; project findings by subject.</p>
       <ul>
         <li>Default-enable only sensors with complete repository configuration; required versus optional is explicit.</li>
@@ -475,7 +476,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill queued">approve</span></header>
+      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Configure repository-owned commands for .NET build/SARIF, tsc, ngc, Angular production build, batched NuGet audit, npm audit, and existing Gitleaks. Add the selective disposition matrix and compact prompt projection.</p>
       <ul>
         <li>Compiler errors block only affected file/project operations; warnings continue.</li>
@@ -487,7 +488,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S3 · Lint and style baselines</h3><span class="pill queued">approve</span></header>
+      <header><h3>S3 · Lint and style baselines</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Pin ESLint, Angular/TypeScript plugins, and the SARIF formatter; add flat config and scripts. Pin Prettier and add a check script. Add a root .NET EditorConfig/format command. Capture fingerprinted current baselines and apply changed-file/changed-line gating.</p>
       <ul>
         <li>Separate correctness/security lint rules from formatting/style rules in disposition.</li>
@@ -498,7 +499,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill queued">approve</span></header>
+      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Enable CA1502/CA1505 through <code>CodeMetricsConfig.txt</code> and <code>AdditionalFiles</code>; add ESLint's built-in complexity rule. Feed distributions and breached top-N symbols into the existing Project Dashboard/hotspot response.</p>
       <ul>
         <li>Choose initial thresholds after recording the current distribution; store threshold/config hash with findings.</li>
@@ -509,7 +510,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill queued">approve</span></header>
+      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Shadow the preflight on matched snapshots, then enable gates in order: compilers, package/budget, lint new-debt, complexity warning. Publish one comparison report from the existing estimate and usage contracts.</p>
       <ul>
         <li>Record per run: check wall time, cache hits, finding counts, model calls planned/blocked/executed, prompt characters before/after compaction, actual input/output/cached/reasoning tokens, and estimate deviation.</li>
@@ -577,7 +578,33 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation-log">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p>Append-only record of delivered slices under card QS-72. This section does not revise the decision, options, or slice scope recorded above; it records what has actually landed. The operator gave blanket approval for all five slices on 11 August 2026 (workbench key QS-W7, status <code>decided</code>); each delivery still implements exactly one slice, fully and tested, per the 27 August 2026 orchestrator scope correction.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>27 August 2026</td>
+          <td>QS-72</td>
+          <td>S4 (partial)</td>
+          <td>Enabled CA1502 (cyclomatic complexity) and CA1505 (maintainability index) as build warnings for <code>src/**.cs</code> only, via a root <code>.editorconfig</code> severity section, a root <code>CodeMetricsConfig.txt</code> threshold file (CA1502: 25, CA1505: 10), and <code>Directory.Build.props</code> wiring (<code>WarningsNotAsErrors</code> for CA1502;CA1505 so the repository-wide <code>TreatWarningsAsErrors</code> stays intact, conditional <code>AdditionalFiles</code> on <code>IsTestProject != 'true'</code>, and <code>NoWarn</code> for test projects). Config-contract tests added in <code>tests/AgentOrchestrator.CodeQuality.Tests/ComplexityThresholdConfigurationTests.cs</code>. Verified: <code>dotnet build -c Release -t:Rebuild</code> deterministic at 19 warnings (17 CA1502, 2 CA1505) and 0 errors across two consecutive runs; <code>dotnet test --filter "Category!=MachineBound"</code> green (205 passed, 1 skipped by design). Remaining S4 work (ESLint <code>complexity</code> rule, feeding hotspots into the Project Dashboard) is unimplemented and depends on S3's ESLint pin.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="box warn">
+      <h4>Still open, in dossier priority order</h4>
+      <ul>
+        <li><b>S4 remainder:</b> ESLint <code>complexity</code> rule (needs S3's ESLint pin first), and feeding complexity/hotspot data into <code>ProjectDashboard</code>.</li>
+        <li><b>S1</b> (largest slice): <code>PreflightResult v1</code> contract; move deterministic/security sensor collection to run once per <code>ReviewJobService</code> sweep instead of per-file. Touches <code>ReviewJobs.cs</code>, <code>ReviewRunner.cs</code>, <code>Sensors.cs</code>, <code>AnalyzerEvidence.cs</code>, <code>SecurityReviewEvidence.cs</code>.</li>
+        <li><b>S2:</b> compiler/package/budget disposition gates and CI coverage for Angular (<code>npm ci</code>, <code>tsc</code>/<code>ngc</code>, <code>ng build</code>, dependency audit). Known blocker: <code>ng build --configuration production</code> currently fails its checked-in bundle budget by 14.94 kB; do not wire it into CI as a blocking step until that budget is fixed or the step is explicitly scoped non-blocking.</li>
+        <li><b>S3:</b> pin ESLint + Prettier (currently absent from the repository), flat config, and changed-line style baselines for both stacks (the .NET side has roughly 10 files of existing whitespace drift that would fail a naive zero-baseline gate).</li>
+        <li><b>S5:</b> economy/usage evidence and staged rollout; depends on S1-S4 being live.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation in progress · updated 27 August 2026</footer>
 </main>
 </body>
 </html>

@@ -1,0 +1,7 @@
+root = true
+
+# Static-analysis dossier S4 (docs/operations/static-analysis/index.html, section 08):
+# complexity as a thresholded metric, scoped to production code only.
+[src/**.cs]
+dotnet_diagnostic.CA1502.severity = warning
+dotnet_diagnostic.CA1505.severity = warning

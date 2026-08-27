@@ -8,5 +8,16 @@
     <RepositoryType>git</RepositoryType>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Static-analysis dossier S4: CA1502/CA1505 report as warnings, not build-breaking
+         errors, per docs/operations/static-analysis/index.html section 08. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1502;CA1505</WarningsNotAsErrors>
+  </PropertyGroup>
+  <!-- Feed code-metrics thresholds (CodeMetricsConfig.txt) to production code only; test
+       projects are exempt from the complexity/maintainability gate. -->
+  <ItemGroup Condition="'$(IsTestProject)' != 'true'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)CodeMetricsConfig.txt" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <NoWarn>$(NoWarn);CA1502;CA1505</NoWarn>
   </PropertyGroup>
 </Project>
