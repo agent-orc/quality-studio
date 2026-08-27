@@ -434,7 +434,9 @@ export class QualityApi {
   readonly reviewError = signal('');
   readonly focusedThreadId = signal<string | null>(null);
   private readonly treeSnapshots = new Map<string, TreeNode[]>();
+  private readonly treeEtags = new Map<string, string>();
   private readonly projectSnapshots = new Map<string, ProjectDashboard>();
+  private readonly projectEtags = new Map<string, string>();
   private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -465,7 +467,7 @@ export class QualityApi {
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
-    const treeSnapshot = this.treeSnapshots.get(id);
+    const treeSnapshot = this.treeSnapshots.get(this.treeCacheKey(id, ''));
     const projectSnapshot = this.projectSnapshots.get(id);
     this.tree.set(treeSnapshot ?? []);
     this.project.set(projectSnapshot ?? null);
@@ -511,15 +513,26 @@ export class QualityApi {
     return result;
   }
 
-  async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true): Promise<void> {
+  async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true, path = ''): Promise<void> {
     const base = this.repositoryApiBase(repositoryId);
     const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
+    const cacheKey = this.treeCacheKey(repositoryId, path);
+    const snapshot = this.treeSnapshots.get(cacheKey);
     try {
-      const tree = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`));
-      this.treeSnapshots.set(repositoryId, tree.nodes);
+      const tree = await this.conditionalGet(
+        `${base}/tree?path=${encodeURIComponent(path)}`,
+        snapshot === undefined ? undefined : { nodes: snapshot },
+        this.treeEtags.get(cacheKey),
+      );
+      this.treeSnapshots.set(cacheKey, tree.value.nodes);
+      this.updateEtag(this.treeEtags, cacheKey, tree.etag);
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.tree.set(tree.nodes); this.connectionState.set('live');
-      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
+      this.tree.set(tree.value.nodes); this.connectionState.set('live');
+      console.info(JSON.stringify({
+        event: 'qs.data.tree-loaded',
+        nodeCount: tree.value.nodes.length,
+        source: tree.notModified ? 'snapshot-304' : 'api',
+      }));
     } catch (error) {
       if (repositoryId === this.selectedRepositoryId()) {
         this.connectionState.set('preview');
@@ -712,10 +725,15 @@ export class QualityApi {
     }
     const start = performance.now();
     try {
-      const project = await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase(repositoryId)}/project`));
-      this.projectSnapshots.set(repositoryId, project);
+      const project = await this.conditionalGet(
+        `${this.repositoryApiBase(repositoryId)}/project`,
+        this.projectSnapshots.get(repositoryId),
+        this.projectEtags.get(repositoryId),
+      );
+      this.projectSnapshots.set(repositoryId, project.value);
+      this.updateEtag(this.projectEtags, repositoryId, project.etag);
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.project.set(project);
+      this.project.set(project.value);
       requestAnimationFrame(() => {
         if (repositoryId !== this.selectedRepositoryId()) return;
         const duration = performance.now() - start;
@@ -830,6 +848,34 @@ export class QualityApi {
         console.warn(JSON.stringify({ event: 'qs.repository.details-unavailable', repositoryId, reason: this.errorMessage(error) }));
       }
     }
+  }
+
+  private treeCacheKey(repositoryId: string, path: string): string {
+    return `${repositoryId}\0${path}`;
+  }
+
+  private async conditionalGet<T>(
+    url: string,
+    snapshot: T | undefined,
+    etag: string | undefined,
+  ): Promise<{ value: T; etag: string | null; notModified: boolean }> {
+    const headers = snapshot !== undefined && etag ? { 'If-None-Match': etag } : undefined;
+    try {
+      const response = await firstValueFrom(this.http.get<T>(url, { headers, observe: 'response' }));
+      if (response.body === null) throw new Error(`Empty response from ${url}`);
+      return { value: response.body, etag: response.headers.get('ETag'), notModified: false };
+    } catch (error) {
+      // Angular reports HTTP 304 through the error channel because it is outside the 2xx range.
+      if (error instanceof HttpErrorResponse && error.status === 304 && snapshot !== undefined) {
+        return { value: snapshot, etag: error.headers.get('ETag') ?? etag ?? null, notModified: true };
+      }
+      throw error;
+    }
+  }
+
+  private updateEtag(cache: Map<string, string>, key: string, etag: string | null): void {
+    if (etag) cache.set(key, etag);
+    else cache.delete(key);
   }
 
   private async loadHandoverConfiguration(): Promise<void> {

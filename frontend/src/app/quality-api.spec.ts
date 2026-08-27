@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -78,6 +78,91 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('reuses a tree snapshot when the repository and path ETag is unchanged', async () => {
+    const nodes = [{
+      id: 'root', name: 'Repository', level: 'repository', path: '.', kinds: {}, children: [],
+    }] satisfies TreeNode[];
+
+    const firstLoad = api.loadTree('default', false);
+    const firstRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(firstRequest.request.headers.has('If-None-Match')).toBeFalse();
+    firstRequest.flush({ nodes }, { headers: { ETag: '"tree-v1"' } });
+    await firstLoad;
+
+    const warmLoad = api.loadTree('default', false);
+    const warmRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(warmRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    warmRequest.flush(null, {
+      status: 304,
+      statusText: 'Not Modified',
+      headers: { ETag: '"tree-v1"' },
+    });
+    await warmLoad;
+
+    expect(api.tree()).toBe(nodes);
+    expect(api.connectionState()).toBe('live');
+
+    const changedNodes = [{
+      id: 'changed', name: 'Changed repository', level: 'repository', path: '.', kinds: {}, children: [],
+    }] satisfies TreeNode[];
+    const changedLoad = api.loadTree('default', false);
+    const changedRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    changedRequest.flush({ nodes: changedNodes }, { headers: { ETag: '"tree-v2"' } });
+    await changedLoad;
+    expect(api.tree()).toBe(changedNodes);
+
+    const refreshedLoad = api.loadTree('default', false);
+    const refreshedRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(refreshedRequest.request.headers.get('If-None-Match')).toBe('"tree-v2"');
+    refreshedRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await refreshedLoad;
+    expect(api.tree()).toBe(changedNodes);
+
+    const otherPathLoad = api.loadTree('default', false, 'src/project');
+    const otherPathRequest = http.expectOne('/api/repos/default/tree?path=src%2Fproject');
+    expect(otherPathRequest.request.headers.has('If-None-Match')).toBeFalse();
+    otherPathRequest.flush({ nodes: [] }, { headers: { ETag: '"subtree-v1"' } });
+    await otherPathLoad;
+  });
+
+  it('reuses a project snapshot when its ETag is unchanged', async () => {
+    const dashboard: ProjectDashboard = {
+      generatedAt: '2026-08-27T10:00:00Z',
+      grades: [],
+      findings: {
+        open: 0,
+        bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+        byReviewState: { fresh: 0, stale: 0 },
+        path: '.',
+      },
+      staleness: { fresh: 0, stale: 0, missing: 0, total: 0, path: '.' },
+      reviewCoverage: { reviewedFiles: 0, totalFiles: 0, percent: 0, path: '.' },
+      testCoverage: { status: 'unavailable', linePercent: null, coveredLines: null, totalLines: null, source: null, path: '.' },
+      metrics: { fileCount: 0, folderCount: 0, bytes: 0, lines: 0, languages: [], fileSizeDistribution: [], folderSizeDistribution: [], duplicationCandidates: [], dependencyEdges: [] },
+      hotspots: [],
+    };
+
+    const firstLoad = api.loadProjectDashboard('default');
+    const firstRequest = http.expectOne('/api/repos/default/project');
+    expect(firstRequest.request.headers.has('If-None-Match')).toBeFalse();
+    firstRequest.flush(dashboard, { headers: { ETag: '"project-v1"' } });
+    await firstLoad;
+
+    const warmLoad = api.loadProjectDashboard('default');
+    const warmRequest = http.expectOne('/api/repos/default/project');
+    expect(warmRequest.request.headers.get('If-None-Match')).toBe('"project-v1"');
+    warmRequest.flush(null, {
+      status: 304,
+      statusText: 'Not Modified',
+      headers: { ETag: '"project-v1"' },
+    });
+    await warmLoad;
+
+    expect(api.project()).toBe(dashboard);
+    expect(api.projectError()).toBe('');
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
