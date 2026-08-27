@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-26T19:55:23Z",
+  "updatedAt": "2026-08-27T15:16:00Z",
   "sourceTaskKeys": [
     "QS-62",
     "QS-71",
@@ -54,10 +54,10 @@
     "QS-85"
   ],
   "implementationState": {
-    "verifiedAt": "2026-08-26T19:55:23Z",
+    "verifiedAt": "2026-08-27T15:16:00Z",
     "verifiedByTask": "QS-85",
     "status": "documented",
-    "integrationBase": "origin/main@e31089ccd5640bb2742a25a2a08a9a3120534656",
+    "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
     "wave1": {
       "taskKey": "QS-71",
       "sourceCommits": [
@@ -100,6 +100,19 @@
         "conflicts": "None. The preserved final QS-85 tree was restored directly onto its existing parent, current origin/main, and matches the prior final QS-85 tree exactly.",
         "gate": "Release build passed with 0 warnings and 0 errors; 221 .NET tests passed with one intentionally skipped live-provider test; 46 of 46 Karma browser tests passed; 5 of 5 dev-stack launcher tests passed; the production frontend bundle built; the Token Economy catalogue snapshot validated; and the repository security scan passed with 0 new, accepted, block, or warn findings across 364 files.",
         "uiEvidence": "Fresh before/after screenshots were reproduced on live Angular development servers. The base has no History section; the delivery shows five rows, a three-operation detail view, a two-run diff with two grade deltas and one regression, URL-restored state, and disabled comparison for corrupt and legacy rows."
+      },
+      "secondFinalRound": {
+        "verifiedAt": "2026-08-27T15:16:00Z",
+        "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
+        "deliveryCommits": [
+          "8315f2d",
+          "38ed65e",
+          "7641eec"
+        ],
+        "mergeCommit": "6157f3e9353ebf716293d2b2a46da5bb7e59086a",
+        "conflicts": "origin/main advanced one commit past the prior round's base (e31089c to f7557fb), adding an unrelated QS-88 url-preview-embed evidence script and npm entry. Merging the preserved QS-85 tree from backup/QS-85-final-before-rebase-20260827 produced exactly one conflict, in frontend/package.json's scripts object (evidence:url-preview-embed vs evidence:run-history); resolved by keeping both entries. No other file conflicted.",
+        "gate": "Debug and Release builds clean (0 warnings, 0 errors); 224 .NET tests passed (67 QualityStudio.Api.Tests, 157 AgentOrchestrator.CodeQuality.Tests, one intentionally skipped live-provider test); one unrelated timing-budget test (ProjectDashboardTests) failed once under load and passed in isolation and in a clean full rerun, recorded as environment noise; 46 of 46 Karma browser tests passed; 5 of 5 dev-stack launcher tests passed; dotnet run --project src/quality-cli -- security scan . reported pass across 367 files with 0 new/accepted/block/warn findings.",
+        "uiEvidence": "Before/after screenshots were recaptured live rather than reused: a temporary git worktree at f7557fb served the pre-slice 'before' capture (historySection: 0), and the merged delivery served the 'after' captures (collapsed entry, 5 rows including 1 corrupt and 1 legacy-usage-only row with disabled Compare, 3-operation detail drawer, 2-run diff with 2 grade deltas and 1 regression). The real dotnet API was also started standalone and GET /api/repos/default/review/history was confirmed to return 200 with an empty archive, verifying route wiring beyond unit tests."
       }
     },
     "nextSlice": {
