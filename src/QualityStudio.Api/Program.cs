@@ -31,7 +31,7 @@ builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequired
 builder.Services.AddSingleton<StalenessEvaluator>();
 builder.Services.AddSingleton<ReviewModelCatalog>();
 builder.Services.AddSingleton<QualityReportBuilder>();
-builder.Services.AddSingleton<InputResolver>();
+builder.Services.AddSingleton(_ => new InputResolver(RuleLibrary.Default));
 builder.Services.AddSingleton<GuidelineStore>();
 builder.Services.AddTransient<GuidelineImpactAnalyzer>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();

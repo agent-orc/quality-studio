@@ -143,7 +143,7 @@ public static class QualityCli
             var globalInputs = options.GlobalInputsDirectory ?? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS");
             if (options.ExplainInputs)
             {
-                var resolved = new InputResolver().Resolve(Directory.GetCurrentDirectory(), options.Kind,
+                var resolved = new InputResolver(RuleLibrary.Default).Resolve(Directory.GetCurrentDirectory(), options.Kind,
                     ReviewLevel.File, globalInputs, options.BudgetCharacters);
                 PrintInputExplanation(resolved);
                 return 0;

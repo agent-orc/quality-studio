@@ -75,6 +75,62 @@ public sealed class InputResolverTests : IDisposable
         Assert.Empty(new InputResolver().Resolve(root, "code", ReviewLevel.File).Inputs);
     }
 
+    [Fact]
+    public void Without_a_rule_library_no_built_in_tier_is_added()
+    {
+        var result = new InputResolver().Resolve(root, "code", ReviewLevel.File, global);
+
+        Assert.Empty(result.Inputs);
+    }
+
+    [Fact]
+    public void Built_in_default_on_rules_precede_global_and_project()
+    {
+        var result = new InputResolver(RuleLibrary.Default).Resolve(root, "code", ReviewLevel.File, global);
+
+        Assert.Equal(["qs-cs-003", "qs-ng-001", "qs-ng-005", "qs-ng-002"], result.Inputs.Select(input => input.Id));
+        Assert.All(result.Inputs, input => Assert.Equal("built-in", input.Scope));
+        Assert.True(result.Complete);
+    }
+
+    [Fact]
+    public void Global_input_overrides_a_built_in_rule_by_id()
+    {
+        Write(global, "qs-ng-001.md", "qs-ng-001", "code", "file", 999, "repo-specific token guidance");
+
+        var result = new InputResolver(RuleLibrary.Default).Resolve(root, "code", ReviewLevel.File, global);
+
+        var input = Assert.Single(result.Inputs, value => value.Id == "qs-ng-001");
+        Assert.Equal("global", input.Scope);
+        Assert.Equal("repo-specific token guidance", input.Content);
+        Assert.Contains(result.Omissions, omission => omission.Id == "qs-ng-001" && omission.Reason == "overridden-by-global");
+        Assert.True(result.Complete);
+    }
+
+    [Fact]
+    public void Project_input_overrides_a_built_in_rule_by_id()
+    {
+        Write(Project, "qs-ng-001.md", "qs-ng-001", "code", "file", 999, "project token guidance");
+
+        var result = new InputResolver(RuleLibrary.Default).Resolve(root, "code", ReviewLevel.File, global);
+
+        var input = Assert.Single(result.Inputs, value => value.Id == "qs-ng-001");
+        Assert.Equal("project", input.Scope);
+        Assert.Contains(result.Omissions, omission => omission.Id == "qs-ng-001" && omission.Reason == "overridden-by-project");
+    }
+
+    [Fact]
+    public void Quality_rules_json_disables_a_built_in_rule_for_the_repository()
+    {
+        File.WriteAllText(Path.Combine(root, ".quality", "rules.json"),
+            """{"overrides":[{"ruleId":"QS-NG-001","enabled":false,"reason":"Not applicable here."}]}""");
+
+        var result = new InputResolver(RuleLibrary.Default).Resolve(root, "code", ReviewLevel.File, global);
+
+        Assert.DoesNotContain(result.Inputs, input => input.Id == "qs-ng-001");
+        Assert.Contains(result.Inputs, input => input.Id == "qs-ng-005");
+    }
+
     private string Project => Path.Combine(root, ".quality", "inputs");
 
     private static void Write(string directory, string file, string id, string kinds, string levels, int priority, string body) =>

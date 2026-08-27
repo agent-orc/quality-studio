@@ -25,7 +25,7 @@ public sealed record ResolvedInputs(
     IReadOnlyList<ReviewInput> Inputs,
     IReadOnlyList<InputOmission> Omissions)
 {
-    public bool Complete => Omissions.All(omission => omission.Reason == "overridden-by-project");
+    public bool Complete => Omissions.All(omission => omission.Reason is "overridden-by-project" or "overridden-by-global");
 
     public string Guidelines(string scope)
     {
@@ -57,6 +57,12 @@ public sealed record ResolvedInputs(
 public sealed class InputResolver
 {
     public const int DefaultBudgetCharacters = 12_000;
+    private readonly RuleLibrary? ruleLibrary;
+
+    public InputResolver(RuleLibrary? ruleLibrary = null)
+    {
+        this.ruleLibrary = ruleLibrary;
+    }
 
     public ResolvedInputs Resolve(
         string repositoryRoot,
@@ -71,17 +77,28 @@ public sealed class InputResolver
 
         var normalizedKind = kind.ToLowerInvariant();
         var normalizedLevel = level.ToString().ToLowerInvariant();
+        var projectRoot = Path.GetFullPath(repositoryRoot);
+        var builtIn = ReadBuiltIn(projectRoot, normalizedKind, normalizedLevel);
         var global = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
             globalInputsDirectory);
-        var projectRoot = Path.GetFullPath(repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
         var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var omissions = global
+        var globalIds = global.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var omissions = new List<InputOmission>();
+        omissions.AddRange(global
             .Where(input => projectIds.Contains(input.Id))
-            .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0))
-            .ToList();
-        var effective = global.Where(input => !projectIds.Contains(input.Id)).Concat(project).ToArray();
+            .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0)));
+        omissions.AddRange(builtIn
+            .Where(input => projectIds.Contains(input.Id))
+            .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0)));
+        omissions.AddRange(builtIn
+            .Where(input => !projectIds.Contains(input.Id) && globalIds.Contains(input.Id))
+            .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-global", 0)));
+        var effective = builtIn.Where(input => !projectIds.Contains(input.Id) && !globalIds.Contains(input.Id))
+            .Concat(global.Where(input => !projectIds.Contains(input.Id)))
+            .Concat(project)
+            .ToArray();
 
         var remaining = budgetCharacters;
         var included = new List<ReviewInput>();
@@ -102,6 +119,27 @@ public sealed class InputResolver
         return new ResolvedInputs(normalizedKind, normalizedLevel, budgetCharacters,
             budgetCharacters - remaining, included, omissions);
     }
+
+    private IReadOnlyList<ReviewInput> ReadBuiltIn(string repositoryRoot, string kind, string level)
+    {
+        if (ruleLibrary is null) return [];
+        return ruleLibrary.ResolveDefaultOn(repositoryRoot)
+            .Where(rule => Applies(rule.Kinds, kind) && Applies(rule.Levels, level))
+            .OrderByDescending(rule => SeverityPriority(rule.Severity))
+            .ThenBy(rule => rule.Id, StringComparer.Ordinal)
+            .Select(rule => new ReviewInput(rule.Id.ToLowerInvariant(), $"rule-library:{rule.Id}", "built-in",
+                SeverityPriority(rule.Severity), rule.Kinds, rule.Levels, true, rule.Content, string.Empty, false))
+            .ToArray();
+    }
+
+    private static int SeverityPriority(string severity) => severity switch
+    {
+        "critical" => 900,
+        "high" => 700,
+        "medium" => 500,
+        "low" => 300,
+        _ => 100,
+    };
 
     private static IReadOnlyList<ReviewInput> ReadDirectory(
         string? directory, string scope, string kind, string level, string? confinementRoot)

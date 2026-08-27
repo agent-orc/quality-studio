@@ -271,9 +271,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var code = json.GetProperty("kinds").GetProperty("code");
-        var input = Assert.Single(code.GetProperty("inputs").EnumerateArray());
-        Assert.Equal("sample-rules", input.GetProperty("id").GetString());
-        Assert.Equal("project", input.GetProperty("scope").GetString());
+        var inputs = code.GetProperty("inputs").EnumerateArray().ToArray();
+        var project = Assert.Single(inputs, value => value.GetProperty("scope").GetString() == "project");
+        Assert.Equal("sample-rules", project.GetProperty("id").GetString());
+        var builtIn = inputs.Where(value => value.GetProperty("scope").GetString() == "built-in").ToArray();
+        Assert.Equal(4, builtIn.Length);
+        Assert.Contains(builtIn, value => value.GetProperty("id").GetString() == "qs-ng-001");
         Assert.Empty(json.GetProperty("kinds").GetProperty("security").GetProperty("inputs").EnumerateArray());
     }
 

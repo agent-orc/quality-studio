@@ -78,7 +78,7 @@ public sealed class ReviewRunner
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
-        _inputResolver = inputResolver ?? new InputResolver();
+        _inputResolver = inputResolver ?? new InputResolver(RuleLibrary.Default);
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
