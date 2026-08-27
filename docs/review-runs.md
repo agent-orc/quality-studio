@@ -16,6 +16,25 @@ The server-side acceptance test exercises a two-file plus aggregate sweep throug
 
 The API runs uncapped file reviews with bounded concurrency (`ReviewJobs:MaxConcurrency`, default `2`). Capped runs execute serially so concurrent files cannot all cross the boundary. Container sweeps continue after individual file failures and write the selected project, module, or namespace review after all file attempts finish.
 
+Every file and aggregate reviewer operation has a process-attach watchdog
+(`ReviewJobs:ReviewerAttachTimeout`, default `00:00:30`) and a total wall-clock watchdog
+(`ReviewJobs:OperationTimeout`, default `00:15:00`). Expiry cancels the runner, requests
+process-tree termination, waits only the bounded `ReviewJobs:ReclaimGracePeriod` (default
+`00:00:05`), and then advances the queue even if a faulty executor still ignores
+cancellation. The run fails with a typed `reviewer_attach_timeout`,
+`reviewer_operation_timeout`, `reviewer_launch_failed`, or `reviewer_process_failed`
+error. The typed error includes the reviewer operation id, configured CLI path, and
+durable diagnostics directory when available. Startup recovery also releases stale
+running files under a durable cancelled run before any queued work is resumed.
+
+Claude prompts use stdin rather than a process argument. The 2026-08-18 failed runs had
+rendered prompts far above process-launch limits (including Windows' 32,767-character
+command-line limit and Linux's per-argument limit); the reviewer therefore could fail
+before a Claude process attached. Stdin removes that launch limit and keeps repository
+content out of process listings. Reviewer launch, attached PID, CLI path, and log directory
+are emitted through the API host logger; raw per-stream runner logs are stored under
+`ReviewJobs:ReviewerLogDirectory`.
+
 Before every file and aggregate operation, the runner compares the current subject manifest hash, effective review-inputs hash, and requested model with the existing sidecar. A unit is `skipped-fresh` only when all three match, and the agent is not called. The run snapshot and durable status include these skips; aggregate freshness is exposed through `aggregateState`. Set `force: true` on the start or estimate request to bypass this gate for every unit in the run.
 
 A run may use one token cap or one cost cap. Omitting both inherits the repository's default. Enforcement happens in `ReviewJobService` at durable review-operation boundaries: once recorded usage reaches the cap, no next file or aggregate operation starts. The operation that crosses the threshold is allowed to finish cleanly, so actual spend can exceed the cap by at most that operation. Remaining files are persisted as `skipped`, the aggregate is reported as `skipped` when applicable, and the run ends as `capped` with a stop reason and complete reviewed, failed, and skipped counts.
