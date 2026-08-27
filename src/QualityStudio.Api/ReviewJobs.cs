@@ -624,6 +624,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly Dictionary<string, MutableFileProgress> progress;
         private readonly Dictionary<string, ReviewObservationSnapshot> observations;
         private readonly QualityRunReportStore reportStore;
+        private readonly QualityRunReportPinStore reportPinStore;
         private readonly List<string> errors;
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
@@ -652,6 +653,7 @@ public sealed class ReviewJobService : BackgroundService
             this.store = store;
             Repository = repository;
             reportStore = new QualityRunReportStore(repository.RootPath);
+            reportPinStore = new QualityRunReportPinStore(repository.RootPath);
             observations = storedObservations?.ToDictionary(pair => pair.Key, pair => pair.Value,
                 StringComparer.Ordinal) ?? new Dictionary<string, ReviewObservationSnapshot>(StringComparer.Ordinal);
             reportRevision = reportStore.TryLoad(manifest.RunId, out var existingReport)
@@ -1112,6 +1114,7 @@ public sealed class ReviewJobService : BackgroundService
                 reportStore.LoadAll());
             reportStore.Save(report);
             reportRevision = report.Run.Revision;
+            reportStore.Prune(QualityRunReportStore.DefaultRetentionKeep, reportPinStore.Load());
         }
 
         private ReviewRunStatus DurableStatusCore()
