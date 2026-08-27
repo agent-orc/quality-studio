@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -556,6 +557,22 @@
   <section class="box accent">
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
+  </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. Each entry records what landed for one approval-ready slice; it does not revise the decisions in sections 1-13.</p>
+
+  <section class="box ok">
+    <h4>2026-08-27 &middot; <code>QS-76</code> &middot; T1. Contract and catalogue foundation</h4>
+    <p><b>Status:</b> <span class="pill done">decided</span> delivered, per the 2026-08-11 blanket operator approval.</p>
+    <ul>
+      <li>Added <code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code>, pinning the section 6/7 axes, term shape, and immutable observation contract.</li>
+      <li>Added the embedded core catalogue <code>src/AgentOrchestrator.CodeQuality/catalogues/quality-studio-core.v1.json</code> (<code>quality-studio/core@1.0.0</code>), matching the section 6 canonical axes and the 16-entry initial aspect catalogue with their migration aliases.</li>
+      <li>Added <code>src/AgentOrchestrator.CodeQuality/QualityTaxonomy.cs</code>: C# contract records for the taxonomy catalogue and the observation document, a digest-checked catalogue loader, and <code>LegacyQualityMapper</code> &mdash; a pure adapter library covering every row of the section 8 compatibility mapping table (security/flow/attack verdicts, change summary and aspect verdicts, finding-state spellings including the <code>falsePositive</code>/<code>false-positive</code> drift, and JSON/text evidence-string preservation).</li>
+      <li>Added <code>tests/AgentOrchestrator.CodeQuality.Tests/QualityTaxonomyTests.cs</code>: positive/negative JSON Schema fixtures for both schemas, a round-trip test for explicit and legacy (<code>x-*</code>) extensions, unsupported-schema-major and unsupported-taxonomy-major quarantine behavior that preserves raw JSON, unknown-extension-term aggregation exclusion, and deterministic-mapping theory tests for every legacy spelling in section 8.</li>
+      <li><b>No writer changed.</b> Nothing in this slice touches <code>ReviewRunner</code>, the review sidecar, finding state, usage telemetry, or any other existing writer &mdash; matching the T1 scope note in section 10. Production output is unchanged; <code>dotnet build</code> and <code>dotnet test</code> are green (191 tests, 0 failed, 1 pre-existing skip unrelated to this change).</li>
+    </ul>
+    <p><b>Follow-up (not delivered in this card):</b> T2 (immutable observation dual-write and route provenance), T3 (typed evidence, producer provenance, issue lifecycle v2), T4 (observation-backed projections and per-model records), and T5 (domain adapters and migration tool) remain open, in that dependency order, as their own future cards.</p>
   </section>
 </main>
 </body>
