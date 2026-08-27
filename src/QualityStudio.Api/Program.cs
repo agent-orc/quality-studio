@@ -156,6 +156,22 @@ app.Use(async (context, next) =>
     var bodySizeFeature = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
     if (bodySizeFeature is { IsReadOnly: false }) bodySizeFeature.MaxRequestBodySize = apiSecurity.MaxRequestBodyBytes;
 
+    var isMutationMethod = HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
+        HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method);
+
+    // Local mode has no bearer credential to forge, but a malicious page open in the operator's browser
+    // could still submit a blind cross-origin mutation against the loopback API (docs/operations/security/index.html, F-06).
+    if (apiSecurity.IsLocal && isMutationMethod)
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        if (origin.Length > 0 && !corsOptions.AllowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+        {
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "Cross-origin mutation is not permitted").ExecuteAsync(context);
+            return;
+        }
+    }
+
     var identity = apiSecurity.Authenticate(context);
     if (identity is null)
     {
@@ -165,8 +181,7 @@ app.Use(async (context, next) =>
     }
     apiSecurity.SetIdentity(context, identity);
 
-    if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
-        HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
+    if (isMutationMethod)
     {
         if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
         {
@@ -181,12 +196,20 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryItem = repositoryId is not null &&
+        string.Equals(path, $"/api/repos/{repositoryId}", StringComparison.OrdinalIgnoreCase);
+    // A client scoped to repository A's data must not be able to reconfigure A's sensor execution profile:
+    // repository-item mutations turn into host command execution once a sensor "command" is attacker-controlled
+    // (docs/operations/security/index.html, F-01/R-01), so they require the same registrar privilege as creation.
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport ||
+        (isRepositoryItem && (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))))
     {
         if (!identity.CanRegisterRepositories)
         {
-            await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Repository registration is not permitted")
-                .ExecuteAsync(context);
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: isRepositoryItem
+                    ? "Repository configuration changes are not permitted"
+                    : "Repository registration is not permitted").ExecuteAsync(context);
             return;
         }
     }
@@ -278,8 +301,8 @@ app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).R
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);

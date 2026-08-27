@@ -29,6 +29,14 @@ public sealed class ApiSecurityOptions
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
+
+    /// <summary>
+    /// A repository-scoped client's sensor configuration can otherwise turn into arbitrary host command
+    /// execution (docs/operations/security/index.html, F-01/S0). Explicit, caller-supplied "command"
+    /// sensor configuration is rejected by default; the host's own deterministic sensor defaults are unaffected.
+    /// </summary>
+    public bool AllowCommandBackedAnalyzers { get; set; }
+
     public List<ApiClientOptions> Clients { get; set; } = [];
 }
 
