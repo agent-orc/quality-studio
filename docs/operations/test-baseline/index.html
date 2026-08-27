@@ -584,6 +584,10 @@
         <td>2026-08-11</td><td><code>QS-75</code></td><td><b>5. Release canary follow-up</b></td>
         <td>Hardened the canary after local verification reproduced host timing variance: all three .NET and browser samples now run even when an earlier sample fails, evidence is still published, and a final step fails the workflow with machine, product, or external-dependency classification. A required repository contract test protects that collection-before-enforcement behavior.</td>
       </tr>
+      <tr>
+        <td>2026-08-27</td><td><code>QS-75</code></td><td><b>Integration refresh on remote HEAD</b></td>
+        <td>Rebased the five-slice implementation onto the repository's current integration branch and revalidated the complete portable gate. The remote no longer exposes <code>develop</code>, so the refresh used its actual HEAD, <code>origin/main</code>. Newer integration commits had explicitly retired the weekday canary schedule; their manual labeled-host canary policy was preserved under the first-writer rule, while multi-sample evidence retention, result classification, and the optional live-review path remain active. No other approved slice work was skipped.</td>
+      </tr>
     </tbody>
   </table>
 </main>
