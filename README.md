@@ -210,7 +210,9 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` is the required gate: it builds and tests the .NET
+  solution, builds the production Angular bundle, runs the Angular test suite against
+  a pinned Chromium, and runs the security scan, for pushes and pull requests to `main`.
 
 ## Minimal API
 
