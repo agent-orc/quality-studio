@@ -380,27 +380,26 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             sensor => sensor.GetProperty("id").GetString() == "dependencies");
         Assert.Equal("1.0.0", dependency.GetProperty("version").GetString());
         Assert.True(dependency.GetProperty("enabled").GetBoolean());
+        Assert.False(dependency.GetProperty("required").GetBoolean());
         Assert.True(dependency.GetProperty("available").GetBoolean());
         Assert.Contains("path", dependency.GetProperty("scopes").EnumerateArray().Select(scope => scope.GetString()));
         var boundaries = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
             sensor => sensor.GetProperty("id").GetString() == "boundaries");
-        Assert.True(boundaries.GetProperty("enabled").GetBoolean());
+        Assert.False(boundaries.GetProperty("enabled").GetBoolean());
+        Assert.False(boundaries.GetProperty("required").GetBoolean());
         Assert.True(boundaries.GetProperty("available").GetBoolean());
     }
 
     [Fact]
-    public async Task Boundary_sensor_scan_persists_repository_owned_inventory()
+    public async Task Unconfigured_boundary_sensor_scan_is_rejected_without_persisting_inventory()
     {
         using var client = application!.CreateClient();
         using var response = await client.PostAsync("/api/sensors/boundaries/scan", null,
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
-        Assert.True(File.Exists(path));
-        using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
-        Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
-        Assert.Equal("boundaries", inventory.RootElement.GetProperty("sensor").GetString());
+        Assert.False(File.Exists(path));
     }
 
     [Fact]

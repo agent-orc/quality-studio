@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -184,6 +184,11 @@
   <section class="box accent" aria-labelledby="approval-title">
     <h4 id="approval-title">Approval requested</h4>
     <p><b>Approve a selective, snapshot-bound preflight in the API/backend before every review sweep.</b> Run configured checks once, persist their facts separately, skip only the model operation whose subject is invalid, and send compact context only when judgement is still useful. Keep the selected model and thinking-level correctness floor unchanged. Add Node CI coverage, changed-line style baselines, explicit complexity thresholds, and matched token measurements.</p>
+  </section>
+
+  <section class="box ok" aria-labelledby="decision-recorded-title">
+    <h4 id="decision-recorded-title">Decision recorded</h4>
+    <p>The operator approved option C and slices S1–S5 on 11 August 2026. Implementation receipts are appended below as slices land.</p>
   </section>
 
   <div class="decision-grid" aria-label="Decision summary">
@@ -205,6 +210,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -577,7 +583,17 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <article class="slice">
+      <header><h3>2026-08-27 · QS-72 · S1 · One snapshot-bound preflight</h3><span class="pill done">implemented</span></header>
+      <p><b>What landed:</b> Added the versioned <code>PreflightResult</code>/<code>PreflightSnapshot</code> contract; explicit required/optional and command metadata; source, configuration, sensor, and tool-version cache identity; one backend-owned collection pass for deterministic and security sensors; subject projection into review requests and estimates; durable <code>preflight.json</code> run evidence and API access; visible preflight progress, unavailable, and blocked-operation states; source/config/baseline invalidation before subsequent model operations; and a feature flag for the previous collection path.</p>
+      <p><b>Verification:</b> Contract and orchestration tests cover stable hashes, one invocation per configured sensor, optional versus required unavailability, tool/source/config/baseline invalidation, affected-subject blocking, persistence, recovery, estimate evidence reuse, and terminal reporting.</p>
+      <p><b>Follow-up:</b> S2 compiler/package/budget gates, S3 lint/style baselines, S4 thresholded complexity, and S5 matched economy evidence remain separate implementation slices under the one-slice delivery rule.</p>
+    </article>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation · updated 27 August 2026</footer>
 </main>
 </body>
 </html>

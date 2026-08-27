@@ -21,7 +21,8 @@ public sealed record SecuritySensorEvidence(
     string? UnavailableReason,
     SecurityEvidenceVerdict Verdict,
     IReadOnlyDictionary<string, string> ToolVersions,
-    IReadOnlyList<ReviewFinding> Findings);
+    IReadOnlyList<ReviewFinding> Findings,
+    bool Required = true);
 
 public sealed record SecurityEvidenceBundle(
     SecurityEvidenceVerdict Verdict,
@@ -52,6 +53,7 @@ public sealed record SecurityEvidenceBundle(
             ["resultHash"] = sensor.ResultHash,
             ["available"] = sensor.Available,
             ["unavailableReason"] = sensor.UnavailableReason,
+            ["required"] = sensor.Required,
             ["verdict"] = VerdictName(sensor.Verdict),
             ["toolVersions"] = new JsonObject(sensor.ToolVersions.OrderBy(pair => pair.Key, StringComparer.Ordinal)
                 .Select(pair => KeyValuePair.Create<string, JsonNode?>(pair.Key, pair.Value))),
@@ -147,8 +149,30 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             .Select(configuration => CollectSensorAsync(repositoryRoot, subjects, configuration, cancellationToken))
             .ToArray();
         var evidence = await Task.WhenAll(tasks).ConfigureAwait(false);
+        return Bundle(evidence);
+    }
+
+    public static SecurityEvidenceBundle FromPreflight(
+        IReadOnlyList<PreflightResult> results,
+        IReadOnlyList<string> subjectPaths,
+        IReadOnlyList<ReviewSensorConfiguration> configurations)
+    {
+        var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath)
+            .ToHashSet(StringComparer.Ordinal);
+        var byId = results.ToDictionary(result => result.Check.Id, StringComparer.OrdinalIgnoreCase);
+        var sensors = configurations
+            .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(configuration => byId.TryGetValue(configuration.Id, out var result)
+                ? Project(result, subjects)
+                : Unavailable(configuration.Id, "unknown", "Preflight result was not collected.", configuration.Required))
+            .ToArray();
+        return Bundle(sensors);
+    }
+
+    private static SecurityEvidenceBundle Bundle(IEnumerable<SecuritySensorEvidence> evidence)
+    {
         var ordered = evidence.OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
-        var verdict = ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Unavailable)
+        var verdict = ordered.Any(sensor => sensor.Required && sensor.Verdict == SecurityEvidenceVerdict.Unavailable)
             ? SecurityEvidenceVerdict.Unavailable
             : ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Block)
                 ? SecurityEvidenceVerdict.Block
@@ -156,6 +180,39 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                     ? SecurityEvidenceVerdict.Warn
                     : SecurityEvidenceVerdict.Pass;
         return new SecurityEvidenceBundle(verdict, ordered);
+    }
+
+    private static SecuritySensorEvidence Project(
+        PreflightResult result,
+        IReadOnlySet<string> subjectPaths)
+    {
+        var findings = result.Findings
+            .Select(finding => finding with
+            {
+                Locations = finding.Locations.Where(location =>
+                    subjectPaths.Contains(SecurityEvidenceBundle.NormalizePath(location.Path))).ToArray(),
+            })
+            .Where(finding => finding.Locations.Count > 0)
+            .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+            .ToArray();
+        var available = result.Status is not (PreflightStatus.Unavailable or PreflightStatus.Failed);
+        var verdict = !available
+            ? SecurityEvidenceVerdict.Unavailable
+            : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
+                ? SecurityEvidenceVerdict.Block
+                : findings.Length > 0
+                    ? SecurityEvidenceVerdict.Warn
+                    : SecurityEvidenceVerdict.Pass;
+        return new SecuritySensorEvidence(
+            result.Check.Id,
+            result.Check.Version,
+            result.ResultHash,
+            available,
+            result.StatusReason,
+            verdict,
+            result.Check.ToolVersions,
+            findings,
+            result.Check.Required);
     }
 
     private async Task<SecuritySensorEvidence> CollectSensorAsync(
@@ -205,7 +262,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 result.UnavailableReason,
                 verdict,
                 result.Provenance.ToolVersions,
-                findings);
+                findings,
+                true);
             return draft with { ResultHash = Hash(draft) };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -218,7 +276,7 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
         }
     }
 
-    private static SecuritySensorEvidence Unavailable(string id, string version, string reason)
+    private static SecuritySensorEvidence Unavailable(string id, string version, string reason, bool required = true)
     {
         var draft = new SecuritySensorEvidence(
             id,
@@ -228,7 +286,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             reason,
             SecurityEvidenceVerdict.Unavailable,
             new Dictionary<string, string>(),
-            Array.Empty<ReviewFinding>());
+            Array.Empty<ReviewFinding>(),
+            required);
         return draft with { ResultHash = Hash(draft) };
     }
 
@@ -240,6 +299,7 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             ["version"] = evidence.SensorVersion,
             ["available"] = evidence.Available,
             ["unavailableReason"] = evidence.UnavailableReason,
+            ["required"] = evidence.Required,
             ["verdict"] = SecurityEvidenceBundle.VerdictName(evidence.Verdict),
             ["toolVersions"] = new JsonObject(evidence.ToolVersions.OrderBy(pair => pair.Key, StringComparer.Ordinal)
                 .Select(pair => KeyValuePair.Create<string, JsonNode?>(pair.Key, pair.Value))),
@@ -382,6 +442,8 @@ public static class SecurityReviewCombiner
             SecurityEvidenceVerdict.Block => "Machine sensors reported blocking security evidence.",
             SecurityEvidenceVerdict.Warn => "Machine sensors reported warning-level security evidence.",
             SecurityEvidenceVerdict.Unavailable => "At least one required machine sensor was unavailable; this review is not a clean result.",
+            _ when evidence.Sensors.Any(sensor => !sensor.Available) =>
+                "At least one optional machine sensor was unavailable; deterministic coverage is incomplete.",
             _ => "Machine sensors completed without active findings.",
         };
         grade["rationale"] = $"{machineStatement} Agent judgement: {grade["rationale"]!.GetValue<string>()}";
