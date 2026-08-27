@@ -94,6 +94,7 @@
   .legend span::before { content: ""; display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 7px; vertical-align: middle; background: var(--c); }
   .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; }
   .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.decided { background: var(--ok-soft); color: var(--ok); }
   .pill.queued { background: var(--accent-soft); color: var(--develop); }
   .pill.new { background: var(--warn-soft); color: var(--warn); }
   .pill.part { background: var(--warn-soft); color: var(--warn); }
@@ -174,12 +175,16 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
     </div>
   </header>
+
+  <div class="box accent">
+    <p><b>Decided (11 August 2026):</b> the operator gave blanket approval to option C and all of slices S1–S5, including slices previously marked operator-decision-gated. Implementation proceeds under card QS-72, one slice per delivery; see the Implementation log (section 11) for what has actually landed.</p>
+  </div>
 
   <section class="box accent" aria-labelledby="approval-title">
     <h4 id="approval-title">Approval requested</h4>
@@ -205,6 +210,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation-log">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -419,9 +425,9 @@
         <tr><td><b>Angular production budget</b></td><td>Low / 9.56 s</td><td>Exact checked-in performance budget; currently finds a blocking regression.</td><td><span class="pill done">S2</span> Required for project performance review and CI.</td></tr>
         <tr><td><b>NuGet/npm advisories</b></td><td>Low / 4.44 s solution NuGet; 1.41 s npm sensor</td><td>Authoritative package/advisory facts; current npm result is material.</td><td><span class="pill done">S2</span> Run once per ecosystem/snapshot. Preserve existing security caps.</td></tr>
         <tr><td><b>Gitleaks</b></td><td>Already delivered / 1.55 s</td><td>Secret detection with redaction and repository baseline.</td><td><span class="pill done">preserve</span> Move collection to once-per-sweep shared preflight.</td></tr>
-        <tr><td><b>ESLint + Angular rules</b></td><td>Medium / unmeasured; project setup absent</td><td>Deterministic correctness, async, template, and accessibility rules.</td><td><span class="pill queued">S3</span> Pin first, shadow against a baseline, then gate new high-confidence rules.</td></tr>
-        <tr><td><b>.NET whitespace + Prettier</b></td><td>Low / 6.81 s .NET; Node unmeasured</td><td>Removes style work from model judgement.</td><td><span class="pill queued">S3</span> Changed-line gate only. Current .NET zero-baseline would fail 10 files.</td></tr>
-        <tr><td><b>Complexity thresholds</b></td><td>Low–medium / shares Roslyn and ESLint processes</td><td>Stable hotspot signal and enforceable maintainability limit.</td><td><span class="pill queued">S4</span> CA1502/CA1505 plus ESLint complexity; warning until repository distributions are reviewed.</td></tr>
+        <tr><td><b>ESLint + Angular rules</b></td><td>Medium / pinned 2026-08-27; 28 baselined findings across 11 frontend files</td><td>Deterministic correctness, async, template, and accessibility rules.</td><td><span class="pill done">S3</span> Implemented: pinned, flat config, finding-level baseline gates new debt only.</td></tr>
+        <tr><td><b>.NET whitespace + Prettier</b></td><td>Low / 6.81 s .NET; Prettier pinned 2026-08-27, 62 baseline-era files</td><td>Removes style work from model judgement.</td><td><span class="pill done">S3</span> Implemented: .NET whitespace file baseline (10 files); Prettier gated on files changed vs. base ref.</td></tr>
+        <tr><td><b>Complexity thresholds</b></td><td>Low–medium / shares Roslyn and ESLint processes</td><td>Stable hotspot signal and enforceable maintainability limit.</td><td><span class="pill decided">S4</span> CA1502/CA1505 plus ESLint complexity; warning until repository distributions are reviewed.</td></tr>
       </tbody>
     </table>
 
@@ -463,7 +469,7 @@
     <h2><span class="no">08</span>Implementation slices</h2>
 
     <article class="slice">
-      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill queued">approve first</span></header>
+      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill decided">decided · approve first</span></header>
       <p><b>Scope:</b> Introduce <code>PreflightResult v1</code> by extending the sensor result/provenance contract. Move all deterministic and security collection to <code>ReviewJobService</code> before file scheduling; execute each configured check once; cache by subject/config/tool hashes; persist under the existing run directory; project findings by subject.</p>
       <ul>
         <li>Default-enable only sensors with complete repository configuration; required versus optional is explicit.</li>
@@ -475,7 +481,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill queued">approve</span></header>
+      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill decided">decided</span></header>
       <p><b>Scope:</b> Configure repository-owned commands for .NET build/SARIF, tsc, ngc, Angular production build, batched NuGet audit, npm audit, and existing Gitleaks. Add the selective disposition matrix and compact prompt projection.</p>
       <ul>
         <li>Compiler errors block only affected file/project operations; warnings continue.</li>
@@ -487,7 +493,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S3 · Lint and style baselines</h3><span class="pill queued">approve</span></header>
+      <header><h3>S3 · Lint and style baselines</h3><span class="pill done">implemented</span></header>
       <p><b>Scope:</b> Pin ESLint, Angular/TypeScript plugins, and the SARIF formatter; add flat config and scripts. Pin Prettier and add a check script. Add a root .NET EditorConfig/format command. Capture fingerprinted current baselines and apply changed-file/changed-line gating.</p>
       <ul>
         <li>Separate correctness/security lint rules from formatting/style rules in disposition.</li>
@@ -498,7 +504,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill queued">approve</span></header>
+      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill decided">decided</span></header>
       <p><b>Scope:</b> Enable CA1502/CA1505 through <code>CodeMetricsConfig.txt</code> and <code>AdditionalFiles</code>; add ESLint's built-in complexity rule. Feed distributions and breached top-N symbols into the existing Project Dashboard/hotspot response.</p>
       <ul>
         <li>Choose initial thresholds after recording the current distribution; store threshold/config hash with findings.</li>
@@ -509,7 +515,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill queued">approve</span></header>
+      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill decided">decided</span></header>
       <p><b>Scope:</b> Shadow the preflight on matched snapshots, then enable gates in order: compilers, package/budget, lint new-debt, complexity warning. Publish one comparison report from the existing estimate and usage contracts.</p>
       <ul>
         <li>Record per run: check wall time, cache hits, finding counts, model calls planned/blocked/executed, prompt characters before/after compaction, actual input/output/cached/reasoning tokens, and estimate deviation.</li>
@@ -577,7 +583,24 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation-log">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Records what has actually landed under card QS-72, one entry per delivered slice. Does not revise the decision or analysis content above.</p>
+    <div class="box">
+      <h4>2026-08-27 · QS-72 · S3 (Lint and style baselines) implemented</h4>
+      <ul>
+        <li><b>.NET whitespace gate:</b> root <code>.editorconfig</code> (charset/indent/line-ending conventions matching the existing codebase) plus a file-level baseline at <code>.quality/style/dotnet-whitespace.baseline.json</code> listing the 10 files with pre-existing <code>dotnet format whitespace --verify-no-changes</code> drift. <code>scripts/check-dotnet-whitespace-baseline.mjs</code> (<code>npm run style:dotnet:check</code>) fails only on drift in files outside the baseline; resolved baseline entries are reported so they can be pruned.</li>
+        <li><b>ESLint, pinned:</b> <code>eslint@9.39.5</code>, <code>typescript-eslint@8.68.0</code>, <code>angular-eslint@20.7.0</code>, <code>eslint-config-prettier@10.1.8</code> in <code>frontend/</code> (flat config at <code>frontend/eslint.config.mjs</code>, covering <code>src/**/*.ts</code>, <code>src/**/*.html</code>, and <code>tests/**/*.mjs</code>); <code>eslint@9.39.5</code> at the repository root (<code>eslint.config.mjs</code>, covering <code>scripts/**/*.mjs</code> and root <code>tests/*.mjs</code>). Both run through <code>npm ci</code>-installed local binaries with no download side effect. A finding-level baseline at <code>.quality/style/eslint.baseline.json</code> (34 pre-existing findings: 28 frontend, 6 root) is enforced by <code>scripts/check-eslint-baseline.mjs</code> (<code>npm run style:eslint:check</code>), which fails only on <code>(file, ruleId, line)</code> findings outside the baseline.</li>
+        <li><b>Prettier, pinned:</b> <code>prettier@3.9.6</code> in <code>frontend/</code>, reusing the existing <code>prettier</code> config block in <code>frontend/package.json</code>. Because Prettier had never run against this tree, a whole-file baseline would cover essentially all 62 formattable files under <code>src/</code> and <code>tests/</code> and gate almost nothing; instead <code>scripts/check-frontend-format.mjs</code> (<code>npm run style:frontend:check</code>) implements a changed-file gate — it diffs (tracked + untracked) <code>frontend/src</code> and <code>frontend/tests</code> against a base ref (<code>PRETTIER_BASE_REF</code>, default <code>origin/main</code>) and requires only the touched files to be Prettier-clean. Existing untouched drift stays visible and non-blocking, which is closer to the dossier's "changed-line gate only" intent than a static whole-file baseline would have been at this drift level.</li>
+        <li><b>CI:</b> <code>.github/workflows/build.yml</code> now checks out full history, installs root and frontend Node dependencies via <code>npm ci</code>, and runs <code>style:eslint:check</code>, <code>style:frontend:check</code>, and <code>style:dotnet:check</code> alongside the existing .NET build/test/security-scan steps.</li>
+        <li><b>Tests:</b> <code>tests/check-dotnet-whitespace-baseline.test.mjs</code>, <code>tests/check-eslint-baseline.test.mjs</code>, and <code>tests/check-frontend-format.test.mjs</code> (13 cases total, <code>npm run test:style</code>) cover the parsing/classification logic in all three check scripts plus the shape of the checked-in baseline files.</li>
+        <li><b>Verified:</b> <code>dotnet build -c Release</code> and <code>dotnet test --filter "Category!=MachineBound"</code> green (202 passed, 1 skipped by design); all three new style gates pass against the current tree; <code>npm run test:style</code> (13/13) and the pre-existing <code>npm run test:dev-stack</code> both checked (the latter's 3-pass/2-fail result is a pre-existing environmental failure on a clean <code>origin/main</code> checkout, unrelated to this change — reproduced via <code>git stash</code> before concluding that).</li>
+        <li><b>Not in this slice:</b> ESLint's built-in <code>complexity</code> rule and CA1502/CA1505 (S4); moving sensor collection to a once-per-sweep <code>PreflightResult v1</code> (S1); compiler/package/budget CI gates for Angular, including a fix for the known 14.94&nbsp;kB production bundle budget overage (S2); economy/usage evidence (S5). These remain queued for follow-up cards.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation in progress (QS-72) · updated 27 August 2026</footer>
 </main>
 </body>
 </html>

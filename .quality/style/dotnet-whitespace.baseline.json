@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "check": "dotnet format whitespace --verify-no-changes",
+  "description": "Existing .NET whitespace drift, captured 2026-08-27 per docs/operations/static-analysis/index.html section 03/07.1 (S3). Files listed here are known debt and do not fail the gate; any file NOT listed here that dotnet format whitespace flags is new drift and fails the gate. Remove an entry once its file is reformatted (deleting a baseline issue resolves it).",
+  "files": [
+    "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+    "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+    "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+    "src/QualityStudio.Api/ApiContracts.cs",
+    "src/QualityStudio.Api/Program.cs",
+    "src/QualityStudio.Api/ProjectDashboard.cs",
+    "src/quality-cli/Program.cs",
+    "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+    "tests/QualityStudio.Api.Tests/ApiSecurityTests.cs",
+    "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs"
+  ]
+}

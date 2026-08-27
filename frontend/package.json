@@ -12,7 +12,9 @@
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence",
     "evidence:run-report": "node tests/run-report-evidence.mjs",
-    "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs"
+    "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs",
+    "lint": "eslint .",
+    "format:check": "prettier --check src tests"
   },
   "prettier": {
     "printWidth": 100,
@@ -43,8 +45,13 @@
     "@angular/build": "^20.3.32",
     "@angular/cli": "^20.3.32",
     "@angular/compiler-cli": "^20.3.0",
+    "@eslint/js": "9.39.5",
     "@types/jasmine": "~5.1.0",
     "@types/prismjs": "^1.26.5",
+    "angular-eslint": "20.7.0",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "16.5.0",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
@@ -52,6 +59,8 @@
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
     "playwright-core": "^1.61.1",
-    "typescript": "~5.9.2"
+    "prettier": "3.9.6",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "8.68.0"
   }
 }

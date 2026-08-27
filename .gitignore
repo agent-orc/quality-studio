@@ -5,6 +5,7 @@ src/QualityStudio.Api/.quality-studio/
 *.user
 *.suo
 .vs/
+/node_modules/
 
 # Orchestrator jobs live in the task-server workspace, never in the product repo (operator decision 2026-07-11)
 .orchestrator/

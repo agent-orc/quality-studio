@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "description": "Existing ESLint findings, captured 2026-08-27 per docs/operations/static-analysis/index.html section 08 (S3): pin first, shadow against a baseline, then gate new high-confidence rules. Entries listed here are known debt and do not fail the gate; any (file, ruleId, line) not listed here that ESLint reports is new and fails the gate. Remove an entry once it is fixed (deleting a baseline issue resolves it).",
+  "findings": [
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 86
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/interactive-supports-focus",
+      "line": 86
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 87
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 137
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/interactive-supports-focus",
+      "line": 137
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 138
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 217
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/interactive-supports-focus",
+      "line": 217
+    },
+    {
+      "file": "frontend/src/app/app.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 218
+    },
+    {
+      "file": "frontend/src/app/app.ts",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "line": 281
+    },
+    {
+      "file": "frontend/src/app/app.ts",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "line": 491
+    },
+    {
+      "file": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 1
+    },
+    {
+      "file": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "ruleId": "@angular-eslint/template/interactive-supports-focus",
+      "line": 1
+    },
+    {
+      "file": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 2
+    },
+    {
+      "file": "frontend/src/app/attack-coverage/attack-coverage.ts",
+      "ruleId": "@angular-eslint/no-output-native",
+      "line": 12
+    },
+    {
+      "file": "frontend/src/app/editor/editor.html",
+      "ruleId": "@angular-eslint/template/eqeqeq",
+      "line": 23
+    },
+    {
+      "file": "frontend/src/app/editor/editor.html",
+      "ruleId": "@angular-eslint/template/eqeqeq",
+      "line": 64
+    },
+    {
+      "file": "frontend/src/app/explorer/explorer.html",
+      "ruleId": "@angular-eslint/template/interactive-supports-focus",
+      "line": 6
+    },
+    {
+      "file": "frontend/src/app/explorer/explorer.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 15
+    },
+    {
+      "file": "frontend/src/app/explorer/explorer.html",
+      "ruleId": "@angular-eslint/template/interactive-supports-focus",
+      "line": 15
+    },
+    {
+      "file": "frontend/src/app/explorer/explorer.ts",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "line": 122
+    },
+    {
+      "file": "frontend/src/app/review-actions/review-actions.spec.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "line": 24
+    },
+    {
+      "file": "frontend/src/app/review-panel/review-panel.spec.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "line": 191
+    },
+    {
+      "file": "frontend/src/app/review-panel/review-panel.spec.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "line": 200
+    },
+    {
+      "file": "frontend/src/app/usage-history/usage-history.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 1
+    },
+    {
+      "file": "frontend/src/app/usage-history/usage-history.html",
+      "ruleId": "@angular-eslint/template/interactive-supports-focus",
+      "line": 1
+    },
+    {
+      "file": "frontend/src/app/usage-history/usage-history.html",
+      "ruleId": "@angular-eslint/template/click-events-have-key-events",
+      "line": 2
+    },
+    {
+      "file": "frontend/tests/url-preview-embed-evidence.mjs",
+      "ruleId": "no-useless-escape",
+      "line": 132
+    },
+    {
+      "file": "scripts/dev-stack.mjs",
+      "ruleId": "no-unused-vars",
+      "line": 1
+    },
+    {
+      "file": "scripts/dev-stack.mjs",
+      "ruleId": "no-unused-vars",
+      "line": 1
+    },
+    {
+      "file": "scripts/dev-stack.mjs",
+      "ruleId": "no-unused-vars",
+      "line": 1
+    },
+    {
+      "file": "scripts/dev-stack.mjs",
+      "ruleId": "no-unused-vars",
+      "line": 2
+    },
+    {
+      "file": "scripts/dev-stack.mjs",
+      "ruleId": "no-unused-vars",
+      "line": 4
+    },
+    {
+      "file": "tests/dev-stack.test.mjs",
+      "ruleId": "no-unused-vars",
+      "line": 8
+    }
+  ]
+}

@@ -7,6 +7,16 @@
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
-    "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs"
+    "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs",
+    "lint": "eslint scripts tests/*.mjs",
+    "style:eslint:check": "node scripts/check-eslint-baseline.mjs",
+    "style:dotnet:check": "node scripts/check-dotnet-whitespace-baseline.mjs",
+    "style:frontend:check": "node scripts/check-frontend-format.mjs",
+    "test:style": "node --test tests/check-dotnet-whitespace-baseline.test.mjs tests/check-frontend-format.test.mjs tests/check-eslint-baseline.test.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "globals": "16.5.0"
   }
 }
