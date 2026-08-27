@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "implemented",
   "phase": "first-slice",
-  "updatedAt": "2026-08-27T01:40:00Z",
+  "updatedAt": "2026-08-27T05:53:00Z",
   "sourceTaskKeys": [
     "QS-91",
     "AGT-2655",
@@ -37,7 +37,7 @@
     "apiTests": "51 passed",
     "frontendTests": "39 passed",
     "frontendBuild": "passed with existing warnings",
-    "cliProof": "15 findings and inventory artifact; exit 1 from the existing high-severity gate"
+    "cliProof": "0 findings and inventory artifact from a generated .NET console fixture; exit 0"
   },
   "evidence": [
     "src/AgentOrchestrator.CodeQuality/QualityAnalysisCore.cs",

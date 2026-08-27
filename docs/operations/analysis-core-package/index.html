@@ -178,7 +178,7 @@ foreach (ReviewFinding finding in result.Findings)
       <tbody>
         <tr><td>Publishable package</td><td>Package ID/assembly/root namespace <code>AgentOrchestrator.CodeQuality</code>, version <code>0.1.0</code>, Apache-2.0, repository metadata, English package README, symbols package, and .NET 10 target.</td></tr>
         <tr><td>Stable facade</td><td>Named multi-analysis request, per-analysis configuration and scope, no-write default, QS findings, availability and provenance, discovery, cancellation, and clear unknown-name errors.</td></tr>
-        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. A temporary fixture produced 15 structured findings and the expected repository artifact; its exit code was 1 because the CLI correctly applied its existing high-severity gate.</td></tr>
+        <tr><td>Real caller</td><td><code>quality-cli boundaries scan</code> calls the facade in process. A generated .NET console fixture produced the expected repository inventory artifact with no boundary findings and exit code 0.</td></tr>
         <tr><td>Host separation</td><td>Agent Studio HTTP client/tests and starter rule content moved to the API boundary. API routes and Angular source are unchanged.</td></tr>
         <tr><td>Release rail</td><td>CI now packs <code>.nupkg</code>/<code>.snupkg</code> and retains them as a workflow artifact. It does not publish.</td></tr>
       </tbody>
@@ -210,7 +210,7 @@ foreach (ReviewFinding finding in result.Findings)
       <li>API, handover, and dashboard tests: 51 passed.</li>
       <li>Angular UI: 39 tests passed in headless Chromium; the production build succeeded with its existing budget and CommonJS warnings.</li>
       <li>Package: <code>AgentOrchestrator.CodeQuality.0.1.0.nupkg</code> and symbols package created; archive contains the DLL and README, with the expected NuGet dependency.</li>
-      <li>CLI proof: in-process boundary analysis produced findings and a repository-owned inventory in a temporary fixture.</li>
+      <li>CLI proof: in-process boundary analysis completed successfully and produced a repository-owned inventory in a generated .NET console fixture.</li>
     </ul>
     <p class="note"><b>Collected evidence.</b> The task results directory contains the NuGet and symbols packages, TRX files for both .NET suites, and a machine-readable verification receipt. Package publication was intentionally not performed.</p>
     <h3>Next slices, not required for this proof</h3>
