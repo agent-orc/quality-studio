@@ -177,7 +177,7 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-61</span>
@@ -208,6 +208,7 @@
       <li><a href="#models">Per-model review-quality evidence</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#acceptance">Decision guardrails</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -629,6 +630,39 @@
         <tr><td><b>Both themes and keyboard paths work</b></td><td>Exact-span, overlap chooser, finding detail, assessment, and suppression preview have automated UI coverage and retained light/dark evidence.</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Each entry records what actually landed against this dossier, on which date, under which card. Earlier decisions above are not rewritten by later entries.</p>
+
+    <div class="box ok">
+      <h4>2026-08-11 &middot; Operator blanket approval</h4>
+      <p>The operator approved every recommendation in this dossier, including S5, which this dossier had marked as a paired Token-Economy-then-Quality-Studio card rather than a hard decision gate. <code>docs/operations/review-quality-evidence/workbench.json</code> records <code>status: "decided"</code> and the spawned implementation card <b>QS-70</b>.</p>
+    </div>
+
+    <article class="slice">
+      <header><span class="pill done">S1 &middot; delivered</span><h3>2026-08-23 &middot; QS-70 &middot; Exact-span finding highlight</h3></header>
+      <p><b>What landed:</b> the Editor now segments each syntax-token line at finding-range column boundaries instead of only tinting the whole line. A selected finding's exact columns get a <code>tok-selected</code> treatment; where two findings' ranges intersect on the same line, the intersection gets a distinct <code>tok-overlap</code> treatment. Segmentation is column-accurate (zero-based UTF-16 code unit offsets, matching <code>FindingIdentity.ExtractSnippet</code>'s server-side indexing) and Unicode-safe for BMP source text. The whole-line <code>selected-range</code> highlight is retained as the secondary affordance, per the target presentation in section 05. Finding cards and the location list now read <code>path:line:column</code> (and a <code>start-end</code> span for multi-line locations) instead of only <code>path:line</code>.</p>
+      <ul>
+        <li><b>No backend or schema change</b>, as scoped: this reuses the existing <code>ReviewFinding.locations[].range</code> (review-meta v2) end to end.</li>
+        <li>New pure module <code>frontend/src/app/editor/finding-span-segmentation.ts</code> (<code>segmentLineTokens</code>) plus <code>frontend/src/app/editor/finding-span-segmentation.spec.ts</code>: single-line, multi-line (start/middle/end line of one range), Unicode (multi-byte characters that stay single UTF-16 code units), end-of-line clamping, overlapping-range intersection, and token-kind preservation across a split token.</li>
+        <li><code>Editor.rangesByLine</code>/<code>segmentedLine</code>/<code>segmentClass</code>/<code>segmentAriaLabel</code> in <code>editor.ts</code>, wired into the <code>&lt;code&gt;</code> loop in <code>editor.html</code>. New central tokens <code>--finding-span-selected-bg</code>/<code>-underline</code> and <code>--finding-span-overlap-bg</code>/<code>-underline</code> plus <code>.tok-selected</code>/<code>.tok-overlap</code> rules in <code>frontend/src/styles.css</code>, resolved against the existing <code>--studio-accent</code>/<code>--studio-severity-high</code> tokens so both themes stay in sync without duplicated dark-mode values.</li>
+        <li><code>ReviewPanel.locationLabel</code> in <code>review-panel.ts</code> now emits the column.</li>
+        <li>Playwright evidence: <code>frontend/tests/exact-span-evidence.mjs</code> (<code>npm run evidence:exact-span</code>) renders two intersecting findings in light and dark, asserts the selected span reads exactly the non-overlapping remainder and the overlap span reads exactly the intersection, and asserts the rendered token text still reconstructs the original source before screenshotting.</li>
+        <li><b>Verification performed:</b> <code>npm test</code> (Karma/Jasmine, 47/47 passing, headless Chromium) and a manual run of the evidence script against a live <code>ng serve</code> instance of this worktree, confirmed against the rendered screenshots in both themes.</li>
+      </ul>
+    </article>
+
+    <div class="box ok">
+      <h4>2026-08-27 &middot; QS-70 &middot; S1 final integration</h4>
+      <p><b>What landed:</b> S1 was rebased onto current <code>origin/main</code> and its exact-span projection was compacted without changing the selected/overlap contract: finding membership and ranges now share one per-line projection, unmarked syntax spans retain their original token shape, and selected/overlap treatments resolve directly from the central Studio accent and severity tokens. The production Angular build remains inside the unchanged 480 kB hard budget at 479.92 kB. The final verification retained 47 passing Angular tests, 202 passing portable .NET tests with one opt-in live test skipped, and refreshed light/dark exact-span screenshots.</p>
+    </div>
+
+    <div class="box warn">
+      <h4>S2&ndash;S5: assessed, not attempted this round</h4>
+      <p>S2 (review-meta v3 evidence/provenance contract), S3 (assessment/resolution/suppression policy), S4 (immutable terminal run history), and S5 (TE-38 v2 bridge) are each a multi-file, cross-cutting change: new schema versions, C# record and service changes, TypeScript API types, migration/compatibility projections for existing <code>.quality/findings/state.json</code> data, and in S5's case a coordinated change to the separate Token Economy repository. Delivering any one of them to the same standard as S1 (tests, both-theme evidence, no half-finished surface) is a multi-day slice on its own, not something that fits alongside S1 in one clean delivery. No backend or schema files were touched in this pass. They remain queued in the priority order this dossier already sets (S2 &rarr; S3 &rarr; S4 &rarr; S5); the operator's blanket approval means none of them need a further decision gate before a future implementation pass picks them up.</p>
+    </div>
   </section>
 
   <footer>

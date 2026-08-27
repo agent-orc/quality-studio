@@ -3,6 +3,7 @@ import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { FindingSpanRange, SegmentedSpan, segmentLineTokens } from './finding-span-segmentation';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
@@ -63,12 +64,18 @@ export class Editor {
     if (!location?.range || location.path !== this.api.file()?.path) return null;
     return location;
   });
-  readonly findingsByLine = computed(() => {
-    const map = new Map<number, ReviewFinding[]>();
+  readonly findingLines = computed(() => {
+    const map = new Map<number, { findings: ReviewFinding[]; ranges: FindingSpanRange[] }>();
     const path = this.api.file()?.path;
     for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
       if (location.path !== path || !location.range) continue;
-      for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), finding]);
+      const fingerprint = finding.fingerprint ?? finding.id;
+      for (let line = location.range.start.line; line <= location.range.end.line; line++) {
+        const entry = map.get(line) ?? { findings: [], ranges: [] };
+        entry.findings.push(finding);
+        entry.ranges.push({ fingerprint, start: location.range.start, end: location.range.end });
+        map.set(line, entry);
+      }
     }
     return map;
   });
@@ -84,12 +91,12 @@ export class Editor {
   });
   readonly layoutRows = computed<CodeLayoutRow[]>(() => {
     const rows: CodeLayoutRow[] = [];
-    const markers = this.findingsByLine();
+    const markers = this.findingLines();
     const threads = this.threadsByLine();
     let top = 0;
     this.codeLines().forEach((text, index) => {
       const number = index + 1;
-      rows.push({ key: `line:${number}`, kind: 'code', text, number, top, height: this.lineHeight, findings: markers.get(number) ?? [] });
+      rows.push({ key: `line:${number}`, kind: 'code', text, number, top, height: this.lineHeight, findings: markers.get(number)?.findings ?? [] });
       top += this.lineHeight;
       for (const thread of threads.get(number) ?? []) {
         const expanded = !!this.expandedThreads()[thread.id];
@@ -240,6 +247,24 @@ export class Editor {
       : [{ text, kind: 'plain' } satisfies TokenSpan];
   }
 
+  segmentedLine(line: number, text: string): readonly SegmentedSpan[] {
+    const ranges = this.findingLines().get(line)?.ranges;
+    if (!ranges?.length) return this.tokensForLine(line, text);
+    const selected = this.selectedFinding();
+    return segmentLineTokens(this.tokensForLine(line, text), line, text, ranges, selected ? selected.fingerprint ?? selected.id : null);
+  }
+
+  segmentClass(segment: SegmentedSpan): string {
+    return `tok-${segment.kind}${segment.state ? ` tok-${segment.state}` : ''}`;
+  }
+
+  segmentAriaLabel(segment: SegmentedSpan, line: number): string | null {
+    if (!segment.state) return null;
+    return segment.state === 'overlap'
+      ? `Overlapping findings at line ${line}: ${segment.text}`
+      : `Selected finding span at line ${line}: ${segment.text}`;
+  }
+
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
 
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
@@ -271,7 +296,7 @@ export class Editor {
     const body = this.drafts()[`line:${line}`]?.trim();
     const file = this.api.file();
     if (!body || !file) return;
-    const finding = this.findingsByLine().get(line)?.[0];
+    const finding = this.findingLines().get(line)?.findings[0];
     const created = await this.api.mutateThread({ path: file.path, kind: this.activeKind(), line, body, findingFingerprint: finding?.fingerprint, humanName: 'Reviewer' });
     this.composingLine.set(null); this.setDraft(`line:${line}`, ''); this.api.focusedThreadId.set(created.id);
   }
