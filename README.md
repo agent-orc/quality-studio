@@ -224,14 +224,19 @@ machine-bound classifications are recorded in [`docs/test-lanes.md`](docs/test-l
 Run the same deterministic checks locally:
 
 ```shell
-dotnet restore QualityStudio.slnx
+npm run catalog:check
+dotnet restore QualityStudio.slnx --locked-mode
 dotnet build QualityStudio.slnx --configuration Release --no-restore
-dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
+dotnet test tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound" --collect:"XPlat Code Coverage" --results-directory .coverage/dotnet/core
+dotnet test tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --no-build --filter "Category!=MachineBound" --collect:"XPlat Code Coverage" --results-directory .coverage/dotnet/api
 npm --prefix frontend ci
 npm --prefix frontend run browser:install
 npm --prefix frontend run build
-CHROME_NO_SANDBOX=1 npm --prefix frontend test
+CHROME_NO_SANDBOX=1 npm --prefix frontend run test:coverage
 npm run test:dev-stack
+npm run test:coverage-ratchet
+npm run test:release-canary
+npm run coverage:verify
 dotnet run --project src/quality-cli --configuration Release --no-build -- security provision
 dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
 ```
