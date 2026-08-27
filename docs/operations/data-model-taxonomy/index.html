@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -556,6 +557,23 @@
   <section class="box accent">
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
+  </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. Each entry records what landed for one approval-ready slice from section 10; earlier entries are not rewritten.</p>
+
+  <h3>2026-08-27 &middot; <code>QS-76</code> &middot; T1 Contract and catalogue foundation <span class="pill done">delivered</span></h3>
+  <section class="box ok">
+    <p>Delivered the T1 slice exactly as scoped in section 10: new schemas and a pure legacy mapping library, with no existing writer touched. <code>ReviewRunner</code>, <code>SecurityReviewEvidence</code>, <code>FlowReviewRunner</code>, <code>ChangeSetReviewService</code>, and <code>QualityReportBuilder</code> are unchanged; no production output changes.</p>
+    <ul>
+      <li><code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code> pin the JSON structure from section 7 and the axis/aspect shape from section 6.</li>
+      <li><code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy.v1.core.json</code> is the embedded <code>quality-studio/core@1.0.0</code> catalogue: all eight axes from section 6 (<code>producerKind</code>, <code>evidenceStatus</code>, <code>assessment</code>, <code>change</code>, <code>decision</code>, <code>severity</code>, <code>lifecycle</code>, <code>evidenceKind</code>) and all sixteen aspects from the initial core aspect catalogue, each with its migration alias where section 6 lists one.</li>
+      <li><code>QualityTaxonomyModels.cs</code> adds the catalogue contract types and <code>QualityTaxonomyCatalogueResolver.ResolveCore()</code>, which loads and content-hashes the embedded catalogue and resolves both term aliases and aspect migration aliases.</li>
+      <li><code>QualityObservationContract.cs</code> adds the immutable observation record tree from section 7, with a <code>[JsonExtensionData]</code> property that preserves legacy <code>x-*</code> root fields instead of dropping them on round-trip (closing finding F7 for this new contract; existing <code>review-meta.v2</code> behavior is intentionally untouched). <code>QualityObservationAggregation</code> implements the section-6 rule that an aspect outside the core catalogue and outside an installed extension catalogue is visible but excluded from core aggregation.</li>
+      <li><code>QualityTaxonomyLegacyMapping.cs</code> is a pure, dependency-free adapter library covering every row of the section 8 compatibility table: security verdict, flow verdict, attack-coverage verdict, change summary, change-aspect verdict, finding-state lifecycle (including the drifted <code>accepted</code>/<code>falsePositive</code> spellings from F8), and evidence-string typing (valid JSON vs. plain text, per F4).</li>
+      <li>Tests: <code>QualityTaxonomyCatalogueTests</code>, <code>QualityObservationContractTests</code>, and <code>QualityTaxonomyLegacyMappingTests</code> (49 cases) cover positive/negative schema fixtures for every row in section 8, extension-field round-trip preservation, unsupported-major rejection that leaves the raw JSON parsable, and deterministic digest/alias resolution. Full repository gate: <code>dotnet build QualityStudio.slnx</code> and <code>dotnet test QualityStudio.slnx</code> both green (206 tests in <code>AgentOrchestrator.CodeQuality.Tests</code>, 48 in <code>QualityStudio.Api.Tests</code>, 1 pre-existing live-integration skip unrelated to this change).</li>
+    </ul>
+    <p><b>Not in this delivery (follow-up slices, per section 10 dependency order):</b> T2 (observation dual-write and route provenance, depends on T1), T3 (typed evidence/provenance/lifecycle v2, depends on T2), T4 (observation-backed projections and per-model records, depends on T3), T5 (domain adapters and migration tool, depends on T4). No writer was changed and no rollout flag from section 11 was introduced, since section 11's <code>QualityTaxonomy:ObservationWriteEnabled</code> gate belongs to T2's dual-write, not T1.</p>
   </section>
 </main>
 </body>

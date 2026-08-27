@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "title": "Quality Studio immutable observation envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {}
+  },
+  "required": [
+    "$schema", "schemaVersion", "observationId", "taxonomy", "subject", "profile",
+    "producer", "evidenceStatus", "evidence", "aspects", "assessment", "findings"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-observation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "observationId": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "taxonomy": { "$ref": "#/$defs/taxonomyReference" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "producer": { "$ref": "#/$defs/producer" },
+    "evidenceStatus": { "enum": ["available", "partial", "unavailable"] },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+    "aspects": { "type": "array", "items": { "$ref": "#/$defs/aspect" } },
+    "assessment": { "$ref": "#/$defs/assessment" },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+  },
+  "$defs": {
+    "sha256String": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "assessment": { "enum": ["pass", "concern", "fail", "inconclusive", "not-applicable", "not-assessed"] },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "taxonomyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "digest": { "$ref": "#/$defs/sha256String" },
+        "extensionCatalogues": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/extensionCatalogueReference" }
+        }
+      }
+    },
+    "extensionCatalogueReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "digest": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "manifestHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "manifestHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "promptHash", "reviewInputsHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "promptHash": { "$ref": "#/$defs/sha256String" },
+        "reviewInputsHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "agent", "provider", "requestedModel", "effectiveModel",
+        "thinkingLevel", "routePolicyVersion", "runId"
+      ],
+      "properties": {
+        "kind": { "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"] },
+        "agent": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "provider": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "requestedModel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "effectiveModel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "routePolicyVersion": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "runId": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "reviewRunId": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "kind": {
+          "enum": [
+            "source-code", "test-result", "runtime-measurement", "tool-result",
+            "artifact", "document", "human-attestation"
+          ]
+        },
+        "locator": { "$ref": "#/$defs/locator" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "contentHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "symbolId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectId", "assessment", "rationale"],
+      "properties": {
+        "aspectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "assessment": { "$ref": "#/$defs/assessment" },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "grade": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["score", "band"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "band": { "enum": ["A", "B", "C", "D", "F"] }
+          }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observationFindingId", "issueId", "occurrenceFingerprint", "fingerprintAlgorithm",
+        "ruleRef", "aspectId", "severity", "evidenceRefs", "source"
+      ],
+      "properties": {
+        "observationFindingId": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "issueId": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "occurrenceFingerprint": { "$ref": "#/$defs/sha256String" },
+        "fingerprintAlgorithm": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "ruleRef": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "aspectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "evidenceRefs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "producerRef"],
+          "properties": {
+            "kind": { "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"] },
+            "producerRef": { "type": "string", "minLength": 1, "maxLength": 200 }
+          }
+        }
+      }
+    }
+  }
+}

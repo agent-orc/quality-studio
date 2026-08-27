@@ -1,0 +1,103 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1.0.0",
+  "axes": {
+    "producerKind": {
+      "terms": [
+        { "id": "agent" },
+        { "id": "deterministic-sensor" },
+        { "id": "human" },
+        { "id": "imported" },
+        { "id": "unknown" }
+      ]
+    },
+    "evidenceStatus": {
+      "terms": [
+        { "id": "available" },
+        { "id": "partial" },
+        { "id": "unavailable" }
+      ]
+    },
+    "assessment": {
+      "terms": [
+        { "id": "pass" },
+        { "id": "concern" },
+        { "id": "fail" },
+        { "id": "inconclusive" },
+        { "id": "not-applicable" },
+        { "id": "not-assessed" }
+      ]
+    },
+    "change": {
+      "terms": [
+        { "id": "improved" },
+        { "id": "regressed" },
+        { "id": "mixed" },
+        { "id": "unchanged" },
+        { "id": "no-observed-delta" },
+        { "id": "inconclusive" }
+      ]
+    },
+    "decision": {
+      "terms": [
+        { "id": "allow" },
+        { "id": "warn" },
+        { "id": "block" },
+        { "id": "defer" }
+      ]
+    },
+    "severity": {
+      "terms": [
+        { "id": "critical" },
+        { "id": "high" },
+        { "id": "medium" },
+        { "id": "low" },
+        { "id": "info" }
+      ]
+    },
+    "lifecycle": {
+      "terms": [
+        { "id": "open" },
+        { "id": "accepted-risk", "aliases": ["accepted"] },
+        { "id": "waived" },
+        { "id": "false-positive", "aliases": ["falsePositive"] },
+        { "id": "resolved" }
+      ]
+    },
+    "evidenceKind": {
+      "terms": [
+        { "id": "source-code" },
+        { "id": "test-result" },
+        { "id": "runtime-measurement" },
+        { "id": "tool-result" },
+        { "id": "artifact" },
+        { "id": "document" },
+        { "id": "human-attestation" }
+      ]
+    }
+  },
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "migrationAliases": ["correctness"] },
+    { "id": "code.architecture", "title": "Architecture", "migrationAliases": ["architecture"] },
+    { "id": "security.general", "title": "Security", "migrationAliases": ["security"] },
+    { "id": "security.secrets", "title": "Secrets", "migrationAliases": ["secrets"] },
+    { "id": "security.dependencies", "title": "Dependencies", "migrationAliases": ["dependencies"] },
+    {
+      "id": "security.authentication-authorization",
+      "title": "Authentication and authorization",
+      "migrationAliases": ["authentication-authorization"]
+    },
+    { "id": "security.input-validation", "title": "Input validation", "migrationAliases": ["input-validation"] },
+    { "id": "security.configuration-iac", "title": "Configuration and IaC", "migrationAliases": ["configuration-iac"] },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "migrationAliases": ["boundaries"] },
+    { "id": "security.business-logic", "title": "Business logic" },
+    { "id": "security.attack-coverage", "title": "Attack coverage" },
+    { "id": "performance.general", "title": "Performance", "migrationAliases": ["performance"] },
+    { "id": "change.risk", "title": "Risk", "migrationAliases": ["risk"] },
+    { "id": "change.test-evidence", "title": "Test evidence", "migrationAliases": ["test-evidence"] },
+    { "id": "change.scope-discipline", "title": "Scope discipline", "migrationAliases": ["scope-discipline"] },
+    { "id": "change.architecture-drift", "title": "Architecture drift", "migrationAliases": ["architecture-drift"] }
+  ]
+}
