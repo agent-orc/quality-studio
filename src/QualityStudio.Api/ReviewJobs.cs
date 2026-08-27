@@ -94,12 +94,13 @@ public interface IReviewExecutorFactory
 
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
-    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
+    StalenessEvaluator stalenessEvaluator,
+    ILogger<ReviewExecutorFactory> logger) : IReviewExecutorFactory
 {
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
-                cliType, model, thinkingLevel, eventObserver: eventObserver),
+                cliType, model, thinkingLevel, eventObserver: eventObserver, logger: logger),
             usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
@@ -117,6 +118,14 @@ public sealed class ReviewJobsOptions
     public const string SectionName = "ReviewJobs";
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
+
+    /// <summary>
+    /// How long the queue waits, after a run is cancelled, for its attempt to unwind
+    /// cooperatively before abandoning it and advancing to the next queued run. Guards
+    /// against a stalled attempt (e.g. a reviewer process that never attaches and never
+    /// observes cancellation) wedging the single-reader queue indefinitely.
+    /// </summary>
+    public int CancelReclaimGraceSeconds { get; set; } = 45;
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -447,10 +456,56 @@ public sealed class ReviewJobService : BackgroundService
     {
         var stopwatch = Stopwatch.StartNew();
         var attemptToken = item.Start();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, attemptToken);
+        var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, attemptToken);
         logger.LogInformation(new EventId(1501, "ReviewStarted"),
             "Started review {ReviewRunId} via {ReviewCli}/{ReviewModel}/{ReviewThinkingLevel}", item.Id,
             item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
+
+        var attempt = RunAttemptAsync(item, linked, stopwatch);
+        using var reclaimGate = new CancellationTokenSource();
+        var reclaimGrace = TimeSpan.FromSeconds(Math.Max(1, options.CancelReclaimGraceSeconds));
+        var reclaim = ReclaimAfterCancelAsync(attemptToken, reclaimGrace, reclaimGate.Token);
+
+        if (await Task.WhenAny(attempt, reclaim).ConfigureAwait(false) == attempt)
+        {
+            reclaimGate.Cancel();
+            linked.Dispose();
+            await attempt.ConfigureAwait(false);
+            try { await reclaim.ConfigureAwait(false); } catch (OperationCanceledException) { }
+            return;
+        }
+
+        // The attempt did not unwind within the grace period after cancellation. Advance
+        // the single-reader queue now rather than waiting on it indefinitely; its late
+        // completion is a harmless no-op since the item is already in a terminal state
+        // (ReviewWorkItem's Fail/EndAttempt guards check for that).
+        logger.LogWarning(new EventId(1513, "ReviewCancelReclaimed"),
+            "Review {ReviewRunId} did not unwind within {GraceSeconds}s of cancellation; advancing the queue and abandoning the stalled attempt",
+            item.Id, options.CancelReclaimGraceSeconds);
+        _ = attempt.ContinueWith(t =>
+        {
+            linked.Dispose();
+            if (t.Exception is { } exception)
+                logger.LogDebug(exception, "Abandoned review attempt {ReviewRunId} completed after reclaim", item.Id);
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    private static async Task ReclaimAfterCancelAsync(CancellationToken attemptToken, TimeSpan grace, CancellationToken stopWaiting)
+    {
+        using var linkedWait = CancellationTokenSource.CreateLinkedTokenSource(attemptToken, stopWaiting);
+        try
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, linkedWait.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!attemptToken.IsCancellationRequested) return; // the attempt finished on its own; nothing to reclaim
+        }
+        await Task.Delay(grace, stopWaiting).ConfigureAwait(false);
+    }
+
+    private async Task RunAttemptAsync(ReviewWorkItem item, CancellationTokenSource linked, Stopwatch stopwatch)
+    {
         try
         {
             item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
