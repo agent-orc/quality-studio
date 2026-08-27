@@ -7,7 +7,7 @@ Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 (converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
 > Working state, 2026-08-04: the core library, the `quality` CLI, the review API
-> and the Angular browser all ship from this repository and are covered by CI;
+> and the Angular browser all ship from this repository and are covered by the required CI gate;
 > cards through QS-52 are delivered. No package is published to NuGet yet.
 > Product URL will be `agent-orchestrator.dev/quality`; the proposed final
 > core package ID and root namespace are `AgentOrchestrator.CodeQuality` (subject
@@ -212,6 +212,60 @@ endpoint formats, and documented exit codes.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 
+## Required test baseline
+
+The pull-request gate pins .NET 10.0.301 and Node 22.23.1, restores the committed
+lock files, runs portable and controlled tool-bound tests as distinct lanes, keeps
+machine-bound timing and external-live checks out of routine test runs, builds the
+production Angular bundle under its unchanged 480 kB budget, provisions the
+Playwright Chromium version declared by the frontend lock file, and runs Angular,
+dev-stack, coverage, and pinned Gitleaks checks. The equivalent local commands are:
+
+```shell
+export COVERAGE_ROOT="${TMPDIR:-/tmp}/quality-studio-coverage"
+dotnet restore QualityStudio.slnx --locked-mode
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+npm run test:repository-contracts
+node scripts/run-dotnet-lane.mjs portable --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs tool-bound --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs non-machine --configuration Release --no-build --coverage-root "$COVERAGE_ROOT"
+npm run test:dev-stack
+cd frontend
+npm ci
+npm run browser:install
+npm run test:browser-resolver
+npm run build
+COVERAGE_DIR="$COVERAGE_ROOT/frontend" npm run test:coverage
+cd ..
+npm run coverage:check -- --cobertura core="$COVERAGE_ROOT/core" --cobertura api="$COVERAGE_ROOT/api" --lcov frontend="$COVERAGE_ROOT/frontend/lcov.info"
+dotnet run --project src/quality-cli --configuration Release --no-build -- security provision
+dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+```
+
+Set `CHROME_NO_SANDBOX=1` only on a controlled Linux runner that cannot use the
+Chromium sandbox. Coverage is generated as Cobertura for the two .NET test projects
+and lcov for Angular. `.quality/coverage-baseline.json` records the first measured
+project and feature-area line rates; `npm run coverage:check -- ...` rejects missing,
+unreadable, or regressed reports.
+
+Before requesting review, `npm run test:pre-review` provides a quick deterministic
+signal: repository contracts, both portable .NET project selections, and browser
+prerequisite resolution. It intentionally does not claim gate equivalence. The
+required gate still owns tool-bound, host-integration, production Angular, coverage,
+and security evidence.
+
+Uncategorized xUnit tests are portable. Tests carrying `Category=ToolBound`
+intentionally exercise Git, .NET, a browser, or a pinned native tool on a provisioned
+PR host. Tests carrying `Category=MachineBound` contain host timing or performance
+assertions and run only in the labeled release canary. `Category=ExternalLive` is
+selected only by explicit canary approval; without its opt-in environment it fails
+rather than skipping. Every named lane inventories each expected test project before
+running and fails when an expected selection is empty. See
+[`docs/operations/test-baseline/keep-green.md`](docs/operations/test-baseline/keep-green.md)
+for fixture ownership, lane-change rules, and the honesty contract.
+That canary retains three samples, host metadata, JSON, screenshots, and TRX output;
+the optional live-agent check is enabled manually only for review-execution changes.
+
 ## Minimal API
 
 The ASP.NET Core host provides repository tree, file/meta overlay, staleness scan,
@@ -234,7 +288,9 @@ ports are API `5127` and product `4200`, and both can be overridden with
 `--api-port` / `--web-port` or `QUALITY_STUDIO_API_PORT` /
 `QUALITY_STUDIO_PRODUCT_PORT` when the launcher is invoked from another host.
 For alternate checkout layouts and automation, the launcher also accepts
-`--repo-root`, `--frontend-root`, and `QUALITY_STUDIO_NPM_COMMAND`.
+`--repo-root`, `--frontend-root`, and `QUALITY_STUDIO_NPM_COMMAND`. Test harnesses
+that invoke npm through a platform-neutral Node stub can provide its leading
+arguments as a JSON string array in `QUALITY_STUDIO_NPM_COMMAND_ARGUMENTS`.
 
 The shell distinguishes `Repository connected`, `API offline · preview data`,
 and `API offline` states so embedded review flows do not pretend the API is live
