@@ -152,6 +152,7 @@ export interface ImpactFinding { id: string; ruleId: string; severity: FindingSe
 export interface FileGuidelineImpact { path: string; before: ImpactFinding[]; after: ImpactFinding[]; added: ImpactFinding[]; removed: ImpactFinding[]; }
 export interface GuidelineImpact { guidelineId: string; kind: ReviewKind; files: FileGuidelineImpact[]; addedCount: number; removedCount: number; changed: boolean; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
+const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 export interface RepositoryRegistration {
   id: string;
   displayName: string;
@@ -439,16 +440,25 @@ export class QualityApi {
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
+    // Only the initial registry load may restore a remembered repository. Later refreshes
+    // must preserve the operator's current selection unless the caller supplies a preference.
+    const firstLoad = this.repositories().length === 0;
     try {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
+      const remembered = firstLoad ? this.readLastRepositoryId() : null;
       const selected = result.repositories.some(repository => repository.id === preferredId)
         ? preferredId!
-        : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
-          ? this.selectedRepositoryId()
-          : result.defaultRepositoryId;
+        : firstLoad
+          ? result.repositories.some(repository => repository.id === remembered)
+            ? remembered!
+            : result.defaultRepositoryId
+          : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
+              ? this.selectedRepositoryId()
+              : result.defaultRepositoryId;
       this.selectedRepositoryId.set(selected);
+      this.writeLastRepositoryId(selected);
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
@@ -462,6 +472,7 @@ export class QualityApi {
     const started = performance.now();
     const sequence = ++this.repositorySelectionSequence;
     this.selectedRepositoryId.set(id);
+    this.writeLastRepositoryId(id);
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
@@ -847,6 +858,14 @@ export class QualityApi {
       return error.error?.detail || error.error?.title || error.message;
     }
     return error instanceof Error ? error.message : 'The repository request failed.';
+  }
+
+  private readLastRepositoryId(): string | null {
+    try { return localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY); } catch { return null; }
+  }
+
+  private writeLastRepositoryId(id: string): void {
+    try { localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id); } catch { /* Storage can be unavailable or full. */ }
   }
 
   private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {
