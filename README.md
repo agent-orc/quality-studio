@@ -212,6 +212,29 @@ endpoint formats, and documented exit codes.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 
+## Required test baseline
+
+The required pull-request gate pins .NET 10.0.301 and Node 22.23.1. It restores and
+builds the Release solution, excludes declared `MachineBound` checks, preserves the
+480 kB production Angular budget, installs the locked frontend, provisions Playwright
+Chromium and Gitleaks 8.24.2 explicitly, and runs the Angular and security gates.
+
+Run the same deterministic checks locally:
+
+```shell
+dotnet restore QualityStudio.slnx --locked-mode
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
+npm --prefix frontend ci
+npm --prefix frontend run test:browser-resolver
+npm --prefix frontend run browser:install
+npm --prefix frontend run build
+CHROME_NO_SANDBOX=1 npm --prefix frontend test
+npm run test:required-gate
+dotnet run --project src/quality-cli --configuration Release --no-build -- security provision
+dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+```
+
 ## Minimal API
 
 The ASP.NET Core host provides repository tree, file/meta overlay, staleness scan,
