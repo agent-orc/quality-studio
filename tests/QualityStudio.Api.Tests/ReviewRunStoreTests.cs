@@ -130,6 +130,83 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Compare_endpoint_aligns_two_persisted_outcomes_by_fingerprint_over_http()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var store = new QualityRunReportStore(fixture.RepositoryRoot);
+            store.Save(ComparisonReport("compare-baseline", "shared", "open"));
+            store.Save(ComparisonReport("compare-candidate", "shared", "accepted"));
+
+            await using var application = fixture.CreateApplication();
+            using var client = application.CreateClient();
+
+            var comparison = await client.GetFromJsonAsync<JsonElement>(
+                "/api/review/runs/compare?baselineId=compare-baseline&candidateId=compare-candidate",
+                cancellationToken);
+
+            Assert.True(comparison.GetProperty("comparable").GetBoolean());
+            Assert.Equal("ok", comparison.GetProperty("baseline").GetProperty("status").GetString());
+            Assert.Equal("ok", comparison.GetProperty("candidate").GetProperty("status").GetString());
+            Assert.True(comparison.GetProperty("compatibility").GetProperty("sameScope").GetBoolean());
+            var changed = Assert.Single(comparison.GetProperty("delta").GetProperty("dispositionChanged").EnumerateArray());
+            Assert.Equal("shared", changed.GetProperty("fingerprint").GetString());
+            Assert.Equal("open", changed.GetProperty("baselineState").GetString());
+            Assert.Equal("accepted", changed.GetProperty("candidateState").GetString());
+
+            var missing = await client.GetFromJsonAsync<JsonElement>(
+                "/api/review/runs/compare?baselineId=compare-baseline&candidateId=does-not-exist",
+                cancellationToken);
+            Assert.False(missing.GetProperty("comparable").GetBoolean());
+            Assert.Equal("missing", missing.GetProperty("candidate").GetProperty("status").GetString());
+            Assert.NotNull(missing.GetProperty("candidate").GetProperty("error").GetString());
+
+            using var badRequest = await client.GetAsync(
+                "/api/review/runs/compare?baselineId=compare-baseline", cancellationToken);
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, badRequest.StatusCode);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    private static QualityRunReportDocument ComparisonReport(string runId, string fingerprint, string state)
+    {
+        var run = new QualityRunIdentity(
+            runId, 1, RepositoryRegistry.DefaultRepositoryId, "Fixture repository", "code",
+            "unit-project", "project", ".", "done", "complete",
+            new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 8, 11, 8, 1, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 8, 11, 8, 2, 0, TimeSpan.Zero),
+            "claude-sonnet-5", "high", "test-agent", false);
+        var target = new QualityRunSubjectTarget("unit-file", "App.cs", "src/App.cs", "sha256:" + new string('a', 64));
+        var finding = new QualityRunFinding(
+            $"finding-{fingerprint}", "quality.rule.demo", "correctness", "medium", state,
+            $"Finding {fingerprint}", "Description", "Recommendation", null, fingerprint,
+            [new QualityFindingLocation("src/App.cs", 1, 1, 1, 8)], "agent", null, null);
+        return new QualityRunReportDocument(
+            QualityRunReportJson.SchemaId, 1, run,
+            new QualityRunSubject("constant-subject-hash", [target]),
+            new QualityRunExecution(1, 0, 0, 0, 0, "done", [],
+                new QualityRunUsage(1, 100, 25, 10, 5, 1200, 0.01m, "USD", "priced", null, null, null),
+                new QualityRunCap(null, null, "not-configured", null), null),
+            [new QualityRunObservation(
+                "unit-project", "project", ".", "done", true,
+                ".quality/reviews/projects/root.review-meta.code.json", "sha256:" + new string('b', 64),
+                run.FinishedAt, "sha256:" + new string('c', 64), "provider-run",
+                new QualityRunGrade(85, "B", "Fixture grade."), "Fixture summary.", [finding])],
+            new QualityRunDelta("unavailable", null, "No prior comparable run snapshot exists.", [], [], [], []),
+            new QualityRunSummary(85, "B",
+                new QualityRunFindingCounts(1,
+                    new Dictionary<string, int> { ["critical"] = 0, ["high"] = 0, ["medium"] = 1, ["low"] = 0, ["info"] = 0 },
+                    new Dictionary<string, int> { [state] = 1 }),
+                "medium", null));
+    }
+
+    [Fact]
     public async Task Server_reports_fresh_file_and_aggregate_skips_and_force_bypasses_them()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

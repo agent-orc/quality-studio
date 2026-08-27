@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewRunState, ReviewThread, RunComparisonFinding, RunComparisonResponse, RunComparisonSide, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -57,6 +57,13 @@ export class ReviewPanel {
   readonly runDetailLoading = signal(false);
   readonly runDetailError = signal('');
   readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
+  readonly compareOpen = signal(false);
+  readonly compareBaselineId = signal<string | null>(null);
+  readonly compareCandidateId = signal<string | null>(null);
+  readonly comparison = signal<RunComparisonResponse | null>(null);
+  readonly compareLoading = signal(false);
+  readonly compareError = signal('');
+  private readonly terminalRunStates: ReviewRunState[] = ['done', 'failed', 'cancelled', 'capped'];
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
@@ -74,6 +81,19 @@ export class ReviewPanel {
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
+  readonly comparableRuns = computed(() => this.scopeRuns().filter(run => this.isTerminalRun(run)));
+  readonly compareInterpretation = computed(() => this.comparison()?.compatibility?.reasons ?? []);
+  readonly compareDeltaGroups = computed(() => {
+    const delta = this.comparison()?.delta;
+    if (!delta) return [];
+    return [
+      { key: 'new' as const, label: 'New', items: delta.new },
+      { key: 'resolved' as const, label: 'Resolved', items: delta.resolved },
+      { key: 'dispositionChanged' as const, label: 'Disposition changed', items: delta.dispositionChanged },
+      { key: 'unchanged' as const, label: 'Unchanged', items: delta.unchanged },
+    ];
+  });
+  readonly compareHasDelta = computed(() => this.compareDeltaGroups().some(group => group.items.length > 0));
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const severity = this.severityFilter();
@@ -348,7 +368,7 @@ export class ReviewPanel {
     this.runTrend.set([]);
     this.runTrendCursor.set(null);
     this.runDetailError.set('');
-    if (!['done', 'failed', 'cancelled', 'capped'].includes(run.state)) return;
+    if (!this.isTerminalRun(run)) return;
     this.runDetailLoading.set(true);
     try {
       const scopeUnitId = this.selectedNode()?.id;
@@ -385,6 +405,68 @@ export class ReviewPanel {
       this.runTrendCursor.set(page.nextCursor);
     } catch (error) {
       this.runDetailError.set(this.api.errorMessage(error));
+    }
+  }
+
+  isTerminalRun(run: ReviewRun): boolean { return this.terminalRunStates.includes(run.state); }
+
+  openCompare(run: ReviewRun): void {
+    const candidates = this.comparableRuns();
+    const baseline = candidates.find(candidate => candidate.id !== run.id) ?? null;
+    this.compareOpen.set(true);
+    this.compareCandidateId.set(run.id);
+    this.compareBaselineId.set(baseline?.id ?? null);
+    void this.runComparison();
+  }
+
+  closeCompare(): void {
+    this.compareOpen.set(false);
+    this.comparison.set(null);
+    this.compareError.set('');
+  }
+
+  setCompareBaseline(id: string): void {
+    this.compareBaselineId.set(id || null);
+    void this.runComparison();
+  }
+
+  setCompareCandidate(id: string): void {
+    this.compareCandidateId.set(id || null);
+    void this.runComparison();
+  }
+
+  compareTokens(side: RunComparisonSide): number | null {
+    const usage = side.execution?.usage;
+    if (!usage || (usage.inputTokens === null && usage.outputTokens === null)) return null;
+    return (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+  }
+
+  compareLocationLabel(finding: RunComparisonFinding): string {
+    const location = finding.locations[0];
+    if (!location) return 'Location unavailable';
+    return location.startLine ? `${location.path}:${location.startLine}` : location.path;
+  }
+
+  compareStateLabel(finding: RunComparisonFinding): string {
+    if (finding.category === 'new') return `${finding.candidateState ?? 'open'} · new`;
+    if (finding.category === 'resolved') return 'absent from candidate outcome';
+    if (finding.category === 'dispositionChanged') return `${finding.baselineState} → ${finding.candidateState}`;
+    return `${finding.candidateState ?? 'open'} in both runs`;
+  }
+
+  private async runComparison(): Promise<void> {
+    const baselineId = this.compareBaselineId();
+    const candidateId = this.compareCandidateId();
+    if (!baselineId || !candidateId) { this.comparison.set(null); return; }
+    this.compareLoading.set(true);
+    this.compareError.set('');
+    try {
+      this.comparison.set(await this.api.compareRuns(baselineId, candidateId));
+    } catch (error) {
+      this.comparison.set(null);
+      this.compareError.set(this.api.errorMessage(error));
+    } finally {
+      this.compareLoading.set(false);
     }
   }
 

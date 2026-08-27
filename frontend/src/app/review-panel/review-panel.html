@@ -15,7 +15,7 @@
                 <span class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></span>
                 <span class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span><span>Details →</span></span>
               </button>
-              <div class="run-usage"><span>Spend {{ spendLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }</div>
+              <div class="run-usage"><span>Spend {{ spendLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }@if (isTerminalRun(run)) { <button type="button" class="run-compare-trigger" (click)="openCompare(run)">Compare →</button> }</div>
               @if (run.stopReason) { <small class="run-stop">{{ run.stopReason }}</small> }
               @if (run.deviation; as deviation) { <small class="run-deviation">Estimate deviation: input {{ deviation.inputTokensPercent }}% · output {{ deviation.outputTokensPercent }}%@if (deviation.costPercent !== null) { · cost {{ deviation.costPercent }}% }</small> }
               @if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }
@@ -53,6 +53,48 @@
               <div class="run-provenance"><b>Provenance</b><code>{{ report.run.cliType }} · {{ report.run.model }} · {{ report.run.thinkingLevel }}</code><code>{{ report.subject.manifestHash }}</code></div>
             } @else if (!runDetailLoading() && !runDetailError()) {
               <p class="run-detail-message">A canonical export becomes available when this run reaches a terminal state.</p>
+            }
+          </section>
+        }
+        @if (compareOpen()) {
+          <section class="run-compare-surface" aria-label="Compare review outcomes">
+            <header><div><span class="eyebrow">Compare outcomes</span><b>Baseline vs candidate</b></div><button type="button" aria-label="Close comparison" (click)="closeCompare()">×</button></header>
+            <div class="compare-picker">
+              <label>Baseline<select aria-label="Baseline run" [value]="compareBaselineId() ?? ''" (change)="setCompareBaseline($any($event.target).value)"><option value="" [selected]="!compareBaselineId()">Select a run…</option>@for (run of comparableRuns(); track run.id) { <option [value]="run.id" [selected]="run.id === compareBaselineId()" [disabled]="run.id === compareCandidateId()">#{{ run.id.slice(-6) }} · {{ scannedAt(run.finishedAt ?? run.createdAt) }} · {{ run.model ?? 'runner default' }}</option> }</select></label>
+              <span class="compare-arrow">→</span>
+              <label>Candidate<select aria-label="Candidate run" [value]="compareCandidateId() ?? ''" (change)="setCompareCandidate($any($event.target).value)"><option value="" [selected]="!compareCandidateId()">Select a run…</option>@for (run of comparableRuns(); track run.id) { <option [value]="run.id" [selected]="run.id === compareCandidateId()" [disabled]="run.id === compareBaselineId()">#{{ run.id.slice(-6) }} · {{ scannedAt(run.finishedAt ?? run.createdAt) }} · {{ run.model ?? 'runner default' }}</option> }</select></label>
+            </div>
+            @if (compareLoading()) { <p class="run-detail-message" role="status">Comparing outcomes…</p> }
+            @if (compareError()) { <p class="run-error" role="alert">{{ compareError() }}</p> }
+            @if (comparison(); as comparison) {
+              @if (comparison.baseline.status !== 'ok' || comparison.candidate.status !== 'ok') {
+                <p class="run-error" role="alert">@if (comparison.baseline.status !== 'ok') { Baseline: {{ comparison.baseline.error }} }@if (comparison.candidate.status !== 'ok') { Candidate: {{ comparison.candidate.error }} }</p>
+              }
+              @if (comparison.comparable) {
+                @if (compareInterpretation().length) {
+                  <div class="compare-warning">
+                    <b>Do not attribute this delta to the model alone.</b>
+                    <ul>@for (reason of compareInterpretation(); track reason) { <li>{{ reason }}</li> }</ul>
+                  </div>
+                }
+                <div class="run-summary-grid">
+                  <span><b>{{ comparison.baseline.summary?.findings?.total ?? '—' }} → {{ comparison.candidate.summary?.findings?.total ?? '—' }}</b><small>Active findings</small></span>
+                  <span><b>{{ comparison.baseline.summary?.score ?? '—' }} → {{ comparison.candidate.summary?.score ?? '—' }}</b><small>Grade {{ comparison.baseline.summary?.grade ?? '—' }} → {{ comparison.candidate.summary?.grade ?? '—' }}</small></span>
+                  <span><b>{{ formatTokens(compareTokens(comparison.baseline)) }} → {{ formatTokens(compareTokens(comparison.candidate)) }}</b><small>Tokens</small></span>
+                  <span><b>{{ formatDuration(comparison.baseline.execution?.usage?.durationMs ?? 0) }} → {{ formatDuration(comparison.candidate.execution?.usage?.durationMs ?? 0) }}</b><small>Duration</small></span>
+                </div>
+                @for (group of compareDeltaGroups(); track group.key) {
+                  @if (group.items.length) {
+                    <div class="section-title"><span>{{ group.label }}</span><small>{{ group.items.length }}</small></div>
+                    <div class="run-findings compare-findings" [attr.data-category]="group.key">
+                      @for (finding of group.items; track finding.fingerprint) {
+                        <article><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><div><b>{{ finding.title }}</b><small>{{ compareLocationLabel(finding) }} · {{ compareStateLabel(finding) }}</small></div></article>
+                      }
+                    </div>
+                  }
+                }
+                @if (!compareHasDelta()) { <p class="run-detail-message">No finding differences between these outcomes.</p> }
+              }
             }
           </section>
         }

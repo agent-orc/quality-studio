@@ -309,6 +309,8 @@ app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/review/runs/compare", ReviewRunCompare);
+app.MapGet("/api/repos/{repoId}/review/runs/compare", ReviewRunCompare);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1115,6 +1117,19 @@ static IResult ReviewRunReport(
         QualityRunReportRenderer.Render(report, selectedFormat),
         QualityReportRenderer.ContentType(selectedFormat),
         Encoding.UTF8);
+}
+
+static IResult ReviewRunCompare(
+    HttpContext context,
+    string? baselineId,
+    string? candidateId,
+    RepositoryRegistry registry)
+{
+    if (string.IsNullOrWhiteSpace(baselineId) || string.IsNullOrWhiteSpace(candidateId))
+        throw new ArgumentException("Run comparison requires baselineId and candidateId.");
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new QualityRunReportStore(repository.RootPath);
+    return Results.Ok(QualityRunComparisonBuilder.Build(repository.Id, baselineId, candidateId, store));
 }
 
 static IResult ReviewRunTrend(

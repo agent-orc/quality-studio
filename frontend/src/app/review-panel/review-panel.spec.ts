@@ -47,6 +47,7 @@ describe('ReviewPanel session flow', () => {
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
+    compareRuns: jasmine.createSpy('compareRuns'),
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
@@ -59,7 +60,7 @@ describe('ReviewPanel session flow', () => {
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
+      api.resumeReview, api.loadRunReport, api.loadRunTrend, api.compareRuns]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -210,5 +211,54 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+  });
+
+  it('compares a candidate run against a default baseline and renders the fingerprint-aligned delta', async () => {
+    const baseline = {
+      id: 'run-baseline', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code', state: 'done',
+      model: 'gpt-terra', thinkingLevel: 'medium', cliType: 'codex', completedFiles: 1, totalFiles: 1,
+      failedFiles: 0, skippedFiles: 0, errors: [], usageOperations: 0, usage: { inputTokens: 0, outputTokens: 0,
+        cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0 }, costSpent: null, currency: null,
+      stopReason: null, deviation: null, createdAt: '2026-08-08T08:00:00Z', finishedAt: '2026-08-08T08:05:00Z',
+    } as any;
+    const candidate = { ...baseline, id: 'run-candidate', model: 'gpt-sol',
+      createdAt: '2026-08-11T08:00:00Z', finishedAt: '2026-08-11T08:05:00Z' } as any;
+    api.reviewRuns.set([baseline, candidate]);
+    const comparisonResponse = {
+      baseline: { runId: 'run-baseline', status: 'ok', error: null,
+        run: { model: 'gpt-terra' }, summary: { score: 72, grade: 'C', findings: { total: 2 } },
+        execution: { usage: { inputTokens: 100, outputTokens: 20, durationMs: 5000 } }, subjectManifestHash: 'sha256:same' },
+      candidate: { runId: 'run-candidate', status: 'ok', error: null,
+        run: { model: 'gpt-sol' }, summary: { score: 84, grade: 'B', findings: { total: 1 } },
+        execution: { usage: { inputTokens: 120, outputTokens: 30, durationMs: 4200 } }, subjectManifestHash: 'sha256:same' },
+      comparable: true,
+      compatibility: { sameScope: true, routeMatches: false, inputsMatch: true, reasons: ['Route changed.'] },
+      delta: {
+        new: [{ fingerprint: 'sha256:new', category: 'new', severity: 'high', title: 'New finding', ruleId: 'r',
+          baselineState: null, candidateState: 'open', locations: [{ path: 'src/A.cs', startLine: 58, startColumn: null, endLine: null, endColumn: null }] }],
+        resolved: [{ fingerprint: 'sha256:gone', category: 'resolved', severity: 'medium', title: 'Resolved finding', ruleId: 'r',
+          baselineState: 'open', candidateState: null, locations: [{ path: 'src/A.cs', startLine: 12, startColumn: null, endLine: null, endColumn: null }] }],
+        unchanged: [], dispositionChanged: [],
+      },
+    };
+    api.compareRuns.and.resolveTo(comparisonResponse);
+
+    component.runDrawerOpen.set(true);
+    component.openCompare(candidate);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.compareRuns).toHaveBeenCalledWith('run-baseline', 'run-candidate');
+    expect(component.compareInterpretation()).toEqual(['Route changed.']);
+    const surface = fixture.nativeElement.querySelector('.run-compare-surface');
+    expect(surface.textContent).toContain('Route changed.');
+    expect(surface.textContent).toContain('New finding');
+    expect(surface.textContent).toContain('Resolved finding');
+    expect(fixture.nativeElement.querySelectorAll('.compare-findings article').length).toBe(2);
+
+    component.closeCompare();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.run-compare-surface')).toBeNull();
   });
 });
