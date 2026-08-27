@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio run archive finding observation v1",
+  "description": "One append-only line per finding observed by an operation, written to .quality/run-history/YYYY-MM/<runId>/findings.jsonl. Never becomes the current lifecycle owner; that remains .quality/findings/state.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "operationId",
+    "fingerprint",
+    "findingId",
+    "ruleId",
+    "severity",
+    "title",
+    "locations",
+    "state",
+    "observedAt"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "fingerprint": { "type": "string", "minLength": 1 },
+    "findingId": { "type": "string", "minLength": 1 },
+    "ruleId": { "type": "string", "minLength": 1 },
+    "severity": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+    "state": { "type": "string", "minLength": 1 },
+    "observedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "startLine": { "type": ["integer", "null"], "minimum": 1 },
+        "startColumn": { "type": ["integer", "null"], "minimum": 1 },
+        "endLine": { "type": ["integer", "null"], "minimum": 1 },
+        "endColumn": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    }
+  }
+}

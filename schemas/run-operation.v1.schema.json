@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio run archive operation record v1",
+  "description": "One append-only line per completed or failed operation, written to .quality/run-history/YYYY-MM/<runId>/operations.jsonl after the sidecar result is persisted or a terminal operation error is known.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "operationId",
+    "runId",
+    "attempt",
+    "ordinal",
+    "unitId",
+    "path",
+    "level",
+    "state"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "unitId": { "type": "string", "minLength": 1 },
+    "path": { "type": "string", "minLength": 1 },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "state": { "enum": ["done", "failed", "skipped", "cancelled"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"], "minLength": 1 },
+    "subjectHash": { "type": ["string", "null"], "minLength": 1 },
+    "reviewedHash": { "type": ["string", "null"], "minLength": 1 },
+    "sidecarPath": { "type": ["string", "null"], "minLength": 1 },
+    "verdictType": { "enum": ["grade", "security", "unavailable", null] },
+    "grade": { "type": ["object", "null"], "$ref": "#/$defs/grade" },
+    "securityVerdict": { "enum": ["pass", "warn", "block", "unavailable", null] }
+  },
+  "$defs": {
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "type": "string", "minLength": 1, "maxLength": 4 }
+      }
+    }
+  }
+}

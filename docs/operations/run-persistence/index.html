@@ -165,6 +165,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -481,6 +482,27 @@
     <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
   </tbody>
 </table>
+
+<h2 id="implementation"><span class="no">Implementation</span>Delivered slices</h2>
+
+<div class="box">
+  <h4>28 August 2026 · QS-71 · RP-1 (partial)</h4>
+  <p>Delivered the archive contracts: four v1 schemas (<code>run-record</code>, <code>run-operation</code>,
+  <code>run-finding</code>, <code>run-attempt</code>), matching typed C# records, and a new
+  <code>ReviewRunArchiveStore</code> writing the tracked, repository-owned
+  <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/</code> folder-per-run archive, kept fully separate from the
+  existing mutable, ignored <code>.quality/runs/</code> recovery journal in <code>ReviewRunStore.cs</code>.
+  <code>run.json</code> and each <code>attempts/NNNN.json</code> are create-only; <code>operations.jsonl</code>
+  and <code>findings.jsonl</code> are append-only and tolerate a malformed trailing line. Run ids are confined
+  against path traversal. Tests cover schema-fixture validation for all four schemas, create-only rejection on
+  a second write for the same run and the same attempt number, two readable stopped attempts under one
+  capped-then-resumed run, a missing-run guard on append, and malformed-tail tolerance. Existing
+  <code>/review/*</code> routes and the UI are unchanged, matching the RP-1 acceptance bar. Not yet delivered in
+  this slice: allocating <code>operationId</code>/attempt ordinals inside <code>ReviewJobs.cs</code> work items
+  and calling the new store from the review pipeline (dual-write, RP-2), the migration and history API (RP-3),
+  the deterministic diff (RP-4), and the History/compare UI (RP-5) — each remains its own follow-up card so a
+  single delivery stays reviewable.</p>
+</div>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
 </main>

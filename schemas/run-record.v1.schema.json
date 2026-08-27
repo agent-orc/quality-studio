@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio run archive record v1",
+  "description": "Immutable identity, plan and configuration for one archived review run, written once under .quality/run-history/YYYY-MM/<runId>/run.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "runId",
+    "repositoryId",
+    "createdAt",
+    "node",
+    "level",
+    "kind",
+    "cliType",
+    "force",
+    "targets"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "node": { "$ref": "#/$defs/node" },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "model": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "thinkingLevel": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+    "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "force": { "type": "boolean" },
+    "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } },
+    "tokenCap": { "type": ["integer", "null"], "minimum": 0 },
+    "costCap": { "type": ["number", "null"], "minimum": 0 },
+    "estimate": { "type": ["object", "null"] },
+    "sourceRevision": { "type": ["object", "null"], "$ref": "#/$defs/sourceRevision" }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path", "subjectHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "subjectHash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sourceRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "dirty"],
+      "properties": {
+        "commit": { "type": ["string", "null"], "minLength": 1 },
+        "dirty": { "type": ["boolean", "null"] }
+      }
+    }
+  }
+}
