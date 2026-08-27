@@ -129,7 +129,7 @@ await page.setContent(`<!doctype html>
         document.querySelector('#origin').textContent = event.origin;
         document.querySelector('#count').textContent = accepted.length + ' accepted';
       });
-    <\/script>
+    </script>
   </body>
 </html>`);
 
