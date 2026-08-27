@@ -1,0 +1,8 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1",
+  "axes": [{ "id": "assessment", "description": "", "order": -1, "terms": [] }],
+  "aspects": []
+}

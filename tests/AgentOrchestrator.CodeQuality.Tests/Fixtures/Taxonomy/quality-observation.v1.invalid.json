@@ -1,0 +1,16 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "not-a-hash",
+  "taxonomy": { "id": "quality-studio/core", "version": "1.0.0", "digest": "missing" },
+  "subject": { "unitId": "unit" },
+  "profile": { "id": "profile", "version": "1.0.0" },
+  "producer": { "kind": "agent" },
+  "evidenceStatus": "pass",
+  "evidence": [],
+  "aspects": [],
+  "assessment": "warn",
+  "decision": { "value": "block" },
+  "findings": [],
+  "extensions": {}
+}
