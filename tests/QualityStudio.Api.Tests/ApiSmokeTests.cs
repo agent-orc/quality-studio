@@ -616,6 +616,119 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Compare_aligns_two_run_outcomes_by_fingerprint_and_flags_route_changes()
+    {
+        SeedRunOutcome("run-baseline", "gpt-5.6-sol", ("sha256:" + new string('1', 64), "open"), ("sha256:" + new string('2', 64), "open"));
+        SeedRunOutcome("run-candidate", "claude-opus-4-8", ("sha256:" + new string('1', 64), "open"), ("sha256:" + new string('3', 64), "open"));
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync(
+            "/api/review/runs/compare?baselineId=run-baseline&candidateId=run-candidate", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("available", body.GetProperty("status").GetString());
+        Assert.Equal("found", body.GetProperty("baseline").GetProperty("status").GetString());
+        var comparison = body.GetProperty("comparison");
+        Assert.False(comparison.GetProperty("route").GetProperty("compatible").GetBoolean());
+        Assert.Contains(comparison.GetProperty("route").GetProperty("differences").EnumerateArray(),
+            reason => reason.GetString()!.Contains("Model changed", StringComparison.Ordinal));
+        Assert.Single(comparison.GetProperty("new").EnumerateArray());
+        Assert.Single(comparison.GetProperty("unchanged").EnumerateArray());
+        Assert.Single(comparison.GetProperty("resolved").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Compare_reports_a_missing_snapshot_plainly_instead_of_failing()
+    {
+        SeedRunOutcome("run-only-baseline", "gpt-5.6-sol", ("sha256:" + new string('1', 64), "open"));
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync(
+            "/api/review/runs/compare?baselineId=run-only-baseline&candidateId=run-does-not-exist", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("unavailable", body.GetProperty("status").GetString());
+        Assert.Equal("missing", body.GetProperty("candidate").GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("comparison").ValueKind);
+    }
+
+    [Fact]
+    public async Task Pin_marks_a_run_as_a_durable_baseline_that_retention_reports_and_can_release()
+    {
+        SeedRunOutcome("run-pin-target", "gpt-5.6-sol", ("sha256:" + new string('1', 64), "open"));
+        using var client = application!.CreateClient();
+
+        using var pinResponse = await client.PostAsync(
+            "/api/review/runs/run-pin-target/pin", content: null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, pinResponse.StatusCode);
+        var pinned = await pinResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains(pinned.GetProperty("pinnedRunIds").EnumerateArray(), id => id.GetString() == "run-pin-target");
+
+        var retention = await client.GetFromJsonAsync<JsonElement>(
+            "/api/review/runs/retention", TestContext.Current.CancellationToken);
+        Assert.Equal(1, retention.GetProperty("pinnedCount").GetInt32());
+        Assert.Equal(1, retention.GetProperty("snapshotCount").GetInt32());
+
+        using var unpinResponse = await client.DeleteAsync(
+            "/api/review/runs/run-pin-target/pin", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, unpinResponse.StatusCode);
+        var unpinned = await unpinResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(unpinned.GetProperty("pinnedRunIds").EnumerateArray(), id => id.GetString() == "run-pin-target");
+    }
+
+    [Fact]
+    public async Task Pin_rejects_a_run_id_with_no_stored_outcome()
+    {
+        using var client = application!.CreateClient();
+
+        using var response = await client.PostAsync(
+            "/api/review/runs/does-not-exist/pin", content: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private void SeedRunOutcome(string runId, string model, params (string Fingerprint, string State)[] findings)
+    {
+        var qualityFindings = findings.Select((finding, index) => new QualityRunFinding(
+            $"finding-{index}", $"quality.rule.{index}", "correctness", "high", finding.State,
+            $"Finding {index}", $"Description {index}", $"Recommendation {index}", null,
+            finding.Fingerprint, [new QualityFindingLocation("src/App.cs", index + 1, 1, index + 1, 8)],
+            "agent", null, null)).ToArray();
+        var run = new QualityRunIdentity(
+            runId, 1, RepositoryRegistry.DefaultRepositoryId, "Fixture repository", "code", "unit-project", "project", ".",
+            "done", "complete",
+            new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 8, 11, 8, 1, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 8, 11, 8, 2, 0, TimeSpan.Zero),
+            model, "xhigh", "codex", false);
+        var target = new QualityRunSubjectTarget("unit-file", "App.cs", "src/App.cs", "sha256:" + new string('a', 64));
+        var subject = new QualityRunSubject(QualityRunReportJson.SubjectManifestHash([target]), [target]);
+        var report = new QualityRunReportDocument(
+            QualityRunReportJson.SchemaId,
+            1,
+            run,
+            subject,
+            new QualityRunExecution(1, 0, 0, 0, 0, "done", [],
+                new QualityRunUsage(1, 100, 25, 10, 5, 1200, 0.01m, "USD", "priced", null, null, null),
+                new QualityRunCap(null, null, "not-configured", null), null),
+            [new QualityRunObservation(
+                "unit-project", "project", ".", "done", true,
+                ".quality/reviews/projects/root.review-meta.code.json", "sha256:" + new string('b', 64),
+                run.FinishedAt, "sha256:" + new string('c', 64), "provider-run",
+                new QualityRunGrade(85, "B", "Fixture grade."), "Fixture summary.", qualityFindings)],
+            new QualityRunDelta("unavailable", null, "No prior comparable run snapshot exists.", [], [], [], []),
+            new QualityRunSummary(
+                85, "B",
+                new QualityRunFindingCounts(qualityFindings.Length,
+                    new Dictionary<string, int> { ["critical"] = 0, ["high"] = qualityFindings.Length, ["medium"] = 0, ["low"] = 0, ["info"] = 0 },
+                    new Dictionary<string, int> { ["open"] = qualityFindings.Length }),
+                qualityFindings.Length > 0 ? "high" : null, null));
+        new QualityRunReportStore(repositoryRoot).Save(report);
+    }
+
+    [Fact]
     public async Task Registry_onboards_and_scopes_a_second_repository()
     {
         var secondRoot = repositoryRoot + "-second";
