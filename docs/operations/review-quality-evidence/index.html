@@ -654,6 +654,11 @@
       </ul>
     </article>
 
+    <div class="box ok">
+      <h4>2026-08-27 &middot; QS-70 &middot; S1 re-verified after branch churn</h4>
+      <p>Sibling implementation cards on this repository reset this branch's tip past the 2026-08-23 S1 delivery more than once; the commits stayed reachable in git history under salvage refs and were re-landed onto the current branch tip by fast-forward (no re-implementation, no conflicts, identical resulting tree). Re-ran the full verification this round: <code>dotnet build</code> and <code>dotnet test</code> (backend gate green; the pre-existing flaky <code>Cached_dashboard_for_5000_file_repository_is_within_interaction_budget</code> perf-budget test failed under concurrent load and passed in isolation, unrelated to this slice), <code>npm test</code> (47/47 Karma/Jasmine, headless Chromium), and <code>npm run evidence:exact-span</code> against a live <code>ng serve</code> instance, regenerating both-theme screenshots. No code changes were needed; this entry documents the re-verification for anyone hitting the same branch-churn symptom.</p>
+    </div>
+
     <div class="box warn">
       <h4>S2&ndash;S5: assessed, not attempted this round</h4>
       <p>S2 (review-meta v3 evidence/provenance contract), S3 (assessment/resolution/suppression policy), S4 (immutable terminal run history), and S5 (TE-38 v2 bridge) are each a multi-file, cross-cutting change: new schema versions, C# record and service changes, TypeScript API types, migration/compatibility projections for existing <code>.quality/findings/state.json</code> data, and in S5's case a coordinated change to the separate Token Economy repository. Delivering any one of them to the same standard as S1 (tests, both-theme evidence, no half-finished surface) is a multi-day slice on its own, not something that fits alongside S1 in one clean delivery. No backend or schema files were touched in this pass. They remain queued in the priority order this dossier already sets (S2 &rarr; S3 &rarr; S4 &rarr; S5); the operator's blanket approval means none of them need a further decision gate before a future implementation pass picks them up.</p>
