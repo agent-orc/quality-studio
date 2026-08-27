@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rules-config.v1.schema.json",
+  "title": "Quality Studio rule library project overrides",
+  "description": "The .quality/rules.json contract. Overrides adjust the built-in rule library's default-on set for one repository; they never affect custom guidelines already installed under .quality/inputs, which keep their own enabled: false tombstone convention.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["overrides"],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-orchestrator.dev/quality/schemas/rules-config.v1.schema.json"
+    },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ruleId", "enabled"],
+        "properties": {
+          "ruleId": {
+            "type": "string",
+            "pattern": "^QS-[A-Z]{2,4}-[0-9]{3}$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "enabled": { "const": false } },
+              "required": ["enabled"]
+            },
+            "then": { "required": ["reason"] }
+          }
+        ]
+      }
+    }
+  }
+}

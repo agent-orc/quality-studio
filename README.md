@@ -173,6 +173,16 @@ SARIF 2.1.0, are supplied to the review agent as prior facts while staying separ
 from its findings and grade. Configuration and unavailable behavior are documented in
 [`docs/deterministic-analyzer-evidence.md`](docs/deterministic-analyzer-evidence.md).
 
+## Named rule library
+
+Quality Studio ships its own library of named, versioned coding rules
+(`QS-NG-*` for Angular, `QS-CS-*` for .NET) under [`rules/`](rules/README.md),
+each with a statement, rationale, a good/bad example grounded in real code,
+severity, and an autofixable flag. A default-on core subset applies to every
+repository automatically; a project overrides individual rules with
+`.quality/rules.json`. See [`docs/rules.md`](docs/rules.md) for the full
+format, the seed sets, and how rules reach review findings.
+
 ## Review inputs
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.
@@ -210,6 +220,7 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
+- `rules/` contains the named rule library (see [`docs/rules.md`](docs/rules.md)).
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 
 ## Minimal API
