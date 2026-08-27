@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Json.Schema;
@@ -210,6 +212,146 @@ public sealed class BoundaryInventorySensorTests
         var validation = schema.Evaluate(generated.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());
+    }
+
+    // Regression test for N-03: the boundary sensor derived its inventory by rescanning every
+    // JS/TS file (and, for reachability, every source file) once per inbound entry, an
+    // O(entries x files x lines) scan. On Quality Studio (144 files) that ran in ~1.4s; on a
+    // ~1300-file frontend plus a large .NET backend it did not return inside a 300-second client
+    // timeout. This synthetic repository is intentionally sized to make that quadratic behavior
+    // decisive (100 backend routes x 200 client files x 50 lines = 1,000,000 line checks) while
+    // staying well inside default unit-test patience once the scan is actually linear.
+    [Fact]
+    public async Task Large_synthetic_repository_scans_quickly_and_still_derives_known_consumers()
+    {
+        const int RouteCount = 100;
+        const int JsFileCount = 200;
+        const int LinesPerJsFile = 50;
+
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-scale-").FullName;
+        try
+        {
+            var program = new StringBuilder("var app = WebApplication.Create();\n");
+            for (var route = 0; route < RouteCount; route++)
+                program.Append($"app.MapGet(\"/api/resource{route}/items\", () => Results.Ok());\n");
+            program.Append("app.Run();\n");
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"), program.ToString(),
+                TestContext.Current.CancellationToken);
+
+            // Every 10th file genuinely references one of the routes; the rest are filler that
+            // inflates the total line count without matching anything, exercising the scan's
+            // ability to reject non-matching lines cheaply instead of paying for a regex match.
+            for (var file = 0; file < JsFileCount; file++)
+            {
+                var builder = new StringBuilder();
+                for (var line = 0; line < LinesPerJsFile; line++)
+                {
+                    builder.Append(file % 10 == 0 && line == 5
+                        ? $"client.get('/api/resource{file % RouteCount}/items');\n"
+                        : $"// filler line {file}-{line} does not mention any api route\n");
+                }
+                await File.WriteAllTextAsync(Path.Combine(root, $"module-{file}.ts"), builder.ToString(),
+                    TestContext.Current.CancellationToken);
+            }
+
+            var sensor = new BoundaryInventorySensor();
+            var stopwatch = Stopwatch.StartNew();
+            var inventory = await sensor.InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+            stopwatch.Stop();
+
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(20),
+                $"Boundary scan of a {JsFileCount}-file/{RouteCount}-route synthetic repository took " +
+                $"{stopwatch.Elapsed}, which indicates known-consumer linking has regressed back to " +
+                "O(entries x files x lines).");
+            Assert.Null(inventory.Partial);
+            Assert.Equal(RouteCount, inventory.Entries.Count(entry => entry.Kind == "http"));
+            var linked = Assert.Single(inventory.Entries, entry => entry.Name == "GET /api/resource0/items");
+            Assert.Contains(linked.KnownConsumers, consumer => consumer.Path == "module-0.ts");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Exceeded_scan_budget_returns_an_honest_partial_result_instead_of_hanging()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-budget-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"), """
+                var app = WebApplication.Create();
+                app.MapGet("/first", () => Results.Ok());
+                app.Run();
+                """, TestContext.Current.CancellationToken);
+            var configuration = new SensorScanRequest(root, PersistMetadata: false,
+                Configuration: new Dictionary<string, string> { ["budgetSeconds"] = "0" });
+            var sensor = new BoundaryInventorySensor();
+
+            var inventory = await sensor.InventoryAsync(configuration, TestContext.Current.CancellationToken);
+
+            Assert.True(inventory.Partial);
+            Assert.NotNull(inventory.PartialReasons);
+            Assert.NotEmpty(inventory.PartialReasons);
+            Assert.Contains(inventory.PartialReasons, reason =>
+                reason.Contains("scan budget", StringComparison.OrdinalIgnoreCase));
+            // A zero budget elapses before the first file is even read, so there is nothing to
+            // derive entries from — the honest answer is an empty, clearly-labeled partial scan
+            // rather than a stale or fabricated inventory.
+            Assert.Empty(inventory.Entries);
+
+            var result = await sensor.RunAsync(configuration, TestContext.Current.CancellationToken);
+            Assert.True(result.Available);
+            Assert.False(string.IsNullOrWhiteSpace(result.UnavailableReason));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // Regression test for a second, independent scaling bug found while verifying the N-03 fix
+    // against a real large repository: ControllerRegex/ControllerActionRegex matched a class's
+    // attribute prefix with an unbounded, backtracking-prone `(?:...)+`/`(?:...)*` group. A file
+    // with many stacked attributes (e.g. a [Theory] test with several [InlineData(...)] cases)
+    // but no Controller-suffixed class or [Http*] action forced the engine to try every partition
+    // of that attribute run before giving up — a single 4.7KB real-world file like this took
+    // ~25 seconds. This is unrelated to file/entry *count*; it is triggered by file *content*.
+    [Fact]
+    public async Task Stacked_attributes_on_a_non_controller_class_do_not_cause_catastrophic_backtracking()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-redos-").FullName;
+        try
+        {
+            var builder = new StringBuilder("namespace Sample.Tests;\n\npublic sealed class PolicyMatrixTests\n{\n    [Theory]\n");
+            for (var index = 0; index < 40; index++)
+                builder.Append($"    [InlineData({index}, false, true, \"outcome-{index}\")]\n");
+            builder.Append("""
+                    public void OutcomeMatrix_DecidesLane(int outcome, bool operatorOverride, bool integrationRequired, string expected)
+                    {
+                    }
+                }
+                """);
+            await File.WriteAllTextAsync(Path.Combine(root, "PolicyMatrixTests.cs"), builder.ToString(),
+                TestContext.Current.CancellationToken);
+
+            var stopwatch = Stopwatch.StartNew();
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+            stopwatch.Stop();
+
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2),
+                $"Scanning a class with 40 stacked attributes and no Controller/[Http*] match took " +
+                $"{stopwatch.Elapsed}, which indicates ControllerRegex/ControllerActionRegex has " +
+                "regressed back to catastrophic backtracking.");
+            Assert.Null(inventory.Partial);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed record Widget(string Name);

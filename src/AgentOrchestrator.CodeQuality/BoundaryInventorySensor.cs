@@ -12,7 +12,12 @@ public sealed record BoundaryInventory(
     string Sensor,
     string SensorVersion,
     IReadOnlyList<BoundaryEntry> Entries,
-    IReadOnlyList<ReviewFinding> Findings);
+    IReadOnlyList<ReviewFinding> Findings,
+    // Absent (never `false`) on a complete scan, so a normal run's JSON is unchanged. Present
+    // and `true` only when the scan budget cut analysis short; PartialReasons then explains
+    // exactly what was skipped instead of leaving the shortfall silent.
+    bool? Partial = null,
+    IReadOnlyList<string>? PartialReasons = null);
 
 public sealed record BoundaryEntry(
     string Id,
@@ -78,7 +83,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         var inventory = await InventoryAsync(request, cancellationToken).ConfigureAwait(false);
         return new SensorScanResult(
             true,
-            null,
+            inventory.Partial == true ? string.Join(" ", inventory.PartialReasons ?? []) : null,
             inventory.Findings,
             new SensorProvenance(
                 Id,
@@ -101,11 +106,12 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
 
         var target = ResolveTarget(root, request);
-        var sources = await ReadSourcesAsync(root, target, cancellationToken).ConfigureAwait(false);
+        var budget = new ScanBudget(ResolveBudget(request));
+        var sources = await ReadSourcesAsync(root, target, budget, cancellationToken).ConfigureAwait(false);
         var context = new AnalysisContext(root, sources);
         var entries = new List<BoundaryEntry>();
-        AnalyzeAspNet(context, entries);
-        AnalyzeJavaScript(context, entries);
+        AnalyzeAspNet(context, entries, budget);
+        AnalyzeJavaScript(context, entries, budget);
         AnalyzeBrowserEmbedding(context, entries);
         AnalyzeHostBindings(context, entries);
         AnalyzeProcessFileAndOutboundBoundaries(context, entries);
@@ -125,7 +131,9 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             Id,
             Version,
             ordered,
-            findings);
+            findings,
+            Partial: budget.IsPartial ? true : null,
+            PartialReasons: budget.IsPartial ? budget.BuildReasons() : null);
 
         if (request.PersistMetadata && request.Scope == SensorScope.Repository)
         {
@@ -138,12 +146,18 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     private static async Task<IReadOnlyList<SourceFile>> ReadSourcesAsync(
         string root,
         string target,
+        ScanBudget budget,
         CancellationToken cancellationToken)
     {
         var files = new List<SourceFile>();
         foreach (var path in EnumerateFiles(target))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (budget.IsExceeded)
+            {
+                budget.NoteFileReadBounded(files.Count);
+                break;
+            }
             try
             {
                 var info = new FileInfo(path);
@@ -207,7 +221,21 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         return target;
     }
 
-    private static void AnalyzeAspNet(AnalysisContext context, ICollection<BoundaryEntry> entries)
+    private const string BudgetConfigurationKey = "budgetSeconds";
+    private static readonly TimeSpan DefaultBudget = TimeSpan.FromSeconds(60);
+
+    private static TimeSpan ResolveBudget(SensorScanRequest request)
+    {
+        if (request.Configuration is not null &&
+            request.Configuration.TryGetValue(BudgetConfigurationKey, out var raw) &&
+            double.TryParse(raw, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+        {
+            return seconds < 0 ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(seconds);
+        }
+        return DefaultBudget;
+    }
+
+    private static void AnalyzeAspNet(AnalysisContext context, ICollection<BoundaryEntry> entries, ScanBudget budget)
     {
         foreach (var file in context.Sources.Where(source => source.Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
         {
@@ -234,7 +262,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     (file.Content.Contains("Authenticate(context)", StringComparison.Ordinal) ||
                      file.Content.Contains("UseAuthentication()", StringComparison.Ordinal));
                 var authenticated = explicitlyAuthorized || middlewareAuthenticated;
-                var reachability = HostReachability(context);
+                var reachability = context.HostReachabilityFact;
                 if (authenticated)
                 {
                     reachability = new BoundaryFact("authenticated",
@@ -251,7 +279,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                 var rate = DeriveRateLimit(file, statement);
                 var size = DeriveSizeLimit(file, method);
                 var response = DeriveResponse(handlerBody);
-                var consumers = KnownConsumers(context, method, fullRoute);
+                var consumers = LinkConsumers(context, method, fullRoute, budget);
                 var evidence = new List<string> { $"{receiver}.Map{operation}(\"{route}\")" };
                 if (handler is not null) evidence.Add($"handler {handler}");
                 var kind = fullRoute.Contains("webhook", StringComparison.OrdinalIgnoreCase)
@@ -279,7 +307,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     evidence));
             }
 
-            AnalyzeMvcControllers(context, file, entries);
+            AnalyzeMvcControllers(context, file, entries, budget);
 
             foreach (Match match in SpecialAspNetRegex().Matches(file.Content))
             {
@@ -327,7 +355,8 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     private static void AnalyzeMvcControllers(
         AnalysisContext context,
         SourceFile file,
-        ICollection<BoundaryEntry> entries)
+        ICollection<BoundaryEntry> entries,
+        ScanBudget budget)
     {
         foreach (Match controller in ControllerRegex().Matches(file.Content))
         {
@@ -390,7 +419,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     $"{verb} {route}",
                     kind == "sse" ? "sse" : "http",
                     new BoundarySourceLocation(file.Path, line),
-                    authorized ? new BoundaryFact("authenticated", [derivation]) : HostReachability(context),
+                    authorized ? new BoundaryFact("authenticated", [derivation]) : context.HostReachabilityFact,
                     new BoundaryFact(authorized ? "required" : allowsAnonymous ? "none" : "unknown", [derivation]),
                     new BoundaryFact(authorized ? "required" : allowsAnonymous ? "none" : "unknown", [derivation]),
                     ParseDotNetInputs("(" + action.Groups["parameters"].Value + ")", route),
@@ -398,7 +427,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     SideEffects(actionBody),
                     rate,
                     size,
-                    KnownConsumers(context, verb, route),
+                    LinkConsumers(context, verb, route, budget),
                     [$"{controllerName}.{action.Groups["name"].Value}", actionAttributes.Trim()]));
             }
         }
@@ -549,7 +578,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             [$"{file.Path} has no derived request body size limit"]);
     }
 
-    private static void AnalyzeJavaScript(AnalysisContext context, ICollection<BoundaryEntry> entries)
+    private static void AnalyzeJavaScript(AnalysisContext context, ICollection<BoundaryEntry> entries, ScanBudget budget)
     {
         foreach (var file in context.Sources.Where(IsJavaScript))
         {
@@ -587,7 +616,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                         : new BoundaryLimit("absent", [$"{file.Path} has no recognized rate limiter"]),
                     HasJavaScriptLimit(file, "size") ? new BoundaryLimit("applied", [$"{file.Path} configures a body size limit"])
                         : new BoundaryLimit("absent", [$"{file.Path} has no recognized body size limit"]),
-                    KnownConsumers(context, method, route),
+                    LinkConsumers(context, method, route, budget),
                     [$"{receiver}.{match.Groups["method"].Value}('{route}')"]));
             }
 
@@ -1068,7 +1097,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             [],
             evidence);
 
-    private static BoundaryFact HostReachability(AnalysisContext context)
+    private static BoundaryFact ComputeHostReachability(AnalysisContext context)
     {
         var listeners = context.Sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
             .Where(match => IsHostBinding(file.Content, match.Index))
@@ -1085,44 +1114,103 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         return new BoundaryFact("unknown", ["Repository host bindings include unresolved or non-loopback values"]);
     }
 
+    // KnownConsumers used to rebuild and IsMatch two ad-hoc regex patterns for every single
+    // source line of every JS/TS file, for every boundary entry: an O(entries x files x lines)
+    // scan where each unit of work also paid for dynamic regex compilation (Regex.IsMatch(string,
+    // string) has only a small internal cache, so distinct per-route patterns thrashed it). On a
+    // repository with hundreds of routes and thousands of files this is what turned a
+    // sub-second scan into one that did not return inside a 300-second client timeout. The route
+    // and method patterns depend only on the entry, not on the line being tested, so they are
+    // now compiled once per entry and reused across every file/line, with a cheap literal
+    // substring pre-check (always a necessary, if not sufficient, condition for a regex match)
+    // to skip the regex entirely for the overwhelming majority of non-matching lines.
+    private static IReadOnlyList<BoundarySourceLocation> LinkConsumers(
+        AnalysisContext context,
+        string method,
+        string route,
+        ScanBudget budget)
+    {
+        if (budget.IsExceeded)
+        {
+            budget.NoteConsumerLinkingSkipped();
+            return [];
+        }
+        return KnownConsumers(context, method, route, budget);
+    }
+
     private static IReadOnlyList<BoundarySourceLocation> KnownConsumers(
         AnalysisContext context,
         string method,
-        string route)
+        string route,
+        ScanBudget budget)
     {
         var literalPrefix = route.Split('{')[0].TrimEnd('/');
         if (literalPrefix.Length < 2) return [];
+        var methodToken = "." + method.ToLowerInvariant();
+        var methodRegex = ClientMethodRegex(method);
+        var routeRegex = ClientRouteRegex(route, out var literalSegmentsPerCandidate);
+
         var result = new List<BoundarySourceLocation>();
         foreach (var file in context.Sources.Where(IsJavaScript))
         {
+            if (budget.IsExceeded) break;
             foreach (var (line, text) in file.Lines())
             {
-                if (ClientRouteMention(text, route) &&
-                    Regex.IsMatch(text,
-                        $@"\.{Regex.Escape(method.ToLowerInvariant())}(?:<[^>]+>)?\s*\(",
-                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                if (!text.Contains(methodToken, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!MayMentionRoute(text, literalSegmentsPerCandidate)) continue;
+                if (methodRegex.IsMatch(text) && routeRegex.IsMatch(text))
                     result.Add(new BoundarySourceLocation(file.Path, line));
             }
         }
         return result.Distinct().OrderBy(location => location.Path, StringComparer.Ordinal).ThenBy(location => location.Line).ToArray();
     }
 
-    private static bool ClientRouteMention(string text, string route)
+    private static Regex ClientMethodRegex(string method) =>
+        new(@"\." + Regex.Escape(method.ToLowerInvariant()) + @"(?:<[^>]+>)?\s*\(",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static Regex ClientRouteRegex(string route, out string[][] literalSegmentsPerCandidate)
     {
         var candidates = new List<string> { route };
         if (route.StartsWith("/api/", StringComparison.Ordinal)) candidates.Add(route[4..]);
         var repositoryPrefix = Regex.Match(route, @"^/api/repos/\{[^}]+\}(?<tail>/.*)$",
             RegexOptions.CultureInvariant);
         if (repositoryPrefix.Success) candidates.Add(repositoryPrefix.Groups["tail"].Value);
-        foreach (var candidate in candidates.Distinct(StringComparer.Ordinal))
+        var distinctCandidates = candidates.Distinct(StringComparer.Ordinal).ToArray();
+
+        var corePatterns = new string[distinctCandidates.Length];
+        var segments = new string[distinctCandidates.Length][];
+        for (var index = 0; index < distinctCandidates.Length; index++)
         {
-            var pattern = Regex.Replace(
+            var candidate = distinctCandidates[index];
+            corePatterns[index] = Regex.Replace(
                 Regex.Escape(candidate),
                 @"\\\{[^}]+\\\}",
                 @"(?:\$\{[^}]+\}|[^/`'""?]+)",
                 RegexOptions.CultureInvariant);
-            if (Regex.IsMatch(text, pattern + @"(?=$|[?`'""),}\]])", RegexOptions.CultureInvariant))
-                return true;
+            segments[index] = Regex.Split(candidate, @"\{[^}]+\}")
+                .Where(segment => segment.Length > 0)
+                .ToArray();
+        }
+        literalSegmentsPerCandidate = segments;
+        var pattern = "(?:" + string.Join('|', corePatterns) + @")(?=$|[?`'""),}\]])";
+        return new Regex(pattern, RegexOptions.CultureInvariant);
+    }
+
+    private static bool MayMentionRoute(string text, string[][] literalSegmentsPerCandidate)
+    {
+        foreach (var segments in literalSegmentsPerCandidate)
+        {
+            var allPresent = true;
+            foreach (var segment in segments)
+            {
+                if (!text.Contains(segment, StringComparison.Ordinal))
+                {
+                    allPresent = false;
+                    break;
+                }
+            }
+            if (allPresent) return true;
         }
         return false;
     }
@@ -1308,16 +1396,78 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     private sealed record SourceFile(string Path, string Content)
     {
-        public IEnumerable<(int Line, string Text)> Lines()
+        private (int Line, string Text)[]? lines;
+
+        // Analyzed once per file but read many times (once per candidate boundary during
+        // consumer linking); splitting on every call turned a linear scan into repeated work.
+        public IReadOnlyList<(int Line, string Text)> Lines() => lines ??= BuildLines();
+
+        private (int Line, string Text)[] BuildLines()
         {
-            var lines = Content.Split('\n');
-            for (var index = 0; index < lines.Length; index++) yield return (index + 1, lines[index]);
+            var split = Content.Split('\n');
+            var result = new (int Line, string Text)[split.Length];
+            for (var index = 0; index < split.Length; index++) result[index] = (index + 1, split[index]);
+            return result;
         }
     }
 
-    private sealed record AnalysisContext(string Root, IReadOnlyList<SourceFile> Sources);
+    private sealed record AnalysisContext(string Root, IReadOnlyList<SourceFile> Sources)
+    {
+        private BoundaryFact? hostReachabilityFact;
+
+        // Host reachability is a whole-repository fact, not a per-route one, but it used to be
+        // recomputed (a full re-scan of every source file) for every unauthenticated route entry.
+        public BoundaryFact HostReachabilityFact => hostReachabilityFact ??= ComputeHostReachability(this);
+    }
 
     private sealed record RouteGroup(string Prefix, bool Authorized);
+
+    /// <summary>
+    /// A shared, mutable wall-clock guard threaded through one scan. When the configured budget
+    /// elapses, the remaining file reads and consumer-linking passes are skipped rather than run
+    /// to completion, so a scan on an arbitrarily large repository returns a bounded, honestly
+    /// labeled partial result instead of hanging past a caller's timeout.
+    /// </summary>
+    private sealed class ScanBudget(TimeSpan limit)
+    {
+        private readonly System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        public bool IsExceeded => limit != Timeout.InfiniteTimeSpan && stopwatch.Elapsed >= limit;
+
+        public bool FileReadBounded { get; private set; }
+
+        public int FilesReadBeforeBound { get; private set; }
+
+        public int EntriesWithSkippedConsumerLinking { get; private set; }
+
+        public bool IsPartial => FileReadBounded || EntriesWithSkippedConsumerLinking > 0;
+
+        public void NoteFileReadBounded(int filesReadSoFar)
+        {
+            if (FileReadBounded) return;
+            FileReadBounded = true;
+            FilesReadBeforeBound = filesReadSoFar;
+        }
+
+        public void NoteConsumerLinkingSkipped() => EntriesWithSkippedConsumerLinking++;
+
+        public IReadOnlyList<string> BuildReasons()
+        {
+            if (!IsPartial) return [];
+            var reasons = new List<string>();
+            var seconds = limit.TotalSeconds;
+            if (FileReadBounded)
+                reasons.Add(
+                    $"File enumeration stopped after the {seconds:0}s scan budget elapsed; " +
+                    $"{FilesReadBeforeBound} file(s) were analyzed and any later files were skipped.");
+            if (EntriesWithSkippedConsumerLinking > 0)
+                reasons.Add(
+                    $"Consumer linking stopped after the {seconds:0}s scan budget elapsed; " +
+                    $"{EntriesWithSkippedConsumerLinking} entr{(EntriesWithSkippedConsumerLinking == 1 ? "y has" : "ies have")} " +
+                    "an unlinked knownConsumers list.");
+            return reasons;
+        }
+    }
 
     [GeneratedRegex(@"\b(?<receiver>[A-Za-z_][A-Za-z0-9_]*)\.Map(?<method>Get|Post|Put|Delete|Patch|Options|Head|Methods|Fallback|)\s*\(\s*""(?<route>[^""]+)""", RegexOptions.CultureInvariant)]
     private static partial Regex AspNetMapRegex();
@@ -1325,13 +1475,28 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     [GeneratedRegex(@"\bvar\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\.MapGroup\s*\(\s*""(?<prefix>[^""]*)""\s*\)", RegexOptions.CultureInvariant)]
     private static partial Regex MapGroupRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant)]
+    // Attribute lists are unambiguous: each `[...]` block can only end at its own `]`, so once
+    // the repeated-attribute prefix has greedily consumed a run of them there is exactly one way
+    // it could have done so. Letting the engine backtrack through every partition of that run
+    // anyway (the default for `(?:...)+`/`(?:...)*`) is what makes files with many consecutive
+    // attributes but no matching class/action pathological: matching this against a test file
+    // with nine stacked `[InlineData(...)]` attributes and no `Controller`-suffixed class or
+    // `[Http*]` action took ~25 seconds for a single 4.7KB file. The atomic group `(?>...)`
+    // commits to that one decomposition and never reconsiders it, which is a no-op for every
+    // well-formed input and removes the exponential blowup for every pathological one.
+    [GeneratedRegex(@"(?<attributes>(?>(?:\s*\[[^\]]+\]\s*)+))(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant)]
     private static partial Regex ControllerRegex();
 
     [GeneratedRegex(@"\bRoute\s*\(\s*""(?<route>[^""]*)""", RegexOptions.CultureInvariant)]
     private static partial Regex ControllerRouteRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*\s*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\](?:\s*\[[^\]]+\]\s*)*)\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant)]
+    // The "other attribute" repetitions must not be able to swallow the required [Http*]
+    // attribute themselves (e.g. `[HttpPost("{id}")]` sitting first, with no attributes ahead of
+    // it) — the negative lookahead makes each bracket's category (a plain attribute vs. the verb
+    // attribute) decidable from its own content, so there is exactly one valid partition and the
+    // atomic group is both correct and immune to the backtracking blowup atomicity is meant to
+    // fix (see ControllerRegex above for why that blowup matters).
+    [GeneratedRegex(@"(?<attributes>(?>(?:\s*\[(?!Http(?:Get|Post|Put|Delete|Patch))[^\]]+\]\s*)*)\s*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\](?>(?:\s*\[(?!Http(?:Get|Post|Put|Delete|Patch))[^\]]+\]\s*)*))\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant)]
     private static partial Regex ControllerActionRegex();
 
     [GeneratedRegex(@"\b(?<operation>UseStaticFiles|MapFallbackToFile|MapHealthChecks|MapHub|UseWebSockets)\s*(?:<[^>]+>)?\s*\(\s*(?<argument>""[^""]*"")?", RegexOptions.CultureInvariant)]

@@ -50,3 +50,20 @@ stages consume the same deterministic evidence.
 The inventory intentionally contains no generation timestamp. Re-running it
 against unchanged source produces identical content, while adding, changing, or
 removing a boundary creates a normal repository diff.
+
+## Scan budget and partial results
+
+The scan holds itself to a wall-clock budget (60 seconds by default; override per
+run with the `budgetSeconds` sensor configuration key — a negative value disables
+the budget entirely). File enumeration and cross-referencing an inbound entry against every
+client-side route mention are the two passes whose cost grows with repository
+size; if the budget elapses mid-scan, the sensor stops there rather than running
+unbounded, and returns what it derived so far instead of hanging past a caller's
+timeout.
+
+A bounded run is never silent about it: the inventory carries `partial: true`
+and a `partialReasons` array naming exactly what was skipped (files that were
+never read, or entries whose `knownConsumers` were not cross-referenced). The
+sensor's `SensorScanResult` still reports `available: true` — a partial
+inventory is real, derived evidence, not a failure — with the same explanation
+surfaced through `unavailableReason` for callers that only look there.

@@ -17,6 +17,11 @@
     "findings": {
       "type": "array",
       "items": { "type": "object" }
+    },
+    "partial": { "type": [ "boolean", "null" ] },
+    "partialReasons": {
+      "type": [ "array", "null" ],
+      "items": { "type": "string", "minLength": 1 }
     }
   },
   "$defs": {
