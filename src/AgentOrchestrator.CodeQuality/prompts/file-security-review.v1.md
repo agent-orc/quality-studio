@@ -20,13 +20,16 @@ The JSON below is deterministic evidence produced by the configured sensor regis
 
 ## Review guidelines
 
+Named Quality Studio rules (stable ids and project-effective severity/options):
+{{NAMED_RULES}}
+
 Global guidelines:
 {{GLOBAL_GUIDELINES}}
 
 Project guidelines:
 {{PROJECT_GUIDELINES}}
 
-Guideline headings contain stable rule ids. Set every finding's `ruleId` to the exact id of the supplied guideline that caused it. Use `built-in:security` only for findings from the base review criteria. `ruleId` is required on every finding.
+Named-rule and guideline headings contain stable rule ids. Set every finding's `ruleId` to the exact supplied id that caused it, and use the effective severity shown for a named rule. Use `built-in:security` only for findings from the base review criteria. `ruleId` is required on every finding.
 
 ## Strict output format
 

@@ -177,6 +177,15 @@ from its findings and grade. Configuration and unavailable behavior are document
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.
 
+## Named best-practice rules
+
+Quality Studio owns a versioned, language-specific rule library under `rules/`. A
+default-on core applies automatically, while projects keep individual overrides in
+`.quality/rules.json`. Agent findings and deterministic pre-checks share the stable
+`QS-*` ids. Run `dotnet run --project src/quality-cli -- rules check .` for the
+mechanical subset, and see [`docs/rule-library.md`](docs/rule-library.md) for the
+format, Angular/.NET seeds, override schema, versioning, and unfixed-security policy.
+
 ## Review usage telemetry
 
 Agent-backed reviews persist their model, CLI, token counts, duration, and run

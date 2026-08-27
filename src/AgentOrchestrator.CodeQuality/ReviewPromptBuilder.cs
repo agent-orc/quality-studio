@@ -20,7 +20,8 @@ public sealed class ReviewPromptBuilder
         string? securitySensorEvidence = null,
         ReviewLevel level = ReviewLevel.File,
         string? coverageEvidence = null,
-        string? deterministicEvidence = null)
+        string? deterministicEvidence = null,
+        string? namedRules = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -37,6 +38,7 @@ public sealed class ReviewPromptBuilder
             .Replace("{{FILE_CONTENT}}", fileContent ?? "(content not supplied)", StringComparison.Ordinal)
             .Replace("{{GLOBAL_GUIDELINES}}", FormatGuidelines(globalGuidelines), StringComparison.Ordinal)
             .Replace("{{PROJECT_GUIDELINES}}", FormatGuidelines(projectGuidelines), StringComparison.Ordinal)
+            .Replace("{{NAMED_RULES}}", FormatGuidelines(namedRules), StringComparison.Ordinal)
             .Replace("{{SECURITY_SENSOR_EVIDENCE}}",
                 string.IsNullOrWhiteSpace(securitySensorEvidence) ? "{\"verdict\":\"pass\",\"sensors\":[]}" : securitySensorEvidence,
                 StringComparison.Ordinal)

@@ -30,8 +30,21 @@ public sealed class ReviewPromptBuilderTests
     {
         var prompt = new ReviewPromptBuilder().Build("Thing.cs", "code");
 
-        Assert.Equal(2, prompt.Split("(none supplied)", StringSplitOptions.None).Length - 1);
+        Assert.Equal(3, prompt.Split("(none supplied)", StringSplitOptions.None).Length - 1);
         Assert.Contains("(content not supplied)", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_InsertsNamedRuleContextWithStableIdentity()
+    {
+        var prompt = new ReviewPromptBuilder().Build(
+            "feature.css",
+            "code",
+            namedRules: "## QS-NG-002 - Use design tokens\n\nSeverity: high");
+
+        Assert.Contains("Named Quality Studio rules", prompt, StringComparison.Ordinal);
+        Assert.Contains("QS-NG-002 - Use design tokens", prompt, StringComparison.Ordinal);
+        Assert.Contains("use the effective severity", prompt, StringComparison.Ordinal);
     }
 
     [Fact]

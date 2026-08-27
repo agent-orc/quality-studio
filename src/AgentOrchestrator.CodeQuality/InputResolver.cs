@@ -13,7 +13,8 @@ public sealed record ReviewInput(
     bool Enabled,
     string Content,
     string IncludedContent,
-    bool Truncated);
+    bool Truncated,
+    string Version = "unversioned");
 
 public sealed record InputOmission(string Id, string Source, string Reason, int OmittedCharacters);
 
@@ -57,13 +58,17 @@ public sealed record ResolvedInputs(
 public sealed class InputResolver
 {
     public const int DefaultBudgetCharacters = 12_000;
+    private readonly RuleLibrary ruleLibrary;
+
+    public InputResolver(RuleLibrary? ruleLibrary = null) => this.ruleLibrary = ruleLibrary ?? RuleLibrary.BuiltIn;
 
     public ResolvedInputs Resolve(
         string repositoryRoot,
         string kind,
         ReviewLevel level,
         string? globalInputsDirectory = null,
-        int budgetCharacters = DefaultBudgetCharacters)
+        int budgetCharacters = DefaultBudgetCharacters,
+        IReadOnlyList<string>? subjectPaths = null)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) throw new ArgumentException("A repository root is required.", nameof(repositoryRoot));
         if (!Enum.TryParse<ReviewKind>(kind, true, out _)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
@@ -71,9 +76,25 @@ public sealed class InputResolver
 
         var normalizedKind = kind.ToLowerInvariant();
         var normalizedLevel = level.ToString().ToLowerInvariant();
+        var projectRoot = Path.GetFullPath(repositoryRoot);
+        var namedRules = (subjectPaths is null
+            ? Array.Empty<EffectiveQualityRule>()
+            : ruleLibrary.Resolve(projectRoot, subjectPaths, normalizedKind))
+            .Select(rule => new ReviewInput(
+                rule.Rule.Id,
+                rule.Rule.Source,
+                "rule-library",
+                1_000,
+                rule.Rule.Kinds,
+                [normalizedLevel],
+                true,
+                rule.PromptMarkdown(),
+                string.Empty,
+                false,
+                rule.Rule.Version))
+            .ToArray();
         var global = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
             globalInputsDirectory);
-        var projectRoot = Path.GetFullPath(repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
         var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -81,7 +102,7 @@ public sealed class InputResolver
             .Where(input => projectIds.Contains(input.Id))
             .Select(input => new InputOmission(input.Id, input.Source, "overridden-by-project", 0))
             .ToList();
-        var effective = global.Where(input => !projectIds.Contains(input.Id)).Concat(project).ToArray();
+        var effective = namedRules.Concat(global.Where(input => !projectIds.Contains(input.Id))).Concat(project).ToArray();
 
         var remaining = budgetCharacters;
         var included = new List<ReviewInput>();

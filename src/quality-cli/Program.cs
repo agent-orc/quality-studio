@@ -46,6 +46,11 @@ public static class QualityCli
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
         }
 
+        if (string.Equals(args[0], "rules", StringComparison.Ordinal))
+        {
+            return await RunRulesAsync(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -71,6 +76,44 @@ public static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or StalenessScanException)
         {
             Console.Error.WriteLine($"quality scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunRulesAsync(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help")
+        {
+            Console.WriteLine("Usage: quality rules check [path]");
+            return args.Length == 0 ? 2 : 0;
+        }
+        if (!string.Equals(args[0], "check", StringComparison.Ordinal) || args.Length > 2 ||
+            (args.Length == 2 && args[1].StartsWith("-", StringComparison.Ordinal)))
+        {
+            Console.Error.WriteLine("Usage: quality rules check [path]");
+            return 2;
+        }
+        try
+        {
+            var path = args.Length == 2 ? args[1] : ".";
+            var stopwatch = Stopwatch.StartNew();
+            var result = await new RulePrecheckSensor().RunAsync(new SensorScanRequest(path));
+            if (!result.Available)
+            {
+                Console.Error.WriteLine($"quality rules check unavailable: {result.UnavailableReason}");
+                return 2;
+            }
+            Console.WriteLine($"quality rules check: {result.Findings.Count} finding(s) | {stopwatch.ElapsedMilliseconds} ms");
+            foreach (var finding in result.Findings)
+            {
+                var location = finding.Locations[0];
+                Console.WriteLine($"{finding.Severity.ToString().ToLowerInvariant(),-8} {location.Path}:{location.Range?.Start.Line}:{location.Range?.Start.Column} {finding.RuleId} {finding.Title}");
+            }
+            return result.Findings.Count == 0 ? 0 : 1;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
+        {
+            Console.Error.WriteLine($"quality rules check failed: {exception.Message}");
             return 2;
         }
     }
@@ -144,25 +187,27 @@ public static class QualityCli
             if (options.ExplainInputs)
             {
                 var resolved = new InputResolver().Resolve(Directory.GetCurrentDirectory(), options.Kind,
-                    ReviewLevel.File, globalInputs, options.BudgetCharacters);
+                    ReviewLevel.File, globalInputs, options.BudgetCharacters, [options.File]);
                 PrintInputExplanation(resolved);
                 return 0;
             }
 
             var stopwatch = Stopwatch.StartNew();
-            var sensors = options.Kind == "security"
-                ? new SensorRegistry([new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()])
-                : null;
+            var sensors = new SensorRegistry(options.Kind == "security"
+                ? [new RulePrecheckSensor(), new GitleaksSecurityScanner(), new DependencyVulnerabilitySensor()]
+                : [new RulePrecheckSensor()]);
             var result = await new ReviewRunner(sensorRegistry: sensors).ReviewAsync(new ReviewRequest(
                 options.File, options.Kind, GlobalInputsDirectory: globalInputs,
                 InputBudgetCharacters: options.BudgetCharacters,
                 Sensors: options.Kind == "security"
                     ? [new ReviewSensorConfiguration("gitleaks"), new ReviewSensorConfiguration("dependencies")]
-                    : null));
+                    : null,
+                DeterministicSensors: [new ReviewSensorConfiguration("qs-rules")]));
             Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;
         }
-        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or ReviewResponseException or ReviewRunException)
+        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or
+                                              RuleConfigurationException or ReviewResponseException or ReviewRunException)
         {
             Console.Error.WriteLine($"quality review failed: {exception.Message}");
             return 2;
@@ -512,7 +557,7 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality rules check [path]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
