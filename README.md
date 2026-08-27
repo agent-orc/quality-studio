@@ -210,7 +210,36 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` is the required clean-checkout gate for pull requests and
+  pushes to `main`.
+
+## Required test baseline
+
+The required gate pins .NET 10.0.301, Node 22.23.1, Playwright Chromium, and Gitleaks
+8.24.2. It restores dependencies from the frontend lock file, builds the Release .NET
+solution and production Angular bundle, excludes only declared `MachineBound` tests from
+the portable .NET lane, runs every Angular spec, and scans the repository with the
+explicitly provisioned Gitleaks binary.
+
+Run the same deterministic checks locally:
+
+```shell
+npm run catalog:check
+dotnet restore QualityStudio.slnx
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"
+npm --prefix frontend ci
+npm --prefix frontend run browser:install
+npm --prefix frontend run test:tooling
+npm --prefix frontend run build
+CHROME_NO_SANDBOX=1 npm --prefix frontend test
+npm run test:required-gate
+dotnet run --project src/quality-cli --configuration Release --no-build -- security scan .
+```
+
+The production build keeps the existing 480 kB initial error budget. A development
+build is never shipping evidence. Gitleaks provisioning is a separate workflow step so
+an unavailable download is reported as infrastructure failure before the product scan.
 
 ## Minimal API
 
