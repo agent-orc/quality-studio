@@ -1,10 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
+    <AssemblyName>QualityStudio.Analysis.Core</AssemblyName>
+    <PackageId>QualityStudio.Analysis.Core</PackageId>
+    <PackageVersion>0.1.0</PackageVersion>
+    <Title>Quality Studio Analysis Core</Title>
+    <Description>In-process repository analysis for Quality Studio, CI, command-line, and Agent Studio pipeline consumers.</Description>
+    <PackageTags>quality;analysis;static-analysis;findings;quality-studio</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CodingAgentRunner" Version="0.7.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>

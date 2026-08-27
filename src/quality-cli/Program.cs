@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text;
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Analysis;
 
 return await QualityCli.RunAsync(args);
 
@@ -41,6 +42,11 @@ public static class QualityCli
             return await RunReportAsync(args[1..]);
         }
 
+        if (string.Equals(args[0], "analyze", StringComparison.Ordinal))
+        {
+            return await RunAnalysisAsync(args[1..]);
+        }
+
         if (string.Equals(args[0], "diff", StringComparison.Ordinal))
         {
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
@@ -71,6 +77,53 @@ public static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or StalenessScanException)
         {
             Console.Error.WriteLine($"quality scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunAnalysisAsync(string[] args)
+    {
+        if (args.Length > 0 && args[0] is "-h" or "--help")
+        {
+            PrintAnalysisUsage();
+            return 0;
+        }
+
+        try
+        {
+            var path = ".";
+            var pathSet = false;
+            var names = new List<string>();
+            for (var index = 0; index < args.Length; index++)
+            {
+                if (args[index] == "--analysis" && index + 1 < args.Length)
+                {
+                    names.Add(args[++index]);
+                    continue;
+                }
+                if (args[index] == "--analysis")
+                    throw new ArgumentException("Missing value for --analysis.");
+                if (args[index].StartsWith("-", StringComparison.Ordinal) || pathSet)
+                    throw new ArgumentException($"Unexpected argument: {args[index]}");
+                path = args[index];
+                pathSet = true;
+            }
+
+            if (names.Count == 0) names.Add(QualityAnalysisNames.Boundaries);
+            var result = await new QualityAnalysisRunner().RunAsync(new QualityAnalysisRequest(
+                path,
+                names.Select(name => new QualityAnalysisDefinition(name)).ToArray()));
+            Console.WriteLine(JsonSerializer.Serialize(result, QualityFindingJson.Options));
+            return result.Analyses.Any(analysis => !analysis.Available)
+                ? 2
+                : result.Findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
+                    ? 1
+                    : 0;
+        }
+        catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException or
+                                              SensorNotFoundException)
+        {
+            Console.Error.WriteLine($"quality analyze failed: {exception.Message}");
             return 2;
         }
     }
@@ -512,7 +565,10 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+        "Usage:\n  quality analyze [path] [--analysis <name>]...\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <score>] [--fail-on <severity>]");
+
+    private static void PrintAnalysisUsage() => Console.WriteLine(
+        "Usage:\n  quality analyze [path] [--analysis boundaries|coverage|dependencies|eslint|gitleaks|roslyn|sarif|tsc]...");
 
     private static void PrintSecurityUsage() => Console.WriteLine(
         "Usage:\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]");
