@@ -462,6 +462,15 @@ public sealed class ReviewJobService : BackgroundService
                         .ToArray(),
                     linked.Token)
                 .ConfigureAwait(false);
+            if (string.Equals(item.Kind, "security", StringComparison.Ordinal))
+            {
+                var securitySensors = SecuritySensorConfigurations(item.Repository);
+                if (securitySensors.Count > 0)
+                {
+                    item.SecurityPreflight = await CollectSecurityPreflightAsync(
+                        item.Repository.RootPath, securitySensors, linked.Token).ConfigureAwait(false);
+                }
+            }
             if (item.HasCap)
             {
                 foreach (var file in item.PendingFiles())
@@ -588,14 +597,28 @@ public sealed class ReviewJobService : BackgroundService
             AggregateControls: item.AggregateControls,
             AggregateExclusions: item.AggregateExclusions,
             ReviewRunId: item.Id,
-            Sensors: item.Kind == "security"
-                ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
-                    .Where(sensor => sensor.Enabled &&
-                                     sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
-                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
-                    .ToArray()
-                : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            Sensors: item.Kind == "security" ? SecuritySensorConfigurations(item.Repository) : null,
+            DeterministicEvidence: item.DeterministicEvidence,
+            SecurityPreflight: item.SecurityPreflight);
+    }
+
+    private IReadOnlyList<ReviewSensorConfiguration> SecuritySensorConfigurations(RepositoryRegistration repository) =>
+        (repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
+            .Where(sensor => sensor.Enabled && sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
+            .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
+            .ToArray();
+
+    private async Task<SecurityPreflightSnapshot> CollectSecurityPreflightAsync(
+        string repositoryRoot,
+        IReadOnlyList<ReviewSensorConfiguration> configurations,
+        CancellationToken cancellationToken)
+    {
+        var fingerprint = SecurityPreflightFingerprint.Compute(repositoryRoot);
+        var bundle = await new SecurityEvidenceCollector(sensorRegistry)
+            .CollectRepositoryAsync(repositoryRoot, configurations, cancellationToken).ConfigureAwait(false);
+        var sensorIds = configurations.Select(configuration => configuration.Id)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray();
+        return new SecurityPreflightSnapshot(fingerprint, sensorIds, bundle);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -727,6 +750,7 @@ public sealed class ReviewJobService : BackgroundService
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+        public SecurityPreflightSnapshot? SecurityPreflight { get; set; }
 
         public void PrepareForRecovery()
         {

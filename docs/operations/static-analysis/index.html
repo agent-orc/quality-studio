@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation-log">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -575,6 +576,46 @@
       <h4>Prompt-enrichment provenance gap</h4>
       <p>This Quality Studio checkout does not contain <code>AGENTS.md</code>, <code>docs/start/README.md</code>, <code>docs/start/contribution-and-style-guide.html</code>, <code>docs/system/domains/model-routing-policy.md</code>, or the named style-reference page. The shared contribution guide, routing policy, and exact reference style block were consulted from the neighboring canonical Agent Taskboard checkout. Product claims and measurements above are grounded in this Quality Studio checkout.</p>
     </div>
+  </section>
+
+  <section id="implementation-log">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p>Append-only record of what has actually landed against the slice plan above (section 08).
+    Entries are added by whichever delivery lands them; sections 00&ndash;10 record the decision and
+    are not edited by implementation work.</p>
+
+    <article class="slice">
+      <header><h3>2026-08-28 &middot; QS-72 &middot; S1 (partial) &mdash; snapshot-bound security preflight</h3><span class="pill part">partial</span></header>
+      <p><b>What landed:</b> fixed the specific defect this dossier's S1 calls out for security
+      evidence: a <code>kind=security</code> sweep ran a full-repository Gitleaks and dependency-audit
+      pass <i>per reviewed file</i>, discarding every finding outside that one subject each time. The
+      collection is now captured once per sweep in <code>ReviewJobs.RunAsync</code>
+      (<code>SecurityEvidenceCollector.CollectRepositoryAsync</code>), tagged with a source-tree
+      fingerprint (<code>SecurityPreflightFingerprint</code>, in <code>SecurityReviewEvidence.cs</code>),
+      and reused for every subject in the sweep via
+      <code>SecurityEvidenceProjection.ForSubjects</code> as long as the fingerprint and the
+      requested sensor set still match (<code>SecurityPreflightSnapshot.Matches</code>); a caller
+      that supplies no snapshot, or one that no longer matches, still collects fresh &mdash; this is
+      an additive optimization, not a required contract change.</p>
+      <ul>
+        <li>The fingerprint excludes the review sweep's own sidecar output (<code>.quality/</code>
+        directories and <code>*.review-meta.*</code> files) so writing a sidecar for file 1 does not
+        itself invalidate the snapshot before file 2 is reviewed.</li>
+        <li>Outside a git working tree the fingerprint returns a non-repeating
+        <code>unverifiable:&lt;guid&gt;</code>, so a snapshot is never reused when source state can't
+        be verified (fails safe, not open).</li>
+        <li>Not in this slice: the full <code>PreflightResult v1</code> contract, required-vs-optional
+        sensor enablement, preflight run states/progress, or the exact prompt projection in
+        <code>/api/review/estimate</code> &mdash; those remain open against S1.</li>
+      </ul>
+      <p><b>Tests:</b> <code>tests/AgentOrchestrator.CodeQuality.Tests/SecurityPreflightTests.cs</code>
+      (11 cases: fingerprint stability against sidecar churn, fingerprint sensitivity to tracked and
+      untracked source changes, non-repeating fingerprint outside a git repository, snapshot match
+      rules, subject projection, and end-to-end reuse/invalidation through <code>ReviewRunner</code>).
+      Verified <code>dotnet build -c Release</code> clean and
+      <code>dotnet test --filter "Category!=MachineBound"</code> at 213 passed / 1 skipped / 0 failed
+      (202 pre-existing + 11 new).</p>
+    </article>
   </section>
 
   <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>

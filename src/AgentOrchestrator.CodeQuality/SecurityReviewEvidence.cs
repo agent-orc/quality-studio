@@ -134,33 +134,47 @@ public sealed record SecurityEvidenceBundle(
 
 public sealed class SecurityEvidenceCollector(SensorRegistry registry)
 {
+    /// <summary>
+    /// Runs every configured sensor once, scoped to the whole repository, with no per-subject
+    /// filtering. Callers project the result down to the files they care about with
+    /// <see cref="SecurityEvidenceProjection.ForSubjects"/> instead of re-scanning per subject.
+    /// </summary>
+    public async Task<SecurityEvidenceBundle> CollectRepositoryAsync(
+        string repositoryRoot,
+        IReadOnlyList<ReviewSensorConfiguration> configurations,
+        CancellationToken cancellationToken = default)
+    {
+        var tasks = configurations
+            .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(configuration => CollectSensorAsync(repositoryRoot, configuration, cancellationToken))
+            .ToArray();
+        var evidence = await Task.WhenAll(tasks).ConfigureAwait(false);
+        var ordered = evidence.OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
+        return new SecurityEvidenceBundle(CombineVerdicts(ordered), ordered);
+    }
+
     public async Task<SecurityEvidenceBundle> CollectAsync(
         string repositoryRoot,
         IReadOnlyList<string> subjectPaths,
         IReadOnlyList<ReviewSensorConfiguration> configurations,
         CancellationToken cancellationToken = default)
     {
-        var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath)
-            .ToHashSet(StringComparer.Ordinal);
-        var tasks = configurations
-            .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(configuration => CollectSensorAsync(repositoryRoot, subjects, configuration, cancellationToken))
-            .ToArray();
-        var evidence = await Task.WhenAll(tasks).ConfigureAwait(false);
-        var ordered = evidence.OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
-        var verdict = ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Unavailable)
+        var repository = await CollectRepositoryAsync(repositoryRoot, configurations, cancellationToken)
+            .ConfigureAwait(false);
+        return SecurityEvidenceProjection.ForSubjects(repository, subjectPaths);
+    }
+
+    internal static SecurityEvidenceVerdict CombineVerdicts(IReadOnlyList<SecuritySensorEvidence> sensors) =>
+        sensors.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Unavailable)
             ? SecurityEvidenceVerdict.Unavailable
-            : ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Block)
+            : sensors.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Block)
                 ? SecurityEvidenceVerdict.Block
-                : ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Warn)
+                : sensors.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Warn)
                     ? SecurityEvidenceVerdict.Warn
                     : SecurityEvidenceVerdict.Pass;
-        return new SecurityEvidenceBundle(verdict, ordered);
-    }
 
     private async Task<SecuritySensorEvidence> CollectSensorAsync(
         string repositoryRoot,
-        IReadOnlySet<string> subjectPaths,
         ReviewSensorConfiguration configuration,
         CancellationToken cancellationToken)
     {
@@ -182,12 +196,6 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 Configuration: configuration.Configuration,
                 PersistMetadata: false), cancellationToken).ConfigureAwait(false);
             var findings = result.Findings
-                .Select(finding => finding with
-                {
-                    Locations = finding.Locations.Where(location =>
-                        subjectPaths.Contains(SecurityEvidenceBundle.NormalizePath(location.Path))).ToArray(),
-                })
-                .Where(finding => finding.Locations.Count > 0)
                 .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
                 .ToArray();
             var verdict = !result.Available
@@ -291,6 +299,94 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             return evidence;
         }
     }
+}
+
+/// <summary>
+/// Projects a repository-wide <see cref="SecurityEvidenceBundle"/> down to the findings that
+/// touch a specific set of subject files, recomputing each sensor's verdict from the
+/// filtered findings. The sensor's <c>resultHash</c> is left untouched — it identifies the
+/// underlying repository-wide scan, not the per-subject slice of it.
+/// </summary>
+public static class SecurityEvidenceProjection
+{
+    public static SecurityEvidenceBundle ForSubjects(
+        SecurityEvidenceBundle repositoryBundle,
+        IReadOnlyList<string> subjectPaths)
+    {
+        var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath).ToHashSet(StringComparer.Ordinal);
+        var projected = repositoryBundle.Sensors.Select(sensor =>
+        {
+            var findings = sensor.Findings
+                .Where(finding => finding.Locations.Any(location =>
+                    subjects.Contains(SecurityEvidenceBundle.NormalizePath(location.Path))))
+                .ToArray();
+            var verdict = !sensor.Available
+                ? SecurityEvidenceVerdict.Unavailable
+                : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
+                    ? SecurityEvidenceVerdict.Block
+                    : findings.Length > 0
+                        ? SecurityEvidenceVerdict.Warn
+                        : SecurityEvidenceVerdict.Pass;
+            return sensor with { Findings = findings, Verdict = verdict };
+        }).OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
+        return new SecurityEvidenceBundle(SecurityEvidenceCollector.CombineVerdicts(projected), projected);
+    }
+}
+
+/// <summary>
+/// A repository-wide security sensor scan captured once per review sweep, tagged with the
+/// source-tree fingerprint it was captured against so a later subject can decide whether it is
+/// still safe to reuse instead of re-scanning the whole repository again.
+/// </summary>
+public sealed record SecurityPreflightSnapshot(
+    string Fingerprint,
+    IReadOnlyList<string> SensorIds,
+    SecurityEvidenceBundle Bundle)
+{
+    public bool Matches(string currentFingerprint, IReadOnlyList<ReviewSensorConfiguration> configurations)
+    {
+        if (Fingerprint.StartsWith("unverifiable:", StringComparison.Ordinal)) return false;
+        if (currentFingerprint.StartsWith("unverifiable:", StringComparison.Ordinal)) return false;
+        if (!string.Equals(Fingerprint, currentFingerprint, StringComparison.Ordinal)) return false;
+        var requested = configurations.Select(configuration => configuration.Id)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray();
+        return SensorIds.SequenceEqual(requested, StringComparer.OrdinalIgnoreCase);
+    }
+}
+
+/// <summary>
+/// Fingerprints the reviewable source tree so a <see cref="SecurityPreflightSnapshot"/> can be
+/// reused as long as nothing a security sensor would look at has changed. Review sidecars
+/// (<c>.quality/</c> directories and <c>*.review-meta.*</c> files) are excluded from the
+/// fingerprint: the review sweep itself writes them as it goes, and including them would make a
+/// snapshot invalidate itself after the very first file it was used for.
+/// </summary>
+public static class SecurityPreflightFingerprint
+{
+    public static string Compute(string repositoryRoot)
+    {
+        var head = CoverageSensor.GitValue(repositoryRoot, "rev-parse", "--verify", "HEAD");
+        var status = CoverageSensor.GitValue(repositoryRoot, "status", "--porcelain");
+        if (head is null || status is null) return $"unverifiable:{Guid.NewGuid():n}";
+
+        var relevant = status.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Where(line => !IsReviewArtifact(ExtractPath(line)))
+            .OrderBy(line => line, StringComparer.Ordinal);
+        var canonical = head + "\n" + string.Join('\n', relevant);
+        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+
+    private static string ExtractPath(string statusLine)
+    {
+        var path = statusLine.Length > 3 ? statusLine[3..] : string.Empty;
+        var arrow = path.IndexOf(" -> ", StringComparison.Ordinal);
+        if (arrow >= 0) path = path[(arrow + 4)..];
+        return path.Trim('"').Replace('\\', '/');
+    }
+
+    private static bool IsReviewArtifact(string path) =>
+        path.Contains(".review-meta.", StringComparison.Ordinal) ||
+        path.Split('/').Any(segment => segment.TrimEnd('/') == ".quality");
 }
 
 public static class SecurityReviewCombiner

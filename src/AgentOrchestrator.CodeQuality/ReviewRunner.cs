@@ -24,7 +24,8 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    SecurityPreflightSnapshot? SecurityPreflight = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -343,6 +344,12 @@ public sealed class ReviewRunner
             return SecurityEvidenceBundle.Empty;
         if (_sensorRegistry is null)
             throw new InvalidOperationException("Security sensors were configured for the review, but no sensor registry is available.");
+        if (request.SecurityPreflight is { } preflight)
+        {
+            var currentFingerprint = SecurityPreflightFingerprint.Compute(root);
+            if (preflight.Matches(currentFingerprint, request.Sensors))
+                return SecurityEvidenceProjection.ForSubjects(preflight.Bundle, subjectPaths);
+        }
         return await new SecurityEvidenceCollector(_sensorRegistry)
             .CollectAsync(root, subjectPaths, request.Sensors, cancellationToken).ConfigureAwait(false);
     }
