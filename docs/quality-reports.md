@@ -58,7 +58,8 @@ Every terminal UI review run writes a strict canonical document to
 `.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
 manifest, routing provenance, usage and cap outcome, one explicit outcome per
 planned unit, the exact sidecar bytes captured by the run, finding lifecycle
-state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
+state, effective review-input hashes when captured by the producing run, and a
+comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
 `capped` runs are all reportable. Incomplete outcomes are visibly marked
 `partial` and do not invent a score or baseline state.
 
@@ -96,6 +97,20 @@ repository-scoped form return paged run history. A series is keyed by repository
 kind, scope unit ID, and level. Only complete runs are comparable; partial runs
 remain visible as events, and the highest revision wins for a resumed run. This
 run trend is separate from the Git-backed commit trend below.
+
+`GET /api/review/runs/compare?baselineId=<id>&candidateId=<id>` and its
+repository-scoped form compare two complete, scored snapshots for the same
+repository, kind, scope unit, and level. The candidate must finish after the
+baseline. Findings are aligned by stable fingerprint as New, Unchanged, Resolved,
+or Disposition changed. The response includes grades, active severity counts,
+reviewed/reused/failed/skipped units, route, source and review-input hashes,
+duration, tokens, and cost. Missing reports return not found; corrupt snapshots
+and incompatible pairs return explicit errors. Interpretation remains
+observational, and the response never attributes a quality delta to a model.
+
+Canonical run snapshots are intentionally committed repository history. Quality
+Studio does not prune them automatically; retention lasts until an explicit
+repository-history change removes an artifact.
 
 The JSON contract is described by
 [`schemas/quality-report.v1.schema.json`](../schemas/quality-report.v1.schema.json).
