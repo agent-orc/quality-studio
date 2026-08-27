@@ -41,7 +41,26 @@ public sealed class ReviewQueueReclaimTests
         var run = await WaitForStateAsync(client, second, "running", cancellationToken);
 
         Assert.Equal("running", run.GetProperty("state").GetString());
-        Assert.Equal(2, stuck.Started);
+
+        // A run flips to "running" a moment before the executor is actually invoked, so this has
+        // to be waited for rather than sampled.
+        await WaitForAsync(() => stuck.Started == 2,
+            "the second run's reviewer was never invoked", cancellationToken);
+
+        // Let the abandoned attempts unwind before the host shuts down; otherwise disposal blocks
+        // on them until the shutdown timeout, which slows the suite and starves parallel tests.
+        stuck.Release();
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition, string failure, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 1500; attempt++)
+        {
+            if (condition()) return;
+            await Task.Delay(20, cancellationToken);
+        }
+
+        Assert.Fail($"Timed out waiting: {failure}.");
     }
 
     private static async Task<string> StartReviewAsync(HttpClient client, CancellationToken cancellationToken)
@@ -61,9 +80,10 @@ public sealed class ReviewQueueReclaimTests
         HttpClient client, string runId, string expected, CancellationToken cancellationToken)
     {
         JsonElement run = default;
-        // Generous: the reclaim grace is configured to 1s below, and the queue only advances
-        // after it elapses.
-        for (var attempt = 0; attempt < 300; attempt++)
+        // Deliberately generous. This is a wedge detector, not a latency budget: a wedged queue
+        // never advances at all, so a long bound costs nothing on the passing path and keeps the
+        // test from flaking when the suite runs under parallel load.
+        for (var attempt = 0; attempt < 1500; attempt++)
         {
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{runId}", cancellationToken);
             if (run.GetProperty("state").GetString() == expected) return run;
@@ -90,10 +110,15 @@ public sealed class ReviewQueueReclaimTests
             Action<string, CliRunEvent> eventObserver, Action<ReviewUsageEntry> usageRecorded) =>
             new StuckExecutor(this);
 
-        // Releases the abandoned attempts so the host can shut down at the end of the test.
+        /// <summary>Unblocks the abandoned attempts so the host can shut down promptly.</summary>
+        public void Release()
+        {
+            if (!release.IsCancellationRequested) release.Cancel();
+        }
+
         public void Dispose()
         {
-            release.Cancel();
+            Release();
             release.Dispose();
         }
 

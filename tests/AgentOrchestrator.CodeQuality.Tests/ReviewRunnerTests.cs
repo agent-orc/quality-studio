@@ -893,4 +893,52 @@ public sealed class LiveReviewIntegrationTests
         Assert.True(File.Exists(result.MetaPath));
     }
 
+    /// <summary>
+    /// Guards docs/operations/security-concept/ finding N-01 at the agent level: the claude
+    /// reviewer must actually attach and emit events, rather than sitting silent and reporting an
+    /// empty success. Runs against a temp directory so it leaves no usage ledger in the checkout.
+    /// </summary>
+    [Fact]
+    public async Task ClaudeReviewerAttaches_WhenExplicitlyEnabled()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("QUALITY_RUN_LIVE_REVIEW"), "1", StringComparison.Ordinal))
+        {
+            Assert.Skip("Set QUALITY_RUN_LIVE_REVIEW=1 to run the installed claude CLI.");
+        }
+
+        var workingDirectory = Path.Combine(Path.GetTempPath(), "quality-studio-live-claude-agent", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workingDirectory);
+        try
+        {
+            var events = 0;
+            var agent = new CodingAgentReviewAgent("claude",
+                eventObserver: (_, _) => Interlocked.Increment(ref events));
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            // Either outcome proves the point: a completed run, or a typed failure. What must not
+            // happen is a silent, event-free "success" or an unbounded hang.
+            try
+            {
+                await agent.RunAsync("Reply with OK.", workingDirectory, TestContext.Current.CancellationToken);
+            }
+            catch (ReviewAgentRunException)
+            {
+            }
+
+            stopwatch.Stop();
+            Assert.True(events > 0, "The claude reviewer produced no events at all — the finding N-01 symptom.");
+            Assert.True(stopwatch.Elapsed < CodingAgentReviewAgent.DefaultAttachTimeout,
+                $"The claude reviewer took {stopwatch.Elapsed.TotalSeconds:0.#}s, beyond the attach budget.");
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(workingDirectory, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
 }
