@@ -1,0 +1,99 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1.0.0",
+  "axes": {
+    "producerKind": {
+      "terms": [
+        { "id": "agent" },
+        { "id": "deterministic-sensor" },
+        { "id": "human" },
+        { "id": "imported" },
+        { "id": "unknown" }
+      ]
+    },
+    "evidenceStatus": {
+      "terms": [
+        { "id": "available" },
+        { "id": "partial" },
+        { "id": "unavailable" }
+      ]
+    },
+    "assessment": {
+      "terms": [
+        { "id": "pass" },
+        { "id": "concern" },
+        { "id": "fail" },
+        { "id": "inconclusive" },
+        { "id": "not-applicable" },
+        { "id": "not-assessed" }
+      ]
+    },
+    "change": {
+      "terms": [
+        { "id": "improved" },
+        { "id": "regressed" },
+        { "id": "mixed" },
+        { "id": "unchanged" },
+        { "id": "no-observed-delta" },
+        { "id": "inconclusive" }
+      ]
+    },
+    "decision": {
+      "terms": [
+        { "id": "allow" },
+        { "id": "warn" },
+        { "id": "block" },
+        { "id": "defer" }
+      ]
+    },
+    "severity": {
+      "terms": [
+        { "id": "critical" },
+        { "id": "high" },
+        { "id": "medium" },
+        { "id": "low" },
+        { "id": "info" }
+      ]
+    },
+    "lifecycle": {
+      "terms": [
+        { "id": "open" },
+        { "id": "accepted-risk", "aliases": ["accepted"] },
+        { "id": "waived" },
+        { "id": "false-positive", "aliases": ["falsePositive"] },
+        { "id": "resolved" }
+      ]
+    },
+    "evidenceKind": {
+      "terms": [
+        { "id": "source-code" },
+        { "id": "test-result" },
+        { "id": "runtime-measurement" },
+        { "id": "tool-result" },
+        { "id": "artifact" },
+        { "id": "document" },
+        { "id": "human-attestation" }
+      ]
+    }
+  },
+  "aspects": [
+    { "id": "code.correctness", "aliases": ["correctness"] },
+    { "id": "code.architecture", "aliases": ["architecture"] },
+    { "id": "security.general", "aliases": ["security"] },
+    { "id": "security.secrets", "aliases": ["secrets"] },
+    { "id": "security.dependencies", "aliases": ["dependencies"] },
+    { "id": "security.authentication-authorization", "aliases": ["authentication-authorization"] },
+    { "id": "security.input-validation", "aliases": ["input-validation"] },
+    { "id": "security.configuration-iac", "aliases": ["configuration-iac"] },
+    { "id": "security.boundary-exposure", "aliases": ["boundaries"] },
+    { "id": "security.business-logic", "aliases": [] },
+    { "id": "security.attack-coverage", "aliases": [] },
+    { "id": "performance.general", "aliases": ["performance"] },
+    { "id": "change.risk", "aliases": ["risk"] },
+    { "id": "change.test-evidence", "aliases": ["test-evidence"] },
+    { "id": "change.scope-discipline", "aliases": ["scope-discipline"] },
+    { "id": "change.architecture-drift", "aliases": ["architecture-drift"] }
+  ]
+}
