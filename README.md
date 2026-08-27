@@ -214,7 +214,7 @@ endpoint formats, and documented exit codes.
   the stable caller surface.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - `.github/workflows/build.yml` builds and tests the solution, packs the core, and
-  retains the NuGet artifacts for pushes and pull requests to `main`.
+  retains the NuGet artifacts for pushes to `main`, version tags, and manual runs.
 
 ## Minimal API
 
