@@ -47,6 +47,7 @@ describe('ReviewPanel session flow', () => {
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
+    compareRuns: jasmine.createSpy('compareRuns'),
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
@@ -59,7 +60,7 @@ describe('ReviewPanel session flow', () => {
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
+      api.resumeReview, api.loadRunReport, api.loadRunTrend, api.compareRuns]) spy.calls.reset();
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -210,5 +211,54 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+  });
+
+  it('compares the open run against a chosen trend point and surfaces non-exact labels plainly', async () => {
+    const run = {
+      id: 'terminal', repositoryId: 'default', path: 'src/A.cs', level: 'file', kind: 'code', state: 'done',
+      model: 'gpt-test', thinkingLevel: 'high', cliType: 'codex', completedFiles: 1, totalFiles: 1,
+      failedFiles: 0, skippedFiles: 0, errors: [], usageOperations: 0, usage: { inputTokens: 0, outputTokens: 0,
+        cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0 }, costSpent: null, currency: null,
+      stopReason: null, deviation: null, createdAt: '2026-08-11T08:00:00Z',
+    } as any;
+    api.reviewRuns.set([run]);
+    api.loadRunReport.and.resolveTo({
+      run: { id: 'terminal', revision: 1, completeness: 'complete', state: 'done', cliType: 'codex', model: 'gpt-test', thinkingLevel: 'high' },
+      subject: { manifestHash: 'sha256:manifest' },
+      execution: { reviewed: 1, reusedFresh: 0 },
+      summary: { score: 91, grade: 'A', partialReason: null, findings: { total: 1 } },
+      observations: [],
+    } as any);
+    api.loadRunTrend.and.resolveTo({
+      points: [
+        { runId: 'terminal', revision: 1, finishedAt: '2026-08-11T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 91, grade: 'A', activeFindings: 1, newFindings: 1, persistingFindings: 0, resolvedFindings: 0, stateChangedFindings: 0, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 100, outputTokens: 20, cost: null, currency: null },
+        { runId: 'earlier', revision: 1, finishedAt: '2026-08-10T08:00:00Z', state: 'done', completeness: 'complete', comparable: true, comparisonReason: null, score: 80, grade: 'B', activeFindings: 2, newFindings: 0, persistingFindings: 1, resolvedFindings: 0, stateChangedFindings: 0, reviewed: 1, reusedFresh: 0, failed: 0, skipped: 0, inputTokens: 100, outputTokens: 20, cost: null, currency: null },
+      ],
+      nextCursor: null,
+    });
+    api.compareRuns.and.resolveTo({
+      fromRunId: 'earlier', toRunId: 'terminal', comparabilityLabels: ['model-changed'],
+      delta: { status: 'available', priorRunId: 'earlier', reason: null, new: ['sha256:a'], persisting: ['sha256:b'], resolved: [], stateChanged: [] },
+    });
+
+    component.runDrawerOpen.set(true);
+    await component.openRun(run);
+    fixture.detectChanges();
+
+    const compareButtons = fixture.nativeElement.querySelectorAll('.trend-more');
+    expect(compareButtons.length).toBe(1);
+    compareButtons[0].click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.compareRuns).toHaveBeenCalledWith('terminal', 'earlier');
+    const comparison = fixture.nativeElement.querySelector('[aria-label="Run comparison"]');
+    expect(comparison.textContent).toContain('earlier → terminal');
+    expect(comparison.textContent).toContain('model-changed');
+    expect(comparison.textContent).toContain('not necessarily a quality change');
+
+    component.closeComparison();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Run comparison"]')).toBeNull();
   });
 });

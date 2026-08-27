@@ -184,6 +184,20 @@ public sealed class ReviewRunStoreTests
                 file => Assert.Equal("done", file.GetProperty("state").GetString()));
             Assert.Equal("done", forced.GetProperty("aggregateState").GetString());
             Assert.Equal(3, fake.AgentCalls);
+
+            var forcedId = forcedAccepted.GetProperty("id").GetString()!;
+            var freshId = freshAccepted.GetProperty("id").GetString()!;
+            var compareUrl = $"/api/review/runs/{forcedId}/compare?against={Uri.EscapeDataString(freshId)}";
+            var comparison = await client.GetFromJsonAsync<JsonElement>(compareUrl, cancellationToken);
+            Assert.Equal(freshId, comparison.GetProperty("fromRunId").GetString());
+            Assert.Equal(forcedId, comparison.GetProperty("toRunId").GetString());
+            Assert.Contains("exact", comparison.GetProperty("comparabilityLabels").EnumerateArray()
+                .Select(label => label.GetString()));
+            Assert.Equal("available", comparison.GetProperty("delta").GetProperty("status").GetString());
+
+            using var missingAgainst = await client.GetAsync(
+                $"/api/review/runs/{forcedId}/compare?against=does-not-exist", cancellationToken);
+            Assert.Equal(System.Net.HttpStatusCode.NotFound, missingAgainst.StatusCode);
         }
         finally
         {

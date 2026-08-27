@@ -203,6 +203,44 @@ public static class QualityRunReportFactory
                 .Order(StringComparer.Ordinal).ToArray());
     }
 
+    /// <summary>Compares two archived run snapshots chosen by an operator, independent of run order.
+    /// Never folds a model or input change into the finding delta: both surface as explicit
+    /// comparability labels so a caller cannot mistake a route or scope change for a quality change.</summary>
+    public static QualityRunComparison Compare(QualityRunReportDocument from, QualityRunReportDocument to)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+        if (!string.Equals(from.Run.RepositoryId, to.Run.RepositoryId, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Review runs from different repositories cannot be compared.");
+        if (!string.Equals(from.Run.Kind, to.Run.Kind, StringComparison.Ordinal))
+            throw new ArgumentException("Review runs with different review kinds cannot be compared.");
+        if (!string.Equals(from.Run.ScopeUnitId, to.Run.ScopeUnitId, StringComparison.Ordinal) ||
+            !string.Equals(from.Run.Level, to.Run.Level, StringComparison.Ordinal))
+            throw new ArgumentException("Review runs with a different scope cannot be compared.");
+
+        var labels = new List<string>();
+        if (from.Run.Completeness != "complete" || to.Run.Completeness != "complete") labels.Add("incomplete");
+        if (!string.Equals(from.Run.Model, to.Run.Model, StringComparison.Ordinal)) labels.Add("model-changed");
+        if (!string.Equals(from.Subject.ManifestHash, to.Subject.ManifestHash, StringComparison.Ordinal))
+            labels.Add("inputs-changed");
+        if (labels.Count == 0) labels.Add("exact");
+
+        var before = ActiveFindingStates(from.Observations);
+        var after = ActiveFindingStates(to.Observations);
+        var beforeKeys = before.Keys.ToHashSet(StringComparer.Ordinal);
+        var afterKeys = after.Keys.ToHashSet(StringComparer.Ordinal);
+        var delta = new QualityRunDelta(
+            "available",
+            from.Run.Id,
+            null,
+            afterKeys.Except(beforeKeys).Order(StringComparer.Ordinal).ToArray(),
+            afterKeys.Intersect(beforeKeys).Order(StringComparer.Ordinal).ToArray(),
+            beforeKeys.Except(afterKeys).Order(StringComparer.Ordinal).ToArray(),
+            afterKeys.Intersect(beforeKeys).Where(key => after[key] != before[key])
+                .Order(StringComparer.Ordinal).ToArray());
+        return new QualityRunComparison(from.Run.Id, to.Run.Id, labels, delta);
+    }
+
     private static Dictionary<string, string> ActiveFindingStates(IEnumerable<QualityRunObservation> observations) =>
         observations.SelectMany(observation => observation.Findings)
             .Where(finding => finding.State != "resolved")

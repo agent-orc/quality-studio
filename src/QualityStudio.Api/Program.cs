@@ -309,6 +309,8 @@ app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/review/runs/{id}/compare", ReviewRunCompare);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/compare", ReviewRunCompare);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -1115,6 +1117,24 @@ static IResult ReviewRunReport(
         QualityRunReportRenderer.Render(report, selectedFormat),
         QualityReportRenderer.ContentType(selectedFormat),
         Encoding.UTF8);
+}
+
+static IResult ReviewRunCompare(
+    HttpContext context,
+    string id,
+    string? against,
+    RepositoryRegistry registry)
+{
+    if (string.IsNullOrWhiteSpace(against))
+        throw new ArgumentException("Comparing a run requires an 'against' run id.");
+    var repository = registry.Get(RouteRepositoryId(context));
+    var store = new QualityRunReportStore(repository.RootPath);
+    var from = store.Load(against);
+    var to = store.Load(id);
+    if (!string.Equals(from.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase) ||
+        !string.Equals(to.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
+        throw new FileNotFoundException($"Review run report '{id}' was not found.");
+    return Results.Ok(QualityRunReportFactory.Compare(from, to));
 }
 
 static IResult ReviewRunTrend(

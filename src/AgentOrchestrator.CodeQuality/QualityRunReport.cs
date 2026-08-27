@@ -129,6 +129,14 @@ public sealed record QualityRunDelta(
     IReadOnlyList<string> Resolved,
     IReadOnlyList<string> StateChanged);
 
+/// <summary>An explicit, operator-chosen comparison between two archived run snapshots, distinct from
+/// <see cref="QualityRunDelta"/>'s automatic comparison against the nearest predecessor.</summary>
+public sealed record QualityRunComparison(
+    string FromRunId,
+    string ToRunId,
+    IReadOnlyList<string> ComparabilityLabels,
+    QualityRunDelta Delta);
+
 public sealed record QualityRunSummary(
     int? Score,
     string? Grade,

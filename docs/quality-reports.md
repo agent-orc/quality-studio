@@ -97,6 +97,17 @@ kind, scope unit ID, and level. Only complete runs are comparable; partial runs
 remain visible as events, and the highest revision wins for a resumed run. This
 run trend is separate from the Git-backed commit trend below.
 
+`GET /api/review/runs/{id}/compare?against=<runId>` and its repository-scoped
+form compare two archived run snapshots the caller picks explicitly, independent
+of run order or trend adjacency. Both runs must share a repository, review kind,
+scope unit, and level or the request fails with `400`; either report missing or
+unreadable fails with `404`/`422` the same way a single-run report load does. The
+response never folds a model or input change into the finding delta: it carries
+its own `comparabilityLabels` (`exact`, `model-changed`, `inputs-changed`,
+`incomplete`, any combination) alongside the fingerprint-keyed
+new/persisting/resolved/state-changed delta, so a caller cannot mistake a route
+or scope change for a quality change.
+
 The JSON contract is described by
 [`schemas/quality-report.v1.schema.json`](../schemas/quality-report.v1.schema.json).
 SARIF declares version 2.1.0 and the official OASIS schema URI, produces one run

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunComparison, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -56,6 +56,9 @@ export class ReviewPanel {
   readonly runTrendCursor = signal<string | null>(null);
   readonly runDetailLoading = signal(false);
   readonly runDetailError = signal('');
+  readonly runComparison = signal<QualityRunComparison | null>(null);
+  readonly runComparisonLoading = signal(false);
+  readonly runComparisonError = signal('');
   readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
@@ -348,6 +351,8 @@ export class ReviewPanel {
     this.runTrend.set([]);
     this.runTrendCursor.set(null);
     this.runDetailError.set('');
+    this.runComparison.set(null);
+    this.runComparisonError.set('');
     if (!['done', 'failed', 'cancelled', 'capped'].includes(run.state)) return;
     this.runDetailLoading.set(true);
     try {
@@ -372,6 +377,28 @@ export class ReviewPanel {
     this.runTrend.set([]);
     this.runTrendCursor.set(null);
     this.runDetailError.set('');
+    this.runComparison.set(null);
+    this.runComparisonError.set('');
+  }
+
+  async compareWithRun(against: string): Promise<void> {
+    const current = this.selectedRunId();
+    if (!current) return;
+    this.runComparisonLoading.set(true);
+    this.runComparisonError.set('');
+    try {
+      this.runComparison.set(await this.api.compareRuns(current, against));
+    } catch (error) {
+      this.runComparison.set(null);
+      this.runComparisonError.set(this.api.errorMessage(error));
+    } finally {
+      this.runComparisonLoading.set(false);
+    }
+  }
+
+  closeComparison(): void {
+    this.runComparison.set(null);
+    this.runComparisonError.set('');
   }
 
   async loadOlderTrend(): Promise<void> {

@@ -40,10 +40,21 @@
                     <div><b>{{ point.score ?? 'event' }}</b><small>{{ scannedAt(point.finishedAt) }} · {{ point.state }}</small></div>
                     <span class="trend-track"><i [style.width.%]="trendScoreWidth(point)"></i></span>
                     <small>{{ point.activeFindings }} active · +{{ point.newFindings }} / −{{ point.resolvedFindings }} · {{ point.reviewed }} reviewed / {{ point.reusedFresh }} reused · {{ formatTokens((point.inputTokens ?? 0) + (point.outputTokens ?? 0)) }} · {{ point.cost === null ? 'cost unavailable' : point.cost + ' ' + (point.currency ?? 'USD') }}</small>
+                    @if (point.runId !== selectedRunId()) { <button type="button" class="trend-more" (click)="compareWithRun(point.runId)">Compare with this run</button> }
                   </article>
                 } @empty { <p class="run-detail-message">No run trend points yet.</p> }
               </div>
               @if (runTrendCursor()) { <button class="trend-more" type="button" (click)="loadOlderTrend()">Load older snapshots</button> }
+              @if (runComparisonLoading()) { <p class="run-detail-message" role="status">Comparing runs…</p> }
+              @if (runComparisonError()) { <p class="run-error" role="alert">{{ runComparisonError() }}</p> }
+              @if (runComparison(); as comparison) {
+                <section class="run-detail-surface" aria-label="Run comparison">
+                  <header><div><span class="eyebrow">Comparison</span><b>{{ comparison.fromRunId }} → {{ comparison.toRunId }}</b></div><button type="button" aria-label="Close comparison" (click)="closeComparison()">×</button></header>
+                  <small>{{ comparison.comparabilityLabels.join(' · ') }}</small>
+                  @if (!comparison.comparabilityLabels.includes('exact')) { <p class="run-partial">This comparison spans a route, input, or completeness change; differences are not necessarily a quality change.</p> }
+                  <div class="run-summary-grid"><span><b>{{ comparison.delta.new.length }}</b><small>New</small></span><span><b>{{ comparison.delta.persisting.length }}</b><small>Unchanged</small></span><span><b>{{ comparison.delta.resolved.length }}</b><small>Resolved</small></span><span><b>{{ comparison.delta.stateChanged.length }}</b><small>Disposition changed</small></span></div>
+                </section>
+              }
               <div class="commit-trend-note"><div><b>Commit trend</b><span>Committed score history remains a separate repository curve.</span></div><a [href]="api.repositoryReportUrl('html')">Open repository report</a></div>
 
               <div class="section-title"><span>Unit outcomes</span><small>{{ report.observations.length }}</small></div>

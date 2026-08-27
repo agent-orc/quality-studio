@@ -250,6 +250,11 @@ export interface QualityRunTrendPoint {
   cost: number | null; currency: string | null;
 }
 export interface QualityRunTrendPage { points: QualityRunTrendPoint[]; nextCursor: string | null; }
+export interface QualityRunComparison {
+  fromRunId: string; toRunId: string;
+  comparabilityLabels: ('exact' | 'model-changed' | 'inputs-changed' | 'incomplete')[];
+  delta: { status: 'available' | 'unavailable'; priorRunId: string | null; reason: string | null; new: string[]; persisting: string[]; resolved: string[]; stateChanged: string[] };
+}
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
@@ -610,6 +615,12 @@ export class QualityApi {
     if (cursor) params['cursor'] = cursor;
     return await firstValueFrom(this.http.get<QualityRunTrendPage>(
       `${this.repositoryApiBase()}/review/runs/trend`, { params }));
+  }
+
+  async compareRuns(id: string, against: string): Promise<QualityRunComparison> {
+    return await firstValueFrom(this.http.get<QualityRunComparison>(
+      `${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/compare`,
+      { params: { against } }));
   }
 
   runReportUrl(id: string, format: RunReportFormat): string {
