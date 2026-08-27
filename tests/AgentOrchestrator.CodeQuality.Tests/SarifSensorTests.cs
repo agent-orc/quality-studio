@@ -84,6 +84,57 @@ public sealed class SarifSensorTests
     }
 
     [Fact]
+    public async Task CommandExecutionDisabled_RefusesConfiguredCommandWithoutRunningIt()
+    {
+        var root = CreateRepository("src/a.ts");
+        try
+        {
+            var result = await new SarifSensor(new ThrowingCommandRunner(), allowCommandExecution: false).RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "custom-analyzer --sarif {reportPath}",
+                    ["reportPath"] = ".quality/analyzers/custom.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("disabled", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task TypeScriptSensor_CommandExecutionDisabled_RefusesWithoutRunningIt()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var sensor = new TypeScriptAnalyzerSensor(new ThrowingCommandRunner(), allowCommandExecution: false);
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "npx --no-install tsc --noEmit --pretty false",
+                    ["reportPath"] = ".quality/analyzers/tsc.txt",
+                    ["workingDirectory"] = "frontend",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("disabled", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task RoslynSensor_ReportsKnownWarningExactlyOnceWithAnalyzerSource()
     {
         var root = CreateRepository("src/Calculator.cs");
@@ -190,6 +241,17 @@ public sealed class SarifSensorTests
             string workingDirectory,
             CancellationToken cancellationToken = default) =>
             throw new SecurityScannerUnavailableException("executable was not found");
+    }
+
+    private sealed class ThrowingCommandRunner : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "The analyzer command must not run when command-backed execution is disabled.");
     }
 
     private sealed class RecordedRunner(int exitCode, string output) : ISensorCommandRunner

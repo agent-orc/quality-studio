@@ -12,6 +12,8 @@ The prompt asks the agent to judge applicability, deduplicate and prioritise the
 
 Analyzer commands are repository-specific entries in the existing `sensors` array. Commands are launched directly, without a shell. The placeholders `{repositoryRoot}`, `{target}` and `{reportPath}` are expanded inside individual arguments. `reportPath` and an optional `workingDirectory` must remain inside the repository.
 
+A sensor `command` is a host-executed executable, so setting one is a registrar-level privilege: registering or editing a repository's sensors requires `CanRegisterRepositories`, and a `command` key is rejected unless `QualityStudio:Security:AllowCommandBackedAnalyzers` is explicitly enabled (default `false`, see [security hardening S0](operations/security/index.html)). Enable it only for trusted, isolated repositories.
+
 ### Generic SARIF 2.1.0
 
 The `sarif` sensor accepts a report from any producer. `command` is optional when another process has already created the report.

@@ -160,6 +160,51 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repository_scoped_client_cannot_edit_or_archive_a_repository()
+    {
+        using var alice = CreateClient("alice", AliceToken);
+        using var edit = await alice.PutAsJsonAsync("/api/repos/default", new
+        {
+            displayName = "Renamed",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, edit.StatusCode);
+
+        using var archive = await alice.DeleteAsync("/api/repos/default", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+    }
+
+    [Fact]
+    public async Task Command_backed_analyzer_configuration_is_rejected_unless_explicitly_allowed()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var registration = await admin.PostAsJsonAsync("/api/repos", new
+        {
+            id = "command-backed",
+            displayName = "Command backed",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "custom-analyzer --sarif {reportPath}",
+                        ["reportPath"] = ".quality/analyzers/custom.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, registration.StatusCode);
+        var problem = await registration.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Command-backed analyzer configuration is disabled", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");

@@ -41,10 +41,14 @@ builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
 builder.Services.AddSingleton<AttackCoverageService>();
 builder.Services.AddSingleton<CoverageSensor>();
-builder.Services.AddSingleton<SarifSensor>();
-builder.Services.AddSingleton<RoslynAnalyzerSensor>();
-builder.Services.AddSingleton<EslintAnalyzerSensor>();
-builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
+builder.Services.AddSingleton(serviceProvider => new SarifSensor(
+    allowCommandExecution: AllowCommandBackedAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider => new RoslynAnalyzerSensor(
+    allowCommandExecution: AllowCommandBackedAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider => new EslintAnalyzerSensor(
+    allowCommandExecution: AllowCommandBackedAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider => new TypeScriptAnalyzerSensor(
+    allowCommandExecution: AllowCommandBackedAnalyzers(serviceProvider)));
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -181,12 +185,18 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryItem = repositoryId is not null &&
+        string.Equals(path, $"/api/repos/{repositoryId}", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryItemMutation = isRepositoryItem &&
+        (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryItemMutation)
     {
         if (!identity.CanRegisterRepositories)
         {
-            await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Repository registration is not permitted")
-                .ExecuteAsync(context);
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: isRepositoryItemMutation
+                    ? "Repository configuration changes are not permitted"
+                    : "Repository registration is not permitted").ExecuteAsync(context);
             return;
         }
     }
@@ -278,8 +288,8 @@ app.MapPost("/api/security/attack-coverage/judgements", RecordAttackJudgement).R
 app.MapPost("/api/repos/{repoId}/security/attack-coverage/judgements", RecordAttackJudgement).RequireRateLimiting("spend");
 app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
-app.MapPost("/api/sensors/{id}/scan", SensorScan);
-app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapPost("/api/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan).RequireRateLimiting("spend");
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
@@ -1280,6 +1290,10 @@ static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRep
 
 static string? RouteRepositoryId(HttpContext context) =>
     context.Request.RouteValues.TryGetValue("repoId", out var routeId) ? routeId?.ToString() : null;
+
+static bool AllowCommandBackedAnalyzers(IServiceProvider serviceProvider) =>
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryOptions>>().Value
+        .Security.AllowCommandBackedAnalyzers;
 
 static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
 {

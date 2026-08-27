@@ -367,14 +367,15 @@
     <h2><span class="no">08</span>Implementation slices</h2>
     <p>Each slice is independently reviewable and carries explicit exit evidence. Effort is an engineering estimate, not elapsed calendar time.</p>
 
-    <h3>S0 · Close the authorization-to-command chain <span class="pill open">Approve now · 1–2 days</span></h3>
+    <h3>S0 · Close the authorization-to-command chain <span class="pill part">In progress · QS-86, 2026-08-27</span></h3>
     <ul>
-      <li>Require registrar privilege for repository root, global input, sensor, and archive mutations; preferably split immutable host-owned root/sensor configuration from repo-scoped display settings.</li>
-      <li>Reject free-form analyzer commands. Resolve a host-owned analyzer profile ID to an immutable executable and argument template. Disable command-backed analyzers by default in Hosted and Local modes until S1.</li>
-      <li>Apply the spend limiter to sensor scans and other expensive scans. Require a valid Origin plus a per-session anti-CSRF nonce for local mutations, and fail startup when Local mode binds a non-loopback address.</li>
-      <li>Upgrade the Angular 20.3.26 family to a fixed, mutually compatible 20.3 patch and regenerate the lock.</li>
+      <li><span class="pill done">Delivered</span> Require registrar privilege for repository root, global input, sensor, and archive mutations: <code>PUT</code>/<code>DELETE /api/repos/&#123;repoId&#125;</code> now return 403 for a client without <code>CanRegisterRepositories</code>, matching the existing <code>POST /api/repos</code> check. Splitting immutable host-owned root/sensor configuration from repo-scoped display settings is not done.</li>
+      <li><span class="pill done">Delivered (emergency brake)</span> Reject free-form analyzer commands by default: <code>QualityStudio:Security:AllowCommandBackedAnalyzers</code> (default <code>false</code>) is enforced both at repository registration/update (a <code>command</code> sensor key is rejected with 400 unless the flag is set) and at the sensor itself (<code>SarifSensor</code>, <code>RoslynAnalyzerSensor</code>, <code>EslintAnalyzerSensor</code>, <code>TypeScriptAnalyzerSensor</code> return <code>Unavailable</code> instead of executing). Resolving a host-owned analyzer profile ID to an immutable executable/argument template (the target design) is deferred to S1; this is the contained Option B emergency brake the recommendation calls for.</li>
+      <li><span class="pill done">Delivered</span> Apply the spend limiter to sensor scans: <code>POST /api/sensors/&#123;id&#125;/scan</code> and <code>POST /api/repos/&#123;repoId&#125;/sensors/&#123;id&#125;/scan</code> now carry <code>RequireRateLimiting("spend")</code>.</li>
+      <li><span class="pill queued">Not done</span> Origin plus per-session anti-CSRF nonce for local mutations, and fail-startup when Local mode binds a non-loopback address.</li>
+      <li><span class="pill queued">Not done</span> Upgrade the Angular 20.3.26 family to a fixed, mutually compatible 20.3 patch and regenerate the lock.</li>
     </ul>
-    <div class="stx stx-open"><b>Exit:</b> an A-scoped client cannot change A's root or sensor execution profile; shell/PowerShell command fixtures are rejected; cross-origin local mutation is denied; production npm audit has no high/critical finding; authorization and configuration tests cover all mutation routes.</div>
+    <div class="stx stx-part"><b>Exit (partial):</b> an A-scoped client cannot change A's root or sensor execution profile (covered by <code>ApiSecurityTests.Repository_scoped_client_cannot_edit_or_archive_a_repository</code>); a shell command fixture set via registration is rejected (covered by <code>ApiSecurityTests.Command_backed_analyzer_configuration_is_rejected_unless_explicitly_allowed</code> and <code>SarifSensorTests</code>/<code>TypeScriptSensor</code> command-execution-disabled tests). Cross-origin local mutation denial, the npm audit gate, and full authorization/configuration coverage of every mutation route remain open — see S3/S6 and the CI gap noted in the static-analysis dossier.</div>
 
     <h3>S1 · Put agents and sensors behind a worker boundary <span class="pill open">Required for untrusted repos · 4–6 days</span></h3>
     <ul>

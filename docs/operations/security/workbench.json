@@ -6,6 +6,28 @@
   "entrypoint": "index.html",
   "status": "decision-pending",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-11T00:00:00Z",
-  "sourceTaskKeys": ["QS-58"]
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "sourceTaskKeys": ["QS-58"],
+  "relatedTaskKeys": ["QS-86"],
+  "implementationState": {
+    "note": "S0 is not yet operator-approved (status remains decision-pending); the following S0 items were implemented as an emergency brake because they were already independently justified by a confirmed live vulnerability (repo-scoped PUT client could set a sensor 'command' and trigger host command execution), not as approval of the full S0-S6 plan.",
+    "slices": [
+      {
+        "slice": "S0",
+        "status": "in-progress",
+        "taskKey": "QS-86",
+        "date": "2026-08-27",
+        "delivered": [
+          "Registrar privilege required for repository sensor/root/archive mutations (PUT/DELETE /api/repos/{repoId} now 403 without CanRegisterRepositories)",
+          "Command-backed analyzer sensors (sarif/roslyn/eslint/tsc) disabled by default via QualityStudio:Security:AllowCommandBackedAnalyzers, enforced at registration and at the sensor",
+          "Spend rate limiter applied to sensor scan endpoints"
+        ],
+        "notDelivered": [
+          "Host-owned immutable analyzer profile IDs (target design beyond the emergency brake)",
+          "Origin + anti-CSRF nonce for local mutations; fail-startup on non-loopback Local bind",
+          "Angular 20.3.x dependency patch/lock upgrade"
+        ]
+      }
+    ]
+  }
 }
