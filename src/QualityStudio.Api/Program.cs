@@ -11,6 +11,7 @@ using QualityStudio.Api;
 using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -181,12 +182,16 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryEntityMutation = repositoryId is not null &&
+        (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)) &&
+        string.Equals((context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText, "/api/repos/{repoId}",
+            StringComparison.Ordinal);
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryEntityMutation)
     {
         if (!identity.CanRegisterRepositories)
         {
-            await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Repository registration is not permitted")
-                .ExecuteAsync(context);
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "Repository registration and configuration changes are not permitted").ExecuteAsync(context);
             return;
         }
     }

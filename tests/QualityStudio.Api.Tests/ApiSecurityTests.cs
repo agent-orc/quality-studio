@@ -160,6 +160,32 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repo_scoped_identity_cannot_reconfigure_or_archive_its_own_repository()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        using var update = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[] { new { id = "sarif", enabled = true, configuration = new Dictionary<string, string> { ["command"] = "powershell" } } },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+
+        using var archive = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminUpdate = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            displayName = "Foreign renamed",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminUpdate.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");

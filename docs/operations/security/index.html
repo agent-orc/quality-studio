@@ -141,8 +141,8 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
+      <span><b>Status</b> decided</span>
+      <span><b>Phase</b> implementation</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,20 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+    <p class="dim">Append-only delivery log. The operator recorded blanket approval of Option C and slices S0&ndash;S6 on 2026-08-11 (status set to <b>decided</b> above); slices land one at a time, each as its own reviewable card.</p>
+
+    <div class="box ok">
+      <h4>27 August 2026 &middot; QS-68 &middot; S0 (first bullet)</h4>
+      <p>Closed the specific R-01/F-01 chain: <code>PUT /api/repos/{repoId}</code> (update) and <code>DELETE /api/repos/{repoId}</code> (archive) now require <code>identity.CanRegisterRepositories</code>, the same registrar gate already enforced on <code>POST /api/repos</code> (create) and <code>/api/repos/import-from-agent-studio</code>. Before this change a client whose credential only granted access to repository <b>A</b> could still call <code>PUT /api/repos/A</code> to rewrite its <code>RootPath</code>, <code>GlobalInputsDirectory</code>, and <code>Sensors</code> configuration (including a SarifSensor free-form <code>command</code> string) or archive it &mdash; exactly the escalation path F-01 describes. The route match uses the matched endpoint's route pattern rather than string-matching the request path, so repository sub-resource routes such as <code>/api/repos/{repoId}/guidelines</code> are unaffected. <code>Program.cs</code> is the only file touched; no schema or client contract changed for registrar clients, who already passed this check.</p>
+      <p>Test: <code>ApiSecurityTests.Repo_scoped_identity_cannot_reconfigure_or_archive_its_own_repository</code> asserts 403 for a repo-scoped, non-registrar client on both routes and 200 for a registrar client performing the same update. Full solution build and test suite stayed green (one pre-existing, unrelated timing-budget test flaked under parallel load and passed in isolation and on rerun).</p>
+      <p>Remaining S0 bullets are still open and are the natural next slices: reject free-form analyzer commands behind a host-owned analyzer profile allowlist (bullet 2); apply the spend limiter to <code>POST /api/sensors/{id}/scan</code>, add an Origin/anti-CSRF check for local mutations, and fail startup on a non-loopback Local-mode bind (bullet 3); and land a single fixed Angular 20.3 patch release across the whole <code>@angular/*</code> family (bullet 4). S1&ndash;S6 remain entirely undelivered. Splitting <code>RepositoryRegistrationRequest</code> into an immutable host-owned block (root, global inputs, sensors) versus a repo-scoped display block, mentioned in the same bullet, is left for a follow-up slice since the registrar gate above already satisfies this bullet's stated exit evidence for the mutation routes.</p>
+    </div>
+
+    <p class="dim">Method note: delivered as one slice per the binding scope correction on this card (2026-08-27) &mdash; a single coherent, tested unit rather than the full S0&ndash;S6 backlog in one delivery.</p>
   </section>
 </main>
 </body>
