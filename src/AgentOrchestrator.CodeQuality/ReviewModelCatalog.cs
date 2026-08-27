@@ -43,6 +43,13 @@ public sealed record ReviewModelRecommendation(
     string SelectionSource);
 
 /// <summary>
+/// A rejected model or thinking-level override. Distinct from a plain <see cref="ArgumentException"/>
+/// so the API can name the model as the cause instead of reporting a path problem, and because the
+/// message is built only from catalog ids and validated identifiers it is safe to show the operator.
+/// </summary>
+public sealed class ReviewModelSelectionException(string message) : ArgumentException(message);
+
+/// <summary>
 /// Reads the governed Token Economy snapshot embedded in Quality Studio. Catalogued retired,
 /// restricted, and unsupported models are rejected; a CLI-family-compatible custom id remains
 /// available as the deliberate forward-compatibility escape hatch.
@@ -104,7 +111,7 @@ public sealed class ReviewModelCatalog
         if (requestedModel is null)
         {
             if (requestedThinking is not null)
-                throw new ArgumentException("A thinking-level override requires a model override.");
+                throw new ReviewModelSelectionException("A thinking-level override requires a model override.");
             return new ReviewModelSelection(cli, null, null, false);
         }
 
@@ -115,18 +122,18 @@ public sealed class ReviewModelCatalog
         if (catalogued is null)
         {
             if (KnownCliTypes.Contains(cli) && !HasCliPrefix(cli, requestedModel))
-                throw new ArgumentException($"Model '{requestedModel}' is not compatible with CLI '{cli}'.");
+                throw new ReviewModelSelectionException($"Model '{requestedModel}' is not compatible with CLI '{cli}'.");
             return new ReviewModelSelection(cli, requestedModel, requestedThinking, false);
         }
 
         if (!catalogued.AvailableForNewRuns)
-            throw new ArgumentException(
+            throw new ReviewModelSelectionException(
                 $"Model '{catalogued.ModelId}' cannot start new reviews because its routing status is '{catalogued.RoutingStatus}'.");
         if (KnownCliTypes.Contains(cli) && !string.Equals(catalogued.CliType, cli, StringComparison.Ordinal))
-            throw new ArgumentException($"Model '{catalogued.ModelId}' is routed through CLI '{catalogued.CliType}', not '{cli}'.");
+            throw new ReviewModelSelectionException($"Model '{catalogued.ModelId}' is routed through CLI '{catalogued.CliType}', not '{cli}'.");
         if (requestedThinking is not null &&
             !catalogued.SupportedThinkingLevels.Contains(requestedThinking, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException(
+            throw new ReviewModelSelectionException(
                 $"Model '{catalogued.ModelId}' does not support thinking level '{requestedThinking}'.");
 
         var canonicalThinking = requestedThinking is null
@@ -382,7 +389,7 @@ public sealed class ReviewModelCatalog
     {
         if (value.Length > 100 || value.Any(character =>
                 !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':')))
-            throw new ArgumentException($"{label} contains unsupported characters.");
+            throw new ReviewModelSelectionException($"{label} contains unsupported characters.");
     }
 
     private void Add(string key, ReviewModelOption model)

@@ -104,6 +104,9 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
     var (status, title) = exception switch
     {
+        // Ahead of the ArgumentException arm: a rejected model is not a path problem, and telling the
+        // operator it is sends them debugging the wrong thing.
+        ReviewModelSelectionException => (StatusCodes.Status400BadRequest, "Invalid model selection"),
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
         RepositoryRegistryValidationException validation => (StatusCodes.Status400BadRequest, validation.PublicTitle),
         SensorNotFoundException => (StatusCodes.Status404NotFound, "Sensor not found"),
@@ -121,9 +124,12 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         FindingStateConflictException => (StatusCodes.Status409Conflict, "Finding state changed"),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected API error"),
     };
+    // Only this exception carries a message vetted as operator-safe; every other message stays in the
+    // log so a path or internal detail is never echoed back to the caller.
+    var detail = exception is ReviewModelSelectionException selection ? selection.Message : null;
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("QualityStudio.Api.Errors");
     logger.LogError(new EventId(1000, "ApiRequestFailed"), exception, "API request failed with status {StatusCode}", status);
-    await Results.Problem(statusCode: status, title: title).ExecuteAsync(context);
+    await Results.Problem(statusCode: status, title: title, detail: detail).ExecuteAsync(context);
 }));
 app.UseStatusCodePages();
 app.UseCors("dev-frontend");
