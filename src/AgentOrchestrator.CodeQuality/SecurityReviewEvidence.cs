@@ -21,7 +21,8 @@ public sealed record SecuritySensorEvidence(
     string? UnavailableReason,
     SecurityEvidenceVerdict Verdict,
     IReadOnlyDictionary<string, string> ToolVersions,
-    IReadOnlyList<ReviewFinding> Findings);
+    IReadOnlyList<ReviewFinding> Findings,
+    SensorScanCoverage? Coverage = null);
 
 public sealed record SecurityEvidenceBundle(
     SecurityEvidenceVerdict Verdict,
@@ -60,6 +61,8 @@ public sealed record SecurityEvidenceBundle(
         {
             value["findings"] = new JsonArray(sensor.Findings.Select(finding => (JsonNode)FindingJson(finding, sensor)).ToArray());
         }
+        if (sensor.Coverage is not null)
+            value["coverage"] = JsonSerializer.SerializeToNode(sensor.Coverage, ReviewMetaJson.Options);
         return value;
     }
 
@@ -180,7 +183,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 repositoryRoot,
                 SensorScope.Repository,
                 Configuration: configuration.Configuration,
-                PersistMetadata: false), cancellationToken).ConfigureAwait(false);
+                PersistMetadata: false,
+                IncludedPaths: subjectPaths.OrderBy(path => path, StringComparer.Ordinal).ToArray()), cancellationToken).ConfigureAwait(false);
             var findings = result.Findings
                 .Select(finding => finding with
                 {
@@ -190,7 +194,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 .Where(finding => finding.Locations.Count > 0)
                 .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
                 .ToArray();
-            var verdict = !result.Available
+            var partial = result.Coverage is { Complete: false };
+            var verdict = !result.Available || partial
                 ? SecurityEvidenceVerdict.Unavailable
                 : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
                     ? SecurityEvidenceVerdict.Block
@@ -202,10 +207,11 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 result.Provenance.SensorVersion,
                 string.Empty,
                 result.Available,
-                result.UnavailableReason,
+                partial ? result.Coverage!.Reason ?? "The sensor returned partial coverage." : result.UnavailableReason,
                 verdict,
                 result.Provenance.ToolVersions,
-                findings);
+                findings,
+                result.Coverage);
             return draft with { ResultHash = Hash(draft) };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -244,8 +250,11 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
             ["toolVersions"] = new JsonObject(evidence.ToolVersions.OrderBy(pair => pair.Key, StringComparer.Ordinal)
                 .Select(pair => KeyValuePair.Create<string, JsonNode?>(pair.Key, pair.Value))),
             ["findings"] = new JsonArray(evidence.Findings.Select(finding => (JsonNode)CanonicalFinding(finding)).ToArray()),
-        }.ToJsonString();
-        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        };
+        if (evidence.Coverage is not null)
+            canonical["coverage"] = JsonSerializer.SerializeToNode(evidence.Coverage, ReviewMetaJson.Options);
+        var json = canonical.ToJsonString();
+        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
     }
 
     private static JsonObject CanonicalFinding(ReviewFinding finding) => new()
