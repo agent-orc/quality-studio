@@ -557,6 +557,47 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p>Append-only delivery log for the approval-ready slices in section 10. The operator's blanket approval on 2026-08-11 covers every slice; this section only records what has actually landed.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>2026-08-28</td>
+        <td>QS-76</td>
+        <td>T1. Contract and catalogue foundation</td>
+        <td>
+          Added <code>schemas/quality-taxonomy.v1.schema.json</code> and
+          <code>schemas/quality-observation.v1.schema.json</code>; the core
+          <code>quality-studio/core@1.0.0</code> catalogue at
+          <code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code>
+          (embedded resource, loadable via <code>QualityTaxonomyJson.LoadCore()</code>), pinning
+          every axis and term from section 6 and every row of the initial aspect catalogue; C#
+          contract types <code>QualityTaxonomyContract.cs</code> (catalogue, axis/term/aspect
+          records, deterministic SHA-256 digest, major-version compatibility check) and
+          <code>QualityObservationContract.cs</code> (the section 7 observation envelope, with
+          an explicit preserved <code>extensions</code> dictionary on the root, producer, evidence,
+          and aspect objects); and a pure legacy-mapping library
+          <code>QualityTaxonomyLegacyMapping.cs</code> covering every row of the section 8
+          compatibility table (security/flow/attack verdicts, change summary/aspect, finding
+          lifecycle state incl. the <code>accepted</code> read alias, and the evidence-string
+          JSON/plain-text split with preserved raw content). No writer was touched — parity with
+          the T1 scope note in section 10. Tests: schema positive/negative fixtures, full round
+          trip of the sample observation, unknown-major and unknown-extension round-trip
+          behavior, and a full section 8 mapping matrix
+          (<code>tests/AgentOrchestrator.CodeQuality.Tests/QualityTaxonomyContractTests.cs</code>,
+          <code>QualityObservationContractTests.cs</code>,
+          <code>QualityTaxonomyLegacyMappingTests.cs</code>).
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p><b>Follow-up (not yet implemented):</b> T2 (immutable observation dual-write and full route
+  provenance, depends on T1), T3 (typed evidence, producer provenance, and issue lifecycle v2,
+  depends on T2), T4 (observation-backed projections and per-model records, depends on T3), T5
+  (domain adapters and migration tool, depends on T4). Each is scoped for its own card per the
+  dependency chain in section 10.</p>
 </main>
 </body>
 </html>
