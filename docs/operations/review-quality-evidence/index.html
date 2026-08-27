@@ -208,6 +208,7 @@
       <li><a href="#models">Per-model review-quality evidence</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#acceptance">Decision guardrails</a></li>
+      <li><a href="#implementation">Implementation state</a></li>
     </ol>
   </nav>
 
@@ -631,8 +632,34 @@
     </table>
   </section>
 
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation state</h2>
+    <p class="dim">Append-only delivery log against the slices in <a href="#slices">section 09</a>. Dates are recorded in the operator timezone.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card key</th><th>Slice</th><th>What landed</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>27 Aug 2026</td>
+          <td><code>QS-84</code></td>
+          <td><span class="pill done">S1</span></td>
+          <td>Delivered as scoped: <code>frontend/src/app/editor/finding-spans.ts</code> segments each syntax-token line at the exact <code>start.column</code>/<code>end.column</code> boundaries of every finding on that line (clipped per line for multi-line ranges), so <code>editor.html</code> now wraps the precise span in a token-preserving <code>&lt;mark class="finding-span"&gt;</code> instead of tinting the whole line. The currently selected finding gets a stronger <code>.selected-span</code> treatment. Whole-line tint (<code>.has-finding</code>) and the gutter marker remain as the secondary affordance. No backend or schema change; runs on existing <code>review-meta.v2</code> <code>locations[].range</code>. Unicode (UTF-16 code unit columns, matching the .NET-side <code>FindingIdentity.ExtractSnippet</code> convention), end-of-line, and overlapping-finding segmentation are covered by <code>finding-spans.spec.ts</code>.</td>
+        </tr>
+        <tr>
+          <td>27 Aug 2026</td>
+          <td><code>QS-84</code></td>
+          <td><span class="pill part">S3</span></td>
+          <td><b>Partial:</b> shipped the presentation-only "ignore list" half of S3, not the full evidence/assessment/resolution contract. New <code>FindingSuppressionStore</code> (<code>src/AgentOrchestrator.CodeQuality/FindingSuppressionStore.cs</code>) persists exact-fingerprint suppressions to <code>.quality/findings/suppressions.json</code> (schema versioned, atomic write, expiry auto-drops on read), independent of <code>FindingStateStore</code>'s accept/waive/false-positive axis. Three endpoints (<code>POST …/findings/ignore</code>, <code>POST …/findings/unignore</code>, <code>GET …/findings/ignored</code>) and a decoration-only <code>finding.ignored</code> flag in <code>FindingStateProjection.Apply</code> wire it into the existing per-file finding read. Findings UI: an "Ignore" action beside Accept/Dismiss, an "Ignored" filter tab, and a repository-wide "Ignore list" panel (reusing the scope-manager surface) with Restore. Verified live end-to-end in a running dev-stack instance against a scratch finding registered under this repository: ignore removes the finding from the default queue and its editor span, the effect survives a full browser reload (state is server-side in <code>.quality/findings/suppressions.json</code>, not client memory), and Restore brings both the queue entry and the editor span back — see the job's <code>results/report.md</code> for the screenshot sequence.<br><b>Deliberately not built here</b> (left for a follow-on S3 card): scoped rule matching beyond exact fingerprint (path/rule-glob rules), grade-weight exclusion for ignored findings (dossier's suppression axis is specified to also affect scoring; this slice only affects presentation, matching the operator's literal ask of a "finding-level" ignore list), and the independent assessment/resolution/evidence/reproduction contract.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="box warn">
+      <h4>Checked and corrected: an unverified gap claim from an earlier, uncommitted QS-84 attempt</h4>
+      <p>A prior in-progress copy of this section asserted that legacy meta documents missing <code>ruleId</code> crash <code>POST /api/findings/state</code> and the new ignore endpoint with an unhandled <code>KeyNotFoundException</code> from <code>JsonElement.GetProperty("ruleId")</code>. Re-checked directly against a live API instance: this repository's own legacy fixture (<code>src/QualityStudio.Api/.quality/reviews/files/file.d1e8...review-meta.code.json</code>, for <code>Program.cs</code>) has findings with neither <code>fingerprint</code> nor <code>ruleId</code>. Both endpoints match the request's fingerprint against stored findings <i>before</i> reading <code>ruleId</code>, so a non-matching or absent fingerprint fails closed with a handled 404 (<code>KeyNotFoundException("Finding '…' was not found…")</code>), not an unhandled crash. The claimed crash path — a stored finding with <code>fingerprint</code> present but <code>ruleId</code> absent — was not reproducible from any writer in this codebase (<code>FindingIdentity.Assign</code> requires <code>ruleId</code> as an input before it ever computes a fingerprint, so the two fields cannot appear separately in practice). One real, unrelated, pre-existing cosmetic issue was confirmed while checking this: the generic exception-to-title mapping in <code>Program.cs</code> (around line 110) labels every <code>KeyNotFoundException</code> response "Repository not found", even for a missing finding — worth a small follow-up, not a QS-84 scope item.</p>
+    </div>
+  </section>
+
   <footer>
-    Decision dossier for QS-61. Repository claims were checked against Quality Studio commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. TE-38 claims were checked against Token Economy commit <code>2b368472cd1af0a5e5385a87f2da718c778191d5</code>, its committed aggregate, schema, generated model view, and retained integration report.
+    Decision dossier for QS-61. Repository claims were checked against Quality Studio commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. TE-38 claims were checked against Token Economy commit <code>2b368472cd1af0a5e5385a87f2da718c778191d5</code>, its committed aggregate, schema, generated model view, and retained integration report. Implementation-state entries were added starting 27 Aug 2026 by QS-84.
   </footer>
 </main>
 </body>

@@ -3,9 +3,12 @@ import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { ColumnRange, RenderSpan, clipRangeToLine, segmentTokensByColumns } from './finding-spans';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
+
+interface FindingSpanValue { finding: ReviewFinding; selected: boolean; }
 
 const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mixed: 'Mixed' };
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
@@ -66,9 +69,27 @@ export class Editor {
   readonly findingsByLine = computed(() => {
     const map = new Map<number, ReviewFinding[]>();
     const path = this.api.file()?.path;
-    for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
+    for (const finding of (this.activeMeta()?.findings ?? []).filter(candidate => !candidate.ignored)) for (const location of finding.locations) {
       if (location.path !== path || !location.range) continue;
       for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), finding]);
+    }
+    return map;
+  });
+  readonly findingRangesByLine = computed(() => {
+    const map = new Map<number, ColumnRange<FindingSpanValue>[]>();
+    const path = this.api.file()?.path;
+    const selectedLocation = this.selectedLocation();
+    const selectedFinding = this.selectedFinding();
+    const lines = this.codeLines();
+    for (const finding of (this.activeMeta()?.findings ?? []).filter(candidate => !candidate.ignored)) for (const location of finding.locations) {
+      if (location.path !== path || !location.range) continue;
+      const selected = location === selectedLocation && finding === selectedFinding;
+      for (let line = location.range.start.line; line <= location.range.end.line; line++) {
+        const clipped = clipRangeToLine(location.range, line, (lines[line - 1] ?? '').length);
+        if (!clipped) continue;
+        const value: FindingSpanValue = { finding, selected };
+        map.set(line, [...(map.get(line) ?? []), { startColumn: clipped.startColumn, endColumn: clipped.endColumn, value }]);
+      }
     }
     return map;
   });
@@ -239,6 +260,14 @@ export class Editor {
       ? cache.lines[line - 1]!
       : [{ text, kind: 'plain' } satisfies TokenSpan];
   }
+
+  renderSpans(line: number, text: string): RenderSpan<FindingSpanValue>[] {
+    return segmentTokensByColumns(this.tokensForLine(line, text), this.findingRangesByLine().get(line) ?? []);
+  }
+
+  spanFindings(span: RenderSpan<FindingSpanValue>): ReviewFinding[] { return span.values.map(value => value.finding); }
+
+  spanSelected(span: RenderSpan<FindingSpanValue>): boolean { return span.values.some(value => value.selected); }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
 

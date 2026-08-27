@@ -2,6 +2,22 @@
   <div class="pane-header"><div><span class="eyebrow">Review</span><strong>{{ activeKind() }} findings</strong></div><span class="score" [class.stale-score]="activeState() === 'stale'">{{ activeMeta()?.grade?.band ?? '—' }}</span></div>
   <div class="review-content">
     <button type="button" class="run-history-trigger" (click)="runDrawerOpen.set(!runDrawerOpen())" [attr.aria-expanded]="runDrawerOpen()"><span><b>Run details</b><small>{{ scopeRuns().length }} for this scope and kind</small></span><span>{{ runDrawerOpen() ? 'Close' : 'Open' }} →</span></button>
+    <button type="button" class="run-history-trigger" (click)="ignoreListOpen() ? ignoreListOpen.set(false) : openIgnoreList()" [attr.aria-expanded]="ignoreListOpen()"><span><b>Ignore list</b><small>Suppressed findings, repository-wide</small></span><span>{{ ignoreListOpen() ? 'Close' : 'Open' }} →</span></button>
+    @if (ignoreListOpen()) {
+      <section class="scope-manager" aria-label="Ignored findings">
+        <header><div><span class="eyebrow">Presentation only</span><b>Ignore list</b></div><button type="button" aria-label="Close ignore list" (click)="ignoreListOpen.set(false)">×</button></header>
+        <p>Ignoring hides a finding from the default queue by its stable fingerprint, on this and future reviews. It stays visible under "All", still affects the grade, and is separate from accept, waive, and false positive.</p>
+        @if (ignoreListStatus()) { <small class="state-status">{{ ignoreListStatus() }}</small> }
+        <div class="scope-rule-list">
+          @for (item of api.ignoredFindings(); track item.fingerprint) {
+            <article>
+              <div><b>{{ item.severity }} · {{ item.title }}</b><span>{{ item.path }} · {{ item.ruleId }} · {{ item.reason }} · {{ item.author }} · {{ scannedAt(item.createdAt) }}@if (item.expiresAt) { · expires {{ scannedAt(item.expiresAt) }} }</span></div>
+              <div class="scope-rule-actions"><button type="button" (click)="restoreIgnoredEntry(item)">Restore</button></div>
+            </article>
+          } @empty { <div class="empty-findings">No ignored findings.</div> }
+        </div>
+      </section>
+    }
     @if (api.reviewError()) { <div class="run-error" role="alert">{{ api.reviewError() }}</div> }
     @if (runDrawerOpen()) {
       <section class="run-history-drawer" aria-label="Run history">
@@ -86,12 +102,12 @@
       }
       <div class="section-title findings-heading"><span>Review queue</span><small>{{ visibleFindings().length }} visible</small></div>
       <div class="finding-controls" aria-label="Finding filters">
-        <select aria-label="Finding state" [value]="findingFilter()" (change)="findingFilter.set($any($event.target).value)"><option value="active">Active</option><option value="open">Open</option><option value="accepted">Accepted</option><option value="waived">Waived</option><option value="false-positive">False positive</option><option value="all">All</option></select>
+        <select aria-label="Finding state" [value]="findingFilter()" (change)="findingFilter.set($any($event.target).value)"><option value="active">Active</option><option value="open">Open</option><option value="accepted">Accepted</option><option value="waived">Waived</option><option value="false-positive">False positive</option><option value="ignored">Ignored</option><option value="all">All</option></select>
         <select aria-label="Finding severity" [value]="severityFilter()" (change)="severityFilter.set($any($event.target).value)"><option value="all">All severities</option>@for (severity of ['critical', 'high', 'medium', 'low', 'info']; track severity) { <option [value]="severity">{{ severity }}</option> }</select>
         <select aria-label="Finding sort" [value]="findingSort()" (change)="findingSort.set($any($event.target).value)"><option value="severity">Severity</option><option value="location">Location</option><option value="title">Title</option></select>
         <button type="button" aria-label="Previous finding" (click)="moveFinding(-1)">↑</button><button type="button" aria-label="Next finding" (click)="moveFinding(1)">↓</button>
       </div>
-      @for (finding of visibleFindings(); track finding.fingerprint ?? finding.id) { <button class="finding-card" [class.selected]="(selectedFinding()?.fingerprint ?? selectedFinding()?.id) === (finding.fingerprint ?? finding.id)" (click)="selectFindingLocation(finding)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><b>{{ finding.title }}</b><span class="finding-state">{{ finding.state ?? 'open' }}</span><small class="finding-location">{{ locationLabel(finding) }}</small><p>{{ finding.description }}</p></button> } @empty { <div class="empty-findings">No findings match these filters.</div> }
+      @for (finding of visibleFindings(); track finding.fingerprint ?? finding.id) { <button class="finding-card" [class.selected]="(selectedFinding()?.fingerprint ?? selectedFinding()?.id) === (finding.fingerprint ?? finding.id)" (click)="selectFindingLocation(finding)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><b>{{ finding.title }}</b><span class="finding-state">{{ finding.state ?? 'open' }}@if (finding.ignored) { · ignored }</span><small class="finding-location">{{ locationLabel(finding) }}</small><p>{{ finding.description }}</p></button> } @empty { <div class="empty-findings">No findings match these filters.</div> }
       @if (selectedFinding(); as finding) {
         <section class="finding-detail" aria-live="polite">
           <span class="eyebrow">Selected finding</span><h3>{{ finding.title }}</h3>
@@ -99,15 +115,16 @@
           <b>Guideline</b><p>{{ finding.ruleId }}</p><div class="finding-state-summary"><b>{{ finding.state ?? 'open' }}</b>@if (finding.stateAuthor) { <span>{{ finding.stateAuthor }} · {{ finding.stateReason }}</span> }@if (finding.stateExpiresAt) { <span>Expires {{ scannedAt(finding.stateExpiresAt) }}</span> }</div>
           <p>{{ finding.description }}</p>@if (finding.evidence) { <b>Evidence and provenance</b><pre class="finding-evidence">{{ finding.evidence }}</pre> }<b>Recommendation</b><p>{{ finding.recommendation }}</p>
           <div class="finding-queue-nav"><button type="button" (click)="moveFinding(-1)">Previous</button><button type="button" (click)="moveFinding(1)">Next</button></div>
-          <div class="disposition-actions"><button type="button" (click)="openDisposition('accept')">Accept</button><button type="button" (click)="openDisposition('dismiss')">Dismiss</button><button type="button" (click)="openScopeManager(finding)">Ignore path…</button>@if ((finding.state ?? 'open') !== 'open') { <button type="button" (click)="openDisposition('reopen')">Reopen</button> }</div>
+          <div class="disposition-actions"><button type="button" (click)="openDisposition('accept')">Accept</button><button type="button" (click)="openDisposition('dismiss')">Dismiss</button>@if (finding.ignored) { <button type="button" (click)="restoreIgnored(finding.fingerprint)">Restore</button> } @else { <button type="button" (click)="openDisposition('ignore')">Ignore</button> }<button type="button" (click)="openScopeManager(finding)">Ignore path…</button>@if ((finding.state ?? 'open') !== 'open') { <button type="button" (click)="openDisposition('reopen')">Reopen</button> }</div>
           @if (dispositionMode(); as mode) {
             <div class="finding-state-form">
               @if (mode === 'accept') { <p class="disposition-consequence"><b>Accept as valid</b><span>The finding remains active and grade-affecting. You can create an implementation task after save.</span></p> }
               @else if (mode === 'dismiss') { <p class="disposition-consequence"><b>Dismiss from effective grade</b><span>Waive means valid but intentionally excluded. False positive means the observation is invalid.</span></p><label>Dismiss as<select aria-label="Dismissal type" [value]="dismissState()" (change)="dismissState.set($any($event.target).value)"><option value="waived">Waive</option><option value="false-positive">False positive</option></select></label> }
+              @else if (mode === 'ignore') { <p class="disposition-consequence"><b>Ignore this finding</b><span>Hides it from the default queue by fingerprint, on this and future reviews, until restored or its optional expiry passes. It keeps affecting the grade.</span></p> }
               @else { <p class="disposition-consequence"><b>Reopen finding</b><span>The finding becomes active and grade-affecting again.</span></p> }
               <input aria-label="State author" [value]="stateAuthor()" (input)="stateAuthor.set($any($event.target).value)" placeholder="Author">
-              <textarea aria-label="State reason" [value]="stateReason()" (input)="stateReason.set($any($event.target).value)" [placeholder]="mode === 'accept' ? 'Why is this finding valid?' : mode === 'dismiss' ? 'Why should it be dismissed?' : 'Why is it active again?'"></textarea>
-              @if (mode === 'dismiss' && dismissState() === 'waived') { <label>Optional waiver expiry<input aria-label="Optional waiver expiry" type="datetime-local" [value]="stateExpiry()" (input)="stateExpiry.set($any($event.target).value)"></label> }
+              <textarea aria-label="State reason" [value]="stateReason()" (input)="stateReason.set($any($event.target).value)" [placeholder]="mode === 'accept' ? 'Why is this finding valid?' : mode === 'dismiss' ? 'Why should it be dismissed?' : mode === 'ignore' ? 'Why should it be ignored?' : 'Why is it active again?'"></textarea>
+              @if ((mode === 'dismiss' && dismissState() === 'waived') || mode === 'ignore') { <label>Optional expiry<input aria-label="Optional expiry" type="datetime-local" [value]="stateExpiry()" (input)="stateExpiry.set($any($event.target).value)"></label> }
               <div><button type="button" (click)="dispositionMode.set(null)">Cancel</button><button type="button" (click)="saveDisposition(finding)">Save {{ mode === 'dismiss' ? dismissState() : mode }}</button></div>
             </div>
           }
