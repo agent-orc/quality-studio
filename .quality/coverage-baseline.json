@@ -1,0 +1,67 @@
+{
+  "$schema": "quality-studio/coverage-baseline.v1",
+  "schemaVersion": 1,
+  "metric": "line-rate",
+  "measuredAt": "2026-08-11",
+  "projects": {
+    "core": {
+      "minimum": 0.7879,
+      "format": "cobertura",
+      "features": {
+        "core-library": {
+          "minimum": 0.8013,
+          "packages": ["AgentOrchestrator.CodeQuality"]
+        },
+        "cli": {
+          "minimum": 0.2356,
+          "packages": ["quality"]
+        }
+      }
+    },
+    "api": {
+      "minimum": 0.416,
+      "format": "cobertura",
+      "features": {
+        "api-host": {
+          "minimum": 0.8918,
+          "packages": ["QualityStudio.Api"]
+        }
+      }
+    },
+    "frontend": {
+      "minimum": 0.5583,
+      "format": "lcov",
+      "features": {
+        "data-and-shell": {
+          "minimum": 0.4212,
+          "sources": [
+            "src/app/quality-api.ts",
+            "src/app/format.ts",
+            "src/app/language.ts",
+            "src/app/tree-utils.ts"
+          ]
+        },
+        "editor": {
+          "minimum": 0.5236,
+          "sources": ["src/app/editor/"]
+        },
+        "review-workflow": {
+          "minimum": 0.709,
+          "sources": ["src/app/review-"]
+        },
+        "security": {
+          "minimum": 0.56,
+          "sources": ["src/app/attack-coverage/"]
+        },
+        "navigation-and-dashboard": {
+          "minimum": 0.5463,
+          "sources": [
+            "src/app/explorer/",
+            "src/app/project-dashboard/",
+            "src/app/usage-history/"
+          ]
+        }
+      }
+    }
+  }
+}
