@@ -2,7 +2,10 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading.Channels;
 using AgentOrchestrator.CodeQuality;
+using CodingAgentRunner;
 using CodingAgentRunner.Events;
+using CodingAgentRunner.Abstractions;
+using CodingAgentRunner.Model;
 using CodingAgentRunner.Quota;
 using ModelPriceCatalog = CodingAgentRunner.Pricing.ModelPriceCatalog;
 using PricingTokenUsage = CodingAgentRunner.Pricing.TokenUsage;
@@ -45,6 +48,25 @@ public sealed record ReviewEstimateDeviation(
 
 public sealed record ReviewFileProgress(string Path, string State, DateTimeOffset? StartedAt, DateTimeOffset? FinishedAt, string? Error);
 
+public sealed record ReviewRunError(
+    string Code,
+    string Message,
+    string? Operation,
+    bool Retryable,
+    string? ReviewerRunId = null,
+    string? DiagnosticsPath = null);
+
+public sealed class ReviewOperationException : Exception
+{
+    public ReviewOperationException(ReviewRunError error, Exception? innerException = null)
+        : base(error.Message, innerException)
+    {
+        Error = error;
+    }
+
+    public ReviewRunError Error { get; }
+}
+
 public sealed record ReviewRunResponse(
     string Id,
     string RepositoryId,
@@ -76,10 +98,16 @@ public sealed record ReviewRunResponse(
     string? StopReason,
     ReviewEstimateDeviation? Deviation,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    IReadOnlyList<ReviewRunError> RunErrors);
 
 public interface IReviewExecutor
 {
+    bool RequiresProcessAttachment => false;
+    Task ProcessAttached => Task.CompletedTask;
+    ReviewAgentDiagnostics? Diagnostics => null;
+    bool Reclaim(RunStopReason reason) => false;
+
     Task<ReviewExecutionResult> ReviewIfNeededAsync(
         ReviewRequest request,
         bool force,
@@ -94,16 +122,36 @@ public interface IReviewExecutorFactory
 
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
-    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory
+    StalenessEvaluator stalenessEvaluator,
+    IOptions<ReviewJobsOptions> options,
+    ILoggerFactory loggerFactory) : IReviewExecutorFactory
 {
-    public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
-        Action<ReviewUsageEntry> usageRecorded) =>
-        new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
-                cliType, model, thinkingLevel, eventObserver: eventObserver),
-            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
+    private readonly ReviewerRunLogPathProvider logPaths = new(options.Value.ReviewerLogDirectory);
+    private readonly ILogger reviewerLogger = loggerFactory.CreateLogger("QualityStudio.ReviewerCli");
+    private readonly CliRunner runner = new(
+        // Review prompts routinely exceed Windows' process-command limit. Stdin keeps
+        // the full prompt out of argv and lets a Claude child attach before review work begins.
+        new CliOptions { ClaudePromptTransport = ClaudePromptTransport.Stdin },
+        loggerFactory.CreateLogger("CodingAgentRunner"),
+        new ReviewerRunLogPathProvider(options.Value.ReviewerLogDirectory));
 
-    private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
+    public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
+        Action<ReviewUsageEntry> usageRecorded)
     {
+        var agent = new CodingAgentReviewAgent(
+            cliType, model, thinkingLevel, eventObserver: eventObserver, runner: runner,
+            logger: reviewerLogger, logPaths: logPaths);
+        return new ReviewExecutor(new ReviewRunner(agent,
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator), agent);
+    }
+
+    private sealed class ReviewExecutor(ReviewRunner runner, CodingAgentReviewAgent agent) : IReviewExecutor
+    {
+        public bool RequiresProcessAttachment => true;
+        public Task ProcessAttached => agent.ProcessAttached;
+        public ReviewAgentDiagnostics Diagnostics => agent.Diagnostics;
+        public bool Reclaim(RunStopReason reason) => agent.StopActiveRun(reason);
+
         public Task<ReviewExecutionResult> ReviewIfNeededAsync(
             ReviewRequest request,
             bool force,
@@ -115,8 +163,29 @@ public sealed class ReviewExecutorFactory(
 public sealed class ReviewJobsOptions
 {
     public const string SectionName = "ReviewJobs";
+    public const int WatchdogPolicyVersion = 1;
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
+    public TimeSpan ReviewerAttachTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan OperationTimeout { get; set; } = TimeSpan.FromMinutes(15);
+    public TimeSpan ReclaimGracePeriod { get; set; } = TimeSpan.FromSeconds(5);
+    public string ReviewerLogDirectory { get; set; } = Path.Combine(
+        Path.GetTempPath(), "quality-studio", "reviewer-logs");
+}
+
+public sealed class ReviewerRunLogPathProvider : IRunLogPathProvider
+{
+    private readonly string root;
+
+    public ReviewerRunLogPathProvider(string root)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(root);
+        this.root = Path.GetFullPath(root);
+    }
+
+    public string GetRunLogDirectory(string runId) => Path.Combine(root, runId);
+
+    public string GetActiveJobsFile() => Path.Combine(root, "active-jobs.json");
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -135,6 +204,7 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private int startupRecoveryCompleted;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
@@ -383,9 +453,15 @@ public sealed class ReviewJobService : BackgroundService
         return run.Snapshot();
     }
 
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        RecoverRunsOnce();
+        return base.StartAsync(cancellationToken);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        RecoverRuns();
+        RecoverRunsOnce();
         try
         {
             await foreach (var item in queue.Reader.ReadAllAsync(stoppingToken))
@@ -398,6 +474,12 @@ public sealed class ReviewJobService : BackgroundService
         {
             logger.LogInformation(new EventId(1506, "ReviewQueueStopped"), "Review queue stopped with the API host");
         }
+    }
+
+    private void RecoverRunsOnce()
+    {
+        if (Interlocked.Exchange(ref startupRecoveryCompleted, 1) != 0) return;
+        RecoverRuns();
     }
 
     private void RecoverRuns()
@@ -420,14 +502,23 @@ public sealed class ReviewJobService : BackgroundService
                 try
                 {
                     var item = ReviewWorkItem.Restore(stored, registration, store);
-                    if (!runs.TryAdd(item.Id, item)) continue;
+                    var reclaimedFiles = item.ReconcileTerminalCancellationOnRecovery();
+                    if (reclaimedFiles > 0)
+                    {
+                        logger.LogWarning(new EventId(1516, "TerminalReviewReclaimedOnStartup"),
+                            "Reclaimed {ReviewFileCount} file operations from terminal review {ReviewRunId} during startup",
+                            reclaimedFiles, item.Id);
+                    }
                     item.EnsureTerminalReport();
                     if (!ReviewRunStore.IsTerminal(item.State))
                     {
                         item.PrepareForRecovery();
-                        if (item.State == "queued") queue.Writer.TryWrite(item);
                         recovered++;
                     }
+                    // Publish the in-memory run only after durable reconciliation and the
+                    // terminal report are complete; GET must never observe half-recovered state.
+                    if (!runs.TryAdd(item.Id, item)) continue;
+                    if (item.State == "queued") queue.Writer.TryWrite(item);
                 }
                 catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
                 {
@@ -482,15 +573,16 @@ public sealed class ReviewJobService : BackgroundService
                     (file, cancellationToken) => RunFileAsync(item, file, cancellationToken)).ConfigureAwait(false);
             }
 
-            if (item.State == "running" && item.Node.Level != ReviewLevel.File)
+            if (item.State == "running" && !item.HasRunErrors && item.Node.Level != ReviewLevel.File)
             {
                 if (!item.TryStopAtCap())
                 {
                     if (item.StartAggregate())
                     {
-                        var execution = await CreateRunner(item).ReviewIfNeededAsync(
+                        var execution = await ExecuteOperationAsync(
+                            item,
+                            $"aggregate:{item.Node.Path}",
                             CreateRequest(item, item.Node, item.Node.Level, item.Files.Select(file => file.Path).ToArray()),
-                            item.Force,
                             linked.Token).ConfigureAwait(false);
                         item.FinishAggregate(execution);
                     }
@@ -506,6 +598,13 @@ public sealed class ReviewJobService : BackgroundService
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
             item.StopAttempt();
+        }
+        catch (ReviewOperationException exception)
+        {
+            item.Fail(exception.Error);
+            logger.LogError(new EventId(1515, "ReviewerOperationFailed"), exception,
+                "Review {ReviewRunId} failed with {ReviewErrorCode}: {ReviewErrorMessage}",
+                item.Id, exception.Error.Code, exception.Error.Message);
         }
         catch (Exception exception)
         {
@@ -531,9 +630,10 @@ public sealed class ReviewJobService : BackgroundService
         }
         try
         {
-            var execution = await CreateRunner(item).ReviewIfNeededAsync(
+            var execution = await ExecuteOperationAsync(
+                item,
+                file.Path,
                 CreateRequest(item, file, ReviewLevel.File, [file.Path]),
-                item.Force,
                 cancellationToken).ConfigureAwait(false);
             item.FinishFile(file.Path, execution);
         }
@@ -541,6 +641,13 @@ public sealed class ReviewJobService : BackgroundService
         {
             if (item.State == "cancelled") item.CancelFile(file.Path); else item.RequeueFile(file.Path);
             throw;
+        }
+        catch (ReviewOperationException exception)
+        {
+            item.FailFile(file.Path, exception.Error);
+            logger.LogError(new EventId(1514, "ReviewFileOperationFailed"), exception,
+                "File {ReviewFilePath} failed in review {ReviewRunId} with {ReviewErrorCode}: {ReviewErrorMessage}",
+                file.Path, item.Id, exception.Error.Code, exception.Error.Message);
         }
         catch (Exception exception)
         {
@@ -557,6 +664,184 @@ public sealed class ReviewJobService : BackgroundService
             throw new KeyNotFoundException($"Review run '{id}' was not found.");
         return run;
     }
+
+    private async Task<ReviewExecutionResult> ExecuteOperationAsync(
+        ReviewWorkItem item,
+        string operation,
+        ReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var executor = CreateRunner(item);
+        using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var stopwatch = Stopwatch.StartNew();
+        var operationLimit = Positive(options.OperationTimeout);
+        Task<ReviewExecutionResult> execution;
+        try
+        {
+            execution = executor.ReviewIfNeededAsync(request, item.Force, operationCancellation.Token);
+        }
+        catch (Exception exception)
+        {
+            throw ClassifyOperationFailure(exception, executor, operation);
+        }
+
+        if (executor.RequiresProcessAttachment)
+        {
+            var attachLimit = Positive(options.ReviewerAttachTimeout);
+            if (attachLimit > operationLimit) attachLimit = operationLimit;
+            var attachTimeout = Task.Delay(attachLimit, CancellationToken.None);
+            var cancelled = Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            var first = await Task.WhenAny(execution, executor.ProcessAttached, attachTimeout, cancelled)
+                .ConfigureAwait(false);
+            if (first == execution) return await AwaitExecutionAsync(execution, executor, operation, cancellationToken)
+                .ConfigureAwait(false);
+            if (first == cancelled || cancellationToken.IsCancellationRequested)
+            {
+                await ReclaimAsync(execution, executor, RunStopReason.Cancelled, item.Id, operation)
+                    .ConfigureAwait(false);
+                throw new OperationCanceledException(cancellationToken);
+            }
+            if (first == attachTimeout)
+            {
+                var diagnostics = executor.Diagnostics;
+                operationCancellation.Cancel();
+                await ReclaimAsync(execution, executor, RunStopReason.Watchdog, item.Id, operation)
+                    .ConfigureAwait(false);
+                throw new ReviewOperationException(new ReviewRunError(
+                    "reviewer_attach_timeout",
+                    $"Reviewer CLI '{item.CliType}' did not attach within {attachLimit}.",
+                    operation,
+                    true,
+                    diagnostics?.RunId,
+                    diagnostics?.LogDirectory));
+            }
+        }
+
+        var remaining = operationLimit - stopwatch.Elapsed;
+        if (remaining <= TimeSpan.Zero)
+        {
+            var diagnostics = executor.Diagnostics;
+            operationCancellation.Cancel();
+            await ReclaimAsync(execution, executor, RunStopReason.Watchdog, item.Id, operation).ConfigureAwait(false);
+            throw OperationTimeout(item, operation, diagnostics);
+        }
+
+        var operationTimeout = Task.Delay(remaining, CancellationToken.None);
+        var operationCancelled = Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        var completed = await Task.WhenAny(execution, operationTimeout, operationCancelled).ConfigureAwait(false);
+        if (completed == execution)
+            return await AwaitExecutionAsync(execution, executor, operation, cancellationToken).ConfigureAwait(false);
+        if (completed == operationCancelled || cancellationToken.IsCancellationRequested)
+        {
+            await ReclaimAsync(execution, executor, RunStopReason.Cancelled, item.Id, operation).ConfigureAwait(false);
+            throw new OperationCanceledException(cancellationToken);
+        }
+
+        var timeoutDiagnostics = executor.Diagnostics;
+        operationCancellation.Cancel();
+        await ReclaimAsync(execution, executor, RunStopReason.Watchdog, item.Id, operation).ConfigureAwait(false);
+        throw OperationTimeout(item, operation, timeoutDiagnostics);
+    }
+
+    private async Task<ReviewExecutionResult> AwaitExecutionAsync(
+        Task<ReviewExecutionResult> execution,
+        IReviewExecutor executor,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await execution.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw ClassifyOperationFailure(exception, executor, operation);
+        }
+    }
+
+    private async Task ReclaimAsync(
+        Task execution,
+        IReviewExecutor executor,
+        RunStopReason reason,
+        string reviewRunId,
+        string operation)
+    {
+        var stopRequested = false;
+        try
+        {
+            stopRequested = executor.Reclaim(reason);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(new EventId(1517, "ReviewerStopFailed"), exception,
+                "Could not request reviewer process stop for operation {ReviewOperation} in review {ReviewRunId}; bounded reclaim continues",
+                operation, reviewRunId);
+        }
+        var reclaimed = await Task.WhenAny(execution,
+            Task.Delay(Positive(options.ReclaimGracePeriod), CancellationToken.None)).ConfigureAwait(false) == execution;
+        if (!reclaimed)
+        {
+            ObserveAbandoned(execution);
+            logger.LogCritical(new EventId(1513, "ReviewerReclaimTimedOut"),
+                "Reviewer operation {ReviewOperation} in review {ReviewRunId} did not exit within reclaim grace {ReclaimGrace}; stop requested: {ReviewerStopRequested}; the queue reader is advancing",
+                operation, reviewRunId, Positive(options.ReclaimGracePeriod), stopRequested);
+        }
+        else if (execution.IsFaulted)
+        {
+            _ = execution.Exception;
+        }
+    }
+
+    private static void ObserveAbandoned(Task task) => _ = task.ContinueWith(
+        completed => _ = completed.Exception,
+        CancellationToken.None,
+        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+        TaskScheduler.Default);
+
+    private ReviewOperationException OperationTimeout(
+        ReviewWorkItem item,
+        string operation,
+        ReviewAgentDiagnostics? diagnostics) => new(new ReviewRunError(
+        "reviewer_operation_timeout",
+        $"Reviewer operation exceeded watchdog policy v{ReviewJobsOptions.WatchdogPolicyVersion} wall-clock limit {Positive(options.OperationTimeout)}.",
+        operation,
+        true,
+        diagnostics?.RunId,
+        diagnostics?.LogDirectory));
+
+    private static ReviewOperationException ClassifyOperationFailure(
+        Exception exception,
+        IReviewExecutor executor,
+        string operation)
+    {
+        if (exception is ReviewOperationException classified) return classified;
+        var diagnostics = executor.Diagnostics;
+        var agentFailure = exception as ReviewAgentRunException;
+        var attached = diagnostics?.ProcessAttached == true;
+        var code = agentFailure?.Code == "reviewer_authentication_required"
+            ? agentFailure.Code
+            : attached ? "reviewer_process_failed" : "reviewer_launch_failed";
+        var message = agentFailure?.Code == "reviewer_authentication_required"
+            ? agentFailure.Message
+            : attached
+            ? $"Reviewer CLI process exited before the operation completed: {exception.Message}"
+            : $"Reviewer CLI could not be launched or never attached: {exception.Message}";
+        return new ReviewOperationException(new ReviewRunError(
+            code,
+            message,
+            operation,
+            agentFailure?.Retryable ?? true,
+            diagnostics?.RunId ?? agentFailure?.RunId,
+            diagnostics?.LogDirectory), exception);
+    }
+
+    private static TimeSpan Positive(TimeSpan value) => value > TimeSpan.Zero
+        ? value
+        : TimeSpan.FromMilliseconds(1);
 
     private IReviewExecutor CreateRunner(ReviewWorkItem item) => executors.Create(
         item.CliType, item.Model, item.ThinkingLevel,
@@ -625,6 +910,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly Dictionary<string, ReviewObservationSnapshot> observations;
         private readonly QualityRunReportStore reportStore;
         private readonly List<string> errors;
+        private readonly List<ReviewRunError> runErrors;
         private TokenUsage usage;
         private CancellationTokenSource attemptCancellation = new();
         private int usageOperations;
@@ -670,6 +956,7 @@ public sealed class ReviewJobService : BackgroundService
             StartedAt = status?.StartedAt;
             FinishedAt = status?.FinishedAt;
             errors = status?.Errors.ToList() ?? [];
+            runErrors = status?.RunErrors?.ToList() ?? [];
             usageOperations = status?.UsageOperations ?? 0;
             usage = status?.Usage ?? new TokenUsage(null, null, null, null, 0);
             tokenCap = status?.TokenCap ?? manifest.TokenCap;
@@ -725,8 +1012,28 @@ public sealed class ReviewJobService : BackgroundService
         public DateTimeOffset? FinishedAt { get; private set; }
         public string State { get { lock (gate) return state; } }
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
+        public bool HasRunErrors { get { lock (gate) return runErrors.Count > 0; } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+
+        public int ReconcileTerminalCancellationOnRecovery()
+        {
+            lock (gate)
+            {
+                if (state != "cancelled") return 0;
+                var reclaimed = 0;
+                foreach (var file in progress.Values.Where(file => file.State is "queued" or "running"))
+                {
+                    file.State = "cancelled";
+                    file.FinishedAt = FinishedAt ?? DateTimeOffset.UtcNow;
+                    AppendProgress(file);
+                    reclaimed++;
+                }
+                if (aggregateState is "queued" or "running") aggregateState = "cancelled";
+                if (reclaimed > 0) PersistStatus();
+                return reclaimed;
+            }
+        }
 
         public void PrepareForRecovery()
         {
@@ -803,6 +1110,21 @@ public sealed class ReviewJobService : BackgroundService
                 file.Error = error;
                 file.FinishedAt = DateTimeOffset.UtcNow;
                 errors.Add($"{path}: {error}");
+                Append(file);
+            }
+        }
+
+        public void FailFile(string path, ReviewRunError error)
+        {
+            lock (gate)
+            {
+                var file = progress[path];
+                if (file.State != "running") return;
+                file.State = "failed";
+                file.Error = error.Message;
+                file.FinishedAt = DateTimeOffset.UtcNow;
+                errors.Add($"{path}: {error.Message}");
+                runErrors.Add(error);
                 Append(file);
             }
         }
@@ -910,7 +1232,7 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate)
             {
                 if (state != "running") return false;
-                state = "done";
+                state = runErrors.Count == 0 ? "done" : "failed";
                 if (aggregateState == "running") aggregateState = "done";
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
@@ -927,6 +1249,21 @@ public sealed class ReviewJobService : BackgroundService
                 state = "failed";
                 if (aggregateState == "running") aggregateState = "failed";
                 errors.Add(error);
+                FinishedAt = DateTimeOffset.UtcNow;
+                PersistStatus();
+                PublishReport();
+            }
+        }
+
+        public void Fail(ReviewRunError error)
+        {
+            lock (gate)
+            {
+                if (ReviewRunStore.IsTerminal(state)) return;
+                state = "failed";
+                if (aggregateState == "running") aggregateState = "failed";
+                errors.Add(error.Message);
+                runErrors.Add(error);
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
                 PublishReport();
@@ -1044,7 +1381,8 @@ public sealed class ReviewJobService : BackgroundService
                     CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage,
                     manifest.Estimate, tokenCap, costCap, costSpent, currency, priceStatus,
                     files.Count(file => file.State is "skipped" or "skipped-fresh"),
-                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride);
+                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride,
+                    runErrors.ToArray());
             }
         }
 
@@ -1125,7 +1463,7 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason, runErrors.ToArray());
         }
 
         private static bool IsCompletedFileState(string fileState) =>
