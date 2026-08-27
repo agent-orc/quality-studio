@@ -152,7 +152,7 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
     return ['node', parsedArgs['web-script']];
   }
 
-  return buildNpmCommand([
+  const [executable, commandArgs] = buildNpmCommand([
     'start',
     '--',
     '--host',
@@ -162,6 +162,7 @@ function buildWebCommand(parsedArgs, webPort, host, proxyConfig) {
     '--proxy-config',
     proxyConfig,
   ]);
+  return [executable, ...commandArgs];
 }
 
 function buildNpmCommand(args) {

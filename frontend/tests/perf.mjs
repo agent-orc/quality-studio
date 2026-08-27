@@ -63,8 +63,9 @@ const highlightedTokenCount = await page.locator('.code-line code span:not(.tok-
 await page.getByRole('tab', { name: /performance/i }).click();
 await page.waitForFunction(() => performance.getEntriesByName('qs.review.aspect-switch').length >= 1);
 await page.getByRole('textbox', { name: 'Filter files' }).fill('');
+await page.locator('.virtual-tree').evaluate(element => element.scrollTo(0, 0));
 const dashboardStarted = await page.evaluate(() => performance.now());
-await page.locator('[data-node-id="quality-studio"]').click();
+await page.locator('.tree-row[aria-level="1"]').first().click();
 await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
 const dashboardDurationMs = await page.evaluate(start => Number((performance.now() - start).toFixed(2)), dashboardStarted);
 
