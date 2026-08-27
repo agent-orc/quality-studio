@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs-77-addendum">Addendum · QS-77 AllowedRoots decision</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,14 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs-77-addendum">
+    <h2><span class="no">11</span>Addendum · QS-77 AllowedRoots decision (2026-08-27)</h2>
+    <p><span class="pill new">Medium · R-09</span></p>
+    <p>2026-08-11 incident: the API failed to boot entirely. <code>RepositoryRegistry</code>'s constructor validates every persisted registry entry during <code>LoadOrSeed</code> and, at the time, threw <code>RepositoryRegistryValidationException</code> when the QS-68 hardening's <code>AllowedRoots: ["../.."]</code> no longer covered a legitimately persisted entry: the Agent Studio checkout used for cross-repo reviewing (see <a href="../studio-integration/index.html">the studio-integration dossier</a>). The exception named neither the offending path nor the configured roots, which F-07 had already flagged as a recurrence-prevention gap.</p>
+    <p><b>Decision:</b> keep <code>AllowedRoots</code> relative and widen it by one more level — <code>["../..", "../../.."]</code> in <code>src/QualityStudio.Api/appsettings.json</code> — rather than deriving roots from a platform project registry. This is recorded, not silent: the addition is a fixed relative depth (one more workspace level above the API content root), not a maintainer-specific absolute path, so it does not reintroduce the F-07/R-09 failure mode of disclosing host topology through a tracked absolute path. Deriving <code>AllowedRoots</code> from a platform project registry (no local config) remains the longer-term direction if Quality Studio needs to run outside a fixed dev-machine layout with a known-depth sibling checkout; it is out of scope for this boot-resilience fix.</p>
+    <p>Boot resilience no longer depends on this decision being exactly right: <code>RepositoryRegistry.LoadOrSeed</code> now quarantines any persisted entry that fails <code>EnsureAllowedDirectory</code> instead of throwing, logs a warning naming the path and the configured roots, and marks the entry <code>Blocked</code> with a <code>BlockedReason</code> that the registry list surfaces to the operator. A future roots change that is too narrow degrades to a quarantined repository, not a non-booting host.</p>
   </section>
 </main>
 </body>
