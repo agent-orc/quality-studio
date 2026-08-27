@@ -210,7 +210,36 @@ endpoint formats, and documented exit codes.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the core quality model library.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` is the required gate for pull requests and pushes to `main`.
+- `.github/workflows/release-canary.yml` runs the machine-bound and browser performance checks on a labeled host.
+
+### Required gate
+
+`build.yml` pins .NET 10.0.301, Node 22.23.1, and Gitleaks 8.24.2, then runs these
+checks as separately named steps, so each failure has one owner:
+
+| Step | Local equivalent |
+| --- | --- |
+| Verify required gate contract | `npm run test:tooling` |
+| Run portable .NET tests | `dotnet test QualityStudio.slnx -c Release --filter "Category!=MachineBound"` |
+| Build production frontend bundle | `npm --prefix frontend run build` |
+| Run Angular specs | `npm --prefix frontend test` |
+| Run security scan | `dotnet run --project src/quality-cli -- security scan .` |
+
+Machine-bound timing checks are excluded from this lane by design and run in the
+release canary instead. The production frontend build enforces the 480 kB initial
+bundle budget in [`frontend/angular.json`](frontend/angular.json); a development
+build bypasses that budget and is not accepted as shipping evidence.
+
+`npm --prefix frontend test` resolves a browser without configuration: it prefers
+an explicit `CHROME_BIN`, then the Chromium pinned by `playwright-core`, then a
+system Chrome, Chromium, or Edge. Run `npm --prefix frontend run browser:install`
+once to provision the pinned Chromium. On a runner without a user namespace for
+the browser sandbox, set `CHROME_NO_SANDBOX=1`.
+
+The `tests/dev-stack.test.mjs` launcher suite is **not** part of the required gate
+yet; it currently fails on Linux and is tracked by the QS-W5 host-and-fixture
+slice.
 
 ## Minimal API
 
