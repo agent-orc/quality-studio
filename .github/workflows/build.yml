@@ -37,7 +37,7 @@ jobs:
         run: npm run catalog:check
 
       - name: Restore .NET dependencies
-        run: dotnet restore QualityStudio.slnx
+        run: dotnet restore QualityStudio.slnx --locked-mode
 
       - name: Build release product
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
@@ -74,6 +74,9 @@ jobs:
 
       - name: Test coverage ratchet contract
         run: npm run test:coverage-ratchet
+
+      - name: Test release canary contract
+        run: npm run test:release-canary
 
       - name: Enforce measured coverage ratchet
         run: npm run coverage:verify
