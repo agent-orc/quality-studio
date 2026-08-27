@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio archived review run record v1",
+  "description": "Immutable identity, plan, and configuration of one logical review run, stored as .quality/run-history/YYYY-MM/<runId>/run.json. Create-only: a resume adds an attempt record and never rewrites this document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "repositoryId", "kind", "createdAt", "archivedAt", "subject", "targets", "manifestHash", "configuration", "cap", "estimate", "revision", "provenance"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/runId" },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "kind": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } },
+    "manifestHash": { "$ref": "#/$defs/sha256" },
+    "configuration": { "$ref": "#/$defs/configuration" },
+    "cap": { "$ref": "#/$defs/cap" },
+    "estimate": { "oneOf": [{ "$ref": "#/$defs/estimate" }, { "type": "null" }] },
+    "revision": { "oneOf": [{ "$ref": "#/$defs/revision" }, { "type": "null" }] },
+    "provenance": { "enum": ["live-dual-write", "migrated-from-run-store-v0"] }
+  },
+  "$defs": {
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "name", "path", "level"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "level": { "enum": ["project", "module", "namespace", "file"] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "name", "path", "subjectHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "subjectHash": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "thinkingLevel", "cliType", "force", "routeOverride"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "force": { "type": "boolean" },
+        "routeOverride": { "type": "boolean" }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit"],
+      "properties": {
+        "tokenLimit": { "type": ["integer", "null"], "minimum": 0 },
+        "costLimit": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "operations", "inputTokens", "outputTokens", "cost", "currency", "priceStatus", "historySamples", "method"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "cost": { "type": ["number", "null"], "minimum": 0 },
+        "currency": { "type": ["string", "null"], "maxLength": 20 },
+        "priceStatus": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "historySamples": { "type": "integer", "minimum": 0 },
+        "method": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Source revision observed at enqueue time. Per-target subject hashes stay authoritative for a dirty worktree.",
+      "required": ["commit", "dirty"],
+      "properties": {
+        "commit": { "type": ["string", "null"], "pattern": "^[a-f0-9]{7,40}$" },
+        "dirty": { "type": "boolean" }
+      }
+    }
+  }
+}

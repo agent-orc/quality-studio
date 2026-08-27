@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio archived review run finding observation v1",
+  "description": "One line of .quality/run-history/YYYY-MM/<runId>/findings.jsonl. It records what a single operation observed for a stable fingerprint, including the lifecycle state at that time. It never becomes the current lifecycle owner; .quality/findings/state.json keeps that role.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "fingerprint", "findingId", "ruleId", "severity", "title", "locations", "state", "observedAt"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "operationId": { "type": "string", "pattern": "^op-[a-f0-9]{24}$" },
+    "fingerprint": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "findingId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+    "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+    "observedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+        },
+        "startLine": { "type": ["integer", "null"], "minimum": 1 },
+        "startColumn": { "type": ["integer", "null"], "minimum": 1 },
+        "endLine": { "type": ["integer", "null"], "minimum": 1 },
+        "endColumn": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    }
+  }
+}

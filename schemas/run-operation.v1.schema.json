@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived review run operation v1",
+  "description": "One line of .quality/run-history/YYYY-MM/<runId>/operations.jsonl. Appended only after the operation's result is durable or its terminal error is known; a running marker stays in the ignored recovery journal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt", "unitId", "path", "level", "state", "startedAt", "finishedAt", "providerRunId", "reviewedHash", "reviewInputsHash", "sidecarPath", "sidecarSha256", "verdict", "error"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "operationId": { "$ref": "#/$defs/operationId" },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"], "maxLength": 200 },
+    "reviewedHash": { "type": ["string", "null"], "maxLength": 200 },
+    "reviewInputsHash": { "type": ["string", "null"], "maxLength": 200 },
+    "sidecarPath": { "oneOf": [{ "$ref": "#/$defs/repoPath" }, { "type": "null" }] },
+    "sidecarSha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "verdict": { "oneOf": [{ "$ref": "#/$defs/verdict" }, { "type": "null" }] },
+    "error": { "type": ["string", "null"], "maxLength": 4000 }
+  },
+  "$defs": {
+    "operationId": { "type": "string", "pattern": "^op-[a-f0-9]{24}$" },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Typed verdict in the producing review family's own vocabulary. An operational state of done never implies a quality pass.",
+      "required": ["type", "value", "score", "band"],
+      "properties": {
+        "type": { "enum": ["grade", "security"] },
+        "value": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "band": { "type": ["string", "null"], "maxLength": 20 }
+      }
+    }
+  }
+}

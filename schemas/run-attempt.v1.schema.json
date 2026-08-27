@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived review run attempt v1",
+  "description": "One stopped attempt of a logical run, stored as .quality/run-history/YYYY-MM/<runId>/attempts/NNNN.json. Create-only: a capped attempt is a stop, not the end of the run, and a later resume adds the next number instead of rewriting this record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness", "startedAt", "finishedAt", "archivedAt", "counters", "spend", "errors", "stopReason", "cap", "estimateDeviation", "ledgerMonths", "operationIds", "quality"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "archivedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Durability time of this attempt record, not review time."
+    },
+    "counters": { "$ref": "#/$defs/counters" },
+    "spend": { "$ref": "#/$defs/spend" },
+    "errors": { "type": "array", "items": { "type": "string", "maxLength": 4000 } },
+    "stopReason": { "type": ["string", "null"], "maxLength": 4000 },
+    "cap": { "$ref": "#/$defs/cap" },
+    "estimateDeviation": { "oneOf": [{ "$ref": "#/$defs/deviation" }, { "type": "null" }] },
+    "ledgerMonths": {
+      "type": "array",
+      "description": "Usage ledger months holding this attempt's detailed token rows. Detailed spend is never duplicated here.",
+      "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" }
+    },
+    "operationIds": { "type": "array", "items": { "type": "string", "pattern": "^op-[a-f0-9]{24}$" } },
+    "quality": { "$ref": "#/$defs/quality" }
+  },
+  "$defs": {
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed", "reusedFresh", "failed", "skipped", "cancelled"],
+      "properties": {
+        "reviewed": { "type": "integer", "minimum": 0 },
+        "reusedFresh": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "spend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operations", "inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs", "cost", "currency", "priceStatus"],
+      "properties": {
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "cost": { "type": ["number", "null"], "minimum": 0 },
+        "currency": { "type": ["string", "null"], "maxLength": 20 },
+        "priceStatus": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit"],
+      "properties": {
+        "tokenLimit": { "type": ["integer", "null"], "minimum": 0 },
+        "costLimit": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokensPercent", "outputTokensPercent", "costPercent"],
+      "properties": {
+        "inputTokensPercent": { "type": ["number", "null"] },
+        "outputTokensPercent": { "type": ["number", "null"] },
+        "costPercent": { "type": ["number", "null"] }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Deterministic rollup of the attempt's typed verdicts. It states no repository-wide pass threshold.",
+      "required": ["score", "grade", "worstSecurityVerdict", "activeFindings", "highestSeverity"],
+      "properties": {
+        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "grade": { "type": ["string", "null"], "maxLength": 20 },
+        "worstSecurityVerdict": { "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindings": { "type": "integer", "minimum": 0 },
+        "highestSeverity": { "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  }
+}

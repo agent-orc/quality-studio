@@ -449,8 +449,9 @@ public sealed class ReviewJobService : BackgroundService
         var attemptToken = item.Start();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, attemptToken);
         logger.LogInformation(new EventId(1501, "ReviewStarted"),
-            "Started review {ReviewRunId} via {ReviewCli}/{ReviewModel}/{ReviewThinkingLevel}", item.Id,
-            item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
+            "Started review {ReviewRunId} attempt {ReviewAttempt} via {ReviewCli}/{ReviewModel}/{ReviewThinkingLevel}",
+            item.Id, item.Attempt, item.CliType, item.Model ?? "runner-default",
+            item.ThinkingLevel ?? "model-default");
         try
         {
             item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
@@ -545,8 +546,10 @@ public sealed class ReviewJobService : BackgroundService
         catch (Exception exception)
         {
             item.FailFile(file.Path, exception.Message);
+            // The operation id is derived, so the same failed operation keeps this identity after recovery.
             logger.LogError(new EventId(1504, "ReviewFileFailed"), exception,
-                "File {ReviewFilePath} failed in review {ReviewRunId}", file.Path, item.Id);
+                "File {ReviewFilePath} failed in review {ReviewRunId} as operation {ReviewOperationId} of attempt {ReviewAttempt}",
+                file.Path, item.Id, item.Operation(file.Path).OperationId, item.Attempt);
         }
     }
 
@@ -639,6 +642,7 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int attempt;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -679,6 +683,7 @@ public sealed class ReviewJobService : BackgroundService
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
             stopReason = status?.StopReason;
+            attempt = Math.Max(0, status?.Attempt ?? 0);
             if (transitions is not null)
             {
                 foreach (var transition in transitions)
@@ -726,7 +731,37 @@ public sealed class ReviewJobService : BackgroundService
         public string State { get { lock (gate) return state; } }
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
+
+        /// <summary>
+        /// Ordinal of the current or last execution attempt, starting at one. A capped or paused run
+        /// that resumes runs a further attempt; completed operations are never repeated.
+        /// </summary>
+        public int Attempt { get { lock (gate) return attempt; } }
+
+        /// <summary>
+        /// Resolves the stable identity of one operation from its key: a target file path, or
+        /// <see cref="ReviewOperationId.AggregateKey"/> for the container review. The identity is
+        /// derived, so recovering the same operation reproduces the same operation id.
+        /// </summary>
+        public ReviewOperationIdentity Operation(string operationKey)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(operationKey);
+            var ordinal = string.Equals(operationKey, ReviewOperationId.AggregateKey, StringComparison.Ordinal)
+                ? manifest.Targets.Count
+                : IndexOfTarget(operationKey);
+            return new ReviewOperationIdentity(ReviewOperationId.For(Id, operationKey), ordinal, operationKey);
+        }
+
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+
+        private int IndexOfTarget(string path)
+        {
+            for (var index = 0; index < manifest.Targets.Count; index++)
+            {
+                if (string.Equals(manifest.Targets[index].Path, path, StringComparison.Ordinal)) return index;
+            }
+            throw new ArgumentException($"Review '{Id}' has no operation for '{path}'.", nameof(path));
+        }
 
         public void PrepareForRecovery()
         {
@@ -749,6 +784,7 @@ public sealed class ReviewJobService : BackgroundService
                 state = "running";
                 StartedAt ??= DateTimeOffset.UtcNow;
                 FinishedAt = null;
+                attempt++;
                 attemptActive = true;
                 resumePending = false;
                 PersistStatus();
@@ -1125,7 +1161,7 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason, attempt);
         }
 
         private static bool IsCompletedFileState(string fileState) =>
