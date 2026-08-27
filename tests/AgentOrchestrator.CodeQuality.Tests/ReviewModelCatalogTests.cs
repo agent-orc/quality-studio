@@ -162,4 +162,17 @@ public sealed class ReviewModelCatalogTests
         Assert.True(catalog.IsBelowCorrectnessFloor(
             new ReviewModelSelection("claude", "claude-opus-5", "max", true), broad));
     }
+
+    // The CLI reaches the incompatible-model message, and that message is the one the API echoes as
+    // problem detail, so an unvetted CLI would be reflected to the caller verbatim.
+    [Fact]
+    public void Cli_type_is_held_to_the_identifier_rule_before_it_can_reach_an_echoed_message()
+    {
+        var exception = Assert.Throws<ReviewModelSelectionException>(() =>
+            catalog.Resolve("codex<script>", "gpt-5.6-sol", "medium"));
+        Assert.DoesNotContain("<script>", exception.Message, StringComparison.Ordinal);
+
+        // An unknown but well-formed CLI stays usable: it is the forward-compatibility path.
+        Assert.Equal("test-agent", catalog.Resolve("test-agent", "gpt-5.6-sol", "medium").CliType);
+    }
 }
