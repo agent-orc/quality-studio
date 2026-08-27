@@ -13,6 +13,8 @@ public interface IReviewAgent
 
     string? Model { get; }
 
+    string? ThinkingLevel => null;
+
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
@@ -59,6 +61,8 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     public string AgentName => _cliType;
 
     public string? Model { get; }
+
+    public string? ThinkingLevel => _thinkingLevel;
 
     public async Task<ReviewAgentResult> RunAsync(
         string prompt,

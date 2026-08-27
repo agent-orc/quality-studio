@@ -6,8 +6,10 @@ namespace AgentOrchestrator.CodeQuality;
 
 public sealed record ReviewMetaDocument
 {
-    public const int CurrentSchemaVersion = 2;
-    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v2.schema.json";
+    public const int CurrentSchemaVersion = 3;
+    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json";
+    public const int V2SchemaVersion = 2;
+    public const string V2SchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v2.schema.json";
     public const int LegacySchemaVersion = 1;
     public const string LegacySchemaId = "https://agent-orchestrator.dev/quality/schemas/review-meta.v1.schema.json";
 
@@ -61,6 +63,9 @@ public sealed record ReviewMetaDocument
 
     [JsonPropertyOrder(16)]
     public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; init; } = [];
+
+    [JsonPropertyOrder(17), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceRevision { get; init; }
 }
 
 public sealed record ReviewUnit(
@@ -79,7 +84,9 @@ public sealed record ReviewerIdentity(
     [property: JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AgentVersion = null,
     [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RunId = null,
     [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewerUsage? Usage = null,
-    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ReviewerSensorReference>? Sensors = null);
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ReviewerSensorReference>? Sensors = null,
+    [property: JsonPropertyOrder(6), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RequestedModel = null,
+    [property: JsonPropertyOrder(7), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RequestedThinkingLevel = null);
 
 public sealed record ReviewerSensorReference(
     [property: JsonPropertyOrder(0)] string Id,
@@ -155,9 +162,44 @@ public sealed record ReviewFinding(
     [property: JsonPropertyOrder(7)] string Fingerprint,
     [property: JsonPropertyOrder(8)] string RuleId,
     [property: JsonPropertyOrder(9), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Evidence = null,
-    [property: JsonPropertyOrder(10), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingSource? Source = null);
+    [property: JsonPropertyOrder(10), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingSource? Source = null,
+    [property: JsonPropertyOrder(11), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<FindingAnchor>? Anchors = null,
+    [property: JsonPropertyOrder(12), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<FindingEvidenceItem>? EvidenceItems = null,
+    [property: JsonPropertyOrder(13), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReproductionInfo? Reproduction = null);
 
 public enum FindingSeverity { Critical, High, Medium, Low, Info }
+
+public enum FindingAnchorRole { Primary, Related }
+
+public sealed record FindingAnchor(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] FindingAnchorRole Role,
+    [property: JsonPropertyOrder(2)] string Path,
+    [property: JsonPropertyOrder(3)] FindingRange Range,
+    [property: JsonPropertyOrder(4)] CapturedExcerpt CapturedExcerpt,
+    [property: JsonPropertyOrder(5), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SymbolId = null);
+
+public sealed record CapturedExcerpt(
+    [property: JsonPropertyOrder(0)] string Text,
+    [property: JsonPropertyOrder(1)] string ContentHash,
+    [property: JsonPropertyOrder(2)] string ExcerptHash);
+
+public enum FindingEvidenceClass { SourceSpan, LegacyClaim }
+
+public enum FindingEvidenceStatus { Observed, Unverified }
+
+public sealed record FindingEvidenceItem(
+    [property: JsonPropertyOrder(0)] string Id,
+    [property: JsonPropertyOrder(1)] FindingEvidenceClass Class,
+    [property: JsonPropertyOrder(2)] FindingEvidenceStatus Status,
+    [property: JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AnchorId = null,
+    [property: JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Summary = null);
+
+public enum ReproductionStatus { Unknown, Specified, Verified, NotApplicable, Blocked }
+
+public sealed record ReproductionInfo(
+    [property: JsonPropertyOrder(0)] ReproductionStatus Status,
+    [property: JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Reason = null);
 
 public enum FindingSourceKind { Deterministic }
 
@@ -281,9 +323,11 @@ public static class ReviewMetaJson
     {
         var current = document.SchemaVersion == ReviewMetaDocument.CurrentSchemaVersion &&
                       string.Equals(document.Schema, ReviewMetaDocument.SchemaId, StringComparison.Ordinal);
+        var v2 = document.SchemaVersion == ReviewMetaDocument.V2SchemaVersion &&
+                 string.Equals(document.Schema, ReviewMetaDocument.V2SchemaId, StringComparison.Ordinal);
         var legacy = document.SchemaVersion == ReviewMetaDocument.LegacySchemaVersion &&
                      string.Equals(document.Schema, ReviewMetaDocument.LegacySchemaId, StringComparison.Ordinal);
-        if (!current && !legacy)
+        if (!current && !v2 && !legacy)
         {
             throw new JsonException($"Unsupported review metadata schemaVersion '{document.SchemaVersion}'.");
         }
