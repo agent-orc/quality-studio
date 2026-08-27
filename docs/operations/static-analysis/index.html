@@ -715,9 +715,19 @@
         <li>The S5 artifact was regenerated in the operator-provided results directory and still reports <code>insufficient-evidence</code>, zero of 30 required matched operations, and <code>savingsPercent: null</code>. The matched-evidence threshold remains the only pending rollout condition.</li>
       </ul>
     </article>
+
+    <article class="slice">
+      <header><h3>2026-08-27 · QS-72 · Final current-main verification</h3><span class="pill done">landed</span></header>
+      <p>The decided S1–S5 delivery now sits directly on current <code>origin/main</code> snapshot <code>f7557fb07a7d</code>. The refresh required no slice, disposition, threshold, baseline, or model-routing rework. Local verification found one integration lint defect in a URL-preview evidence script already present on the integration head; removing its semantically redundant escaped slash restores the new-debt gate without expanding the baseline.</p>
+      <ul>
+        <li>The Release build passes with the intended 21 advisory complexity warnings. The portable solution suite passes 219 tests with one explicit live-integration skip; both Angular compilers, the 478.30 kB production build, 39 browser tests, and seven static-analysis contract tests pass.</li>
+        <li>The static-analysis gate reports 250 current observations, all existing, with zero new and zero resolved. Gitleaks 8.24.2 scans 370 files with zero new findings, and NuGet reports no vulnerable packages. The npm critical-severity gate passes while retaining 14 high and three moderate advisories as visible standalone findings.</li>
+        <li>The S5 artifact was regenerated in the operator-provided results directory and remains <code>insufficient-evidence</code> with zero of 30 required matched operations and <code>savingsPercent: null</code>. No rollout conclusion, model route, or thinking level changed.</li>
+      </ul>
+    </article>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 24 August 2026</footer>
+  <footer>Decision dossier for QS-63 · status: decided · phase: implementation delivered; S5 evidence pending · updated 27 August 2026</footer>
 </main>
 </body>
 </html>
