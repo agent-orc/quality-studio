@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-24T08:32:20Z",
+  "updatedAt": "2026-08-27T16:25:18Z",
   "sourceTaskKeys": [
     "QS-62",
     "QS-71",
@@ -54,10 +54,10 @@
     "QS-85"
   ],
   "implementationState": {
-    "verifiedAt": "2026-08-24T08:32:20Z",
+    "verifiedAt": "2026-08-27T16:25:18Z",
     "verifiedByTask": "QS-85",
     "status": "documented",
-    "integrationBase": "origin/main@e31089ccd5640bb2742a25a2a08a9a3120534656",
+    "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
     "wave1": {
       "taskKey": "QS-71",
       "sourceCommits": [
@@ -89,6 +89,19 @@
         "before": "qs-85-history-before.png captured against origin/main, where the run drawer ends at Token usage and no History section exists (history section count 0).",
         "after": "qs-85-history-after-collapsed.png, -expanded.png, -detail.png and -compare.png captured on the delivery commit: five archived rows including one corrupt archive and one legacy usage-only row, a three-operation detail drawer, and a two-run comparison showing two grade deltas of which one is a regression.",
         "guards": "The corrupt row and the legacy usage-only row both render but keep their Compare control disabled, so degraded provenance stays visible without becoming comparable."
+      },
+      "secondFinalRound": {
+        "verifiedAt": "2026-08-27T16:25:18Z",
+        "reason": "The QS-85 branch was reset to plain origin/main by a runner teardown salvage commit after the 2026-08-26 final round, and origin/main advanced past e31089c to f7557fb (QS-88 url-preview work) in the meantime. The preserved delivery tree from backup/QS-85-final-before-rebase-20260827 was cherry-picked back onto the current origin/main tip.",
+        "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
+        "deliveryCommits": [
+          "31cfe70 (feat(run-persistence): durable run archive, history and diff APIs, history UI)",
+          "f41d53b (docs(run-persistence): reproducible history UI evidence and corrected receipts)"
+        ],
+        "conflicts": "One trivial line conflict in frontend/package.json: origin/main (QS-88) and QS-85 both appended a new npm script after evidence:run-report. Resolved by keeping both scripts (evidence:url-preview-embed and evidence:run-history) with no other changes. No conflicts anywhere else.",
+        "gate": "Re-run locally on the rebased tree and reproduced the recorded numbers exactly: npm run catalog:check valid; Release build 0 warnings/0 errors; dotnet test --filter Category!=MachineBound: 221 passed, 1 intentionally skipped (66 QualityStudio.Api.Tests + 155 AgentOrchestrator.CodeQuality.Tests); dotnet run --project src/quality-cli -- security scan .: pass, 367 files, 0 new/accepted/block/warn; frontend npm test (Karma, ChromeHeadlessNoSandbox): 46 of 46 passed; frontend npm run build: production bundle built (pre-existing prism.js CommonJS warnings only, unrelated to this feature); npm run test:dev-stack: 5 of 5 passed.",
+        "uiEvidence": "Fresh before/after screenshots reproduced with frontend/tests/run-history-evidence.mjs against live Angular dev servers: the pre-QS-85 base (git worktree at f7557fb) shows historySection count 0; the rebased delivery shows 5 archived rows (1 corrupt), a 3-operation detail drawer, and a 2-run diff with 2 grade deltas and 1 regression, with both the corrupt and legacy rows' Compare control disabled. Screenshots and JSON manifests are stored with the QS-85 task results (qs-85-history-before.png/.json, qs-85-history-after-collapsed/-expanded/-detail/-compare.png, qs-85-history-evidence.json).",
+        "noFeatureRework": "No application behaviour changed in this round; this was a rebase and re-verification of the already-approved RP-1 through RP-5 slices onto a newer origin/main tip."
       }
     },
     "nextSlice": {
