@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "decided",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:23Z",
+  "updatedAt": "2026-08-27T00:00:00Z",
   "sourceTaskKeys": [
     "QS-63"
   ],
@@ -48,7 +48,40 @@
     }
   },
   "relatedTaskKeys": [
-    "QS-72"
+    "QS-72",
+    "QS-86"
   ],
-  "editedBy": "Operator, recorded by AGT-2621"
+  "editedBy": "Operator, recorded by AGT-2621",
+  "implementationState": {
+    "verifiedAt": "2026-08-27T00:00:00Z",
+    "verifiedByTask": "QS-86",
+    "slices": [
+      {
+        "slice": 1,
+        "title": "One snapshot-bound preflight",
+        "status": "delivered",
+        "taskKey": "QS-72",
+        "commit": "39a126db1bfdf919e0aedf6d78fe1be2582b693e"
+      },
+      {
+        "slice": 2,
+        "title": "Compiler, package, and budget gates",
+        "status": "partial",
+        "taskKey": "QS-72",
+        "commit": "39a126db1bfdf919e0aedf6d78fe1be2582b693e",
+        "note": "Generic SARIF import plus pinned Roslyn/ESLint/tsc analyzer sensors are wired as deterministic evidence collected before prompt construction, gated by per-repository sensor enable flags. Blocking dispositions (compiler error blocks the affected file operation, budget error blocks the project performance aggregate) are not yet implemented."
+      }
+    ],
+    "verificationTask": {
+      "taskKey": "QS-86",
+      "status": "documented",
+      "evidence": "dotnet build QualityStudio.slnx succeeded with 0 warnings/0 errors; dotnet test tests/AgentOrchestrator.CodeQuality.Tests passed 156/156 (1 skipped live-integration test); dotnet test tests/QualityStudio.Api.Tests passed 48/48 (one dashboard-latency timing test flaked once under sandbox load and passed in isolation, unrelated to this dossier)."
+    },
+    "nextSlice": {
+      "slice": 3,
+      "title": "Lint and style baselines",
+      "status": "queued",
+      "reason": "Pinned ESLint/Prettier flat config and scripts, a root .NET EditorConfig/format command, fingerprinted current baselines, and changed-file/changed-line gating are not yet implemented."
+    }
+  }
 }

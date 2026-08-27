@@ -463,7 +463,7 @@
     <h2><span class="no">08</span>Implementation slices</h2>
 
     <article class="slice">
-      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill queued">approve first</span></header>
+      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill done">delivered · QS-72</span></header>
       <p><b>Scope:</b> Introduce <code>PreflightResult v1</code> by extending the sensor result/provenance contract. Move all deterministic and security collection to <code>ReviewJobService</code> before file scheduling; execute each configured check once; cache by subject/config/tool hashes; persist under the existing run directory; project findings by subject.</p>
       <ul>
         <li>Default-enable only sensors with complete repository configuration; required versus optional is explicit.</li>
@@ -475,7 +475,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill queued">approve</span></header>
+      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill part">delivered · QS-72 (analyzer wiring); blocking dispositions still queued</span></header>
       <p><b>Scope:</b> Configure repository-owned commands for .NET build/SARIF, tsc, ngc, Angular production build, batched NuGet audit, npm audit, and existing Gitleaks. Add the selective disposition matrix and compact prompt projection.</p>
       <ul>
         <li>Compiler errors block only affected file/project operations; warnings continue.</li>
@@ -577,7 +577,12 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <footer class="meta">
+    <span><b>Dossier</b> <code>docs/operations/static-analysis/</code></span>
+    <span><b>Workbench status</b> <code>decided</code></span>
+    <span><b>Implementation state</b> Slices S1 and S2 delivered by QS-72 (generic SARIF import, pinned Roslyn/ESLint/tsc analyzer commands, deterministic evidence collected before prompt construction, per-repository sensor enable flags); reverified by QS-86 on 27 August 2026 (build clean, 156/156 CodeQuality tests and 47/48 API tests green, one unrelated pre-existing dashboard-latency test flaked and passed in isolation).</span>
+    <span><b>Next action</b> S3 (pinned ESLint/Prettier flat config, root .NET EditorConfig/format command, baseline capture, changed-file/changed-line gating) is the next queued slice; S4 and S5 remain queued behind it.</span>
+  </footer>
 </main>
 </body>
 </html>
