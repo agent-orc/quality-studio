@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "title": "Quality Studio taxonomy catalogue v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "id", "version", "axes", "aspects"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "axes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/axis" } },
+    "aspects": { "type": "array", "items": { "$ref": "#/$defs/aspect" } }
+  },
+  "$defs": {
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-z][a-z0-9-]*$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "aliases": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 100 } },
+        "deprecated": { "type": "boolean" },
+        "replacedBy": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "terms"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-z][a-zA-Z0-9]*$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "terms": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/term" } }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-z][a-z0-9.-]{1,98}$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "aliases": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 100 } },
+        "deprecated": { "type": "boolean" },
+        "replacedBy": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    }
+  }
+}

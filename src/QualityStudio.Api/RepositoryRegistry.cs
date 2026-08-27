@@ -287,6 +287,17 @@ public sealed class RepositoryRegistry
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
 
+        if (!legacyOptions.Security.AllowCommandBackedAnalyzers &&
+            sensors.Any(sensor => sensor.Configuration is not null &&
+                sensor.Configuration.Any(pair =>
+                    string.Equals(pair.Key, "command", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(pair.Value))))
+        {
+            throw new RepositoryRegistryValidationException(
+                "A sensor configuration set a 'command' but command-backed analyzers are disabled.",
+                "Command-backed analyzer configuration is disabled");
+        }
+
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
         if (request.DefaultReviewTokenCap is <= 0 or > 1_000_000_000)

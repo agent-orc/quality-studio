@@ -29,6 +29,14 @@ public sealed class ApiSecurityOptions
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;
     public int MaxConcurrentRequests { get; set; } = 32;
     public int SpendRequestsPerMinute { get; set; } = 5;
+
+    /// <summary>
+    /// Command-backed analyzer sensors (SARIF/tsc) execute a repository-configured executable on the host.
+    /// Disabled by default per the security dossier (docs/operations/security/index.html, S0): a client that
+    /// can configure a repository's sensors must not be able to turn that into arbitrary host command execution.
+    /// </summary>
+    public bool AllowCommandBackedAnalyzers { get; set; }
+
     public List<ApiClientOptions> Clients { get; set; } = [];
 }
 

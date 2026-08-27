@@ -141,11 +141,12 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
       <span><b>Source task</b> <code>QS-67</code></span>
+      <span><b>Decided</b> Operator blanket approval, 11 August 2026 (<code>QS-W4</code>)</span>
     </div>
   </header>
 
@@ -169,6 +170,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -556,6 +558,29 @@
   <section class="box accent">
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
+  </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. Each entry records what landed for one approval-ready slice from section 10; it does not revise the recommendation or the slice plan above.</p>
+
+  <h3>2026-08-27 · <code>QS-76</code> · T1. Contract and catalogue foundation <span class="pill done">delivered</span></h3>
+  <ul>
+    <li>Added <code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code>, matching the axes, aspects, and observation contract in sections 6 and 7.</li>
+    <li>Added the core catalogue document <code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy.core.v1.json</code> (<code>quality-studio/core@1.0.0</code>), embedded as a resource, pinning the eight canonical axes and the sixteen initial core aspect ids with their section-6 migration aliases.</li>
+    <li>Added C# contract types (<code>QualityTaxonomyContract.cs</code>, <code>QualityObservationContract.cs</code>) with a <code>QualityTaxonomyCatalogueResolver</code> that resolves aspects and axis terms by id or alias, and classifies an observation's declared taxonomy as <code>Core</code>, <code>UnrecognizedTerm</code>, or <code>QuarantinedMajor</code> — an unknown taxonomy major is quarantined without discarding the raw value, and a same-major unknown aspect id round-trips without joining core aggregation.</li>
+    <li>Added a pure legacy mapping library (<code>QualityTaxonomyLegacyMapping.cs</code>) covering every row of the section 8 compatibility table: security/flow/attack-coverage/change verdicts, the change-aspect <code>good/mixed/concerning/unknown</code> vocabulary (plus the production <code>not-reviewed</code> default), finding-state lifecycle aliases including the drifted <code>falsePositive</code> spelling from F8, and evidence-string reclassification (valid JSON → typed <code>tool-result</code>, otherwise preserved as a typed <code>document</code>).</li>
+    <li>No writer changed. <code>review-meta.v1/v2</code>, the security/flow/attack/change contracts, and the finding-state store are untouched; this slice is additive only.</li>
+    <li>Tests: <code>QualityTaxonomyContractTests</code>, <code>QualityObservationContractTests</code>, <code>QualityTaxonomyLegacyMappingTests</code> — schema conformance for positive and negative fixtures, alias resolution, quarantine/unrecognized-term classification, extension round-trip, and one deterministic mapping case per section 8 row.</li>
+  </ul>
+  <section class="box warn">
+    <h4>Follow-up: not yet implemented</h4>
+    <p>The remaining approval-ready slices are unimplemented and depend on this one. Each is its own future delivery, not part of this entry:</p>
+    <ul>
+      <li><b>T2</b> — immutable observation dual-write and full route provenance (depends on T1).</li>
+      <li><b>T3</b> — typed evidence, producer provenance, and issue lifecycle v2 (depends on T2).</li>
+      <li><b>T4</b> — observation-backed projections and per-model records (depends on T3).</li>
+      <li><b>T5</b> — domain adapters and the migration tool (depends on T4).</li>
+    </ul>
   </section>
 </main>
 </body>

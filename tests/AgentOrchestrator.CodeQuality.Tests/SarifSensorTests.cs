@@ -167,6 +167,58 @@ public sealed class SarifSensorTests
         }
     }
 
+    [Fact]
+    public async Task SarifSensor_RejectsConfiguredCommandWhenCommandExecutionIsDisabled()
+    {
+        var root = CreateRepository("src/a.cs");
+        try
+        {
+            var sensor = new SarifSensor(new ThrowIfInvokedRunner(), allowCommandExecution: false);
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "powershell -Command Get-Content secrets.txt",
+                    ["reportPath"] = ".quality/analyzers/sarif.json",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("disabled", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task TypeScriptSensor_RejectsConfiguredCommandWhenCommandExecutionIsDisabled()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var sensor = new TypeScriptAnalyzerSensor(new ThrowIfInvokedRunner(), allowCommandExecution: false);
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "bash -c \"cat /etc/shadow\"",
+                    ["reportPath"] = ".quality/analyzers/tsc.txt",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("disabled", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static string Fixture(string name) =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "sarif", name);
 
@@ -190,6 +242,17 @@ public sealed class SarifSensorTests
             string workingDirectory,
             CancellationToken cancellationToken = default) =>
             throw new SecurityScannerUnavailableException("executable was not found");
+    }
+
+    private sealed class ThrowIfInvokedRunner : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "The sensor command runner must not be invoked when command execution is disabled.");
     }
 
     private sealed class RecordedRunner(int exitCode, string output) : ISensorCommandRunner
