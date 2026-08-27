@@ -1,0 +1,79 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "extensionCatalogues": [
+    {
+      "id": "com.acme/quality",
+      "version": "1.1.0",
+      "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/example",
+    "manifestHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "reviewInputsHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "producer": {
+    "kind": "agent",
+    "agent": "codex",
+    "provider": "openai",
+    "requestedModel": "model-a",
+    "effectiveModel": "model-b",
+    "thinkingLevel": "high",
+    "routePolicyVersion": "2026-07-24",
+    "runId": "quality-1",
+    "reviewRunId": "review-1"
+  },
+  "evidenceStatus": "available",
+  "evidence": [
+    {
+      "id": "ev-1",
+      "kind": "source-code",
+      "locator": { "path": "src/A.cs", "symbolId": "M:A.Run" },
+      "summary": "Unchecked value reaches the dereference.",
+      "contentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "aspects": [
+    {
+      "aspectId": "code.correctness",
+      "assessment": "fail",
+      "rationale": "One high-severity defect is evidenced.",
+      "grade": { "score": 68, "band": "D" }
+    },
+    {
+      "aspectId": "com.acme:resilience.backpressure",
+      "assessment": "concern",
+      "rationale": "Extension term remains visible but requires its catalogue for aggregation.",
+      "extensions": { "com.acme:confidence": 0.75 }
+    }
+  ],
+  "assessment": "fail",
+  "decision": { "value": "block", "policyRef": "security-sensor-agent@1" },
+  "findings": [
+    {
+      "observationFindingId": "of-1",
+      "issueId": "issue-1",
+      "occurrenceFingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "fingerprintAlgorithm": "quality-studio-occurrence-v2",
+      "ruleRef": "built-in/code.correctness.null-deref@1",
+      "aspectId": "code.correctness",
+      "severity": "high",
+      "evidenceRefs": ["ev-1"],
+      "source": { "kind": "agent", "producerRef": "self" }
+    }
+  ],
+  "extensions": { "com.acme:review-batch": "batch-7" },
+  "x-legacy-field": { "preserved": true }
+}

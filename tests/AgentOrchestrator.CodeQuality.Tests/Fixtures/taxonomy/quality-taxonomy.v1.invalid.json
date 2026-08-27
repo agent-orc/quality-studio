@@ -1,0 +1,7 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "unqualified-catalogue-id",
+  "version": "latest",
+  "terms": []
+}
