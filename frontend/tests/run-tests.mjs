@@ -6,12 +6,7 @@ import { spawnSync } from 'node:child_process';
 const testsDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testsDir, '..');
 
-function findBrowserBinary() {
-  const override = process.env.CHROME_BIN;
-  if (override && existsSync(override)) {
-    return override;
-  }
-
+function findSystemBrowserBinary() {
   const candidates = process.platform === 'win32'
     ? [
         'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -35,9 +30,33 @@ function findBrowserBinary() {
   return candidates.find((candidate) => existsSync(candidate));
 }
 
-const chromeBin = findBrowserBinary();
+async function findCachedPlaywrightChromium() {
+  try {
+    // Declared devDependency; resolves the version pinned in package.json rather
+    // than relying on a system browser that CI/dev hosts may not have installed.
+    const { chromium } = await import('playwright-core');
+    const executablePath = chromium.executablePath();
+    return existsSync(executablePath) ? executablePath : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function findBrowserBinary() {
+  const override = process.env.CHROME_BIN;
+  if (override && existsSync(override)) {
+    return override;
+  }
+
+  return findSystemBrowserBinary() ?? (await findCachedPlaywrightChromium());
+}
+
+const chromeBin = await findBrowserBinary();
 if (!chromeBin) {
-  console.error('Unable to locate a Chrome-compatible browser binary for the Angular test runner.');
+  console.error(
+    'Unable to locate a Chrome-compatible browser binary for the Angular test runner. ' +
+      'Run "npm run browser:install" to provision the pinned Playwright Chromium, or set CHROME_BIN.',
+  );
   process.exit(1);
 }
 

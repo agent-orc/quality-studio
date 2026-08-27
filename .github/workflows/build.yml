@@ -16,10 +16,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up .NET
+      - name: Set up .NET 10.0.301
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.301
+
+      - name: Set up Node 22.23.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
@@ -30,12 +37,26 @@ jobs:
       - name: Build
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
-      - name: Test
+      - name: Test (portable, Category!=MachineBound)
         run: >-
           dotnet test QualityStudio.slnx
           --configuration Release
           --no-build
           --filter "Category!=MachineBound"
 
-      - name: Security scan
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Build frontend (production)
+        run: npm run build --prefix frontend -- --configuration production
+
+      - name: Provision Chromium for Angular tests
+        run: npm run browser:install --prefix frontend
+
+      - name: Angular tests
+        run: npm test --prefix frontend
+        env:
+          CHROME_NO_SANDBOX: "1"
+
+      - name: Security scan (provisions pinned Gitleaks 8.24.2)
         run: dotnet run --project src/quality-cli -- security scan .
