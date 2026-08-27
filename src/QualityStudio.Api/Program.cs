@@ -181,7 +181,11 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryItem = repositoryId is not null &&
+        string.Equals(path, $"/api/repos/{repositoryId}", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryMutation = (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)) &&
+        isRepositoryItem;
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryMutation)
     {
         if (!identity.CanRegisterRepositories)
         {

@@ -141,8 +141,8 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
-      <span><b>Phase</b> decision ready</span>
+      <span><b>Status</b> decided — operator blanket approval 2026-08-11 (Option C and slices S0–S6)</span>
+      <span><b>Phase</b> implementation in progress</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
       <span><b>Commit</b> <code>3e0b6559faa7</code></span>
@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,18 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Each entry records a delivered slice against its dossier exit evidence; this section does not revise the findings, risk register, or option analysis above.</p>
+
+    <div class="box ok">
+      <h4>2026-08-27 · QS-68 · S0 (partial) — registrar privilege now covers repository update and archive</h4>
+      <p>Closed the remaining half of F-01's authorization gap: <code>PUT /api/repos/{repoId}</code> and <code>DELETE /api/repos/{repoId}</code> previously required only <code>identity.CanAccess(repoId)</code>, so a client scoped to repository A (not a registrar) could still change A's root path, sensor configuration, or archive state — exactly the "A client allowed to access repository A may still call <code>PUT /api/repos/A</code>" chain described in F-01. <code>Program.cs</code>'s authorization middleware now also requires <code>identity.CanRegisterRepositories</code> for PUT/DELETE on the exact <code>/api/repos/{repoId}</code> item route, alongside the existing POST-collection and import checks. Repo-scoped, non-mutating and non-registration routes under <code>/api/repos/{repoId}/...</code> (tree, file, sensors, review, handover, etc.) are unaffected and keep the existing <code>CanAccess</code> scoping.</p>
+      <p><b>Tests:</b> <code>tests/QualityStudio.Api.Tests/ApiSecurityTests.cs</code> — <code>Hosted_identity_without_registrar_privilege_cannot_update_or_archive_its_own_repository</code> asserts a non-registrar client scoped to its own repository gets 403 on both verbs, and that the registrar client can still update and archive. Full gate: <code>dotnet test QualityStudio.slnx</code> green (205 passed, 1 pre-existing skip, 206 total).</p>
+      <p><b>Remaining in S0 (not this slice):</b> rejecting free-form analyzer <code>command</code> configuration in favor of a host-owned analyzer profile ID (<code>SarifSensor.cs</code>, <code>DependencyVulnerabilitySensor.cs</code>); applying the spend limiter to sensor scans; Origin/anti-CSRF nonce for local mutations; failing startup on a non-loopback bind in Local mode; the Angular 20.3 patch upgrade. <b>Untouched:</b> S1–S6 in full (worker boundary, input bounds/quarantine, end-to-end secret handling, data-only handover, hosted credential lifecycle, continuous supply-chain gate). Each remains queued per the dossier's own priority order (S0 → S1 → S2 → …) and, per the scope-correction directive for this card, becomes its own follow-up delivery rather than being bundled here.</p>
+    </div>
   </section>
 </main>
 </body>

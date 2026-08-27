@@ -71,6 +71,40 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Hosted_identity_without_registrar_privilege_cannot_update_or_archive_its_own_repository()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        var update = new
+        {
+            id = "foreign",
+            displayName = "Foreign (renamed)",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        };
+        using var putByBob = await bob.PutAsJsonAsync("/api/repos/foreign", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, putByBob.StatusCode);
+
+        using var deleteByBob = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, deleteByBob.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var putByAdmin = await admin.PutAsJsonAsync("/api/repos/foreign", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, putByAdmin.StatusCode);
+
+        var listAfterUpdate = await admin.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
+        var renamed = listAfterUpdate.GetProperty("repositories").EnumerateArray()
+            .Single(repository => repository.GetProperty("id").GetString() == "foreign");
+        Assert.Equal("Foreign (renamed)", renamed.GetProperty("displayName").GetString());
+
+        using var deleteByAdmin = await admin.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, deleteByAdmin.StatusCode);
+
+        var listAfterArchive = await admin.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
+        Assert.Equal("default", Assert.Single(listAfterArchive.GetProperty("repositories").EnumerateArray())
+            .GetProperty("id").GetString());
+    }
+
+    [Fact]
     public async Task Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure()
     {
         using var alice = CreateClient("alice", AliceToken);
