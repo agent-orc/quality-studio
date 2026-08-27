@@ -309,6 +309,8 @@ app.MapGet("/api/review/runs/{id}", ReviewRun);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}", ReviewRun);
 app.MapGet("/api/review/runs/{id}/report", ReviewRunReport);
 app.MapGet("/api/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapGet("/api/review/runs/{id}/preflight", ReviewRunPreflight);
+app.MapGet("/api/repos/{repoId}/review/runs/{id}/preflight", ReviewRunPreflight);
 app.MapPost("/api/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/repos/{repoId}/review/runs/{id}/pause", PauseReview);
 app.MapPost("/api/review/runs/{id}/resume", ResumeReview);
@@ -945,6 +947,8 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
             Scopes = sensor.SupportedScopes.Select(scope => scope.ToString().ToLowerInvariant()).ToArray(),
             Enabled = repositoryConfiguration?.Enabled == true,
             Configuration = repositoryConfiguration?.Configuration,
+            Required = repositoryConfiguration?.Required == true,
+            CommandId = repositoryConfiguration?.CommandId,
             availability.Available,
             availability.UnavailableReason,
             availability.ToolVersions,
@@ -1133,6 +1137,13 @@ static IResult ReviewRunTrend(
     var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
     return Results.Ok(QualityRunTrendBuilder.Build(
         reports, kind, scopeUnitId, level, cursor, limit ?? 30));
+}
+
+static IResult ReviewRunPreflight(
+    HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)
+{
+    var repository = registry.Get(RouteRepositoryId(context));
+    return Results.Ok(jobs.GetPreflight(repository.Id, id));
 }
 
 static IResult CancelReview(HttpContext context, string id, RepositoryRegistry registry, ReviewJobService jobs)

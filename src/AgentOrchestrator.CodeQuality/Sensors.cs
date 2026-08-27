@@ -34,7 +34,16 @@ public sealed record SensorScanResult(
 
 public sealed record ReviewSensorConfiguration(
     string Id,
-    IReadOnlyDictionary<string, string>? Configuration = null);
+    IReadOnlyDictionary<string, string>? Configuration = null,
+    bool Required = true,
+    string? CommandId = null);
+
+public enum PreflightGateDisposition
+{
+    Continue,
+    BlockAffectedSubjects,
+    BlockProjectPerformance,
+}
 
 public interface IReviewSensor
 {
@@ -54,6 +63,23 @@ public interface IReviewSensor
 /// The evidence remains separate from findings authored by the review agent.
 /// </summary>
 public interface IDeterministicEvidenceSensor : IReviewSensor;
+
+/// <summary>Marks repository-wide machine facts that contribute to security posture.</summary>
+public interface ISecurityEvidenceSensor : IReviewSensor;
+
+/// <summary>
+/// Declares a narrow model gate for findings produced by a preflight sensor. Availability
+/// failures are governed separately by the repository's required/optional configuration.
+/// </summary>
+public interface ISelectivePreflightGateSensor : IReviewSensor
+{
+    PreflightGateDisposition GateDisposition { get; }
+
+    bool HasBlockingFindings(SensorScanResult result);
+}
+
+/// <summary>Marks a check that must finish before the remaining preflight checks start.</summary>
+public interface IPreflightPrerequisiteSensor : IReviewSensor;
 
 public sealed class SensorRegistry
 {
