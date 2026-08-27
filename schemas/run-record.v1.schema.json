@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio archived review run record v1",
+  "description": "Immutable identity, plan and configuration for one archived review run, written once to .quality/run-history/YYYY-MM/<runId>/run.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "repositoryId", "createdAt", "node", "level", "kind", "cliType", "targets"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "node": { "$ref": "#/$defs/node" },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "model": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } },
+    "force": { "type": "boolean" },
+    "thinkingLevel": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+    "tokenCap": { "type": ["integer", "null"], "minimum": 0 },
+    "costCap": { "type": ["number", "null"], "minimum": 0 },
+    "sourceRevision": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "sourceDirty": { "type": ["boolean", "null"] }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path", "subjectHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "subjectHash": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

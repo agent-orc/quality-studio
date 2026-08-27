@@ -130,6 +130,49 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Capped_run_records_a_new_attempt_ordinal_on_each_resume()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var fake = new CappedExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-5",
+                tokenCap = 5,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var runId = accepted.GetProperty("id").GetString()!;
+
+            await WaitForStateAsync(client, runId, "capped", cancellationToken);
+            var statusPath = Path.Combine(fixture.Store.RunsPath, runId, "status.json");
+            using (var beforeResume = JsonDocument.Parse(await File.ReadAllTextAsync(statusPath, cancellationToken)))
+            {
+                Assert.Equal(1, beforeResume.RootElement.GetProperty("attempt").GetInt32());
+            }
+
+            using var resume = await client.PostAsJsonAsync(
+                $"/api/review/runs/{runId}/resume", new { tokenCap = 100 }, cancellationToken);
+            resume.EnsureSuccessStatusCode();
+            await WaitForStateAsync(client, runId, "done", cancellationToken);
+
+            using var afterResume = JsonDocument.Parse(await File.ReadAllTextAsync(statusPath, cancellationToken));
+            Assert.Equal(2, afterResume.RootElement.GetProperty("attempt").GetInt32());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Server_reports_fresh_file_and_aggregate_skips_and_force_bypasses_them()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

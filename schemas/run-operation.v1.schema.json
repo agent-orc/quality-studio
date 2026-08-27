@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived review run operation record v1",
+  "description": "Append-only record of one completed or failed operation, written to .quality/run-history/YYYY-MM/<runId>/operations.jsonl only after its result sidecar is persisted or its terminal error is known.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "operationId", "ordinal", "attempt", "unitId", "path", "level", "state"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1 },
+    "path": { "type": "string", "minLength": 1 },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "reviewedHash": { "type": ["string", "null"], "minLength": 1 },
+    "sidecarPath": { "type": ["string", "null"], "minLength": 1 },
+    "gradeScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+    "gradeBand": { "enum": ["A", "B", "C", "D", "F", null] },
+    "verdict": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+    "error": { "type": ["string", "null"], "minLength": 1, "maxLength": 4000 }
+  }
+}

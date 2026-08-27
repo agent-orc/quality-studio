@@ -639,6 +639,7 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int attempt;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -679,6 +680,7 @@ public sealed class ReviewJobService : BackgroundService
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
             stopReason = status?.StopReason;
+            attempt = status?.Attempt ?? 1;
             if (transitions is not null)
             {
                 foreach (var transition in transitions)
@@ -726,6 +728,18 @@ public sealed class ReviewJobService : BackgroundService
         public string State { get { lock (gate) return state; } }
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
+
+        /// <summary>
+        /// The ordinal of the stopped attempt currently in progress or last recorded. A capped run that
+        /// resumes begins the next attempt; earlier attempts are never renumbered.
+        /// </summary>
+        public int Attempt { get { lock (gate) return attempt; } }
+
+        /// <summary>Stable operation id for one file, unaffected by which attempt completes it.</summary>
+        public string OperationIdFor(string path) => ReviewOperationId.ForFile(Id, path);
+
+        /// <summary>Stable operation id for the aggregate (non-file) operation of this run.</summary>
+        public string AggregateOperationId => ReviewOperationId.ForAggregate(Id);
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
 
         public void PrepareForRecovery()
@@ -994,6 +1008,7 @@ public sealed class ReviewJobService : BackgroundService
                     foreach (var file in progress.Values.Where(file => file.State == "skipped")) RequeueFileCore(file);
                     if (aggregateState == "skipped") aggregateState = "queued";
                     stopReason = null;
+                    attempt++;
                 }
                 attemptCancellation.Dispose();
                 attemptCancellation = new CancellationTokenSource();
@@ -1125,7 +1140,7 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason, attempt);
         }
 
         private static bool IsCompletedFileState(string fileState) =>
