@@ -15,9 +15,30 @@ Run it directly with:
 quality boundaries scan .
 ```
 
+Large repositories can request a deterministic bounded page and continue from
+the returned cursor:
+
+```text
+quality boundaries scan . --max-files 500 --start-after src/Previous.cs --no-write
+```
+
+`--start-after` is normally copied from the preceding page's `nextCursor`.
+The equivalent sensor configuration keys are `maxFiles` and `startAfter`.
+
 It is also available through the sensor API as sensor id `boundaries`.
 Repository scans persist the inventory; path-scoped scans return a partial
 inventory without replacing the repository truth.
+
+Every result includes `completeness`. A bounded or continuation page reports
+`complete: false`, counts discovered, analyzed, and skipped files, and exposes
+whether more work is available through `nextCursor`. Its cross-file facts are
+explicitly incomplete and its `findings` array is empty because repository-wide
+security findings must not be inferred from a subset. Partial results are never
+persisted over `.quality/boundaries/inventory.json`, even when metadata
+persistence was requested. Run an unbounded scan for authoritative findings and
+a persistable repository inventory. Unreadable or source files larger than 2 MiB
+also make a result partial, with no continuation cursor, because the omitted
+content cannot be analyzed honestly.
 
 ## Contract
 

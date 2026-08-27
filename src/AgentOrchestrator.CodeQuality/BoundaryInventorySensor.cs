@@ -11,6 +11,7 @@ public sealed record BoundaryInventory(
     int SchemaVersion,
     string Sensor,
     string SensorVersion,
+    SensorScanCompleteness Completeness,
     IReadOnlyList<BoundaryEntry> Entries,
     IReadOnlyList<ReviewFinding> Findings);
 
@@ -49,8 +50,11 @@ public sealed record BoundaryLimit(string Value, IReadOnlyList<string> DerivedFr
 /// </summary>
 public sealed partial class BoundaryInventorySensor : IReviewSensor
 {
-    public const string SensorVersion = "1.0.0";
+    public const string SensorVersion = "1.1.0";
     public const string InventoryRelativePath = ".quality/boundaries/inventory.json";
+    public const string MaxFilesConfigurationKey = "maxFiles";
+    public const string CursorConfigurationKey = "startAfter";
+    private const long MaximumSourceBytes = 2 * 1024 * 1024;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -86,7 +90,8 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                 request.Scope.ToString().ToLowerInvariant(),
                 request.Scope == SensorScope.Path ? request.Path ?? "." : ".",
                 DateTimeOffset.UtcNow.ToString("O"),
-                new Dictionary<string, string> { ["boundary-analyzer"] = Version }));
+                new Dictionary<string, string> { ["boundary-analyzer"] = Version }),
+            inventory.Completeness);
     }
 
     public async Task<BoundaryInventory> InventoryAsync(
@@ -101,8 +106,25 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
 
         var target = ResolveTarget(root, request);
-        var sources = await ReadSourcesAsync(root, target, cancellationToken).ConfigureAwait(false);
-        var context = new AnalysisContext(root, sources);
+        var options = ParseScanOptions(root, request.Configuration);
+        var sourceRead = await ReadSourcesAsync(root, target, options, cancellationToken).ConfigureAwait(false);
+        if (request.Scope == SensorScope.Path)
+        {
+            sourceRead = sourceRead with
+            {
+                Completeness = sourceRead.Completeness with
+                {
+                    Complete = false,
+                    FindingsComplete = false,
+                    CrossFileFactsComplete = false,
+                    Reasons = sourceRead.Completeness.Reasons
+                        .Append("path-scope")
+                        .Distinct(StringComparer.Ordinal)
+                        .ToArray(),
+                },
+            };
+        }
+        var context = AnalysisContext.Create(root, sourceRead.Sources, sourceRead.Completeness.Complete);
         var entries = new List<BoundaryEntry>();
         AnalyzeAspNet(context, entries);
         AnalyzeJavaScript(context, entries);
@@ -118,16 +140,19 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             .ThenBy(entry => entry.Location.Path, StringComparer.Ordinal)
             .ThenBy(entry => entry.Location.Line)
             .ToArray();
-        var findings = MechanicalChecks(ordered);
+        var findings = sourceRead.Completeness.FindingsComplete
+            ? MechanicalChecks(ordered)
+            : [];
         var inventory = new BoundaryInventory(
             "https://quality.studio/schemas/boundary-inventory.v1.schema.json",
             1,
             Id,
             Version,
+            sourceRead.Completeness,
             ordered,
             findings);
 
-        if (request.PersistMetadata && request.Scope == SensorScope.Repository)
+        if (request.PersistMetadata && request.Scope == SensorScope.Repository && sourceRead.Completeness.Complete)
         {
             await PersistAsync(root, inventory, cancellationToken).ConfigureAwait(false);
         }
@@ -135,31 +160,111 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         return inventory;
     }
 
-    private static async Task<IReadOnlyList<SourceFile>> ReadSourcesAsync(
+    private static async Task<SourceReadResult> ReadSourcesAsync(
         string root,
         string target,
+        BoundaryScanOptions options,
         CancellationToken cancellationToken)
     {
+        var candidates = EnumerateFiles(target)
+            .Select(path => new SourceCandidate(
+                path,
+                Path.GetRelativePath(root, path).Replace('\\', '/')))
+            .OrderBy(candidate => candidate.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        var pageCandidates = candidates
+            .Where(candidate => options.StartAfter is null ||
+                                StringComparer.Ordinal.Compare(candidate.RelativePath, options.StartAfter) > 0)
+            .ToArray();
+        var selected = options.MaxFiles is int maxFiles
+            ? pageCandidates.Take(maxFiles).ToArray()
+            : pageCandidates;
         var files = new List<SourceFile>();
-        foreach (var path in EnumerateFiles(target))
+        var unreadableOrOversized = 0;
+        foreach (var candidate in selected)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var info = new FileInfo(path);
-                if (info.Length > 2 * 1024 * 1024) continue;
-                var content = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+                var info = new FileInfo(candidate.FullPath);
+                if (info.Length > MaximumSourceBytes)
+                {
+                    unreadableOrOversized++;
+                    continue;
+                }
+                var content = await File.ReadAllTextAsync(candidate.FullPath, cancellationToken).ConfigureAwait(false);
                 files.Add(new SourceFile(
-                    Path.GetRelativePath(root, path).Replace('\\', '/'),
+                    candidate.RelativePath,
                     content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n')));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DecoderFallbackException)
             {
+                unreadableOrOversized++;
                 // An unreadable source cannot safely be guessed. Other readable sources
                 // remain useful and any facts depending on this file stay unknown.
             }
         }
-        return files.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
+
+        var hasEarlierPage = options.StartAfter is not null;
+        var hasLaterPage = selected.Length < pageCandidates.Length;
+        var complete = !hasEarlierPage && !hasLaterPage && unreadableOrOversized == 0;
+        var reasons = new List<string>();
+        if (hasEarlierPage) reasons.Add("incremental-page");
+        if (hasLaterPage) reasons.Add("file-limit");
+        if (unreadableOrOversized > 0) reasons.Add("unreadable-or-oversized-files");
+        var nextCursor = hasLaterPage && selected.Length > 0
+            ? selected[^1].RelativePath
+            : null;
+        var completeness = new SensorScanCompleteness(
+            complete,
+            "files",
+            candidates.Length,
+            files.Count,
+            candidates.Length - files.Count,
+            options.MaxFiles,
+            options.StartAfter,
+            nextCursor,
+            complete,
+            complete,
+            reasons);
+        return new SourceReadResult(
+            files.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray(),
+            completeness);
+    }
+
+    private static BoundaryScanOptions ParseScanOptions(
+        string root,
+        IReadOnlyDictionary<string, string>? configuration)
+    {
+        int? maxFiles = null;
+        string? startAfter = null;
+        if (configuration is not null &&
+            configuration.TryGetValue(MaxFilesConfigurationKey, out var maxFilesValue))
+        {
+            if (!int.TryParse(maxFilesValue, out var parsed) || parsed <= 0)
+                throw new ArgumentException($"Boundary sensor configuration '{MaxFilesConfigurationKey}' must be a positive integer.");
+            maxFiles = parsed;
+        }
+        if (configuration is not null &&
+            configuration.TryGetValue(CursorConfigurationKey, out var cursorValue) &&
+            !string.IsNullOrWhiteSpace(cursorValue))
+        {
+            startAfter = NormalizeCursor(root, cursorValue);
+        }
+        return new BoundaryScanOptions(maxFiles, startAfter);
+    }
+
+    private static string NormalizeCursor(string root, string cursor)
+    {
+        var normalized = cursor.Replace('\\', '/');
+        if (Path.IsPathRooted(cursor) || normalized.StartsWith('/') ||
+            Regex.IsMatch(normalized, @"^[A-Za-z]:/", RegexOptions.CultureInvariant))
+            throw new ArgumentException($"Boundary sensor configuration '{CursorConfigurationKey}' must be a repository-relative path.");
+        var fullPath = Path.GetFullPath(Path.Combine(root, normalized.Replace('/', Path.DirectorySeparatorChar)));
+        var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(prefix, PathComparison))
+            throw new ArgumentException($"Boundary sensor configuration '{CursorConfigurationKey}' must be a repository-relative path.");
+        return Path.GetRelativePath(root, fullPath).Replace('\\', '/');
     }
 
     private static IEnumerable<string> EnumerateFiles(string target)
@@ -1069,8 +1174,11 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             evidence);
 
     private static BoundaryFact HostReachability(AnalysisContext context)
+        => context.HostReachability;
+
+    private static BoundaryFact DeriveHostReachability(IReadOnlyList<SourceFile> sources)
     {
-        var listeners = context.Sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
+        var listeners = sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
             .Where(match => IsHostBinding(file.Content, match.Index))
             .Select(match => match.Groups["url"].Value)).ToArray();
         if (listeners.Length == 0)
@@ -1093,16 +1201,11 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         var literalPrefix = route.Split('{')[0].TrimEnd('/');
         if (literalPrefix.Length < 2) return [];
         var result = new List<BoundarySourceLocation>();
-        foreach (var file in context.Sources.Where(IsJavaScript))
+        foreach (var call in context.ClientCalls)
         {
-            foreach (var (line, text) in file.Lines())
-            {
-                if (ClientRouteMention(text, route) &&
-                    Regex.IsMatch(text,
-                        $@"\.{Regex.Escape(method.ToLowerInvariant())}(?:<[^>]+>)?\s*\(",
-                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-                    result.Add(new BoundarySourceLocation(file.Path, line));
-            }
+            if (string.Equals(call.Method, method, StringComparison.OrdinalIgnoreCase) &&
+                ClientRouteMention(call.Text, route))
+                result.Add(new BoundarySourceLocation(call.Path, call.Line));
         }
         return result.Distinct().OrderBy(location => location.Path, StringComparer.Ordinal).ThenBy(location => location.Line).ToArray();
     }
@@ -1131,13 +1234,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         if (processFile.Path.EndsWith("GitleaksSecurityScanner.cs", StringComparison.Ordinal))
         {
-            return context.Sources
-                .Where(file => file.Content.Contains("SecurityScan", StringComparison.Ordinal) &&
-                               file.Content.Contains("scanner.ScanAsync", StringComparison.Ordinal) &&
-                               !file.Path.EndsWith("BoundaryInventorySensor.cs", StringComparison.Ordinal))
-                .Select(file => new BoundarySourceLocation(file.Path,
-                    Line(file.Content, file.Content.IndexOf("scanner.ScanAsync", StringComparison.Ordinal))))
-                .ToArray();
+            return context.GitleaksConsumers;
         }
         return [];
     }
@@ -1315,7 +1412,47 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
     }
 
-    private sealed record AnalysisContext(string Root, IReadOnlyList<SourceFile> Sources);
+    private sealed record AnalysisContext(
+        string Root,
+        IReadOnlyList<SourceFile> Sources,
+        BoundaryFact HostReachability,
+        IReadOnlyList<ClientCall> ClientCalls,
+        IReadOnlyList<BoundarySourceLocation> GitleaksConsumers)
+    {
+        public static AnalysisContext Create(string root, IReadOnlyList<SourceFile> sources, bool complete)
+        {
+            var clientCalls = new List<ClientCall>();
+            foreach (var file in sources.Where(IsJavaScript))
+            {
+                foreach (var (line, text) in file.Lines())
+                {
+                    foreach (Match match in ClientCallRegex().Matches(text))
+                        clientCalls.Add(new ClientCall(file.Path, line, match.Groups["method"].Value, text));
+                }
+            }
+            var gitleaksConsumers = sources
+                .Where(file => file.Content.Contains("SecurityScan", StringComparison.Ordinal) &&
+                               file.Content.Contains("scanner.ScanAsync", StringComparison.Ordinal) &&
+                               !file.Path.EndsWith("BoundaryInventorySensor.cs", StringComparison.Ordinal))
+                .Select(file => new BoundarySourceLocation(file.Path,
+                    Line(file.Content, file.Content.IndexOf("scanner.ScanAsync", StringComparison.Ordinal))))
+                .ToArray();
+            var reachability = complete
+                ? DeriveHostReachability(sources)
+                : new BoundaryFact("unknown", ["Partial scan cannot establish repository-wide host reachability"]);
+            return new AnalysisContext(root, sources, reachability, clientCalls, gitleaksConsumers);
+        }
+    }
+
+    private sealed record ClientCall(string Path, int Line, string Method, string Text);
+
+    private sealed record SourceCandidate(string FullPath, string RelativePath);
+
+    private sealed record SourceReadResult(
+        IReadOnlyList<SourceFile> Sources,
+        SensorScanCompleteness Completeness);
+
+    private sealed record BoundaryScanOptions(int? MaxFiles, string? StartAfter);
 
     private sealed record RouteGroup(string Prefix, bool Authorized);
 
@@ -1325,13 +1462,13 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     [GeneratedRegex(@"\bvar\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\.MapGroup\s*\(\s*""(?<prefix>[^""]*)""\s*\)", RegexOptions.CultureInvariant)]
     private static partial Regex MapGroupRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex ControllerRegex();
 
     [GeneratedRegex(@"\bRoute\s*\(\s*""(?<route>[^""]*)""", RegexOptions.CultureInvariant)]
     private static partial Regex ControllerRouteRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*\s*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\](?:\s*\[[^\]]+\]\s*)*)\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*\s*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\](?:\s*\[[^\]]+\]\s*)*)\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex ControllerActionRegex();
 
     [GeneratedRegex(@"\b(?<operation>UseStaticFiles|MapFallbackToFile|MapHealthChecks|MapHub|UseWebSockets)\s*(?:<[^>]+>)?\s*\(\s*(?<argument>""[^""]*"")?", RegexOptions.CultureInvariant)]
@@ -1348,6 +1485,9 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     [GeneratedRegex(@"\b(?<receiver>[A-Za-z_$][A-Za-z0-9_$]*)\.(?<method>get|post|put|delete|patch|all)\s*\(\s*['""`](?<route>/[^'""`]*)['""`]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NodeRouteRegex();
+
+    [GeneratedRegex(@"\.(?<method>get|post|put|delete|patch|options|head)(?:<[^>\r\n]+>)?\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ClientCallRegex();
 
     [GeneratedRegex(@"(?:(?<receive>window\.addEventListener\s*\(\s*['""]message['""]|window\.onmessage\s*=)|postMessage\s*\([^\n]*,\s*['""](?<target>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BrowserMessageRegex();

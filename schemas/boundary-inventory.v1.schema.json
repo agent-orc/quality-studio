@@ -10,6 +10,7 @@
     "schemaVersion": { "const": 1 },
     "sensor": { "const": "boundaries" },
     "sensorVersion": { "type": "string", "minLength": 1 },
+    "completeness": { "$ref": "#/$defs/completeness" },
     "entries": {
       "type": "array",
       "items": { "$ref": "#/$defs/entry" }
@@ -20,6 +21,31 @@
     }
   },
   "$defs": {
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "complete", "unit", "discovered", "analyzed", "skipped",
+        "findingsComplete", "crossFileFactsComplete", "reasons"
+      ],
+      "properties": {
+        "complete": { "type": "boolean" },
+        "unit": { "const": "files" },
+        "discovered": { "type": "integer", "minimum": 0 },
+        "analyzed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "limit": { "type": [ "integer", "null" ], "minimum": 1 },
+        "cursor": { "type": [ "string", "null" ], "minLength": 1 },
+        "nextCursor": { "type": [ "string", "null" ], "minLength": 1 },
+        "findingsComplete": { "type": "boolean" },
+        "crossFileFactsComplete": { "type": "boolean" },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
     "location": {
       "type": "object",
       "additionalProperties": false,

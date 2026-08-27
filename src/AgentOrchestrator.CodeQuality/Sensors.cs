@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AgentOrchestrator.CodeQuality;
 
 public enum SensorScope
@@ -26,11 +28,25 @@ public sealed record SensorProvenance(
     string ScannedAt,
     IReadOnlyDictionary<string, string> ToolVersions);
 
+public sealed record SensorScanCompleteness(
+    bool Complete,
+    string Unit,
+    int Discovered,
+    int Analyzed,
+    int Skipped,
+    int? Limit,
+    string? Cursor,
+    string? NextCursor,
+    bool FindingsComplete,
+    bool CrossFileFactsComplete,
+    IReadOnlyList<string> Reasons);
+
 public sealed record SensorScanResult(
     bool Available,
     string? UnavailableReason,
     IReadOnlyList<ReviewFinding> Findings,
-    SensorProvenance Provenance);
+    SensorProvenance Provenance,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SensorScanCompleteness? Completeness = null);
 
 public sealed record ReviewSensorConfiguration(
     string Id,

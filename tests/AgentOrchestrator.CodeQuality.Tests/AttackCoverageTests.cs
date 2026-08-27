@@ -386,7 +386,10 @@ public sealed class AttackCoverageTests
             null);
 
     private static BoundaryInventory Inventory(params BoundaryEntry[] boundaries) =>
-        new("test", 1, "boundaries", "1.0.0", boundaries, []);
+        new("test", 1, "boundaries", "1.0.0",
+            new SensorScanCompleteness(true, "files", boundaries.Length, boundaries.Length, 0,
+                null, null, null, true, true, []),
+            boundaries, []);
 
     private static BoundaryEntry Boundary(string id, string kind, int line) =>
         new(
