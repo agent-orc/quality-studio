@@ -36,13 +36,14 @@ public static class QualityRunReportFactory
             var outcome = latestProgress.TryGetValue(target.Path, out var transition)
                 ? TerminalOutcome(transition.State, status.State)
                 : TerminalOutcome("queued", status.State);
-            snapshots.TryGetValue(target.Path, out var snapshot);
+            var operationId = transition?.OperationId ?? target.Path;
+            snapshots.TryGetValue(operationId, out var snapshot);
             observations.Add(ProjectObservation(target.Id, "file", target.Path, outcome, snapshot));
         }
         if (!string.Equals(manifest.Level, "file", StringComparison.Ordinal))
         {
             var outcome = TerminalOutcome(status.AggregateState ?? "queued", status.State);
-            snapshots.TryGetValue(AggregateOperationId, out var snapshot);
+            snapshots.TryGetValue(status.AggregateOperationId ?? AggregateOperationId, out var snapshot);
             observations.Add(ProjectObservation(manifest.Node.Id, manifest.Level, manifest.Node.Path, outcome, snapshot));
         }
 
