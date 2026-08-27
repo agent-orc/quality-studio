@@ -339,8 +339,6 @@ public sealed class AttackCoverageService
             ?? throw new KeyNotFoundException($"Attack '{submission.AttackId}' was not found.");
         if (!AttackCatalogueResolver.Applies(attack.Entry, boundary))
             throw new ArgumentException("The attack does not apply to the selected boundary.", nameof(submission));
-        await EnsureFindingLifecycleLinkAsync(
-            repositoryRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);
         var snapshot = await BoundaryCoverageHasher.SnapshotAsync(repositoryRoot, boundary, cancellationToken)
             .ConfigureAwait(false);
         var prompt = AttackCoveragePrompt.Reference();
@@ -368,6 +366,13 @@ public sealed class AttackCoverageService
             submission.Commit ?? await GitAsync(repositoryRoot, "rev-parse", "HEAD").ConfigureAwait(false),
             submission.CommitRange);
         await new AttackCoverageLedger(repositoryRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
+        await EnsureFindingLifecycleLinkAsync(
+            repositoryRoot,
+            boundary,
+            attack.Entry,
+            submission,
+            observation.AssessmentId,
+            cancellationToken).ConfigureAwait(false);
         return observation;
     }
 
@@ -413,12 +418,6 @@ public sealed class AttackCoverageService
                 var currentFindings = matchingFindings.Select(finding => new FindingIdentityRecord(
                         finding.Fingerprint, finding.Id, finding.Locations[0].Path, finding.RuleId))
                     .ToArray();
-                if (currentFindings.Length > 0 || previousFindings.Length > 0)
-                {
-                    await new FindingStateStore(repositoryRoot).MergeReviewAsync(
-                        currentFindings, previousFindings, "boundary-analyzer", cancellationToken)
-                        .ConfigureAwait(false);
-                }
                 if (matchingFindings.Length == 0 && !attack.Entry.DeterministicPassConclusive)
                     continue;
                 var inputs = attack.Entry.DeterministicRuleIds.Order(StringComparer.Ordinal)
@@ -475,6 +474,32 @@ public sealed class AttackCoverageService
                     commit,
                     null);
                 await ledger.AppendAsync(observation, cancellationToken).ConfigureAwait(false);
+                if (currentFindings.Length > 0 || previousFindings.Length > 0)
+                {
+                    var stateStore = new FindingStateStore(repositoryRoot);
+                    var states = await stateStore.MergeReviewAsync(
+                        currentFindings,
+                        previousFindings,
+                        "boundary-analyzer",
+                        cancellationToken).ConfigureAwait(false);
+                    if (verdict == AttackCoverageVerdict.Pass)
+                    {
+                        foreach (var previous in previousFindings)
+                        {
+                            if (states.TryGetValue(previous.Fingerprint, out var state) && state.State != FindingState.Resolved)
+                            {
+                                await stateStore.ResolveAsync(
+                                    previous.Fingerprint,
+                                    "boundary-analyzer",
+                                    "The versioned deterministic attack check completed without the prior finding.",
+                                    "attack-coverage-deterministic-reconciliation@1",
+                                    [$"attack-assessment:{observation.AssessmentId}"],
+                                    state.Timestamp,
+                                    cancellationToken).ConfigureAwait(false);
+                            }
+                        }
+                    }
+                }
                 appended.Add(observation);
             }
         }
@@ -486,6 +511,7 @@ public sealed class AttackCoverageService
         BoundaryEntry boundary,
         AttackCatalogueEntry attack,
         AttackJudgementSubmission submission,
+        string basisAssessmentId,
         CancellationToken cancellationToken)
     {
         var store = new FindingStateStore(repositoryRoot);
@@ -549,8 +575,30 @@ public sealed class AttackCoverageService
             }
         }
         if (current.Count > 0 || previous.Length > 0)
-            await store.MergeReviewAsync(
-                current, previous, submission.Reviewer.Agent, cancellationToken).ConfigureAwait(false);
+        {
+            var projected = await store.MergeReviewAsync(
+                current,
+                previous,
+                submission.Reviewer.Agent,
+                cancellationToken).ConfigureAwait(false);
+            if (submission.Verdict != AttackCoverageVerdict.Finding)
+            {
+                foreach (var prior in previous)
+                {
+                    if (projected.TryGetValue(prior.Fingerprint, out var state) && state.State != FindingState.Resolved)
+                    {
+                        await store.ResolveAsync(
+                            prior.Fingerprint,
+                            submission.Reviewer.Agent,
+                            "The versioned attack assessment explicitly supersedes the prior finding.",
+                            "attack-coverage-reconciliation@1",
+                            [$"attack-assessment:{basisAssessmentId}"],
+                            state.Timestamp,
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                }
+            }
+        }
     }
 
     private static bool IsSha256(string value) =>

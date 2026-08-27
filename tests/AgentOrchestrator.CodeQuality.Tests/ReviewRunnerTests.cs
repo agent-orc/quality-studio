@@ -286,6 +286,8 @@ public sealed class ReviewRunnerTests
             Assert.Equal("gitleaks-planted-secret", finding.GetProperty("id").GetString());
             Assert.Equal("secrets", finding.GetProperty("aspect").GetString());
             Assert.Contains("\"source\": \"machine-sensor\"", finding.GetProperty("evidence").GetString(), StringComparison.Ordinal);
+            Assert.Equal("deterministic", finding.GetProperty("source").GetProperty("kind").GetString());
+            Assert.Equal("gitleaks", finding.GetProperty("source").GetProperty("sensorId").GetString());
             var sensorReference = Assert.Single(metadata.GetProperty("reviewer").GetProperty("sensors").EnumerateArray());
             Assert.Equal("gitleaks", sensorReference.GetProperty("id").GetString());
             Assert.Matches("^sha256:[a-f0-9]{64}$", sensorReference.GetProperty("resultHash").GetString());

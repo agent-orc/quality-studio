@@ -1,10 +1,16 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Json.Schema;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class FindingLifecycleTests
 {
+    private static readonly Lazy<JsonSchema> LifecycleSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
+        RepositoryTestContext.FindRepositoryRoot(),
+        "schemas",
+        "quality-lifecycle-event.v2.schema.json"))));
+
     [Fact]
     public void Fingerprint_UsesNormalizedPathSnippetAndRule()
     {
@@ -16,7 +22,7 @@ public sealed class FindingLifecycleTests
     }
 
     [Fact]
-    public async Task Merge_PreservesWaiver_ReopensExpiredState_AndRecordsResolution()
+    public async Task Merge_PreservesWaiver_ReopensExpiredState_AndRequiresExplicitResolution()
     {
         var root = Directory.CreateTempSubdirectory("finding-state-");
         var now = new DateTimeOffset(2026, 7, 22, 9, 0, 0, TimeSpan.Zero);
@@ -38,9 +44,94 @@ public sealed class FindingLifecycleTests
             Assert.Null(expired[finding.Fingerprint].ExpiresAt);
             Assert.Contains("expired", expired[finding.Fingerprint].Reason, StringComparison.OrdinalIgnoreCase);
 
-            var resolved = await store.MergeReviewAsync([], [finding], "agent", TestContext.Current.CancellationToken);
-            Assert.Equal(FindingState.Resolved, resolved[finding.Fingerprint].State);
+            var disagreement = await store.MergeReviewAsync([], [finding], "different-model", TestContext.Current.CancellationToken);
+            Assert.Equal(FindingState.Open, disagreement[finding.Fingerprint].State);
+            var resolved = await store.ResolveAsync(
+                finding.Fingerprint,
+                "Ada",
+                "Verified fixed in the cited observations.",
+                "quality-studio-reconciliation@1",
+                ["observation-sha256:" + new string('b', 64)],
+                disagreement[finding.Fingerprint].Timestamp,
+                TestContext.Current.CancellationToken);
+            Assert.Equal(FindingState.Resolved, resolved.State);
             Assert.True(File.Exists(Path.Combine(root.FullName, FindingStateStore.RelativePath.Replace('/', Path.DirectorySeparatorChar))));
+            var events = await new FindingLifecycleStore(root.FullName).ReadAsync(TestContext.Current.CancellationToken);
+            Assert.Contains(events, item => item.Kind == FindingLifecycleEventKind.Observed);
+            Assert.Contains(events, item => item.Kind == FindingLifecycleEventKind.Reopened);
+            var resolution = Assert.Single(events, item => item.Kind == FindingLifecycleEventKind.AutomatedResolution);
+            Assert.Equal("quality-studio-reconciliation@1", resolution.PolicyRef);
+            Assert.Single(resolution.BasisObservationIds!);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task LifecycleLedger_ReplayIsIdempotentAndMalformedLinesDoNotHideEvents()
+    {
+        var root = Directory.CreateTempSubdirectory("finding-lifecycle-ledger-");
+        try
+        {
+            var store = new FindingLifecycleStore(root.FullName);
+            var timestamp = new DateTimeOffset(2026, 8, 11, 10, 0, 0, TimeSpan.Zero);
+            var first = FindingLifecycleStore.Create(
+                "sha256:" + new string('a', 64),
+                QualityLifecycleState.Open,
+                FindingLifecycleEventKind.Observed,
+                "codex",
+                "First observed.",
+                timestamp);
+            var second = FindingLifecycleStore.Create(
+                "sha256:" + new string('a', 64),
+                QualityLifecycleState.Waived,
+                FindingLifecycleEventKind.StateChanged,
+                "Ada",
+                "Temporary waiver.",
+                timestamp.AddMinutes(1),
+                timestamp.AddDays(1));
+
+            Assert.True(await store.AppendAsync(first, TestContext.Current.CancellationToken));
+            Assert.False(await store.AppendAsync(first, TestContext.Current.CancellationToken));
+            await File.AppendAllTextAsync(store.Path, "{\"partial\":\n", TestContext.Current.CancellationToken);
+            Assert.True(await store.AppendAsync(second, TestContext.Current.CancellationToken));
+
+            var events = await store.ReadAsync(TestContext.Current.CancellationToken);
+            using var firstLine = JsonDocument.Parse((await File.ReadAllLinesAsync(
+                store.Path,
+                TestContext.Current.CancellationToken))[0]);
+            var validation = LifecycleSchema.Value.Evaluate(
+                firstLine.RootElement,
+                new EvaluationOptions { OutputFormat = OutputFormat.List });
+            Assert.Equal([first.EventId, second.EventId], events.Select(item => item.EventId));
+            Assert.True(validation.IsValid, validation.ToString());
+            Assert.Equal(first.IssueId, second.IssueId);
+            Assert.Contains(first.OccurrenceFingerprint, first.FingerprintAliases);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task AutomatedResolutionRejectsMissingPolicyBasis()
+    {
+        var root = Directory.CreateTempSubdirectory("finding-lifecycle-policy-");
+        try
+        {
+            var invalid = FindingLifecycleStore.Create(
+                "sha256:" + new string('c', 64),
+                QualityLifecycleState.Resolved,
+                FindingLifecycleEventKind.AutomatedResolution,
+                "quality-studio",
+                "No basis supplied.",
+                DateTimeOffset.UtcNow);
+
+            await Assert.ThrowsAsync<JsonException>(() =>
+                new FindingLifecycleStore(root.FullName).AppendAsync(invalid, TestContext.Current.CancellationToken));
         }
         finally
         {
