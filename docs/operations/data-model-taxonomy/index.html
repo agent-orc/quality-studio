@@ -575,6 +575,9 @@
     <h4>Remaining approved slices</h4>
     <p>T4 and T5 are approved but not delivered by this receipt. T4 requires the separately gated observation-read reducer and report/dashboard/current-sidecar cutover; T5 then depends on that reducer for domain adapters and the dry-run/apply migration CLI. They remain next in the approved priority order and were left out to preserve a clean, independently reversible T1-T3 delivery.</p>
   </section>
+
+  <h3>27 August 2026 · QS-76 · Repository-gate hardening <span class="pill done">delivered</span></h3>
+  <p>Kept the existing 5,000-file dashboard interaction gate green by reusing complete generic hierarchy file metrics instead of rescanning the repository and by short-circuiting the equivalent zero-risk hotspot projection. This is a projection performance hardening only; it does not claim the T4 observation-read cutover.</p>
 </main>
 </body>
 </html>

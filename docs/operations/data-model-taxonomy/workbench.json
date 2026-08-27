@@ -71,6 +71,13 @@
       "slice": "T3",
       "status": "delivered",
       "summary": "Typed evidence and producer provenance, issue identities, append-only lifecycle v2 events, and explicit resolution semantics."
+    },
+    {
+      "date": "2026-08-27",
+      "cardKey": "QS-76",
+      "slice": "repository-gate-hardening",
+      "status": "delivered",
+      "summary": "Reused generic hierarchy metrics and short-circuited equivalent zero-risk hotspot projection to keep the 5,000-file dashboard gate green; no T4 observation-read cutover is claimed."
     }
   ],
   "editedBy": "Operator, recorded by AGT-2621"
