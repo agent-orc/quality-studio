@@ -61,3 +61,69 @@ The browser contract is `< 100 ms` to a visible transition and `< 500 ms` to a
 usable dashboard and tree. The 500 ms bound gives measured headroom above the
 295.8 ms real large-repository run while remaining far below the previous
 multi-second path. See `frontend/PERF.md` for the reproducible browser harness.
+
+## QS-78 warm re-switch confirmation
+
+Re-measured 2026-08-24 on Linux 6.8, .NET 10.0.301, Release build, against a
+real API serving this repository (324 tracked files). The project and tree
+requests were issued serially so each phase is attributed to the request that
+paid for it.
+
+| State | Project response | Git status | Hierarchy scan | Review-meta discovery | Projection |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| cold, after a real working-tree change | 1,650.32 ms | 21.99 ms | 1,154.15 ms | 46.28 ms | 354.94 ms |
+| warm, re-switch at the same Git state | 18.03–33.55 ms | 12.22–24.73 ms | 0 ms | 0 ms | 0 ms |
+| cold, after reverting that change | 1,209.60 ms | 13.14 ms | 1,037.87 ms | 92.10 ms | 0 ms |
+
+A warm re-switch is 49–91× cheaper than the cold path, and the two phases that
+dominate it cost exactly zero. What remains is the Git-state probe that decides
+whether the cache is still valid. As the shell issues both calls in parallel,
+the operator's warm switch measured 62.4–78.5 ms end to end against 1,618.0 ms
+cold.
+
+Adding one untracked file moved the project ETag and forced a full rescan;
+removing it again returned the ETag to its original value, so invalidation is
+keyed by repository content rather than bumped on every request. On that revert
+the projection phase cost 0 ms because its cache is keyed by the same Git state
+and the pre-change entry was still resident.
+`ApiSmokeTests.Project_reuses_the_scan_and_projection_caches_on_a_warm_repeat_switch`
+guards the warm path at the HTTP level with an unconditional repeat request, so
+a regression cannot hide behind a 304.
+
+## QS-78 persistent snapshot store (survives process restart)
+
+The warm re-switch numbers above only hold for the lifetime of one API
+process; every deploy, crash, or `dotnet` restart previously threw the
+in-memory hierarchy, dashboard, and sensor-availability caches away and paid
+the full cold cost again on the operator's next switch. `RepositorySnapshotStore`
+now persists the verified hierarchy snapshot, dashboard projection, and sensor
+availability for each registered repository under
+`.quality-studio/cache/repositories/<id>.json` and restores them on host
+startup, before the operator's first request. Restoration is rejected — falling
+back to a cold rebuild — unless the persisted `HeadSha`, full Git working-tree
+state, and a fingerprint of the registry entry (root path, global inputs
+directory, budget, enabled review kinds, sensor configuration) all still match,
+so a real change is never served stale.
+
+Measured 2026-08-27 on Linux 6.8, .NET 10.0.301, Release build, against the
+real Agent Studio repository (`/home/agent/runner-work/PROJ-002/repo`,
+3,927 tracked files at `9af1a848`). Reproduce with
+`node scripts/measure-project-switch-cache.mjs`; raw output is archived at
+`results/agent-studio-switch-cache.json`.
+
+| Scenario | Time to a usable project + tree |
+| --- | ---: |
+| Cold: first-ever process start, no persisted snapshot | 5,947.43 ms |
+| Warm: repeat switch within the same process (median of 3) | 495.44 ms |
+| **Restored: process restarted, snapshot loaded from disk** | **1,443.35 ms** |
+
+Restoring from disk cuts the first request after a restart from 5,947 ms to
+1,443 ms — a 4.1x reduction — because the hierarchy scan (4,787 ms of the cold
+path's `qs.repository.prewarm`) and sensor initialization (1,357 ms) are
+skipped entirely; `Server-Timing` on the restored request reports
+`scan;dur=0.00` immediately. The remaining ~1.4 s is dominated by serializing
+and transferring the 29 MB file tree payload, a distinct, already-tracked
+ancillary cost (see the browser contract above), not by cache misses.
+`RepositorySnapshotCacheTests` covers restore-on-match, and rejection on a
+changed registry entry, a changed working tree, and a changed HEAD, plus
+falling back to a cold rebuild when the persisted file is corrupt.
