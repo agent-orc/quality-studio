@@ -179,13 +179,14 @@ public sealed class ReviewJobService : BackgroundService
         {
             var subjectHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
                 access.ResolveFile(file.Path), cancellationToken).ConfigureAwait(false);
-            targets.Add(new ReviewRunPlanTarget(file.Id, file.Name, file.Path, subjectHash));
+            targets.Add(new ReviewRunPlanTarget(
+                file.Id, file.Name, file.Path, subjectHash, NewOperationId()));
         }
 
         var manifest = new ReviewRunManifest(
             runId,
             registration.Id,
-            new ReviewRunPlanNode(node.Id, node.Name, node.Path),
+            new ReviewRunPlanNode(node.Id, node.Name, node.Path, NewOperationId()),
             node.Level.ToString().ToLowerInvariant(),
             request.Kind,
             model,
@@ -607,6 +608,8 @@ public sealed class ReviewJobService : BackgroundService
         _ => null,
     };
 
+    private static string NewOperationId() => "operation-" + Guid.NewGuid().ToString("N");
+
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
     {
         foreach (var root in roots)
@@ -622,6 +625,7 @@ public sealed class ReviewJobService : BackgroundService
         private readonly ReviewRunManifest manifest;
         private readonly ReviewRunStore store;
         private readonly Dictionary<string, MutableFileProgress> progress;
+        private readonly Dictionary<string, ReviewRunOperationIdentity> fileOperations;
         private readonly Dictionary<string, ReviewObservationSnapshot> observations;
         private readonly QualityRunReportStore reportStore;
         private readonly List<string> errors;
@@ -639,6 +643,8 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int attempt;
+        private readonly ReviewRunOperationIdentity aggregateOperation;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -666,6 +672,17 @@ public sealed class ReviewJobService : BackgroundService
                 target => target.Path,
                 target => new MutableFileProgress(target.Path),
                 StringComparer.Ordinal);
+            fileOperations = manifest.Targets.Select((target, index) => new
+                {
+                    target.Path,
+                    Identity = new ReviewRunOperationIdentity(
+                        target.OperationId ?? StableLegacyOperationId(manifest.RunId, target.Path), index + 1, 0),
+                })
+                .ToDictionary(item => item.Path, item => item.Identity, StringComparer.Ordinal);
+            aggregateOperation = new ReviewRunOperationIdentity(
+                manifest.Node.OperationId ?? StableLegacyOperationId(manifest.RunId, "@aggregate"),
+                manifest.Targets.Count + 1,
+                0);
             state = status?.State ?? "queued";
             StartedAt = status?.StartedAt;
             FinishedAt = status?.FinishedAt;
@@ -679,6 +696,7 @@ public sealed class ReviewJobService : BackgroundService
             priceStatus = status?.PriceStatus ?? manifest.Estimate?.PriceStatus ?? "unknownModel";
             aggregateState = status?.AggregateState ?? (Node.Level == ReviewLevel.File ? null : "queued");
             stopReason = status?.StopReason;
+            attempt = status?.Attempt ?? 0;
             if (transitions is not null)
             {
                 foreach (var transition in transitions)
@@ -724,6 +742,7 @@ public sealed class ReviewJobService : BackgroundService
         public DateTimeOffset? StartedAt { get; private set; }
         public DateTimeOffset? FinishedAt { get; private set; }
         public string State { get { lock (gate) return state; } }
+        public int Attempt { get { lock (gate) return attempt; } }
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
@@ -749,6 +768,7 @@ public sealed class ReviewJobService : BackgroundService
                 state = "running";
                 StartedAt ??= DateTimeOffset.UtcNow;
                 FinishedAt = null;
+                attempt++;
                 attemptActive = true;
                 resumePending = false;
                 PersistStatus();
@@ -785,7 +805,7 @@ public sealed class ReviewJobService : BackgroundService
             {
                 var file = progress[path];
                 if (file.State != "running") return;
-                CaptureObservation(path, execution.Observation);
+                CaptureObservation(OperationForFile(path).OperationId, execution.Observation);
                 file.State = execution.SkippedFresh ? "skipped-fresh" : "done";
                 file.Error = null;
                 file.FinishedAt = DateTimeOffset.UtcNow;
@@ -844,7 +864,7 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate)
             {
                 if (aggregateState != "running") return;
-                CaptureObservation(QualityRunReportFactory.AggregateOperationId, execution.Observation);
+                CaptureObservation(AggregateOperation().OperationId, execution.Observation);
                 aggregateState = execution.SkippedFresh ? "skipped-fresh" : "done";
                 PersistStatus();
             }
@@ -1053,6 +1073,20 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate) return DurableStatusCore();
         }
 
+        public ReviewRunOperationIdentity OperationForFile(string path)
+        {
+            lock (gate)
+            {
+                var operation = fileOperations[path];
+                return operation with { Attempt = attempt };
+            }
+        }
+
+        public ReviewRunOperationIdentity AggregateOperation()
+        {
+            lock (gate) return aggregateOperation with { Attempt = attempt };
+        }
+
         public void EnsureTerminalReport()
         {
             lock (gate)
@@ -1125,7 +1159,14 @@ public sealed class ReviewJobService : BackgroundService
                 CreatedAt, StartedAt, FinishedAt, errors.ToArray(), usageOperations, usage,
                 tokenCap, costCap, costSpent, currency, priceStatus,
                 ordered.Count(file => file.State is "skipped" or "skipped-fresh"),
-                aggregateState, stopReason);
+                aggregateState, stopReason, attempt);
+        }
+
+        private static string StableLegacyOperationId(string runId, string key)
+        {
+            var bytes = System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes($"quality-studio-operation-v1\0{runId}\0{key}"));
+            return "operation-" + Convert.ToHexStringLower(bytes);
         }
 
         private static bool IsCompletedFileState(string fileState) =>
@@ -1167,3 +1208,5 @@ public sealed class ReviewJobService : BackgroundService
         }
     }
 }
+
+public sealed record ReviewRunOperationIdentity(string OperationId, int Ordinal, int Attempt);

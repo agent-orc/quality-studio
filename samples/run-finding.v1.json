@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/run-finding.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "review-sample-1",
+  "operationId": "operation-sample-1",
+  "fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "findingId": "archive-write-order",
+  "ruleId": "durability:write-order",
+  "severity": "high",
+  "title": "Archive row precedes durable sidecar",
+  "locations": [
+    {
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "startLine": 120,
+      "startColumn": 9,
+      "endLine": 120,
+      "endColumn": 42
+    }
+  ],
+  "state": "open"
+}

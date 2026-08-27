@@ -122,6 +122,15 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("high", result.RootElement.GetProperty("thinkingLevel").GetString());
             Assert.Equal("test-agent", result.RootElement.GetProperty("cli").GetString());
             Assert.Equal("done", result.RootElement.GetProperty("state").GetString());
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
+                fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "manifest.json"), cancellationToken));
+            Assert.StartsWith("operation-", manifest.RootElement.GetProperty("node").GetProperty("operationId").GetString(),
+                StringComparison.Ordinal);
+            Assert.All(manifest.RootElement.GetProperty("targets").EnumerateArray(), target =>
+                Assert.StartsWith("operation-", target.GetProperty("operationId").GetString(), StringComparison.Ordinal));
+            using var status = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(
+                fixture.Store.RunsPath, accepted.GetProperty("id").GetString()!, "status.json"), cancellationToken));
+            Assert.Equal(2, status.RootElement.GetProperty("attempt").GetInt32());
         }
         finally
         {

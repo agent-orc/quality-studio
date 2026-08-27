@@ -4,9 +4,14 @@ using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
 
-public sealed record ReviewRunPlanNode(string Id, string Name, string Path);
+public sealed record ReviewRunPlanNode(string Id, string Name, string Path, string? OperationId = null);
 
-public sealed record ReviewRunPlanTarget(string Id, string Name, string Path, string SubjectHash);
+public sealed record ReviewRunPlanTarget(
+    string Id,
+    string Name,
+    string Path,
+    string SubjectHash,
+    string? OperationId = null);
 
 public sealed record ReviewRunEstimate(
     int Files,
@@ -69,7 +74,8 @@ public sealed record ReviewRunStatus(
     string PriceStatus = "unknownModel",
     int SkippedFiles = 0,
     string? AggregateState = null,
-    string? StopReason = null);
+    string? StopReason = null,
+    int Attempt = 0);
 
 /// <summary>
 /// Stable, aggregation-oriented review-run artifact. Route fields use explicit default markers so

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived review attempt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness", "startedAt", "finishedAt", "archivedAt", "counters", "cumulativeCounters", "spend", "errorCodes", "cap", "estimateDeviation", "ledgerReferences", "operationIds", "qualitySummary"],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/id" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 9999 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "counters": { "$ref": "#/$defs/counters" },
+    "cumulativeCounters": { "$ref": "#/$defs/counters" },
+    "spend": { "$ref": "#/$defs/spend" },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+    "cap": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cap" }] },
+    "estimateDeviation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/deviation" }] },
+    "ledgerReferences": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+    "operationIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "qualitySummary": { "$ref": "#/$defs/qualitySummary" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "nullableInteger": { "type": ["integer", "null"], "minimum": 0 },
+    "nullableNumber": { "type": ["number", "null"], "minimum": 0 },
+    "nullableString": { "type": ["string", "null"] },
+    "counters": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "completed", "failed", "skipped", "cancelled", "usageOperations"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "completed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 },
+        "usageOperations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "spend": {
+      "type": "object", "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs", "cost", "currency", "priceStatus"],
+      "properties": {
+        "inputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "outputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "cost": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "priceStatus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "cap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit"],
+      "properties": {
+        "tokenLimit": { "$ref": "#/$defs/nullableInteger" },
+        "costLimit": { "$ref": "#/$defs/nullableNumber" }
+      }
+    },
+    "deviation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["inputTokensPercent", "outputTokensPercent", "costPercent"],
+      "properties": {
+        "inputTokensPercent": { "type": ["number", "null"] },
+        "outputTokensPercent": { "type": ["number", "null"] },
+        "costPercent": { "type": ["number", "null"] }
+      }
+    },
+    "qualitySummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["lowestGradeScore", "lowestGradeBand", "worstSecurityVerdict", "activeFindings", "highestActiveSeverity"],
+      "properties": {
+        "lowestGradeScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "lowestGradeBand": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "worstSecurityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindings": { "type": "integer", "minimum": 0 },
+        "highestActiveSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  }
+}

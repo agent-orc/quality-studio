@@ -1,0 +1,56 @@
+{
+  "$schema": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "review-sample-1",
+  "attempt": 1,
+  "outcome": "capped",
+  "completeness": "partial",
+  "startedAt": "2026-08-11T09:00:00Z",
+  "finishedAt": "2026-08-11T09:02:01Z",
+  "archivedAt": "2026-08-11T09:02:02Z",
+  "counters": {
+    "total": 2,
+    "completed": 1,
+    "failed": 0,
+    "skipped": 1,
+    "cancelled": 0,
+    "usageOperations": 1
+  },
+  "cumulativeCounters": {
+    "total": 2,
+    "completed": 1,
+    "failed": 0,
+    "skipped": 1,
+    "cancelled": 0,
+    "usageOperations": 1
+  },
+  "spend": {
+    "inputTokens": 8200,
+    "outputTokens": 1400,
+    "cachedInputTokens": 2000,
+    "reasoningOutputTokens": 300,
+    "durationMs": 120000,
+    "cost": 0.42,
+    "currency": "USD",
+    "priceStatus": "priced"
+  },
+  "errorCodes": ["token-cap-reached"],
+  "cap": {
+    "tokenLimit": 10000,
+    "costLimit": null
+  },
+  "estimateDeviation": {
+    "inputTokensPercent": -4.2,
+    "outputTokensPercent": 2.1,
+    "costPercent": null
+  },
+  "ledgerReferences": [".quality/usage/2026-08.jsonl"],
+  "operationIds": ["operation-sample-1"],
+  "qualitySummary": {
+    "lowestGradeScore": 91,
+    "lowestGradeBand": "A",
+    "worstSecurityVerdict": null,
+    "activeFindings": 1,
+    "highestActiveSeverity": "high"
+  }
+}

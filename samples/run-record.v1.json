@@ -1,0 +1,39 @@
+{
+  "$schema": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "review-sample-1",
+  "repositoryId": "quality-studio",
+  "createdAt": "2026-08-11T09:00:00Z",
+  "subject": {
+    "unitId": "project-quality-studio",
+    "path": ".",
+    "level": "project"
+  },
+  "kind": "code",
+  "targets": [
+    {
+      "operationId": "operation-sample-1",
+      "ordinal": 1,
+      "unitId": "file-review-run-store",
+      "name": "ReviewRunStore.cs",
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "subjectHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "configuration": {
+    "cliType": "codex",
+    "model": "gpt-5.4",
+    "thinkingLevel": "high",
+    "force": false,
+    "promptIdentifiers": ["code-review.v1"]
+  },
+  "cap": {
+    "tokenLimit": 100000,
+    "costLimit": null
+  },
+  "estimate": null,
+  "sourceRevision": {
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dirty": true
+  }
+}
