@@ -7,6 +7,7 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed record ReviewModelOption(
     string ModelId,
     IReadOnlyList<string> Aliases,
+    string ProviderId,
     string CliType,
     string CapabilityTier,
     string Suitability,
@@ -29,7 +30,12 @@ public sealed record ReviewModelCatalogSnapshot(
     IReadOnlyList<ReviewModelOption> Models);
 
 /// <summary>A normalized review route ready to persist and pass to CodingAgentRunner.</summary>
-public sealed record ReviewModelSelection(string CliType, string? Model, string? ThinkingLevel, bool Catalogued);
+public sealed record ReviewModelSelection(
+    string CliType,
+    string Provider,
+    string? Model,
+    string? ThinkingLevel,
+    bool Catalogued);
 
 /// <summary>A server-owned route recommendation derived from the synchronized routing policy.</summary>
 public sealed record ReviewModelRecommendation(
@@ -58,10 +64,11 @@ public sealed class ReviewModelCatalog
     private static readonly HashSet<string> NewRunStatuses = ["selectable", "fallbackOnly"];
     private static readonly HashSet<string> KnownCliTypes = ["codex", "claude", "gemini", "antigravity"];
     private readonly Dictionary<string, ReviewModelOption> modelsByKey;
+    private readonly IReadOnlyDictionary<string, string> providersByCli;
 
     public ReviewModelCatalog()
     {
-        Snapshot = Load();
+        (Snapshot, providersByCli) = Load();
         modelsByKey = new Dictionary<string, ReviewModelOption>(StringComparer.OrdinalIgnoreCase);
         foreach (var model in Snapshot.Models)
         {
@@ -86,7 +93,7 @@ public sealed class ReviewModelCatalog
         {
             if (requestedThinking is not null)
                 throw new ArgumentException("A thinking-level override requires a model override.");
-            return new ReviewModelSelection(cli, null, null, false);
+            return new ReviewModelSelection(cli, ProviderForCli(cli), null, null, false);
         }
 
         RequireSafeIdentifier(requestedModel, "Model");
@@ -97,7 +104,7 @@ public sealed class ReviewModelCatalog
         {
             if (KnownCliTypes.Contains(cli) && !HasCliPrefix(cli, requestedModel))
                 throw new ArgumentException($"Model '{requestedModel}' is not compatible with CLI '{cli}'.");
-            return new ReviewModelSelection(cli, requestedModel, requestedThinking, false);
+            return new ReviewModelSelection(cli, ProviderForCli(cli), requestedModel, requestedThinking, false);
         }
 
         if (!catalogued.AvailableForNewRuns)
@@ -114,8 +121,11 @@ public sealed class ReviewModelCatalog
             ? null
             : catalogued.SupportedThinkingLevels.First(level =>
                 string.Equals(level, requestedThinking, StringComparison.OrdinalIgnoreCase));
-        return new ReviewModelSelection(cli, catalogued.ModelId, canonicalThinking, true);
+        return new ReviewModelSelection(cli, catalogued.ProviderId, catalogued.ModelId, canonicalThinking, true);
     }
+
+    public string ProviderForCli(string? cliType) =>
+        providersByCli.GetValueOrDefault(NormalizeCli(cliType), "unknown");
 
     /// <summary>
     /// Applies the policy's core-task score bands and hard floors. Quota and price deliberately
@@ -198,7 +208,7 @@ public sealed class ReviewModelCatalog
         return normalized == "claude-code" ? "claude" : normalized;
     }
 
-    private static ReviewModelCatalogSnapshot Load()
+    private static (ReviewModelCatalogSnapshot Snapshot, IReadOnlyDictionary<string, string> ProvidersByCli) Load()
     {
         using var routing = JsonDocument.Parse(OpenResource(RoutingResource));
         using var prices = JsonDocument.Parse(OpenResource(PricesResource));
@@ -206,6 +216,10 @@ public sealed class ReviewModelCatalog
 
         var routingRoot = routing.RootElement;
         var snapshotRoot = snapshot.RootElement;
+        var providers = routingRoot.GetProperty("providers").EnumerateArray().ToDictionary(
+            provider => NormalizeCli(provider.GetProperty("cliId").GetString()),
+            provider => provider.GetProperty("id").GetString()!,
+            StringComparer.Ordinal);
         var pricedModels = prices.RootElement.EnumerateArray().ToDictionary(
             item => item.GetProperty("modelId").GetString()!,
             item => item.TryGetProperty("history", out var history) && history.GetArrayLength() > 0,
@@ -223,6 +237,7 @@ public sealed class ReviewModelCatalog
             return new ReviewModelOption(
                 modelId,
                 Strings(model.GetProperty("aliases")),
+                model.GetProperty("providerId").GetString()!,
                 NormalizeCli(model.GetProperty("cliId").GetString()),
                 tier,
                 Suitability(tier, roles, routingStatus),
@@ -235,14 +250,14 @@ public sealed class ReviewModelCatalog
                 NewRunStatuses.Contains(routingStatus));
         }).ToArray();
 
-        return new ReviewModelCatalogSnapshot(
+        return (new ReviewModelCatalogSnapshot(
             snapshotRoot.GetProperty("schemaVersion").GetInt32(),
             routingRoot.GetProperty("policyVersion").GetString()!,
             routingRoot.GetProperty("evidenceAsOfDate").GetString()!,
             snapshotRoot.GetProperty("upstreamRepository").GetString()!,
             snapshotRoot.GetProperty("upstreamCommit").GetString()!,
             thinkingLevels,
-            models);
+            models), providers);
     }
 
     private static string Suitability(string tier, IReadOnlyList<string> roles, string routingStatus)

@@ -158,7 +158,10 @@ public static class QualityCli
                 InputBudgetCharacters: options.BudgetCharacters,
                 Sensors: options.Kind == "security"
                     ? [new ReviewSensorConfiguration("gitleaks"), new ReviewSensorConfiguration("dependencies")]
-                    : null));
+                    : null,
+                ObservationWriteEnabled: bool.TryParse(
+                    Environment.GetEnvironmentVariable("QualityTaxonomy__ObservationWriteEnabled"),
+                    out var observationWriteEnabled) && observationWriteEnabled));
             Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;
         }

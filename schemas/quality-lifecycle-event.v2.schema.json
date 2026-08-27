@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-lifecycle-event.v2.schema.json",
+  "title": "Quality Studio finding lifecycle event v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "eventId", "issueId", "occurrenceFingerprint", "fingerprintAliases",
+    "state", "kind", "author", "reason", "timestamp"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "eventId": { "type": "string", "pattern": "^lifecycle-sha256:[a-f0-9]{64}$" },
+    "issueId": { "type": "string", "pattern": "^issue-sha256:[a-f0-9]{64}$" },
+    "occurrenceFingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "fingerprintAliases": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "state": { "enum": ["open", "accepted-risk", "waived", "false-positive", "resolved"] },
+    "kind": { "enum": ["observed", "state-changed", "automated-resolution", "reopened", "imported-snapshot"] },
+    "author": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+    "policyRef": { "type": ["string", "null"], "minLength": 1 },
+    "basisObservationIds": {
+      "type": ["array", "null"],
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "automated-resolution" } }, "required": ["kind"] },
+      "then": {
+        "properties": { "state": { "const": "resolved" } },
+        "required": ["policyRef", "basisObservationIds"]
+      }
+    }
+  ]
+}

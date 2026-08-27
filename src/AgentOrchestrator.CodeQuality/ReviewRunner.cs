@@ -24,7 +24,12 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? Provider = null,
+    string? RequestedModel = null,
+    string? ThinkingLevel = null,
+    string? RoutePolicyVersion = null,
+    bool ObservationWriteEnabled = false);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -34,7 +39,8 @@ public sealed record ReviewResult(
     string RunId,
     ResolvedInputs Inputs,
     ReviewUsageEntry Usage,
-    ReviewObservationSnapshot? Observation = null);
+    ReviewObservationSnapshot? Observation = null,
+    QualityObservationDocument? QualityObservation = null);
 
 /// <summary>
 /// Immutable copy of the review metadata and lifecycle states observed by one sweep operation.
@@ -65,6 +71,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly IQualityObservationWriter _observationWriter;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -73,7 +80,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        IQualityObservationWriter? observationWriter = null)
     {
         _agent = agent ?? new CodingAgentReviewAgent();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -82,6 +90,7 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _observationWriter = observationWriter ?? new QualityObservationLedger();
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -128,19 +137,22 @@ public sealed class ReviewRunner
             catch (ReviewAgentRunCanceledException exception)
             {
                 await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
+                    null, null,
                     startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
                 throw;
             }
             catch (ReviewAgentRunException exception)
             {
                 await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
+                    null, null,
                     startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
                 throw;
             }
 
             var usage = CreateUsage(agentResult.RunId,
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
-                agentResult.EffectiveModel, startedAt, request, relativePath);
+                agentResult.EffectiveModel, agentResult.Provider, agentResult.ThinkingLevel,
+                startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
             if (request.Level == ReviewLevel.Project &&
@@ -164,6 +176,7 @@ public sealed class ReviewRunner
                 SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
             }
             var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+            var agentFindingIds = findingIdentities.Select(identity => identity.Id).ToHashSet(StringComparer.Ordinal);
             if (request.Kind == "security")
             {
                 findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
@@ -171,6 +184,7 @@ public sealed class ReviewRunner
 
             var adapter = AdapterFromUnitId(unitId);
             ReviewObservationSnapshot observation;
+            QualityObservationDocument? qualityObservation = null;
             var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
             await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -199,6 +213,16 @@ public sealed class ReviewRunner
                     threads,
                     sensorEvidence,
                     deterministicEvidence);
+                if (request.ObservationWriteEnabled)
+                {
+                    qualityObservation = ReviewQualityObservationFactory.Create(
+                        meta,
+                        request,
+                        usage,
+                        agentFindingIds);
+                    await _observationWriter.AppendAsync(root, qualityObservation, cancellationToken)
+                        .ConfigureAwait(false);
+                }
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
@@ -217,7 +241,14 @@ public sealed class ReviewRunner
             QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
             return new ReviewExecutionResult(
                 false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
+                new ReviewResult(
+                    metaPath,
+                    reviewedHash,
+                    agentResult.RunId,
+                    inputs,
+                    usage,
+                    observation,
+                    qualityObservation),
                 observation);
         }
         catch (Exception exception)
@@ -360,12 +391,53 @@ public sealed class ReviewRunner
             .CollectAsync(root, request.DeterministicSensors, cancellationToken).ConfigureAwait(false);
     }
 
-    private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
-        new(runId, startedAt,
-            string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
-            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+    private ReviewUsageEntry CreateUsage(
+        string runId,
+        TokenUsage tokens,
+        string? effectiveModel,
+        string? provider,
+        string? thinkingLevel,
+        DateTimeOffset startedAt,
+        ReviewRequest request,
+        string relativePath)
+    {
+        var requestedModel = FirstKnown(request.RequestedModel, _agent.Model, "runner-default");
+        var actualModel = FirstKnown(effectiveModel, requestedModel);
+        if (!request.ObservationWriteEnabled)
+        {
+            return new ReviewUsageEntry(
+                runId,
+                startedAt,
+                actualModel,
+                _agent.AgentName,
+                tokens,
+                request.Kind,
+                request.Level.ToString().ToLowerInvariant(),
+                relativePath,
+                request.ReviewRunId,
+                request.ReviewRunId is null ? 1 : 2);
+        }
+
+        return new ReviewUsageEntry(
+            runId,
+            startedAt,
+            actualModel,
+            _agent.AgentName,
+            tokens,
+            request.Kind,
+            request.Level.ToString().ToLowerInvariant(),
+            relativePath,
+            request.ReviewRunId ?? runId,
+            UsageLedger.CurrentSchemaVersion,
+            FirstKnown(provider, request.Provider, _agent.Provider, "unknown"),
+            requestedModel,
+            actualModel,
+            FirstKnown(thinkingLevel, request.ThinkingLevel, _agent.ThinkingLevel, "unknown"),
+            FirstKnown(request.RoutePolicyVersion, "unknown"));
+    }
+
+    private static string FirstKnown(params string?[] values) =>
+        values.First(value => !string.IsNullOrWhiteSpace(value))!;
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {

@@ -26,12 +26,14 @@ public sealed class FindingStateStore
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = CreateOptions();
     private readonly string statePath;
+    private readonly FindingLifecycleStore lifecycle;
     private readonly Func<DateTimeOffset> clock;
 
     public FindingStateStore(string repositoryRoot, Func<DateTimeOffset>? clock = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         statePath = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "findings", "state.json");
+        lifecycle = new FindingLifecycleStore(repositoryRoot);
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 
@@ -42,7 +44,12 @@ public sealed class FindingStateStore
         {
             var document = await LoadAsync(cancellationToken).ConfigureAwait(false);
             var (effective, changed) = ReopenExpired(document, clock().ToUniversalTime());
-            if (changed) await SaveAsync(effective, cancellationToken).ConfigureAwait(false);
+            if (changed)
+            {
+                await AppendChangedEventsAsync(document, effective, FindingLifecycleEventKind.Reopened, cancellationToken)
+                    .ConfigureAwait(false);
+                await SaveAsync(effective, cancellationToken).ConfigureAwait(false);
+            }
             return ToLookup(effective);
         }, cancellationToken).ConfigureAwait(false);
 
@@ -54,30 +61,33 @@ public sealed class FindingStateStore
         await ExecuteLockedAsync(async () =>
         {
             var now = clock().ToUniversalTime();
-            var (document, expiredChanged) = ReopenExpired(await LoadAsync(cancellationToken).ConfigureAwait(false), now);
+            var loaded = await LoadAsync(cancellationToken).ConfigureAwait(false);
+            var (document, expiredChanged) = ReopenExpired(loaded, now);
+            if (expiredChanged)
+            {
+                await AppendChangedEventsAsync(loaded, document, FindingLifecycleEventKind.Reopened, cancellationToken)
+                    .ConfigureAwait(false);
+            }
             var records = document.Findings.ToDictionary(record => record.Fingerprint, StringComparer.Ordinal);
             var changed = expiredChanged;
-            var currentFingerprints = current.Select(item => item.Fingerprint).ToHashSet(StringComparer.Ordinal);
 
             foreach (var finding in current)
             {
                 if (!records.TryGetValue(finding.Fingerprint, out var existing) || existing.State == FindingState.Resolved)
                 {
-                    records[finding.Fingerprint] = NewRecord(finding, FindingState.Open, author,
+                    var updated = NewRecord(finding, FindingState.Open, author,
                         existing is null ? "First observed by review." : "Finding reappeared in review.", now);
+                    await AppendEventAsync(
+                        updated,
+                        existing is null ? FindingLifecycleEventKind.Observed : FindingLifecycleEventKind.Reopened,
+                        cancellationToken).ConfigureAwait(false);
+                    records[finding.Fingerprint] = updated;
                     changed = true;
                 }
             }
 
-            foreach (var finding in previous.Where(item => !currentFingerprints.Contains(item.Fingerprint)))
-            {
-                if (!records.TryGetValue(finding.Fingerprint, out var existing) || existing.State != FindingState.Resolved)
-                {
-                    records[finding.Fingerprint] = NewRecord(finding, FindingState.Resolved, author,
-                        "Finding was not present in the latest review.", now);
-                    changed = true;
-                }
-            }
+            // Omission is model disagreement, not resolution. An explicit or policy-backed
+            // ResolveAsync event is required before the compatibility snapshot changes to resolved.
 
             if (changed)
             {
@@ -119,9 +129,58 @@ public sealed class FindingStateStore
                 Timestamp = now,
                 ExpiresAt = expiresAt?.ToUniversalTime(),
             };
+            await AppendEventAsync(updated, FindingLifecycleEventKind.StateChanged, cancellationToken)
+                .ConfigureAwait(false);
             records[fingerprint] = updated;
             await SaveAsync(new(1, document.Revision + 1,
                 records.Values.OrderBy(record => record.Fingerprint, StringComparer.Ordinal).ToArray()), cancellationToken).ConfigureAwait(false);
+            return updated;
+        }, cancellationToken).ConfigureAwait(false);
+
+    public async Task<FindingStateRecord> ResolveAsync(
+        string fingerprint,
+        string author,
+        string reason,
+        string? policyRef = null,
+        IReadOnlyList<string>? basisObservationIds = null,
+        DateTimeOffset? expectedTimestamp = null,
+        CancellationToken cancellationToken = default) =>
+        await ExecuteLockedAsync(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(author)) throw new ArgumentException("A resolution author is required.", nameof(author));
+            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A resolution reason is required.", nameof(reason));
+            if (policyRef is not null && basisObservationIds is not { Count: > 0 })
+                throw new ArgumentException("A policy-backed resolution requires basis observation ids.", nameof(basisObservationIds));
+            var document = await LoadAsync(cancellationToken).ConfigureAwait(false);
+            var records = document.Findings.ToDictionary(record => record.Fingerprint, StringComparer.Ordinal);
+            if (!records.TryGetValue(fingerprint, out var existing)) throw new KeyNotFoundException($"Finding '{fingerprint}' was not found.");
+            if (expectedTimestamp is not null && expectedTimestamp.Value != existing.Timestamp)
+                throw new FindingStateConflictException(fingerprint, existing);
+            var updated = existing with
+            {
+                State = FindingState.Resolved,
+                Author = author.Trim(),
+                Reason = reason.Trim(),
+                Timestamp = clock().ToUniversalTime(),
+                ExpiresAt = null,
+            };
+            var kind = policyRef is null
+                ? FindingLifecycleEventKind.StateChanged
+                : FindingLifecycleEventKind.AutomatedResolution;
+            var lifecycleEvent = FindingLifecycleStore.Create(
+                fingerprint,
+                QualityLifecycleState.Resolved,
+                kind,
+                updated.Author,
+                updated.Reason,
+                updated.Timestamp,
+                policyRef: policyRef,
+                basisObservationIds: basisObservationIds);
+            await lifecycle.AppendAsync(lifecycleEvent, cancellationToken).ConfigureAwait(false);
+            records[fingerprint] = updated;
+            await SaveAsync(new(1, document.Revision + 1,
+                records.Values.OrderBy(record => record.Fingerprint, StringComparer.Ordinal).ToArray()), cancellationToken)
+                .ConfigureAwait(false);
             return updated;
         }, cancellationToken).ConfigureAwait(false);
 
@@ -161,6 +220,43 @@ public sealed class FindingStateStore
             if (File.Exists(temporary)) File.Delete(temporary);
         }
     }
+
+    private async Task AppendChangedEventsAsync(
+        FindingStateDocument before,
+        FindingStateDocument after,
+        FindingLifecycleEventKind kind,
+        CancellationToken cancellationToken)
+    {
+        var prior = before.Findings.ToDictionary(record => record.Fingerprint, StringComparer.Ordinal);
+        foreach (var record in after.Findings.Where(record =>
+                     !prior.TryGetValue(record.Fingerprint, out var old) || old != record))
+        {
+            await AppendEventAsync(record, kind, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private Task<bool> AppendEventAsync(
+        FindingStateRecord record,
+        FindingLifecycleEventKind kind,
+        CancellationToken cancellationToken) =>
+        lifecycle.AppendAsync(FindingLifecycleStore.Create(
+            record.Fingerprint,
+            LifecycleState(record.State),
+            kind,
+            record.Author,
+            record.Reason,
+            record.Timestamp,
+            record.ExpiresAt), cancellationToken);
+
+    private static QualityLifecycleState LifecycleState(FindingState state) => state switch
+    {
+        FindingState.Open => QualityLifecycleState.Open,
+        FindingState.Accepted => QualityLifecycleState.AcceptedRisk,
+        FindingState.Waived => QualityLifecycleState.Waived,
+        FindingState.FalsePositive => QualityLifecycleState.FalsePositive,
+        FindingState.Resolved => QualityLifecycleState.Resolved,
+        _ => throw new ArgumentOutOfRangeException(nameof(state)),
+    };
 
     private static (FindingStateDocument Document, bool Changed) ReopenExpired(FindingStateDocument document, DateTimeOffset now)
     {
