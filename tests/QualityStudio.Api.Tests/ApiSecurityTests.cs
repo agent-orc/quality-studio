@@ -176,6 +176,114 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
     }
 
+    [Fact]
+    public async Task Local_mode_rejects_cross_origin_mutations()
+    {
+        var localHost = Path.Combine(testRoot, "local-csrf-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+
+        using var evilOrigin = local.CreateClient();
+        evilOrigin.DefaultRequestHeaders.Add("Origin", "https://evil.example");
+        using var blocked = await evilOrigin.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
+        var problem = await blocked.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Cross-origin mutation is not permitted", problem.GetProperty("title").GetString());
+
+        using var noOrigin = local.CreateClient();
+        using var allowed = await noOrigin.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, allowed.StatusCode);
+
+        using var sameOrigin = local.CreateClient();
+        sameOrigin.DefaultRequestHeaders.Add("Origin", "http://localhost:4200");
+        using var sameOriginResponse = await sameOrigin.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, sameOriginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Repository_item_mutations_require_registrar_privilege_not_mere_access()
+    {
+        var update = new
+        {
+            displayName = "Default (attempted rename)",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        };
+
+        using var alice = CreateClient("alice", AliceToken);
+        using var put = await alice.PutAsJsonAsync("/api/repos/default", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, put.StatusCode);
+        var putProblem = await put.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Repository configuration changes are not permitted", putProblem.GetProperty("title").GetString());
+
+        using var delete = await alice.DeleteAsync("/api/repos/default", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, delete.StatusCode);
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var adminPut = await admin.PutAsJsonAsync("/api/repos/default", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, adminPut.StatusCode);
+    }
+
+    [Fact]
+    public async Task Command_backed_sensor_configuration_is_rejected_unless_explicitly_allowed()
+    {
+        var withCommand = new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string> { ["command"] = "pwsh -Command notepad.exe" },
+                },
+            },
+        };
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var rejected = await admin.PutAsJsonAsync("/api/repos/default", withCommand, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        var problem = await rejected.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Command-backed analyzer configuration is disabled", problem.GetProperty("title").GetString());
+
+        var permissiveHost = Path.Combine(testRoot, "permissive-host");
+        Directory.CreateDirectory(permissiveHost);
+        WriteRegistry(permissiveHost);
+        await using var permissive = new HostedApplication(RepositoryRoot, ForeignRepositoryRoot, permissiveHost,
+            spendRequestsPerMinute: 100, allowCommandBackedAnalyzers: true);
+        using var permissiveAdmin = CreateClient(permissive, "admin", AdminToken);
+        using var accepted = await permissiveAdmin.PutAsJsonAsync("/api/repos/default", withCommand, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sensor_scans_share_the_spend_rate_limit()
+    {
+        var rateHost = Path.Combine(testRoot, "sensor-rate-host");
+        Directory.CreateDirectory(rateHost);
+        WriteRegistry(rateHost);
+        await using var rateApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
+
+        using var alice = CreateClient(rateApplication, "alice", AliceToken);
+        using var firstScan = await alice.PostAsync("/api/sensors/boundaries/scan", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, firstScan.StatusCode);
+        using var secondScan = await alice.PostAsync("/api/sensors/boundaries/scan", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondScan.StatusCode);
+    }
+
     public async ValueTask InitializeAsync()
     {
         foreach (var directory in new[] { RepositoryRoot, ForeignRepositoryRoot, OutsideRoot, HostRoot })
@@ -240,8 +348,8 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(0, process.ExitCode);
     }
 
-    private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute)
-        : WebApplicationFactory<Program>
+    private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute,
+        bool allowCommandBackedAnalyzers = false) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -255,6 +363,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:Security:Mode"] = "Hosted",
                     ["QualityStudio:Security:RequireHttps"] = "true",
                     ["QualityStudio:Security:SpendRequestsPerMinute"] = spendRequestsPerMinute.ToString(),
+                    ["QualityStudio:Security:AllowCommandBackedAnalyzers"] = allowCommandBackedAnalyzers.ToString(),
                     ["QualityStudio:Security:Clients:0:Id"] = "alice",
                     ["QualityStudio:Security:Clients:0:CredentialSha256"] = Hash(AliceToken),
                     ["QualityStudio:Security:Clients:0:Repositories:0"] = "default",
