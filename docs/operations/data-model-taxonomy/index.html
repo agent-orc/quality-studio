@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -557,6 +558,36 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only log. Each row records what actually landed for one slice; it does not amend the decision recorded above.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Card</th><th>What landed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>2026-08-28</td>
+        <td><code>QS-76</code></td>
+        <td>
+          <p class="dim" style="margin:0 0 8px"><b>T1. Contract and catalogue foundation</b> — <span class="pill done">done</span></p>
+          <p style="margin:0">Added <code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code>;
+          the core catalogue <code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code> pinning
+          <code>quality-studio/core@1.0.0</code> (the 8 axes and 16 aspects from section 6, with legacy aliases); C# contract types
+          <code>QualityTaxonomyContract.cs</code> (catalogue document, resolver, digest) and <code>QualityObservationContract.cs</code>
+          (the immutable observation envelope from section 7, with a named <code>extensions</code> dictionary that survives
+          deserialize/serialize and is excluded from core aggregation unless the term belongs to the installed catalogue); and a pure
+          legacy-mapping library <code>QualityTaxonomyLegacyMapping.cs</code> covering every row of the section 8 compatibility table.
+          An unsupported taxonomy major is reported via <code>QualityObservationCompatibility</code> without discarding the observation.
+          No writer was changed (<code>ReviewRunner</code>, <code>SecurityReviewEvidence</code>, etc. are untouched) and no production
+          output changed. Tests: <code>QualityTaxonomyContractTests</code>, <code>QualityObservationContractTests</code>,
+          <code>QualityTaxonomyLegacyMappingTests</code>.</p>
+          <p style="margin:8px 0 0">Remaining slices are unimplemented follow-up work, each its own scoped card: T2 (observation
+          dual-write and full route provenance, depends on T1), T3 (typed evidence, producer provenance, and lifecycle v2, depends on
+          T2), T4 (observation-backed projections and per-model records, depends on T3), T5 (domain adapters and migration tool,
+          depends on T4).</p>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 </main>
 </body>
 </html>

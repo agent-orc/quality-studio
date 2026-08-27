@@ -1,0 +1,115 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "catalogueId": "quality-studio/core",
+  "catalogueVersion": "1.0.0",
+  "axes": [
+    {
+      "id": "producerKind",
+      "title": "Producer kind",
+      "terms": [
+        { "id": "agent", "title": "Agent", "description": "An LLM-driven reviewer produced the result." },
+        { "id": "deterministic-sensor", "title": "Deterministic sensor", "description": "A rule-based analyzer or scanner produced the result without model inference." },
+        { "id": "human", "title": "Human", "description": "A person recorded the result directly." },
+        { "id": "imported", "title": "Imported", "description": "The result was migrated from a legacy contract and its original producer may be incomplete." },
+        { "id": "unknown", "title": "Unknown", "description": "The producer could not be determined. Never inferred as agent by default." }
+      ]
+    },
+    {
+      "id": "evidenceStatus",
+      "title": "Evidence status",
+      "terms": [
+        { "id": "available", "title": "Available", "description": "All evidence required by the review profile was collected." },
+        { "id": "partial", "title": "Partial", "description": "Some required evidence is missing or incomplete." },
+        { "id": "unavailable", "title": "Unavailable", "description": "No evidence could be collected, for example because a sensor could not run." }
+      ]
+    },
+    {
+      "id": "assessment",
+      "title": "Assessment",
+      "terms": [
+        { "id": "pass", "title": "Pass", "description": "The evidence establishes conformance." },
+        { "id": "concern", "title": "Concern", "description": "The evidence raises a qualified concern short of failure." },
+        { "id": "fail", "title": "Fail", "description": "The evidence establishes non-conformance." },
+        { "id": "inconclusive", "title": "Inconclusive", "description": "The evidence collected does not establish an outcome." },
+        { "id": "not-applicable", "title": "Not applicable", "description": "The aspect does not apply to this subject." },
+        { "id": "not-assessed", "title": "Not assessed", "description": "The aspect has not yet been reviewed." }
+      ]
+    },
+    {
+      "id": "change",
+      "title": "Change",
+      "terms": [
+        { "id": "improved", "title": "Improved", "description": "The comparison shows measurable improvement." },
+        { "id": "regressed", "title": "Regressed", "description": "The comparison shows measurable regression." },
+        { "id": "mixed", "title": "Mixed", "description": "The comparison shows both improvement and regression." },
+        { "id": "unchanged", "title": "Unchanged", "description": "The comparison shows no material difference." },
+        { "id": "no-observed-delta", "title": "No observed delta", "description": "No comparable prior observation exists." },
+        { "id": "inconclusive", "title": "Inconclusive", "description": "The comparison evidence does not establish a direction." }
+      ]
+    },
+    {
+      "id": "decision",
+      "title": "Decision",
+      "terms": [
+        { "id": "allow", "title": "Allow", "description": "The policy permits the subject to proceed." },
+        { "id": "warn", "title": "Warn", "description": "The policy flags the subject without blocking it." },
+        { "id": "block", "title": "Block", "description": "The policy prevents the subject from proceeding." },
+        { "id": "defer", "title": "Defer", "description": "The policy defers the decision, for example pending human review." }
+      ]
+    },
+    {
+      "id": "severity",
+      "title": "Severity",
+      "terms": [
+        { "id": "critical", "title": "Critical" },
+        { "id": "high", "title": "High" },
+        { "id": "medium", "title": "Medium" },
+        { "id": "low", "title": "Low" },
+        { "id": "info", "title": "Info" }
+      ]
+    },
+    {
+      "id": "lifecycle",
+      "title": "Lifecycle",
+      "terms": [
+        { "id": "open", "title": "Open", "description": "The finding has not been dispositioned." },
+        { "id": "accepted-risk", "title": "Accepted risk", "description": "The finding is accepted as a known risk.", "aliases": ["accepted"] },
+        { "id": "waived", "title": "Waived", "description": "The finding is waived for a scoped reason." },
+        { "id": "false-positive", "title": "False positive", "description": "The finding does not reflect a real issue.", "aliases": ["falsePositive"] },
+        { "id": "resolved", "title": "Resolved", "description": "The underlying issue was fixed." }
+      ]
+    },
+    {
+      "id": "evidenceKind",
+      "title": "Evidence kind",
+      "terms": [
+        { "id": "source-code", "title": "Source code" },
+        { "id": "test-result", "title": "Test result" },
+        { "id": "runtime-measurement", "title": "Runtime measurement" },
+        { "id": "tool-result", "title": "Tool result" },
+        { "id": "artifact", "title": "Artifact" },
+        { "id": "document", "title": "Document" },
+        { "id": "human-attestation", "title": "Human attestation" }
+      ]
+    }
+  ],
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "legacyAliases": ["correctness"] },
+    { "id": "code.architecture", "title": "Architecture", "legacyAliases": ["architecture"] },
+    { "id": "security.general", "title": "Security", "legacyAliases": ["security"] },
+    { "id": "security.secrets", "title": "Secrets", "legacyAliases": ["secrets"] },
+    { "id": "security.dependencies", "title": "Dependencies", "legacyAliases": ["dependencies"] },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "legacyAliases": ["authentication-authorization"] },
+    { "id": "security.input-validation", "title": "Input validation", "legacyAliases": ["input-validation"] },
+    { "id": "security.configuration-iac", "title": "Configuration and IaC", "legacyAliases": ["configuration-iac"] },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "legacyAliases": ["boundaries"] },
+    { "id": "security.business-logic", "title": "Business logic" },
+    { "id": "security.attack-coverage", "title": "Attack coverage" },
+    { "id": "performance.general", "title": "Performance", "legacyAliases": ["performance"] },
+    { "id": "change.risk", "title": "Change risk", "legacyAliases": ["risk"] },
+    { "id": "change.test-evidence", "title": "Change test evidence", "legacyAliases": ["test-evidence"] },
+    { "id": "change.scope-discipline", "title": "Change scope discipline", "legacyAliases": ["scope-discipline"] },
+    { "id": "change.architecture-drift", "title": "Change architecture drift", "legacyAliases": ["architecture-drift"] }
+  ]
+}
