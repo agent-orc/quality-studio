@@ -33,8 +33,8 @@ or `path`, with discovered, scanned, and omitted file counts plus a reason for
 partial coverage. Partial scans never replace the repository-owned inventory,
 suppress findings that depend on proving an absence across the repository, and
 cannot become a clean security-sensor verdict. Positive findings derived from
-scanned code remain available. The CLI exits with code `3` for a partial result
-that has no blocking finding.
+scanned code retain their normal block or warning verdict. The CLI exits with
+code `3` for a partial result that has no blocking finding.
 
 ## Contract
 
