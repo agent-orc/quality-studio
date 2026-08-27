@@ -12,6 +12,7 @@ using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using QualityStudio.Analysis;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
@@ -54,6 +55,9 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
+builder.Services.AddSingleton(serviceProvider =>
+    new QualityAnalysisRunner(serviceProvider.GetServices<IReviewSensor>()));
+builder.Services.AddSingleton<AnalysisCoreApiAdapter>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
@@ -955,7 +959,8 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
 }
 
 static async Task<IResult> SensorScan(HttpContext context, string id, string? path,
-    RepositoryRegistry repositories, SensorRegistry sensors, ILogger<Program> logger,
+    RepositoryRegistry repositories, SensorRegistry sensors, AnalysisCoreApiAdapter analysisCore,
+    ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
@@ -969,11 +974,13 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
     }
 
     var scope = string.IsNullOrWhiteSpace(path) ? SensorScope.Repository : SensorScope.Path;
-    var result = await sensor.RunAsync(new SensorScanRequest(
-        registration.RootPath,
+    var result = await analysisCore.RunSensorAsync(
+        registration,
+        repositoryConfiguration,
         scope,
         path,
-        repositoryConfiguration.Configuration), cancellationToken);
+        persistMetadata: true,
+        cancellationToken);
     logger.LogInformation(new EventId(1202, "SensorScanCompleted"),
         "Ran sensor {SensorId} for repository {RepositoryId}; Available={Available}, Findings={FindingCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
         sensor.Id, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);

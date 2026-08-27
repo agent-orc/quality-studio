@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "analysis-core-package",
   "title": "In-process Analysis Core Package",
-  "summary": "Implemented the first package slice for Quality Studio analysis: a stable in-process runner, Quality Studio finding envelopes, NuGet metadata and README, a real quality-cli consumer, and removal of the Agent Studio HTTP client from the core. The core is useful without the UI. Repository extraction is explicitly deferred pending operator criteria.",
+  "summary": "Implemented the next single analysis-core recommendation slice: QualityStudio.Api now executes generic named sensor scans and pre-review deterministic evidence through the stable in-process runner while preserving API contracts. The package/CLI proof remains intact, the core is useful without the UI, and repository extraction remains deferred pending operator criteria.",
   "entrypoint": "index.html",
   "status": "implemented",
-  "phase": "first-slice",
+  "phase": "api-facade-slice",
   "updatedAt": "2026-08-27T00:00:00Z",
   "sourceTaskKeys": [
     "QS-91",
@@ -28,15 +28,16 @@
     ]
   },
   "delivery": {
-    "currentSlice": "Publishable in-process analysis package with one quality-cli proof consumer",
+    "currentSlice": "QualityStudio.Api named-analysis execution through the in-process package facade",
     "completed": [
       "NuGet project metadata and English package README",
       "stable named-analysis runner returning Quality Studio finding envelopes",
       "quality-cli in-process proof command",
-      "Agent Studio HTTP transport moved out of the core package"
+      "Agent Studio HTTP transport moved out of the core package",
+      "API generic named-sensor scans run through QualityAnalysisRunner",
+      "API pre-review deterministic evidence runs through QualityAnalysisRunner with compatibility projection"
     ],
     "followUp": [
-      "API-wide migration to the package facade",
       "quality and quality-cli consolidation",
       "QS-90 rule-library schema binding",
       "package-feed publication automation",
@@ -49,6 +50,9 @@
     "src/AgentOrchestrator.CodeQuality/QualityAnalysisRunner.cs",
     "src/AgentOrchestrator.CodeQuality/README.md",
     "src/quality-cli/Program.cs",
-    "src/QualityStudio.Api/AgentStudioTaskClient.cs"
+    "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+    "src/QualityStudio.Api/AnalysisCoreApiAdapter.cs",
+    "src/QualityStudio.Api/Program.cs",
+    "src/QualityStudio.Api/ReviewJobs.cs"
   ]
 }

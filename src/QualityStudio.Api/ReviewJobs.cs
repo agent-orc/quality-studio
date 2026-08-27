@@ -132,6 +132,7 @@ public sealed class ReviewJobService : BackgroundService
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly IReviewExecutorFactory executors;
     private readonly SensorRegistry sensorRegistry;
+    private readonly AnalysisCoreApiAdapter analysisCore;
     private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
@@ -139,7 +140,7 @@ public sealed class ReviewJobService : BackgroundService
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
-        ReviewModelCatalog modelCatalog)
+        AnalysisCoreApiAdapter analysisCore, ReviewModelCatalog modelCatalog)
     {
         this.repositories = repositories;
         this.options = options.Value;
@@ -149,6 +150,7 @@ public sealed class ReviewJobService : BackgroundService
         this.executors = executors;
         this.dashboards = dashboards;
         this.sensorRegistry = sensorRegistry;
+        this.analysisCore = analysisCore;
         this.modelCatalog = modelCatalog;
     }
 
@@ -453,13 +455,10 @@ public sealed class ReviewJobService : BackgroundService
             item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
         try
         {
-            item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
-                .CollectAsync(
-                    item.Repository.RootPath,
-                    (item.Repository.Sensors ?? [])
-                        .Where(sensor => sensor.Enabled)
-                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
-                        .ToArray(),
+            item.DeterministicEvidence = await analysisCore
+                .CollectDeterministicEvidenceAsync(
+                    item.Repository,
+                    item.Repository.Sensors ?? [],
                     linked.Token)
                 .ConfigureAwait(false);
             if (item.HasCap)
