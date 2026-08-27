@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C and slices S1–S5</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-63</span>
@@ -205,6 +205,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#guardrails">Acceptance guardrails</a></li>
       <li><a href="#sources">Evidence sources</a></li>
+      <li><a href="#implementation">Implementation</a></li>
     </ol>
   </nav>
 
@@ -463,7 +464,7 @@
     <h2><span class="no">08</span>Implementation slices</h2>
 
     <article class="slice">
-      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill queued">approve first</span></header>
+      <header><h3>S1 · One snapshot-bound preflight</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Introduce <code>PreflightResult v1</code> by extending the sensor result/provenance contract. Move all deterministic and security collection to <code>ReviewJobService</code> before file scheduling; execute each configured check once; cache by subject/config/tool hashes; persist under the existing run directory; project findings by subject.</p>
       <ul>
         <li>Default-enable only sensors with complete repository configuration; required versus optional is explicit.</li>
@@ -475,7 +476,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill queued">approve</span></header>
+      <header><h3>S2 · Compiler, package, and budget gates</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Configure repository-owned commands for .NET build/SARIF, tsc, ngc, Angular production build, batched NuGet audit, npm audit, and existing Gitleaks. Add the selective disposition matrix and compact prompt projection.</p>
       <ul>
         <li>Compiler errors block only affected file/project operations; warnings continue.</li>
@@ -487,7 +488,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S3 · Lint and style baselines</h3><span class="pill queued">approve</span></header>
+      <header><h3>S3 · Lint and style baselines</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Pin ESLint, Angular/TypeScript plugins, and the SARIF formatter; add flat config and scripts. Pin Prettier and add a check script. Add a root .NET EditorConfig/format command. Capture fingerprinted current baselines and apply changed-file/changed-line gating.</p>
       <ul>
         <li>Separate correctness/security lint rules from formatting/style rules in disposition.</li>
@@ -498,7 +499,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill queued">approve</span></header>
+      <header><h3>S4 · Complexity as a thresholded metric</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Enable CA1502/CA1505 through <code>CodeMetricsConfig.txt</code> and <code>AdditionalFiles</code>; add ESLint's built-in complexity rule. Feed distributions and breached top-N symbols into the existing Project Dashboard/hotspot response.</p>
       <ul>
         <li>Choose initial thresholds after recording the current distribution; store threshold/config hash with findings.</li>
@@ -509,7 +510,7 @@
     </article>
 
     <article class="slice">
-      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill queued">approve</span></header>
+      <header><h3>S5 · Economy evidence and rollout</h3><span class="pill done">decided</span></header>
       <p><b>Scope:</b> Shadow the preflight on matched snapshots, then enable gates in order: compilers, package/budget, lint new-debt, complexity warning. Publish one comparison report from the existing estimate and usage contracts.</p>
       <ul>
         <li>Record per run: check wall time, cache hits, finding counts, model calls planned/blocked/executed, prompt characters before/after compaction, actual input/output/cached/reasoning tokens, and estimate deviation.</li>
@@ -577,7 +578,28 @@
     </div>
   </section>
 
-  <footer>Decision dossier for QS-63 · status: decision pending · phase: decision ready · updated 11 August 2026</footer>
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation</h2>
+
+    <article class="slice">
+      <header><h3>2026-08-27 · QS-72 · S1 · One snapshot-bound preflight</h3><span class="pill done">landed</span></header>
+      <p>The API now collects every enabled analyzer and security sensor once into a versioned, immutable <code>PreflightSnapshot</code> before model scheduling. Each normalized check records required/optional policy, pass/findings/unavailable/failed status, duration, subject/configuration/tool/result hashes, command identity, full standalone findings, and existing sensor provenance. The snapshot is persisted atomically as <code>.quality/runs/&lt;run-id&gt;/preflight.json</code> and exposed at <code>GET /api/review/runs/&lt;run-id&gt;/preflight</code> (including the repository-qualified route).</p>
+      <ul>
+        <li>Review estimates render the exact snapshot projection used by execution. Deterministic and security projections reuse the collected facts; Gitleaks receives count/hash-only prompt treatment, other machine findings use compact identity/location fields, clean checks contribute no prose, and every static projection is bounded to 2,000 characters.</li>
+        <li>Run status exposes preflight state, check/unavailable counts, result hash, duration, and blocked-file count. A required unavailable/failed check produces <code>blocked-preflight</code> with zero model calls; optional unavailability remains a visible coverage gap without a grade cap.</li>
+        <li>Before each operation the backend re-hashes the complete planned subject and the configured sensor set. A mismatch recollects and atomically replaces the snapshot before another model call. Non-terminal process recovery recollects instead of trusting tool state from the previous process.</li>
+        <li>Fresh repository registrations enable only complete built-in checks by default; configuration-dependent SARIF/Roslyn/ESLint/TypeScript/coverage sensors remain disabled until explicitly configured. <code>ReviewJobs:UseSnapshotPreflight=false</code> restores the prior collection path.</li>
+        <li>Acceptance coverage proves one invocation across a multi-file plus aggregate sweep, stable canonical hashes, source/config invalidation, durable reload and API projection, required/optional unavailable behavior, zero-call blocking, and prompt redaction/bounds. Release build and the portable .NET suite are green.</li>
+      </ul>
+    </article>
+
+    <div class="box warn">
+      <h4>Delivery boundary after S1</h4>
+      <p>S2–S4 were not declared delivered in QS-72: they require the repository-owned compiler/budget command matrix, the currently failing Angular 480 kB production-budget baseline, pinned lint/style tooling and baselines, then measured complexity distributions and thresholds in that priority order. S5 remains evidence-gated by its required 30 matched real review operations; this checkout has no committed usage sample from which to publish that result. None of these slices was skipped as an operator-decision gate, and no routing/model floor was changed.</p>
+    </div>
+  </section>
+
+  <footer>Decision dossier for QS-63 · status: decided · phase: S1 implementation delivered; S2–S5 follow-up · updated 27 August 2026</footer>
 </main>
 </body>
 </html>
