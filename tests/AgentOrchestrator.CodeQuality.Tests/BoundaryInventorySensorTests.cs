@@ -313,6 +313,7 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Large_synthetic_tree_scales_without_route_times_file_rescans()
     {
         const int sourceFileCount = 1500;
