@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "decided",
   "phase": "implementation",
-  "updatedAt": "2026-08-24T08:32:20Z",
+  "updatedAt": "2026-08-27T01:45:26Z",
   "sourceTaskKeys": [
     "QS-62",
     "QS-71",
@@ -54,10 +54,10 @@
     "QS-85"
   ],
   "implementationState": {
-    "verifiedAt": "2026-08-24T08:32:20Z",
-    "verifiedByTask": "QS-85",
+    "verifiedAt": "2026-08-27T01:45:26Z",
+    "verifiedByTask": "QS-71",
     "status": "documented",
-    "integrationBase": "origin/main@e31089ccd5640bb2742a25a2a08a9a3120534656",
+    "integrationBase": "origin/main@f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
     "wave1": {
       "taskKey": "QS-71",
       "sourceCommits": [
@@ -82,10 +82,18 @@
         "conflicts": "One conflict in .github/workflows/build.yml; resolved in favour of main, whose commit 312c94c already carries the same Category!=MachineBound test filter."
       }
     },
+    "wave3": {
+      "taskKey": "QS-71",
+      "status": "verified",
+      "verifiedAt": "2026-08-27T01:45:26Z",
+      "rebasedOnto": "f7557fb07a7df81cc4a5ba56c8a9fdd2bfb811d7",
+      "conflicts": "None; the recovered QS-71 commits were already direct descendants of the freshly fetched origin/main.",
+      "evidence": "Release build clean (0 warnings, 0 errors), 221 passing .NET tests across two assemblies with one intentionally skipped live-provider test, a successful production frontend build, 46 of 46 Karma browser tests, 5 of 5 dev-stack launcher tests, a passing repository security scan with no block or warning findings, and a valid Token Economy catalogue snapshot."
+    },
     "nextSlice": {
       "status": "none",
       "reason": "All five approved run-persistence dossier slices are delivered and documented."
     }
   },
-  "editedBy": "QS-85 implementation verification"
+  "editedBy": "QS-71 final integration verification"
 }
