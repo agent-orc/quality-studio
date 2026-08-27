@@ -55,6 +55,9 @@ button { color: inherit; }
 .tok-property,.tok-attribute,.tok-selector{color:var(--syntax-property)}.tok-variable{color:var(--syntax-variable)}
 .tok-heading{color:var(--syntax-heading);font-weight:700}.tok-strong{color:var(--syntax-strong);font-weight:700}.tok-emphasis{color:var(--syntax-emphasis);font-style:italic}
 
+.tok-selected{background:var(--studio-accent-soft);text-decoration:underline var(--studio-accent) var(--studio-space-1)}
+.tok-overlap{background:color-mix(in srgb,var(--studio-severity-high) 26%,transparent);text-decoration:underline var(--studio-severity-high) var(--studio-space-1)}
+
 /* Shared workbench primitives reused across shell panes (Explorer, Editor, ReviewPanel). */
 .pane { min-width: 0; min-height: 0; overflow: hidden; background: var(--studio-bg-surface); }
 .pane-header { height: 60px; padding: 11px 13px; border-bottom: 1px solid var(--studio-border-soft); display: flex; align-items: center; justify-content: space-between; }

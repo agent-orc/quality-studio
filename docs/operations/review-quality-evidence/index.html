@@ -177,7 +177,7 @@
     <h1>Make every review finding inspectable, reproducible, and learnable</h1>
     <p class="lede">Quality Studio already stores exact ranges, stable identities, lifecycle decisions, analyzer provenance, token usage, and restart-safe run progress. The missing layer is a coherent finding evidence contract and a presentation that exposes it. This dossier defines that target and the slices to reach it without discarding the working foundations.</p>
     <div class="meta">
-      <span><b>Status</b> Decision pending</span>
+      <span><b>Status</b> Decided</span>
       <span><b>Recommendation</b> Approve option C</span>
       <span><b>Evidence cut</b> 11 August 2026</span>
       <span><b>Source card</b> QS-61</span>
@@ -208,6 +208,7 @@
       <li><a href="#models">Per-model review-quality evidence</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#acceptance">Decision guardrails</a></li>
+      <li><a href="#implementation">Implementation log</a></li>
     </ol>
   </nav>
 
@@ -629,6 +630,22 @@
         <tr><td><b>Both themes and keyboard paths work</b></td><td>Exact-span, overlap chooser, finding detail, assessment, and suppression preview have automated UI coverage and retained light/dark evidence.</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="implementation">
+    <h2><span class="no">11</span>Implementation log</h2>
+    <p class="dim">Append-only. Each entry records what landed, when, and under which implementation card without rewriting the decisions above.</p>
+
+    <article class="slice">
+      <header><span class="pill done">S1 &middot; delivered</span><h3>2026-08-27 &middot; QS-70 &middot; Exact-span finding highlight on review-meta v2</h3></header>
+      <p><b>What landed:</b> the Editor now segments syntax tokens at the one-based inclusive boundaries already carried by <code>ReviewFinding.locations</code>. Selecting a finding highlights its exact columns, intersections of distinct findings receive an explicit overlap treatment, and the existing whole-line tint remains secondary. Exact spans expose accessible labels, stale findings do not highlight current source, card and detail locations include <code>path:line:column</code>, and card selection continues to center the primary anchor through the existing virtual-scroll projection. The implementation uses central Studio theme, severity, and spacing tokens; no backend or schema contract changed.</p>
+      <p><b>Tests and evidence added:</b> pure segmentation coverage for single-line, multi-line, Unicode including a surrogate pair, end-of-line clamping, overlapping and duplicate locations, syntax-token preservation, and empty lines; component coverage for virtualized selected spans, accessible labels, stale-source suppression, and location formatting; and a Playwright light/dark evidence script that asserts selected and overlap text while proving the rendered segments reconstruct the original source.</p>
+    </article>
+
+    <div class="box warn">
+      <h4>Follow-up slices</h4>
+      <p>S2 (review-meta v3 evidence and execution provenance), S3 (assessment, resolution, and scoped suppression), S4 (immutable terminal review history), and S5 (TE-38 v2 bridge and evidence-cutoff export) remain unimplemented on this branch and should be delivered as their own cards in that priority order. The operator blanket approval is recorded as <code>status: "decided"</code> in the dossier workbench, so none requires another decision gate.</p>
+    </div>
   </section>
 
   <footer>

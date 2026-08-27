@@ -107,6 +107,11 @@ describe('ReviewPanel session flow', () => {
     expect(component.locationLabel(openFinding)).toContain('source changed');
   });
 
+  it('shows exact start and end columns in finding location labels', () => {
+    expect(component.locationLabel(openFinding)).toBe('src/A.cs:8:1-10:2');
+    expect(component.locationLabel(acceptedFinding)).toBe('src/B.cs:4:1');
+  });
+
   it('maps operator disposition to lifecycle state and undoes through optimistic concurrency', async () => {
     component.openDisposition('accept');
     component.stateReason.set('Valid issue.');

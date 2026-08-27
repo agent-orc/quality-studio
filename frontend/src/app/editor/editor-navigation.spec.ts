@@ -52,6 +52,8 @@ describe('Editor finding navigation', () => {
     expect(component.isSelectedLine(11)).toBeFalse();
     expect(component.codeScrollTop()).toBeGreaterThan(0);
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(3);
+    expect(fixture.nativeElement.querySelectorAll('.tok-selected').length).toBe(3);
+    expect(fixture.nativeElement.querySelector('.tok-selected')?.getAttribute('aria-label')).toContain('selected finding, line 8');
     expect(fixture.nativeElement.querySelector('[data-finding-fingerprint]')?.getAttribute('data-finding-fingerprint')).toBe(finding.fingerprint);
   });
 
@@ -61,5 +63,6 @@ describe('Editor finding navigation', () => {
     expect(component.selectedLocation()).toBeNull();
     expect(component.isSelectedLine(8)).toBeFalse();
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('.tok-selected, .tok-overlap').length).toBe(0);
   });
 });
