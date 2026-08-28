@@ -4,6 +4,7 @@ using CodingAgentRunner.Abstractions;
 using CodingAgentRunner.Events;
 using CodingAgentRunner.Execution;
 using CodingAgentRunner.Metrics;
+using CodingAgentRunner.Model;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -80,7 +81,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
                 Model = Model,
                 ThinkingLevel = _thinkingLevel,
                 PermissionMode = "read-only",
-                ContextMode = "shared",
+                ContextMode = CliContextModes.Clean,
             }, cancellationToken))
             {
                 metrics.Observe(runEvent);
