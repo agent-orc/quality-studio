@@ -57,3 +57,36 @@ The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued
 `.quality/runs/` is ignored by Git because it is disposable orchestration working
 data. Review sidecars remain the committed current-state truth, while canonical
 run reports preserve the historical truth of each terminal execution.
+
+## Tracked run-history archive
+
+`.quality/run-history/YYYY-MM/<runId>/` is the tracked archive contract for historical
+run truth. It never replaces the ignored recovery journal, and the API only writes
+files: it does not commit, push, merge, or manage worktrees.
+
+- `run.json` is the create-only run record: identity, subject, targets with their
+  enqueue-time hashes, configuration, cap, estimate, observed source revision with an
+  explicit dirty flag, and provenance (`live-dual-write` or `migrated-from-run-store-v0`).
+- `operations.jsonl` is append-only. Each line carries the stable `operationId`, its plan
+  ordinal, the attempt it ran in, hashes, the result sidecar, and the typed verdict.
+- `findings.jsonl` is append-only. Each line is what one operation observed for a stable
+  fingerprint, including the lifecycle state at that time. It never owns current lifecycle
+  state; `.quality/findings/state.json` keeps that role.
+- `attempts/NNNN.json` is one create-only record per stopped attempt. A capped attempt is a
+  stop, not the end of the logical run: resuming writes the next number and never rewrites
+  an earlier one. The highest valid attempt number is the latest state of the run.
+
+Every archive document carries `$schema` and `schemaVersion`, validated against
+[`run-record.v1`](../schemas/run-record.v1.schema.json),
+[`run-operation.v1`](../schemas/run-operation.v1.schema.json),
+[`run-finding.v1`](../schemas/run-finding.v1.schema.json), and
+[`run-attempt.v1`](../schemas/run-attempt.v1.schema.json). An operation id is derived from
+the run id and the operation key (a target path, or `@aggregate` for the container review),
+so recovering the same operation reproduces the same identity. An operational outcome of
+`done` never means a quality pass: the typed verdict keeps its producer's semantics.
+Corrupt archive content is surfaced as a typed `history-corrupt` failure rather than
+silently omitted, and the application never deletes tracked history.
+
+`ReviewRunArchiveStore` owns this contract today. Writing archives from live runs, the
+usage-ledger `operationId` join, history and diff APIs, and the history UI follow in the
+remaining slices of the run-persistence dossier.

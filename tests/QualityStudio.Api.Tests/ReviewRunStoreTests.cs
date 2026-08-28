@@ -120,6 +120,7 @@ public sealed class ReviewRunStoreTests
             Assert.Equal(1, cappedReport.Run.Revision);
             Assert.Equal("capped", cappedReport.Run.State);
             Assert.Equal("partial", cappedReport.Run.Completeness);
+            Assert.Equal(1, Assert.Single(fixture.Store.LoadAll()).Status.Attempt);
 
             using var resume = await client.PostAsJsonAsync(
                 $"/api/review/runs/{accepted.GetProperty("id").GetString()}/resume",
@@ -135,6 +136,8 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("test-agent", fake.CliType);
             Assert.Equal("claude-sonnet-5", fake.Model);
             Assert.Equal("high", fake.ThinkingLevel);
+            // The resumed sweep is the second attempt of one logical run, not a second run.
+            Assert.Equal(2, Assert.Single(fixture.Store.LoadAll()).Status.Attempt);
             var completedReport = reportStore.Load(accepted.GetProperty("id").GetString()!);
             Assert.Equal(2, completedReport.Run.Revision);
             Assert.Equal("complete", completedReport.Run.Completeness);
