@@ -1,0 +1,38 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "manifestHash": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+  },
+  "profile": {
+    "id": "security-sensor-agent",
+    "version": "1.0.0",
+    "promptHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reviewInputsHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "producer": {
+    "kind": "deterministic-sensor",
+    "agent": "gitleaks",
+    "runId": "quality-run-2"
+  },
+  "evidenceStatus": "unavailable",
+  "evidence": [],
+  "aspects": [
+    {
+      "aspectId": "security.secrets",
+      "assessment": "inconclusive"
+    }
+  ],
+  "assessment": "inconclusive",
+  "findings": [],
+  "extensions": {
+    "com.acme:resilience.backpressure": { "checked": true }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1.0.0",
+  "axes": [
+    {
+      "id": "producer-kind",
+      "description": "Who or what produced an observation. Always explicit; absence never means agent.",
+      "terms": [
+        { "id": "agent", "description": "A model-driven reviewer produced the observation." },
+        { "id": "deterministic-sensor", "description": "A non-model tool or analyzer produced the observation." },
+        { "id": "human", "description": "A human reviewer produced the observation." },
+        { "id": "imported", "description": "The observation was migrated from a legacy contract." },
+        { "id": "unknown", "description": "The producer could not be determined from available context." }
+      ]
+    },
+    {
+      "id": "evidence-status",
+      "description": "Coverage of the evidence backing an observation. Describes coverage only; it is not a pass or block.",
+      "terms": [
+        { "id": "available", "description": "All expected evidence was collected." },
+        { "id": "partial", "description": "Some expected evidence was collected." },
+        { "id": "unavailable", "description": "No expected evidence was collected." }
+      ]
+    },
+    {
+      "id": "assessment",
+      "description": "What the evidence establishes for a review or an aspect.",
+      "terms": [
+        { "id": "pass", "description": "The evidence supports a positive assessment." },
+        { "id": "concern", "description": "The evidence supports a qualified, non-blocking assessment." },
+        { "id": "fail", "description": "The evidence supports a negative assessment." },
+        { "id": "inconclusive", "description": "The evidence does not support a definitive assessment." },
+        { "id": "not-applicable", "description": "The aspect does not apply to this subject." },
+        { "id": "not-assessed", "description": "The aspect was not evaluated." }
+      ]
+    },
+    {
+      "id": "change",
+      "description": "Direction of a before/after comparison. Used only for such comparisons.",
+      "terms": [
+        { "id": "improved", "description": "The comparison shows improvement." },
+        { "id": "regressed", "description": "The comparison shows regression." },
+        { "id": "mixed", "description": "The comparison shows both improvement and regression." },
+        { "id": "unchanged", "description": "The comparison shows no meaningful difference." },
+        { "id": "no-observed-delta", "description": "No comparable prior observation exists." },
+        { "id": "inconclusive", "description": "The comparison cannot be evaluated from available evidence." }
+      ]
+    },
+    {
+      "id": "decision",
+      "description": "An optional policy output with a required policyRef. Never supplied by a raw finding.",
+      "terms": [
+        { "id": "allow", "description": "Policy permits the change or subject to proceed." },
+        { "id": "warn", "description": "Policy flags the change or subject without blocking it." },
+        { "id": "block", "description": "Policy prevents the change or subject from proceeding." },
+        { "id": "defer", "description": "Policy defers the disposition to a later or human decision." }
+      ]
+    },
+    {
+      "id": "severity",
+      "description": "Retains current ordering and meaning; scoring weights stay in policy.",
+      "terms": [
+        { "id": "critical", "description": "The most severe classification." },
+        { "id": "high", "description": "A high-severity classification." },
+        { "id": "medium", "description": "A medium-severity classification." },
+        { "id": "low", "description": "A low-severity classification." },
+        { "id": "info", "description": "An informational classification with no severity implication." }
+      ]
+    },
+    {
+      "id": "lifecycle",
+      "description": "Lives in lifecycle events, not observations.",
+      "terms": [
+        { "id": "open", "description": "The issue is unresolved and awaiting action." },
+        { "id": "accepted-risk", "description": "The issue is knowingly accepted.", "aliases": ["accepted"] },
+        { "id": "waived", "description": "The issue is waived by policy or reviewer decision." },
+        { "id": "false-positive", "description": "The issue does not represent a real defect.", "aliases": ["falsePositive"] },
+        { "id": "resolved", "description": "The issue has been fixed." }
+      ]
+    },
+    {
+      "id": "evidence-kind",
+      "description": "Each item has a locator or artifact reference, summary, and digest when content is available.",
+      "terms": [
+        { "id": "source-code", "description": "Evidence located in source code." },
+        { "id": "test-result", "description": "Evidence from a test execution result." },
+        { "id": "runtime-measurement", "description": "Evidence from a runtime measurement." },
+        { "id": "tool-result", "description": "Evidence from a deterministic tool or scanner result." },
+        { "id": "artifact", "description": "Evidence referencing a stored artifact." },
+        { "id": "document", "description": "Evidence referencing a document." },
+        { "id": "human-attestation", "description": "Evidence attested by a human reviewer." }
+      ]
+    }
+  ],
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "description": "Code prompt and sample.", "migrationAlias": "correctness" },
+    { "id": "code.architecture", "title": "Architecture", "description": "Required project code aspect.", "migrationAlias": "architecture" },
+    { "id": "security.general", "title": "Security", "description": "File security prompt.", "migrationAlias": "security" },
+    { "id": "security.secrets", "title": "Secrets", "description": "Project security profile.", "migrationAlias": "secrets" },
+    { "id": "security.dependencies", "title": "Dependencies", "description": "Project profile and dependency sensor.", "migrationAlias": "dependencies" },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "description": "Project security profile.", "migrationAlias": "authentication-authorization" },
+    { "id": "security.input-validation", "title": "Input validation", "description": "Project security profile.", "migrationAlias": "input-validation" },
+    { "id": "security.configuration-iac", "title": "Configuration and IaC", "description": "Project security profile.", "migrationAlias": "configuration-iac" },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "description": "Boundary inventory.", "migrationAlias": "boundaries" },
+    { "id": "security.business-logic", "title": "Business logic", "description": "Deep-flow review." },
+    { "id": "security.attack-coverage", "title": "Attack coverage", "description": "Attack matrix." },
+    { "id": "performance.general", "title": "Performance", "description": "Performance prompt.", "migrationAlias": "performance" },
+    { "id": "change.risk", "title": "Change risk", "description": "Change judgement.", "migrationAlias": "risk" },
+    { "id": "change.test-evidence", "title": "Change test evidence", "description": "Change judgement.", "migrationAlias": "test-evidence" },
+    { "id": "change.scope-discipline", "title": "Change scope discipline", "description": "Change judgement.", "migrationAlias": "scope-discipline" },
+    { "id": "change.architecture-drift", "title": "Change architecture drift", "description": "Change judgement.", "migrationAlias": "architecture-drift" }
+  ]
+}
