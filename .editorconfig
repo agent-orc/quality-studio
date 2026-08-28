@@ -1,0 +1,22 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+[*.{json,mjs,cjs,js,ts,html,css,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Complexity thresholds (docs/operations/static-analysis/index.html, slice S4).
+# CA1502 (cyclomatic complexity) and CA1505 (maintainability index) are off by default; scope them
+# to production C# only so generated/test code does not need per-member suppression.
+[src/**.cs]
+dotnet_diagnostic.CA1502.severity = warning
+dotnet_diagnostic.CA1505.severity = warning
