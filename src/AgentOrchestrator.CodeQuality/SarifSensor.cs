@@ -14,18 +14,27 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
         "QualityStudio:Security:AllowCommandBackedAnalyzers to run a configured 'command'.";
     private readonly ISensorCommandRunner commandRunner;
     private readonly Func<bool> allowCommandBackedAnalyzers;
+    private readonly AnalyzerProfileRegistry? profiles;
     private readonly string id;
 
-    public SarifSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
-        : this("sarif", commandRunner, allowCommandBackedAnalyzers)
+    public SarifSensor(
+        ISensorCommandRunner? commandRunner = null,
+        Func<bool>? allowCommandBackedAnalyzers = null,
+        AnalyzerProfileRegistry? profiles = null)
+        : this("sarif", commandRunner, allowCommandBackedAnalyzers, profiles)
     {
     }
 
-    internal SarifSensor(string id, ISensorCommandRunner? commandRunner, Func<bool>? allowCommandBackedAnalyzers = null)
+    internal SarifSensor(
+        string id,
+        ISensorCommandRunner? commandRunner,
+        Func<bool>? allowCommandBackedAnalyzers = null,
+        AnalyzerProfileRegistry? profiles = null)
     {
         this.id = id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
         this.allowCommandBackedAnalyzers = allowCommandBackedAnalyzers ?? (() => false);
+        this.profiles = profiles;
     }
 
     public string Id => id;
@@ -73,7 +82,18 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             return Unavailable(request, exception.Message);
         }
 
-        if (configuration.TryGetValue("command", out var configuredCommand) &&
+        if (configuration.TryGetValue("profileId", out var configuredProfileId) &&
+            !string.IsNullOrWhiteSpace(configuredProfileId))
+        {
+            if (profiles is null || !profiles.TryGet(configuredProfileId, out var profile))
+                return Unavailable(request, $"Unknown analyzer profile '{configuredProfileId}'.");
+
+            var runResult = await RunAndCheckReportAsync(
+                request, profile.Executable, profile.Expand(root, target, reportPath),
+                workingDirectory, reportPath, configuredReport, cancellationToken).ConfigureAwait(false);
+            if (runResult is not null) return runResult;
+        }
+        else if (configuration.TryGetValue("command", out var configuredCommand) &&
             !string.IsNullOrWhiteSpace(configuredCommand))
         {
             if (!allowCommandBackedAnalyzers())
@@ -90,24 +110,10 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
                 return Unavailable(request, exception.Message);
             }
 
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
-                if (File.Exists(reportPath)) File.Delete(reportPath);
-                var output = await commandRunner.RunAsync(
-                    command[0], command.Skip(1).ToArray(), workingDirectory, cancellationToken).ConfigureAwait(false);
-                if (!File.Exists(reportPath))
-                {
-                    return Unavailable(request,
-                        $"{command[0]} exited with code {output.ExitCode} without producing SARIF report " +
-                        $"'{configuredReport}'. {AnalyzerCommand.OutputDetail(output)}");
-                }
-            }
-            catch (Exception exception) when (
-                exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
-            {
-                return Unavailable(request, $"{Id} is unavailable: {exception.Message}");
-            }
+            var runResult = await RunAndCheckReportAsync(
+                request, command[0], command.Skip(1).ToArray(),
+                workingDirectory, reportPath, configuredReport, cancellationToken).ConfigureAwait(false);
+            if (runResult is not null) return runResult;
         }
         else if (!File.Exists(reportPath))
         {
@@ -133,6 +139,37 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             exception is JsonException or IOException or InvalidDataException or InvalidOperationException)
         {
             return Unavailable(request, $"SARIF report is unavailable: {exception.Message}");
+        }
+    }
+
+    /// <summary>Runs an analyzer executable and confirms it produced the expected report. Returns null on success.</summary>
+    private async Task<SensorScanResult?> RunAndCheckReportAsync(
+        SensorScanRequest request,
+        string executable,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        string reportPath,
+        string configuredReport,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+            if (File.Exists(reportPath)) File.Delete(reportPath);
+            var output = await commandRunner.RunAsync(
+                executable, arguments, workingDirectory, cancellationToken).ConfigureAwait(false);
+            if (!File.Exists(reportPath))
+            {
+                return Unavailable(request,
+                    $"{executable} exited with code {output.ExitCode} without producing SARIF report " +
+                    $"'{configuredReport}'. {AnalyzerCommand.OutputDetail(output)}");
+            }
+            return null;
+        }
+        catch (Exception exception) when (
+            exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+        {
+            return Unavailable(request, $"{Id} is unavailable: {exception.Message}");
         }
     }
 

@@ -37,7 +37,22 @@ public sealed class ApiSecurityOptions
     /// </summary>
     public bool AllowCommandBackedAnalyzers { get; set; }
 
+    /// <summary>
+    /// Host-owned analyzer profiles: an immutable executable and argument template a sensor configuration
+    /// can reference by id via "profileId" instead of a caller-supplied "command" string
+    /// (docs/operations/security/index.html, S0). Only an operator with access to this configuration file
+    /// can add a profile; API clients can only select an existing profile id.
+    /// </summary>
+    public List<AnalyzerProfileConfiguration> AnalyzerProfiles { get; set; } = [];
+
     public List<ApiClientOptions> Clients { get; set; } = [];
+}
+
+public sealed class AnalyzerProfileConfiguration
+{
+    public string Id { get; set; } = string.Empty;
+    public string Executable { get; set; } = string.Empty;
+    public string[] Arguments { get; set; } = [];
 }
 
 public sealed class ApiClientOptions

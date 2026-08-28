@@ -42,17 +42,20 @@ public sealed class RepositoryRegistry
     private readonly RepositoryOptions legacyOptions;
     private readonly string[] allowedRoots;
     private readonly IReadOnlyList<string> supportedSensors;
+    private readonly AnalyzerProfileRegistry analyzerProfiles;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
     private readonly SemaphoreSlim gate = new(1, 1);
     private List<RepositoryRegistration> entries;
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
-        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex)
+        SensorRegistry sensors, AnalyzerProfileRegistry analyzerProfiles, ILogger<RepositoryRegistry> logger,
+        ReviewMetaIndex metaIndex)
     {
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
+        this.analyzerProfiles = analyzerProfiles;
         this.logger = logger;
         this.metaIndex = metaIndex;
         if (legacyOptions.AllowedRoots.Length == 0)
@@ -302,6 +305,22 @@ public sealed class RepositoryRegistry
                 "Command-backed analyzer configuration is disabled");
         }
 
+        // A "profileId" resolves to a host-owned, immutable executable and argument template
+        // (docs/operations/security/index.html, S0) -- unlike "command" it never carries caller-controlled
+        // executable/argument data, so it is validated for existence but not gated behind the opt-in flag.
+        foreach (var sensor in sensors)
+        {
+            if (sensor.Configuration is not null &&
+                sensor.Configuration.TryGetValue("profileId", out var profileId) &&
+                !string.IsNullOrWhiteSpace(profileId) &&
+                !analyzerProfiles.Contains(profileId))
+            {
+                throw new RepositoryRegistryValidationException(
+                    $"Sensor '{sensor.Id}' references unknown analyzer profile '{profileId}'.",
+                    "Unknown analyzer profile");
+            }
+        }
+
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
         if (request.DefaultReviewTokenCap is <= 0 or > 1_000_000_000)
@@ -432,10 +451,7 @@ public sealed class RepositoryRegistry
             {
                 ["workingDirectory"] = ".",
                 ["reportPath"] = ".quality/preflight/eslint.sarif",
-                ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . " +
-                              "--config frontend/eslint.config.mjs " +
-                              "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
-                              "--output-file {reportPath}",
+                ["profileId"] = AnalyzerProfileRegistry.EslintSarifProfileId,
             });
     }
 }

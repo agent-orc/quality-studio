@@ -329,6 +329,68 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Sensor_configuration_referencing_an_unknown_analyzer_profile_is_rejected()
+    {
+        var withUnknownProfile = new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["profileId"] = "does-not-exist",
+                        ["reportPath"] = ".quality/analyzers/sarif.sarif",
+                    },
+                },
+            },
+        };
+
+        using var admin = CreateClient("admin", AdminToken);
+        using var rejected = await admin.PutAsJsonAsync(
+            "/api/repos/default", withUnknownProfile, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        var problem = await rejected.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Unknown analyzer profile", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Sensor_configuration_referencing_a_known_analyzer_profile_is_accepted_without_the_command_backed_opt_in()
+    {
+        var withBuiltInProfile = new
+        {
+            displayName = "Default",
+            rootPath = RepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["profileId"] = "eslint-sarif",
+                        ["reportPath"] = ".quality/analyzers/sarif.sarif",
+                    },
+                },
+            },
+        };
+
+        // application defaults to allowCommandBackedAnalyzers: false -- a profile-backed configuration
+        // is accepted anyway, since a profile never carries a caller-controlled executable or argument list.
+        using var admin = CreateClient("admin", AdminToken);
+        using var accepted = await admin.PutAsJsonAsync(
+            "/api/repos/default", withBuiltInProfile, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+    }
+
+    [Fact]
     public async Task Legacy_persisted_command_backed_sensor_configuration_is_blocked_at_scan_time()
     {
         var legacyHost = Path.Combine(testRoot, "legacy-command-host");

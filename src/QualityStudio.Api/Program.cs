@@ -43,14 +43,21 @@ builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
 builder.Services.AddSingleton<AttackCoverageService>();
 builder.Services.AddSingleton<CoverageSensor>();
+builder.Services.AddSingleton(serviceProvider => new AnalyzerProfileRegistry(
+    serviceProvider.GetRequiredService<IOptions<RepositoryOptions>>().Value.Security.AnalyzerProfiles
+        .Select(profile => AnalyzerProfile.Create(profile.Id, profile.Executable, profile.Arguments))));
 builder.Services.AddSingleton(serviceProvider => new SarifSensor(
-    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider),
+    profiles: serviceProvider.GetRequiredService<AnalyzerProfileRegistry>()));
 builder.Services.AddSingleton(serviceProvider => new RoslynAnalyzerSensor(
-    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider),
+    profiles: serviceProvider.GetRequiredService<AnalyzerProfileRegistry>()));
 builder.Services.AddSingleton(serviceProvider => new EslintAnalyzerSensor(
-    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider),
+    profiles: serviceProvider.GetRequiredService<AnalyzerProfileRegistry>()));
 builder.Services.AddSingleton(serviceProvider => new TypeScriptAnalyzerSensor(
-    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider),
+    profiles: serviceProvider.GetRequiredService<AnalyzerProfileRegistry>()));
 builder.Services.AddSingleton<DotNetBuildSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());

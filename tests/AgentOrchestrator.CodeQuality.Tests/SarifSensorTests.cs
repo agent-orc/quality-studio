@@ -158,6 +158,144 @@ public sealed class SarifSensorTests
     }
 
     [Fact]
+    public async Task SarifSensor_RunsAConfiguredProfileWithoutTheCommandBackedOptIn()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var profile = AnalyzerProfile.Create("stub-sarif", "stub", "--output-file", "{reportPath}");
+            var sensor = new SarifSensor(
+                new SarifWritingRunner(Fixture("eslint.sarif.json")),
+                profiles: new AnalyzerProfileRegistry([profile]));
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["profileId"] = "stub-sarif",
+                    ["reportPath"] = ".quality/analyzers/stub.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Available);
+            var finding = Assert.Single(result.Findings);
+            Assert.Equal("@typescript-eslint/no-floating-promises", finding.RuleId);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SarifSensor_RejectsAnUnknownAnalyzerProfileWithoutStartingAProcess()
+    {
+        var root = CreateRepository("src/a.ts");
+        try
+        {
+            var sensor = new SarifSensor(new ThrowingCommandRunner(), profiles: new AnalyzerProfileRegistry());
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["profileId"] = "does-not-exist",
+                    ["reportPath"] = ".quality/analyzers/unknown.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Equal("Unknown analyzer profile 'does-not-exist'.", result.UnavailableReason);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task EslintSensor_RunsTheBuiltInProfileWithoutTheCommandBackedOptIn()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var sensor = new EslintAnalyzerSensor(
+                new SarifWritingRunner(Fixture("eslint.sarif.json")),
+                profiles: new AnalyzerProfileRegistry());
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["profileId"] = AnalyzerProfileRegistry.EslintSarifProfileId,
+                    ["reportPath"] = ".quality/preflight/eslint.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Available);
+            var finding = Assert.Single(result.Findings);
+            Assert.Equal("eslint", finding.Source!.SensorId);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task TypeScriptSensor_RunsAConfiguredProfileWithoutTheCommandBackedOptIn()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var profile = AnalyzerProfile.Create("stub-tsc", "stub", "--noEmit");
+            var sensor = new TypeScriptAnalyzerSensor(
+                new RecordedRunner(
+                    2, "src/app.ts(7,11): error TS2322: Type 'string' is not assignable to type 'number'.\n"),
+                profiles: new AnalyzerProfileRegistry([profile]));
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["profileId"] = "stub-tsc",
+                    ["reportPath"] = ".quality/analyzers/tsc.txt",
+                    ["workingDirectory"] = "frontend",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Available);
+            Assert.Equal("TS2322", Assert.Single(result.Findings).RuleId);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task TypeScriptSensor_RejectsAnUnknownAnalyzerProfileWithoutStartingAProcess()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var sensor = new TypeScriptAnalyzerSensor(
+                new ThrowingCommandRunner(), profiles: new AnalyzerProfileRegistry());
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["profileId"] = "does-not-exist",
+                    ["reportPath"] = ".quality/analyzers/tsc.txt",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Equal("Unknown analyzer profile 'does-not-exist'.", result.UnavailableReason);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task RoslynSensor_ReportsKnownWarningExactlyOnceWithAnalyzerSource()
     {
         var root = CreateRepository("src/Calculator.cs");

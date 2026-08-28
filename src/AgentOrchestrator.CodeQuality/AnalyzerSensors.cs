@@ -19,14 +19,15 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
         string[] versionArguments,
         ISensorCommandRunner? commandRunner,
         string? toolVersionKey = null,
-        Func<bool>? allowCommandBackedAnalyzers = null)
+        Func<bool>? allowCommandBackedAnalyzers = null,
+        AnalyzerProfileRegistry? profiles = null)
     {
         Id = id;
         this.executable = executable;
         this.versionArguments = versionArguments;
         this.toolVersionKey = toolVersionKey ?? id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
-        sarif = new SarifSensor(id, this.commandRunner, allowCommandBackedAnalyzers);
+        sarif = new SarifSensor(id, this.commandRunner, allowCommandBackedAnalyzers, profiles);
     }
 
     public string Id { get; }
@@ -66,16 +67,22 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
 
 public sealed class RoslynAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
-        : base("roslyn", "dotnet", ["--version"], commandRunner, "dotnet", allowCommandBackedAnalyzers)
+    public RoslynAnalyzerSensor(
+        ISensorCommandRunner? commandRunner = null,
+        Func<bool>? allowCommandBackedAnalyzers = null,
+        AnalyzerProfileRegistry? profiles = null)
+        : base("roslyn", "dotnet", ["--version"], commandRunner, "dotnet", allowCommandBackedAnalyzers, profiles)
     {
     }
 }
 
 public sealed class EslintAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
-        : base("eslint", "node", ["--version"], commandRunner, "node", allowCommandBackedAnalyzers)
+    public EslintAnalyzerSensor(
+        ISensorCommandRunner? commandRunner = null,
+        Func<bool>? allowCommandBackedAnalyzers = null,
+        AnalyzerProfileRegistry? profiles = null)
+        : base("eslint", "node", ["--version"], commandRunner, "node", allowCommandBackedAnalyzers, profiles)
     {
     }
 }
@@ -85,11 +92,16 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
     public const string SensorVersion = "1.0.0";
     private readonly ISensorCommandRunner commandRunner;
     private readonly Func<bool> allowCommandBackedAnalyzers;
+    private readonly AnalyzerProfileRegistry? profiles;
 
-    public TypeScriptAnalyzerSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
+    public TypeScriptAnalyzerSensor(
+        ISensorCommandRunner? commandRunner = null,
+        Func<bool>? allowCommandBackedAnalyzers = null,
+        AnalyzerProfileRegistry? profiles = null)
     {
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
         this.allowCommandBackedAnalyzers = allowCommandBackedAnalyzers ?? (() => false);
+        this.profiles = profiles;
     }
 
     public string Id => "tsc";
@@ -126,11 +138,24 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         var root = Path.GetFullPath(request.RepositoryRoot);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var configuration = request.Configuration ?? new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!configuration.TryGetValue("command", out var configuredCommand) ||
-            string.IsNullOrWhiteSpace(configuredCommand))
-            return Unavailable(request, "tsc analyzer configuration requires command.");
-        if (!allowCommandBackedAnalyzers())
+        var hasProfile = configuration.TryGetValue("profileId", out var configuredProfileId) &&
+                          !string.IsNullOrWhiteSpace(configuredProfileId);
+        var hasCommand = configuration.TryGetValue("command", out var configuredCommand) &&
+                          !string.IsNullOrWhiteSpace(configuredCommand);
+        if (!hasProfile && !hasCommand)
+            return Unavailable(request, "tsc analyzer configuration requires profileId or command.");
+
+        AnalyzerProfile? profile = null;
+        if (hasProfile)
+        {
+            if (profiles is null || !profiles.TryGet(configuredProfileId!, out profile))
+                return Unavailable(request, $"Unknown analyzer profile '{configuredProfileId}'.");
+        }
+        else if (!allowCommandBackedAnalyzers())
+        {
             return Unavailable(request, SarifSensor.CommandBackedAnalyzersDisabledReason);
+        }
+
         if (!configuration.TryGetValue("reportPath", out var configuredReport) ||
             string.IsNullOrWhiteSpace(configuredReport))
             return Unavailable(request, "tsc analyzer configuration requires reportPath.");
@@ -138,7 +163,8 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         string reportPath;
         string target;
         string workingDirectory;
-        IReadOnlyList<string> command;
+        string executable;
+        IReadOnlyList<string> arguments;
         try
         {
             target = request.Scope == SensorScope.Path && !string.IsNullOrWhiteSpace(request.Path)
@@ -151,7 +177,17 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
                 : Directory.Exists(target) ? target : Path.GetDirectoryName(target)!;
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "tsc workingDirectory must be an existing repository directory.");
-            command = AnalyzerCommand.Expand(configuredCommand, root, target, reportPath);
+            if (profile is not null)
+            {
+                executable = profile.Executable;
+                arguments = profile.Expand(root, target, reportPath);
+            }
+            else
+            {
+                var command = AnalyzerCommand.Expand(configuredCommand!, root, target, reportPath);
+                executable = command[0];
+                arguments = command.Skip(1).ToArray();
+            }
         }
         catch (ArgumentException exception)
         {
@@ -162,7 +198,7 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         try
         {
             output = await commandRunner.RunAsync(
-                command[0], command.Skip(1).ToArray(), workingDirectory, cancellationToken).ConfigureAwait(false);
+                executable, arguments, workingDirectory, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (
             exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
