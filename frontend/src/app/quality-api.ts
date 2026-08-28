@@ -2,6 +2,8 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+export const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
+
 export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing';
 export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
 export interface ScopeExclusion { path: string; reason: string; }
@@ -449,6 +451,7 @@ export class QualityApi {
           ? this.selectedRepositoryId()
           : result.defaultRepositoryId;
       this.selectedRepositoryId.set(selected);
+      localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, selected);
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
@@ -462,6 +465,7 @@ export class QualityApi {
     const started = performance.now();
     const sequence = ++this.repositorySelectionSequence;
     this.selectedRepositoryId.set(id);
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);

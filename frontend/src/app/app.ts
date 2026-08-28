@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
-import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
+import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, LAST_REPOSITORY_STORAGE_KEY, QualityApi, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from './quality-api';
 import { ReviewPanel } from './review-panel/review-panel';
 import { ReviewActions } from './review-actions/review-actions';
 import { ProjectDashboardView } from './project-dashboard/project-dashboard';
@@ -153,7 +153,7 @@ export class App implements OnDestroy {
   }
 
   private async initialize(): Promise<void> {
-    const preferredRepository = new URLSearchParams(location.search).get('repo');
+    const preferredRepository = new URLSearchParams(location.search).get('repo') ?? localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
     await this.api.loadRepositories(preferredRepository);
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
