@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs-77-addendum">QS-77 addendum: quarantine and roots decision</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,29 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs-77-addendum">
+    <h2><span class="no">11</span>QS-77 addendum: quarantine and roots decision</h2>
+    <div class="box bad">
+      <h4>Incident, 2026-08-11</h4>
+      <p>The API failed to boot entirely. <code>RepositoryRegistry</code>'s constructor called <code>LoadOrSeed</code>, which threw <code>RepositoryRegistryValidationException("A registered repository is outside the configured allowed roots")</code> for a persisted registry entry pointing at the operator's Agent Studio checkout, a sibling directory one level above this repository. The QS-68 hardening had narrowed <code>AllowedRoots</code> to <code>../..</code> only; the entry predates that change and is legitimate—cross-repository review of the Agent Studio checkout from this Studio instance is an established use case (see the <a href="../studio-integration/index.html">studio-integration dossier</a>). The exception message named neither the offending path nor the configured roots, so the only operator recourse was to read source. This is the F-07/R-09 risk class recurring in a new shape: a boot-time crash from a valid-but-narrow roots configuration, not a silently re-added maintainer path.</p>
+    </div>
+    <h3>N-10 · A single invalid persisted entry must not fail the whole host</h3>
+    <p><span class="pill new">Medium · R-09</span></p>
+    <p><code>RepositoryRegistry.LoadOrSeed</code> now validates each persisted entry independently (<code>QuarantineIfInvalid</code>) instead of letting the first failure abort construction. An entry that fails path or availability validation is kept in memory with <code>Blocked: true</code> and a <code>BlockedReason</code> carrying the same detailed message described below; it is logged once as a warning (<code>EventId 1404, RepositoryQuarantined</code>) and excluded from every use path. <code>RepositoryRegistry.Get</code> throws <code>RepositoryBlockedException</code> (mapped to <code>503</code>) for a blocked entry unless a caller explicitly opts in via <code>includeBlocked</code>, which only <code>UpdateAsync</code> and <code>ArchiveAsync</code> do—so an operator can still repair or retire a quarantined entry through the existing repository API. <code>RepositorySnapshotPrewarmer.Queue</code> also skips blocked entries, closing a path where the background prewarmer would otherwise have read a directory outside the configured roots before anyone noticed. Quarantine state is never persisted to <code>repositories.json</code>; each boot re-validates from the current <code>AllowedRoots</code>, so widening the configuration and restarting is sufficient to clear it. The registry list endpoint (<code>GET /api/repos</code>) now returns <code>blocked</code>/<code>blockedReason</code> for every entry, and the Studio "Configure repositories" dialog renders a quarantined entry with a status indicator and its reason inline.</p>
+    <h3>N-11 · Confinement messages named neither the path nor the roots</h3>
+    <p><span class="pill new">Medium · R-09</span></p>
+    <p><code>RepositoryRegistry.EnsureAllowedDirectory</code> previously threw a fixed internal string. It now builds one detail line—<code>"{reason} Path: '{path}'. Allowed roots: {roots}."</code>—used by every caller (fresh-seed root, mutation validation, optional global-inputs directory, and persisted-entry validation), so every quarantine reason and every log line names both the rejected path and the full configured root set. This detail lives only in the exception <code>Message</code>, never in <code>PublicTitle</code>; <code>Program.cs</code>'s exception handler still returns only the title to API clients, so the existing no-path-disclosure behavior for mutation requests (<code>ApiSecurityTests.Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure</code>) is unchanged. The detail is intended for the server log and the authenticated registry list, not for anonymous API responses.</p>
+    <h3>Roots policy decision</h3>
+    <table>
+      <thead><tr><th>Option</th><th>What it means here</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr><td><b>Keep the relative dev-machine posture</b></td><td><code>AllowedRoots</code> stays <code>["../..", "../../.."]</code>: this repository plus its immediate parent directory, so sibling checkouts (Agent Studio) validate without an absolute, maintainer-specific path. This is what QS-53 already established as the safe pattern (relative, portable, no host topology disclosure) and what S3 in the section above asks CI to keep enforcing.</td><td><span class="pill queued">Adopted</span></td></tr>
+        <tr><td><b>Derive roots from a platform project registry</b></td><td>Replace local <code>AllowedRoots</code> configuration with a lookup against a central, platform-owned project registry, so no repository ever configures its own roots. No such registry component exists in this codebase or in the reviewed Agent Studio integration surface today; building one is a multi-repository infrastructure change, not a fix scoped to this host.</td><td><span class="pill open">Deferred</span></td></tr>
+      </tbody>
+    </table>
+    <p>Effective immediately: <b>the relative <code>../..</code> / <code>../../..</code> <code>AllowedRoots</code> stays</b>, committed in <code>src/QualityStudio.Api/appsettings.json</code>, and is the documented dev-machine posture for this Studio instance—two hops from the API's content root, sized to reach exactly the sibling-checkout use case and no wider. It is deliberately not a solved problem: Option C in the table above (worker sandboxing with a read-only per-run snapshot, Slice S1) replaces broad host-level <code>AllowedRoots</code> with a brokered, per-run mount entirely, at which point this decision is superseded rather than revised. Until S1 ships, N-10 and N-11 are the operating mitigation—an out-of-root entry degrades to a visible, named, excluded quarantine instead of an unexplained boot failure.</p>
   </section>
 </main>
 </body>

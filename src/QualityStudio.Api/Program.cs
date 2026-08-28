@@ -112,6 +112,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         KeyNotFoundException => (StatusCodes.Status404NotFound, "Repository not found"),
         FileNotFoundException => (StatusCodes.Status404NotFound, "File not found"),
         DirectoryNotFoundException => (StatusCodes.Status503ServiceUnavailable, "Repository unavailable"),
+        RepositoryBlockedException => (StatusCodes.Status503ServiceUnavailable, "Repository quarantined"),
         StalenessScanException => (StatusCodes.Status422UnprocessableEntity, "Repository scan failed"),
         QualityReportException => (StatusCodes.Status422UnprocessableEntity, "Quality report failed"),
         InvalidDataException => (StatusCodes.Status422UnprocessableEntity, "Stored report is invalid"),
