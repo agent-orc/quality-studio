@@ -6,6 +6,6 @@
   "entrypoint": "index.html",
   "status": "decision-pending",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-28T00:00:00Z",
+  "updatedAt": "2026-08-28T03:50:00Z",
   "sourceTaskKeys": ["QS-58", "QS-81"]
 }
