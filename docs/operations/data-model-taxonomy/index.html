@@ -141,7 +141,7 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -442,7 +443,7 @@
 
   <h2 id="slices"><span class="no">10</span>Approval-ready implementation slices</h2>
 
-  <h3>T1. Contract and catalogue foundation <span class="pill queued">first</span></h3>
+  <h3>T1. Contract and catalogue foundation <span class="pill done">delivered</span></h3>
   <p><b>Scope:</b> add <code>schemas/quality-taxonomy.v1.schema.json</code>, <code>schemas/quality-observation.v1.schema.json</code>, the core catalogue JSON, C# contract types, preserved extension data, and a pure legacy mapping library. Do not change writers.</p>
   <ul>
     <li>Pin exact terms, descriptions, aliases, deprecations, ordering, and allowed assessment axes.</li>
@@ -557,6 +558,21 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p>Append-only delivery log. One entry per landed slice; earlier entries are never edited.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Card</th><th>Slice</th><th>What landed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>2026-08-28</td>
+        <td><code>QS-76</code></td>
+        <td>T1 — Contract and catalogue foundation</td>
+        <td><code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code> pin the term catalogue and immutable observation envelope; <code>src/AgentOrchestrator.CodeQuality/QualityTaxonomy.cs</code> resolves terms/aspects against the embedded core catalogue (<code>catalogues/quality-taxonomy-core.v1.json</code>, <code>quality-studio/core@1.0.0</code>) and keeps unrecognized values visible instead of coercing them; <code>QualityObservationContract.cs</code> round-trips explicit extensions and legacy root <code>x-*</code> keys and quarantines unsupported schema/taxonomy majors without discarding the raw record; <code>QualityTaxonomyLegacyMap.cs</code> is a pure adapter covering every row of section 8's compatibility table. No writer changed; no production output changed, per T1's acceptance criteria. Full-solution <code>dotnet build</code> and <code>AgentOrchestrator.CodeQuality.Tests</code> (255 passed, 1 skipped live-integration test) were green in this delivery; <code>QualityStudio.Api.Tests</code> has 2-4 pre-existing failures in <code>ReviewRunStoreTests</code> unrelated to this slice (reproduces identically with the T1 files removed) — tracked separately under the test-baseline effort, not part of this delivery.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p><b>Not yet delivered:</b> T2 (observation dual-write and route provenance), T3 (typed evidence, producer provenance, lifecycle v2), T4 (observation-backed projections and per-model records), and T5 (domain adapters and migration tool) remain open, in that dependency order, as follow-up cards.</p>
 </main>
 </body>
 </html>
