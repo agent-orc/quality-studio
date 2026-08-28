@@ -141,7 +141,7 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
+    <span><b>Status</b> decided</span>
     <span><b>Phase</b> decision ready</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
@@ -481,6 +481,30 @@
     <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
   </tbody>
 </table>
+
+<h2 id="implementation"><span class="no">Implementation</span>Delivered slices</h2>
+
+<div class="box">
+  <h4>28 August 2026 · QS-71 · RP-1</h4>
+  <p>Delivered the archive core: <code>run-record.v1</code>, <code>run-operation.v1</code>, <code>run-finding.v1</code>
+  and <code>run-attempt.v1</code> schemas, their typed C# records (each carrying its own <code>$schema</code> and
+  <code>schemaVersion</code>, per the contract invariant this dossier calls out as currently missing), and
+  <code>ReviewRunArchiveStore</code>. The store writes <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/run.json</code>
+  create-only, appends <code>operations.jsonl</code> and <code>findings.jsonl</code>, and writes one create-only
+  <code>attempts/NNNN.json</code> per stopped attempt; it locates an archived run by scanning month folders so
+  callers never need to track which month a run landed in. In-memory work items in <code>ReviewJobs.cs</code> now
+  carry a stable per-file <code>OperationId</code> and an <code>ArchiveAttempt</code> ordinal that advances when a
+  capped run resumes; neither is wired to a write path yet, which is RP-2's job. Existing <code>/api/review</code>
+  routes and the panel UI are unchanged. Tests: schema-fixture validation and round-trip for all four contracts,
+  create-only rejection for a duplicate run and a duplicate attempt number, append-only ordering for operations and
+  findings, two stopped attempts (capped then resumed) both remaining readable, run ids with path separators
+  rejected, and a typed <code>DirectoryNotFoundException</code> for an unarchived run id instead of a silently
+  empty result.</p>
+  <p class="dim">Not in this slice, tracked as follow-up work: RP-2 (dual-write from real execution results and
+  usage-ledger v3), RP-3 (recovery migration and the history read API), RP-4 (deterministic run diff) and RP-5
+  (history/compare UI). This dossier's operator approval on 2026-08-11 covers all five; they land as separate
+  cards in slice order.</p>
+</div>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
 </main>

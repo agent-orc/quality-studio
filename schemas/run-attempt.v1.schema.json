@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived run attempt record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness",
+    "archivedAt", "totalFiles", "completedFiles", "failedFiles", "skippedFiles", "usage"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "totalFiles": { "type": "integer", "minimum": 0 },
+    "completedFiles": { "type": "integer", "minimum": 0 },
+    "failedFiles": { "type": "integer", "minimum": 0 },
+    "skippedFiles": { "type": "integer", "minimum": 0 },
+    "usage": { "$ref": "#/$defs/tokens" },
+    "costSpent": { "type": ["number", "null"] },
+    "currency": { "type": ["string", "null"] },
+    "errorCodes": { "type": "array", "items": { "type": "string" } },
+    "stopReason": { "type": ["string", "null"] },
+    "ledgerMonths": { "type": "array", "items": { "type": "string" } },
+    "qualitySummary": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "lowestGrade": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["score", "band"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "band": { "type": "string", "minLength": 1 }
+          }
+        },
+        "worstSecurityVerdict": { "type": ["string", "null"] },
+        "activeFindingCount": { "type": ["integer", "null"], "minimum": 0 },
+        "highestActiveSeverity": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "$defs": {
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

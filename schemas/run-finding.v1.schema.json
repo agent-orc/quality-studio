@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio archived run finding observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "operationId", "fingerprint", "findingId",
+    "ruleId", "severity", "title", "locations", "state", "observedAt"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "operationId": { "type": "string", "minLength": 1 },
+    "fingerprint": { "type": "string", "minLength": 1 },
+    "findingId": { "type": "string", "minLength": 1 },
+    "ruleId": { "type": "string", "minLength": 1 },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "title": { "type": "string", "minLength": 1 },
+    "locations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/location" } },
+    "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+    "observedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "$ref": "#/$defs/position" },
+            "end": { "$ref": "#/$defs/position" }
+          }
+        },
+        "symbolId": { "type": "string" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 0 },
+        "column": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

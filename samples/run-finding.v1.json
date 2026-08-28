@@ -1,0 +1,19 @@
+{
+  "$schema": "https://quality.studio/schemas/run-finding.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "operationId": "op-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "fingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "findingId": "missing-cancellation-token",
+  "ruleId": "async:cancellation",
+  "severity": "medium",
+  "title": "Cancellation is not propagated",
+  "locations": [
+    {
+      "path": "Sample.cs",
+      "range": { "start": { "line": 12, "column": 9 }, "end": { "line": 12, "column": 31 } }
+    }
+  ],
+  "state": "open",
+  "observedAt": "2026-08-11T09:00:05.0000000+00:00"
+}

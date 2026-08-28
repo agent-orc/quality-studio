@@ -639,6 +639,7 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int archiveAttempt = 1;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -724,6 +725,12 @@ public sealed class ReviewJobService : BackgroundService
         public DateTimeOffset? StartedAt { get; private set; }
         public DateTimeOffset? FinishedAt { get; private set; }
         public string State { get { lock (gate) return state; } }
+
+        /// <summary>The ordinal of the current run-history archive attempt (RP-1 scaffolding for RP-2's
+        /// dual-write). Starts at 1 and advances each time a capped run is resumed, matching the archive
+        /// contract's "capped is a stopped attempt, not an immutable end of the logical run" invariant.</summary>
+        public int ArchiveAttempt { get { lock (gate) return archiveAttempt; } }
+
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
@@ -994,6 +1001,7 @@ public sealed class ReviewJobService : BackgroundService
                     foreach (var file in progress.Values.Where(file => file.State == "skipped")) RequeueFileCore(file);
                     if (aggregateState == "skipped") aggregateState = "queued";
                     stopReason = null;
+                    archiveAttempt++;
                 }
                 attemptCancellation.Dispose();
                 attemptCancellation = new CancellationTokenSource();
@@ -1160,6 +1168,11 @@ public sealed class ReviewJobService : BackgroundService
         private sealed class MutableFileProgress(string path)
         {
             public string Path { get; } = path;
+
+            /// <summary>Stable per-operation archive id (RP-1 scaffolding for RP-2's dual-write); not yet
+            /// persisted or exposed on any API response.</summary>
+            public string OperationId { get; } = "op-" + Guid.NewGuid().ToString("N");
+
             public string State { get; set; } = "queued";
             public DateTimeOffset? StartedAt { get; set; }
             public DateTimeOffset? FinishedAt { get; set; }

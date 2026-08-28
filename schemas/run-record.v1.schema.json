@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio archived run record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "repositoryId", "node", "level", "kind",
+    "cliType", "force", "targets", "createdAt"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "repositoryId": { "type": "string", "minLength": 1 },
+    "node": { "$ref": "#/$defs/node" },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "model": { "type": ["string", "null"] },
+    "cliType": { "type": "string", "minLength": 1 },
+    "force": { "type": "boolean" },
+    "thinkingLevel": { "type": ["string", "null"] },
+    "tokenCap": { "type": ["integer", "null"], "minimum": 0 },
+    "costCap": { "type": ["number", "null"], "minimum": 0 },
+    "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "sourceRevision": { "type": ["string", "null"] },
+    "sourceDirty": { "type": ["boolean", "null"] }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path", "subjectHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "subjectHash": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

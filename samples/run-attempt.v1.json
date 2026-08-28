@@ -1,0 +1,33 @@
+{
+  "$schema": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "attempt": 1,
+  "outcome": "capped",
+  "completeness": "partial",
+  "startedAt": "2026-08-11T09:00:00.0000000+00:00",
+  "finishedAt": "2026-08-11T09:00:05.0000000+00:00",
+  "archivedAt": "2026-08-11T09:00:05.5000000+00:00",
+  "totalFiles": 2,
+  "completedFiles": 1,
+  "failedFiles": 0,
+  "skippedFiles": 1,
+  "usage": {
+    "inputTokens": 1200,
+    "outputTokens": 400,
+    "cachedInputTokens": 0,
+    "reasoningOutputTokens": 0,
+    "durationMs": 4500
+  },
+  "costSpent": 0.42,
+  "currency": "USD",
+  "errorCodes": [],
+  "stopReason": "token-cap",
+  "ledgerMonths": ["2026-08"],
+  "qualitySummary": {
+    "lowestGrade": { "score": 92, "band": "A" },
+    "worstSecurityVerdict": null,
+    "activeFindingCount": 1,
+    "highestActiveSeverity": "medium"
+  }
+}

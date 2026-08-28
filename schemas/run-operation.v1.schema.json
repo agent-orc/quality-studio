@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived run operation record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "operationId", "attempt", "ordinal",
+    "path", "level", "state"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "operationId": { "type": "string", "minLength": 1 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "path": { "type": "string", "minLength": 1 },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "state": { "enum": ["done", "failed", "skipped", "skipped-fresh", "cancelled"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"] },
+    "subjectHash": { "type": ["string", "null"] },
+    "inputHash": { "type": ["string", "null"] },
+    "resultSidecarPath": { "type": ["string", "null"] },
+    "grade": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "type": "string", "minLength": 1 }
+      }
+    },
+    "verdictKind": { "type": ["string", "null"] },
+    "verdict": { "type": ["string", "null"] },
+    "errorCode": { "type": ["string", "null"] }
+  }
+}

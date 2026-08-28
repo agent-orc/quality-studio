@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "repositoryId": "default",
+  "node": { "id": "file-sample", "name": "Sample.cs", "path": "Sample.cs" },
+  "level": "file",
+  "kind": "code",
+  "model": "runner-default",
+  "cliType": "codex",
+  "force": false,
+  "thinkingLevel": "model-default",
+  "tokenCap": null,
+  "costCap": null,
+  "targets": [
+    { "id": "file-sample", "name": "Sample.cs", "path": "Sample.cs", "subjectHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+  ],
+  "createdAt": "2026-08-11T09:00:00.0000000+00:00",
+  "sourceRevision": "3e0b6559faa700183a16e2ffda1a522fd75c9aa6",
+  "sourceDirty": false
+}

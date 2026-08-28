@@ -1,0 +1,21 @@
+{
+  "$schema": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "operationId": "op-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "attempt": 1,
+  "ordinal": 0,
+  "path": "Sample.cs",
+  "level": "file",
+  "state": "done",
+  "startedAt": "2026-08-11T09:00:01.0000000+00:00",
+  "finishedAt": "2026-08-11T09:00:05.0000000+00:00",
+  "providerRunId": "quality-cccccccccccccccccccccccccccccccc",
+  "subjectHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "inputHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "resultSidecarPath": "Sample.cs.review-meta.json",
+  "grade": { "score": 92, "band": "A" },
+  "verdictKind": "grade",
+  "verdict": "A",
+  "errorCode": null
+}
