@@ -141,12 +141,17 @@
   <h1>Persist the run, not just the latest review</h1>
   <p class="lede">Quality Studio can resume a review after an API restart in the same checkout. It cannot reconstruct the run after its ignored working folder or checkout disappears. Add a tracked, immutable run archive beside the existing recovery journal, and make two archived runs directly comparable.</p>
   <div class="meta">
-    <span><b>Status</b> decision pending</span>
-    <span><b>Phase</b> decision ready</span>
+    <span><b>Status</b> decided</span>
+    <span><b>Phase</b> implementation in progress</span>
     <span><b>Evidence cut</b> 11 August 2026</span>
     <span><b>Source</b> QS-62</span>
   </div>
 </header>
+
+<div class="box ok">
+  <h4>Operator decision (11 August 2026)</h4>
+  <p>The operator approved all recommendations of this dossier as a blanket decision, including slices previously marked operator-decision-gated. Status is recorded as <b>decided</b>. Implementation proceeds in the priority order RP-1 through RP-5; see <a href="#implementation">Implementation</a> for what has landed.</p>
+</div>
 
 <div class="box accent">
   <h4>Recommendation for approval</h4>
@@ -165,6 +170,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -483,6 +489,20 @@
 </table>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<p class="dim">This section is append-only. Each entry records what actually landed for one slice; it does not revise the decisions above.</p>
+
+<div class="box ok">
+  <h4>28 August 2026 &middot; QS-71 &middot; RP-1 Contracts and archive core</h4>
+  <ul>
+    <li>Added the four v1 run-history schemas under <code>schemas/</code>: <code>run-record.v1.schema.json</code>, <code>run-operation.v1.schema.json</code>, <code>run-finding.v1.schema.json</code>, <code>run-attempt.v1.schema.json</code>, following the existing draft 2020-12 / <code>additionalProperties: false</code> / <code>sha256:</code>-hash conventions used by <code>review-meta.v2.schema.json</code>.</li>
+    <li>Added <code>ReviewRunArchiveStore</code> in <code>src/QualityStudio.Api/ReviewRunArchiveStore.cs</code> with the typed records (<code>RunArchiveRecord</code>, <code>RunOperationRecord</code>, <code>RunFindingRecord</code>, <code>RunAttemptRecord</code>). It writes a create-only <code>run.json</code>, append-only <code>operations.jsonl</code> and <code>findings.jsonl</code>, and create-only <code>attempts/NNNN.json</code> files under <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/</code>. Run ids are confined the same way <code>ReviewRunStore</code> confines them (no path separators). No gitignore change was needed: the directory is tracked automatically under the existing <code>!/.quality/</code> negation, the same mechanism that already tracks <code>.quality/reports/runs/</code>.</li>
+    <li>Added an in-memory <code>attemptNumber</code> ordinal and a deterministic <code>OperationId(unitPath)</code> helper to <code>ReviewJobService</code>'s internal <code>ReviewWorkItem</code> (<code>src/QualityStudio.Api/ReviewJobs.cs</code>), incremented on each <code>Start()</code>. Nothing reads or writes the archive from the live pipeline yet; this only prepares the identifiers RP-2 needs. Current routes, responses and the UI are unchanged.</li>
+    <li>Tests: <code>tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs</code> covers create-only rejection of an existing run and of a duplicate attempt number, two stopped attempts (capped then resumed) remaining readable under one run, append-order and round-trip of operations/findings, run-id path-separator confinement, and schema-fixture validation of all four document types via JsonSchema.Net. Full solution gate (<code>dotnet build</code> / <code>dotnet test</code> on <code>QualityStudio.slnx</code>) is green: 216 passed, 1 pre-existing skip, 0 failures.</li>
+    <li><b>Not delivered in this slice</b> (tracked as follow-up cards): RP-2 dual-write and usage-ledger v3, RP-3 recovery migration and history API, RP-4 deterministic run diff, RP-5 history/compare UI. RP-1 is intentionally additive and inert in production so it can land without depending on the others.</li>
+  </ul>
+</div>
 </main>
 </body>
 </html>

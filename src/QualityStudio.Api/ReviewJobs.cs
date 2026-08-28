@@ -639,6 +639,7 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int attemptNumber;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -728,6 +729,25 @@ public sealed class ReviewJobService : BackgroundService
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
 
+        /// <summary>
+        /// The ordinal of the execution attempt currently in progress (or most recently run),
+        /// counting each <see cref="Start"/> since this work item was created. Restoring a
+        /// recovered run does not yet reconstruct prior attempts durably; that lands with the
+        /// run-history attempt writer.
+        /// </summary>
+        public int AttemptNumber { get { lock (gate) return attemptNumber; } }
+
+        /// <summary>
+        /// A stable identifier for one unit's operation within the current attempt. It is
+        /// derived from the run id, attempt ordinal and unit path rather than stored, so a
+        /// same-attempt recovery (a running file requeued after a crash) reproduces the same id.
+        /// </summary>
+        public string OperationId(string unitPath)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(unitPath);
+            lock (gate) return $"{Id}#{attemptNumber}#{unitPath}";
+        }
+
         public void PrepareForRecovery()
         {
             lock (gate)
@@ -751,6 +771,7 @@ public sealed class ReviewJobService : BackgroundService
                 FinishedAt = null;
                 attemptActive = true;
                 resumePending = false;
+                attemptNumber++;
                 PersistStatus();
                 return attemptCancellation.Token;
             }

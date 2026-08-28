@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio run-history attempt record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "runId",
+    "attemptNumber",
+    "outcome",
+    "completeness",
+    "archivedAt",
+    "reviewed",
+    "failed",
+    "skipped",
+    "cancelled",
+    "usage",
+    "priceStatus",
+    "errorCodes",
+    "cap",
+    "usageLedgerMonths"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "attemptNumber": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "reviewed": { "type": "integer", "minimum": 0 },
+    "failed": { "type": "integer", "minimum": 0 },
+    "skipped": { "type": "integer", "minimum": 0 },
+    "cancelled": { "type": "integer", "minimum": 0 },
+    "usage": { "$ref": "#/$defs/usage" },
+    "costSpent": { "$ref": "#/$defs/nullableNumber" },
+    "currency": { "$ref": "#/$defs/nullableString" },
+    "priceStatus": { "type": "string", "minLength": 1 },
+    "errorCodes": { "type": "array", "items": { "type": "string", "maxLength": 4000 } },
+    "cap": { "$ref": "#/$defs/cap" },
+    "stopReason": { "$ref": "#/$defs/nullableString" },
+    "usageLedgerMonths": { "type": "array", "items": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" } },
+    "qualitySummary": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/qualitySummary" }] }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "outputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit", "outcome"],
+      "properties": {
+        "tokenLimit": { "$ref": "#/$defs/nullableInteger" },
+        "costLimit": { "$ref": "#/$defs/nullableNumber" },
+        "outcome": { "enum": ["not-configured", "within-cap", "reached"] }
+      }
+    },
+    "qualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activeFindingCount"],
+      "properties": {
+        "lowestGradeScore": { "$ref": "#/$defs/nullableInteger" },
+        "lowestGradeBand": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "worstSecurityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindingCount": { "type": "integer", "minimum": 0 },
+        "highestActiveSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  }
+}

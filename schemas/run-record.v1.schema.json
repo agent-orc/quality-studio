@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio run-history run record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "runId",
+    "repositoryId",
+    "createdAt",
+    "node",
+    "level",
+    "kind",
+    "targets",
+    "cliType",
+    "force"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "node": { "$ref": "#/$defs/node" },
+    "level": { "enum": ["project", "module", "namespace", "file"] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "targets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/target" } },
+    "model": { "$ref": "#/$defs/nullableString" },
+    "thinkingLevel": { "$ref": "#/$defs/nullableString" },
+    "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "force": { "type": "boolean" },
+    "tokenCap": { "$ref": "#/$defs/nullableInteger" },
+    "costCap": { "$ref": "#/$defs/nullableNumber" },
+    "estimate": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/estimate" }] },
+    "sourceCommit": { "$ref": "#/$defs/nullableString" },
+    "sourceDirty": { "type": ["boolean", "null"] }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "sha256String": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "path": { "$ref": "#/$defs/repoPath" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path", "subjectHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "subjectHash": { "$ref": "#/$defs/sha256String" }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "operations", "promptCharacters", "inputTokens", "outputTokens", "priceStatus", "historySamples", "method", "expectedFreshSkips"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "operations": { "type": "integer", "minimum": 0 },
+        "promptCharacters": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "cost": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "priceStatus": { "type": "string", "minLength": 1 },
+        "historySamples": { "type": "integer", "minimum": 0 },
+        "method": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "expectedFreshSkips": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
