@@ -163,6 +163,12 @@ export interface RepositoryRegistration {
   defaultReviewTokenCap: number | null;
   defaultReviewCostCap: number | null;
 }
+export interface QuarantinedRepository {
+  id: string;
+  displayName: string;
+  rootPath: string;
+  reason: string;
+}
 export interface RepositoryRegistrationRequest {
   id?: string;
   displayName: string;
@@ -424,6 +430,7 @@ export class QualityApi {
   readonly guidelineCatalogue = signal<GuidelineCatalogueEntry[]>([]);
   readonly guidelineTraces = signal<GuidelineTrace[]>([]);
   readonly repositories = signal<RepositoryRegistration[]>([]);
+  readonly quarantinedRepositories = signal<QuarantinedRepository[]>([]);
   readonly selectedRepositoryId = signal('default');
   readonly selectedRepository = computed(() => this.repositories().find(repository => repository.id === this.selectedRepositoryId()) ?? null);
   readonly modelCatalog = signal<ReviewModelCatalog>({ schemaVersion: 1, policyVersion: '', evidenceAsOfDate: '', sourceRepository: 'agent-orc/token-economy', sourceCommit: '', thinkingLevels: [], models: [] });
@@ -440,9 +447,10 @@ export class QualityApi {
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
-      const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
+      const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; quarantined?: QuarantinedRepository[]; defaultRepositoryId: string }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
+      this.quarantinedRepositories.set(result.quarantined ?? []);
       const selected = result.repositories.some(repository => repository.id === preferredId)
         ? preferredId!
         : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
@@ -453,6 +461,7 @@ export class QualityApi {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
       this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
+      this.quarantinedRepositories.set([]);
       this.selectedRepositoryId.set('default');
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }

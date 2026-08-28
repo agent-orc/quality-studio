@@ -155,9 +155,17 @@
     <p>The recommended design runs review agents and executable sensors in separate, short-lived workers with a read-only source snapshot, clean service identity, restricted egress, bounded resources, and a brokered, schema-validated result write. The API—not a repository-scoped client—owns repository roots and executable analyzer profiles.</p>
   </section>
 
+  <section class="box warn" aria-labelledby="decision-qs-77">
+    <h4 id="decision-qs-77">Decided · QS-77 (2026-08-11) · Repository <code>AllowedRoots</code> posture</h4>
+    <p><b>Incident.</b> The API failed to boot: <code>RepositoryRegistry</code>'s constructor threw <code>RepositoryRegistryValidationException</code> ("A registered repository is outside the configured allowed roots") while loading the persisted registry, because it legitimately contained the Agent Studio checkout and <code>QualityStudio:AllowedRoots</code> only covered the Quality Studio checkout itself (<code>../..</code>). A single bad persisted entry took the whole host down. This is the same class of risk flagged in <a href="#findings">F-07 / R-09</a> (recurrence prevention for tracked <code>AllowedRoots</code> changes was still absent), but manifesting as an availability failure rather than a topology-disclosure one.</p>
+    <p><b>Decision (relative roots, kept).</b> <code>AllowedRoots</code> stays a small, relative, repo-tracked list rather than being derived from an external platform project registry. It is extended by one entry, <code>../../..</code>, so both the Quality Studio checkout and a sibling Agent Studio checkout resolve underneath an allowed root. Reviewing the Agent Studio repository from Quality Studio is a supported, recurring workflow (see the Agent Studio integration operations dossier), and relative entries describe the checkout layout rather than a specific maintainer's absolute filesystem paths—preserving the QS-53/R-09 lesson that machine-specific absolute paths do not belong in tracked configuration. R-09 stays open at Medium: a relative root one level higher still widens the set of selectable repositories, so any further widening remains a reviewed, tracked-config change, not a default.</p>
+    <p><b>Boot resilience (new invariant).</b> A persisted registry entry failing validation—outside the allowed roots, or its directory missing—no longer crashes the host. <code>RepositoryRegistry</code> quarantines the entry (excluded from <code>List()</code>/<code>Get()</code>/<code>Access()</code>), logs a warning naming the offending path and the full allowed-roots list, and exposes the quarantined entry with its reason through <code>GET /api/repos</code> so operators can see and fix it without an API restart. <code>EnsureAllowedDirectory</code> now includes the path and the allowed roots in every internal exception/log message it raises; the public-facing problem <code>title</code> returned to API clients is unchanged and still omits the path.</p>
+  </section>
+
   <nav aria-label="Contents">
     <h2><span class="no">00</span>Contents</h2>
     <ol class="toc">
+      <li><a href="#decision-qs-77">Decided · QS-77 · AllowedRoots posture</a></li>
       <li><a href="#method">Scope and method</a></li>
       <li><a href="#boundary">Observed trust boundary</a></li>
       <li><a href="#controls">Controls already working</a></li>

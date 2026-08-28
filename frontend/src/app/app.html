@@ -18,6 +18,15 @@
               <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
             </button>
           }
+          @if (api.quarantinedRepositories().length) {
+            <div class="menu-heading">Blocked</div>
+            @for (repository of api.quarantinedRepositories(); track repository.id) {
+              <div class="repository-quarantined" role="menuitem" aria-disabled="true" [title]="repository.reason">
+                <span class="status missing"></span>
+                <span><strong>{{ repository.displayName }}</strong><small>Blocked — {{ repository.reason }}</small></span>
+              </div>
+            }
+          }
           <div class="menu-actions">
             <button type="button" (click)="onboardRepository()">+ Onboard repository</button>
             <button type="button" (click)="manageRepositories()">Configure repositories</button>
@@ -149,6 +158,12 @@
             <button type="button" [class.active]="repository.id === editingRepositoryId()" (click)="editRepository(repository)">
               <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
             </button>
+          }
+          @for (repository of api.quarantinedRepositories(); track repository.id) {
+            <div class="repository-quarantined" aria-disabled="true" [title]="repository.reason">
+              <span class="status missing"></span>
+              <span><strong>{{ repository.displayName }}</strong><small>Blocked — {{ repository.reason }}</small></span>
+            </div>
           }
           <button class="add-repository" type="button" (click)="onboardRepository()">+ Add repository</button>
         </nav>
