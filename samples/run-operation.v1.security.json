@@ -1,0 +1,19 @@
+{
+  "$schema": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-20260811-000001",
+  "attempt": 1,
+  "operationId": "@aggregate",
+  "ordinal": null,
+  "unitId": "qs-v1/generic/module/src/QualityStudio.Api",
+  "level": "module",
+  "path": "src/QualityStudio.Api",
+  "state": "done",
+  "startedAt": "2026-08-11T14:01:00Z",
+  "finishedAt": "2026-08-11T14:04:00Z",
+  "providerRunId": "provider-run-2",
+  "reviewedHash": null,
+  "inputHash": null,
+  "sidecarPath": null,
+  "verdict": { "type": "security", "score": null, "band": null, "securityVerdict": "warn", "combinationRule": "worst-of-findings" }
+}

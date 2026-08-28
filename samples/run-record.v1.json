@@ -1,0 +1,31 @@
+{
+  "$schema": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-20260811-000001",
+  "repositoryId": "quality-studio",
+  "createdAt": "2026-08-11T14:00:00Z",
+  "kind": "code",
+  "level": "module",
+  "scopeUnitId": "qs-v1/generic/module/src/QualityStudio.Api",
+  "path": "src/QualityStudio.Api",
+  "targets": [
+    {
+      "unitId": "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "ReviewRunStore.cs",
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "subjectHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "configuration": {
+    "model": "runner-default",
+    "thinkingLevel": "model-default",
+    "cliType": "codex",
+    "force": false,
+    "aggregateControls": ["src/QualityStudio.Api"],
+    "aggregateExclusions": null,
+    "routeOverride": false
+  },
+  "cap": { "tokenLimit": null, "costLimit": null },
+  "estimate": null,
+  "sourceRevision": { "commit": "3e0b6559faa700183a16e2ffda1a522fd75c9aa6", "dirty": false }
+}

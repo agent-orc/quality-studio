@@ -639,6 +639,7 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private int attemptNumber = 1;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -664,7 +665,7 @@ public sealed class ReviewJobService : BackgroundService
                 new HierarchyNode(target.Id, target.Name, ReviewLevel.File, target.Path)).ToArray();
             progress = manifest.Targets.ToDictionary(
                 target => target.Path,
-                target => new MutableFileProgress(target.Path),
+                target => new MutableFileProgress(target.Path, ReviewRunArchiveStore.OperationId(manifest.RunId, target.Path)),
                 StringComparer.Ordinal);
             state = status?.State ?? "queued";
             StartedAt = status?.StartedAt;
@@ -727,6 +728,14 @@ public sealed class ReviewJobService : BackgroundService
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+
+        /// <summary>Ordinal of the current stopped-attempt cycle. Starts at 1 and advances only when a capped run
+        /// is resumed, matching the run-history attempt numbering in docs/operations/run-persistence/index.html.</summary>
+        public int AttemptNumber { get { lock (gate) return attemptNumber; } }
+
+        /// <summary>Stable, recovery-safe operation id for a target file. Used by the run-history archive so the
+        /// same operation keeps the same id across an API restart.</summary>
+        public string OperationIdFor(string path) { lock (gate) return progress[path].OperationId; }
 
         public void PrepareForRecovery()
         {
@@ -994,6 +1003,8 @@ public sealed class ReviewJobService : BackgroundService
                     foreach (var file in progress.Values.Where(file => file.State == "skipped")) RequeueFileCore(file);
                     if (aggregateState == "skipped") aggregateState = "queued";
                     stopReason = null;
+                    // A capped run is a stopped attempt; resuming it starts the next one (see run-attempt.v1).
+                    attemptNumber++;
                 }
                 attemptCancellation.Dispose();
                 attemptCancellation = new CancellationTokenSource();
@@ -1157,9 +1168,10 @@ public sealed class ReviewJobService : BackgroundService
         private static long? Add(long? left, long? right) =>
             left.HasValue || right.HasValue ? (left ?? 0) + (right ?? 0) : null;
 
-        private sealed class MutableFileProgress(string path)
+        private sealed class MutableFileProgress(string path, string operationId)
         {
             public string Path { get; } = path;
+            public string OperationId { get; } = operationId;
             public string State { get; set; } = "queued";
             public DateTimeOffset? StartedAt { get; set; }
             public DateTimeOffset? FinishedAt { get; set; }

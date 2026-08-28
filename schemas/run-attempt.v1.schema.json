@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio run-history attempt record v1",
+  "description": "Create-only snapshot of one stopped attempt, written to attempts/NNNN.json. A capped run that later resumes adds another attempt and never rewrites this one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness", "startedAt", "finishedAt",
+    "archivedAt", "counters", "usage", "cap", "estimateDeviation", "errorCodes", "ledger", "qualitySummary"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["perAttempt", "cumulative"],
+      "properties": {
+        "perAttempt": { "$ref": "#/$defs/fileCounts" },
+        "cumulative": { "$ref": "#/$defs/fileCounts" }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operations", "inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs", "cost", "currency", "priceStatus"],
+      "properties": {
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "outputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "cost": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "priceStatus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit", "outcome", "reason"],
+      "properties": {
+        "tokenLimit": { "$ref": "#/$defs/nullableInteger" },
+        "costLimit": { "$ref": "#/$defs/nullableNumber" },
+        "outcome": { "enum": ["not-configured", "within-cap", "reached"] },
+        "reason": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "estimateDeviation": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["inputPercent", "outputPercent", "costPercent", "note"],
+          "properties": {
+            "inputPercent": { "$ref": "#/$defs/nullableNumber" },
+            "outputPercent": { "$ref": "#/$defs/nullableNumber" },
+            "costPercent": { "$ref": "#/$defs/nullableNumber" },
+            "note": { "type": "string", "minLength": 1, "maxLength": 2000 }
+          }
+        }
+      ]
+    },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 4000 } },
+    "ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewRunId", "months", "operationIds"],
+      "properties": {
+        "reviewRunId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "months": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
+        "operationIds": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      }
+    },
+    "qualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowestGrade", "worstSecurityVerdict", "activeFindingCounts", "highestActiveSeverity"],
+      "properties": {
+        "lowestGrade": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["score", "band"],
+              "properties": {
+                "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+                "band": { "enum": ["A", "B", "C", "D", "F"] }
+              }
+            }
+          ]
+        },
+        "worstSecurityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindingCounts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "highestActiveSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "fileCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalFiles", "completedFiles", "failedFiles", "skippedFiles", "cancelledFiles"],
+      "properties": {
+        "totalFiles": { "type": "integer", "minimum": 0 },
+        "completedFiles": { "type": "integer", "minimum": 0 },
+        "failedFiles": { "type": "integer", "minimum": 0 },
+        "skippedFiles": { "type": "integer", "minimum": 0 },
+        "cancelledFiles": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -482,6 +482,31 @@
   </tbody>
 </table>
 
+<h2 id="implementation"><span class="no">Implementation</span>Delivered slices</h2>
+
+<div class="box">
+  <h4>28 August 2026 · QS-71 · RP-1</h4>
+  <p>Delivered the contracts and archive core. Added the four <code>run-record.v1</code>, <code>run-operation.v1</code>,
+  <code>run-finding.v1</code> and <code>run-attempt.v1</code> schemas plus matching typed records and
+  <code>ReviewRunArchiveStore</code> in <code>src/QualityStudio.Api/ReviewRunArchive.cs</code>, following the exact
+  create-only/append-only file shapes from §5. Run manifests and attempt files are written with
+  <code>FileMode.CreateNew</code> and reject overwrite; operations and findings append through the same
+  write-through pattern as the existing recovery journal; run-id and month-folder path segments are validated
+  before any file access. Added a stable, recovery-safe <code>operationId</code> (deterministic hash of run id and
+  path) and an in-memory attempt ordinal to <code>ReviewWorkItem</code>, incremented when a capped run resumes -
+  this is internal plumbing only, so current routes, the recovery journal and the UI are unchanged. Tests
+  (<code>tests/QualityStudio.Api.Tests/ReviewRunArchiveContractTests.cs</code> and
+  <code>ReviewRunArchiveStoreTests.cs</code>) cover schema fixture validation and typed round-trips for all four
+  schemas, create-only rejection for both the run manifest and attempt files, append-only operations/findings, two
+  stopped attempts (capped then resumed) remaining readable under one run, and rejection of run ids or month
+  folders that contain path separators or an unexpected shape.</p>
+  <p><b>Not yet implemented (follow-up slices, tracked as their own cards per the operator's one-slice-per-delivery
+  scope correction):</b> RP-2 dual-write from the live run service into this archive and the usage-ledger v3
+  extension; RP-3 idempotent migration of present <code>.quality/runs</code> folders and the history/detail read
+  API; RP-4 the deterministic run-diff service; RP-5 the History and compare UI. Each remains gated on RP-1 landing
+  first, per the recommended slice order.</p>
+</div>
+
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
 </main>
 </body>

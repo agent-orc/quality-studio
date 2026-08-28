@@ -1,0 +1,19 @@
+{
+  "$schema": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "schemaVersion": 1,
+  "runId": "run-20260811-000001",
+  "attempt": 1,
+  "operationId": "op-1c2d3e4f5a6b7c8d",
+  "ordinal": 0,
+  "unitId": "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "level": "file",
+  "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+  "state": "done",
+  "startedAt": "2026-08-11T14:00:05Z",
+  "finishedAt": "2026-08-11T14:00:42Z",
+  "providerRunId": "provider-run-1",
+  "reviewedHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "inputHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "sidecarPath": "src/QualityStudio.Api/ReviewRunStore.cs.review-meta.json",
+  "verdict": { "type": "grade", "score": 92, "band": "A", "securityVerdict": null, "combinationRule": null }
+}
