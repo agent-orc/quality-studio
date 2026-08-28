@@ -489,6 +489,10 @@
       <li>Angular 20.3.26 → 20.3.27+ patch upgrade and the rest of S0's CI/dependency scope (tracked under S6).</li>
       <li>S1–S6 remain entirely undelivered; see §08 for scope and effort estimates.</li>
     </ul>
+
+    <h3>2026-08-28 · QS-68 · S0 (partial) — branch recovery, no new code</h3>
+    <p><span class="pill part">Re-landed</span></p>
+    <p>The 2026-08-27 delivery above (commit <code>a1dcf53</code>) never reached the task branch's persisted history; the branch had regressed to its pre-delivery commit. Cherry-picked the identical change onto the current branch head as commit <code>aff8db1</code> (clean merge; two touched files, <code>Program.cs</code> and <code>RepositoryRegistry.cs</code>, had unrelated concurrent additions from the static-analysis slice on the same branch). No implementation changed; full gate (<code>catalog:check</code>, <code>dotnet build</code>, <code>dotnet test</code> — 211 passed / 1 skipped, <code>quality-cli security scan</code>) re-verified green on the recovered commit.</p>
   </section>
 </main>
 </body>
