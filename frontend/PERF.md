@@ -11,6 +11,9 @@ The interaction budgets are contracts, not aspirations:
 | Project dashboard open (5,000-file summary) | < 150 ms click-to-interactive | 65.8 ms | Pass |
 | Repository transition visible | < 100 ms click-to-transition | 13.6–24.5 ms | Pass |
 | Real-backend repository switch | < 500 ms click-to-usable | 131.3 ms cold UI / 73.3 ms SWR | Pass |
+| Agent Studio lazy-root switch | < 500 ms click-to-usable | 19.8 ms median / 87.0 ms p95 | Pass |
+| Lazy child expansion | < 100 ms request-to-paint | 33.1 ms | Pass |
+| Cached tree toggle | < 50 ms scripting-to-paint | 6.8 ms median / 14.1 ms p95 | Pass |
 
 Re-measured for QS-9 on 2026-07-11 in Microsoft Edge 150.0.4078.65 (Chromium), headless at 1600 × 1000. The file route returned 333,782 bytes, deliberately above the 200 KB acceptance boundary, together with two review documents. The view split the response into lines but inserted only 80 overscanned line rows. Tree expand/collapse inserted only the visible fixed-height window. Network time is included in the file-open mark because it starts at selection and ends on the first animation frame after visible content renders. The aspect switch reused the loaded file response; the request counter remained at two (initial file plus opened file) after switching.
 
@@ -53,6 +56,28 @@ first visible file content 48.4-51.3 ms for the same 333,782-byte fixture, aspec
 tokens above 200 KB, and the two file requests all held. That stage now serves its own hierarchy
 fixture: the shell no longer carries a built-in demonstration tree, so a measurement must bring its
 own nodes rather than depend on preview data appearing under a real path.
+
+QS-82 measured the real 3,927-file Agent Studio repository, re-run on 2026-08-24
+in Chromium 151.0.7922.34. Five switches using the v2 one-level root contract
+were usable in 16.2–87.0 ms (19.8 ms median). The first project expansion
+fetched ten children and painted in 33.1 ms; six later cached expand/collapse
+actions measured 3.6–14.1 ms. Eleven repository transitions all painted inside
+the 100 ms budget. Child requests carry the immutable root snapshot ETag, so
+they skip redundant Git-state measurement. The explorer keeps keyboard and
+virtualized-row behavior, while deep links and unloaded file lookup use the
+bounded server-side tree search instead of forcing the recursive root response.
+
+A separate real-app run covers the switcher surface: a cold Agent Studio switch
+was usable in 111.7 ms and a warm one in 12.9 ms, the last selected repository
+was restored from `localStorage` across a reload, and stopping the API raised an
+explicit "API unavailable" notice whose Retry recovered the session.
+
+The editor surface is now a deferred standard component chunk. On the QS-82
+branch as first measured on 2026-08-24 that moved the production initial bundle
+from 478.30 kB to 438.02 kB (40.28 kB / 8.42%). Those absolute figures predate
+the separate initial-bundle work that landed on main afterwards, so the current
+number is the one recorded under the bundle budget below; the editor chunk
+deferral is additive to it and the 480 kB error ceiling is unchanged.
 
 ## Repeat the automated measurement
 

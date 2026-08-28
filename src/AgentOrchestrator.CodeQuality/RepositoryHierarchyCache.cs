@@ -21,6 +21,9 @@ public sealed record RepositoryGitState(string State, string Status, string? Det
 {
     public const string OkStatus = "ok";
     public const string UnavailableStatus = "unavailable";
+
+    /// <summary>The resolved HEAD commit behind this fingerprint, carried for diagnostics only.</summary>
+    public string Head { get; init; } = "unborn";
 }
 
 public sealed record RepositoryHierarchyMeasurement(
@@ -31,6 +34,11 @@ public sealed record RepositoryHierarchyMeasurement(
     double ScanMilliseconds,
     double ReviewMetaDiscoveryMilliseconds,
     double TotalMilliseconds);
+
+public sealed record RepositoryStateMeasurement(
+    string State,
+    string HeadSha,
+    double DurationMilliseconds);
 
 /// <summary>Caches one immutable hierarchy snapshot per repository and Git state.</summary>
 public sealed class RepositoryHierarchyCache
@@ -108,6 +116,28 @@ public sealed class RepositoryHierarchyCache
         }
     }
 
+    /// <summary>
+    /// The correctness key shared by the memory cache and the API-owned persistent snapshots. HEAD
+    /// is carried separately for diagnostics while the state also covers the index, dirty and
+    /// untracked content, the global inputs, and the budget.
+    /// </summary>
+    public RepositoryStateMeasurement MeasureState(
+        string repositoryPath,
+        string? globalInputsDirectory = null,
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        var started = Stopwatch.GetTimestamp();
+        var root = Path.GetFullPath(repositoryPath);
+        var git = GitState(root);
+        var state = git.State + "\0" +
+                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
+        return new RepositoryStateMeasurement(
+            state,
+            git.Head,
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+    }
+
     /// <summary>The current Git fingerprint, reused for <see cref="gitStateTtl"/> before Git runs again.</summary>
     private RepositoryGitState GitState(string root)
     {
@@ -123,6 +153,45 @@ public sealed class RepositoryHierarchyCache
         return computed;
     }
 
+    /// <summary>Seeds a previously verified immutable snapshot for this repository.</summary>
+    public void Seed(string repositoryPath, RepositoryHierarchySnapshot snapshot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var root = Path.GetFullPath(repositoryPath);
+        var slot = slots.GetOrAdd(root, _ => new CacheSlot());
+        lock (slot.Gate)
+        {
+            slot.Snapshot = snapshot;
+        }
+    }
+
+    /// <summary>
+    /// Returns the immutable snapshot already selected by a client without repeating Git-state
+    /// measurement. This is only valid when the caller supplies the exact snapshot ETag returned
+    /// by the preceding root response.
+    /// </summary>
+    public bool TryGetSeeded(string repositoryPath, string etag, out RepositoryHierarchySnapshot snapshot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(etag);
+        var root = Path.GetFullPath(repositoryPath);
+        if (slots.TryGetValue(root, out var slot))
+        {
+            lock (slot.Gate)
+            {
+                if (slot.Snapshot is not null && StringComparer.Ordinal.Equals(slot.Snapshot.ETag, etag))
+                {
+                    snapshot = slot.Snapshot;
+                    return true;
+                }
+            }
+        }
+
+        snapshot = null!;
+        return false;
+    }
+
     private static RepositoryGitState ComputeGitState(string root)
     {
         var head = RunGit(root, "rev-parse", "--verify", "HEAD") ?? "unborn";
@@ -136,7 +205,8 @@ public sealed class RepositoryHierarchyCache
                 "git-unavailable",
                 RepositoryGitState.UnavailableStatus,
                 "git status failed in this repository, so the hierarchy cannot follow the working tree. " +
-                "Check that git is on PATH and that the directory is a readable Git repository.");
+                "Check that git is on PATH and that the directory is a readable Git repository.")
+            { Head = head };
         }
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -159,7 +229,8 @@ public sealed class RepositoryHierarchyCache
             while ((read = stream.Read(buffer)) > 0) hash.AppendData(buffer, 0, read);
         }
         return new RepositoryGitState(
-            Convert.ToHexStringLower(hash.GetHashAndReset()), RepositoryGitState.OkStatus, null);
+            Convert.ToHexStringLower(hash.GetHashAndReset()), RepositoryGitState.OkStatus, null)
+        { Head = head };
     }
 
     private static string ComputeGlobalInputsState(string? directory, int budgetCharacters)

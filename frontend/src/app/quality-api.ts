@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { Injectable, DestroyRef, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -10,7 +10,7 @@ import {
   RepositoryTransition, ResolvedInputs, ReviewFinding, ReviewKind, ReviewModelRecommendation,
   ReviewPreflight, ReviewRun, ReviewRunCompareResult, ReviewRunRetention, ReviewThread, RiskReport,
   RunReportFormat, ScanReport, ScopeRuleMutation, ScopeRulesResponse, ScopeRuleView,
-  SecurityScanResponse, StartReviewRequest, ThreadMutationRequest, TreeNode,
+  SecurityScanResponse, StartReviewRequest, ThreadMutationRequest, TreeLevelResponse, TreeNode,
 } from './contracts';
 import { FindingsApi } from './findings-api';
 import { RepositoriesApi } from './repositories-api';
@@ -23,6 +23,18 @@ const NO_EXPANSION: ReadonlySet<string> = new Set<string>();
 const RECONNECT_INTERVAL_MS = 5_000;
 /** How long a repository transition stays visible after its data arrived, to avoid a flicker. */
 const TRANSITION_HOLD_MS = 250;
+/** Nodes per page of one lazy tree level. */
+const TREE_PAGE_LIMIT = 500;
+/** Upper bound on the server-side filter answer, so a filter stays a small response. */
+const TREE_SEARCH_LIMIT = 200;
+
+/** A loaded hierarchy plus which contract and route produced it. */
+interface LoadedTree {
+  nodes: TreeNode[];
+  etag: string | null;
+  schemaVersion: 1 | 2;
+  source: 'api' | 'legacy-api';
+}
 
 /**
  * The shell's view of one repository: its hierarchy, dashboard, scan, risk, and resolved inputs,
@@ -47,7 +59,21 @@ export class QualityApi {
    * to run `flattenTree(..., true)` three or four times per click; this caches it per tree value.
    */
   readonly allNodes = computed(() => flattenTree(this.tree(), NO_EXPANSION, true));
-  readonly nodesByPath = computed(() => new Map(this.allNodes().map(node => [node.path, node])));
+  /**
+   * Server-side matches for the explorer filter. The tree only holds the levels that have been
+   * expanded, so a filter cannot be answered from `allNodes()` alone.
+   */
+  readonly treeSearchResults = signal<TreeNode[]>([]);
+  /** Container node ids whose children are in flight, so a row can show that it is loading. */
+  readonly treeChildrenLoading = signal(new Set<string>());
+  /**
+   * Search hits resolve paths too: a deep link into an unexpanded part of the tree is only
+   * reachable through them. Loaded nodes win, so an expanded node is never shadowed by its hit.
+   */
+  readonly nodesByPath = computed(() => new Map([
+    ...flattenTree(this.treeSearchResults(), NO_EXPANSION, true),
+    ...this.allNodes(),
+  ].map(node => [node.path, node])));
   readonly scan = signal<ScanReport>({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0, invalidCount: 0 });
   readonly security = signal<SecurityScanResponse | null>(null);
   readonly attackCoverage = signal<AttackCoverageMatrix | null>(null);
@@ -91,6 +117,11 @@ export class QualityApi {
   private readonly projectSnapshots = new Map<string, [ProjectDashboard, string | null]>();
   private repositorySelectionSequence = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private treeSearchSequence = 0;
+  /** One in-flight child request per container, so a double-click does not fetch the level twice. */
+  private readonly treeChildrenRequests = new Map<string, Promise<void>>();
+  /** Pins every lazy page of a repository to the root snapshot it was cut from. */
+  private readonly treeSnapshotEtags = new Map<string, string>();
 
   constructor() {
     this.runsApi.onRunsSettled = () => this.refreshAfterRun();
@@ -118,6 +149,7 @@ export class QualityApi {
     this.context.connectionState.set('connecting');
     this.findingsApi.clearFile();
     this.attackCoverage.set(null);
+    this.treeSearchResults.set([]);
     const treeSnapshot = this.treeSnapshots.get(`${id}\0`)?.[0];
     const projectSnapshot = this.projectSnapshots.get(id)?.[0];
     this.tree.set(treeSnapshot ?? []);
@@ -148,16 +180,17 @@ export class QualityApi {
     const retained = this.treeSnapshots.get(snapshotKey);
     const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
     try {
-      const response = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(
-        `${base}/tree?path=${encodeURIComponent(path)}`,
-        { observe: 'response', headers: retained?.[1] ? { 'If-None-Match': retained[1] } : undefined }));
-      const nodes = response.body!.nodes;
-      this.treeSnapshots.set(snapshotKey, [nodes, response.headers.get('ETag')]);
+      // The root arrives one level at a time over the versioned contract. A path-scoped request
+      // keeps the recursive route, which is addressed by path rather than by parent.
+      const loaded = path
+        ? await this.loadRecursiveTree(base, path, retained?.[1] ?? null)
+        : await this.loadRootLevel(base, repositoryId, retained?.[1] ?? null);
+      this.treeSnapshots.set(snapshotKey, [loaded.nodes, loaded.etag]);
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.tree.set(nodes);
+      this.tree.set(loaded.nodes);
       this.context.connectionState.set('live');
       this.context.connectionError.set('');
-      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: nodes.length, source: 'api' }));
+      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', schemaVersion: loaded.schemaVersion, nodeCount: loaded.nodes.length, source: loaded.source }));
     } catch (error) {
       if (!this.reuseSnapshot(error, repositoryId, retained) && repositoryId === this.selectedRepositoryId()) {
         // Only a request that never reached the API earns preview data; a reachable API that
@@ -180,6 +213,71 @@ export class QualityApi {
       }
     }
     if (detailsLoading) await detailsLoading;
+  }
+
+  /**
+   * Fetches one container's children on first expansion. Only the root level is paid for up front;
+   * everything below it is requested here, once, and merged into the retained snapshot.
+   */
+  async loadTreeChildren(node: TreeNode, repositoryId = this.selectedRepositoryId()): Promise<void> {
+    if (!(node.hasChildren ?? node.children.length > 0) || node.childrenLoaded || node.children.length > 0) return;
+    const key = `${repositoryId}\0${node.id}`;
+    const existing = this.treeChildrenRequests.get(key);
+    if (existing) return existing;
+    this.treeChildrenLoading.update(current => new Set([...current, node.id]));
+    const request = (async () => {
+      try {
+        const level = await this.loadTreeLevel(this.context.repositoryApiBase(repositoryId), node.id, repositoryId);
+        const snapshotKey = `${repositoryId}\0`;
+        const retained = this.treeSnapshots.get(snapshotKey);
+        const current = repositoryId === this.selectedRepositoryId() ? this.tree() : retained?.[0] ?? [];
+        const updated = this.replaceTreeChildren(current, node.id, level.nodes);
+        this.treeSnapshots.set(snapshotKey, [updated, retained?.[1] ?? null]);
+        if (repositoryId === this.selectedRepositoryId()) this.tree.set(updated);
+        console.info(JSON.stringify({ event: 'qs.data.tree-children-loaded', parentId: node.id, nodeCount: level.nodes.length, source: 'api' }));
+      } catch (error) {
+        console.warn(JSON.stringify({ event: 'qs.data.tree-children-failed', parentId: node.id, reason: this.errorMessage(error) }));
+      } finally {
+        this.treeChildrenLoading.update(current => {
+          const next = new Set(current);
+          next.delete(node.id);
+          return next;
+        });
+        this.treeChildrenRequests.delete(key);
+      }
+    })();
+    this.treeChildrenRequests.set(key, request);
+    return request;
+  }
+
+  /**
+   * Filters across the whole repository, not just the expanded levels. The answer is bounded by
+   * the server, so a filter over a large repository stays a small response.
+   */
+  async searchTree(query: string, repositoryId = this.selectedRepositoryId()): Promise<void> {
+    const normalized = query.trim();
+    const sequence = ++this.treeSearchSequence;
+    if (!normalized) {
+      this.treeSearchResults.set([]);
+      return;
+    }
+    try {
+      const page = await firstValueFrom(this.http.get<TreeLevelResponse>(
+        `${this.context.repositoryApiBase(repositoryId)}/tree/v2/search`,
+        { params: { query: normalized, limit: String(TREE_SEARCH_LIMIT) } }));
+      if (sequence !== this.treeSearchSequence || repositoryId !== this.selectedRepositoryId()) return;
+      this.treeSearchResults.set(page.nodes.map(node => this.normalizeTreeNode(node, false)));
+    } catch (error) {
+      if (sequence !== this.treeSearchSequence || repositoryId !== this.selectedRepositoryId()) return;
+      this.treeSearchResults.set([]);
+      console.warn(JSON.stringify({ event: 'qs.data.tree-search-failed', reason: this.errorMessage(error) }));
+    }
+  }
+
+  /** Re-runs the request that decides whether the API is answering. */
+  async retryConnection(): Promise<void> {
+    this.context.connectionState.set('connecting');
+    await this.loadTree(this.selectedRepositoryId(), false);
   }
 
   async loadProjectDashboard(repositoryId = this.selectedRepositoryId()): Promise<void> {
@@ -338,6 +436,97 @@ export class QualityApi {
         console.warn(JSON.stringify({ event: 'qs.repository.details-unavailable', repositoryId, reason: this.errorMessage(error) }));
       }
     }
+  }
+
+  /**
+   * The root over the versioned contract, falling back to the recursive route for a server that
+   * predates it. A 304 is not a failure to fall back from — it travels on to `reuseSnapshot`.
+   */
+  private async loadRootLevel(base: string, repositoryId: string, conditionalEtag: string | null): Promise<LoadedTree> {
+    try {
+      const level = await this.loadTreeLevel(base, null, repositoryId, conditionalEtag);
+      return { ...level, schemaVersion: 2, source: 'api' };
+    } catch (error) {
+      if (!(error instanceof HttpErrorResponse) || error.status !== 404) throw error;
+      const legacy = await this.loadRecursiveTree(base, '', null);
+      return {
+        nodes: legacy.nodes.map(node => this.normalizeTreeNode(node, true)),
+        etag: legacy.etag,
+        schemaVersion: 1,
+        source: 'legacy-api',
+      };
+    }
+  }
+
+  /** The recursive route: the whole subtree under `path` in one response. */
+  private async loadRecursiveTree(base: string, path: string, conditionalEtag: string | null): Promise<LoadedTree> {
+    const response = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(
+      `${base}/tree?path=${encodeURIComponent(path)}`,
+      { observe: 'response', headers: conditionalEtag ? { 'If-None-Match': conditionalEtag } : undefined }));
+    return { nodes: response.body!.nodes, etag: response.headers.get('ETag'), schemaVersion: 1, source: 'api' };
+  }
+
+  /**
+   * One level of the versioned contract, following the cursor until the level is complete. Only the
+   * first page is conditional, so an unchanged level costs one 304 instead of its payload.
+   */
+  private async loadTreeLevel(
+    base: string,
+    parentId: string | null,
+    repositoryId: string,
+    conditionalEtag: string | null = null,
+  ): Promise<{ nodes: TreeNode[]; etag: string | null }> {
+    const nodes: TreeNode[] = [];
+    let cursor: string | null = null;
+    let etag: string | null = null;
+    do {
+      const params: Record<string, string> = { limit: String(TREE_PAGE_LIMIT) };
+      if (parentId) params['parentId'] = parentId;
+      // Every page of a level is cut from the same immutable snapshot as its root.
+      const snapshotEtag = this.treeSnapshotEtags.get(repositoryId);
+      if (snapshotEtag) params['snapshot'] = snapshotEtag;
+      if (cursor) params['cursor'] = cursor;
+      // Annotated because `cursor` is assigned from the response it is also a parameter of.
+      const response: HttpResponse<TreeLevelResponse> = await firstValueFrom(
+        this.http.get<TreeLevelResponse>(`${base}/tree/v2`, {
+          params,
+          observe: 'response',
+          headers: cursor === null && conditionalEtag ? { 'If-None-Match': conditionalEtag } : undefined,
+        }));
+      const page: TreeLevelResponse = response.body!;
+      if (page.schemaVersion !== 2 || !Array.isArray(page.nodes)) throw new Error('Unsupported tree response.');
+      if (page.snapshotEtag) this.treeSnapshotEtags.set(repositoryId, page.snapshotEtag);
+      if (cursor === null) etag = response.headers.get('ETag');
+      nodes.push(...page.nodes.map(node => this.normalizeTreeNode(node, false)));
+      cursor = page.nextCursor;
+    } while (cursor);
+    return { nodes, etag };
+  }
+
+  /**
+   * States for every node whether it has children and whether they are present, so a row can tell
+   * "no children" from "children not fetched yet". A recursive response has them all by definition.
+   */
+  private normalizeTreeNode(node: TreeNode, legacy: boolean): TreeNode {
+    const children = (node.children ?? []).map(child => this.normalizeTreeNode(child, legacy));
+    const hasChildren = node.hasChildren ?? children.length > 0;
+    return {
+      ...node,
+      hasChildren,
+      childCount: node.childCount ?? children.length,
+      childrenLoaded: legacy || children.length > 0 || !hasChildren,
+      children,
+    };
+  }
+
+  /** Rebuilds only the branch down to `parentId`; every untouched node keeps its identity. */
+  private replaceTreeChildren(nodes: TreeNode[], parentId: string, children: TreeNode[]): TreeNode[] {
+    return nodes.map(node => {
+      if (node.id === parentId) return { ...node, children, childrenLoaded: true, childCount: children.length };
+      if (!node.children.length) return node;
+      const updated = this.replaceTreeChildren(node.children, parentId, children);
+      return updated.some((child, index) => child !== node.children[index]) ? { ...node, children: updated } : node;
+    });
   }
 
   private reuseSnapshot(error: unknown, repositoryId: string, retained: unknown): boolean {
