@@ -1,0 +1,102 @@
+{
+  "measuredAt": "2026-08-24T08:21:55.955Z",
+  "apiDll": "/home/agent/runner-work/PROJ-016/worktrees/QS-59/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll",
+  "build": "Release",
+  "targets": [
+    {
+      "repositoryId": "default",
+      "sourcePath": "/home/agent/runner-work/PROJ-016/worktrees/QS-59",
+      "head": "e31089c",
+      "trackedFiles": 349,
+      "fullTree": {
+        "medianMs": 62.07,
+        "samplesMs": [
+          62.07,
+          104.45,
+          57.1,
+          88.25,
+          58.4
+        ],
+        "bytes": 1463779,
+        "bytesPerTrackedFile": 4194,
+        "nodes": {
+          "total": 1464,
+          "perLevel": {
+            "project": 2,
+            "module": 7,
+            "namespace": 16,
+            "file": 144,
+            "function": 1295
+          },
+          "distinctFilePaths": 144,
+          "filePathsEmittedMoreThanOnce": 0,
+          "worstRepeatedFilePath": null
+        }
+      },
+      "conditionalRequest": {
+        "status": 304,
+        "totalMs": 8.08,
+        "bytes": 0
+      },
+      "singleModuleSubtree": {
+        "path": "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+        "status": 200,
+        "totalMs": 28.87,
+        "bytes": 770615
+      },
+      "projectDashboard": {
+        "totalMs": 25.66,
+        "bytes": 8797
+      }
+    },
+    {
+      "repositoryId": "taskboard",
+      "sourcePath": "/home/agent/agent-taskboard",
+      "head": "ffe887a0",
+      "trackedFiles": 5116,
+      "fullTree": {
+        "medianMs": 749,
+        "samplesMs": [
+          561.35,
+          583.59,
+          957.82,
+          749,
+          906.25
+        ],
+        "bytes": 35519812,
+        "bytesPerTrackedFile": 6943,
+        "nodes": {
+          "total": 34809,
+          "perLevel": {
+            "project": 13,
+            "module": 28,
+            "namespace": 4493,
+            "file": 15961,
+            "function": 14314
+          },
+          "distinctFilePaths": 2596,
+          "filePathsEmittedMoreThanOnce": 1215,
+          "worstRepeatedFilePath": [
+            "frontend/src/dev-mode.ts",
+            12
+          ]
+        }
+      },
+      "conditionalRequest": {
+        "status": 304,
+        "totalMs": 38.11,
+        "bytes": 0
+      },
+      "singleModuleSubtree": {
+        "path": "backend.Tests/OrchestratorApi.Tests.csproj",
+        "status": 200,
+        "totalMs": 344.27,
+        "bytes": 7038002
+      },
+      "projectDashboard": {
+        "totalMs": 47.07,
+        "bytes": 15086
+      }
+    }
+  ]
+}
