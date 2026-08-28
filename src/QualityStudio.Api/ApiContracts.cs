@@ -319,3 +319,17 @@ public sealed record AgentStudioImportResponse(
     int Imported,
     int Skipped,
     int Failed);
+
+/// <summary>Plain status for one side of a run comparison: whether its outcome snapshot could be read.</summary>
+public sealed record ReviewRunCompareSnapshotResponse(string RunId, string Status, string? Error);
+
+public sealed record ReviewRunCompareResponse(
+    string Status,
+    ReviewRunCompareSnapshotResponse Baseline,
+    ReviewRunCompareSnapshotResponse Candidate,
+    QualityRunComparison? Comparison);
+
+public sealed record ReviewRunPinsResponse(IReadOnlyList<string> PinnedRunIds);
+
+public sealed record ReviewRunRetentionResponse(
+    int SnapshotCount, long TotalBytes, long AverageBytes, int PinnedCount, int RetentionKeep);
