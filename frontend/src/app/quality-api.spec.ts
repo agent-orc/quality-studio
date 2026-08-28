@@ -2,13 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { LAST_REPOSITORY_STORAGE_KEY, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
   let http: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.removeItem(LAST_REPOSITORY_STORAGE_KEY);
     TestBed.configureTestingModule({
       providers: [QualityApi, provideHttpClient(), provideHttpClientTesting()],
     });
@@ -16,7 +17,10 @@ describe('QualityApi', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(LAST_REPOSITORY_STORAGE_KEY);
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
@@ -162,5 +166,120 @@ describe('QualityApi', () => {
 
     expect(api.runReportUrl('run / 1', 'sarif')).toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=sarif');
     expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
+  });
+
+  const repos = [
+    { id: 'alpha', displayName: 'Alpha', rootPath: '/alpha', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: null, defaultReviewCostCap: null },
+    { id: 'beta', displayName: 'Beta', rootPath: '/beta', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: null, defaultReviewCostCap: null },
+  ];
+
+  it('restores the last selected repository on the first load of a session', async () => {
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, 'beta');
+
+    const loading = api.loadRepositories();
+    http.expectOne('/api/repos').flush({ repositories: repos, defaultRepositoryId: 'alpha' });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('beta');
+  });
+
+  it('falls back to the server default when the remembered repository no longer exists', async () => {
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, 'archived-gamma');
+
+    const loading = api.loadRepositories();
+    http.expectOne('/api/repos').flush({ repositories: repos, defaultRepositoryId: 'alpha' });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('alpha');
+  });
+
+  it('does not let a remembered repository override an explicit preferred id', async () => {
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, 'beta');
+
+    const loading = api.loadRepositories('alpha');
+    http.expectOne('/api/repos').flush({ repositories: repos, defaultRepositoryId: 'alpha' });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('alpha');
+  });
+
+  it('remembers a repository chosen through selectRepository for the next session', async () => {
+    const loading = api.loadRepositories();
+    http.expectOne('/api/repos').flush({ repositories: repos, defaultRepositoryId: 'alpha' });
+    await loading;
+
+    const selecting = api.selectRepository('beta');
+    expect(localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY)).toBe('beta');
+
+    for (let round = 0; round < 8; round++) {
+      await new Promise(resolve => setTimeout(resolve));
+      const pending = http.match(() => true);
+      if (pending.length === 0) break;
+      pending.forEach(request => request.flush({}));
+    }
+    await selecting;
+  });
+
+  it('marks the connection offline when the API is fully unreachable, distinct from a preview fallback', async () => {
+    const loading = api.loadTree(undefined, false);
+    http.expectOne('/api/repos/default/tree?path=').flush(null, { status: 0, statusText: 'Unknown Error' });
+    await loading;
+
+    expect(api.connectionState()).toBe('offline');
+    expect(api.connectionLabel()).toBe('API offline');
+  });
+
+  it('marks the connection as preview data when the API responds but the request fails', async () => {
+    const loading = api.loadTree(undefined, false);
+    http.expectOne('/api/repos/default/tree?path=').flush('boom', { status: 500, statusText: 'Server Error' });
+    await loading;
+
+    expect(api.connectionState()).toBe('preview');
+    expect(api.connectionLabel()).toBe('API offline, preview data');
+  });
+
+  it('restores the remembered repository when retrying after an outage parked the shell on default', async () => {
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, 'beta');
+
+    const failing = api.loadRepositories();
+    http.expectOne('/api/repos').flush(null, { status: 0, statusText: 'Unknown Error' });
+    await failing;
+    expect(api.selectedRepositoryId()).toBe('default');
+
+    const retrying = api.retryConnection();
+    http.expectOne('/api/repos').flush({ repositories: repos, defaultRepositoryId: 'alpha' });
+    await new Promise(resolve => setTimeout(resolve));
+
+    expect(api.selectedRepositoryId()).toBe('beta');
+    expect(localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY)).toBe('beta');
+
+    for (let round = 0; round < 8; round++) {
+      await new Promise(resolve => setTimeout(resolve));
+      const pending = http.match(() => true);
+      if (pending.length === 0) break;
+      pending.forEach(request => request.flush({}));
+    }
+    await retrying;
+  });
+
+  it('re-runs the repository and tree loads on retryConnection', async () => {
+    const loading = api.loadTree(undefined, false);
+    http.expectOne('/api/repos/default/tree?path=').flush(null, { status: 0, statusText: 'Unknown Error' });
+    await loading;
+    expect(api.connectionState()).toBe('offline');
+
+    const retrying = api.retryConnection();
+    http.expectOne('/api/repos').flush({ repositories: repos, defaultRepositoryId: 'alpha' });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/alpha/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/alpha/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
+    http.expectOne('/api/repos/alpha/inputs').flush({ kinds: {} });
+    http.expectOne('/api/repos/alpha/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
+    http.expectOne('/api/repos/alpha/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/alpha/handover').flush({ targetConfigured: false, dryRun: true });
+    await retrying;
+
+    expect(api.connectionState()).toBe('live');
   });
 });
