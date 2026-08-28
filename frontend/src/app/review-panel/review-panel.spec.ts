@@ -266,5 +266,13 @@ describe('ReviewPanel session flow', () => {
     expect(text).toContain('Route or inputs differ');
     expect(text).toContain('New finding');
     expect(text).toContain('Fixed finding');
+
+    // The pickers must show the pair actually being compared. Binding [value] on the select instead
+    // of [selected] on the options silently falls back to the first option, which misreports the
+    // baseline/candidate direction to the operator.
+    const selectValue = (label: string) =>
+      (fixture.nativeElement.querySelector(`select[aria-label="${label}"]`) as HTMLSelectElement).value;
+    expect(selectValue('Baseline run')).toBe('baseline');
+    expect(selectValue('Candidate run')).toBe('candidate');
   });
 });

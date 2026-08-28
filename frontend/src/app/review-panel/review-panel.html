@@ -32,11 +32,11 @@
           <section class="run-detail-surface" aria-label="Run comparison workbench">
             <header><div><span class="eyebrow">Comparison workbench</span><b>Outcome snapshot compare</b></div><button type="button" aria-label="Close comparison" (click)="closeCompare()">×</button></header>
             <div class="compare-picker">
-              <label>Baseline<select aria-label="Baseline run" [value]="compareBaselineId()" (change)="compareBaselineId.set($any($event.target).value); runCompare()">
-                @for (run of comparableRuns(); track run.id) { <option [value]="run.id">{{ scannedAt(run.finishedAt ?? run.createdAt) }} · {{ run.id }}@if (isPinned(run.id)) { · pinned }</option> }
+              <label>Baseline<select aria-label="Baseline run" (change)="compareBaselineId.set($any($event.target).value); runCompare()">
+                @for (run of comparableRuns(); track run.id) { <option [value]="run.id" [selected]="run.id === compareBaselineId()">{{ scannedAt(run.finishedAt ?? run.createdAt) }} · {{ run.id }}@if (isPinned(run.id)) { · pinned }</option> }
               </select></label>
-              <label>Candidate<select aria-label="Candidate run" [value]="compareCandidateId()" (change)="compareCandidateId.set($any($event.target).value); runCompare()">
-                @for (run of comparableRuns(); track run.id) { <option [value]="run.id">{{ scannedAt(run.finishedAt ?? run.createdAt) }} · {{ run.id }}@if (isPinned(run.id)) { · pinned }</option> }
+              <label>Candidate<select aria-label="Candidate run" (change)="compareCandidateId.set($any($event.target).value); runCompare()">
+                @for (run of comparableRuns(); track run.id) { <option [value]="run.id" [selected]="run.id === compareCandidateId()">{{ scannedAt(run.finishedAt ?? run.createdAt) }} · {{ run.id }}@if (isPinned(run.id)) { · pinned }</option> }
               </select></label>
             </div>
             @if (compareLoading()) { <p class="run-detail-message" role="status">Comparing run outcomes…</p> }
