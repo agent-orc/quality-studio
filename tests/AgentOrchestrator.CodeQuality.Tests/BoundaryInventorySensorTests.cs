@@ -212,6 +212,183 @@ public sealed class BoundaryInventorySensorTests
         Assert.True(validation.IsValid, validation.ToString());
     }
 
+    [Fact]
+    public async Task Bounded_scan_reports_partial_coverage_and_does_not_replace_repository_inventory()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-bounded-").FullName;
+        try
+        {
+            for (var index = 0; index < 30; index++)
+            {
+                await File.WriteAllTextAsync(Path.Combine(root, $"route-{index:D3}.cs"),
+                    $"var app = WebApplication.Create(); app.MapGet(\"/route-{index}\", () => Results.Ok());",
+                    TestContext.Current.CancellationToken);
+            }
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string> { ["maxFiles"] = "5" }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(inventory.Coverage.Complete);
+            Assert.Equal("bounded", inventory.Coverage.Mode);
+            Assert.Equal(30, inventory.Coverage.FilesDiscovered);
+            Assert.Equal(5, inventory.Coverage.FilesScanned);
+            Assert.Equal(25, inventory.Coverage.FilesOmitted);
+            Assert.Equal(5, inventory.Entries.Count(entry => entry.Kind == "http"));
+            Assert.DoesNotContain(inventory.Findings, finding => finding.RuleId == "boundary/missing-authorization");
+            Assert.False(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Incremental_scan_is_explicitly_partial_and_keeps_positive_findings()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-incremental-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "selected.cs"), """
+                var builder = WebApplication.CreateBuilder(args);
+                builder.Services.AddCors(options => options.AddPolicy("public", policy => policy.AllowAnyOrigin()));
+                var app = builder.Build();
+                app.MapGet("/selected", () => Results.Ok());
+                """, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(root, "omitted.cs"),
+                "var app = WebApplication.Create(); app.MapPost(\"/omitted\", () => Results.Ok());",
+                TestContext.Current.CancellationToken);
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, IncludedPaths: ["selected.cs"]),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(inventory.Coverage.Complete);
+            Assert.Equal("incremental", inventory.Coverage.Mode);
+            Assert.Equal(1, inventory.Coverage.FilesScanned);
+            Assert.Contains(inventory.Entries, entry => entry.Name == "GET /selected");
+            Assert.DoesNotContain(inventory.Entries, entry => entry.Name.Contains("omitted", StringComparison.Ordinal));
+            Assert.Contains(inventory.Findings, finding => finding.RuleId == "boundary/permissive-cors");
+            Assert.DoesNotContain(inventory.Findings, finding => finding.RuleId == "boundary/missing-authorization");
+            Assert.False(File.Exists(Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath)));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Security_evidence_marks_incremental_boundary_coverage_unavailable_instead_of_clean()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-security-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "subject.cs"),
+                "var value = 42;", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(root, "other.cs"),
+                "var app = WebApplication.Create(); app.MapPost(\"/other\", () => Results.Ok());",
+                TestContext.Current.CancellationToken);
+            var collector = new SecurityEvidenceCollector(
+                new SensorRegistry([new BoundaryInventorySensor()]));
+
+            var evidence = await collector.CollectAsync(
+                root,
+                ["subject.cs"],
+                [new ReviewSensorConfiguration("boundaries")],
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(SecurityEvidenceVerdict.Unavailable, evidence.Verdict);
+            var sensor = Assert.Single(evidence.Sensors);
+            Assert.True(sensor.Available);
+            Assert.Equal(SecurityEvidenceVerdict.Unavailable, sensor.Verdict);
+            Assert.False(Assert.IsType<SensorScanCoverage>(sensor.Coverage).Complete);
+            Assert.Contains("explicitly included paths", sensor.UnavailableReason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Security_evidence_keeps_definite_incremental_findings_blocking()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-security-finding-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "subject.cs"), """
+                var builder = WebApplication.CreateBuilder(args);
+                builder.Services.AddCors(options => options.AddPolicy("public", policy => policy.AllowAnyOrigin()));
+                var app = builder.Build();
+                app.MapGet("/subject", () => Results.Ok());
+                """, TestContext.Current.CancellationToken);
+            var collector = new SecurityEvidenceCollector(
+                new SensorRegistry([new BoundaryInventorySensor()]));
+
+            var evidence = await collector.CollectAsync(
+                root,
+                ["subject.cs"],
+                [new ReviewSensorConfiguration("boundaries")],
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(SecurityEvidenceVerdict.Block, evidence.Verdict);
+            var sensor = Assert.Single(evidence.Sensors);
+            Assert.Equal(SecurityEvidenceVerdict.Block, sensor.Verdict);
+            Assert.False(Assert.IsType<SensorScanCoverage>(sensor.Coverage).Complete);
+            Assert.Contains(sensor.Findings, finding => finding.RuleId == "boundary/permissive-cors");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Large_synthetic_tree_scales_without_route_times_file_rescans()
+    {
+        const int sourceFileCount = 1500;
+        const int routeCount = 300;
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-large-").FullName;
+        try
+        {
+            var routes = string.Join('\n', Enumerable.Range(0, routeCount)
+                .Select(index => $"app.MapGet(\"/api/items/{index}\", () => Results.Ok());"));
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"),
+                "var app = WebApplication.Create();\n" + routes,
+                TestContext.Current.CancellationToken);
+            var filler = string.Join('\n', Enumerable.Range(0, 100).Select(index => $"export const filler{index} = {index};"));
+            var attributeOnlyCSharp = string.Join('\n', Enumerable.Range(0, 100)
+                .Select(index => $"[Fact] public void Case{index}() {{ }}"));
+            for (var index = 0; index < sourceFileCount; index++)
+            {
+                var directory = Directory.CreateDirectory(Path.Combine(root, "src", $"part-{index / 50:D2}"));
+                var fileName = index < 100 ? $"attributes-{index:D4}.cs" : $"client-{index:D4}.ts";
+                var content = index < 100
+                    ? attributeOnlyCSharp
+                    : $"client.get('/api/items/{index % routeCount}');\n{filler}";
+                await File.WriteAllTextAsync(Path.Combine(directory.FullName, fileName), content,
+                    TestContext.Current.CancellationToken);
+            }
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+            stopwatch.Stop();
+
+            Assert.True(inventory.Coverage.Complete);
+            Assert.Equal(sourceFileCount + 1, inventory.Coverage.FilesScanned);
+            Assert.Equal(routeCount, inventory.Entries.Count(entry => entry.Kind == "http"));
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(15),
+                $"Large boundary scan took {stopwatch.Elapsed.TotalSeconds:F2}s.");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private sealed record Widget(string Name);
 
 }
