@@ -90,6 +90,16 @@ for (const capture of [
   const afterFileName = `qs-83-run-compare-after-${capture.name}.png`;
   await page.screenshot({ path: join(output, afterFileName), fullPage: true });
 
+  // The pickers must name the pair the results below were actually computed from. Only a real
+  // browser catches this: under TestBed the options exist before the binding is applied, so a
+  // select that silently falls back to its first option still looks correct in a unit test.
+  const baselineSelected = await page.locator('select[aria-label="Baseline run"]').inputValue();
+  const candidateSelected = await page.locator('select[aria-label="Candidate run"]').inputValue();
+  if (baselineSelected !== baselineRun.id || candidateSelected !== candidateRun.id) {
+    throw new Error(`Comparison pickers disagree with the compared pair: baseline shows '${baselineSelected}' `
+      + `(expected '${baselineRun.id}'), candidate shows '${candidateSelected}' (expected '${candidateRun.id}').`);
+  }
+
   evidence.push({
     ...capture,
     beforeFileName,
@@ -97,6 +107,8 @@ for (const capture of [
     routeWarningShown: await page.locator('.compare-route-warning').isVisible(),
     newCount: await page.locator('.run-detail-surface:has-text("New") .run-findings').first().locator('article').count(),
     pinnedBadgeShown: (await page.locator('.run-compare-actions button.pinned').first().textContent())?.includes('Pinned') ?? false,
+    baselineSelected,
+    candidateSelected,
   });
   await page.close();
 }

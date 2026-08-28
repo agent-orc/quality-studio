@@ -266,5 +266,14 @@ describe('ReviewPanel session flow', () => {
     expect(text).toContain('Route or inputs differ');
     expect(text).toContain('New finding');
     expect(text).toContain('Fixed finding');
+
+    // The pickers must show the pair that was actually compared. Note this only guards against a
+    // binding being dropped outright: TestBed renders the @for options before applying the binding,
+    // so it cannot reproduce the ordering that made a plain [value] binding fall back to the first
+    // option in a real browser. tests/run-compare-evidence.mjs asserts that against a live page.
+    const baselineSelect: HTMLSelectElement = fixture.nativeElement.querySelector('select[aria-label="Baseline run"]');
+    const candidateSelect: HTMLSelectElement = fixture.nativeElement.querySelector('select[aria-label="Candidate run"]');
+    expect(baselineSelect.value).toBe('baseline');
+    expect(candidateSelect.value).toBe('candidate');
   });
 });

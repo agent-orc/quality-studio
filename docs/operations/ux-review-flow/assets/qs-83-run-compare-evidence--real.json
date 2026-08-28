@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-28T07:27:37.584Z",
+  "capturedAt": "2026-08-28T08:11:28.454Z",
   "baseUrl": "http://127.0.0.1:4200/",
   "evidence": [
     {
@@ -13,7 +13,9 @@
       "afterFileName": "qs-83-run-compare-after-dark.png",
       "routeWarningShown": true,
       "newCount": 1,
-      "pinnedBadgeShown": true
+      "pinnedBadgeShown": true,
+      "baselineSelected": "review-baseline",
+      "candidateSelected": "review-candidate"
     },
     {
       "name": "light",
@@ -26,7 +28,9 @@
       "afterFileName": "qs-83-run-compare-after-light.png",
       "routeWarningShown": true,
       "newCount": 1,
-      "pinnedBadgeShown": true
+      "pinnedBadgeShown": true,
+      "baselineSelected": "review-baseline",
+      "candidateSelected": "review-candidate"
     }
   ]
 }
