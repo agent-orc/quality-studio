@@ -13,9 +13,14 @@
         <div class="repository-menu" role="menu">
           <div class="menu-heading">Switch repository</div>
           @for (repository of api.repositories(); track repository.id) {
-            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
-              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
-              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
+            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()"
+                [disabled]="repository.blocked" [attr.title]="repository.blocked ? repository.blockedReason : null"
+                (click)="switchRepository(repository.id)">
+              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId() && !repository.blocked"
+                  [class.missing]="repository.id !== api.selectedRepositoryId() || repository.blocked"></span>
+              <span><strong>{{ repository.displayName }}</strong>
+                <small>{{ repository.blocked ? 'Blocked: ' + repository.blockedReason : (repository.rootPath || 'Legacy default') }}</small>
+              </span>
             </button>
           }
           <div class="menu-actions">
@@ -148,6 +153,9 @@
           @for (repository of api.repositories(); track repository.id) {
             <button type="button" [class.active]="repository.id === editingRepositoryId()" (click)="editRepository(repository)">
               <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+              @if (repository.blocked) {
+                <small class="import-reason" [attr.title]="repository.blockedReason">Blocked: {{ repository.blockedReason }}</small>
+              }
             </button>
           }
           <button class="add-repository" type="button" (click)="onboardRepository()">+ Add repository</button>

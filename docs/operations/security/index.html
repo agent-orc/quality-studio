@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs77">QS-77 addendum · Boot resilience and roots policy</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,15 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs77">
+    <h2><span class="no">11</span>QS-77 addendum · Boot resilience and roots policy</h2>
+    <p><span class="pill open">2026-08-11 incident, resolved 2026-08-28</span></p>
+    <p>On 2026-08-11 the API failed to boot: <code>RepositoryRegistry</code>'s constructor called <code>LoadOrSeed</code>, which threw <code>RepositoryRegistryValidationException("A registered repository is outside the configured allowed roots")</code> for a persisted <code>.quality-studio/repositories.json</code> entry — an Agent Studio checkout registered for the cross-repo reviewing use case documented in <code>docs/operations/studio-integration/index.html</code> and R-09/F-07 above. The thrown message named neither the offending path nor the configured <code>AllowedRoots</code>, so the host crashed with no actionable diagnostic.</p>
+    <p>The incident's suggested "operator healing" was to commit a second, wider <code>AllowedRoots</code> entry (<code>../../..</code>) to <code>src/QualityStudio.Api/appsettings.json</code> so the extra checkout would validate. That is the exact pattern F-07/R-09 already flag: QS-53 shipped a tracked, maintainer-specific root that disclosed host topology and widened the set of repositories a registrar could select, and was reverted with the rule that machine-specific paths belong in environment-specific configuration. QS-77 does not repeat that regression: the tracked default in <code>appsettings.json:4-6</code> stays <code>../..</code>. A machine that legitimately needs to review an out-of-tree checkout should supply its own root via an untracked, environment-specific override (an env-var-backed <code>QualityStudio:AllowedRoots</code> entry or a gitignored local settings file), not a change to the committed default.</p>
+    <p>The compensating control is boot-time quarantine instead of a crash. <code>RepositoryRegistration</code> gained <code>Blocked</code>/<code>BlockedReason</code> (<code>RepositoryRegistry.cs:18-19</code>). <code>LoadOrSeed</code> now runs every persisted entry through <code>ValidatePersistedEntry</code> (<code>RepositoryRegistry.cs:328-355</code>), which catches a validation failure, logs a warning naming the path and the full allowed-roots list, and marks the entry blocked rather than throwing out of the constructor. <code>EnsureAllowedDirectory</code> (<code>RepositoryRegistry.cs:357-374</code>) now always includes the offending path and the resolved <code>allowedRoots</code> list in the internal exception/log message it raises, for every caller (repository root, global inputs directory, and persisted-entry validation alike); the client-facing <code>PublicTitle</code> stays generic, so path disclosure to API clients is unchanged from the R-09-driven behavior above. <code>Get</code>/<code>Access</code> exclude blocked entries by default, so a request for one 404s like a missing repository (<code>RepositoryRegistry.cs:82-89</code>); <code>UpdateAsync</code>/<code>ArchiveAsync</code> still resolve blocked entries so an operator can fix or remove one. <code>GET /api/repos</code> passes <code>includeBlocked: true</code> (<code>Program.cs:217</code>) so the "Configure repositories" UI lists a blocked entry with its reason instead of silently dropping it; the repository switcher disables selecting a blocked entry.</p>
+    <p>Covered by <code>tests/QualityStudio.Api.Tests/RepositoryRegistryQuarantineTests.cs</code> (unit: an out-of-root persisted entry is quarantined and logged with path and roots, an in-root entry is unaffected) and <code>ApiSecurityTests.Boot_quarantines_an_out_of_root_persisted_entry_instead_of_crashing_the_host</code> (host: the API boots with a poisoned entry present, the entry is visible and blocked via <code>GET /api/repos</code>, and requesting it directly 404s).</p>
   </section>
 </main>
 </body>

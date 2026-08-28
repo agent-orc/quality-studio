@@ -160,6 +160,34 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Boot_quarantines_an_out_of_root_persisted_entry_instead_of_crashing_the_host()
+    {
+        var quarantineHost = Path.Combine(testRoot, "quarantine-host");
+        Directory.CreateDirectory(quarantineHost);
+        WriteRegistryWithPoisonedEntry(quarantineHost);
+
+        // The host boots at all: a poisoned entry must not throw out of the RepositoryRegistry constructor.
+        await using var quarantineApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, quarantineHost, spendRequestsPerMinute: 100);
+        using var admin = CreateClient(quarantineApplication, "admin", AdminToken);
+
+        var list = await admin.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
+        var repositories = list.GetProperty("repositories").EnumerateArray().ToArray();
+
+        var defaultEntry = repositories.Single(repository => repository.GetProperty("id").GetString() == "default");
+        Assert.False(defaultEntry.GetProperty("blocked").GetBoolean());
+
+        var poisoned = repositories.Single(repository => repository.GetProperty("id").GetString() == "poisoned");
+        Assert.True(poisoned.GetProperty("blocked").GetBoolean());
+        var reason = poisoned.GetProperty("blockedReason").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(reason));
+
+        using var file = await admin.GetAsync("/api/repos/poisoned/file?path=Outside.cs",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, file.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
@@ -223,6 +251,21 @@ public sealed class ApiSecurityTests : IAsyncLifetime
             new RepositoryRegistration("default", "Default", RepositoryRoot, null, 12000,
                 new[] { "code", "security", "performance" }),
             new RepositoryRegistration("foreign", "Foreign", ForeignRepositoryRoot, null, 12000,
+                new[] { "code", "security", "performance" }),
+        };
+        File.WriteAllText(path, JsonSerializer.Serialize(entries,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+    }
+
+    private void WriteRegistryWithPoisonedEntry(string hostRoot)
+    {
+        var path = Path.Combine(hostRoot, ".quality-studio", "repositories.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var entries = new[]
+        {
+            new RepositoryRegistration("default", "Default", RepositoryRoot, null, 12000,
+                new[] { "code", "security", "performance" }),
+            new RepositoryRegistration("poisoned", "Poisoned", OutsideRoot, null, 12000,
                 new[] { "code", "security", "performance" }),
         };
         File.WriteAllText(path, JsonSerializer.Serialize(entries,
