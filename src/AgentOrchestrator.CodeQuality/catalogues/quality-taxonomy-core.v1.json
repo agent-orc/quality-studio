@@ -1,0 +1,114 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "taxonomy": { "id": "quality-studio/core", "version": "1.0.0" },
+  "axes": [
+    {
+      "id": "producerKind",
+      "description": "Who or what produced an observation. Always explicit; absence never means agent.",
+      "terms": [
+        { "id": "agent", "title": "Agent" },
+        { "id": "deterministic-sensor", "title": "Deterministic sensor" },
+        { "id": "human", "title": "Human" },
+        { "id": "imported", "title": "Imported" },
+        { "id": "unknown", "title": "Unknown" }
+      ]
+    },
+    {
+      "id": "evidenceStatus",
+      "description": "Describes evidence coverage only. It is not a pass or block.",
+      "terms": [
+        { "id": "available", "title": "Available" },
+        { "id": "partial", "title": "Partial" },
+        { "id": "unavailable", "title": "Unavailable" }
+      ]
+    },
+    {
+      "id": "assessment",
+      "description": "What the evidence establishes for a review or aspect.",
+      "terms": [
+        { "id": "pass", "title": "Pass" },
+        { "id": "concern", "title": "Concern" },
+        { "id": "fail", "title": "Fail" },
+        { "id": "inconclusive", "title": "Inconclusive" },
+        { "id": "not-applicable", "title": "Not applicable" },
+        { "id": "not-assessed", "title": "Not assessed" }
+      ]
+    },
+    {
+      "id": "change",
+      "description": "Direction of a before/after comparison.",
+      "terms": [
+        { "id": "improved", "title": "Improved" },
+        { "id": "regressed", "title": "Regressed" },
+        { "id": "mixed", "title": "Mixed" },
+        { "id": "unchanged", "title": "Unchanged" },
+        { "id": "no-observed-delta", "title": "No observed delta" },
+        { "id": "inconclusive", "title": "Inconclusive" }
+      ]
+    },
+    {
+      "id": "decision",
+      "description": "Optional policy output with a required policyRef. Never supplied by a raw finding.",
+      "terms": [
+        { "id": "allow", "title": "Allow" },
+        { "id": "warn", "title": "Warn" },
+        { "id": "block", "title": "Block" },
+        { "id": "defer", "title": "Defer" }
+      ]
+    },
+    {
+      "id": "severity",
+      "description": "Retains current ordering and meaning; scoring weights stay in policy.",
+      "terms": [
+        { "id": "critical", "title": "Critical" },
+        { "id": "high", "title": "High" },
+        { "id": "medium", "title": "Medium" },
+        { "id": "low", "title": "Low" },
+        { "id": "info", "title": "Info" }
+      ]
+    },
+    {
+      "id": "lifecycle",
+      "description": "Lives in lifecycle events, not observations.",
+      "terms": [
+        { "id": "open", "title": "Open" },
+        { "id": "accepted-risk", "title": "Accepted risk", "aliases": ["accepted"] },
+        { "id": "waived", "title": "Waived" },
+        { "id": "false-positive", "title": "False positive", "aliases": ["falsePositive"] },
+        { "id": "resolved", "title": "Resolved" }
+      ]
+    },
+    {
+      "id": "evidenceKind",
+      "description": "Each item has a locator or artifact reference, summary, and digest when content is available.",
+      "terms": [
+        { "id": "source-code", "title": "Source code" },
+        { "id": "test-result", "title": "Test result" },
+        { "id": "runtime-measurement", "title": "Runtime measurement" },
+        { "id": "tool-result", "title": "Tool result" },
+        { "id": "artifact", "title": "Artifact" },
+        { "id": "document", "title": "Document" },
+        { "id": "human-attestation", "title": "Human attestation" }
+      ]
+    }
+  ],
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "description": "Code prompt and sample.", "migrationAlias": "correctness" },
+    { "id": "code.architecture", "title": "Architecture", "description": "Required project code aspect.", "migrationAlias": "architecture" },
+    { "id": "security.general", "title": "Security", "description": "File security prompt.", "migrationAlias": "security" },
+    { "id": "security.secrets", "title": "Secrets", "description": "Project security profile.", "migrationAlias": "secrets" },
+    { "id": "security.dependencies", "title": "Dependencies", "description": "Project profile and dependency sensor.", "migrationAlias": "dependencies" },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "description": "Project security profile.", "migrationAlias": "authentication-authorization" },
+    { "id": "security.input-validation", "title": "Input validation", "description": "Project security profile.", "migrationAlias": "input-validation" },
+    { "id": "security.configuration-iac", "title": "Configuration and IaC", "description": "Project security profile.", "migrationAlias": "configuration-iac" },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "description": "Boundary inventory.", "migrationAlias": "boundaries" },
+    { "id": "security.business-logic", "title": "Business logic", "description": "Deep-flow review." },
+    { "id": "security.attack-coverage", "title": "Attack coverage", "description": "Attack matrix." },
+    { "id": "performance.general", "title": "Performance", "description": "Performance prompt.", "migrationAlias": "performance" },
+    { "id": "change.risk", "title": "Risk", "description": "Change judgement.", "migrationAlias": "risk" },
+    { "id": "change.test-evidence", "title": "Test evidence", "description": "Change judgement.", "migrationAlias": "test-evidence" },
+    { "id": "change.scope-discipline", "title": "Scope discipline", "description": "Change judgement.", "migrationAlias": "scope-discipline" },
+    { "id": "change.architecture-drift", "title": "Architecture drift", "description": "Change judgement.", "migrationAlias": "architecture-drift" }
+  ]
+}

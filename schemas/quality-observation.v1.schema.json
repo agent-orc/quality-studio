@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "title": "Quality Studio immutable quality observation",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "$schema", "schemaVersion", "observationId", "taxonomy", "subject", "profile",
+    "producer", "evidenceStatus", "evidence", "aspects", "assessment", "findings"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/quality-observation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "observationId": { "type": "string", "minLength": 1 },
+    "taxonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "manifestHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "manifestHash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "promptHash", "reviewInputsHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "promptHash": { "type": "string", "minLength": 1 },
+        "reviewInputsHash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"] },
+        "agent": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "requestedModel": { "type": "string", "minLength": 1 },
+        "effectiveModel": { "type": "string", "minLength": 1 },
+        "thinkingLevel": { "type": "string", "minLength": 1 },
+        "routePolicyVersion": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "reviewRunId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidenceStatus": { "enum": ["available", "partial", "unavailable"] },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "aspects": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/aspectObservation" }
+    },
+    "assessment": { "$ref": "#/$defs/assessment" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "legacy": { "$ref": "#/$defs/legacy" }
+  },
+  "$defs": {
+    "assessment": { "enum": ["pass", "concern", "fail", "inconclusive", "not-applicable", "not-assessed"] },
+    "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "source-code", "test-result", "runtime-measurement", "tool-result",
+            "artifact", "document", "human-attestation"
+          ]
+        },
+        "locator": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "symbolId": { "type": "string" }
+          }
+        },
+        "summary": { "type": "string", "minLength": 1 },
+        "contentHash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "aspectObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectId", "assessment", "rationale"],
+      "properties": {
+        "aspectId": { "type": "string", "minLength": 1 },
+        "assessment": { "$ref": "#/$defs/assessment" },
+        "rationale": { "type": "string", "minLength": 1 },
+        "grade": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["score", "band"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "band": { "enum": ["A", "B", "C", "D", "F"] }
+          }
+        }
+      }
+    },
+    "findingSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"] },
+        "producerRef": { "type": "string", "minLength": 1 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationFindingId", "aspectId", "severity", "source"],
+      "properties": {
+        "observationFindingId": { "type": "string", "minLength": 1 },
+        "issueId": { "type": "string", "minLength": 1 },
+        "occurrenceFingerprint": { "type": "string", "minLength": 1 },
+        "fingerprintAlgorithm": { "type": "string", "minLength": 1 },
+        "ruleRef": { "type": "string", "minLength": 1 },
+        "aspectId": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "evidenceRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source": { "$ref": "#/$defs/findingSource" }
+      }
+    },
+    "legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "value", "sourcePath", "completeness"],
+      "properties": {
+        "schema": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 },
+        "sourcePath": { "type": "string", "minLength": 1 },
+        "completeness": { "enum": ["complete", "partial"] }
+      }
+    }
+  }
+}

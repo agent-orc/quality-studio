@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -557,6 +558,12 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. Each entry records what actually landed for one approval-ready slice (section 10); it does not revise the recommendation above.</p>
+  <ul>
+    <li><b>2026-08-28, QS-76 — T1 Contract and catalogue foundation.</b> Delivered per this slice's stated scope: schemas <code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code>; the core catalogue <code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code> (embedded resource) loaded through <code>QualityTaxonomyCatalogueResolver</code>; C# contract types <code>QualityTaxonomyContract.cs</code> and <code>QualityObservationContract.cs</code> (root-level extension data preserved via <code>JsonExtensionData</code>, so an unrecognized term round-trips instead of disappearing); and a pure legacy-mapping library <code>QualityTaxonomyLegacyMappings.cs</code> covering every row of the section 8 compatibility table. No writer was touched, matching T1's explicit non-goal. Conformance tests (schema fixtures, aspect-alias table, unsupported-major rejection, extension round-trip, and one test per section 8 mapping row) are in <code>QualityTaxonomyContractTests.cs</code> and <code>QualityTaxonomyLegacyMappingsTests.cs</code>. Full repository build and the <code>AgentOrchestrator.CodeQuality.Tests</code> suite are green (208 passed, 1 pre-existing unrelated skip). <code>QualityStudio.Api.Tests</code> has one pre-existing timing-budget flake (<code>ProjectDashboardTests.Cached_dashboard_for_5000_file_repository_is_within_interaction_budget</code>, unrelated to this slice) that reproduces on a clean checkout before this change. T2 through T5 remain open follow-up slices; each depends on the previous and should land as its own scoped, tested card.</li>
+  </ul>
 </main>
 </body>
 </html>

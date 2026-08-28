@@ -1,0 +1,63 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "schemaVersion": 1,
+  "observationId": "observation-sha256:2f1c9e6b3a7d4f5e8c0a1b2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60",
+  "taxonomy": {
+    "id": "quality-studio/core",
+    "version": "1.0.0",
+    "digest": "sha256:5b9e9cbdfb45896bc1c762fea84e645613784a3f28d2c20935eb2e245e8c0937"
+  },
+  "subject": {
+    "unitId": "qs-v1/dotnet/file/7b1bd2568ea481d83c2b97850fafd54c0e1981d94960926ab3b4cc5180daec3e",
+    "manifestHash": "sha256:be85a171f06c6ed26334dabf01618afbafa59edaabf5ea298e18cd98c2ddefe"
+  },
+  "profile": {
+    "id": "file-code-review",
+    "version": "1.0.0",
+    "promptHash": "sha256:c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b",
+    "reviewInputsHash": "sha256:1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80"
+  },
+  "producer": {
+    "kind": "agent",
+    "agent": "codex",
+    "provider": "openai",
+    "requestedModel": "gpt-5.4-mini",
+    "effectiveModel": "gpt-5.4-mini",
+    "thinkingLevel": "high",
+    "routePolicyVersion": "2026-07-24",
+    "runId": "quality-run-1",
+    "reviewRunId": "review-run-1"
+  },
+  "evidenceStatus": "available",
+  "evidence": [
+    {
+      "id": "ev-1",
+      "kind": "source-code",
+      "locator": { "path": "src/A.cs", "symbolId": "M:A.Run" },
+      "summary": "Unchecked value reaches the dereference.",
+      "contentHash": "sha256:9f8e7d6c5b4a392817263544f3e2d1c0b0a91827364554637281920abcdef1"
+    }
+  ],
+  "aspects": [
+    {
+      "aspectId": "code.correctness",
+      "assessment": "fail",
+      "rationale": "One high-severity defect is evidenced.",
+      "grade": { "score": 68, "band": "D" }
+    }
+  ],
+  "assessment": "fail",
+  "findings": [
+    {
+      "observationFindingId": "of-1",
+      "issueId": "issue-1",
+      "occurrenceFingerprint": "sha256:0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e80",
+      "fingerprintAlgorithm": "quality-studio-occurrence-v2",
+      "ruleRef": "built-in/code.correctness.null-deref@1",
+      "aspectId": "code.correctness",
+      "severity": "high",
+      "evidenceRefs": ["ev-1"],
+      "source": { "kind": "agent", "producerRef": "self" }
+    }
+  ]
+}
