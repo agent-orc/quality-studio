@@ -46,6 +46,7 @@ builder.Services.AddSingleton<RoslynAnalyzerSensor>();
 builder.Services.AddSingleton<EslintAnalyzerSensor>();
 builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
 builder.Services.AddSingleton<DotNetBuildSensor>();
+builder.Services.AddSingleton<AngularBudgetSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -55,6 +56,7 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DotNetBuildSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<AngularBudgetSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
@@ -557,22 +559,22 @@ static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegist
     }).OrderByDescending(row => row.RiskScore.HasValue).ThenByDescending(row => row.RiskScore)
         .ThenByDescending(row => row.Changes).ThenBy(row => row.Path, StringComparer.Ordinal).ToArray();
     var matrix = rows.GroupBy(row => new
+    {
+        Grade = row.GradeScore switch
         {
-            Grade = row.GradeScore switch
-            {
-                null => "unknown",
-                < 70 => "weak",
-                < 80 => "mediocre",
-                _ => "strong",
-            },
-            Coverage = row.Coverage.LinePercent switch
-            {
-                null => "unknown",
-                < 50 => "low",
-                < 80 => "medium",
-                _ => "high",
-            },
-        })
+            null => "unknown",
+            < 70 => "weak",
+            < 80 => "mediocre",
+            _ => "strong",
+        },
+        Coverage = row.Coverage.LinePercent switch
+        {
+            null => "unknown",
+            < 50 => "low",
+            < 80 => "medium",
+            _ => "high",
+        },
+    })
         .Select(group => new RiskMatrixCellResponse(group.Key.Grade, group.Key.Coverage,
             group.Count(), group.Sum(row => row.Changes)))
         .OrderBy(cell => cell.Grade, StringComparer.Ordinal).ThenBy(cell => cell.Coverage, StringComparer.Ordinal)
@@ -638,64 +640,68 @@ static async Task<IResult> MutateThread(HttpContext context, ThreadMutationReque
     await writeLock.WaitAsync(cancellationToken);
     try
     {
-    var root = JsonNode.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken))!.AsObject();
-    var threads = root["threads"] as JsonArray ?? [];
-    root["threads"] = threads;
-    JsonObject thread;
-    if (string.IsNullOrWhiteSpace(request.ThreadId))
-    {
-        if (request.Line is null or < 1 || string.IsNullOrWhiteSpace(request.Body))
-            throw new ArgumentException("A new thread requires a line and comment body.");
-        var content = await File.ReadAllTextAsync(repository.ResolveFile(relative), cancellationToken);
-        var lineCount = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n').Length;
-        if (request.Line > lineCount) throw new ArgumentException($"Line {request.Line} is outside the file (1-{lineCount}).");
-        var range = new FindingRange(new FindingPosition(request.Line.Value, 1), new FindingPosition(request.Line.Value, 1));
-        var fingerprint = request.FindingFingerprint;
-        if (string.IsNullOrWhiteSpace(fingerprint) || fingerprint.Length != 71 || !fingerprint.StartsWith("sha256:", StringComparison.Ordinal) ||
-            !fingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
-            fingerprint = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{relative}\0{request.Line}\0{request.Body}")));
-        thread = new JsonObject
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken))!.AsObject();
+        var threads = root["threads"] as JsonArray ?? [];
+        root["threads"] = threads;
+        JsonObject thread;
+        if (string.IsNullOrWhiteSpace(request.ThreadId))
         {
-            ["id"] = $"thread-{Guid.NewGuid():N}",
-            ["anchor"] = new JsonObject
+            if (request.Line is null or < 1 || string.IsNullOrWhiteSpace(request.Body))
+                throw new ArgumentException("A new thread requires a line and comment body.");
+            var content = await File.ReadAllTextAsync(repository.ResolveFile(relative), cancellationToken);
+            var lineCount = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n').Length;
+            if (request.Line > lineCount) throw new ArgumentException($"Line {request.Line} is outside the file (1-{lineCount}).");
+            var range = new FindingRange(new FindingPosition(request.Line.Value, 1), new FindingPosition(request.Line.Value, 1));
+            var fingerprint = request.FindingFingerprint;
+            if (string.IsNullOrWhiteSpace(fingerprint) || fingerprint.Length != 71 || !fingerprint.StartsWith("sha256:", StringComparison.Ordinal) ||
+                !fingerprint[7..].All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
+                fingerprint = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{relative}\0{request.Line}\0{request.Body}")));
+            thread = new JsonObject
             {
-                ["path"] = relative, ["fingerprint"] = fingerprint,
-                ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
-                ["lastKnownRange"] = new JsonObject
+                ["id"] = $"thread-{Guid.NewGuid():N}",
+                ["anchor"] = new JsonObject
                 {
-                    ["start"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
-                    ["end"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                    ["path"] = relative,
+                    ["fingerprint"] = fingerprint,
+                    ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
+                    ["lastKnownRange"] = new JsonObject
+                    {
+                        ["start"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                        ["end"] = new JsonObject { ["line"] = request.Line, ["column"] = 1 },
+                    },
                 },
-            },
-            ["status"] = request.Status ?? "open", ["anchorState"] = "anchored", ["entries"] = new JsonArray(),
-        };
-        threads.Add(thread);
-    }
-    else
-    {
-        thread = threads.OfType<JsonObject>().SingleOrDefault(candidate => candidate["id"]?.GetValue<string>() == request.ThreadId)
-            ?? throw new KeyNotFoundException($"Review thread '{request.ThreadId}' was not found.");
-    }
-    if (!string.IsNullOrWhiteSpace(request.Body))
-    {
-        var entry = new JsonObject
+                ["status"] = request.Status ?? "open",
+                ["anchorState"] = "anchored",
+                ["entries"] = new JsonArray(),
+            };
+            threads.Add(thread);
+        }
+        else
         {
-            ["id"] = $"entry-{Guid.NewGuid():N}",
-            ["author"] = new JsonObject { ["kind"] = "human", ["name"] = string.IsNullOrWhiteSpace(request.HumanName) ? "Reviewer" : request.HumanName.Trim() },
-            ["createdAt"] = DateTime.UtcNow.ToString("O"), ["body"] = request.Body.Trim(),
-        };
-        if (!string.IsNullOrWhiteSpace(request.ReplyTo)) entry["replyTo"] = request.ReplyTo;
-        thread["entries"]!.AsArray().Add(entry);
-    }
-    if (request.Status is not null) thread["status"] = request.Status;
-    var temporary = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-    await File.WriteAllTextAsync(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine,
-        new UTF8Encoding(false), cancellationToken);
-    File.Move(temporary, metaPath, true);
-    logger.LogInformation(new EventId(1500, "ReviewThreadMutated"),
-        "Mutated review thread {ThreadId} for {FilePath} in repository {RepositoryId}; Status={Status}, HasEntry={HasEntry}, ElapsedMilliseconds={ElapsedMilliseconds}",
-        thread["id"]!.GetValue<string>(), relative, registration.Id, thread["status"]!.GetValue<string>(), !string.IsNullOrWhiteSpace(request.Body), stopwatch.ElapsedMilliseconds);
-    return Results.Ok(thread);
+            thread = threads.OfType<JsonObject>().SingleOrDefault(candidate => candidate["id"]?.GetValue<string>() == request.ThreadId)
+                ?? throw new KeyNotFoundException($"Review thread '{request.ThreadId}' was not found.");
+        }
+        if (!string.IsNullOrWhiteSpace(request.Body))
+        {
+            var entry = new JsonObject
+            {
+                ["id"] = $"entry-{Guid.NewGuid():N}",
+                ["author"] = new JsonObject { ["kind"] = "human", ["name"] = string.IsNullOrWhiteSpace(request.HumanName) ? "Reviewer" : request.HumanName.Trim() },
+                ["createdAt"] = DateTime.UtcNow.ToString("O"),
+                ["body"] = request.Body.Trim(),
+            };
+            if (!string.IsNullOrWhiteSpace(request.ReplyTo)) entry["replyTo"] = request.ReplyTo;
+            thread["entries"]!.AsArray().Add(entry);
+        }
+        if (request.Status is not null) thread["status"] = request.Status;
+        var temporary = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
+        await File.WriteAllTextAsync(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine,
+            new UTF8Encoding(false), cancellationToken);
+        File.Move(temporary, metaPath, true);
+        logger.LogInformation(new EventId(1500, "ReviewThreadMutated"),
+            "Mutated review thread {ThreadId} for {FilePath} in repository {RepositoryId}; Status={Status}, HasEntry={HasEntry}, ElapsedMilliseconds={ElapsedMilliseconds}",
+            thread["id"]!.GetValue<string>(), relative, registration.Id, thread["status"]!.GetValue<string>(), !string.IsNullOrWhiteSpace(request.Body), stopwatch.ElapsedMilliseconds);
+        return Results.Ok(thread);
     }
     finally
     {

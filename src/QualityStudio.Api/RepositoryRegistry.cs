@@ -391,7 +391,7 @@ public sealed class RepositoryRegistry
         RepositorySensorConfiguration fallback)
     {
         if (configured.Configuration is not null ||
-            configured.Id is not ("eslint" or "roslyn" or "sarif" or "tsc"))
+            configured.Id is not ("eslint" or "roslyn" or "sarif" or "tsc" or "ng-budget"))
             return configured;
         return fallback with { Enabled = configured.Enabled && fallback.Enabled };
     }
@@ -400,7 +400,9 @@ public sealed class RepositoryRegistry
     {
         "dotnet-build" => new RepositorySensorConfiguration(id, DotNetBuildSensor.HasTarget(root)),
         "eslint" => EslintDefault(id, root),
-        "roslyn" or "sarif" or "tsc" => new RepositorySensorConfiguration(id, Enabled: false),
+        "tsc" => TscDefault(id, root),
+        "ng-budget" => NgBudgetDefault(id, root),
+        "roslyn" or "sarif" => new RepositorySensorConfiguration(id, Enabled: false),
         _ => new RepositorySensorConfiguration(id),
     };
 
@@ -421,6 +423,41 @@ public sealed class RepositoryRegistry
                               "--config frontend/eslint.config.mjs " +
                               "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
                               "--output-file {reportPath}",
+            });
+    }
+
+    private static RepositorySensorConfiguration TscDefault(string id, string root)
+    {
+        var frontend = Path.Combine(root, "frontend");
+        var configuration = Path.Combine(frontend, "tsconfig.app.json");
+        var manifest = Path.Combine(frontend, "package.json");
+        if (!File.Exists(configuration) || !File.Exists(manifest))
+            return new RepositorySensorConfiguration(id, Enabled: false);
+        return new RepositorySensorConfiguration(
+            id,
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["workingDirectory"] = ".",
+                ["reportPath"] = ".quality/preflight/tsc.log",
+                ["command"] = "node frontend/node_modules/typescript/bin/tsc " +
+                              "--noEmit --pretty false -p frontend/tsconfig.app.json",
+            });
+    }
+
+    private static RepositorySensorConfiguration NgBudgetDefault(string id, string root)
+    {
+        var frontend = Path.Combine(root, "frontend");
+        var angularConfiguration = Path.Combine(frontend, "angular.json");
+        var manifest = Path.Combine(frontend, "package.json");
+        if (!File.Exists(angularConfiguration) || !File.Exists(manifest))
+            return new RepositorySensorConfiguration(id, Enabled: false);
+        return new RepositorySensorConfiguration(
+            id,
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["workingDirectory"] = "frontend",
+                ["reportPath"] = ".quality/preflight/ng-budget.log",
+                ["command"] = "node node_modules/@angular/cli/bin/ng.js build --configuration production",
             });
     }
 }

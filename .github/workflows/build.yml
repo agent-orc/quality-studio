@@ -15,11 +15,23 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # Full history so the Prettier changed-file gate can diff against origin/main.
+          fetch-depth: 0
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
@@ -36,6 +48,15 @@ jobs:
           --configuration Release
           --no-build
           --filter "Category!=MachineBound"
+
+      - name: Check .NET whitespace baseline
+        run: npm run style:dotnet:check
+
+      - name: Check ESLint baseline
+        run: npm run style:eslint:check
+
+      - name: Check changed-file frontend formatting
+        run: npm run style:frontend:check
 
       - name: Security scan
         run: dotnet run --project src/quality-cli -- security scan .

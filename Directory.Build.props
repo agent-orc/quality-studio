@@ -8,5 +8,20 @@
     <RepositoryType>git</RepositoryType>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Complexity thresholds (docs/operations/static-analysis/index.html, slice S4) are findings,
+         not model/build blockers: keep them out of warnings-as-errors even though everything else
+         still fails the build. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1502;CA1505</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <!-- CA1502 (cyclomatic complexity) / CA1505 (maintainability index) thresholds apply to
+       production code only; test projects opt out entirely rather than relying on the .editorconfig
+       [src/**.cs] scope alone. -->
+  <ItemGroup Condition="'$(IsTestProject)' != 'true'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)CodeMetricsConfig.txt" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <NoWarn>$(NoWarn);CA1502;CA1505</NoWarn>
   </PropertyGroup>
 </Project>

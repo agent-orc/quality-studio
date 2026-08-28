@@ -96,12 +96,12 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         try
         {
             var output = await commandRunner.RunAsync(
-                "npx", ["--no-install", "tsc", "--version"], Directory.GetCurrentDirectory(), cancellationToken)
+                "node", ["--version"], Directory.GetCurrentDirectory(), cancellationToken)
                 .ConfigureAwait(false);
             return output.ExitCode == 0
                 ? new SensorAvailability(true, ToolVersions: new Dictionary<string, string>
                 {
-                    ["typescript"] = output.StandardOutput.Trim(),
+                    ["node"] = output.StandardOutput.Trim(),
                 })
                 : new SensorAvailability(
                     false, $"tsc is unavailable: version probe exited with code {output.ExitCode}.");
