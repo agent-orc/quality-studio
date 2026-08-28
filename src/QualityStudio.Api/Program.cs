@@ -214,10 +214,10 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualitySt
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
 {
-    var repositories = registry.List(includeArchived == true)
+    var repositories = registry.List(includeArchived == true, includeBlocked: true)
         .Where(repository => security.Identity(context).CanAccess(repository.Id))
         .ToArray();
-    prewarmer.QueueAll(repositories);
+    prewarmer.QueueAll(repositories.Where(repository => !repository.Blocked));
     return Results.Ok(new
     {
         repositories,

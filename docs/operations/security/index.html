@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs-77">QS-77 addendum</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,20 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs-77">
+    <h2><span class="no">11</span>QS-77 addendum · Boot resilience and the AllowedRoots decision</h2>
+    <p><span class="pill new">2026-08-28</span></p>
+    <p>On 2026-08-11 the API failed to start entirely: a persisted <code>.quality-studio/repositories.json</code> entry (an Agent Studio checkout, kept for the cross-repo reviewing use case documented in <code>docs/operations/studio-integration/index.html</code>) fell outside the configured <code>AllowedRoots</code>. <code>RepositoryRegistry</code>'s constructor threw <code>RepositoryRegistryValidationException</code> from <code>LoadOrSeed</code> before the host finished booting, and the thrown message named neither the offending path nor the configured roots—so the failure was both total and undiagnosable from the log alone.</p>
+    <div class="box accent">
+      <h4>Decision: AllowedRoots stays at the tracked <code>../..</code> default</h4>
+      <p>The operator healing note for this incident suggested extending the tracked <code>AllowedRoots</code> with a second, wider relative entry so the Agent Studio checkout would validate. That is the exact regression F-07/R-09 already document: QS-53 shipped a maintainer-specific <code>AllowedRoots</code> entry, disclosing host topology and widening the set of repositories a registrar (or the R-01 privilege chain) could select, and was reverted with the rule that machine-specific paths belong in environment-specific configuration, not the tracked <code>appsettings.json</code>. This addendum keeps that rule: a second cross-repo root, when a specific machine genuinely needs one, belongs in an untracked local override (environment variable or an untracked <code>appsettings.Local.json</code>), never in the committed default.</p>
+    </div>
+    <p>The compensating control is boot resilience rather than a wider trust boundary. <code>RepositoryRegistration</code> gained <code>Blocked</code>/<code>BlockedReason</code>. <code>RepositoryRegistry.LoadOrSeed</code> now runs each persisted entry through <code>QuarantineIfInvalid</code>: a validation failure (outside <code>AllowedRoots</code>, a missing directory, or a rejected reparse traversal) no longer throws during construction—it logs a <code>RepositoryQuarantined</code> warning naming the repository id and the full validation reason, and the entry is kept in memory marked <code>Blocked</code>. Startup completes with every other entry unaffected. <code>RepositoryRegistry.Get</code>/<code>Access</code> exclude blocked entries by default, so a quarantined repository 404s exactly like one that was never registered; <code>List(includeBlocked: true)</code>, used by <code>GET /api/repos</code>, still returns them so the “Configure repositories” UI can show the entry as blocked with its reason, and the sensor prewarmer explicitly skips blocked entries rather than touching an unconfirmed path.</p>
+    <p><code>EnsureAllowedDirectory</code>'s internal exception/log message now always includes the checked path and the complete configured <code>allowedRoots</code> list, at every call site (persisted-entry validation, onboarding, updates, and global-inputs-directory checks). This message stays internal: <code>Program.cs</code>'s problem-detail mapping still returns only <code>RepositoryRegistryValidationException.PublicTitle</code> to API clients, so <code>Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure</code> continues to pass unchanged. The one caller that does return the fuller message to its own (registrar-only) caller is the Agent Studio import endpoint, which was already returning the attempted path in the same response payload.</p>
+    <p class="evidence-link">Evidence: <code>src/QualityStudio.Api/RepositoryRegistry.cs</code> (<code>LoadOrSeed</code>, <code>QuarantineIfInvalid</code>, <code>EnsureAllowedDirectory</code>); <code>src/QualityStudio.Api/Program.cs</code> (<code>GET /api/repos</code>); <code>tests/QualityStudio.Api.Tests/ApiSecurityTests.cs:Boot_quarantines_an_out_of_root_persisted_entry_instead_of_crashing_the_host</code>.</p>
+    <p class="dim">Residual risk: quarantine does not close R-09—a maintainer can still widen the tracked <code>AllowedRoots</code> in a future commit, and CI still has no policy gate against that class of change. What changes here is the failure mode: a bad entry now produces a diagnosable, visible, per-entry block instead of taking the whole host down.</p>
   </section>
 </main>
 </body>

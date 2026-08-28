@@ -162,6 +162,8 @@ export interface RepositoryRegistration {
   archived: boolean;
   defaultReviewTokenCap: number | null;
   defaultReviewCostCap: number | null;
+  blocked: boolean;
+  blockedReason: string | null;
 }
 export interface RepositoryRegistrationRequest {
   id?: string;
@@ -443,16 +445,17 @@ export class QualityApi {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
-      const selected = result.repositories.some(repository => repository.id === preferredId)
+      const selectable = result.repositories.filter(repository => !repository.blocked);
+      const selected = selectable.some(repository => repository.id === preferredId)
         ? preferredId!
-        : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
+        : selectable.some(repository => repository.id === this.selectedRepositoryId())
           ? this.selectedRepositoryId()
           : result.defaultRepositoryId;
       this.selectedRepositoryId.set(selected);
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
-      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
+      this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null, blocked: false, blockedReason: null }]);
       this.selectedRepositoryId.set('default');
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }

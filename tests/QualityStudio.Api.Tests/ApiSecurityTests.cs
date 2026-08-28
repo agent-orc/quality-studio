@@ -160,6 +160,58 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Boot_quarantines_an_out_of_root_persisted_entry_instead_of_crashing_the_host()
+    {
+        var quarantineHost = Path.Combine(testRoot, "quarantine-host");
+        Directory.CreateDirectory(quarantineHost);
+        var registryDirectory = Path.Combine(quarantineHost, ".quality-studio");
+        Directory.CreateDirectory(registryDirectory);
+        var entries = new[]
+        {
+            new RepositoryRegistration("default", "Default", RepositoryRoot, null, 12000,
+                new[] { "code", "security", "performance" }),
+            new RepositoryRegistration("foreign", "Foreign", ForeignRepositoryRoot, null, 12000,
+                new[] { "code", "security", "performance" }),
+            new RepositoryRegistration("outside", "Outside", OutsideRoot, null, 12000,
+                new[] { "code", "security", "performance" }),
+        };
+        await File.WriteAllTextAsync(Path.Combine(registryDirectory, "repositories.json"),
+            JsonSerializer.Serialize(entries, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }),
+            TestContext.Current.CancellationToken);
+
+        // Boot must succeed even though the "outside" entry is not under either allowed root.
+        await using var quarantineApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, quarantineHost, spendRequestsPerMinute: 100);
+
+        using var admin = CreateClient(quarantineApplication, "admin", AdminToken);
+        var list = await admin.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
+        var repositories = list.GetProperty("repositories").EnumerateArray().ToArray();
+        Assert.Equal(3, repositories.Length);
+
+        var outside = repositories.Single(repository => repository.GetProperty("id").GetString() == "outside");
+        Assert.True(outside.GetProperty("blocked").GetBoolean());
+        var reason = outside.GetProperty("blockedReason").GetString();
+        Assert.NotNull(reason);
+        Assert.Contains(OutsideRoot, reason, StringComparison.Ordinal);
+        Assert.Contains(RepositoryRoot, reason, StringComparison.Ordinal);
+        Assert.Contains(ForeignRepositoryRoot, reason, StringComparison.Ordinal);
+
+        foreach (var id in new[] { "default", "foreign" })
+        {
+            var entry = repositories.Single(repository => repository.GetProperty("id").GetString() == id);
+            Assert.False(entry.GetProperty("blocked").GetBoolean());
+        }
+
+        using var quarantinedAccess = await admin.GetAsync("/api/repos/outside/file?path=Foreign.cs",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, quarantinedAccess.StatusCode);
+
+        using var healthyAccess = await admin.GetAsync("/api/repos/default/file?path=Sample.cs",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, healthyAccess.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
