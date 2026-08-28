@@ -1,0 +1,43 @@
+{
+  "description": "Operator-facing startup of the full dev stack and the production bundle budget headroom.",
+  "measuredAt": "2026-08-24T08:49:00Z",
+  "host": {
+    "platform": "linux",
+    "kernel": "6.8.0-124-generic",
+    "cpuModel": "Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz",
+    "logicalCpus": 12,
+    "node": "v22.23.1",
+    "angularCli": "from frontend/node_modules/@angular/cli"
+  },
+  "devStack": {
+    "command": "node scripts/dev-stack.mjs --api-port 5321 --web-port 4321",
+    "readySignal": "[stack] ready: api=... web=...",
+    "dependenciesPreinstalled": true,
+    "samplesSeconds": [13.76, 12.36, 8.28],
+    "medianSeconds": 12.36,
+    "note": "Measured with frontend/node_modules already present. A first start on a clean checkout additionally runs `npm ci`, which took 10 s of package installation on this host and is not included in the samples above."
+  },
+  "productionBuild": {
+    "command": "ng build --configuration production",
+    "wallClockSeconds": 9.53,
+    "budgets": { "initialWarningKb": 350, "initialErrorKb": 480 },
+    "initialChunks": [
+      { "file": "chunk-DV5C4FKW.js", "rawKb": 187.54, "transferKb": 53.64 },
+      { "file": "chunk-XNHPDK65.js", "rawKb": 43.73, "transferKb": 9.19 },
+      { "file": "chunk-QHWHROLN.js", "rawBytes": 325, "transferBytes": 325 }
+    ],
+    "initialTotal": { "rawKb": 478.3, "transferKb": 121.28 },
+    "headroomToErrorBudgetKb": 1.7,
+    "lazyChunks": [
+      { "name": "review-panel", "rawKb": 57.85, "transferKb": 12.79 },
+      { "name": "syntax-tokenizer", "rawKb": 44.77, "transferKb": 11.35 },
+      { "name": "review-actions", "rawKb": 30.28, "transferKb": 6.77 },
+      { "name": "project-dashboard", "rawKb": 24.25, "transferKb": 5.37 },
+      { "name": "attack-coverage", "rawKb": 17.43, "transferKb": 4.28 },
+      { "name": "usage-history", "rawKb": 13.8, "transferKb": 3.5 }
+    ]
+  },
+  "notMeasured": [
+    "Browser-side interaction budgets. frontend/PERF.md remains the reference for tree expand, file open, aspect switch, and click-to-usable; the Playwright harness in frontend/tests/perf.mjs was not re-run for QS-59."
+  ]
+}
