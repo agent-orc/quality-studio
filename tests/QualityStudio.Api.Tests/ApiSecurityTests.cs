@@ -160,6 +160,42 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Boot_quarantines_an_out_of_root_persisted_entry_instead_of_crashing_the_host()
+    {
+        var quarantineHost = Path.Combine(testRoot, "quarantine-host");
+        Directory.CreateDirectory(quarantineHost);
+        WriteRegistry(quarantineHost, includePoisonedEntry: true);
+        await using var quarantineApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, quarantineHost, spendRequestsPerMinute: 100);
+
+        using var admin = CreateClient(quarantineApplication, "admin", AdminToken);
+        using var health = await admin.GetAsync("/health", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+
+        var list = await admin.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
+        var repositories = list.GetProperty("repositories").EnumerateArray().ToArray();
+        Assert.Equal(3, repositories.Length);
+
+        var poisoned = repositories.Single(repository => repository.GetProperty("id").GetString() == "poisoned");
+        Assert.True(poisoned.GetProperty("blocked").GetBoolean());
+        var reason = poisoned.GetProperty("blockedReason").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(reason));
+        Assert.Contains(OutsideRoot, reason, StringComparison.Ordinal);
+
+        var defaultRepository = repositories.Single(repository => repository.GetProperty("id").GetString() == "default");
+        Assert.False(defaultRepository.GetProperty("blocked").GetBoolean());
+        var foreignRepository = repositories.Single(repository => repository.GetProperty("id").GetString() == "foreign");
+        Assert.False(foreignRepository.GetProperty("blocked").GetBoolean());
+
+        using var quarantined = await admin.GetAsync("/api/repos/poisoned/tree", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, quarantined.StatusCode);
+
+        using var stillWorking = await admin.GetAsync("/api/repos/default/file?path=Sample.cs",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, stillWorking.StatusCode);
+    }
+
+    [Fact]
     public async Task Local_mode_is_explicitly_credential_free()
     {
         var localHost = Path.Combine(testRoot, "local-host");
@@ -214,17 +250,23 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         return client;
     }
 
-    private void WriteRegistry(string hostRoot)
+    private void WriteRegistry(string hostRoot, bool includePoisonedEntry = false)
     {
         var path = Path.Combine(hostRoot, ".quality-studio", "repositories.json");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var entries = new[]
+        var entries = new List<RepositoryRegistration>
         {
-            new RepositoryRegistration("default", "Default", RepositoryRoot, null, 12000,
+            new("default", "Default", RepositoryRoot, null, 12000,
                 new[] { "code", "security", "performance" }),
-            new RepositoryRegistration("foreign", "Foreign", ForeignRepositoryRoot, null, 12000,
+            new("foreign", "Foreign", ForeignRepositoryRoot, null, 12000,
                 new[] { "code", "security", "performance" }),
         };
+        if (includePoisonedEntry)
+        {
+            entries.Add(new RepositoryRegistration("poisoned", "Poisoned", OutsideRoot, null, 12000,
+                new[] { "code", "security", "performance" }));
+        }
+
         File.WriteAllText(path, JsonSerializer.Serialize(entries,
             new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
     }

@@ -13,10 +13,12 @@
         <div class="repository-menu" role="menu">
           <div class="menu-heading">Switch repository</div>
           @for (repository of api.repositories(); track repository.id) {
-            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
-              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
-              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
-            </button>
+            @if (!repository.blocked) {
+              <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
+                <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
+                <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
+              </button>
+            }
           }
           <div class="menu-actions">
             <button type="button" (click)="onboardRepository()">+ Onboard repository</button>
@@ -147,7 +149,14 @@
         <nav class="repository-list" aria-label="Configured repositories">
           @for (repository of api.repositories(); track repository.id) {
             <button type="button" [class.active]="repository.id === editingRepositoryId()" (click)="editRepository(repository)">
-              <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+              <strong>{{ repository.displayName }}</strong>
+              @if (repository.blocked) {
+                <span class="repository-blocked-badge">Blocked</span>
+              }
+              <small>{{ repository.id }}</small>
+              @if (repository.blocked && repository.blockedReason) {
+                <small class="repository-blocked-reason">{{ repository.blockedReason }}</small>
+              }
             </button>
           }
           <button class="add-repository" type="button" (click)="onboardRepository()">+ Add repository</button>
