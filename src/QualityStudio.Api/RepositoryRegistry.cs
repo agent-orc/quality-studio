@@ -14,7 +14,9 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    bool Blocked = false,
+    string? BlockedReason = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -79,6 +81,16 @@ public sealed class RepositoryRegistry
 
     public RepositoryRegistration Get(string? id, bool includeArchived = false)
     {
+        var entry = GetEntry(id, includeArchived);
+        if (entry.Blocked)
+            throw new RepositoryRegistryValidationException(
+                $"Repository '{entry.Id}' is quarantined and cannot be used: {entry.BlockedReason}",
+                "Repository is quarantined");
+        return entry;
+    }
+
+    private RepositoryRegistration GetEntry(string? id, bool includeArchived)
+    {
         var resolvedId = string.IsNullOrWhiteSpace(id) ? DefaultRepositoryId : id;
         return entries.FirstOrDefault(entry =>
                    string.Equals(entry.Id, resolvedId, StringComparison.OrdinalIgnoreCase) &&
@@ -116,7 +128,7 @@ public sealed class RepositoryRegistry
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = Get(id, includeArchived: true);
+            var existing = GetEntry(id, includeArchived: true);
             if (existing.Archived)
             {
                 throw new RepositoryRegistryValidationException("Archived repositories cannot be edited.");
@@ -144,7 +156,7 @@ public sealed class RepositoryRegistry
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = Get(id, includeArchived: true);
+            var existing = GetEntry(id, includeArchived: true);
             if (existing.Archived)
             {
                 return existing;
@@ -181,11 +193,10 @@ public sealed class RepositoryRegistry
                 var loaded = JsonSerializer.Deserialize<List<RepositoryRegistration>>(File.ReadAllText(registryPath), JsonOptions());
                 if (loaded is { Count: > 0 })
                 {
-                    var migrated = loaded.Select(entry => entry with
+                    var migrated = loaded.Select(entry => QuarantineIfInvalid(entry with
                     {
                         Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
-                    }).ToList();
-                    foreach (var entry in migrated) ValidatePersistedEntry(entry);
+                    })).ToList();
                     return migrated;
                 }
             }
@@ -196,7 +207,7 @@ public sealed class RepositoryRegistry
         }
 
         var root = ResolvePath(legacyOptions.RepositoryRoot, contentRoot);
-        EnsureAllowedDirectory(root, "Configured repository root is outside the allowed roots.");
+        EnsureAllowedDirectory(root, "Configured repository root");
         var displayName = new DirectoryInfo(root).Name;
         var seeded = new RepositoryRegistration(
             DefaultRepositoryId,
@@ -243,7 +254,7 @@ public sealed class RepositoryRegistry
                 "Repository path does not exist");
         }
 
-        EnsureAllowedDirectory(root, "Repository path is outside the configured allowed roots.");
+        EnsureAllowedDirectory(root, "Repository path");
 
         if (!Directory.Exists(Path.Combine(root, ".git")) && !File.Exists(Path.Combine(root, ".git")))
         {
@@ -319,42 +330,65 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException(
                 $"Global inputs directory does not exist or is not a directory: {resolved}",
                 "Global inputs directory does not exist");
-        EnsureAllowedDirectory(resolved, "Global inputs directory is outside the configured allowed roots.");
+        EnsureAllowedDirectory(resolved, "Global inputs directory");
         return resolved;
+    }
+
+    /// <summary>Re-validates a persisted entry on every boot rather than trusting its stored blocked state,
+    /// so a fixed AllowedRoots configuration (or a repaired path) self-heals without operator action.</summary>
+    private RepositoryRegistration QuarantineIfInvalid(RepositoryRegistration entry)
+    {
+        try
+        {
+            ValidatePersistedEntry(entry);
+            return entry.Blocked ? entry with { Blocked = false, BlockedReason = null } : entry;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or RepositoryRegistryValidationException)
+        {
+            logger.LogWarning(new EventId(1404, "RepositoryQuarantined"),
+                "Quarantined repository {RepositoryId} at {RepositoryRoot}: {Reason}",
+                entry.Id, entry.RootPath, exception.Message);
+            return entry with { Blocked = true, BlockedReason = exception.Message };
+        }
     }
 
     private void ValidatePersistedEntry(RepositoryRegistration entry)
     {
         if (!Directory.Exists(entry.RootPath))
-            throw new InvalidOperationException("A registered repository is unavailable.");
-        EnsureAllowedDirectory(entry.RootPath, "A registered repository is outside the configured allowed roots.");
+            throw new InvalidOperationException($"A registered repository is unavailable: {entry.RootPath}");
+        EnsureAllowedDirectory(entry.RootPath, "A registered repository");
         if (entry.GlobalInputsDirectory is not null)
         {
             if (!Directory.Exists(entry.GlobalInputsDirectory))
-                throw new InvalidOperationException("A registered global inputs directory is unavailable.");
-            EnsureAllowedDirectory(entry.GlobalInputsDirectory,
-                "A registered global inputs directory is outside the configured allowed roots.");
+                throw new InvalidOperationException(
+                    $"A registered global inputs directory is unavailable: {entry.GlobalInputsDirectory}");
+            EnsureAllowedDirectory(entry.GlobalInputsDirectory, "A registered global inputs directory");
         }
     }
 
-    private void EnsureAllowedDirectory(string path, string internalMessage)
+    private void EnsureAllowedDirectory(string path, string contextLabel)
     {
         var allowedRoot = allowedRoots.FirstOrDefault(root => PathConfinement.IsWithin(root, path));
         if (allowedRoot is null)
-            throw new RepositoryRegistryValidationException(internalMessage,
-                internalMessage.Contains("inputs", StringComparison.OrdinalIgnoreCase)
-                    ? "Global inputs directory is outside the allowed roots"
-                    : "Repository path is outside the allowed roots");
+            throw new RepositoryRegistryValidationException(
+                $"{contextLabel} is outside the configured allowed roots: path={path}, allowedRoots=[{string.Join(", ", allowedRoots)}]",
+                PublicTitleFor(contextLabel));
         try
         {
             PathConfinement.RejectReparseTraversal(allowedRoot, path);
         }
         catch (ArgumentException exception)
         {
-            throw new RepositoryRegistryValidationException(internalMessage,
+            throw new RepositoryRegistryValidationException(
+                $"{contextLabel} traverses a symbolic link or junction: path={path}, allowedRoot={allowedRoot}",
                 "Configured path traverses a symbolic link or junction", exception);
         }
     }
+
+    private static string PublicTitleFor(string contextLabel) =>
+        contextLabel.Contains("inputs", StringComparison.OrdinalIgnoreCase)
+            ? "Global inputs directory is outside the allowed roots"
+            : "Repository path is outside the allowed roots";
 
     private static string Slugify(string value)
     {
@@ -391,7 +425,7 @@ public sealed class RepositoryRegistry
         RepositorySensorConfiguration fallback)
     {
         if (configured.Configuration is not null ||
-            configured.Id is not ("eslint" or "roslyn" or "sarif" or "tsc"))
+            configured.Id is not ("eslint" or "roslyn" or "sarif" or "tsc" or "ng-budget"))
             return configured;
         return fallback with { Enabled = configured.Enabled && fallback.Enabled };
     }
@@ -400,7 +434,9 @@ public sealed class RepositoryRegistry
     {
         "dotnet-build" => new RepositorySensorConfiguration(id, DotNetBuildSensor.HasTarget(root)),
         "eslint" => EslintDefault(id, root),
-        "roslyn" or "sarif" or "tsc" => new RepositorySensorConfiguration(id, Enabled: false),
+        "tsc" => TscDefault(id, root),
+        "ng-budget" => NgBudgetDefault(id, root),
+        "roslyn" or "sarif" => new RepositorySensorConfiguration(id, Enabled: false),
         _ => new RepositorySensorConfiguration(id),
     };
 
@@ -421,6 +457,41 @@ public sealed class RepositoryRegistry
                               "--config frontend/eslint.config.mjs " +
                               "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
                               "--output-file {reportPath}",
+            });
+    }
+
+    private static RepositorySensorConfiguration TscDefault(string id, string root)
+    {
+        var frontend = Path.Combine(root, "frontend");
+        var configuration = Path.Combine(frontend, "tsconfig.app.json");
+        var manifest = Path.Combine(frontend, "package.json");
+        if (!File.Exists(configuration) || !File.Exists(manifest))
+            return new RepositorySensorConfiguration(id, Enabled: false);
+        return new RepositorySensorConfiguration(
+            id,
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["workingDirectory"] = ".",
+                ["reportPath"] = ".quality/preflight/tsc.log",
+                ["command"] = "node frontend/node_modules/typescript/bin/tsc " +
+                              "--noEmit --pretty false -p frontend/tsconfig.app.json",
+            });
+    }
+
+    private static RepositorySensorConfiguration NgBudgetDefault(string id, string root)
+    {
+        var frontend = Path.Combine(root, "frontend");
+        var angularConfiguration = Path.Combine(frontend, "angular.json");
+        var manifest = Path.Combine(frontend, "package.json");
+        if (!File.Exists(angularConfiguration) || !File.Exists(manifest))
+            return new RepositorySensorConfiguration(id, Enabled: false);
+        return new RepositorySensorConfiguration(
+            id,
+            Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["workingDirectory"] = "frontend",
+                ["reportPath"] = ".quality/preflight/ng-budget.log",
+                ["command"] = "node node_modules/@angular/cli/bin/ng.js build --configuration production",
             });
     }
 }
