@@ -102,8 +102,8 @@ public sealed class ProjectDashboardService
     private static readonly HashSet<string> TextExtensions =
         new(Languages.Keys, StringComparer.OrdinalIgnoreCase);
 
-    private readonly ConcurrentDictionary<string, ProjectDashboardResponse> cache =
-        new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, CacheSlot> cache =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     public ProjectDashboardResponse Get(
         string repositoryPath,
@@ -116,21 +116,42 @@ public sealed class ProjectDashboardService
     {
         var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var key = root + "\0" + snapshot.GitState;
-        if (cache.TryGetValue(key, out var cached))
+        var slot = cache.GetOrAdd(root, _ => new CacheSlot());
+        lock (slot.Gate)
         {
+            if (slot.Dashboard is not null && StringComparer.Ordinal.Equals(slot.GitState, snapshot.GitState))
+            {
+                return new ProjectDashboardMeasurement(
+                    slot.Dashboard,
+                    true,
+                    Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            }
+
+            slot.Dashboard = Build(root, snapshot.Roots);
+            slot.GitState = snapshot.GitState;
             return new ProjectDashboardMeasurement(
-                cached,
-                true,
+                slot.Dashboard,
+                false,
                 Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
+    }
 
-        var built = Build(root, snapshot.Roots);
-        var dashboard = cache.GetOrAdd(key, built);
-        return new ProjectDashboardMeasurement(
-            dashboard,
-            false,
-            Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+    /// <summary>Seeds a verified dashboard while keeping one state per repository.</summary>
+    public void Seed(
+        string repositoryPath,
+        RepositoryHierarchySnapshot snapshot,
+        ProjectDashboardResponse dashboard)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(dashboard);
+        var root = Path.GetFullPath(repositoryPath);
+        var slot = cache.GetOrAdd(root, _ => new CacheSlot());
+        lock (slot.Gate)
+        {
+            slot.GitState = snapshot.GitState;
+            slot.Dashboard = dashboard;
+        }
     }
 
     public string ArchitectureReviewContext(
@@ -160,26 +181,59 @@ public sealed class ProjectDashboardService
             .Where(node => node.Level == ReviewLevel.File)
             .DistinctBy(node => node.Path, StringComparer.Ordinal)
             .ToArray();
-        var navigationPaths = hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
-        var repositoryFiles = EnumerateRepositoryFiles(root)
-            .Select(path => ReadFileMetric(root, path))
-            .ToArray();
+        // The generic adapter's hierarchy is a complete repository-file inventory. Reuse
+        // that immutable snapshot instead of paying for a second git scan during the
+        // dashboard projection. Technology-specific adapters intentionally remain partial,
+        // so their dashboard still enumerates the full repository here.
+        var completeGenericHierarchy = roots.Count == 1 &&
+                                       roots[0].Id.StartsWith("qs-v1/generic/", StringComparison.Ordinal);
+        var repositoryPaths = completeGenericHierarchy
+            ? hierarchyFiles.Select(node => node.Path).ToArray()
+            : EnumerateRepositoryFiles(root);
+        var containsTextFiles = repositoryPaths.Any(path => TextExtensions.Contains(Path.GetExtension(path)));
+        var repositoryFiles = completeGenericHierarchy && !containsTextFiles
+            ? hierarchyFiles.Select(node => new FileMetric(
+                node.Path, node.SizeBytes ?? 0, 0, null, null)).ToArray()
+            : BuildFileMetrics(root, repositoryPaths, hierarchyFiles, containsTextFiles);
 
         var projectPath = roots.FirstOrDefault()?.Path ?? ".";
         var grades = BuildGrades(roots, projectPath);
-        var findings = BuildFindings(hierarchy, projectPath);
-        var staleness = BuildStaleness(hierarchyFiles);
+        var reviewedFiles = 0;
+        var hasReviewDocuments = false;
+        foreach (var node in hierarchy)
+        {
+            if (node.Documents.Count == 0) continue;
+            hasReviewDocuments = true;
+            if (node.Level == ReviewLevel.File) reviewedFiles++;
+        }
+        var findings = !hasReviewDocuments
+            ? new ProjectFindingsResponse(
+                0, NewCountMap(["critical", "high", "medium", "low", "info"]),
+                NewCountMap(["fresh", "stale"]), projectPath)
+            : BuildFindings(hierarchy, projectPath);
+        var staleness = reviewedFiles == 0
+            ? new ProjectStalenessResponse(
+                0, 0, hierarchyFiles.Length, hierarchyFiles.Length,
+                hierarchyFiles.FirstOrDefault()?.Path ?? projectPath)
+            : BuildStaleness(hierarchyFiles);
         var reviewCoverage = new ProjectReviewCoverageResponse(
-            hierarchyFiles.Count(node => node.Documents.Count > 0),
+            reviewedFiles,
             hierarchyFiles.Length,
-            hierarchyFiles.Length == 0 ? 0 : Math.Round(
-                hierarchyFiles.Count(node => node.Documents.Count > 0) * 100d / hierarchyFiles.Length, 1),
-            hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
-            hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
+            hierarchyFiles.Length == 0 ? 0 : Math.Round(reviewedFiles * 100d / hierarchyFiles.Length, 1),
+            reviewedFiles == 0
+                ? hierarchyFiles.FirstOrDefault()?.Path ?? projectPath
+                : hierarchyFiles.FirstOrDefault(node => node.Documents.Count == 0)?.Path ??
+                  hierarchyFiles.FirstOrDefault()?.Path ?? projectPath);
         var dependencies = BuildDependencyEdges(root, hierarchy);
+        var navigationPaths = repositoryFiles.Any(file => file.Language is not null)
+            ? hierarchy.Select(node => node.Path).ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
         var metrics = BuildStructuralMetrics(repositoryFiles, dependencies, navigationPaths, projectPath);
         var churn = ReadGitChurn(root);
-        var hotspots = BuildHotspots(hierarchyFiles, churn);
+        var hotspots = reviewedFiles == 0 && churn.Count == 0
+            ? hierarchyFiles.OrderBy(file => file.Path, StringComparer.Ordinal).Take(30)
+                .Select(file => new ProjectHotspotResponse(file.Path, 0, null, 0, 0, 0)).ToArray()
+            : BuildHotspots(hierarchyFiles, churn);
 
         return new ProjectDashboardResponse(
             DateTimeOffset.UtcNow.ToString("O"),
@@ -191,6 +245,29 @@ public sealed class ProjectDashboardService
                 hierarchyFiles.FirstOrDefault()?.Path ?? projectPath),
             metrics,
             hotspots);
+    }
+
+    private static FileMetric[] BuildFileMetrics(
+        string root,
+        IReadOnlyList<string> repositoryPaths,
+        IReadOnlyList<HierarchyNode> hierarchyFiles,
+        bool containsTextFiles)
+    {
+        var hierarchyFilesByPath = hierarchyFiles.ToDictionary(
+            node => node.Path, StringComparer.Ordinal);
+        var fileMetrics = containsTextFiles
+            ? repositoryPaths.AsParallel().AsOrdered()
+                .Select(path => ReadFileMetric(root, path, hierarchyFilesByPath.GetValueOrDefault(path)))
+            : repositoryPaths.Select(path =>
+                ReadFileMetric(root, path, hierarchyFilesByPath.GetValueOrDefault(path)));
+        return fileMetrics.OfType<FileMetric>().ToArray();
+    }
+
+    private sealed class CacheSlot
+    {
+        public object Gate { get; } = new();
+        public string? GitState { get; set; }
+        public ProjectDashboardResponse? Dashboard { get; set; }
     }
 
     private static IReadOnlyList<ProjectGradeResponse> BuildGrades(
@@ -298,8 +375,14 @@ public sealed class ProjectDashboardService
         string fallbackPath)
     {
         var folders = new Dictionary<string, long>(StringComparer.Ordinal);
+        var totalBytes = 0L;
+        var totalLines = 0;
+        var fileSizeCounts = new int[5];
         foreach (var file in files)
         {
+            totalBytes += file.Bytes;
+            totalLines += file.Lines;
+            fileSizeCounts[DistributionBucket(file.Bytes)]++;
             var directory = RepositoryDirectory(file.Path);
             while (directory != ".")
             {
@@ -337,10 +420,10 @@ public sealed class ProjectDashboardService
         return new ProjectStructuralMetricsResponse(
             files.Count,
             folders.Count,
-            files.Sum(file => file.Bytes),
-            files.Sum(file => file.Lines),
+            totalBytes,
+            totalLines,
             languages,
-            Distribution(files.Select(file => file.Bytes)),
+            Distribution(fileSizeCounts),
             Distribution(folders.Values),
             duplicates,
             dependencies);
@@ -349,11 +432,15 @@ public sealed class ProjectDashboardService
     private static IReadOnlyList<ProjectDistributionBucketResponse> Distribution(IEnumerable<long> values)
     {
         var counts = new int[5];
-        foreach (var value in values)
-        {
-            var index = value < 1_024 ? 0 : value < 10_240 ? 1 : value < 102_400 ? 2 : value < 1_048_576 ? 3 : 4;
-            counts[index]++;
-        }
+        foreach (var value in values) counts[DistributionBucket(value)]++;
+        return Distribution(counts);
+    }
+
+    private static int DistributionBucket(long value) =>
+        value < 1_024 ? 0 : value < 10_240 ? 1 : value < 102_400 ? 2 : value < 1_048_576 ? 3 : 4;
+
+    private static IReadOnlyList<ProjectDistributionBucketResponse> Distribution(IReadOnlyList<int> counts)
+    {
         var labels = new[] { "< 1 KB", "1–10 KB", "10–100 KB", "100 KB–1 MB", "≥ 1 MB" };
         return labels.Select((label, index) => new ProjectDistributionBucketResponse(label, counts[index])).ToArray();
     }
@@ -485,14 +572,19 @@ public sealed class ProjectDashboardService
     private static ProjectTestCoverageResponse Coverage(int covered, int total, string source, string path) =>
         new("reported", Math.Round(covered * 100d / total, 1), covered, total, source, path);
 
-    private static FileMetric ReadFileMetric(string root, string path)
+    private static FileMetric? ReadFileMetric(string root, string path, HierarchyNode? hierarchyFile)
     {
+        var extension = Path.GetExtension(path);
+        var language = Languages.GetValueOrDefault(extension);
+        if (!TextExtensions.Contains(extension) && hierarchyFile?.SizeBytes is long hierarchyBytes)
+            return new FileMetric(path, hierarchyBytes, 0, language, null);
+
         var absolute = Path.Combine(root, Native(path));
         var info = new FileInfo(absolute);
-        var language = Languages.GetValueOrDefault(Path.GetExtension(path));
+        if (!info.Exists) return null;
         var lines = 0;
         string? duplicateFingerprint = null;
-        if (TextExtensions.Contains(Path.GetExtension(path)) && info.Length <= 4 * 1024 * 1024)
+        if (TextExtensions.Contains(extension) && info.Length <= 4 * 1024 * 1024)
         {
             try
             {
@@ -517,7 +609,7 @@ public sealed class ProjectDashboardService
         if (git is not null)
             return git.Split('\0', StringSplitOptions.RemoveEmptyEntries)
                 .Select(path => path.Replace('\\', '/'))
-                .Where(path => !Excluded(path) && File.Exists(Path.Combine(root, Native(path))))
+                .Where(path => !Excluded(path))
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Select(path => Relative(root, path))
