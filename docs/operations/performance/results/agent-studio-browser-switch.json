@@ -1,0 +1,73 @@
+{
+  "measuredAt": "2026-08-24T08:04:39.830Z",
+  "repository": {
+    "label": "Agent Studio",
+    "root": "/home/agent/runner-work/PROJ-002/repo",
+    "head": "9af1a848e3be1401340b3b15c9704ae1f87c9408",
+    "trackedFiles": 3927
+  },
+  "coldAgentStudioSwitch": {
+    "event": "qs.repository.switch.usable",
+    "durationMs": 111.7,
+    "budgetMs": 500,
+    "withinBudget": true
+  },
+  "warmAgentStudioSwitch": {
+    "event": "qs.repository.switch.usable",
+    "durationMs": 12.9,
+    "budgetMs": 500,
+    "withinBudget": true
+  },
+  "transitionEvents": [
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 11.8,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 33,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 12.7,
+      "budgetMs": 100,
+      "withinBudget": true
+    }
+  ],
+  "usableEvents": [
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 111.7,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 35.1,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 12.9,
+      "budgetMs": 500,
+      "withinBudget": true
+    }
+  ],
+  "lastProject": {
+    "restoredRepositoryId": "agent-studio",
+    "visibleName": "Agent Studio"
+  },
+  "apiDown": {
+    "noticeVisible": true,
+    "retryRecovered": true
+  },
+  "switcherPath": {
+    "rendered": "/home/agent/runner-work/PROJ-002/repo",
+    "tooltip": "/home/agent/runner-work/PROJ-002/repo"
+  }
+}

@@ -1,0 +1,435 @@
+{
+  "measuredAt": "2026-08-24T08:02:24.327Z",
+  "environment": {
+    "commit": "e31089ccd5640bb2742a25a2a08a9a3120534656",
+    "targetRepository": "/home/agent/runner-work/PROJ-002/repo",
+    "targetHead": "9af1a848e3be1401340b3b15c9704ae1f87c9408",
+    "trackedFiles": 3927,
+    "dotnet": "10.0.301",
+    "node": "v22.23.1"
+  },
+  "before": {
+    "source": "QS-59 performance dossier, refreshed 2026-08-12, Agent Taskboard / Agent Studio repository at 9af1a848",
+    "coldProcessToProjectAndTreeMedianMs": 10004.99,
+    "warmProjectAndTreeMedianMs": 423.74,
+    "warmProjectAndTreeP95Ms": 954.1
+  },
+  "after": {
+    "cold": {
+      "processToHealthMs": 695.61,
+      "processToProjectAndTreeMs": 7338.2,
+      "switch": {
+        "treeVersion": "v1",
+        "durationMs": 6642.59,
+        "project": {
+          "durationMs": 6285.72,
+          "bytes": 11409,
+          "serverTiming": "git-status;dur=37.13, cache-wait;dur=5338.69, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=864.73"
+        },
+        "tree": {
+          "durationMs": 6642.05,
+          "bytes": 29119333,
+          "serverTiming": null
+        }
+      },
+      "prewarm": {
+        "event": "qs.repository.prewarm",
+        "repositoryId": "default",
+        "cache": "cold",
+        "durationMs": 9087.39,
+        "phases": {
+          "gitStatusMs": 61.69,
+          "scanMs": 5636.14,
+          "reviewMetaDiscoveryMs": 79.34,
+          "projectionMs": 864.91,
+          "treeProjectionMs": 290.56,
+          "sensorStateMs": 31.55,
+          "sensorInitMs": 1929.71
+        },
+        "fileCount": 3927
+      }
+    },
+    "warm": {
+      "samples": [
+        {
+          "treeVersion": "v1",
+          "durationMs": 796.66,
+          "project": {
+            "durationMs": 60.74,
+            "bytes": 11409,
+            "serverTiming": "git-status;dur=55.38, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+          },
+          "tree": {
+            "durationMs": 796.17,
+            "bytes": 29119333,
+            "serverTiming": null
+          }
+        },
+        {
+          "treeVersion": "v1",
+          "durationMs": 504.5,
+          "project": {
+            "durationMs": 48.06,
+            "bytes": 11409,
+            "serverTiming": "git-status;dur=36.67, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+          },
+          "tree": {
+            "durationMs": 504.08,
+            "bytes": 29119333,
+            "serverTiming": null
+          }
+        },
+        {
+          "treeVersion": "v1",
+          "durationMs": 412.74,
+          "project": {
+            "durationMs": 46.09,
+            "bytes": 11409,
+            "serverTiming": "git-status;dur=42.61, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+          },
+          "tree": {
+            "durationMs": 412.41,
+            "bytes": 29119333,
+            "serverTiming": null
+          }
+        }
+      ],
+      "summary": {
+        "count": 3,
+        "min": 412.74,
+        "median": 504.5,
+        "max": 796.66
+      }
+    },
+    "restoredStartup": {
+      "processToHealthMs": 1342.49,
+      "processToProjectAndTreeMs": 1427.36,
+      "firstSwitch": {
+        "treeVersion": "v2",
+        "durationMs": 84.87,
+        "project": {
+          "durationMs": 79.94,
+          "bytes": 11409,
+          "serverTiming": "git-status;dur=46.79, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+        },
+        "tree": {
+          "durationMs": 84.56,
+          "bytes": 15391,
+          "serverTiming": "tree-snapshot;dur=50.54, tree-projection;dur=4.18, tree-serialization;dur=8.88"
+        }
+      },
+      "warmSwitch": {
+        "treeVersion": "v2",
+        "durationMs": 49.76,
+        "project": {
+          "durationMs": 47.04,
+          "bytes": 11409,
+          "serverTiming": "git-status;dur=41.15, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+        },
+        "tree": {
+          "durationMs": 49.55,
+          "bytes": 15391,
+          "serverTiming": "tree-snapshot;dur=40.36, tree-projection;dur=3.31, tree-serialization;dur=0.37"
+        }
+      },
+      "prewarm": {
+        "event": "qs.repository.prewarm",
+        "repositoryId": "default",
+        "cache": "cold",
+        "durationMs": 588.73,
+        "phases": {
+          "gitStatusMs": 37.55,
+          "scanMs": 0,
+          "reviewMetaDiscoveryMs": 0,
+          "projectionMs": 0.05,
+          "treeProjectionMs": 507.04,
+          "sensorStateMs": 40.89,
+          "sensorInitMs": 0
+        },
+        "fileCount": 3927
+      },
+      "legacyCompatibilitySwitch": {
+        "treeVersion": "v1",
+        "durationMs": 1484.94,
+        "project": {
+          "durationMs": 73.41,
+          "bytes": 11409,
+          "serverTiming": "git-status;dur=41.91, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+        },
+        "tree": {
+          "durationMs": 1484.6,
+          "bytes": 29119333,
+          "serverTiming": null
+        }
+      }
+    },
+    "restoredStartups": {
+      "samples": [
+        {
+          "processToHealthMs": 1342.49,
+          "processToProjectAndTreeMs": 1427.36,
+          "firstSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 84.87,
+            "project": {
+              "durationMs": 79.94,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=46.79, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+            },
+            "tree": {
+              "durationMs": 84.56,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=50.54, tree-projection;dur=4.18, tree-serialization;dur=8.88"
+            }
+          },
+          "warmSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 49.76,
+            "project": {
+              "durationMs": 47.04,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=41.15, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+            },
+            "tree": {
+              "durationMs": 49.55,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=40.36, tree-projection;dur=3.31, tree-serialization;dur=0.37"
+            }
+          },
+          "prewarm": {
+            "event": "qs.repository.prewarm",
+            "repositoryId": "default",
+            "cache": "cold",
+            "durationMs": 588.73,
+            "phases": {
+              "gitStatusMs": 37.55,
+              "scanMs": 0,
+              "reviewMetaDiscoveryMs": 0,
+              "projectionMs": 0.05,
+              "treeProjectionMs": 507.04,
+              "sensorStateMs": 40.89,
+              "sensorInitMs": 0
+            },
+            "fileCount": 3927
+          }
+        },
+        {
+          "processToHealthMs": 1398.42,
+          "processToProjectAndTreeMs": 1516.87,
+          "firstSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 118.45,
+            "project": {
+              "durationMs": 112.18,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=33.44, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+            },
+            "tree": {
+              "durationMs": 118.08,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=34.13, tree-projection;dur=7.30, tree-serialization;dur=53.66"
+            }
+          },
+          "warmSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 66.92,
+            "project": {
+              "durationMs": 66.48,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=57.86, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+            },
+            "tree": {
+              "durationMs": 66.69,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=55.61, tree-projection;dur=2.70, tree-serialization;dur=0.44"
+            }
+          },
+          "prewarm": {
+            "event": "qs.repository.prewarm",
+            "repositoryId": "default",
+            "cache": "cold",
+            "durationMs": 634.71,
+            "phases": {
+              "gitStatusMs": 24.55,
+              "scanMs": 0,
+              "reviewMetaDiscoveryMs": 0,
+              "projectionMs": 0.05,
+              "treeProjectionMs": 574.51,
+              "sensorStateMs": 32.92,
+              "sensorInitMs": 0
+            },
+            "fileCount": 3927
+          }
+        },
+        {
+          "processToHealthMs": 1489.61,
+          "processToProjectAndTreeMs": 1662.42,
+          "firstSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 172.81,
+            "project": {
+              "durationMs": 167.48,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=126.84, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+            },
+            "tree": {
+              "durationMs": 172.51,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=144.37, tree-projection;dur=4.26, tree-serialization;dur=8.33"
+            }
+          },
+          "warmSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 30.5,
+            "project": {
+              "durationMs": 29.6,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=25.72, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+            },
+            "tree": {
+              "durationMs": 30.24,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=24.66, tree-projection;dur=2.01, tree-serialization;dur=0.17"
+            }
+          },
+          "prewarm": {
+            "event": "qs.repository.prewarm",
+            "repositoryId": "default",
+            "cache": "cold",
+            "durationMs": 551.89,
+            "phases": {
+              "gitStatusMs": 26.91,
+              "scanMs": 0,
+              "reviewMetaDiscoveryMs": 0,
+              "projectionMs": 0.08,
+              "treeProjectionMs": 488.32,
+              "sensorStateMs": 33.3,
+              "sensorInitMs": 0
+            },
+            "fileCount": 3927
+          }
+        },
+        {
+          "processToHealthMs": 1906.56,
+          "processToProjectAndTreeMs": 2118.64,
+          "firstSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 212.08,
+            "project": {
+              "durationMs": 195.66,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=155.86, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+            },
+            "tree": {
+              "durationMs": 211.76,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=171.55, tree-projection;dur=6.95, tree-serialization;dur=9.10"
+            }
+          },
+          "warmSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 28.88,
+            "project": {
+              "durationMs": 27.59,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=22.43, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+            },
+            "tree": {
+              "durationMs": 28.72,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=21.86, tree-projection;dur=2.00, tree-serialization;dur=0.20"
+            }
+          },
+          "prewarm": {
+            "event": "qs.repository.prewarm",
+            "repositoryId": "default",
+            "cache": "cold",
+            "durationMs": 877.88,
+            "phases": {
+              "gitStatusMs": 43.83,
+              "scanMs": 0,
+              "reviewMetaDiscoveryMs": 0,
+              "projectionMs": 0.1,
+              "treeProjectionMs": 769.26,
+              "sensorStateMs": 60.89,
+              "sensorInitMs": 0
+            },
+            "fileCount": 3927
+          }
+        },
+        {
+          "processToHealthMs": 1240.2,
+          "processToProjectAndTreeMs": 1335.74,
+          "firstSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 95.54,
+            "project": {
+              "durationMs": 95.52,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=43.88, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.01"
+            },
+            "tree": {
+              "durationMs": 86.16,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=41.27, tree-projection;dur=20.81, tree-serialization;dur=9.63"
+            }
+          },
+          "warmSwitch": {
+            "treeVersion": "v2",
+            "durationMs": 35.78,
+            "project": {
+              "durationMs": 35.77,
+              "bytes": 11409,
+              "serverTiming": "git-status;dur=31.66, cache-wait;dur=0.00, scan;dur=0.00, review-meta-discovery;dur=0.00, projection;dur=0.00"
+            },
+            "tree": {
+              "durationMs": 35.33,
+              "bytes": 15391,
+              "serverTiming": "tree-snapshot;dur=27.69, tree-projection;dur=3.30, tree-serialization;dur=0.33"
+            }
+          },
+          "prewarm": {
+            "event": "qs.repository.prewarm",
+            "repositoryId": "default",
+            "cache": "cold",
+            "durationMs": 521.25,
+            "phases": {
+              "gitStatusMs": 21.64,
+              "scanMs": 0,
+              "reviewMetaDiscoveryMs": 0,
+              "projectionMs": 0.05,
+              "treeProjectionMs": 469.86,
+              "sensorStateMs": 27.38,
+              "sensorInitMs": 0
+            },
+            "fileCount": 3927
+          }
+        }
+      ],
+      "processToHealth": {
+        "count": 5,
+        "min": 1240.2,
+        "median": 1398.42,
+        "max": 1906.56
+      },
+      "processToProjectAndTree": {
+        "count": 5,
+        "min": 1335.74,
+        "median": 1516.87,
+        "max": 2118.64
+      }
+    },
+    "sensors": {
+      "firstRequest": {
+        "durationMs": 44.38,
+        "bytes": 1562,
+        "serverTiming": "repository-state;dur=28.96, sensor-init;dur=0.00"
+      },
+      "warmRequest": {
+        "durationMs": 23.43,
+        "bytes": 1562,
+        "serverTiming": "repository-state;dur=20.01, sensor-init;dur=0.00"
+      }
+    }
+  }
+}
