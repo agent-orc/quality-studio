@@ -407,7 +407,8 @@
         "toolVersions": {
           "type": "object",
           "additionalProperties": { "type": "string", "maxLength": 200 }
-        }
+        },
+        "coverage": { "$ref": "#/$defs/sensorCoverage" }
       }
     },
     "deterministicSensorResult": {
@@ -426,7 +427,21 @@
             ]
           }
         },
-        "provenance": { "$ref": "#/$defs/deterministicSensorProvenance" }
+        "provenance": { "$ref": "#/$defs/deterministicSensorProvenance" },
+        "coverage": { "$ref": "#/$defs/sensorCoverage" }
+      }
+    },
+    "sensorCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["complete", "mode", "filesScanned", "filesDiscovered", "filesOmitted", "reason"],
+      "properties": {
+        "complete": { "type": "boolean" },
+        "mode": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "filesScanned": { "type": "integer", "minimum": 0 },
+        "filesDiscovered": { "type": ["integer", "null"], "minimum": 0 },
+        "filesOmitted": { "type": ["integer", "null"], "minimum": 0 },
+        "reason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 }
       }
     },
     "deterministicSensorProvenance": {
