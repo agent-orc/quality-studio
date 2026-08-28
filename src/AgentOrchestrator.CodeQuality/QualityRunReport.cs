@@ -189,10 +189,25 @@ public static class QualityRunReportJson
     };
 }
 
+public enum QualityRunSnapshotStatus { Found, Missing, Corrupt }
+
+public sealed record QualityRunSnapshotResult(
+    QualityRunSnapshotStatus Status, QualityRunReportDocument? Report, string? Error);
+
+public sealed record QualityRunReportSizeSummary(int Count, long TotalBytes, long AverageBytes);
+
+public sealed record QualityRunReportPruneResult(int Removed, long FreedBytes, int Remaining, int Pinned);
+
 /// <summary>Atomic repository-owned storage for canonical review-run snapshots.</summary>
 public sealed class QualityRunReportStore
 {
     public const string RelativeReportsPath = ".quality/reports/runs";
+
+    /// <summary>
+    /// Provisional retention default from the ux-review-flow dossier (S6): newest 50 snapshots per
+    /// repository plus every pinned baseline. Not yet grounded in real repository volume data.
+    /// </summary>
+    public const int DefaultRetentionKeep = 50;
     private static readonly UTF8Encoding Utf8 = new(false);
     private readonly string reportsPath;
 
@@ -252,6 +267,65 @@ public sealed class QualityRunReportStore
             report = null;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Loads a snapshot for comparison without throwing: a missing or corrupt file is reported as a
+    /// plain status instead of an exception, so the compare API can surface it to the operator.
+    /// </summary>
+    public QualityRunSnapshotResult LoadSafely(string runId)
+    {
+        try
+        {
+            return new QualityRunSnapshotResult(QualityRunSnapshotStatus.Found, Load(runId), null);
+        }
+        catch (FileNotFoundException)
+        {
+            return new QualityRunSnapshotResult(QualityRunSnapshotStatus.Missing, null, null);
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidDataException)
+        {
+            return new QualityRunSnapshotResult(QualityRunSnapshotStatus.Corrupt, null, exception.Message);
+        }
+    }
+
+    /// <summary>Byte size of every stored snapshot, used to ground the retention default with real volume data.</summary>
+    public QualityRunReportSizeSummary MeasureSize()
+    {
+        if (!Directory.Exists(reportsPath)) return new QualityRunReportSizeSummary(0, 0, 0);
+        var sizes = Directory.EnumerateFiles(reportsPath, "*.json", SearchOption.TopDirectoryOnly)
+            .Select(path => new FileInfo(path).Length).ToArray();
+        return new QualityRunReportSizeSummary(
+            sizes.Length,
+            sizes.Sum(),
+            sizes.Length == 0 ? 0 : (long)sizes.Average());
+    }
+
+    /// <summary>
+    /// Deletes the oldest snapshots beyond <paramref name="keep"/> newest per repository, skipping any
+    /// run id in <paramref name="pinnedRunIds"/>. This is the provisional retention default the dossier
+    /// flagged as ungrounded (newest 50 plus pinned baselines); it exists so cleanup is not silent.
+    /// </summary>
+    public QualityRunReportPruneResult Prune(int keep, IReadOnlySet<string> pinnedRunIds)
+    {
+        if (keep < 0) throw new ArgumentOutOfRangeException(nameof(keep), "Retention count cannot be negative.");
+        ArgumentNullException.ThrowIfNull(pinnedRunIds);
+        var all = LoadAll();
+        var eligible = all.Where(report => !pinnedRunIds.Contains(report.Run.Id))
+            .OrderByDescending(report => report.Run.FinishedAt ?? DateTimeOffset.MinValue)
+            .ThenByDescending(report => report.Run.Revision)
+            .ToArray();
+        var toRemove = eligible.Skip(keep).ToArray();
+        long freedBytes = 0;
+        foreach (var report in toRemove)
+        {
+            var path = PathFor(report.Run.Id);
+            if (!File.Exists(path)) continue;
+            freedBytes += new FileInfo(path).Length;
+            File.Delete(path);
+        }
+        return new QualityRunReportPruneResult(toRemove.Length, freedBytes,
+            all.Count - toRemove.Length, pinnedRunIds.Count(id => all.Any(report => report.Run.Id == id)));
     }
 
     public IReadOnlyList<QualityRunReportDocument> LoadAll(Action<string, Exception>? loadFailed = null)
