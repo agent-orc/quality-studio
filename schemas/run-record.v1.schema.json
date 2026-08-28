@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio archived run record v1",
+  "description": "Immutable identity, plan and configuration for one review run, written once at .quality/run-history/YYYY-MM/<runId>/run.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "repositoryId", "createdAt",
+    "nodeId", "nodePath", "level", "kind", "targets", "cliType", "force"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "nodeId": { "type": "string", "minLength": 1 },
+    "nodePath": { "type": "string", "minLength": 1 },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } },
+    "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "thinkingLevel": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "force": { "type": "boolean" },
+    "tokenCap": { "type": "integer", "minimum": 0 },
+    "costCap": { "type": "number", "minimum": 0 },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "sourceDirty": { "type": "boolean" }
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "subjectHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "subjectHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+      }
+    }
+  }
+}
