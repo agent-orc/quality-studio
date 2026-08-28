@@ -269,6 +269,27 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Legacy_persisted_command_backed_sensor_configuration_is_blocked_at_scan_time()
+    {
+        var legacyHost = Path.Combine(testRoot, "legacy-command-host");
+        Directory.CreateDirectory(legacyHost);
+        WriteRegistryWithCommandBackedSensor(legacyHost);
+        await using var legacyApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, legacyHost, spendRequestsPerMinute: 100);
+
+        using var admin = CreateClient(legacyApplication, "admin", AdminToken);
+        using var response = await admin.PostAsync(
+            "/api/repos/default/sensors/sarif/scan", null, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.False(result.GetProperty("available").GetBoolean());
+        Assert.Equal(
+            "Command-backed analyzer configuration is disabled; set " +
+            "QualityStudio:Security:AllowCommandBackedAnalyzers to run a configured 'command'.",
+            result.GetProperty("unavailableReason").GetString());
+    }
+
+    [Fact]
     public async Task Sensor_scans_share_the_spend_rate_limit()
     {
         var rateHost = Path.Combine(testRoot, "sensor-rate-host");
@@ -330,6 +351,37 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         {
             new RepositoryRegistration("default", "Default", RepositoryRoot, null, 12000,
                 new[] { "code", "security", "performance" }),
+            new RepositoryRegistration("foreign", "Foreign", ForeignRepositoryRoot, null, 12000,
+                new[] { "code", "security", "performance" }),
+        };
+        File.WriteAllText(path, JsonSerializer.Serialize(entries,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+    }
+
+    /// <summary>
+    /// Writes a registry file with a "command" already present in a persisted sensor configuration,
+    /// bypassing <c>RepositoryRegistry</c>'s create/update-time validation entirely. This models a
+    /// repository record written before the command-backed-analyzer gate existed (or written while
+    /// <c>AllowCommandBackedAnalyzers</c> was enabled and never cleaned up), which the runtime kill
+    /// switch in the sensors themselves must still refuse to execute.
+    /// </summary>
+    private void WriteRegistryWithCommandBackedSensor(string hostRoot)
+    {
+        var path = Path.Combine(hostRoot, ".quality-studio", "repositories.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var entries = new[]
+        {
+            new RepositoryRegistration("default", "Default", RepositoryRoot, null, 12000,
+                new[] { "code", "security", "performance" },
+                new[]
+                {
+                    new RepositorySensorConfiguration("sarif", Enabled: true,
+                        Configuration: new Dictionary<string, string>
+                        {
+                            ["command"] = "pwsh -Command notepad.exe",
+                            ["reportPath"] = ".quality/analyzers/legacy.sarif",
+                        }),
+                }),
             new RepositoryRegistration("foreign", "Foreign", ForeignRepositoryRoot, null, 12000,
                 new[] { "code", "security", "performance" }),
         };

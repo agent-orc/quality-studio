@@ -11,6 +11,7 @@ using QualityStudio.Api;
 using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,10 +42,14 @@ builder.Services.AddSingleton<BoundaryInventorySensor>();
 builder.Services.AddSingleton<AttackCatalogueResolver>();
 builder.Services.AddSingleton<AttackCoverageService>();
 builder.Services.AddSingleton<CoverageSensor>();
-builder.Services.AddSingleton<SarifSensor>();
-builder.Services.AddSingleton<RoslynAnalyzerSensor>();
-builder.Services.AddSingleton<EslintAnalyzerSensor>();
-builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
+builder.Services.AddSingleton(serviceProvider => new SarifSensor(
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider => new RoslynAnalyzerSensor(
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider => new EslintAnalyzerSensor(
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
+builder.Services.AddSingleton(serviceProvider => new TypeScriptAnalyzerSensor(
+    allowCommandBackedAnalyzers: AllowCommandBackedAnalyzers(serviceProvider)));
 builder.Services.AddSingleton<DotNetBuildSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
@@ -351,6 +356,11 @@ app.MapPost("/api/findings/state", MutateFindingState);
 app.MapPost("/api/repos/{repoId}/findings/state", MutateFindingState);
 
 app.Run();
+
+// Read at sensor invocation time (not captured once at startup) so a config change closes the
+// runtime kill switch for a legacy sensor configuration without requiring a restart.
+static Func<bool> AllowCommandBackedAnalyzers(IServiceProvider serviceProvider) => () =>
+    serviceProvider.GetRequiredService<IOptionsMonitor<RepositoryOptions>>().CurrentValue.Security.AllowCommandBackedAnalyzers;
 
 static IResult ScopeRules(HttpContext context, RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {

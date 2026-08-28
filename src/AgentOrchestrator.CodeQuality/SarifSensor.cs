@@ -9,17 +9,23 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class SarifSensor : IDeterministicEvidenceSensor
 {
     public const string SensorVersion = "1.0.0";
+    public const string CommandBackedAnalyzersDisabledReason =
+        "Command-backed analyzer configuration is disabled; set " +
+        "QualityStudio:Security:AllowCommandBackedAnalyzers to run a configured 'command'.";
     private readonly ISensorCommandRunner commandRunner;
+    private readonly Func<bool> allowCommandBackedAnalyzers;
     private readonly string id;
 
-    public SarifSensor(ISensorCommandRunner? commandRunner = null) : this("sarif", commandRunner)
+    public SarifSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
+        : this("sarif", commandRunner, allowCommandBackedAnalyzers)
     {
     }
 
-    internal SarifSensor(string id, ISensorCommandRunner? commandRunner)
+    internal SarifSensor(string id, ISensorCommandRunner? commandRunner, Func<bool>? allowCommandBackedAnalyzers = null)
     {
         this.id = id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
+        this.allowCommandBackedAnalyzers = allowCommandBackedAnalyzers ?? (() => false);
     }
 
     public string Id => id;
@@ -70,6 +76,9 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
         if (configuration.TryGetValue("command", out var configuredCommand) &&
             !string.IsNullOrWhiteSpace(configuredCommand))
         {
+            if (!allowCommandBackedAnalyzers())
+                return Unavailable(request, CommandBackedAnalyzersDisabledReason);
+
             IReadOnlyList<string> command;
             try
             {

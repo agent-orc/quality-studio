@@ -65,7 +65,7 @@ public sealed class SarifSensorTests
         var root = CreateRepository("src/a.ts");
         try
         {
-            var result = await new SarifSensor(new MissingCommandRunner()).RunAsync(
+            var result = await new SarifSensor(new MissingCommandRunner(), allowCommandBackedAnalyzers: () => true).RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
                     ["command"] = "missing-analyzer --sarif {reportPath}",
@@ -76,6 +76,80 @@ public sealed class SarifSensorTests
             Assert.False(result.Available);
             Assert.Contains("unavailable", result.UnavailableReason, StringComparison.OrdinalIgnoreCase);
             Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SarifSensor_RejectsConfiguredCommandWhenCommandBackedAnalyzersAreDisabledByDefault()
+    {
+        var root = CreateRepository("src/a.ts");
+        try
+        {
+            var result = await new SarifSensor(new ThrowingCommandRunner()).RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "pwsh -Command notepad.exe",
+                    ["reportPath"] = ".quality/analyzers/blocked.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Equal(SarifSensor.CommandBackedAnalyzersDisabledReason, result.UnavailableReason);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task EslintSensor_RejectsConfiguredCommandWhenCommandBackedAnalyzersAreDisabledByDefault()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var sensor = new EslintAnalyzerSensor(new ThrowingCommandRunner());
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . --output-file {reportPath}",
+                    ["reportPath"] = ".quality/preflight/eslint.sarif",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Equal(SarifSensor.CommandBackedAnalyzersDisabledReason, result.UnavailableReason);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task TypeScriptSensor_RejectsConfiguredCommandWhenCommandBackedAnalyzersAreDisabledByDefault()
+    {
+        var root = CreateRepository("frontend/src/app.ts");
+        try
+        {
+            var sensor = new TypeScriptAnalyzerSensor(new ThrowingCommandRunner());
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: new Dictionary<string, string>
+                {
+                    ["command"] = "npx --no-install tsc --noEmit --pretty false",
+                    ["reportPath"] = ".quality/analyzers/tsc.txt",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Equal(SarifSensor.CommandBackedAnalyzersDisabledReason, result.UnavailableReason);
         }
         finally
         {
@@ -118,7 +192,8 @@ public sealed class SarifSensorTests
         var root = CreateRepository("frontend/src/app.ts");
         try
         {
-            var sensor = new EslintAnalyzerSensor(new SarifWritingRunner(Fixture("eslint.sarif.json")));
+            var sensor = new EslintAnalyzerSensor(
+                new SarifWritingRunner(Fixture("eslint.sarif.json")), allowCommandBackedAnalyzers: () => true);
 
             var result = await sensor.RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
@@ -174,7 +249,8 @@ public sealed class SarifSensorTests
         {
             var sensor = new TypeScriptAnalyzerSensor(new RecordedRunner(
                 2,
-                "src/app.ts(7,11): error TS2322: Type 'string' is not assignable to type 'number'.\n"));
+                "src/app.ts(7,11): error TS2322: Type 'string' is not assignable to type 'number'.\n"),
+                allowCommandBackedAnalyzers: () => true);
 
             var result = await sensor.RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
@@ -220,6 +296,18 @@ public sealed class SarifSensorTests
             string workingDirectory,
             CancellationToken cancellationToken = default) =>
             throw new SecurityScannerUnavailableException("executable was not found");
+    }
+
+    private sealed class ThrowingCommandRunner : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException(
+                "The command-backed analyzer kill switch should have rejected this configuration before " +
+                "any process was started.");
     }
 
     private sealed class RecordedRunner(int exitCode, string output) : ISensorCommandRunner

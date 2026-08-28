@@ -18,14 +18,15 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
         string executable,
         string[] versionArguments,
         ISensorCommandRunner? commandRunner,
-        string? toolVersionKey = null)
+        string? toolVersionKey = null,
+        Func<bool>? allowCommandBackedAnalyzers = null)
     {
         Id = id;
         this.executable = executable;
         this.versionArguments = versionArguments;
         this.toolVersionKey = toolVersionKey ?? id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
-        sarif = new SarifSensor(id, this.commandRunner);
+        sarif = new SarifSensor(id, this.commandRunner, allowCommandBackedAnalyzers);
     }
 
     public string Id { get; }
@@ -65,16 +66,16 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
 
 public sealed class RoslynAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("roslyn", "dotnet", ["--version"], commandRunner, "dotnet")
+    public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
+        : base("roslyn", "dotnet", ["--version"], commandRunner, "dotnet", allowCommandBackedAnalyzers)
     {
     }
 }
 
 public sealed class EslintAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("eslint", "node", ["--version"], commandRunner, "node")
+    public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
+        : base("eslint", "node", ["--version"], commandRunner, "node", allowCommandBackedAnalyzers)
     {
     }
 }
@@ -83,9 +84,13 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
 {
     public const string SensorVersion = "1.0.0";
     private readonly ISensorCommandRunner commandRunner;
+    private readonly Func<bool> allowCommandBackedAnalyzers;
 
-    public TypeScriptAnalyzerSensor(ISensorCommandRunner? commandRunner = null) =>
+    public TypeScriptAnalyzerSensor(ISensorCommandRunner? commandRunner = null, Func<bool>? allowCommandBackedAnalyzers = null)
+    {
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
+        this.allowCommandBackedAnalyzers = allowCommandBackedAnalyzers ?? (() => false);
+    }
 
     public string Id => "tsc";
     public string Version => SensorVersion;
@@ -124,6 +129,8 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         if (!configuration.TryGetValue("command", out var configuredCommand) ||
             string.IsNullOrWhiteSpace(configuredCommand))
             return Unavailable(request, "tsc analyzer configuration requires command.");
+        if (!allowCommandBackedAnalyzers())
+            return Unavailable(request, SarifSensor.CommandBackedAnalyzersDisabledReason);
         if (!configuration.TryGetValue("reportPath", out var configuredReport) ||
             string.IsNullOrWhiteSpace(configuredReport))
             return Unavailable(request, "tsc analyzer configuration requires reportPath.");
