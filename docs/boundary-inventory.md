@@ -15,9 +15,26 @@ Run it directly with:
 quality boundaries scan .
 ```
 
+Large or change-focused runs can be bounded without turning an incomplete
+result into a clean result:
+
+```text
+quality boundaries scan . --max-files 1000 --no-write
+quality boundaries scan . --changed src/Api.cs --changed frontend/src/app.ts
+```
+
 It is also available through the sensor API as sensor id `boundaries`.
 Repository scans persist the inventory; path-scoped scans return a partial
 inventory without replacing the repository truth.
+
+Every inventory contains a `coverage` object. `complete` is true only when all
+eligible repository files were read. `mode` is `full`, `bounded`, `incremental`,
+or `path`, with discovered, scanned, and omitted file counts plus a reason for
+partial coverage. Partial scans never replace the repository-owned inventory,
+suppress findings that depend on proving an absence across the repository, and
+cannot become a clean security-sensor verdict. Positive findings derived from
+scanned code retain their normal block or warning verdict. The CLI exits with
+code `3` for a partial result that has no blocking finding.
 
 ## Contract
 
@@ -50,3 +67,8 @@ stages consume the same deterministic evidence.
 The inventory intentionally contains no generation timestamp. Re-running it
 against unchanged source produces identical content, while adding, changing, or
 removing a boundary creates a normal repository diff.
+
+The sensor indexes host bindings and client call sites once per scan. It also
+skips conventional test-output and `*.Tests`/`*.Test` trees so test endpoints do
+not become production boundaries. Individual files larger than 2 MiB are
+omitted and make coverage partial rather than being silently ignored.
