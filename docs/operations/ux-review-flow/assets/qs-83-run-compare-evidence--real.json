@@ -1,0 +1,32 @@
+{
+  "capturedAt": "2026-08-28T02:35:40.800Z",
+  "baseUrl": "http://127.0.0.1:4200/",
+  "evidence": [
+    {
+      "name": "dark",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "beforeFileName": "qs-83-run-history-before-dark--real.png",
+      "afterFileName": "qs-83-run-compare-after-dark--real.png",
+      "routeWarningShown": true,
+      "newCount": 1,
+      "pinnedBadgeShown": true
+    },
+    {
+      "name": "light",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "beforeFileName": "qs-83-run-history-before-light--real.png",
+      "afterFileName": "qs-83-run-compare-after-light--real.png",
+      "routeWarningShown": true,
+      "newCount": 1,
+      "pinnedBadgeShown": true
+    }
+  ]
+}

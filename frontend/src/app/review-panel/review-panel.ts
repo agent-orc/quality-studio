@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewRunCompareResult, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -56,6 +56,13 @@ export class ReviewPanel {
   readonly runTrendCursor = signal<string | null>(null);
   readonly runDetailLoading = signal(false);
   readonly runDetailError = signal('');
+  readonly pinnedRunIds = signal<string[]>([]);
+  readonly compareOpen = signal(false);
+  readonly compareBaselineId = signal<string | null>(null);
+  readonly compareCandidateId = signal<string | null>(null);
+  readonly compareLoading = signal(false);
+  readonly compareError = signal('');
+  readonly compareResult = signal<ReviewRunCompareResult | null>(null);
   readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
@@ -71,6 +78,8 @@ export class ReviewPanel {
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
     run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
   readonly selectedRun = computed(() => this.scopeRuns().find(run => run.id === this.selectedRunId()) ?? null);
+  readonly comparableRuns = computed(() => this.scopeRuns().filter(run =>
+    ['done', 'failed', 'cancelled', 'capped'].includes(run.state)));
   readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
     .flatMap(observation => observation.findings)
     .filter(finding => finding.state !== 'resolved'));
@@ -385,6 +394,59 @@ export class ReviewPanel {
       this.runTrendCursor.set(page.nextCursor);
     } catch (error) {
       this.runDetailError.set(this.api.errorMessage(error));
+    }
+  }
+
+  async toggleRunDrawer(): Promise<void> {
+    const opening = !this.runDrawerOpen();
+    this.runDrawerOpen.set(opening);
+    if (opening) {
+      try {
+        this.pinnedRunIds.set(await this.api.loadPinnedRunIds());
+      } catch {
+        // Pin state is a convenience badge; the drawer stays usable without it.
+      }
+    }
+  }
+
+  isPinned(runId: string): boolean { return this.pinnedRunIds().includes(runId); }
+
+  async togglePin(runId: string): Promise<void> {
+    try {
+      this.pinnedRunIds.set(this.isPinned(runId) ? await this.api.unpinRun(runId) : await this.api.pinRun(runId));
+    } catch (error) {
+      this.runDetailError.set(this.api.errorMessage(error));
+    }
+  }
+
+  openCompare(run: ReviewRun): void {
+    const baseline = this.comparableRuns().find(candidate => candidate.id !== run.id) ?? null;
+    this.compareOpen.set(true);
+    this.compareBaselineId.set(baseline?.id ?? null);
+    this.compareCandidateId.set(run.id);
+    this.compareResult.set(null);
+    this.compareError.set('');
+    if (baseline) void this.runCompare();
+  }
+
+  closeCompare(): void {
+    this.compareOpen.set(false);
+    this.compareResult.set(null);
+    this.compareError.set('');
+  }
+
+  async runCompare(): Promise<void> {
+    const baselineId = this.compareBaselineId();
+    const candidateId = this.compareCandidateId();
+    if (!baselineId || !candidateId) return;
+    this.compareLoading.set(true);
+    this.compareError.set('');
+    try {
+      this.compareResult.set(await this.api.compareRuns(baselineId, candidateId));
+    } catch (error) {
+      this.compareError.set(this.api.errorMessage(error));
+    } finally {
+      this.compareLoading.set(false);
     }
   }
 
