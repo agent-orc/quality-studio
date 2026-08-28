@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "title": "Quality Studio term catalogue v1",
+  "description": "An independently versioned catalogue of the term meanings that quality observations refer to. The catalogue carries its own SemVer; the JSON structure carries schemaVersion.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "id",
+    "version",
+    "axes",
+    "objects",
+    "aspects"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "description": "Catalogue identity. The core catalogue is 'quality-studio/core'; extension catalogues use a reverse-DNS id.",
+      "pattern": "^[a-z0-9][a-z0-9.-]*(/[a-z0-9][a-z0-9.-]*)*$"
+    },
+    "version": {
+      "$ref": "#/$defs/semver"
+    },
+    "prefix": {
+      "type": "string",
+      "description": "Term prefix an extension catalogue must use, for example 'com.acme'. Absent for the core catalogue.",
+      "pattern": "^[a-z0-9][a-z0-9.-]*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "axes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/axis"
+      }
+    },
+    "objects": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Which axes each observation object may carry. An axis that is not listed for an object must not appear on it.",
+      "items": {
+        "$ref": "#/$defs/object"
+      }
+    },
+    "aspects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/aspect"
+      }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "termId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "terms"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ordered": {
+          "type": "boolean",
+          "description": "True when the term order is meaningful, for example severity.",
+          "default": false
+        },
+        "terms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/term"
+          }
+        }
+      }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/termId"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "description": "Non-lossy spellings that resolve to this term inside the same axis.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "deprecated": {
+          "type": "boolean",
+          "default": false
+        },
+        "replacedBy": {
+          "$ref": "#/$defs/termId"
+        }
+      },
+      "dependentRequired": {
+        "replacedBy": ["deprecated"]
+      }
+    },
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "axes"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "axes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-zA-Z0-9]*$"
+          }
+        }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Namespaced core aspect id, for example 'code.correctness'.",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+        },
+        "family": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "description": "Unnamespaced legacy aspect ids that migrate to this core aspect.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "deprecated": {
+          "type": "boolean",
+          "default": false
+        },
+        "replacedBy": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+        }
+      },
+      "dependentRequired": {
+        "replacedBy": ["deprecated"]
+      }
+    }
+  }
+}
