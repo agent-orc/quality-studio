@@ -202,7 +202,9 @@ public sealed class ReviewMetaContractTests
                         new Dictionary<string, string>
                         {
                             ["Microsoft.CodeAnalysis"] = "4.14.0",
-                        })),
+                        }),
+                    new SensorScanCoverage(false, "incremental", 1, 10, 9,
+                        "Only the selected file was scanned.")),
             ],
         };
 
@@ -214,6 +216,8 @@ public sealed class ReviewMetaContractTests
         Assert.Equal("deterministic",
             json.RootElement.GetProperty("deterministicEvidence")[0].GetProperty("findings")[0]
                 .GetProperty("source").GetProperty("kind").GetString());
+        Assert.False(json.RootElement.GetProperty("deterministicEvidence")[0]
+            .GetProperty("coverage").GetProperty("complete").GetBoolean());
     }
 
     [Fact]
