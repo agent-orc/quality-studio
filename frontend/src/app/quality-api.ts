@@ -152,6 +152,7 @@ export interface ImpactFinding { id: string; ruleId: string; severity: FindingSe
 export interface FileGuidelineImpact { path: string; before: ImpactFinding[]; after: ImpactFinding[]; added: ImpactFinding[]; removed: ImpactFinding[]; }
 export interface GuidelineImpact { guidelineId: string; kind: ReviewKind; files: FileGuidelineImpact[]; addedCount: number; removedCount: number; changed: boolean; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
+export const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 export interface RepositoryRegistration {
   id: string;
   displayName: string;
@@ -439,29 +440,48 @@ export class QualityApi {
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
+    const isInitialLoad = this.repositories().length === 0;
     try {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
       this.legacyApi = false;
       this.repositories.set(result.repositories);
+      const lastRepositoryId = localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
       const selected = result.repositories.some(repository => repository.id === preferredId)
         ? preferredId!
-        : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
-          ? this.selectedRepositoryId()
-          : result.defaultRepositoryId;
+        : isInitialLoad && result.repositories.some(repository => repository.id === lastRepositoryId)
+          ? lastRepositoryId!
+          : result.repositories.some(repository => repository.id === this.selectedRepositoryId())
+            ? this.selectedRepositoryId()
+            : result.defaultRepositoryId;
       this.selectedRepositoryId.set(selected);
+      localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, selected);
     } catch (error) {
       // A pre-registry server still exposes the legacy default endpoints.
       this.legacyApi = true;
       this.repositories.set([{ id: 'default', displayName: 'Default repository', rootPath: '', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code', 'security', 'performance'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null }]);
       this.selectedRepositoryId.set('default');
+      this.markUnreachable(error);
       console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.errorMessage(error) }));
     }
+  }
+
+  async retryConnection(): Promise<void> {
+    // An outage parks the shell on the legacy 'default' entry, so prefer the remembered
+    // project over that placeholder - loadRepositories still validates it against the registry.
+    await this.loadRepositories(localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY) ?? this.selectedRepositoryId());
+    await this.loadTree();
+  }
+
+  private markUnreachable(error: unknown): void {
+    const offline = error instanceof HttpErrorResponse && error.status === 0;
+    this.connectionState.set(offline ? 'offline' : 'preview');
   }
 
   async selectRepository(id: string): Promise<void> {
     const started = performance.now();
     const sequence = ++this.repositorySelectionSequence;
     this.selectedRepositoryId.set(id);
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
@@ -522,7 +542,7 @@ export class QualityApi {
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
     } catch (error) {
       if (repositoryId === this.selectedRepositoryId()) {
-        this.connectionState.set('preview');
+        this.markUnreachable(error);
         console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
       }
     }
@@ -698,7 +718,7 @@ export class QualityApi {
       this.file.set(file); this.connectionState.set('live');
     } catch (error) {
       this.file.set({ path, content: demoFile, metaDocuments: demoMeta, sizeBytes: demoFileSizeBytes, lineEnding: 'lf', encoding: 'utf-8', coverage: unknownCoverage() });
-      if (this.connectionState() !== 'live') this.connectionState.set('preview');
+      if (this.connectionState() !== 'live') this.markUnreachable(error);
       console.warn(JSON.stringify({ event: 'qs.data.file-demo-fallback', path, reason: error instanceof Error ? error.message : 'API unavailable' }));
     } finally { this.loading.set(false); }
   }
