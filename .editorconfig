@@ -1,0 +1,9 @@
+# Editor configuration, see https://editorconfig.org
+root = true
+
+# Complexity thresholds (docs/operations/static-analysis/index.html, slice S4).
+# CA1502 (cyclomatic complexity) and CA1505 (maintainability index) are off by default; scope them
+# to production C# only so generated/test code does not need per-member suppression.
+[src/**.cs]
+dotnet_diagnostic.CA1502.severity = warning
+dotnet_diagnostic.CA1505.severity = warning
