@@ -135,7 +135,10 @@ dotnet run --project src/quality-cli -- boundaries scan .
 The stable result is written to `.quality/boundaries/inventory.json`, so boundary
 changes appear in normal source-control diffs. See
 [`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and
-derivation rules.
+derivation rules. Use `--max-files <count>` for a deterministic bounded scan,
+repeat `--changed <path>` for an incremental partial scan, and use `--no-write`
+for verification. Partial results report their coverage and never replace the
+complete repository inventory.
 
 ## Change-set review
 
