@@ -160,5 +160,7 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
                 }));
             builder.ConfigureServices(services => services.AddSingleton(_ => new HttpClient(handler)));
         }
+
+        public new HttpClient CreateClient() => CreateDefaultClient(new CsrfNonceHandler());
     }
 }

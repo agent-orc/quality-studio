@@ -787,6 +787,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 services.AddSingleton<IReviewSensor, BoundaryInventorySensor>();
             });
         }
+
+        public new HttpClient CreateClient() => CreateDefaultClient(new CsrfNonceHandler());
     }
 
     private sealed class FakeSecurityScanner : GitleaksSecurityScanner

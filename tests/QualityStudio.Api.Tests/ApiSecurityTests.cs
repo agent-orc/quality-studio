@@ -13,6 +13,7 @@ namespace QualityStudio.Api.Tests;
 
 public sealed class ApiSecurityTests : IAsyncLifetime
 {
+    private const string CsrfNonceHeader = "X-Csrf-Nonce";
     private const string AliceToken = "alice-test-credential";
     private const string BobToken = "bob-test-credential";
     private const string AdminToken = "admin-test-credential";
@@ -169,6 +170,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
         using var read = await client.GetAsync("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+        client.DefaultRequestHeaders.Add(CsrfNonceHeader, await IssueNonceAsync(client));
         using var mutation = await client.PostAsJsonAsync("/api/review", new
         {
             path = "Sample.cs", kind = "code", model = "not-in-catalogue",
@@ -194,6 +196,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal("Cross-origin mutation is not permitted", problem.GetProperty("title").GetString());
 
         using var noOrigin = local.CreateClient();
+        noOrigin.DefaultRequestHeaders.Add(CsrfNonceHeader, await IssueNonceAsync(noOrigin));
         using var allowed = await noOrigin.PostAsJsonAsync("/api/review", new
         {
             path = "Sample.cs", kind = "code", model = "not-in-catalogue",
@@ -201,12 +204,69 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, allowed.StatusCode);
 
         using var sameOrigin = local.CreateClient();
+        sameOrigin.DefaultRequestHeaders.Add(CsrfNonceHeader, await IssueNonceAsync(sameOrigin));
         sameOrigin.DefaultRequestHeaders.Add("Origin", "http://localhost:4200");
         using var sameOriginResponse = await sameOrigin.PostAsJsonAsync("/api/review", new
         {
             path = "Sample.cs", kind = "code", model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, sameOriginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Local_mode_rejects_mutations_without_a_valid_csrf_nonce()
+    {
+        var localHost = Path.Combine(testRoot, "local-nonce-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+
+        using var missingNonce = local.CreateClient();
+        using var missing = await missingNonce.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, missing.StatusCode);
+        var missingProblem = await missing.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("A valid CSRF nonce is required for local mutations", missingProblem.GetProperty("title").GetString());
+
+        using var forgedNonce = local.CreateClient();
+        forgedNonce.DefaultRequestHeaders.Add(CsrfNonceHeader, "not-a-nonce-anyone-issued");
+        using var forged = await forgedNonce.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, forged.StatusCode);
+
+        using var reused = local.CreateClient();
+        var nonce = await IssueNonceAsync(reused);
+        reused.DefaultRequestHeaders.Add(CsrfNonceHeader, nonce);
+        using var first = await reused.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, first.StatusCode);
+        using var second = await reused.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Csrf_nonce_endpoint_is_local_only()
+    {
+        var localHost = Path.Combine(testRoot, "local-nonce-endpoint-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var localClient = local.CreateClient();
+        using var localResponse = await localClient.GetAsync("/api/security/csrf-nonce", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, localResponse.StatusCode);
+        var localBody = await localResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(localBody.GetProperty("nonce").GetString()!.Length >= 32);
+
+        using var hosted = CreateClient("alice", AliceToken);
+        using var hostedResponse = await hosted.GetAsync("/api/security/csrf-nonce", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, hostedResponse.StatusCode);
     }
 
     [Fact]
@@ -341,6 +401,13 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         if (token is not null) client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         if (includeClientId && clientId is not null) client.DefaultRequestHeaders.Add(ApiSecurity.ClientIdHeader, clientId);
         return client;
+    }
+
+    private static async Task<string> IssueNonceAsync(HttpClient client)
+    {
+        var body = await client.GetFromJsonAsync<JsonElement>("/api/security/csrf-nonce",
+            TestContext.Current.CancellationToken);
+        return body.GetProperty("nonce").GetString()!;
     }
 
     private void WriteRegistry(string hostRoot)

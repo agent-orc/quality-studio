@@ -23,6 +23,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
 builder.Services.AddSingleton<ApiSecurity>();
+builder.Services.AddSingleton<LocalCsrfNonceStore>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
@@ -137,6 +138,8 @@ app.UseCors("dev-frontend");
 app.UseRouting();
 
 var apiSecurity = app.Services.GetRequiredService<ApiSecurity>();
+var csrfNonceStore = app.Services.GetRequiredService<LocalCsrfNonceStore>();
+const string CsrfNonceHeader = "X-Csrf-Nonce";
 LocalModeBindingGuard.EnforceLoopbackBinding(app, apiSecurity.IsLocal);
 if (apiSecurity.RequireHttps)
 {
@@ -176,6 +179,16 @@ app.Use(async (context, next) =>
         {
             await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
                 title: "Cross-origin mutation is not permitted").ExecuteAsync(context);
+            return;
+        }
+
+        // The Origin check above is necessary but not sufficient: some browser contexts omit or allow
+        // spoofing an Origin header. The nonce closes that gap because only same-origin script can ever
+        // read it (docs/operations/security/index.html, S0's "per-session anti-CSRF nonce" exit item).
+        if (!csrfNonceStore.IsValid(context.Request.Headers[CsrfNonceHeader].ToString()))
+        {
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "A valid CSRF nonce is required for local mutations").ExecuteAsync(context);
             return;
         }
     }
@@ -239,6 +252,9 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
+
+app.MapGet("/api/security/csrf-nonce", (ApiSecurity security, LocalCsrfNonceStore nonceStore) =>
+    security.IsLocal ? Results.Ok(new { nonce = nonceStore.Issue() }) : Results.NotFound());
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>

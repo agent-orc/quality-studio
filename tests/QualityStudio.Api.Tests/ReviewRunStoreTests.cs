@@ -731,6 +731,8 @@ public sealed class ReviewRunStoreTests
                 }
             });
         }
+
+        public new HttpClient CreateClient() => CreateDefaultClient(new CsrfNonceHandler());
     }
 
     private sealed class OrderingSensor(ConcurrentQueue<string> events) : IDeterministicEvidenceSensor
