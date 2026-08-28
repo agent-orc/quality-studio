@@ -169,6 +169,7 @@
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#implementation-state">Implementation state</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs-77-addendum">QS-77 addendum</a></li>
     </ol>
   </nav>
 
@@ -514,6 +515,16 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs-77-addendum">
+    <h2><span class="no">11</span>QS-77 addendum · boot resilience and the AllowedRoots decision</h2>
+    <p><span class="pill done">Decided · R-09, F-07</span></p>
+    <p>On 2026-08-11 a persisted <code>.quality-studio/repositories.json</code> entry — an Agent Studio checkout registered for cross-repo reviewing, see <code>docs/operations/studio-integration/index.html</code> — fell outside the tracked <code>AllowedRoots</code> and threw <code>RepositoryRegistryValidationException</code> inside <code>RepositoryRegistry</code>'s constructor during <code>LoadOrSeed</code>, crashing the API on every boot. The thrown message named neither the offending path nor the configured roots, so the only operator-suggested remedy on hand was to widen the tracked <code>AllowedRoots</code> to <code>../../..</code> in <code>src/QualityStudio.Api/appsettings.json</code>.</p>
+    <div class="box warn"><h4>Rejected remedy</h4><p>Committing a wider, maintainer-specific <code>AllowedRoots</code> entry to the tracked <code>appsettings.json</code> was considered and rejected. It is the same class of change as F-07/R-09: QS-53 shipped <code>../../../agent-taskboard-devspace</code> in that file and it was reverted because machine-specific paths belong in environment-specific configuration, not source control. Re-introducing a wider tracked root would again disclose host filesystem topology and widen the set of repositories a registrar — or the R-01 privilege chain — can select, for every deployment that inherits the file.</p></div>
+    <p><b>Decision: boot resilience, not a wider tracked root.</b> The tracked <code>AllowedRoots</code> in <code>src/QualityStudio.Api/appsettings.json</code> stays at <code>../..</code>. <code>RepositoryRegistry.LoadOrSeed</code> now treats a persisted entry that fails validation as a quarantine, not a boot failure: the entry is kept with <code>Blocked = true</code> and a <code>BlockedReason</code>, a <code>RepositoryQuarantined</code> warning is logged naming the offending path and the full configured <code>AllowedRoots</code> list, and startup completes with every other entry unaffected. <code>RepositoryRegistry.Get</code>/<code>Access</code> treat a blocked entry as not found, the same way they already treat an archived one; <code>List(includeBlocked: true)</code> is used only by <code>GET /api/repos</code> so the “Configure repositories” UI can list the entry as blocked with its reason instead of hiding it silently. A machine-specific cross-repo need, such as reviewing the Agent Studio checkout from a dev machine, is met by an untracked, environment-specific <code>AllowedRoots</code> override — not by a tracked source change.</p>
+    <p>This closes the availability half of R-09 — a poisoned or stale registry entry no longer takes the whole host down — while leaving the disclosure half exactly where F-07 left it: no tracked, maintainer-specific root. <code>EnsureAllowedDirectory</code> now includes the offending path and the full allowed-root list in every internal exception/log message it raises, which improves operator diagnosability without changing what a client-facing request ever receives: <code>Program.cs</code>'s exception handler still maps <code>RepositoryRegistryValidationException</code> to its <code>PublicTitle</code> only, so the path-disclosure guarantee in <code>ApiSecurityTests.Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure</code> is unchanged.</p>
+    <p class="evidence-link">Evidence: <code>RepositoryRegistry.cs</code> (<code>RepositoryRegistration.Blocked</code>/<code>BlockedReason</code>, <code>QuarantineIfInvalid</code>, <code>EnsureAllowedDirectory</code>); <code>Program.cs</code> (<code>GET /api/repos</code> now calls <code>registry.List(includeArchived, includeBlocked: true)</code>); <code>ApiSecurityTests.Boot_quarantines_an_out_of_root_persisted_entry_instead_of_crashing_the_host</code>.</p>
   </section>
 </main>
 </body>

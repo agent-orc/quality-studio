@@ -11,7 +11,14 @@
       <nav class="repository-list" aria-label="Configured repositories">
         @for (repository of repositories; track repository.id) {
           <button type="button" [class.active]="repository.id === editingRepositoryId" (click)="editRequested.emit(repository)">
-            <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+            <strong>{{ repository.displayName }}</strong>
+            @if (repository.blocked) {
+              <span class="repository-blocked-badge">Blocked</span>
+            }
+            <small>{{ repository.id }}</small>
+            @if (repository.blocked && repository.blockedReason) {
+              <small class="repository-blocked-reason">{{ repository.blockedReason }}</small>
+            }
           </button>
         }
         <button class="add-affordance" type="button" (click)="addRequested.emit()"><span aria-hidden="true">+</span><span>Add repository</span></button>

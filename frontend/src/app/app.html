@@ -13,10 +13,12 @@
         <div class="repository-menu" role="menu">
           <div class="menu-heading">Switch repository</div>
           @for (repository of api.repositories(); track repository.id) {
-            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
-              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
-              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
-            </button>
+            @if (!repository.blocked) {
+              <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
+                <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
+                <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
+              </button>
+            }
           }
           <div class="menu-actions">
             <button type="button" (click)="onboardRepository()">+ Onboard repository</button>
