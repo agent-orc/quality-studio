@@ -20,6 +20,7 @@ import { formatTokenCount, parseTokenCount } from './format';
 import { RepositoryDialog } from './repository-dialog/repository-dialog';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
+const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 /** Collapses a salvo of position changes into one history write. */
 const URL_SYNC_DEBOUNCE_MS = 120;
 const RESIZE_HANDLE_WIDTH = 6;
@@ -195,11 +196,15 @@ export class App implements OnDestroy {
   }
 
   private async initialize(): Promise<void> {
-    const preferredRepository = new URLSearchParams(location.search).get('repo');
+    const preferredRepository = new URLSearchParams(location.search).get('repo') ||
+      localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
+    const preferredPath = this.selected();
     await this.api.loadRepositories(preferredRepository);
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
+    if (preferredPath !== '.' && !this.api.nodeAt(preferredPath)) await this.api.searchTree(preferredPath);
     void dashboardLoading;
     await this.api.loadReviewRuns();
     await Promise.all([this.api.loadUsage(), this.api.loadQuotas()]);
@@ -406,6 +411,7 @@ export class App implements OnDestroy {
     }
     const started = performance.now();
     this.repositoryMenuOpen.set(false);
+    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
     this.selected.set('.');
     this.selectedFinding.set(null);
     const switching = this.api.selectRepository(id);
@@ -558,6 +564,7 @@ export class App implements OnDestroy {
       await this.api.archiveRepository(repository.id);
       if (wasSelected) {
         await this.api.selectRepository(this.api.selectedRepositoryId());
+        localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
         const path = this.selectionPathOrFirst('');
         if (path) this.open(path, false);
         this.repositoryDialogOpen.set(false);

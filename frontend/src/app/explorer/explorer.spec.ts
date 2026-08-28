@@ -1,5 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { QualityApi } from '../quality-api';
@@ -58,23 +58,35 @@ describe('Explorer container activation', () => {
     expect(opened).toEqual([]);
   });
 
-  it('applies the filter only after typing settles', async () => {
+  it('applies the filter only after typing settles, and asks the server once', async () => {
+    const http = TestBed.inject(HttpTestingController);
     component.setQuery('P');
     component.setQuery('Pr');
     component.setQuery('Program');
 
     expect(component.queryInput()).toBe('Program');
     expect(component.query()).withContext('filter is not applied per keystroke').toBe('');
+    http.expectNone(request => request.url.endsWith('/tree/v2/search'));
 
     await new Promise(resolve => setTimeout(resolve, 200));
+
+    // The tree only holds the expanded levels, so the matches come from the bounded server filter.
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search'
+      && request.params.get('query') === 'Program').flush({
+        schemaVersion: 2, parentId: null, path: 'search:Program', offset: 0, limit: 200,
+        nextCursor: null, nodes: [{ id: 'program', name: 'Program.cs', level: 'file',
+          path: 'src/QualityStudio.Api/Program.cs', kinds, children: [] }],
+      });
+    await new Promise(resolve => setTimeout(resolve));
 
     expect(component.query()).toBe('Program');
     expect(component.filteredRows().map(row => row.name)).toEqual(['Program.cs']);
   });
 
-  it('clears an active filter immediately on Escape', async () => {
+  it('clears an active filter on Escape even when it matched nothing', async () => {
     component.setQuery('Program');
     await new Promise(resolve => setTimeout(resolve, 200));
+    expect(component.filteredRows()).withContext('the server filter has not answered yet').toEqual([]);
 
     component.onTreeKeydown(new KeyboardEvent('keydown', { key: 'Escape' }));
 
