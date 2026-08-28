@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived run attempt record v1",
+  "description": "One create-only snapshot per stopped attempt of a run, tracked at .quality/run-history/YYYY-MM/<runId>/attempts/NNNN.json. A capped run that resumes gets another attempt; earlier attempts are never rewritten.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness", "startedAt", "finishedAt",
+    "attemptCounters", "cumulativeCounters", "attemptSpend", "cumulativeSpend", "errorCodes", "cap",
+    "estimateDeviation", "ledgerReferences", "qualitySummary"
+  ],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "attemptCounters": { "$ref": "#/$defs/counters" },
+    "cumulativeCounters": { "$ref": "#/$defs/counters" },
+    "attemptSpend": { "$ref": "#/$defs/spend" },
+    "cumulativeSpend": { "$ref": "#/$defs/spend" },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 4000 } },
+    "cap": { "$ref": "#/$defs/cap" },
+    "estimateDeviation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/estimateDeviation" }] },
+    "ledgerReferences": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } },
+    "qualitySummary": { "$ref": "#/$defs/qualitySummary" }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "completed", "failed", "skipped"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "completed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "spend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operations", "inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs", "cost", "currency", "priceStatus"],
+      "properties": {
+        "operations": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "outputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "cachedInputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "reasoningOutputTokens": { "$ref": "#/$defs/nullableInteger" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "cost": { "$ref": "#/$defs/nullableNumber" },
+        "currency": { "$ref": "#/$defs/nullableString" },
+        "priceStatus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "cap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenLimit", "costLimit", "outcome", "reason"],
+      "properties": {
+        "tokenLimit": { "$ref": "#/$defs/nullableInteger" },
+        "costLimit": { "$ref": "#/$defs/nullableNumber" },
+        "outcome": { "enum": ["not-configured", "within-cap", "reached"] },
+        "reason": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "estimateDeviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputPercent", "outputPercent", "costPercent"],
+      "properties": {
+        "inputPercent": { "$ref": "#/$defs/nullableNumber" },
+        "outputPercent": { "$ref": "#/$defs/nullableNumber" },
+        "costPercent": { "$ref": "#/$defs/nullableNumber" }
+      }
+    },
+    "qualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "grade", "findings", "highestSeverity", "partialReason"],
+      "properties": {
+        "score": { "$ref": "#/$defs/nullableInteger" },
+        "grade": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "findings": { "$ref": "#/$defs/findingCounts" },
+        "highestSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] },
+        "partialReason": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "findingCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "bySeverity", "byState"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "bySeverity": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "byState": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    }
+  }
+}
