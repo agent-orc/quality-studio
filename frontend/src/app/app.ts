@@ -323,6 +323,10 @@ export class App implements OnDestroy {
     this.attackCoverageDialogOpen.set(true);
   }
 
+  retryConnection(): void {
+    void this.api.retryConnection();
+  }
+
   onboardRepository(): void {
     this.repositoryMenuOpen.set(false);
     this.editingRepositoryId.set(null);
