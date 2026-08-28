@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -557,6 +558,29 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. The status of every recommendation was set to <code>decided</code> by the 11 August 2026 operator pauschal approval; entries below record what has actually landed in the repository, not a re-review of the decision.</p>
+
+  <h3>2026-08-28 &middot; <code>QS-76</code> &middot; T1 delivered<span class="pill done">done</span></h3>
+  <p>Landed T1, contract and catalogue foundation, with no writer changes:</p>
+  <ul>
+    <li><code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code> — the term-catalogue and immutable-observation JSON Schemas from sections 6 and 7.</li>
+    <li><code>src/AgentOrchestrator.CodeQuality/catalogues/quality-taxonomy-core.v1.json</code> — the <code>quality-studio/core@1.0.0</code> catalogue (all eight canonical axes plus the initial aspect catalogue with migration aliases), embedded as a build resource.</li>
+    <li><code>QualityTaxonomyContract.cs</code> — the axis enums, <code>TaxonomyReference</code>, catalogue document types, and <code>QualityTaxonomyCatalogueResolver</code> (digest computation, alias lookup, unknown-aspect-is-not-core lookup).</li>
+    <li><code>QualityObservationContract.cs</code> — the <code>QualityObservationDocument</code> contract matching section 7 exactly, with an explicit <code>extensions</code> dictionary, legacy <code>x-*</code> root-key preservation, and <code>UnsupportedTaxonomyMajorException</code> that quarantines an unsupported taxonomy major with the raw JSON attached rather than discarding it.</li>
+    <li><code>QualityTaxonomyLegacyMappings.cs</code> — a pure, side-effect-free mapping library covering every row of the section 8 compatibility table (security/flow/attack/change verdicts, change-aspect verdicts, finding-state and drifted-spelling lifecycle mapping per F8, and legacy evidence-string mapping into typed evidence).</li>
+    <li>47 new tests: JSON Schema conformance for positive and negative fixtures, resolver behavior, full section-8 mapping coverage, observation round-trip, extension/legacy-key survival, and taxonomy-major quarantine.</li>
+  </ul>
+  <p><b>Acceptance check:</b> schemas validate positive/negative fixtures; every current verdict/state spelling in section 8 maps deterministically; no writer was touched, so no production output changes. <code>dotnet build</code> and the full <code>AgentOrchestrator.CodeQuality.Tests</code> suite (207 tests) are green.</p>
+  <p><b>Not in this delivery (follow-up slices, per the one-slice-per-delivery scope correction):</b></p>
+  <ul>
+    <li><b>T2</b> — immutable observation dual-write and full route provenance (depends on T1).</li>
+    <li><b>T3</b> — typed evidence, producer provenance, and issue lifecycle v2 (depends on T2).</li>
+    <li><b>T4</b> — observation-backed projections and per-model records (depends on T3).</li>
+    <li><b>T5</b> — domain adapters and migration tool (depends on T4).</li>
+  </ul>
+  <p class="dim">A stash on this branch (<code>QS-76-partial-T1-T2-before-complete-lineage</code>) contains an earlier, unmerged attempt that edited <code>ReviewRunner</code>/<code>UsageTelemetry</code>/<code>ReviewAgent</code> directly without this foundation; it was left untouched rather than reconciled, since T1 alone does not depend on it and this delivery does not change writers.</p>
 </main>
 </body>
 </html>

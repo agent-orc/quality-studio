@@ -1,0 +1,99 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "catalogue": "quality-studio/core",
+  "version": "1.0.0",
+  "axes": {
+    "producerKind": {
+      "terms": [
+        { "id": "agent", "description": "An LLM-driven reviewer produced this record. Always explicit; absence never means agent." },
+        { "id": "deterministic-sensor", "description": "A non-model tool, linter, or scanner produced this record." },
+        { "id": "human", "description": "A human reviewer produced this record." },
+        { "id": "imported", "description": "The record was migrated from a legacy contract by the taxonomy migration tool." },
+        { "id": "unknown", "description": "The producer could not be determined and must not be defaulted to agent." }
+      ]
+    },
+    "evidenceStatus": {
+      "terms": [
+        { "id": "available", "description": "Evidence was collected and is attached to the observation." },
+        { "id": "partial", "description": "Some but not all expected evidence was collected." },
+        { "id": "unavailable", "description": "No evidence could be collected. Describes coverage only; it is not a pass or a block." }
+      ]
+    },
+    "assessment": {
+      "terms": [
+        { "id": "pass", "description": "The evidence establishes conformance for the review or aspect." },
+        { "id": "concern", "description": "The evidence raises a qualified concern short of failure." },
+        { "id": "fail", "description": "The evidence establishes non-conformance for the review or aspect." },
+        { "id": "inconclusive", "description": "The evidence does not establish either pass or fail." },
+        { "id": "not-applicable", "description": "The aspect does not apply to this subject." },
+        { "id": "not-assessed", "description": "The aspect has not yet been evaluated." }
+      ]
+    },
+    "change": {
+      "terms": [
+        { "id": "improved", "description": "A before/after comparison shows improvement." },
+        { "id": "regressed", "description": "A before/after comparison shows regression." },
+        { "id": "mixed", "description": "A before/after comparison shows both improvement and regression." },
+        { "id": "unchanged", "description": "A before/after comparison shows no material difference." },
+        { "id": "no-observed-delta", "description": "No before/after delta was observed for this change." },
+        { "id": "inconclusive", "description": "A before/after comparison could not be established." }
+      ]
+    },
+    "decision": {
+      "terms": [
+        { "id": "allow", "description": "Policy permits the change to proceed. Requires a policyRef; never supplied by a raw finding." },
+        { "id": "warn", "description": "Policy flags the change but does not block it." },
+        { "id": "block", "description": "Policy prevents the change from proceeding." },
+        { "id": "defer", "description": "Policy defers the disposition pending further evidence." }
+      ]
+    },
+    "severity": {
+      "terms": [
+        { "id": "critical", "description": "The highest severity band." },
+        { "id": "high", "description": "A high severity finding." },
+        { "id": "medium", "description": "A medium severity finding." },
+        { "id": "low", "description": "A low severity finding." },
+        { "id": "info", "description": "An informational finding with no required action." }
+      ]
+    },
+    "lifecycle": {
+      "terms": [
+        { "id": "open", "description": "The issue has not been triaged to a terminal state." },
+        { "id": "accepted-risk", "description": "A human accepted the risk of the issue.", "aliases": ["accepted"] },
+        { "id": "waived", "description": "A human waived the issue." },
+        { "id": "false-positive", "description": "A human determined the issue does not apply.", "aliases": ["falsePositive"] },
+        { "id": "resolved", "description": "The issue was resolved by a reviewed change, not by a model's silent omission." }
+      ]
+    },
+    "evidenceKind": {
+      "terms": [
+        { "id": "source-code", "description": "A reference into reviewed source code." },
+        { "id": "test-result", "description": "A test execution result." },
+        { "id": "runtime-measurement", "description": "A measurement taken from a running system." },
+        { "id": "tool-result", "description": "Structured output from a deterministic tool." },
+        { "id": "artifact", "description": "A build or deployment artifact reference." },
+        { "id": "document", "description": "Free-form textual evidence, including imported legacy evidence strings." },
+        { "id": "human-attestation", "description": "A human's direct statement of fact." }
+      ]
+    }
+  },
+  "aspects": [
+    { "id": "code.correctness", "title": "Correctness", "aliases": ["correctness"] },
+    { "id": "code.architecture", "title": "Architecture", "aliases": ["architecture"] },
+    { "id": "security.general", "title": "Security", "aliases": ["security"] },
+    { "id": "security.secrets", "title": "Secrets", "aliases": ["secrets"] },
+    { "id": "security.dependencies", "title": "Dependencies", "aliases": ["dependencies"] },
+    { "id": "security.authentication-authorization", "title": "Authentication and authorization", "aliases": ["authentication-authorization"] },
+    { "id": "security.input-validation", "title": "Input validation", "aliases": ["input-validation"] },
+    { "id": "security.configuration-iac", "title": "Configuration and infrastructure as code", "aliases": ["configuration-iac"] },
+    { "id": "security.boundary-exposure", "title": "Boundary exposure", "aliases": ["boundaries"] },
+    { "id": "security.business-logic", "title": "Business logic" },
+    { "id": "security.attack-coverage", "title": "Attack coverage" },
+    { "id": "performance.general", "title": "Performance", "aliases": ["performance"] },
+    { "id": "change.risk", "title": "Change risk", "aliases": ["risk"] },
+    { "id": "change.test-evidence", "title": "Change test evidence", "aliases": ["test-evidence"] },
+    { "id": "change.scope-discipline", "title": "Change scope discipline", "aliases": ["scope-discipline"] },
+    { "id": "change.architecture-drift", "title": "Change architecture drift", "aliases": ["architecture-drift"] }
+  ]
+}
