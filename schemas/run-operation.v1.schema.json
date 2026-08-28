@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio run-history operation record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "attempt", "ordinal", "unitId", "path", "kind", "state", "subjectHash"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "level": { "type": ["string", "null"], "enum": ["project", "module", "namespace", "file", "function", null] },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "state": { "enum": ["done", "failed", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "subjectHash": { "$ref": "#/$defs/sha256" },
+    "reviewInputsHash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "resultSidecarPath": { "type": ["string", "null"], "minLength": 1 },
+    "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+    "verdict": { "$ref": "#/$defs/verdict" },
+    "error": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["grade", "security", "none"] },
+        "grade": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["score", "band"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "band": { "type": "string", "minLength": 1, "maxLength": 10 }
+          }
+        },
+        "securityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
+  "title": "Quality Studio run-history finding observation record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "runId", "operationId", "fingerprint", "findingId", "ruleId", "severity", "title", "state", "observedAt"],
+  "properties": {
+    "$schema": { "const": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._-]+$" },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "fingerprint": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "findingId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ruleId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "severity": { "type": "string", "minLength": 1, "maxLength": 50 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "locations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path"],
+        "properties": {
+          "path": { "$ref": "#/$defs/repoPath" },
+          "startLine": { "type": ["integer", "null"], "minimum": 0 },
+          "endLine": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "state": { "enum": ["open", "accepted", "waived", "false-positive", "resolved"] },
+    "observedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)[^\\\\]+)$"
+    }
+  }
+}

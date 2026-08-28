@@ -165,6 +165,7 @@
   <li><a href="#migration">Migration and legacy truth</a></li>
   <li><a href="#slices">Approvable slices</a></li>
   <li><a href="#acceptance">Acceptance and decision</a></li>
+  <li><a href="#implementation">Implementation</a></li>
 </ul>
 
 <h2 id="decision"><span class="no">01</span>Decision and boundary</h2>
@@ -481,6 +482,28 @@
     <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
   </tbody>
 </table>
+
+<h2 id="implementation"><span class="no">11</span>Implementation</h2>
+<p class="dim">Append-only log of delivered slices. Earlier sections above remain the operator-reviewed decision record and are not edited by these entries.</p>
+
+<div class="box ok">
+  <h4>2026-08-28 &middot; QS-71 &middot; RP-1 Contracts and archive core</h4>
+  <p>Delivered the first approved slice from <a href="#slices">Approvable slices</a>: the four <code>run-record.v1</code> / <code>run-operation.v1</code> / <code>run-finding.v1</code> / <code>run-attempt.v1</code> JSON schemas under <code>schemas/</code>, their typed C# records, and a new <code>ReviewRunArchiveStore</code> in <code>src/QualityStudio.Api/</code> that writes the tracked <code>.quality/run-history/YYYY-MM/&lt;runId&gt;/</code> folder-per-run archive described in <a href="#contract">Recommended file contract</a>.</p>
+  <ul>
+    <li><code>run.json</code> is written create-only (<code>FileMode.CreateNew</code>); a second write for the same run id throws.</li>
+    <li><code>operations.jsonl</code> and <code>findings.jsonl</code> are append-only, using the same partial-line-tolerant writer as the existing <code>ReviewRunStore.AppendProgress</code>.</li>
+    <li><code>attempts/NNNN.json</code> is create-only with an auto-incrementing attempt number; a colliding attempt file is never overwritten and the writer retries the next number. A capped attempt and its later resumed attempt are both readable side by side.</li>
+    <li>Run ids are validated against path traversal/separators before any path is built, confining every read and write under the repository's archive root.</li>
+    <li><code>.gitignore</code> already tracks everything under <code>.quality/</code> except <code>.quality/runs/</code>, so no ignore-rule change was needed for the new archive root to be committed.</li>
+  </ul>
+  <p><b>Tests:</b> <code>tests/QualityStudio.Api.Tests/ReviewRunArchiveStoreTests.cs</code> validates every written file against its schema with <code>JsonSchema.Net</code>, and covers create-only rejection, the two-attempts-under-one-run case, run-id path confinement, and cross-month discovery via <code>LoadAll</code>. Full solution build and test run are green except a pre-existing, load-sensitive perf-budget flake in <code>ProjectDashboardTests</code> unrelated to this change (confirmed flaky on the pre-change tree too).</p>
+  <p><b>Deliberately out of scope for this slice:</b> <code>ReviewJobs.cs</code>/<code>ReviewRunStore.cs</code> are untouched; no operation is archived yet during a real run, and no route or UI changed. Wiring operation IDs/attempt numbers into live work items belongs with RP-2 (dual-write), which is the next unimplemented slice.</p>
+</div>
+
+<div class="box warn">
+  <h4>Remaining slices (not yet implemented)</h4>
+  <p>RP-2 (dual-write and ledger v3), RP-3 (recovery migration and history API), RP-4 (deterministic run diff), and RP-5 (history and compare UI) remain to be delivered as their own follow-up cards, in the order recommended in <a href="#slices">Approvable slices</a>. The 2026-08-11 operator blanket approval covers all of them; none are gated on a further decision.</p>
+</div>
 
 <p class="dim">Decision dossier prepared from the Quality Studio repository at commit <code>3e0b6559faa700183a16e2ffda1a522fd75c9aa6</code>. No external product claims are used.</p>
 </main>
