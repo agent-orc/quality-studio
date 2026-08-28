@@ -1,0 +1,248 @@
+{
+  "description": "Baseline of pre-existing ESLint findings (frontend/eslint.config.mjs run over the whole repo). Entries here are known debt and do not fail style:eslint:check; any finding outside this baseline does.",
+  "generated": "2026-08-28",
+  "command": "node frontend/node_modules/eslint/bin/eslint.js . --config frontend/eslint.config.mjs --format json",
+  "entries": [
+    {
+      "file": "frontend/src/app/app.html",
+      "findings": [
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 86,
+          "column": 3,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/interactive-supports-focus",
+          "line": 86,
+          "column": 3,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 87,
+          "column": 5,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 137,
+          "column": 3,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/interactive-supports-focus",
+          "line": 137,
+          "column": 3,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 138,
+          "column": 5,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 217,
+          "column": 3,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/interactive-supports-focus",
+          "line": 217,
+          "column": 3,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 218,
+          "column": 5,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/app/app.ts",
+      "findings": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-expressions",
+          "line": 281,
+          "column": 47,
+          "severity": 1
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-expressions",
+          "line": 491,
+          "column": 63,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/app/attack-coverage/attack-coverage.html",
+      "findings": [
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 1,
+          "column": 1,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/interactive-supports-focus",
+          "line": 1,
+          "column": 1,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 2,
+          "column": 3,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/app/attack-coverage/attack-coverage.ts",
+      "findings": [
+        {
+          "ruleId": "@angular-eslint/no-output-native",
+          "line": 12,
+          "column": 12,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/app/editor/editor.html",
+      "findings": [
+        {
+          "ruleId": "@angular-eslint/template/eqeqeq",
+          "line": 23,
+          "column": 74,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/eqeqeq",
+          "line": 64,
+          "column": 69,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/app/explorer/explorer.html",
+      "findings": [
+        {
+          "ruleId": "@angular-eslint/template/interactive-supports-focus",
+          "line": 6,
+          "column": 3,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 15,
+          "column": 11,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/interactive-supports-focus",
+          "line": 15,
+          "column": 11,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/app/explorer/explorer.ts",
+      "findings": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-expressions",
+          "line": 122,
+          "column": 7,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/app/usage-history/usage-history.html",
+      "findings": [
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 1,
+          "column": 1,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/interactive-supports-focus",
+          "line": 1,
+          "column": 1,
+          "severity": 1
+        },
+        {
+          "ruleId": "@angular-eslint/template/click-events-have-key-events",
+          "line": 2,
+          "column": 3,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/url-preview-embed-evidence.mjs",
+      "findings": [
+        {
+          "ruleId": "no-useless-escape",
+          "line": 132,
+          "column": 6,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "scripts/dev-stack.mjs",
+      "findings": [
+        {
+          "ruleId": "no-unused-vars",
+          "line": 1,
+          "column": 10,
+          "severity": 1
+        },
+        {
+          "ruleId": "no-unused-vars",
+          "line": 1,
+          "column": 26,
+          "severity": 1
+        },
+        {
+          "ruleId": "no-unused-vars",
+          "line": 1,
+          "column": 40,
+          "severity": 1
+        },
+        {
+          "ruleId": "no-unused-vars",
+          "line": 2,
+          "column": 10,
+          "severity": 1
+        },
+        {
+          "ruleId": "no-unused-vars",
+          "line": 4,
+          "column": 10,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "tests/dev-stack.test.mjs",
+      "findings": [
+        {
+          "ruleId": "no-unused-vars",
+          "line": 8,
+          "column": 8,
+          "severity": 1
+        }
+      ]
+    }
+  ]
+}
