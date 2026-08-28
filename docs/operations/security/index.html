@@ -513,6 +513,24 @@
       <li>Angular 20.3.26 → 20.3.27+ patch upgrade and the rest of S0's CI/dependency scope (tracked under S6).</li>
       <li>S1–S6 remain entirely undelivered; see §08 for scope and effort estimates.</li>
     </ul>
+
+    <h3>2026-08-28 · QS-68 · S0 (partial) — branch recovery plus non-loopback startup guard for Local mode</h3>
+    <p><span class="pill part">Partially delivered</span></p>
+    <p>The branch had regressed a fifth time before this delivery: commits <code>aff8db1</code>/<code>8d57a45</code>/<code>d6d7738</code> from the three entries above were missing from the task branch's history again (its head was back at the pre-<code>a1dcf53</code> state). Fast-forward merged the branch onto the salvage copy of <code>d6d7738</code> (a direct, unmodified ancestor-descendant relationship, so no cherry-pick or conflict resolution was needed) before starting new work.</p>
+    <p>Closes one of the items explicitly called out as deliberately excluded from the two entries above: S0's "fail startup when Local mode binds a non-loopback address" exit criterion.</p>
+    <ul>
+      <li>New <code>LocalModeBindingGuard</code> registers an <code>IHostApplicationLifetime.ApplicationStarted</code> callback that reads the addresses Kestrel actually bound via <code>IServerAddressesFeature</code> (the only point at which they are reliably known — <code>--urls</code>/<code>ASPNETCORE_URLS</code>/config precedence and ASP.NET Core's implicit default make the bound address unobservable before the server starts). When <code>QualityStudio:Security:Mode</code> is <code>Local</code> and any bound address is not loopback (<code>127.0.0.1</code>, <code>::1</code>, or <code>localhost</code>), it logs a critical error, sets a non-zero process exit code, and stops the application before it can serve a real request on the offending interface. <code>src/QualityStudio.Api/LocalModeBindingGuard.cs</code>, wired in <code>src/QualityStudio.Api/Program.cs</code> immediately after <code>ApiSecurity</code> is resolved.</li>
+      <li>Hosted mode is unaffected — the guard is a no-op when <code>IsLocal</code> is false, since Hosted mode is expected to bind non-loopback addresses behind its own credential/role controls (S5).</li>
+      <li>Tests: <code>tests/QualityStudio.Api.Tests/LocalModeBindingGuardTests.cs</code> — unit coverage of the loopback/non-loopback address classification (IPv4, IPv6 <code>::1</code>, <code>localhost</code> case-insensitive, <code>0.0.0.0</code>, <code>*</code>, LAN IPs, unparsable strings), plus real-Kestrel integration tests that build a standalone <code>WebApplication</code> bound to <code>http://0.0.0.0:0</code> and to <code>http://127.0.0.1:0</code> and assert the guard stops the former and leaves the latter running. Manually verified end-to-end against the actual API host: <code>dotnet run --project src/QualityStudio.Api --urls "http://0.0.0.0:&lt;port&gt;"</code> logs the critical message and exits with code 1, while the same command with <code>127.0.0.1</code> keeps serving until stopped.</li>
+      <li>Gate: <code>npm run catalog:check</code>; <code>dotnet build QualityStudio.slnx --configuration Release</code> and <code>dotnet test QualityStudio.slnx --configuration Release --no-build --filter "Category!=MachineBound"</code> pass (230 passed, 1 skipped of 231 total — one unrelated timing-sensitive token-cap test flaked under parallel load and passed cleanly on rerun/in isolation); <code>dotnet run --project src/quality-cli -- security scan .</code> passes with 0 findings.</li>
+    </ul>
+    <p><b>Deliberately not included in this delivery</b> (follow-up slices, not silently dropped):</p>
+    <ul>
+      <li>Resolving a host-owned analyzer profile ID to an immutable executable/argument template (the full replacement for free-form <code>command</code> strings) — unchanged from the prior entry.</li>
+      <li>Per-session anti-CSRF nonce (Origin-check only, no nonce, still the case).</li>
+      <li>Angular 20.3.26 → 20.3.27+ patch upgrade and the rest of S0's CI/dependency scope (tracked under S6).</li>
+      <li>S1–S6 remain entirely undelivered; see §08 for scope and effort estimates.</li>
+    </ul>
   </section>
 </main>
 </body>

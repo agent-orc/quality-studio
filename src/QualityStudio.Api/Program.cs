@@ -137,6 +137,7 @@ app.UseCors("dev-frontend");
 app.UseRouting();
 
 var apiSecurity = app.Services.GetRequiredService<ApiSecurity>();
+LocalModeBindingGuard.EnforceLoopbackBinding(app, apiSecurity.IsLocal);
 if (apiSecurity.RequireHttps)
 {
     app.UseHsts();
