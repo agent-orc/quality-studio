@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "title": "Quality Studio run archive record v1",
+  "description": "Immutable identity, plan and configuration for one review run, written once under .quality/run-history/YYYY-MM/<runId>/run.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "repositoryId", "createdAt",
+    "subject", "kind", "targets", "configuration"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-record.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "path", "level"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "level": { "enum": ["project", "module", "namespace", "file", "function"] }
+      }
+    },
+    "kind": { "enum": ["code", "security", "performance"] },
+    "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cliType", "force"],
+      "properties": {
+        "model": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+        "cliType": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "thinkingLevel": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+        "force": { "type": "boolean" },
+        "tokenCap": { "type": ["integer", "null"], "minimum": 0 },
+        "costCap": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "sourceRevision": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["commit", "dirty"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "dirty": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path", "subjectHash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "subjectHash": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    }
+  }
+}

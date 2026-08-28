@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio run archive operation record v1",
+  "description": "One append-only line per completed or failed review operation, written to .quality/run-history/YYYY-MM/<runId>/operations.jsonl after the sidecar result is persisted or a terminal operation error is known.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "operationId", "ordinal", "attempt",
+    "unitId", "path", "level", "state", "startedAt"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "path": { "$ref": "#/$defs/repoPath" },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "state": { "enum": ["done", "failed", "skipped", "skipped-fresh", "cancelled"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "providerRunId": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "reviewedHash": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "sidecarPath": { "type": ["string", "null"], "minLength": 1 },
+    "verdict": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["grade", "security", "unavailable"] },
+        "grade": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["score", "band"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "band": { "type": "string", "minLength": 1, "maxLength": 10 }
+          }
+        },
+        "security": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] },
+        "reason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 }
+      }
+    }
+  },
+  "$defs": {
+    "repoPath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$" }
+  }
+}

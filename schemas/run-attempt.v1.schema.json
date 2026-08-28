@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio run archive attempt record v1",
+  "description": "Create-only snapshot of one stopped attempt of a run, written to .quality/run-history/YYYY-MM/<runId>/attempts/NNNN.json. A capped run that later resumes adds another attempt file; an earlier attempt is never rewritten.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "attempt", "outcome", "counters", "startedAt"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalFiles", "completedFiles", "failedFiles", "skippedFiles"],
+      "properties": {
+        "totalFiles": { "type": "integer", "minimum": 0 },
+        "completedFiles": { "type": "integer", "minimum": 0 },
+        "failedFiles": { "type": "integer", "minimum": 0 },
+        "skippedFiles": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "spend": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cost": { "type": ["number", "null"], "minimum": 0 },
+        "currency": { "type": ["string", "null"], "minLength": 1, "maxLength": 10 }
+      }
+    },
+    "errorCodes": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+    "ledgerReferences": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+    "qualitySummary": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["activeFindingCount"],
+      "properties": {
+        "lowestGrade": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["score", "band"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "band": { "type": "string", "minLength": 1, "maxLength": 10 }
+          }
+        },
+        "worstSecurityVerdict": { "type": ["string", "null"], "enum": ["pass", "warn", "block", "unavailable", null] },
+        "activeFindingCount": { "type": "integer", "minimum": 0 },
+        "highestActiveSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] }
+      }
+    }
+  }
+}
