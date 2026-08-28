@@ -1,0 +1,39 @@
+{
+  "capturedAt": "2026-08-28T04:10:57.370Z",
+  "stage": "before",
+  "baseUrl": "http://127.0.0.1:4201/",
+  "evidence": [
+    {
+      "theme": "light",
+      "stage": "before",
+      "beforeScreenshot": "qs-84-before-whole-line-light.png",
+      "beforePanelScreenshot": "qs-84-before-review-panel-light.png",
+      "beforeAudit": {
+        "selectedSpanCount": 0,
+        "wholeSelectedLineCount": 5,
+        "ignoreListControlCount": 0,
+        "findingCardLocation": "src/QualityStudio.Api/Program.cs:17-21"
+      },
+      "dataSources": {
+        "application": "running pre-QS-84 build",
+        "treeAndFile": "documented preview fallback"
+      }
+    },
+    {
+      "theme": "dark",
+      "stage": "before",
+      "beforeScreenshot": "qs-84-before-whole-line-dark.png",
+      "beforePanelScreenshot": "qs-84-before-review-panel-dark.png",
+      "beforeAudit": {
+        "selectedSpanCount": 0,
+        "wholeSelectedLineCount": 5,
+        "ignoreListControlCount": 0,
+        "findingCardLocation": "src/QualityStudio.Api/Program.cs:17-21"
+      },
+      "dataSources": {
+        "application": "running pre-QS-84 build",
+        "treeAndFile": "documented preview fallback"
+      }
+    }
+  ]
+}
