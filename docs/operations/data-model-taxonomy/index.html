@@ -141,7 +141,7 @@
     <h1>A stable taxonomy for quality observations</h1>
     <p class="lede">Quality Studio versions its files, but not the meanings inside them. The result is a coherent review envelope around incompatible aspect, evidence, verdict, lifecycle, and model-history semantics.</p>
     <div class="meta">
-      <span><b>Status</b> <span class="pill new">decision pending</span></span>
+      <span><b>Status</b> <span class="pill done">decided</span></span>
       <span><b>Phase</b> decision-ready</span>
       <span><b>Analyzed</b> 11 August 2026</span>
       <span><b>Quality Studio</b> <code>3e0b655</code></span>
@@ -169,6 +169,7 @@
       <li><a href="#migration">11. Migration and rollback</a></li>
       <li><a href="#acceptance">12. Acceptance invariants</a></li>
       <li><a href="#evidence">13. Evidence ledger</a></li>
+      <li><a href="#implementation">14. Implementation</a></li>
     </ul>
   </nav>
 
@@ -557,6 +558,34 @@
     <h4>Final recommendation</h4>
     <p>Adopt the small common semantic kernel, not a universal workflow schema. Preserve every producer’s domain details through extensions and adapters, but require all new records to state who produced them, which exact evidence they used, which taxonomy and policy meanings apply, and which immutable model run they belong to.</p>
   </section>
+
+  <h2 id="implementation"><span class="no">14</span>Implementation</h2>
+  <p class="dim">Append-only record of what landed. The decisions above are the source; this section never restates or revises them.</p>
+
+  <section class="box ok">
+    <h4>11 August 2026 · QS-76 · approval</h4>
+    <p>The operator approved every recommendation of this dossier without reservation, including the slices that were previously marked operator-decision-gated. Status is therefore <b>decided</b>: Option B, the core v1 terms in section 6, the legacy mappings in section 8, and slices T1 through T5 are all released for implementation.</p>
+  </section>
+
+  <section class="box">
+    <h4>28 August 2026 · QS-76 · T1 — Contract and catalogue foundation</h4>
+    <p>Landed <code>schemas/quality-taxonomy.v1.schema.json</code> and <code>schemas/quality-observation.v1.schema.json</code>, the core catalogue <code>quality-studio/core@1.0.0</code> as an embedded resource, and the C# contract types <code>QualityTaxonomy</code>, <code>QualityObservationContract</code>, and <code>QualityTaxonomyLegacyMap</code>.</p>
+    <ul>
+      <li>The catalogue pins the eight axes of section 6 with exact terms, descriptions, ordering, deprecation fields, and an <code>objects</code> table that declares which axes each object may carry.</li>
+      <li>Catalogue aliases are same-axis spelling variants that resolve without knowing the source contract; the cross-contract projections of section 8 live in the adapter library instead, so a lossy projection is never mistaken for a rename.</li>
+      <li>Extension terms keep their reverse-DNS prefix and cannot shadow a core term; an uninstalled prefix resolves as an unrecognized term that stays visible and is excluded from core aggregation.</li>
+      <li>Round-trip is proven for both the explicit <code>extensions</code> dictionary and legacy root <code>x-*</code> keys, closing the F7 loss. An unsupported schema version or taxonomy major is quarantined as structured-but-unsupported with its raw JSON retained.</li>
+      <li>Conformance vectors cover every row of section 8.</li>
+    </ul>
+    <p>No writer was changed and no production output changed.</p>
+  </section>
+
+  <section class="box warn">
+    <h4>28 August 2026 · QS-76 · not delivered</h4>
+    <p>Slices <b>T2</b> through <b>T5</b> are approved but not implemented in this change. Each depends on the slice before it (T2 on T1, T3 on T2, and so on), so they are scoped as separate follow-up cards rather than landed half-finished in this one. Their scope and dependencies are unchanged from section 10.</p>
+  </section>
+
+  <p class="dim">Repository gate at delivery: <code>dotnet build QualityStudio.slnx</code> clean, 0 warnings, 0 errors. <code>dotnet test</code> green for <code>AgentOrchestrator.CodeQuality.Tests</code> (255 passed, 1 skipped live-agent test) and <code>QualityStudio.Api.Tests</code> (49 passed, 0 skipped).</p>
 </main>
 </body>
 </html>
