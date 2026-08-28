@@ -1,0 +1,609 @@
+{
+  "description": "Deterministic sensor scans, review estimate, and a queued review run measured end to end with the phases the API itself reports.",
+  "targets": [
+    {
+      "repositoryId": "default",
+      "subject": {
+        "path": "src/quality-cli/quality-cli.csproj",
+        "level": "module",
+        "files": 1
+      },
+      "sensorList": {
+        "totalMs": 2117.15,
+        "count": 8
+      },
+      "sensorScans": [
+        {
+          "id": "boundaries",
+          "available": true,
+          "status": 200,
+          "totalMs": 1497.83,
+          "findings": 16
+        },
+        {
+          "id": "coverage",
+          "available": true,
+          "status": 200,
+          "totalMs": 61.88,
+          "findings": 0
+        },
+        {
+          "id": "dependencies",
+          "available": true,
+          "status": 200,
+          "totalMs": 19505.66,
+          "findings": 0
+        },
+        {
+          "id": "eslint",
+          "available": false,
+          "status": 200,
+          "totalMs": 3.08,
+          "findings": 0
+        },
+        {
+          "id": "gitleaks",
+          "available": true,
+          "status": 200,
+          "totalMs": 1698.48,
+          "findings": 0
+        },
+        {
+          "id": "roslyn",
+          "available": true,
+          "status": 200,
+          "totalMs": 1.02,
+          "findings": 0
+        },
+        {
+          "id": "sarif",
+          "available": true,
+          "status": 200,
+          "totalMs": 0.88,
+          "findings": 0
+        },
+        {
+          "id": "tsc",
+          "available": false,
+          "status": 200,
+          "totalMs": 3.55,
+          "findings": 0
+        }
+      ],
+      "estimates": [
+        {
+          "kind": "code",
+          "subjectPath": "src/quality-cli/quality-cli.csproj",
+          "status": 200,
+          "totalMs": 209.22,
+          "body": {
+            "repositoryId": "default",
+            "path": "src/quality-cli/quality-cli.csproj",
+            "level": "module",
+            "kind": "code",
+            "model": null,
+            "thinkingLevel": null,
+            "cliType": "codex",
+            "estimate": {
+              "files": 1,
+              "operations": 2,
+              "promptCharacters": 54299,
+              "inputTokens": 13575,
+              "outputTokens": 2715,
+              "cost": null,
+              "currency": null,
+              "priceStatus": "unknownModel",
+              "historySamples": 0,
+              "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+              "expectedFreshSkips": 0
+            },
+            "tokenCap": 100000,
+            "costCap": null,
+            "recommendation": {
+              "policyVersion": "2026-07-24",
+              "recommendedModel": "gpt-5.6-sol",
+              "recommendedThinkingLevel": "medium",
+              "capabilityTier": "frontier",
+              "score": 43,
+              "correctnessFloor": "sol-medium",
+              "reason": "Policy score 43 for code review at module scope across 1 files. The sol-medium correctness floor raises the scored route. Price and quota do not lower this floor.",
+              "selectionSource": "model-routing-policy"
+            },
+            "overrideBelowFloor": false
+          }
+        },
+        {
+          "kind": "security",
+          "subjectPath": "src/quality-cli/quality-cli.csproj",
+          "status": 200,
+          "totalMs": 169.3,
+          "body": {
+            "repositoryId": "default",
+            "path": "src/quality-cli/quality-cli.csproj",
+            "level": "module",
+            "kind": "security",
+            "model": null,
+            "thinkingLevel": null,
+            "cliType": "codex",
+            "estimate": {
+              "files": 1,
+              "operations": 2,
+              "promptCharacters": 55829,
+              "inputTokens": 13958,
+              "outputTokens": 2793,
+              "cost": null,
+              "currency": null,
+              "priceStatus": "unknownModel",
+              "historySamples": 0,
+              "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+              "expectedFreshSkips": 0
+            },
+            "tokenCap": 100000,
+            "costCap": null,
+            "recommendation": {
+              "policyVersion": "2026-07-24",
+              "recommendedModel": "gpt-5.6-sol",
+              "recommendedThinkingLevel": "xhigh",
+              "capabilityTier": "frontier",
+              "score": 70,
+              "correctnessFloor": "sol-xhigh",
+              "reason": "Policy score 70 for security review at module scope across 1 files. Price and quota do not lower this floor.",
+              "selectionSource": "model-routing-policy"
+            },
+            "overrideBelowFloor": false
+          }
+        }
+      ],
+      "reviewStart": {
+        "status": 202,
+        "totalMs": 235.7,
+        "body": {
+          "id": "review-de9e2b7f8bc8453d90813cc2854a2487",
+          "repositoryId": "default",
+          "path": "src/quality-cli/quality-cli.csproj",
+          "level": "module",
+          "kind": "code",
+          "model": null,
+          "thinkingLevel": null,
+          "cliType": "codex",
+          "state": "queued",
+          "totalFiles": 1,
+          "completedFiles": 0,
+          "failedFiles": 0,
+          "createdAt": "2026-08-24T08:23:06.0151109+00:00",
+          "startedAt": null,
+          "finishedAt": null,
+          "files": [
+            {
+              "path": "src/quality-cli/Program.cs",
+              "state": "queued",
+              "startedAt": null,
+              "finishedAt": null,
+              "error": null
+            }
+          ],
+          "errors": [],
+          "usageOperations": 0,
+          "usage": {
+            "inputTokens": null,
+            "outputTokens": null,
+            "cachedInputTokens": null,
+            "reasoningOutputTokens": null,
+            "durationMs": 0
+          },
+          "estimate": {
+            "files": 1,
+            "operations": 2,
+            "promptCharacters": 54299,
+            "inputTokens": 13575,
+            "outputTokens": 2715,
+            "cost": null,
+            "currency": null,
+            "priceStatus": "unknownModel",
+            "historySamples": 0,
+            "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+            "expectedFreshSkips": 0
+          },
+          "tokenCap": 100000,
+          "costCap": null,
+          "costSpent": null,
+          "currency": null,
+          "priceStatus": "unknownModel",
+          "skippedFiles": 0,
+          "aggregateState": "queued",
+          "stopReason": null,
+          "deviation": null,
+          "recommendation": {
+            "policyVersion": "2026-07-24",
+            "recommendedModel": "gpt-5.6-sol",
+            "recommendedThinkingLevel": "medium",
+            "capabilityTier": "frontier",
+            "score": 43,
+            "correctnessFloor": "sol-medium",
+            "reason": "Policy score 43 for code review at module scope across 1 files. The sol-medium correctness floor raises the scored route. Price and quota do not lower this floor.",
+            "selectionSource": "model-routing-policy"
+          },
+          "routeOverride": false
+        }
+      },
+      "reviewCompletion": {
+        "wallClockMs": 7.97,
+        "run": {
+          "id": "review-de9e2b7f8bc8453d90813cc2854a2487",
+          "repositoryId": "default",
+          "path": "src/quality-cli/quality-cli.csproj",
+          "level": "module",
+          "kind": "code",
+          "model": null,
+          "thinkingLevel": null,
+          "cliType": "codex",
+          "state": "running",
+          "totalFiles": 1,
+          "completedFiles": 0,
+          "failedFiles": 0,
+          "createdAt": "2026-08-24T08:23:06.0151109+00:00",
+          "startedAt": "2026-08-24T08:23:06.0570464+00:00",
+          "finishedAt": null,
+          "files": [
+            {
+              "path": "src/quality-cli/Program.cs",
+              "state": "running",
+              "startedAt": "2026-08-24T08:23:06.0659071+00:00",
+              "finishedAt": null,
+              "error": null
+            }
+          ],
+          "errors": [],
+          "usageOperations": 0,
+          "usage": {
+            "inputTokens": null,
+            "outputTokens": null,
+            "cachedInputTokens": null,
+            "reasoningOutputTokens": null,
+            "durationMs": 0
+          },
+          "estimate": {
+            "files": 1,
+            "operations": 2,
+            "promptCharacters": 54299,
+            "inputTokens": 13575,
+            "outputTokens": 2715,
+            "cost": null,
+            "currency": null,
+            "priceStatus": "unknownModel",
+            "historySamples": 0,
+            "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+            "expectedFreshSkips": 0
+          },
+          "tokenCap": 100000,
+          "costCap": null,
+          "costSpent": null,
+          "currency": null,
+          "priceStatus": "unknownModel",
+          "skippedFiles": 0,
+          "aggregateState": "queued",
+          "stopReason": null,
+          "deviation": null,
+          "recommendation": {
+            "policyVersion": "2026-07-24",
+            "recommendedModel": "gpt-5.6-sol",
+            "recommendedThinkingLevel": "medium",
+            "capabilityTier": "frontier",
+            "score": 43,
+            "correctnessFloor": "sol-medium",
+            "reason": "Policy score 43 for code review at module scope across 1 files. The sol-medium correctness floor raises the scored route. Price and quota do not lower this floor.",
+            "selectionSource": "model-routing-policy"
+          },
+          "routeOverride": false
+        }
+      },
+      "reviewReport": {
+        "status": 404,
+        "totalMs": 28.33
+      },
+      "relatedEvents": []
+    },
+    {
+      "repositoryId": "taskboard",
+      "subject": {
+        "path": "cli-hosting/AgentStudio.CliHosting.csproj",
+        "level": "module",
+        "files": 1
+      },
+      "sensorList": {
+        "totalMs": 2179.46,
+        "count": 8
+      },
+      "sensorScans": [
+        {
+          "id": "boundaries",
+          "available": true,
+          "status": 0,
+          "totalMs": 600027.5,
+          "findings": null
+        },
+        {
+          "id": "coverage",
+          "available": true,
+          "status": 200,
+          "totalMs": 116.61,
+          "findings": 0
+        },
+        {
+          "id": "dependencies",
+          "available": true,
+          "status": 200,
+          "totalMs": 44687.69,
+          "findings": 95
+        },
+        {
+          "id": "eslint",
+          "available": false,
+          "status": 200,
+          "totalMs": 0.61,
+          "findings": 0
+        },
+        {
+          "id": "gitleaks",
+          "available": true,
+          "status": 200,
+          "totalMs": 9120.16,
+          "findings": 0
+        },
+        {
+          "id": "roslyn",
+          "available": true,
+          "status": 200,
+          "totalMs": 4.14,
+          "findings": 0
+        },
+        {
+          "id": "sarif",
+          "available": true,
+          "status": 200,
+          "totalMs": 5.71,
+          "findings": 0
+        },
+        {
+          "id": "tsc",
+          "available": false,
+          "status": 200,
+          "totalMs": 2.83,
+          "findings": 0
+        }
+      ],
+      "estimates": [
+        {
+          "kind": "code",
+          "subjectPath": "cli-hosting/AgentStudio.CliHosting.csproj",
+          "status": 200,
+          "totalMs": 307.39,
+          "body": {
+            "repositoryId": "taskboard",
+            "path": "cli-hosting/AgentStudio.CliHosting.csproj",
+            "level": "module",
+            "kind": "code",
+            "model": null,
+            "thinkingLevel": null,
+            "cliType": "codex",
+            "estimate": {
+              "files": 1,
+              "operations": 2,
+              "promptCharacters": 48336,
+              "inputTokens": 12085,
+              "outputTokens": 2417,
+              "cost": null,
+              "currency": null,
+              "priceStatus": "unknownModel",
+              "historySamples": 0,
+              "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+              "expectedFreshSkips": 0
+            },
+            "tokenCap": 100000,
+            "costCap": null,
+            "recommendation": {
+              "policyVersion": "2026-07-24",
+              "recommendedModel": "gpt-5.6-sol",
+              "recommendedThinkingLevel": "medium",
+              "capabilityTier": "frontier",
+              "score": 43,
+              "correctnessFloor": "sol-medium",
+              "reason": "Policy score 43 for code review at module scope across 1 files. The sol-medium correctness floor raises the scored route. Price and quota do not lower this floor.",
+              "selectionSource": "model-routing-policy"
+            },
+            "overrideBelowFloor": false
+          }
+        },
+        {
+          "kind": "security",
+          "subjectPath": "cli-hosting/AgentStudio.CliHosting.csproj",
+          "status": 200,
+          "totalMs": 340.54,
+          "body": {
+            "repositoryId": "taskboard",
+            "path": "cli-hosting/AgentStudio.CliHosting.csproj",
+            "level": "module",
+            "kind": "security",
+            "model": null,
+            "thinkingLevel": null,
+            "cliType": "codex",
+            "estimate": {
+              "files": 1,
+              "operations": 2,
+              "promptCharacters": 49849,
+              "inputTokens": 12463,
+              "outputTokens": 2493,
+              "cost": null,
+              "currency": null,
+              "priceStatus": "unknownModel",
+              "historySamples": 0,
+              "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+              "expectedFreshSkips": 0
+            },
+            "tokenCap": 100000,
+            "costCap": null,
+            "recommendation": {
+              "policyVersion": "2026-07-24",
+              "recommendedModel": "gpt-5.6-sol",
+              "recommendedThinkingLevel": "xhigh",
+              "capabilityTier": "frontier",
+              "score": 70,
+              "correctnessFloor": "sol-xhigh",
+              "reason": "Policy score 70 for security review at module scope across 1 files. Price and quota do not lower this floor.",
+              "selectionSource": "model-routing-policy"
+            },
+            "overrideBelowFloor": false
+          }
+        }
+      ],
+      "reviewStart": {
+        "status": 202,
+        "totalMs": 335.12,
+        "body": {
+          "id": "review-fe4b5e9ef8fa45a0bc318c66b6361def",
+          "repositoryId": "taskboard",
+          "path": "cli-hosting/AgentStudio.CliHosting.csproj",
+          "level": "module",
+          "kind": "code",
+          "model": null,
+          "thinkingLevel": null,
+          "cliType": "codex",
+          "state": "queued",
+          "totalFiles": 1,
+          "completedFiles": 0,
+          "failedFiles": 0,
+          "createdAt": "2026-08-24T08:34:13.8329831+00:00",
+          "startedAt": null,
+          "finishedAt": null,
+          "files": [
+            {
+              "path": "cli-hosting/TaskCleanContextStore.cs",
+              "state": "queued",
+              "startedAt": null,
+              "finishedAt": null,
+              "error": null
+            }
+          ],
+          "errors": [],
+          "usageOperations": 0,
+          "usage": {
+            "inputTokens": null,
+            "outputTokens": null,
+            "cachedInputTokens": null,
+            "reasoningOutputTokens": null,
+            "durationMs": 0
+          },
+          "estimate": {
+            "files": 1,
+            "operations": 2,
+            "promptCharacters": 48336,
+            "inputTokens": 12085,
+            "outputTokens": 2417,
+            "cost": null,
+            "currency": null,
+            "priceStatus": "unknownModel",
+            "historySamples": 0,
+            "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+            "expectedFreshSkips": 0
+          },
+          "tokenCap": 100000,
+          "costCap": null,
+          "costSpent": null,
+          "currency": null,
+          "priceStatus": "unknownModel",
+          "skippedFiles": 0,
+          "aggregateState": "queued",
+          "stopReason": null,
+          "deviation": null,
+          "recommendation": {
+            "policyVersion": "2026-07-24",
+            "recommendedModel": "gpt-5.6-sol",
+            "recommendedThinkingLevel": "medium",
+            "capabilityTier": "frontier",
+            "score": 43,
+            "correctnessFloor": "sol-medium",
+            "reason": "Policy score 43 for code review at module scope across 1 files. The sol-medium correctness floor raises the scored route. Price and quota do not lower this floor.",
+            "selectionSource": "model-routing-policy"
+          },
+          "routeOverride": false
+        }
+      },
+      "reviewCompletion": {
+        "wallClockMs": 6.46,
+        "run": {
+          "id": "review-fe4b5e9ef8fa45a0bc318c66b6361def",
+          "repositoryId": "taskboard",
+          "path": "cli-hosting/AgentStudio.CliHosting.csproj",
+          "level": "module",
+          "kind": "code",
+          "model": null,
+          "thinkingLevel": null,
+          "cliType": "codex",
+          "state": "running",
+          "totalFiles": 1,
+          "completedFiles": 0,
+          "failedFiles": 0,
+          "createdAt": "2026-08-24T08:34:13.8329831+00:00",
+          "startedAt": "2026-08-24T08:34:13.8548034+00:00",
+          "finishedAt": null,
+          "files": [
+            {
+              "path": "cli-hosting/TaskCleanContextStore.cs",
+              "state": "queued",
+              "startedAt": null,
+              "finishedAt": null,
+              "error": null
+            }
+          ],
+          "errors": [],
+          "usageOperations": 0,
+          "usage": {
+            "inputTokens": null,
+            "outputTokens": null,
+            "cachedInputTokens": null,
+            "reasoningOutputTokens": null,
+            "durationMs": 0
+          },
+          "estimate": {
+            "files": 1,
+            "operations": 2,
+            "promptCharacters": 48336,
+            "inputTokens": 12085,
+            "outputTokens": 2417,
+            "cost": null,
+            "currency": null,
+            "priceStatus": "unknownModel",
+            "historySamples": 0,
+            "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio.",
+            "expectedFreshSkips": 0
+          },
+          "tokenCap": 100000,
+          "costCap": null,
+          "costSpent": null,
+          "currency": null,
+          "priceStatus": "unknownModel",
+          "skippedFiles": 0,
+          "aggregateState": "queued",
+          "stopReason": null,
+          "deviation": null,
+          "recommendation": {
+            "policyVersion": "2026-07-24",
+            "recommendedModel": "gpt-5.6-sol",
+            "recommendedThinkingLevel": "medium",
+            "capabilityTier": "frontier",
+            "score": 43,
+            "correctnessFloor": "sol-medium",
+            "reason": "Policy score 43 for code review at module scope across 1 files. The sol-medium correctness floor raises the scored route. Price and quota do not lower this floor.",
+            "selectionSource": "model-routing-policy"
+          },
+          "routeOverride": false
+        }
+      },
+      "reviewReport": {
+        "status": 404,
+        "totalMs": 2.4
+      },
+      "relatedEvents": []
+    }
+  ]
+}
