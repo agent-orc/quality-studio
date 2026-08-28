@@ -168,6 +168,7 @@
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
+      <li><a href="#qs77">QS-77 addendum · boot quarantine and roots policy</a></li>
     </ol>
   </nav>
 
@@ -462,6 +463,19 @@
       </tbody>
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
+  </section>
+
+  <section id="qs77">
+    <h2><span class="no">11</span>QS-77 addendum · boot quarantine and roots policy (2026-08-28)</h2>
+    <p><span class="pill done">Resolved</span></p>
+    <p>On 2026-08-11 the API failed to start: <code>RepositoryRegistry</code>'s constructor called <code>LoadOrSeed()</code>, which threw <code>RepositoryRegistryValidationException("A registered repository is outside the configured allowed roots.")</code> for a persisted <code>.quality-studio/repositories.json</code> entry (an Agent Studio checkout registered for the cross-repo reviewing use case described in <code>docs/operations/studio-integration/index.html</code>) that fell outside the host's configured <code>AllowedRoots</code>. The thrown message named neither the offending path nor the configured roots, so the only operator recovery path was reading source to guess at the cause.</p>
+
+    <h3>Boot resilience</h3>
+    <p>A single bad persisted entry no longer fails the whole host. <code>RepositoryRegistry.LoadOrSeed()</code> (<code>RepositoryRegistry.cs</code>) now validates each persisted entry with a non-throwing <code>DescribeQuarantineReason</code> check; an entry that fails is marked <code>Blocked</code> with a <code>BlockedReason</code> instead of aborting startup, and a warning is logged naming the entry's ID. <code>EnsureAllowedDirectory</code> now includes the offending path and the full configured <code>AllowedRoots</code> list in every exception/log message it produces (previously neither was named), so the log line and the stored <code>BlockedReason</code> are actionable without reading source. In-root entries are unaffected — only the failing entry is quarantined. Blocked entries are excluded from prewarming, review-run recovery, and repository access (<code>RepositoryRegistry.Get</code>/<code>Access</code> exclude them by default, matching the existing 404 "Repository not found" shape), but remain visible with their reason in <code>GET /api/repos</code> and the "Configure repositories" screen so an operator can fix or archive them. Covered by <code>ApiSecurityTests.Boot_quarantines_an_out_of_root_persisted_entry_instead_of_crashing_the_host</code>.</p>
+
+    <h3>Roots policy decision</h3>
+    <p>The incident's proposed operator healing was to extend the tracked <code>AllowedRoots</code> in <code>src/QualityStudio.Api/appsettings.json</code> with a second, wider relative entry (<code>../../..</code>) so the Agent Studio checkout would validate. <b>That change was not made.</b> It is the same class of change <a href="#findings">F-07</a> already documents and <a href="#risks">R-09</a> already tracks: QS-53 shipped a tracked, maintainer-specific <code>AllowedRoots</code> entry (<code>../../../agent-taskboard-devspace</code>, commit <code>251ce81c78a7</code>) that disclosed host filesystem topology and widened the set of repositories a registrar — or the R-01 authorization-to-command chain — could select; it was reverted in <code>aca322f3d16c</code> specifically because "machine-specific paths belong in environment-specific configuration." Committing a wider relative root today would reintroduce exactly that regression for every deployment that inherits this file, not just the machine that legitimately needs cross-repo access.</p>
+    <p><b>Decision:</b> the relative-roots mechanism stays (deriving <code>AllowedRoots</code> from the platform project registry is a materially larger change, out of scope here, and not justified now that boot no longer crashes on drift). The tracked default in <code>appsettings.json</code> stays narrow (<code>../..</code>). A machine that legitimately needs to review a sibling checkout such as Agent Studio must add that root through untracked, environment-specific configuration — for example a <code>QualityStudio__AllowedRoots__1</code> environment variable, or an untracked local settings file — never through a committed <code>appsettings.json</code> change. The boot-quarantine behavior above is the compensating control for the case this configuration is missing or drifts: the host starts, the affected entry is visibly blocked with its exact path and roots, and no request can reach it, instead of the whole API going down. This documents, for QS-77, the "reject machine-specific AllowedRoots" rule that S3 calls for; a CI gate that enforces it mechanically (the second half of that S3 item) remains open.</p>
   </section>
 </main>
 </body>

@@ -13,9 +13,9 @@
         <div class="repository-menu" role="menu">
           <div class="menu-heading">Switch repository</div>
           @for (repository of api.repositories(); track repository.id) {
-            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" (click)="switchRepository(repository.id)">
-              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId()" [class.missing]="repository.id !== api.selectedRepositoryId()"></span>
-              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.rootPath || 'Legacy default' }}</small></span>
+            <button type="button" role="menuitemradio" [attr.aria-checked]="repository.id === api.selectedRepositoryId()" [disabled]="repository.blocked" [title]="repository.blocked ? repository.blockedReason : ''" (click)="switchRepository(repository.id)">
+              <span class="status" [class.fresh]="repository.id === api.selectedRepositoryId() && !repository.blocked" [class.missing]="repository.blocked || repository.id !== api.selectedRepositoryId()"></span>
+              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.blocked ? 'Blocked · ' + repository.blockedReason : (repository.rootPath || 'Legacy default') }}</small></span>
             </button>
           }
           <div class="menu-actions">
@@ -147,7 +147,8 @@
         <nav class="repository-list" aria-label="Configured repositories">
           @for (repository of api.repositories(); track repository.id) {
             <button type="button" [class.active]="repository.id === editingRepositoryId()" (click)="editRepository(repository)">
-              <strong>{{ repository.displayName }}</strong><small>{{ repository.id }}</small>
+              <span class="status" [class.missing]="repository.blocked" [class.fresh]="!repository.blocked"></span>
+              <span><strong>{{ repository.displayName }}</strong><small>{{ repository.blocked ? 'Blocked · ' + repository.blockedReason : repository.id }}</small></span>
             </button>
           }
           <button class="add-repository" type="button" (click)="onboardRepository()">+ Add repository</button>
