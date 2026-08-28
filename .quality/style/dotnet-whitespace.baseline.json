@@ -1,0 +1,927 @@
+{
+  "description": "Baseline of pre-existing dotnet format whitespace drift. Files/lines listed here are known debt and do not fail style:dotnet:check; any drift outside this baseline does.",
+  "generated": "2026-08-28",
+  "tool": "dotnet format whitespace --verify-no-changes --report",
+  "entries": [
+    {
+      "file": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+      "findings": [
+        {
+          "line": 87,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 88,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 97,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        }
+      ]
+    },
+    {
+      "file": "src/AgentOrchestrator.CodeQuality/BoundaryInventorySensor.cs",
+      "findings": [
+        {
+          "line": 609,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 610,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 611,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 612,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 613,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 614,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 615,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 616,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 617,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 618,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 619,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 620,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 621,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 622,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 623,
+          "char": 25,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 624,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 625,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 626,
+          "char": 25,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 627,
+          "char": 29,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 628,
+          "char": 29,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 629,
+          "char": 25,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 633,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 634,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 635,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 636,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 637,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 638,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 639,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 640,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        }
+      ]
+    },
+    {
+      "file": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+      "findings": [
+        {
+          "line": 541,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 9 characters."
+        }
+      ]
+    },
+    {
+      "file": "src/quality-cli/Program.cs",
+      "findings": [
+        {
+          "line": 407,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 408,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 409,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 410,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        }
+      ]
+    },
+    {
+      "file": "src/QualityStudio.Api/ApiContracts.cs",
+      "findings": [
+        {
+          "line": 60,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 61,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        }
+      ]
+    },
+    {
+      "file": "src/QualityStudio.Api/Program.cs",
+      "findings": [
+        {
+          "line": 560,
+          "char": 5,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 561,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 562,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 563,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 564,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 565,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 566,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 567,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 568,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 569,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 570,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 571,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 572,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 573,
+          "char": 13,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 574,
+          "char": 9,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 575,
+          "char": 5,
+          "description": "Fix whitespace formatting. Delete 4 characters."
+        },
+        {
+          "line": 641,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 642,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 643,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 644,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 645,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 646,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 647,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 648,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 649,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 650,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 651,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 652,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 653,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 654,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 655,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 656,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 657,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 658,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 659,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 660,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 661,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 662,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 662,
+          "char": 37,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 663,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 664,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 665,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 666,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 667,
+          "char": 21,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 668,
+          "char": 17,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 669,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 670,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 670,
+          "char": 51,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 670,
+          "char": 81,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 671,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 672,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 673,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 674,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 675,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 676,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 677,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 678,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 679,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 680,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 681,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 682,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 683,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 684,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 685,
+          "char": 13,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 685,
+          "char": 59,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 686,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 687,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 688,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 689,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 690,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 691,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 692,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 693,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 694,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 695,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 696,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 697,
+          "char": 9,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        },
+        {
+          "line": 698,
+          "char": 5,
+          "description": "Fix whitespace formatting. Insert '\\s\\s\\s\\s'."
+        }
+      ]
+    },
+    {
+      "file": "src/QualityStudio.Api/ProjectDashboard.cs",
+      "findings": [
+        {
+          "line": 89,
+          "char": 28,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 89,
+          "char": 44,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 90,
+          "char": 36,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 91,
+          "char": 36,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 92,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 92,
+          "char": 52,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 93,
+          "char": 28,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 93,
+          "char": 46,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 93,
+          "char": 64,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 94,
+          "char": 26,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 94,
+          "char": 51,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 95,
+          "char": 30,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 95,
+          "char": 48,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 96,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 96,
+          "char": 50,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 97,
+          "char": 30,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 97,
+          "char": 49,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 98,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 98,
+          "char": 50,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 99,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 546,
+          "char": 22,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 546,
+          "char": 36,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 546,
+          "char": 50,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 546,
+          "char": 64,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'."
+        }
+      ]
+    },
+    {
+      "file": "tests/AgentOrchestrator.CodeQuality.Tests/ReviewRunnerTests.cs",
+      "findings": [
+        {
+          "line": 686,
+          "char": 47,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 690,
+          "char": 37,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 692,
+          "char": 44,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 693,
+          "char": 64,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 729,
+          "char": 39,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 729,
+          "char": 70,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 736,
+          "char": 37,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 738,
+          "char": 40,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 738,
+          "char": 42,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 740,
+          "char": 101,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        }
+      ]
+    },
+    {
+      "file": "tests/QualityStudio.Api.Tests/ApiSecurityTests.cs",
+      "findings": [
+        {
+          "line": 138,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 138,
+          "char": 47,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 174,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 174,
+          "char": 47,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        }
+      ]
+    },
+    {
+      "file": "tests/QualityStudio.Api.Tests/ApiSmokeTests.cs",
+      "findings": [
+        {
+          "line": 116,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 116,
+          "char": 51,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 117,
+          "char": 36,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 131,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 131,
+          "char": 51,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 132,
+          "char": 36,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 138,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 138,
+          "char": 51,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 139,
+          "char": 36,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 139,
+          "char": 62,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 167,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 167,
+          "char": 50,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 176,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 176,
+          "char": 55,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 191,
+          "char": 32,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 286,
+          "char": 36,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 286,
+          "char": 52,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 287,
+          "char": 38,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        },
+        {
+          "line": 287,
+          "char": 65,
+          "description": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'."
+        }
+      ]
+    }
+  ]
+}

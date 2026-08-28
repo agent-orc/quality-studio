@@ -7,6 +7,11 @@
     "dev": "node scripts/dev-stack.mjs",
     "test:dev-stack": "node --test tests/dev-stack.test.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
-    "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs"
+    "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs",
+    "style:dotnet:check": "node scripts/check-dotnet-whitespace-baseline.mjs",
+    "style:eslint:check": "node scripts/check-eslint-baseline.mjs",
+    "style:frontend:check": "node scripts/check-frontend-format.mjs",
+    "style:check": "npm run style:dotnet:check && npm run style:eslint:check && npm run style:frontend:check",
+    "test:style": "node --test tests/check-dotnet-whitespace-baseline.test.mjs tests/check-eslint-baseline.test.mjs tests/check-frontend-format.test.mjs tests/check-ci-workflow.test.mjs"
   }
 }
