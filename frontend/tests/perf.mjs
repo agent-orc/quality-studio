@@ -87,7 +87,7 @@ await page.waitForFunction(() => performance.getEntriesByName('qs.review.aspect-
 await page.getByRole('textbox', { name: 'Filter files' }).fill('');
 await page.waitForFunction(() => document.querySelectorAll('.tree-row').length > 1);
 const dashboardStarted = await page.evaluate(() => performance.now());
-await page.locator('[data-node-id="quality-studio"]').click();
+await page.locator('.tree-row').first().click();
 await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
 const dashboardDurationMs = await page.evaluate(start => Number((performance.now() - start).toFixed(2)), dashboardStarted);
 
