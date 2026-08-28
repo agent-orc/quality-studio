@@ -463,6 +463,32 @@
     </table>
     <p class="dim">Limitations: no dynamic exploitation of a live hosted deployment was attempted, no model-provider traffic was intercepted, and package audit results can change after the stated date. The R-01 and R-02 conclusions come from executable code and dependency configuration, not runtime speculation. Renderer safety is a negative code-search and template-flow result, so regression tests remain necessary.</p>
   </section>
+
+  <section id="decision-log">
+    <h2><span class="no">11</span>Decision log</h2>
+    <p class="dim">Appended after the initial assessment; the sections above are the point-in-time record and are not edited to match.</p>
+
+    <h3>2026-08-11 · Boot crash on a poisoned registry entry, and the AllowedRoots roots-policy decision <span class="pill open">QS-77</span></h3>
+    <div class="box bad">
+      <h4>Incident</h4>
+      <p>The API failed to boot entirely: <code>RepositoryRegistry</code>'s constructor threw <code>RepositoryRegistryValidationException</code> ("A registered repository is outside the configured allowed roots") out of <code>LoadOrSeed</code> while re-validating a persisted entry. Root cause: the QS-68 hardening pass narrowed <code>AllowedRoots</code> to <code>../..</code>, but the persisted registry still legitimately referenced the Agent Studio checkout one directory further up — cross-repo reviewing is a core use case (see the <a href="../studio-integration/index.html">Quality Studio / Agent Studio integration dossier</a>). Because a single invalid persisted entry threw from the constructor, it took the whole host down rather than degrading; the thrown message also named neither the offending path nor the configured roots, so the on-call signal gave no diagnosis path.</p>
+    </div>
+    <div class="box ok">
+      <h4>Fix shipped in this card</h4>
+      <ul>
+        <li><b>Boot resilience.</b> <code>RepositoryRegistry.LoadOrSeed</code> now re-validates every persisted entry independently (<code>QuarantineIfInvalid</code>) instead of letting one bad entry throw out of the constructor. An entry that fails validation is marked <code>Blocked</code> with a <code>BlockedReason</code>, logged as a <code>RepositoryQuarantined</code> warning, and excluded from use: <code>Get</code>/<code>Access</code> refuse it (400, <code>"Repository is quarantined"</code>) and the snapshot prewarmer skips it, while <code>UpdateAsync</code>/<code>ArchiveAsync</code> can still reach it so an operator can repair or retire it through the existing repository-management UI. A repaired entry un-quarantines itself on the next boot — the state is re-derived every load, not persisted as a sticky flag.</li>
+        <li><b>Error quality.</b> <code>EnsureAllowedDirectory</code> is now the single place that builds this message and always includes the offending path and the full configured <code>allowedRoots</code> list, for every caller (new repository registration, global-inputs validation, and persisted-entry re-validation). This is the internal, logged exception message only; the public HTTP <code>title</code> stays a fixed string with no path disclosure, preserving the no-path-disclosure property <code>ApiSecurityTests.Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure</code> already covers.</li>
+        <li><b>UI visibility.</b> <code>GET /api/repos</code> includes quarantined entries by default (unlike archived ones) with <code>blocked</code>/<code>blockedReason</code> fields; the repository switcher and the repository-management dialog show a "Blocked" state with the reason as a tooltip and, in the edit form, as an inline banner.</li>
+        <li>Regression coverage: <code>RepositoryRegistryQuarantineTests</code> boots the host with one in-root and one out-of-root persisted entry and asserts the host starts, the out-of-root entry is listed as blocked with a reason that names both the offending path and the allowed roots, the in-root entry is unaffected, and a request against the blocked entry is refused while the healthy one still serves.</li>
+      </ul>
+    </div>
+    <div class="box warn">
+      <h4>Roots-policy decision: keep relative <code>AllowedRoots</code>, do not derive roots from the platform project registry — yet</h4>
+      <p>The operator's emergency healing — adding <code>../../..</code> alongside the existing <code>../..</code> in the tracked <code>src/QualityStudio.Api/appsettings.json</code> — is committed as part of this card. This is a deliberate exception to the spirit of <b>R-09</b>/<b>F-07</b>, not an unreviewed repeat of the QS-53 regression, for one material reason: the QS-53 entry (<code>../../../agent-taskboard-devspace</code>) named a specific maintainer directory and disclosed host topology; <code>../../..</code> is a generic directory-level bound that names nothing. It still widens the trust boundary — any sibling of the parent directory becomes a selectable repository root for a registrar — so it carries a real, if smaller, instance of the same risk class, and should be weighed as such in any future review of R-09.</p>
+      <p>The alternative named in this card — deriving <code>AllowedRoots</code> from Agent Studio's platform project registry (the <code>AgentStudioProject.RepositoryPath</code> shape <code>AgentStudioTaskClient.cs</code> already models for import) instead of static configuration — was considered and deferred, not rejected. Quality Studio must keep booting when Agent Studio is unreachable or unconfigured (<code>AgentStudio:BaseUrl</code> is optional today), so a roots source that depends on a live remote call needs a defined fallback and staleness policy before it can replace static configuration; that design is out of scope for a boot-resilience fix and belongs with the S3 tracked-config policy work below.</p>
+      <p>This decision lowers the operating cost of the still-open S3 gap ("Add a tracked-config policy that rejects machine-specific AllowedRoots… a QS-53-style appsettings diff fails CI"): with boot-time quarantine now in place, a future AllowedRoots regression that strands a persisted entry degrades to a visible, fixable blocked entry instead of a full outage. It does not close S3 — the tracked-config CI gate for AllowedRoots changes remains unimplemented and is still the recommended structural fix.</p>
+    </div>
+  </section>
 </main>
 </body>
 </html>
