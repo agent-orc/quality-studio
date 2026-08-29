@@ -218,16 +218,16 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "agentorchestrator.codequality": {
-        "type": "Project",
-        "dependencies": {
-          "CodingAgentRunner": "[0.7.0, )"
-        }
-      },
       "quality": {
         "type": "Project",
         "dependencies": {
-          "AgentOrchestrator.CodeQuality": "[1.0.0, )"
+          "QualityStudio.Analysis.Core": "[0.1.0, )"
+        }
+      },
+      "QualityStudio.Analysis.Core": {
+        "type": "Project",
+        "dependencies": {
+          "CodingAgentRunner": "[0.7.0, )"
         }
       }
     }

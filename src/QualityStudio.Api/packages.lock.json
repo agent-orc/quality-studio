@@ -7,7 +7,7 @@
         "resolved": "0.7.0",
         "contentHash": "nhbP51J5HjhRnd8wuJDKn+B1RqgQHTbSaiXXCGS4nGHjgf+9PaxElGp4q3qiMsAth9MasrzaMNGUO5oqSlaJog=="
       },
-      "agentorchestrator.codequality": {
+      "QualityStudio.Analysis.Core": {
         "type": "Project",
         "dependencies": {
           "CodingAgentRunner": "[0.7.0, )"
