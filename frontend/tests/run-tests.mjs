@@ -1,45 +1,24 @@
-import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
+import { BrowserNotFoundError, locateBrowserBinary } from './browser-locator.mjs';
+
 const testsDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testsDir, '..');
 
-function findBrowserBinary() {
-  const override = process.env.CHROME_BIN;
-  if (override && existsSync(override)) {
-    return override;
+let browserBinary;
+try {
+  browserBinary = locateBrowserBinary();
+} catch (error) {
+  if (error instanceof BrowserNotFoundError) {
+    console.error(error.message);
+    process.exit(1);
   }
-
-  const candidates = process.platform === 'win32'
-    ? [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-      ]
-    : process.platform === 'darwin'
-      ? [
-          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-          '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-        ]
-      : [
-          '/usr/bin/google-chrome',
-          '/usr/bin/google-chrome-stable',
-          '/usr/bin/chromium',
-          '/usr/bin/chromium-browser',
-          '/snap/bin/chromium',
-        ];
-
-  return candidates.find((candidate) => existsSync(candidate));
+  throw error;
 }
 
-const chromeBin = findBrowserBinary();
-if (!chromeBin) {
-  console.error('Unable to locate a Chrome-compatible browser binary for the Angular test runner.');
-  process.exit(1);
-}
+console.log(`Angular specs run against ${browserBinary.path} (resolved from ${browserBinary.source}).`);
 
 const ngCli = join(frontendRoot, 'node_modules', '@angular', 'cli', 'bin', 'ng.js');
 const browser = process.env.CHROME_NO_SANDBOX === '1'
@@ -49,7 +28,7 @@ const result = spawnSync(process.execPath, [ngCli, 'test', '--watch=false', `--b
   cwd: frontendRoot,
   env: {
     ...process.env,
-    CHROME_BIN: chromeBin,
+    CHROME_BIN: browserBinary.path,
   },
   stdio: 'inherit',
 });
