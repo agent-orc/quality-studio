@@ -568,6 +568,15 @@ export class QualityApi {
     }
   }
 
+  async defaultModelRecommendation(kind: ReviewKind, level: string, files: number): Promise<ReviewModelRecommendation | null> {
+    try {
+      const params = { kind, level, files: String(files) };
+      return await firstValueFrom(this.http.get<ReviewModelRecommendation>('/api/models/default', { params }));
+    } catch {
+      return null;
+    }
+  }
+
   async estimateReview(request: StartReviewRequest): Promise<ReviewPreflight> {
     this.reviewError.set('');
     try {

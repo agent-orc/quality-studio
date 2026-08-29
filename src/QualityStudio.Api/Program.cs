@@ -288,6 +288,7 @@ app.MapGet("/api/report", Report);
 app.MapGet("/api/repos/{repoId}/report", Report);
 app.MapGet("/api/quotas", Quotas);
 app.MapGet("/api/models", (ReviewModelCatalog catalog) => Results.Ok(catalog.Snapshot));
+app.MapGet("/api/models/default", DefaultModelRecommendation);
 app.MapGet("/api/scope/rules", ScopeRules);
 app.MapGet("/api/repos/{repoId}/scope/rules", ScopeRules);
 app.MapPost("/api/scope/rules/preview", PreviewScopeRule);
@@ -1072,6 +1073,14 @@ static async Task<IResult> StartReview(
     var run = await jobs.EnqueueAsync(repository.Id, request, cancellationToken);
     var basePath = RouteRepositoryId(context) is null ? "/api/review/runs" : $"/api/repos/{Uri.EscapeDataString(repository.Id)}/review/runs";
     return Results.Accepted($"{basePath}/{run.Id}", run);
+}
+
+static IResult DefaultModelRecommendation(string? kind, string? level, int? files, ReviewModelCatalog catalog)
+{
+    if (string.IsNullOrWhiteSpace(kind)) throw new ArgumentException("A review kind is required.");
+    if (string.IsNullOrWhiteSpace(level) || !Enum.TryParse<ReviewLevel>(level, ignoreCase: true, out var reviewLevel))
+        throw new ArgumentException("A valid review level is required.");
+    return Results.Ok(catalog.Recommend(kind, reviewLevel, files is > 0 ? files.Value : 1));
 }
 
 static async Task<IResult> EstimateReview(
