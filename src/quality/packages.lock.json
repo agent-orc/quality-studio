@@ -23,7 +23,7 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.0"
         }
       },
-      "agentorchestrator.codequality": {
+      "QualityStudio.Analysis.Core": {
         "type": "Project",
         "dependencies": {
           "CodingAgentRunner": "[0.7.0, )"
