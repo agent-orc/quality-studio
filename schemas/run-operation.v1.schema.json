@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-operation.v1.schema.json",
+  "title": "Quality Studio archived run operation record v1",
+  "description": "Append-only completed/failed operation record, one line per operation in operations.jsonl.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "operationId", "attempt", "ordinal",
+    "path", "level", "state"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-operation.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "ordinal": { "type": "integer", "minimum": 0 },
+    "path": { "type": "string", "minLength": 1 },
+    "level": { "enum": ["project", "module", "namespace", "file", "function"] },
+    "state": { "enum": ["done", "failed", "cancelled", "skipped", "skipped-fresh"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "providerRunId": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "reviewedHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "sidecarPath": { "type": "string", "minLength": 1 },
+    "verdict": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "gradeScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "gradeBand": { "type": "string", "minLength": 1, "maxLength": 100 }
+  }
+}

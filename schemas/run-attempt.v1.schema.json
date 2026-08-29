@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "title": "Quality Studio archived run attempt record v1",
+  "description": "Create-only capped/failed/cancelled/done snapshot for one stopped attempt, written to attempts/NNNN.json. A capped run that resumes adds another attempt; earlier attempts are never rewritten.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schemaVersion", "runId", "attempt", "outcome", "completeness",
+    "startedAt", "finishedAt", "archivedAt",
+    "completedOperations", "failedOperations", "skippedOperations", "usage"
+  ],
+  "properties": {
+    "$schema": { "const": "https://quality.studio/schemas/run-attempt.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["done", "failed", "cancelled", "capped"] },
+    "completeness": { "enum": ["complete", "partial"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "archivedAt": { "type": "string", "format": "date-time" },
+    "completedOperations": { "type": "integer", "minimum": 0 },
+    "failedOperations": { "type": "integer", "minimum": 0 },
+    "skippedOperations": { "type": "integer", "minimum": 0 },
+    "usage": { "$ref": "#/$defs/tokens" },
+    "costSpent": { "type": "number", "minimum": 0 },
+    "currency": { "type": "string", "minLength": 1, "maxLength": 10 },
+    "stopReason": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "errorCodes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+    "usageLedgerMonths": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" } }
+  },
+  "$defs": {
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "reasoningOutputTokens", "durationMs"],
+      "properties": {
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedInputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "reasoningOutputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
