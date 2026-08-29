@@ -43,6 +43,13 @@ public sealed record ReviewModelRecommendation(
     string SelectionSource);
 
 /// <summary>
+/// A rejected model or thinking-level override. Distinct from a plain <see cref="ArgumentException"/>
+/// so the API can name the model as the cause instead of reporting a path problem, and because the
+/// message is built only from catalog ids and validated identifiers it is safe to show the operator.
+/// </summary>
+public sealed class ReviewModelSelectionException(string message) : ArgumentException(message);
+
+/// <summary>
 /// Reads the governed Token Economy snapshot embedded in Quality Studio. Catalogued retired,
 /// restricted, and unsupported models are rejected; a CLI-family-compatible custom id remains
 /// available as the deliberate forward-compatibility escape hatch.
@@ -55,13 +62,29 @@ public sealed class ReviewModelCatalog
         "AgentOrchestrator.CodeQuality.catalogues.token-economy-model-prices.json";
     private const string SnapshotResource =
         "AgentOrchestrator.CodeQuality.catalogues.token-economy-model-catalog.snapshot.json";
+    private const string LunaMediumRoute = "luna-medium";
+    private const string TerraMediumRoute = "terra-medium";
+    private const string SolMediumRoute = "sol-medium";
+    private const string SolXhighRoute = "sol-xhigh";
+
+    /// <summary>
+    /// The core-task routes <see cref="Recommend"/> can name. The synchronized policy must define
+    /// every one of them: a floor whose route the policy no longer declares would otherwise rank at
+    /// zero and silently disable the gate, so the mismatch is a load-time failure instead.
+    /// </summary>
+    private static readonly string[] RecommendableRoutes =
+        [LunaMediumRoute, TerraMediumRoute, SolMediumRoute, SolXhighRoute];
+
     private static readonly HashSet<string> NewRunStatuses = ["selectable", "fallbackOnly"];
     private static readonly HashSet<string> KnownCliTypes = ["codex", "claude", "gemini", "antigravity"];
     private readonly Dictionary<string, ReviewModelOption> modelsByKey;
+    private readonly Dictionary<string, int> thinkingRanks;
+    private readonly Dictionary<string, int> coreRouteRanks;
+    private readonly IReadOnlyList<QualifyingRoute> qualifyingRoutes;
 
     public ReviewModelCatalog()
     {
-        Snapshot = Load();
+        (Snapshot, thinkingRanks, coreRouteRanks, qualifyingRoutes) = Load();
         modelsByKey = new Dictionary<string, ReviewModelOption>(StringComparer.OrdinalIgnoreCase);
         foreach (var model in Snapshot.Models)
         {
@@ -69,6 +92,9 @@ public sealed class ReviewModelCatalog
             foreach (var alias in model.Aliases) Add(alias, model);
         }
     }
+
+    /// <summary>A (model, minimum thinking level) pair the policy qualifies at a core-task route rank.</summary>
+    private sealed record QualifyingRoute(string ModelId, int MinimumThinkingRank, int Rank);
 
     public static ReviewModelCatalog Default { get; } = new();
 
@@ -80,12 +106,15 @@ public sealed class ReviewModelCatalog
     public ReviewModelSelection Resolve(string? cliType, string? model, string? thinkingLevel)
     {
         var cli = NormalizeCli(cliType);
+        // The CLI reaches rejection messages that the API echoes to the caller, so it is held to the
+        // same identifier rule as the model and thinking level rather than being reflected verbatim.
+        RequireSafeIdentifier(cli, "CLI type");
         var requestedModel = Text(model);
         var requestedThinking = Text(thinkingLevel);
         if (requestedModel is null)
         {
             if (requestedThinking is not null)
-                throw new ArgumentException("A thinking-level override requires a model override.");
+                throw new ReviewModelSelectionException("A thinking-level override requires a model override.");
             return new ReviewModelSelection(cli, null, null, false);
         }
 
@@ -96,18 +125,18 @@ public sealed class ReviewModelCatalog
         if (catalogued is null)
         {
             if (KnownCliTypes.Contains(cli) && !HasCliPrefix(cli, requestedModel))
-                throw new ArgumentException($"Model '{requestedModel}' is not compatible with CLI '{cli}'.");
+                throw new ReviewModelSelectionException($"Model '{requestedModel}' is not compatible with CLI '{cli}'.");
             return new ReviewModelSelection(cli, requestedModel, requestedThinking, false);
         }
 
         if (!catalogued.AvailableForNewRuns)
-            throw new ArgumentException(
+            throw new ReviewModelSelectionException(
                 $"Model '{catalogued.ModelId}' cannot start new reviews because its routing status is '{catalogued.RoutingStatus}'.");
         if (KnownCliTypes.Contains(cli) && !string.Equals(catalogued.CliType, cli, StringComparison.Ordinal))
-            throw new ArgumentException($"Model '{catalogued.ModelId}' is routed through CLI '{catalogued.CliType}', not '{cli}'.");
+            throw new ReviewModelSelectionException($"Model '{catalogued.ModelId}' is routed through CLI '{catalogued.CliType}', not '{cli}'.");
         if (requestedThinking is not null &&
             !catalogued.SupportedThinkingLevels.Contains(requestedThinking, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException(
+            throw new ReviewModelSelectionException(
                 $"Model '{catalogued.ModelId}' does not support thinking level '{requestedThinking}'.");
 
         var canonicalThinking = requestedThinking is null
@@ -135,21 +164,23 @@ public sealed class ReviewModelCatalog
 
         var scoredRoute = score switch
         {
-            <= 20 => (Id: "luna-medium", Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light", Rank: 0),
-            <= 50 => (Id: "terra-medium", Model: "gpt-5.6-terra", Thinking: "medium", Tier: "balanced", Rank: 1),
-            <= 69 => (Id: "sol-medium", Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier", Rank: 2),
-            _ => (Id: "sol-xhigh", Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier", Rank: 3),
+            <= 20 => (Id: LunaMediumRoute, Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light"),
+            <= 50 => (Id: TerraMediumRoute, Model: "gpt-5.6-terra", Thinking: "medium", Tier: "balanced"),
+            <= 69 => (Id: SolMediumRoute, Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier"),
+            _ => (Id: SolXhighRoute, Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier"),
         };
         var floor = normalizedKind == "security"
-            ? (Id: "sol-xhigh", Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier", Rank: 3)
+            ? (Id: SolXhighRoute, Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier")
             : aggregate || files > 50
-                ? (Id: "sol-medium", Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier", Rank: 2)
-                : (Id: "luna-medium", Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light", Rank: 0);
-        var route = scoredRoute.Rank >= floor.Rank ? scoredRoute : floor;
+                ? (Id: SolMediumRoute, Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier")
+                : (Id: LunaMediumRoute, Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light");
+        var scoredRank = coreRouteRanks[scoredRoute.Id];
+        var floorRank = coreRouteRanks[floor.Id];
+        var route = scoredRank >= floorRank ? scoredRoute : floor;
         var scopeReason = aggregate
             ? $"{level.ToString().ToLowerInvariant()} scope across {files} files"
             : $"{files} file{(files == 1 ? string.Empty : "s")}";
-        var floorReason = floor.Rank > scoredRoute.Rank ? $" The {floor.Id} correctness floor raises the scored route." : string.Empty;
+        var floorReason = floorRank > scoredRank ? $" The {floor.Id} correctness floor raises the scored route." : string.Empty;
         return new ReviewModelRecommendation(
             Snapshot.PolicyVersion,
             route.Model,
@@ -161,33 +192,26 @@ public sealed class ReviewModelCatalog
             "model-routing-policy");
     }
 
-    /// <summary>Returns true when an explicit route can be shown not to qualify at the hard floor.</summary>
+    /// <summary>
+    /// Returns true when an explicit route can be shown not to qualify at the hard floor. The
+    /// model-to-rank ladder is read from the policy's own core-task routes and provider fallbacks,
+    /// so promoting a model upstream is a catalog sync here rather than a code change. A model the
+    /// policy never qualifies for a core-task route stays below every floor above the lightest one.
+    /// </summary>
     public bool IsBelowCorrectnessFloor(ReviewModelSelection selection, ReviewModelRecommendation recommendation)
     {
         if (selection.Model is null || selection.ThinkingLevel is null) return false;
-        var floorRank = recommendation.CorrectnessFloor switch
-        {
-            "sol-xhigh" => 3,
-            "sol-medium" => 2,
-            "terra-medium" => 1,
-            _ => 0,
-        };
+        // A floor the policy does not declare is a caller error, not a licence to skip the gate.
+        if (recommendation.CorrectnessFloor is null ||
+            !coreRouteRanks.TryGetValue(recommendation.CorrectnessFloor, out var floorRank)) return true;
         var option = Find(selection.Model);
         if (option is null) return true;
-        var thinkingRanks = Snapshot.ThinkingLevels.Select((level, rank) => (level, rank))
-            .ToDictionary(item => item.level, item => item.rank, StringComparer.OrdinalIgnoreCase);
-        var thinkingRank = selection.ThinkingLevel is null
-            ? -1
-            : thinkingRanks.GetValueOrDefault(selection.ThinkingLevel, -1);
-        var selectedRank = option.ModelId switch
-        {
-            "gpt-5.6-sol" when thinkingRank >= thinkingRanks["xhigh"] => 3,
-            "gpt-5.6-sol" when thinkingRank >= thinkingRanks["medium"] => 2,
-            "gpt-5.6-terra" when thinkingRank >= thinkingRanks["medium"] => 1,
-            "gpt-5.6-luna" when thinkingRank >= thinkingRanks["medium"] => 0,
-            "claude-sonnet-5" when thinkingRank >= thinkingRanks["high"] => 2,
-            _ => -1,
-        };
+        var thinkingRank = thinkingRanks.GetValueOrDefault(selection.ThinkingLevel, -1);
+        var selectedRank = qualifyingRoutes
+            .Where(route => string.Equals(route.ModelId, option.ModelId, StringComparison.Ordinal)
+                            && thinkingRank >= route.MinimumThinkingRank)
+            .Select(route => (int?)route.Rank)
+            .Max() ?? -1;
         return selectedRank < floorRank;
     }
 
@@ -198,7 +222,10 @@ public sealed class ReviewModelCatalog
         return normalized == "claude-code" ? "claude" : normalized;
     }
 
-    private static ReviewModelCatalogSnapshot Load()
+    private static (ReviewModelCatalogSnapshot Snapshot,
+        Dictionary<string, int> ThinkingRanks,
+        Dictionary<string, int> CoreRouteRanks,
+        IReadOnlyList<QualifyingRoute> QualifyingRoutes) Load()
     {
         using var routing = JsonDocument.Parse(OpenResource(RoutingResource));
         using var prices = JsonDocument.Parse(OpenResource(PricesResource));
@@ -235,15 +262,100 @@ public sealed class ReviewModelCatalog
                 NewRunStatuses.Contains(routingStatus));
         }).ToArray();
 
-        return new ReviewModelCatalogSnapshot(
-            snapshotRoot.GetProperty("schemaVersion").GetInt32(),
-            routingRoot.GetProperty("policyVersion").GetString()!,
-            routingRoot.GetProperty("evidenceAsOfDate").GetString()!,
-            snapshotRoot.GetProperty("upstreamRepository").GetString()!,
-            snapshotRoot.GetProperty("upstreamCommit").GetString()!,
-            thinkingLevels,
-            models);
+        var thinkingRanks = thinkingLevels
+            .Select((level, rank) => (level, rank))
+            .ToDictionary(item => item.level, item => item.rank, StringComparer.OrdinalIgnoreCase);
+        var (coreRouteRanks, qualifyingRoutes) = LoadFloorLadder(
+            routingRoot, thinkingRanks, models.Select(model => model.ModelId).ToHashSet(StringComparer.Ordinal));
+
+        return (new ReviewModelCatalogSnapshot(
+                snapshotRoot.GetProperty("schemaVersion").GetInt32(),
+                routingRoot.GetProperty("policyVersion").GetString()!,
+                routingRoot.GetProperty("evidenceAsOfDate").GetString()!,
+                snapshotRoot.GetProperty("upstreamRepository").GetString()!,
+                snapshotRoot.GetProperty("upstreamCommit").GetString()!,
+                thinkingLevels,
+                models),
+            thinkingRanks,
+            coreRouteRanks,
+            qualifyingRoutes);
     }
+
+    /// <summary>
+    /// Projects the policy's core-task routes and provider fallbacks onto the rank ladder used by
+    /// the floor comparison. A fallback inherits the strongest core-task route listed in its
+    /// <c>forRouteIds</c>; a route it is not listed for, or is excluded from by
+    /// <c>notForRouteIds</c>, contributes nothing, so an equivalent-provider fallback can never
+    /// reach a floor the policy withheld from it. Bounded-pipeline routes are not a core-task
+    /// ladder and are skipped entirely.
+    /// </summary>
+    private static (Dictionary<string, int> CoreRouteRanks, IReadOnlyList<QualifyingRoute> QualifyingRoutes)
+        LoadFloorLadder(JsonElement routingRoot, Dictionary<string, int> thinkingRanks, HashSet<string> knownModelIds)
+    {
+        var coreRouteRanks = new Dictionary<string, int>(StringComparer.Ordinal);
+        var qualifying = new List<QualifyingRoute>();
+
+        foreach (var route in routingRoot.GetProperty("routes").EnumerateArray())
+        {
+            if (route.GetProperty("workflowRole").GetString() != "coreTask") continue;
+            var id = route.GetProperty("id").GetString()!;
+            var rank = route.GetProperty("rank").GetInt32();
+            if (!coreRouteRanks.TryAdd(id, rank))
+                throw new InvalidOperationException($"Routing policy declares core-task route '{id}' more than once.");
+            qualifying.Add(new QualifyingRoute(
+                RouteModelId(knownModelIds, route, id),
+                ThinkingRank(thinkingRanks, route.GetProperty("thinkingLevel").GetString()!),
+                rank));
+        }
+
+        foreach (var id in RecommendableRoutes)
+        {
+            if (!coreRouteRanks.ContainsKey(id))
+                throw new InvalidOperationException(
+                    $"Routing policy declares no core-task route '{id}'; the recommendation ladder and the synchronized policy have drifted.");
+        }
+
+        if (routingRoot.TryGetProperty("providerFallbacks", out var fallbacks))
+        {
+            foreach (var fallback in fallbacks.EnumerateArray())
+            {
+                var id = fallback.GetProperty("id").GetString()!;
+                var excluded = fallback.TryGetProperty("notForRouteIds", out var notFor)
+                    ? Strings(notFor).ToHashSet(StringComparer.Ordinal)
+                    : [];
+                var rank = Strings(fallback.GetProperty("forRouteIds"))
+                    .Where(routeId => !excluded.Contains(routeId))
+                    .Select(routeId => (int?)coreRouteRanks.GetValueOrDefault(routeId, -1))
+                    .Max();
+                if (rank is null or < 0) continue;
+                qualifying.Add(new QualifyingRoute(
+                    RouteModelId(knownModelIds, fallback, id),
+                    ThinkingRank(thinkingRanks, fallback.GetProperty("thinkingLevel").GetString()!),
+                    rank.Value));
+            }
+        }
+
+        return (coreRouteRanks, qualifying);
+    }
+
+    /// <summary>
+    /// Reads a route's <c>modelId</c> and asserts the policy also catalogs it. An id that matched
+    /// no catalogued model would quietly rank that route unreachable, which reads as a stricter
+    /// floor than the policy asserts.
+    /// </summary>
+    private static string RouteModelId(HashSet<string> knownModelIds, JsonElement route, string routeId)
+    {
+        var modelId = route.GetProperty("modelId").GetString()!;
+        return knownModelIds.Contains(modelId)
+            ? modelId
+            : throw new InvalidOperationException(
+                $"Routing policy route '{routeId}' names model '{modelId}', which the policy does not catalog.");
+    }
+
+    private static int ThinkingRank(Dictionary<string, int> thinkingRanks, string level) =>
+        thinkingRanks.TryGetValue(level, out var rank)
+            ? rank
+            : throw new InvalidOperationException($"Routing policy references unknown thinking level '{level}'.");
 
     private static string Suitability(string tier, IReadOnlyList<string> roles, string routingStatus)
     {
@@ -280,7 +392,7 @@ public sealed class ReviewModelCatalog
     {
         if (value.Length > 100 || value.Any(character =>
                 !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':')))
-            throw new ArgumentException($"{label} contains unsupported characters.");
+            throw new ReviewModelSelectionException($"{label} contains unsupported characters.");
     }
 
     private void Add(string key, ReviewModelOption model)
