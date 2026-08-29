@@ -10,6 +10,8 @@ public sealed class ReviewMetaContractTests
         RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v1.schema.json"))));
     private static readonly Lazy<JsonSchema> ReviewMetaV2Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
         RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json"))));
+    private static readonly Lazy<JsonSchema> ReviewMetaV3Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
+        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v3.schema.json"))));
 
     [Fact]
     public void SerializerRoundTripsAndIgnoresUnknownFields()
@@ -18,8 +20,8 @@ public sealed class ReviewMetaContractTests
 
         var json = ReviewMetaJson.Serialize(original);
         var withFutureField = json.Replace(
-            "\"schemaVersion\": 2,",
-            "\"schemaVersion\": 2,\n  \"x-future-field\": { \"enabled\": true },",
+            "\"schemaVersion\": 3,",
+            "\"schemaVersion\": 3,\n  \"x-future-field\": { \"enabled\": true },",
             StringComparison.Ordinal);
         var loaded = ReviewMetaJson.Deserialize(withFutureField);
 
@@ -45,11 +47,58 @@ public sealed class ReviewMetaContractTests
     public void LoaderRejectsUnsupportedSchemaVersion()
     {
         var json = ReviewMetaJson.Serialize(CreateDocument())
-            .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 3", StringComparison.Ordinal);
+            .Replace("\"schemaVersion\": 3", "\"schemaVersion\": 4", StringComparison.Ordinal);
 
         var exception = Assert.Throws<JsonException>(() => ReviewMetaJson.Deserialize(json));
 
         Assert.Contains("Unsupported review metadata schemaVersion", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void V3SchemaAcceptsRunnerCapturedEvidenceAndExecutionProvenance()
+    {
+        var document = CreateDocument() with
+        {
+            SourceRevision = "git:" + new string('f', 40),
+            Reviewer = new ReviewerIdentity("codex", "gpt-5", "1.0.0",
+                RequestedModel: "gpt-5.6-sol", RequestedThinkingLevel: "medium"),
+            Findings = [new ReviewFinding(
+                "prefer-const-name",
+                "correctness",
+                FindingSeverity.Info,
+                "Name could express intent",
+                "The name is intentionally short for this sample.",
+                "Use a domain name in production code.",
+                [new FindingLocation("src/a.ts", new FindingRange(
+                    new FindingPosition(1, 7), new FindingPosition(1, 8)))],
+                "sha256:" + new string('e', 64),
+                "built-in:code",
+                Anchors: [new FindingAnchor(
+                    "primary", FindingAnchorRole.Primary, "src/a.ts",
+                    new FindingRange(new FindingPosition(1, 7), new FindingPosition(1, 8)),
+                    new CapturedExcerpt("id", "sha256:" + new string('1', 64), "sha256:" + new string('2', 64)))],
+                EvidenceItems: [new FindingEvidenceItem("ev-source", FindingEvidenceClass.SourceSpan,
+                    FindingEvidenceStatus.Observed, AnchorId: "primary")],
+                Reproduction: new ReproductionInfo(ReproductionStatus.Unknown))],
+        };
+
+        using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
+        var result = ReviewMetaV3Schema.Value.Evaluate(
+            json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+        Assert.True(result.IsValid, result.ToString());
+        Assert.Equal(3, json.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal("gpt-5.6-sol",
+            json.RootElement.GetProperty("reviewer").GetProperty("requestedModel").GetString());
+        var finding = json.RootElement.GetProperty("findings")[0];
+        Assert.Equal("sourceSpan",
+            finding.GetProperty("evidenceItems")[0].GetProperty("class").GetString());
+        Assert.Equal("unknown", finding.GetProperty("reproduction").GetProperty("status").GetString());
+
+        var loaded = ReviewMetaJson.Deserialize(json.RootElement.GetRawText());
+        var loadedFinding = Assert.Single(loaded.Findings);
+        Assert.Equal("id", Assert.Single(loadedFinding.Anchors!).CapturedExcerpt.Text);
+        Assert.Equal(ReproductionStatus.Unknown, loadedFinding.Reproduction!.Status);
     }
 
     [Fact]
@@ -117,6 +166,8 @@ public sealed class ReviewMetaContractTests
     {
         var document = CreateDocument() with
         {
+            Schema = ReviewMetaDocument.V2SchemaId,
+            SchemaVersion = ReviewMetaDocument.V2SchemaVersion,
             Unit = new ReviewUnit(
                 "qs-v1/generic/file/7b1bd2568ea481d83c2b97850fafd54c0e1981d94960926ab3b4cc5180daec3e",
                 ReviewAdapter.Generic,
@@ -139,6 +190,8 @@ public sealed class ReviewMetaContractTests
         var resultHash = "sha256:" + new string('b', 64);
         var document = CreateDocument() with
         {
+            Schema = ReviewMetaDocument.V2SchemaId,
+            SchemaVersion = ReviewMetaDocument.V2SchemaVersion,
             Kind = ReviewKind.Security,
             Reviewer = new ReviewerIdentity(
                 "codex",
@@ -187,6 +240,8 @@ public sealed class ReviewMetaContractTests
                 0));
         var document = CreateDocument() with
         {
+            Schema = ReviewMetaDocument.V2SchemaId,
+            SchemaVersion = ReviewMetaDocument.V2SchemaVersion,
             DeterministicEvidence =
             [
                 new SensorScanResult(
@@ -225,7 +280,7 @@ public sealed class ReviewMetaContractTests
                 "qs-v1/generic/file/7b1bd2568ea481d83c2b97850fafd54c0e1981d94960926ab3b4cc5180daec3e",
                 ReviewAdapter.Generic, ReviewLevel.File, "src/a.py", "a.py"),
         }).Replace(ReviewMetaDocument.SchemaId, ReviewMetaDocument.LegacySchemaId, StringComparison.Ordinal)
-          .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 1", StringComparison.Ordinal);
+          .Replace("\"schemaVersion\": 3", "\"schemaVersion\": 1", StringComparison.Ordinal);
 
         var exception = Assert.Throws<JsonException>(() => ReviewMetaJson.Deserialize(json));
 

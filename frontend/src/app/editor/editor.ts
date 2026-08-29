@@ -3,6 +3,7 @@ import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
+import { FindingSpanRange, SegmentedSpan, segmentLineTokens } from './finding-span-segmentation';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
@@ -238,6 +239,24 @@ export class Editor {
     return file && cache.path === file.path && cache.lines[line - 1]
       ? cache.lines[line - 1]!
       : [{ text, kind: 'plain' } satisfies TokenSpan];
+  }
+
+  segmentedLine(line: number, text: string, findings: ReviewFinding[]): SegmentedSpan[] {
+    const path = this.api.file()?.path;
+    const ranges: FindingSpanRange[] = [];
+    for (const finding of findings) for (const location of finding.locations) {
+      if (location.path === path && location.range) ranges.push({ fingerprint: finding.fingerprint ?? finding.id, ...location.range });
+    }
+    const selected = this.selectedFinding();
+    return segmentLineTokens(this.tokensForLine(line, text), line, text, ranges, selected ? selected.fingerprint ?? selected.id : null);
+  }
+
+  segmentClass(segment: SegmentedSpan): string {
+    return segment.state === 'plain' ? `tok-${segment.kind}` : `tok-${segment.kind} tok-${segment.state}`;
+  }
+
+  segmentAriaLabel(segment: SegmentedSpan, line: number): string | null {
+    return segment.state === 'plain' ? null : `${segment.state} finding span at line ${line}: ${segment.text}`;
   }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }

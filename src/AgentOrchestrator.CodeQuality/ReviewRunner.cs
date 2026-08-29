@@ -198,7 +198,8 @@ public sealed class ReviewRunner
                     usage,
                     threads,
                     sensorEvidence,
-                    deterministicEvidence);
+                    deterministicEvidence,
+                    ResolveSourceRevision(root));
                 Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
                 var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
@@ -395,7 +396,8 @@ public sealed class ReviewRunner
         ReviewUsageEntry usage,
         JsonArray threads,
         SecurityEvidenceBundle sensorEvidence,
-        IReadOnlyList<SensorScanResult> deterministicEvidence)
+        IReadOnlyList<SensorScanResult> deterministicEvidence,
+        string? sourceRevision)
     {
         var promptHash = ReviewPromptBuilder.TemplateHash(kind);
         var effectiveHash = inputs.EffectiveHash(promptHash);
@@ -414,6 +416,10 @@ public sealed class ReviewRunner
                 ["durationMs"] = usage.Tokens.DurationMs,
             },
         };
+        // Requested route, as distinct from the CLI-resolved `model` above — the model the review
+        // agent was asked to use may differ from what actually served the run.
+        if (!string.IsNullOrWhiteSpace(_agent.Model)) reviewer["requestedModel"] = _agent.Model;
+        if (!string.IsNullOrWhiteSpace(_agent.ThinkingLevel)) reviewer["requestedThinkingLevel"] = _agent.ThinkingLevel;
 
         var meta = new JsonObject
         {
@@ -474,6 +480,7 @@ public sealed class ReviewRunner
             ["deterministicEvidence"] = JsonSerializer.SerializeToNode(
                 deterministicEvidence, ReviewMetaJson.Options),
         };
+        if (!string.IsNullOrWhiteSpace(sourceRevision)) meta["sourceRevision"] = sourceRevision;
         if (kind == "security" && sensorEvidence.Sensors.Count > 0)
         {
             reviewer["sensors"] = new JsonArray(sensorEvidence.Sensors.Select(sensor => (JsonNode)new JsonObject
@@ -641,6 +648,14 @@ public sealed class ReviewRunner
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static string? ResolveSourceRevision(string root)
+    {
+        var commit = CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD");
+        if (commit is null) return null;
+        var dirty = CoverageSensor.GitValue(root, "status", "--porcelain");
+        return string.IsNullOrEmpty(dirty) ? $"git:{commit}" : $"git:{commit}-dirty";
+    }
 
     private static string Combine(string resolved, string? supplied) =>
         string.IsNullOrWhiteSpace(supplied)

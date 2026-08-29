@@ -30,6 +30,9 @@ public static partial class FindingIdentity
             var locations = finding["locations"]!.AsArray().OfType<JsonObject>().ToArray();
             string? primaryPath = null;
             string? primarySnippet = null;
+            JsonObject? primaryRange = null;
+            string? primaryRawSnippet = null;
+            string? primaryContent = null;
             foreach (var location in locations)
             {
                 var path = NormalizePath(location["path"]!.GetValue<string>());
@@ -41,7 +44,13 @@ public static partial class FindingIdentity
                 var range = location["range"]!.AsObject();
                 var snippet = ExtractSnippet(content, path, range);
                 location["path"] = path;
-                primaryPath ??= path;
+                if (primaryPath is null)
+                {
+                    primaryPath = path;
+                    primaryRange = range;
+                    primaryRawSnippet = snippet;
+                    primaryContent = content;
+                }
                 primarySnippet ??= NormalizeSnippet(snippet);
             }
 
@@ -55,10 +64,62 @@ public static partial class FindingIdentity
             finding["id"] = id;
             finding["ruleId"] = ruleId;
             finding["fingerprint"] = fingerprint;
+            if (primaryRange is not null)
+            {
+                AttachRunnerCapturedEvidence(finding, primaryPath!, primaryRange, primaryRawSnippet!, primaryContent!);
+            }
             result.Add(new FindingIdentityRecord(fingerprint, id, primaryPath!, ruleId));
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Attaches source-span evidence the runner computed itself from the validated range above —
+    /// the model never supplies <c>contentHash</c>/<c>excerptHash</c>, so these anchors stay trustworthy
+    /// even though the review agent cannot verify a reproduction (see the "unknown" default below).
+    /// </summary>
+    private static void AttachRunnerCapturedEvidence(
+        JsonObject finding, string primaryPath, JsonObject range, string excerptText, string fileContent)
+    {
+        var contentHash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fileContent)));
+        var excerptHash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(excerptText)));
+        finding["anchors"] = new JsonArray(new JsonObject
+        {
+            ["id"] = "primary",
+            ["role"] = "primary",
+            ["path"] = primaryPath,
+            ["range"] = range.DeepClone(),
+            ["capturedExcerpt"] = new JsonObject
+            {
+                ["text"] = excerptText,
+                ["contentHash"] = contentHash,
+                ["excerptHash"] = excerptHash,
+            },
+        });
+
+        var evidenceItems = new JsonArray(new JsonObject
+        {
+            ["id"] = "ev-source",
+            ["class"] = "sourceSpan",
+            ["status"] = "observed",
+            ["anchorId"] = "primary",
+        });
+        if (finding["evidence"]?.GetValue<string>() is { Length: > 0 } legacyEvidence)
+        {
+            evidenceItems.Add(new JsonObject
+            {
+                ["id"] = "ev-legacy",
+                ["class"] = "legacyClaim",
+                ["status"] = "unverified",
+                ["summary"] = legacyEvidence,
+            });
+        }
+        finding["evidenceItems"] = evidenceItems;
+
+        // Prompts do not yet ask the agent for reproduction steps (they forbid tool/command use),
+        // so this stays "unknown" rather than defaulting to a status the runner cannot back up.
+        finding["reproduction"] = new JsonObject { ["status"] = "unknown" };
     }
 
     public static string Compute(string path, string normalizedSnippet, string ruleId)
