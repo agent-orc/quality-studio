@@ -33,5 +33,6 @@
     "src/AgentOrchestrator.CodeQuality/README.md",
     "src/quality-cli/Program.cs",
     "src/QualityStudio.Api/AgentStudioTaskClient.cs"
-  ]
+  ],
+  "key": "QS-W9"
 }
