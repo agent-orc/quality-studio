@@ -66,8 +66,10 @@ export class Editor {
   });
   readonly findingsByLine = computed(() => {
     const map = new Map<number, ReviewFinding[]>();
+    if (this.activeState() === 'stale') return map;
     const path = this.api.file()?.path;
     for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
+      if (finding.suppression) continue;
       if (location.path !== path || !location.range) continue;
       for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), finding]);
     }
@@ -264,6 +266,7 @@ export class Editor {
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
 
   isSelectedLine(line: number): boolean {
+    if (this.selectedFinding()?.suppression) return false;
     const range = this.selectedLocation()?.range;
     return !!range && line >= range.start.line && line <= range.end.line;
   }
