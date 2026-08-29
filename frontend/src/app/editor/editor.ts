@@ -3,10 +3,10 @@ import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
 import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
 import { FlatNode } from '../tree-utils';
-import { FindingSpanRange, SegmentedSpan, segmentLineTokens } from './finding-span-segmentation';
 import { SyntaxHighlighting } from './syntax-highlighting';
 import { syntaxLanguageForPath } from './syntax-language';
 import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax-types';
+import { FindingSpanSegment, segmentFindingSpans } from './finding-span-segments';
 
 const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mixed: 'Mixed' };
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
@@ -49,6 +49,7 @@ export class Editor {
   readonly composingLine = signal<number | null>(null);
   readonly drafts = signal<Record<string, string>>({});
   readonly syntaxState = signal<'plain' | 'loading' | 'ready' | 'error' | 'large'>('plain');
+  readonly overlapChooser = signal<{ key: string; findings: ReviewFinding[] } | null>(null);
   private readonly syntaxCache = signal<{ path: string; lines: Array<TokenLine | undefined> }>({ path: '', lines: [] });
   private readonly codeViewport = viewChild<ElementRef<HTMLElement>>('codeViewport');
   private cancelSyntaxRequest: (() => void) | null = null;
@@ -66,8 +67,10 @@ export class Editor {
   });
   readonly findingsByLine = computed(() => {
     const map = new Map<number, ReviewFinding[]>();
+    if (this.activeState() === 'stale') return map;
     const path = this.api.file()?.path;
     for (const finding of this.activeMeta()?.findings ?? []) for (const location of finding.locations) {
+      if (finding.suppression) continue;
       if (location.path !== path || !location.range) continue;
       for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), finding]);
     }
@@ -180,8 +183,9 @@ export class Editor {
       this.visibleRows();
       if (!fingerprint || !location) return;
       const viewport = this.codeViewport()?.nativeElement;
+      const span = viewport?.querySelector('.finding-span.selected') as HTMLButtonElement | null;
       const marker = viewport?.querySelector(`[data-finding-fingerprint="${CSS.escape(fingerprint)}"]`) as HTMLButtonElement | null;
-      marker?.focus({ preventScroll: true });
+      (span ?? marker)?.focus({ preventScroll: true });
     });
     effect(onCleanup => {
       const file = this.api.file();
@@ -241,22 +245,42 @@ export class Editor {
       : [{ text, kind: 'plain' } satisfies TokenSpan];
   }
 
-  segmentedLine(line: number, text: string, findings: ReviewFinding[]): SegmentedSpan[] {
-    const path = this.api.file()?.path;
-    const ranges: FindingSpanRange[] = [];
-    for (const finding of findings) for (const location of finding.locations) {
-      if (location.path === path && location.range) ranges.push({ fingerprint: finding.fingerprint ?? finding.id, ...location.range });
+  segmentsForLine(line: number, text: string, findings: ReviewFinding[]): FindingSpanSegment[] {
+    return segmentFindingSpans(
+      this.tokensForLine(line, text), line, this.api.file()?.path ?? '', findings,
+      this.selectedFinding()?.fingerprint ?? this.selectedFinding()?.id);
+  }
+
+  segmentKey(line: number, segment: FindingSpanSegment): string {
+    return `${line}:${segment.startColumn}:${segment.endColumn}:${segment.findings.map(finding => finding.fingerprint ?? finding.id).join(',')}`;
+  }
+
+  spanTitle(line: number, segment: FindingSpanSegment): string {
+    const range = segment.startColumn === segment.endColumn
+      ? `line ${line}, column ${segment.startColumn}`
+      : `line ${line}, columns ${segment.startColumn} through ${segment.endColumn}`;
+    return segment.findings.map(finding =>
+      `${finding.severity.toUpperCase()}: ${finding.title}`).join('; ') +
+      `. Exact finding span at ${range}${segment.overlap ? '. Multiple findings overlap; activate to choose one' : ''}.`;
+  }
+
+  selectSpan(line: number, segment: FindingSpanSegment): void {
+    if (segment.findings.length === 1) {
+      this.overlapChooser.set(null);
+      this.findingSelect.emit(segment.findings[0]);
+      return;
     }
-    const selected = this.selectedFinding();
-    return segmentLineTokens(this.tokensForLine(line, text), line, text, ranges, selected ? selected.fingerprint ?? selected.id : null);
+    const key = this.segmentKey(line, segment);
+    this.overlapChooser.set(this.overlapChooser()?.key === key ? null : { key, findings: segment.findings });
   }
 
-  segmentClass(segment: SegmentedSpan): string {
-    return segment.state === 'plain' ? `tok-${segment.kind}` : `tok-${segment.kind} tok-${segment.state}`;
+  chooseOverlappingFinding(finding: ReviewFinding): void {
+    this.overlapChooser.set(null);
+    this.findingSelect.emit(finding);
   }
 
-  segmentAriaLabel(segment: SegmentedSpan, line: number): string | null {
-    return segment.state === 'plain' ? null : `${segment.state} finding span at line ${line}: ${segment.text}`;
+  isChooserOpen(line: number, segment: FindingSpanSegment): boolean {
+    return this.overlapChooser()?.key === this.segmentKey(line, segment);
   }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }
@@ -264,6 +288,7 @@ export class Editor {
   severity(findings: ReviewFinding[]): FindingSeverity { return findings[0]?.severity ?? 'info'; }
 
   isSelectedLine(line: number): boolean {
+    if (this.selectedFinding()?.suppression) return false;
     const range = this.selectedLocation()?.range;
     return !!range && line >= range.start.line && line <= range.end.line;
   }
