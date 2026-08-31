@@ -176,6 +176,72 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
     }
 
+    [Fact]
+    public async Task Repository_item_mutations_require_registrar_privilege_not_mere_repository_access()
+    {
+        var mutationHost = Path.Combine(testRoot, "repository-mutation-host");
+        Directory.CreateDirectory(mutationHost);
+        WriteRegistry(mutationHost);
+        await using var mutationApplication = new HostedApplication(
+            RepositoryRoot, ForeignRepositoryRoot, mutationHost, spendRequestsPerMinute: 100);
+
+        var update = new
+        {
+            displayName = "Foreign (registrar updated)",
+            rootPath = RepositoryRoot,
+            globalInputsDirectory = RepositoryRoot,
+            enabledReviewKinds = new[] { "security" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "dotnet --info",
+                    },
+                },
+            },
+        };
+        var registryPath = Path.Combine(mutationHost, RepositoryRegistry.RelativeRegistryPath);
+        var initialRegistry = await File.ReadAllTextAsync(registryPath, TestContext.Current.CancellationToken);
+
+        using var bob = CreateClient(mutationApplication, "bob", BobToken);
+        using var tree = await bob.GetAsync("/api/repos/foreign/tree", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, tree.StatusCode);
+        using var file = await bob.GetAsync(
+            "/api/repos/foreign/file?path=Foreign.cs", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+
+        using var deniedUpdate = await bob.PutAsJsonAsync(
+            "/api/repos/foreign", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, deniedUpdate.StatusCode);
+        using var deniedArchive = await bob.DeleteAsync(
+            "/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, deniedArchive.StatusCode);
+
+        var registryAfterDeniedMutations = await File.ReadAllTextAsync(
+            registryPath, TestContext.Current.CancellationToken);
+        Assert.Equal(initialRegistry, registryAfterDeniedMutations);
+
+        using var admin = CreateClient(mutationApplication, "admin", AdminToken);
+        using var allowedUpdate = await admin.PutAsJsonAsync(
+            "/api/repos/foreign", update, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, allowedUpdate.StatusCode);
+        var updated = await allowedUpdate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(RepositoryRoot, updated.GetProperty("rootPath").GetString());
+        Assert.Equal(RepositoryRoot, updated.GetProperty("globalInputsDirectory").GetString());
+        Assert.Equal("dotnet --info", updated.GetProperty("sensors")[0].GetProperty("configuration")
+            .GetProperty("command").GetString());
+
+        using var allowedArchive = await admin.DeleteAsync(
+            "/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, allowedArchive.StatusCode);
+        var archived = await allowedArchive.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(archived.GetProperty("archived").GetBoolean());
+    }
+
     public async ValueTask InitializeAsync()
     {
         foreach (var directory in new[] { RepositoryRoot, ForeignRepositoryRoot, OutsideRoot, HostRoot })

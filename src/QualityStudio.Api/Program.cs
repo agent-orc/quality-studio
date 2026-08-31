@@ -189,12 +189,19 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryItem = repositoryId is not null &&
+        context.GetEndpoint() is Microsoft.AspNetCore.Routing.RouteEndpoint routeEndpoint &&
+        string.Equals(routeEndpoint.RoutePattern.RawText, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryItemMutation = isRepositoryItem &&
+        (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryItemMutation)
     {
         if (!identity.CanRegisterRepositories)
         {
-            await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Repository registration is not permitted")
-                .ExecuteAsync(context);
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: isRepositoryItemMutation
+                    ? "Repository configuration changes are not permitted"
+                    : "Repository registration is not permitted").ExecuteAsync(context);
             return;
         }
     }
