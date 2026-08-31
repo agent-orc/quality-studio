@@ -87,6 +87,28 @@ public sealed class DotNetBuildSensorTests
         }
     }
 
+    [Fact]
+    public async Task Timed_out_command_is_unavailable_not_fatal()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-dotnet-build-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "Sample.csproj"),
+                "<Project Sdk=\"Microsoft.NET.Sdk\" />", TestContext.Current.CancellationToken);
+
+            var result = await new DotNetBuildSensor(new TimedOutRunner()).RunAsync(
+                new SensorScanRequest(root), TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Empty(result.Findings);
+            Assert.Contains("timed out", result.UnavailableReason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private sealed class QueueRunner(params SensorCommandResult[] results) : ISensorCommandRunner
     {
         private readonly Queue<SensorCommandResult> results = new(results);
@@ -102,6 +124,25 @@ public sealed class DotNetBuildSensorTests
         {
             calls.Add(new Call(executable, arguments.ToArray()));
             return Task.FromResult(results.Dequeue());
+        }
+    }
+
+    private sealed class TimedOutRunner : ISensorCommandRunner
+    {
+        private int invocation;
+
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default)
+        {
+            if (invocation++ == 0)
+            {
+                return Task.FromResult(new SensorCommandResult(0, "10.0.301", string.Empty));
+            }
+
+            throw new SecurityScannerUnavailableException("dotnet timed out after 00:05:00.");
         }
     }
 
