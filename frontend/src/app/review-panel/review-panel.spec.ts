@@ -47,6 +47,8 @@ describe('ReviewPanel session flow', () => {
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
     loadRunReport: jasmine.createSpy('loadRunReport'), loadRunTrend: jasmine.createSpy('loadRunTrend'),
+    compareRuns: jasmine.createSpy('compareRuns'), loadPinnedRunIds: jasmine.createSpy('loadPinnedRunIds'),
+    pinRun: jasmine.createSpy('pinRun'), unpinRun: jasmine.createSpy('unpinRun'),
     runReportUrl: (id: string, format: string) => `/api/repos/default/review/runs/${id}/report?format=${format}`,
     runReportFileName: (id: string, format: string) => `quality-run-${id}.${format}`,
     repositoryReportUrl: () => '/api/repos/default/report?format=html',
@@ -59,7 +61,11 @@ describe('ReviewPanel session flow', () => {
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.createTask, api.pauseReview, api.cancelReview,
-      api.resumeReview, api.loadRunReport, api.loadRunTrend]) spy.calls.reset();
+      api.resumeReview, api.loadRunReport, api.loadRunTrend, api.compareRuns, api.loadPinnedRunIds,
+      api.pinRun, api.unpinRun]) spy.calls.reset();
+    api.loadPinnedRunIds.and.resolveTo([]);
+    api.pinRun.and.resolveTo(['pinned-run']);
+    api.unpinRun.and.resolveTo([]);
     api.mutateFindingState.and.callFake(async (request: { state: string }) =>
       ({ ...openFinding, state: request.state, stateTimestamp: '2026-08-11T08:01:00Z' }));
     api.loadFile.and.resolveTo(); api.loadTree.and.resolveTo();
@@ -210,5 +216,64 @@ describe('ReviewPanel session flow', () => {
     expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
+  });
+
+  it('loads pinned baselines when the run drawer opens and can toggle a pin', async () => {
+    await component.toggleRunDrawer();
+    expect(api.loadPinnedRunIds).toHaveBeenCalled();
+    expect(component.isPinned('pinned-run')).toBe(false);
+
+    await component.togglePin('pinned-run');
+    expect(api.pinRun).toHaveBeenCalledWith('pinned-run');
+    expect(component.isPinned('pinned-run')).toBe(true);
+
+    await component.togglePin('pinned-run');
+    expect(api.unpinRun).toHaveBeenCalledWith('pinned-run');
+    expect(component.isPinned('pinned-run')).toBe(false);
+  });
+
+  it('compares two run outcomes and renders new, resolved, and route-incompatibility warnings', async () => {
+    const runFields = {
+      path: 'src/A.cs', kind: 'code', state: 'done', completedFiles: 1, totalFiles: 1, failedFiles: 0, skippedFiles: 0,
+      errors: [], usageOperations: 1, usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 100 },
+      costSpent: null, currency: null, priceStatus: 'unavailable', stopReason: null, deviation: null, createdAt: '2026-08-11T08:00:00Z',
+    };
+    const baseline = { ...runFields, id: 'baseline' } as any;
+    const candidate = { ...runFields, id: 'candidate' } as any;
+    api.reviewRuns.set([baseline, candidate]);
+    api.compareRuns.and.resolveTo({
+      status: 'available',
+      baseline: { runId: 'baseline', status: 'found', error: null },
+      candidate: { runId: 'candidate', status: 'found', error: null },
+      comparison: {
+        baselineRunId: 'baseline', candidateRunId: 'candidate',
+        route: { compatible: false, differences: ["Model changed from 'a' to 'b'."] },
+        new: [{ fingerprint: 'sha256:1', severity: 'high', title: 'New finding', ruleId: 'rule.1', baselineState: null, candidateState: 'open', locations: [] }],
+        unchanged: [],
+        resolved: [{ fingerprint: 'sha256:2', severity: 'low', title: 'Fixed finding', ruleId: 'rule.2', baselineState: 'open', candidateState: null, locations: [] }],
+        dispositionChanged: [],
+      },
+    });
+
+    component.runDrawerOpen.set(true);
+    component.openCompare(candidate);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.compareBaselineId()).toBe('baseline');
+    expect(api.compareRuns).toHaveBeenCalledWith('baseline', 'candidate');
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Route or inputs differ');
+    expect(text).toContain('New finding');
+    expect(text).toContain('Fixed finding');
+
+    // The pickers must show the pair that was actually compared. Note this only guards against a
+    // binding being dropped outright: TestBed renders the @for options before applying the binding,
+    // so it cannot reproduce the ordering that made a plain [value] binding fall back to the first
+    // option in a real browser. tests/run-compare-evidence.mjs asserts that against a live page.
+    const baselineSelect: HTMLSelectElement = fixture.nativeElement.querySelector('select[aria-label="Baseline run"]');
+    const candidateSelect: HTMLSelectElement = fixture.nativeElement.querySelector('select[aria-label="Candidate run"]');
+    expect(baselineSelect.value).toBe('baseline');
+    expect(candidateSelect.value).toBe('candidate');
   });
 });

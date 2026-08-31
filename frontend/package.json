@@ -16,6 +16,7 @@
     "evidence:security": "node tests/security-evidence.mjs evidence",
     "evidence:repository-modal": "node tests/repository-modal-evidence.mjs",
     "evidence:run-report": "node tests/run-report-evidence.mjs",
+    "evidence:run-compare": "node tests/run-compare-evidence.mjs",
     "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs"
   },
   "prettier": {

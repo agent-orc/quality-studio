@@ -250,6 +250,24 @@ export interface QualityRunTrendPoint {
   cost: number | null; currency: string | null;
 }
 export interface QualityRunTrendPage { points: QualityRunTrendPoint[]; nextCursor: string | null; }
+export interface QualityRunComparisonFinding {
+  fingerprint: string; severity: FindingSeverity; title: string; ruleId: string;
+  baselineState: FindingState | null; candidateState: FindingState | null;
+  locations: { path: string; startLine: number | null; startColumn: number | null; endLine: number | null; endColumn: number | null }[];
+}
+export interface QualityRunComparison {
+  baselineRunId: string; candidateRunId: string;
+  route: { compatible: boolean; differences: string[] };
+  new: QualityRunComparisonFinding[]; unchanged: QualityRunComparisonFinding[];
+  resolved: QualityRunComparisonFinding[]; dispositionChanged: QualityRunComparisonFinding[];
+}
+export interface ReviewRunCompareSnapshot { runId: string; status: 'found' | 'missing' | 'corrupt'; error: string | null; }
+export interface ReviewRunCompareResult {
+  status: 'available' | 'unavailable';
+  baseline: ReviewRunCompareSnapshot; candidate: ReviewRunCompareSnapshot;
+  comparison: QualityRunComparison | null;
+}
+export interface ReviewRunRetention { snapshotCount: number; totalBytes: number; averageBytes: number; pinnedCount: number; retentionKeep: number; }
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
@@ -619,6 +637,32 @@ export class QualityApi {
     if (cursor) params['cursor'] = cursor;
     return await firstValueFrom(this.http.get<QualityRunTrendPage>(
       `${this.repositoryApiBase()}/review/runs/trend`, { params }));
+  }
+
+  async compareRuns(baselineId: string, candidateId: string): Promise<ReviewRunCompareResult> {
+    return await firstValueFrom(this.http.get<ReviewRunCompareResult>(
+      `${this.repositoryApiBase()}/review/runs/compare`, { params: { baselineId, candidateId } }));
+  }
+
+  async loadRunRetention(): Promise<ReviewRunRetention> {
+    return await firstValueFrom(this.http.get<ReviewRunRetention>(`${this.repositoryApiBase()}/review/runs/retention`));
+  }
+
+  async loadPinnedRunIds(): Promise<string[]> {
+    const result = await firstValueFrom(this.http.get<{ pinnedRunIds: string[] }>(`${this.repositoryApiBase()}/review/runs/pins`));
+    return result.pinnedRunIds;
+  }
+
+  async pinRun(id: string): Promise<string[]> {
+    const result = await firstValueFrom(this.http.post<{ pinnedRunIds: string[] }>(
+      `${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/pin`, {}));
+    return result.pinnedRunIds;
+  }
+
+  async unpinRun(id: string): Promise<string[]> {
+    const result = await firstValueFrom(this.http.delete<{ pinnedRunIds: string[] }>(
+      `${this.repositoryApiBase()}/review/runs/${encodeURIComponent(id)}/pin`));
+    return result.pinnedRunIds;
   }
 
   runReportUrl(id: string, format: RunReportFormat): string {
