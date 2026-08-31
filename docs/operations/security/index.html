@@ -489,6 +489,12 @@
           <td><b>R-09-adjacent: narrow baseline suppression for the F-04 unit-key false positive.</b> Once the scanner above actually reports findings, the documented <code>docs/concept.md</code> content-derived 64-hex "unit-key" (see F-04 findings text) is a real, reproducible <code>block</code> in CI, not a hypothetical. Added a single <code>.quality/security/gitleaks.baseline.json</code> entry keyed on the exact gitleaks fingerprint (<code>docs/concept.md:generic-api-key:1536</code>) with a note pointing back to this dossier — a narrow, reviewed, fingerprint-exact suppression, not a path or rule exclusion, matching what S3's exit criteria ask for. This is a partial start on S3, not S3 itself: redaction-before-persistence and the tracked-config policy check (R-09 proper) remain open.</td>
           <td><code>.quality/security/gitleaks.baseline.json</code>; the live CLI run cited above shows exactly one <code>accepted</code> finding at that fingerprint and zero <code>block</code>.</td>
         </tr>
+        <tr>
+          <td>2026-08-31</td>
+          <td>QS-68</td>
+          <td><b>F-01/R-01: closed the authorization half of S0 at route granularity</b> — registrar privilege is now required for repository root, global-input, sensor, and archive mutations through <code>PUT /api/repos/{repoId}</code> and <code>DELETE /api/repos/{repoId}</code>. Repository-scoped non-registrars retain their existing read and review access. The operator decision status for Option C and S0–S6 is <b>decided</b>. The command-rejection half of R-01 (host-owned analyzer profiles) and the optional configuration split between immutable host-owned root/sensor settings and repo-scoped display settings remain open.</td>
+          <td><code>Program.cs</code> (repository-entry registrar gate); <code>ApiSecurityTests.Repo_scoped_client_cannot_update_or_archive_an_accessible_repository</code>, <code>Repository_registrar_can_update_and_archive_a_repository</code>, and <code>Repo_scoped_client_retains_read_access_to_an_accessible_repository</code>; solution <code>dotnet build</code> and <code>dotnet test</code>.</td>
+        </tr>
       </tbody>
     </table>
     <div class="box ok">

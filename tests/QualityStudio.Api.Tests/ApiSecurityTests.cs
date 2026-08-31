@@ -71,6 +71,94 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Repo_scoped_client_cannot_update_or_archive_an_accessible_repository()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        var before = await ReadRepositoryAsync(bob, "foreign");
+
+        using var update = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            id = "foreign",
+            displayName = "Compromised registration",
+            rootPath = RepositoryRoot,
+            globalInputsDirectory = RepositoryRoot,
+            inputBudgetCharacters = 64000,
+            enabledReviewKinds = new[] { "security" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "dotnet --info",
+                        ["reportPath"] = "compromised.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+        Assert.Equal(before.GetRawText(), (await ReadRepositoryAsync(bob, "foreign")).GetRawText());
+
+        using var archive = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+        Assert.Equal(before.GetRawText(), (await ReadRepositoryAsync(bob, "foreign")).GetRawText());
+    }
+
+    [Fact]
+    public async Task Repository_registrar_can_update_and_archive_a_repository()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var update = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            id = "foreign",
+            displayName = "Registrar updated",
+            rootPath = RepositoryRoot,
+            globalInputsDirectory = RepositoryRoot,
+            inputBudgetCharacters = 64000,
+            enabledReviewKinds = new[] { "security" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "dotnet --info",
+                        ["reportPath"] = "registrar.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var updated = await update.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Registrar updated", updated.GetProperty("displayName").GetString());
+        Assert.Equal(RepositoryRoot, updated.GetProperty("rootPath").GetString());
+        Assert.Equal(RepositoryRoot, updated.GetProperty("globalInputsDirectory").GetString());
+        Assert.Equal("sarif", Assert.Single(updated.GetProperty("sensors").EnumerateArray()).GetProperty("id").GetString());
+
+        using var archive = await admin.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, archive.StatusCode);
+        var archived = await archive.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(archived.GetProperty("archived").GetBoolean());
+        Assert.True((await ReadRepositoryAsync(admin, "foreign")).GetProperty("archived").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Repo_scoped_client_retains_read_access_to_an_accessible_repository()
+    {
+        using var bob = CreateClient("bob", BobToken);
+
+        using var tree = await bob.GetAsync("/api/repos/foreign/tree", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, tree.StatusCode);
+        using var file = await bob.GetAsync("/api/repos/foreign/file?path=Foreign.cs",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+    }
+
+    [Fact]
     public async Task Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure()
     {
         using var alice = CreateClient("alice", AliceToken);
@@ -200,6 +288,16 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     private HttpClient CreateClient(string? clientId = null, string? token = null, bool includeClientId = true) =>
         CreateClient(application!, clientId, token, includeClientId);
+
+    private static async Task<JsonElement> ReadRepositoryAsync(HttpClient client, string repositoryId)
+    {
+        var list = await client.GetFromJsonAsync<JsonElement>("/api/repos?includeArchived=true",
+            TestContext.Current.CancellationToken);
+        return Assert.Single(list.GetProperty("repositories").EnumerateArray()
+            .Where(repository => string.Equals(repository.GetProperty("id").GetString(), repositoryId,
+                StringComparison.OrdinalIgnoreCase))
+            .Select(repository => repository.Clone()));
+    }
 
     private static HttpClient CreateClient(WebApplicationFactory<Program> target, string? clientId = null,
         string? token = null, bool includeClientId = true)
