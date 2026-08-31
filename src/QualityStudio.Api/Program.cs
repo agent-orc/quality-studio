@@ -46,6 +46,7 @@ builder.Services.AddSingleton<RoslynAnalyzerSensor>();
 builder.Services.AddSingleton<EslintAnalyzerSensor>();
 builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
 builder.Services.AddSingleton<DotNetBuildSensor>();
+builder.Services.AddSingleton<AngularCompilerSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -55,6 +56,7 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DotNetBuildSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<AngularCompilerSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
@@ -955,7 +957,9 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
     var descriptors = new List<object>();
     foreach (var sensor in sensors.List())
     {
-        var availability = await sensor.ProbeAvailabilityAsync(cancellationToken);
+        var availability = sensor is IRepositoryScopedAvailabilitySensor repositoryScoped
+            ? await repositoryScoped.ProbeAvailabilityAsync(registration.RootPath, cancellationToken)
+            : await sensor.ProbeAvailabilityAsync(cancellationToken);
         configured.TryGetValue(sensor.Id, out var repositoryConfiguration);
         descriptors.Add(new
         {
