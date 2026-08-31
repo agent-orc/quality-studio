@@ -1,11 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-<<<<<<< origin/main
 import { formatDateTime, formatTokenCount, parseTokenCount } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
-=======
-import { formatDateTime } from '../format';
 import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewRunCompareResult, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
->>>>>>> e43193481255
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {

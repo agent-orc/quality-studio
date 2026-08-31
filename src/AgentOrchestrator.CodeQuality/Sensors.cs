@@ -55,6 +55,16 @@ public interface IReviewSensor
 /// </summary>
 public interface IDeterministicEvidenceSensor : IReviewSensor;
 
+/// <summary>
+/// Provides availability for the selected repository instead of the API host's content root.
+/// </summary>
+public interface IRepositoryScopedAvailabilitySensor : IReviewSensor
+{
+    Task<SensorAvailability> ProbeAvailabilityAsync(
+        string repositoryRoot,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class SensorRegistry
 {
     private readonly IReadOnlyDictionary<string, IReviewSensor> sensors;

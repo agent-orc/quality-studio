@@ -19,6 +19,92 @@ namespace QualityStudio.Api.Tests;
 public sealed class ReviewRunStoreTests
 {
     [Fact]
+    public async Task Angular_compiler_runs_before_model_projects_affected_finding_and_can_be_disabled()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var events = new ConcurrentQueue<string>();
+        var compilerDirectory = Path.Combine(fixture.RepositoryRoot, "frontend", "node_modules",
+            "@angular", "compiler-cli");
+        var subjectPath = "frontend/src/app/editor/editor.html";
+        Directory.CreateDirectory(Path.Combine(compilerDirectory, "bundles", "src", "bin"));
+        Directory.CreateDirectory(Path.Combine(fixture.RepositoryRoot, "frontend", "src", "app", "editor"));
+        await File.WriteAllTextAsync(Path.Combine(fixture.RepositoryRoot, "frontend", "tsconfig.app.json"),
+            "{}", cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(fixture.RepositoryRoot, "frontend", "angular.json"),
+            "{\"projects\":{\"frontend\":{\"root\":\"\",\"sourceRoot\":\"src\"}}}",
+            cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(compilerDirectory, "package.json"),
+            "{\"version\":\"20.3.29\"}", cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(
+            compilerDirectory, "bundles", "src", "bin", "ngc.js"), "#!/usr/bin/env node",
+            cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(fixture.RepositoryRoot,
+            subjectPath.Replace('/', Path.DirectorySeparatorChar)), "<input>", cancellationToken);
+        var sensor = new AngularCompilerSensor(new AngularOrderingRunner(events), fixture.RepositoryRoot);
+        var executor = new OrderingExecutorFactory(events);
+        try
+        {
+            await using var application = fixture.CreateApplication(executor, sensor);
+            using var client = application.CreateClient();
+            var descriptors = await client.GetFromJsonAsync<JsonElement>(
+                "/api/sensors", cancellationToken);
+            var angularDescriptor = Assert.Single(descriptors.GetProperty("sensors").EnumerateArray(),
+                descriptor => descriptor.GetProperty("id").GetString() == "angular-compiler");
+            Assert.True(angularDescriptor.GetProperty("enabled").GetBoolean());
+            Assert.True(angularDescriptor.GetProperty("available").GetBoolean());
+            using var enabledResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = subjectPath,
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            enabledResponse.EnsureSuccessStatusCode();
+            var enabled = await enabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            await WaitForStateAsync(client, enabled.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(["check", "model"], events.ToArray());
+            var firstRequest = Assert.Single(executor.Requests);
+            var evidence = Assert.Single(firstRequest.DeterministicEvidence!);
+            Assert.Equal("angular-compiler", evidence.Provenance.SensorId);
+            var finding = Assert.Single(evidence.Findings);
+            Assert.Equal("NG8102", finding.RuleId);
+            Assert.Equal(subjectPath, Assert.Single(finding.Locations).Path);
+
+            Directory.CreateDirectory(Path.Combine(fixture.RepositoryRoot, ".git"));
+            using var update = await client.PutAsJsonAsync("/api/repos/default", new
+            {
+                displayName = new DirectoryInfo(fixture.RepositoryRoot).Name,
+                rootPath = fixture.RepositoryRoot,
+                globalInputsDirectory = (string?)null,
+                inputBudgetCharacters = 12000,
+                enabledReviewKinds = new[] { "code", "security", "performance" },
+                sensors = new[] { new { id = "angular-compiler", enabled = false } },
+            }, cancellationToken);
+            update.EnsureSuccessStatusCode();
+
+            using var disabledResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = subjectPath,
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            disabledResponse.EnsureSuccessStatusCode();
+            var disabled = await disabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            await WaitForStateAsync(client, disabled.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(["check", "model", "model"], events.ToArray());
+            Assert.Empty(executor.Requests[1].DeterministicEvidence!);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Enabled_deterministic_check_runs_before_model_and_can_be_disabled_per_repository()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -766,6 +852,29 @@ public sealed class ReviewRunStoreTests
                 new SensorProvenance(
                     Id, Version, "repository", ".", DateTimeOffset.UtcNow.ToString("O"),
                     new Dictionary<string, string>())));
+        }
+    }
+
+    private sealed class AngularOrderingRunner(ConcurrentQueue<string> events) : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default)
+        {
+            if (arguments.Contains("-p", StringComparer.Ordinal))
+            {
+                events.Enqueue("check");
+                return Task.FromResult(new SensorCommandResult(0, """
+                    src/app/editor/editor.html:169:61 - warning NG8102: The nullish fallback is unreachable.
+
+                    169 <input [value]="draft ?? ''">
+                                                                  ~~~~~~~~~~~
+                    """, string.Empty));
+            }
+
+            return Task.FromResult(new SensorCommandResult(0, "0.0.0", string.Empty));
         }
     }
 
