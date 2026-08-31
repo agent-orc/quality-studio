@@ -207,7 +207,7 @@
       <li><a href="#runs">Run state and durable history</a></li>
       <li><a href="#models">Per-model review-quality evidence</a></li>
       <li><a href="#slices">Implementation slices</a></li>
-      <li><a href="#implementation">Implementation state</a></li>
+      <li><a href="#implementation-state">Implementation state</a></li>
       <li><a href="#acceptance">Decision guardrails</a></li>
       <li><a href="#implementation">Implementation log</a></li>
     </ol>
@@ -617,7 +617,7 @@
     </div>
   </section>
 
-  <section id="implementation">
+  <section id="implementation-state">
     <h2><span class="no">10</span>Implementation state</h2>
     <p class="dim">This is a living record of delivered slices. A slice is marked complete only when its stated boundary is complete; narrower receipts remain explicit.</p>
     <table>
@@ -629,6 +629,12 @@
           <td>Finding ranges are segmented through syntax tokens and exposed as keyboard-focusable exact spans, including multi-line, Unicode, zero-width end-of-line, and overlap cases; overlapping spans open an accessible finding chooser. Finding cards expose full line/column ranges. A repository-owned <code>.quality/findings/suppressions.json</code> store now supports exact fingerprint rules with optimistic concurrency, atomic persistence, expiry, API-owned create/remove mutations, default-hidden suppressed findings, and an Ignore list manager. Suppression annotates the projection without deleting the observation or changing lifecycle state.</td>
           <td>S2 remains queued. S3 still needs append-only assessment and independent resolution projections, plus scoped path/rule/source matching and match preview. S4 and S5 remain queued.</td>
         </tr>
+        <tr>
+          <td><b>31 August 2026</b><br><code>QS-84</code></td>
+          <td><span class="pill done">integration refreshed</span></td>
+          <td>Rebased the existing QS-84 delivery onto <code>origin/main</code> at <code>bdd5529420bfbb8862c4b1c72cb741407277d790</code>. The content conflicts in the editor and review panel were resolved by retaining the already-integrated Wave 1 exact-span foundation from QS-70 and the richer QS-84 accessible overlap chooser, full range labels, suppression-aware highlighting, and Ignore list behavior. No feature scope was added.</td>
+          <td>Unchanged: the remaining S2, broader S3, S4, and S5 work stays queued.</td>
+        </tr>
       </tbody>
     </table>
     <div class="box ok">
@@ -636,8 +642,8 @@
       <p>Retained result artifacts <code>qs-84-before-whole-line-*</code>, <code>qs-84-before-review-panel-*</code>, <code>qs-84-after-exact-spans-*</code>, and <code>qs-84-after-ignore-list-*</code> provide the light/dark before-and-after screenshots; <code>qs-84-finding-evidence-before.json</code> and <code>qs-84-finding-evidence-after.json</code> record the browser audits. Both stages are produced by <code>frontend/tests/finding-evidence.mjs</code> driving the running application, the "before" stage against a build without this change. Backend tests cover store recreation, expiry, optimistic conflicts, projection independence, and API create/list/delete behavior; frontend tests cover range segmentation, zero-width anchors, overlap selection, filtering, ignore mutations, and editor navigation.</p>
     </div>
     <div class="box">
-      <h4>Integration note</h4>
-      <p>As of this receipt, <code>origin/main</code> contains no exact-span or suppression code. The wave-1 card <code>QS-70</code> implemented S1 on its own branch (<code>finding-span-segmentation.ts</code>) but that work has not reached the integration branch, so QS-84 carries its own S1 implementation (<code>finding-span-segments.ts</code>, additionally covering the overlap chooser and suppression-aware highlighting). Whichever branch integrates second must reconcile the two S1 implementations rather than merge both.</p>
+      <h4>Integration note · refreshed 31 August 2026</h4>
+      <p><code>origin/main</code> now contains the Wave 1 QS-70 exact-span implementation. The QS-84 rebase resolved the two implementations at their UI seams: the editor uses the QS-84 segmentation path for keyboard-focusable exact spans and the accessible overlap chooser while preserving the integrated syntax-token and editor behavior; the review panel keeps current-main functionality alongside the independent persistent Ignore list. The stale pre-integration claim that main lacked exact-span code is superseded by this receipt.</p>
     </div>
   </section>
 

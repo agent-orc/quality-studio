@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-27T00:00:00Z",
+  "updatedAt": "2026-08-31T00:00:00Z",
   "sourceTaskKeys": [
     "QS-61"
   ],
@@ -55,6 +55,8 @@
     {
       "taskKey": "QS-84",
       "date": "2026-08-27",
+      "lastVerifiedAt": "2026-08-31",
+      "rebasedOnto": "bdd5529420bfbb8862c4b1c72cb741407277d790",
       "slices": [
         "S1 complete",
         "S3 exact-first ignore-list foundation"
