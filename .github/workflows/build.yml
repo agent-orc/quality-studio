@@ -1,6 +1,8 @@
 name: Build
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     tags: ['v*.*.*']
@@ -9,33 +11,93 @@ on:
 permissions:
   contents: read
 
+env:
+  DOTNET_VERSION: 10.0.301
+  NODE_VERSION: 22.23.1
+  GITLEAKS_VERSION: 8.24.2
+
 jobs:
-  build-and-test:
+  portable:
+    name: Portable required gate
     runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CHROME_NO_SANDBOX: '1'
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up .NET
+      - name: Set up .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
-      - name: Restore
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Verify required gate contract
+        run: npm run test:tooling
+
+      - name: Restore .NET solution
         run: dotnet restore QualityStudio.slnx
 
-      - name: Build
+      - name: Build .NET solution
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
-      - name: Test
+      - name: Run portable .NET tests
         run: >-
           dotnet test QualityStudio.slnx
           --configuration Release
           --no-build
           --filter "Category!=MachineBound"
+          --logger "trx;LogFileName=portable-dotnet.trx"
+          --results-directory "${{ github.workspace }}/.gate-results/dotnet"
 
-      - name: Security scan
+      - name: Build production frontend bundle
+        run: npm --prefix frontend run build
+
+      - name: Provision pinned Chromium
+        run: npm --prefix frontend run browser:install
+
+      - name: Run Angular specs
+        run: npm --prefix frontend test
+
+      - name: Provision pinned Gitleaks
+        run: |
+          set -euo pipefail
+          install_root="${{ github.workspace }}/.gate-tools/gitleaks"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          mkdir -p "$install_root"
+          curl --fail --silent --show-error --location \
+            --output "$install_root/$archive" "$base/$archive"
+          curl --fail --silent --show-error --location \
+            --output "$install_root/checksums.txt" "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " $archive\$" "$install_root/checksums.txt" > "$install_root/expected.txt"
+          (cd "$install_root" && sha256sum --check expected.txt)
+          tar --extract --gzip --file "$install_root/$archive" --directory "$install_root" gitleaks
+          chmod +x "$install_root/gitleaks"
+          "$install_root/gitleaks" version
+          echo "QUALITY_GITLEAKS_PATH=$install_root/gitleaks" >> "$GITHUB_ENV"
+
+      - name: Run security scan
         run: dotnet run --project src/quality-cli -- security scan .
+
+      - name: Publish required gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-gate-${{ github.run_id }}
+          path: ${{ github.workspace }}/.gate-results
+          if-no-files-found: warn
+          retention-days: 14

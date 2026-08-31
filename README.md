@@ -226,7 +226,35 @@ criteria.
 
 - `src/AgentOrchestrator.CodeQuality/` contains the publishable in-process analysis package.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `.github/workflows/build.yml` is the required gate for pull requests and pushes to `main`.
+- `.github/workflows/release-canary.yml` runs machine-bound and browser performance checks on a labeled host.
+
+### Required gate
+
+`build.yml` pins .NET 10.0.301, Node 22.23.1, and Gitleaks 8.24.2, then runs each
+check as a separately named step:
+
+| Step | Local equivalent |
+| --- | --- |
+| Verify required gate contract | `npm run test:tooling` |
+| Run portable .NET tests | `dotnet test QualityStudio.slnx -c Release --filter "Category!=MachineBound"` |
+| Build production frontend bundle | `npm --prefix frontend run build` |
+| Run Angular specs | `npm --prefix frontend test` |
+| Run security scan | `dotnet run --project src/quality-cli -- security scan .` |
+
+Machine-bound timing checks are excluded from this lane and run in the release
+canary instead. The production frontend build enforces the 480 kB initial bundle
+budget in [`frontend/angular.json`](frontend/angular.json); a development build
+does not provide shipping evidence.
+
+`npm --prefix frontend test` prefers an explicit `CHROME_BIN`, then the Chromium
+pinned by `playwright-core`, then a system Chrome, Chromium, or Edge. Run
+`npm --prefix frontend run browser:install` once to provision the pinned browser.
+On a runner without a user namespace for its browser sandbox, set
+`CHROME_NO_SANDBOX=1`.
+
+The `tests/dev-stack.test.mjs` launcher suite remains outside the required gate
+until the host-and-fixture slice makes it portable on Linux and Windows.
 
 ## Minimal API
 
