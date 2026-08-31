@@ -228,6 +228,41 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task ScanAsync_RealGitleaksBinary_DetectsPlantedSecret()
+    {
+        // The other tests in this file exercise a fake gitleaks binary that writes JSON straight to
+        // stdout, so they cannot catch a real-CLI argv/report-path mismatch. Run the actual pinned
+        // binary end to end so a regression of that class (e.g. "--redact 100" as two argv entries,
+        // or dropping --report-path) fails a test instead of only ever reporting a silent false pass.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var previousGitleaksPath = Environment.GetEnvironmentVariable("QUALITY_GITLEAKS_PATH");
+        Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", null);
+        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-real-").FullName;
+        try
+        {
+            await InitializeGitRepositoryAsync(root, cancellationToken);
+            // Split so this source file itself never contains the contiguous AKIA... token: the
+            // repository's own CI security scan (build.yml) runs against this tracked file, and a
+            // real, unsplit fixture would now trip it since this fix makes the scanner actually work.
+            var awsAccessKeyId = "AKIA" + "ABCDEFGHIJKLMNOP";
+            await WriteRepoFixtureAsync(root, "src/leaked-key.txt", $"aws_access_key_id = {awsAccessKeyId}\n", cancellationToken);
+
+            var result = await new GitleaksSecurityScanner().ScanAsync(
+                new SecurityScanRequest(root, SecurityScanMode.Repository),
+                cancellationToken);
+
+            Assert.True(result.Report.Available, result.Report.UnavailableReason);
+            Assert.True(result.Report.NewFindings > 0, "the real gitleaks binary must detect the planted AWS key fixture");
+            Assert.Contains(result.Findings, finding => finding.Path == "src/leaked-key.txt");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", previousGitleaksPath);
+            TryDelete(root);
+        }
+    }
+
     private static void SetScenario(string scenario, string version = Version)
     {
         Environment.SetEnvironmentVariable("FAKE_GITLEAKS_SCENARIO", scenario);
@@ -302,6 +337,8 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             var version = Environment.GetEnvironmentVariable("FAKE_GITLEAKS_VERSION") ?? "v8.24.2";
             var scenario = Environment.GetEnvironmentVariable("FAKE_GITLEAKS_SCENARIO") ?? "repository";
             var command = args.FirstOrDefault(arg => arg is "version" or "dir" or "git");
+            var reportPathIndex = Array.IndexOf(args, "--report-path");
+            var reportPath = reportPathIndex >= 0 && reportPathIndex + 1 < args.Length ? args[reportPathIndex + 1] : null;
 
             if (command == "version")
             {
@@ -309,20 +346,32 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
                 return 0;
             }
 
+            // The real gitleaks CLI never prints its report to stdout -- it only writes the file named
+            // by --report-path -- so this fake mirrors that instead of using Console.WriteLine, which
+            // would let a scanner regression that drops --report-path go unnoticed here too.
+            void WriteReport(object payload)
+            {
+                var json = JsonSerializer.Serialize(payload);
+                if (reportPath is not null)
+                {
+                    File.WriteAllText(reportPath, json);
+                }
+            }
+
             if (command == "dir")
             {
-                Console.WriteLine(JsonSerializer.Serialize(scenario switch
+                WriteReport(scenario switch
                 {
                     "repository" => RepositoryFindings(),
                     "staged" => StagedFindings(),
                     _ => Array.Empty<Dictionary<string, object?>>(),
-                }));
+                });
                 return 1;
             }
 
             if (command == "git")
             {
-                Console.WriteLine(JsonSerializer.Serialize(RangeSarif()));
+                WriteReport(RangeSarif());
                 return 1;
             }
 

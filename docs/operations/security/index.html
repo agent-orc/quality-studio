@@ -167,6 +167,7 @@
       <li><a href="#options">Options and recommendation</a></li>
       <li><a href="#slices">Implementation slices</a></li>
       <li><a href="#approval">Approval packet</a></li>
+      <li><a href="#implementation-state">Implementation state</a></li>
       <li><a href="#evidence">Evidence index and limits</a></li>
     </ol>
   </nav>
@@ -446,8 +447,59 @@
     <p>The architecture decision is deliberately independent of model choice: no model can raise the correctness or confidentiality guarantee above the process boundary that supplies its tools, mounts, credentials, and network.</p>
   </section>
 
+  <section id="implementation-state">
+    <h2><span class="no">10</span>Implementation state</h2>
+    <p>Option C and S0–S6 remain <b>decision-pending</b>: no operator sign-off is recorded, and the critical worker-boundary chain (R-01, R-02 → S0, S1) is still open. The slices below are narrow, reviewable, defense-in-depth pieces implemented ahead of that decision because they carry low blast radius and no architectural lock-in; they do not substitute for S0/S1 and untrusted-repository review must stay blocked until those land.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Card</th><th>What changed</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>2026-08-24</td>
+          <td>QS-81</td>
+          <td><b>F-02 defense-in-depth:</b> the three file-level prompt templates (<code>prompts/file-{code,security,performance}-review.v1.md</code>) no longer wrap reviewed content in a fixed, guessable <code>&lt;reviewed-file&gt;</code> tag. <code>ReviewPromptBuilder.GenerateContentBoundary()</code> now mints a fresh 128-bit random marker per <code>Build()</code> call and the template states explicitly that content between the markers is untrusted data, never an instruction. This raises the bar against naive close-tag forgery; it is <b>not</b> a process boundary and does not close F-02/R-02 — S1 is still required before untrusted repositories are reviewed.</td>
+          <td><code>ReviewPromptBuilder.cs</code> (<code>BuilderContractVersion</code> bumped to v4 so cached reviews go stale); <code>ReviewPromptBuilderTests.Build_WrapsFileContentInAFreshUnforgeableBoundary</code>.</td>
+        </tr>
+        <tr>
+          <td>2026-08-24</td>
+          <td>QS-81</td>
+          <td><b>F-04 gap closed (scan coverage):</b> <code>.quality/security/gitleaks.toml</code> no longer blanket-excludes <code>.quality/reviews</code>, so persisted review output is scanned for secrets like the rest of the repository. This is the scan-coverage half of S3; the redaction/DLP-before-persistence half and the tracked-config policy check (R-09) are not built yet.</td>
+          <td>Coverage confirmed by scanned-file count: the repository scan reports 349 files with <code>.quality/reviews</code> empty and 350 once a file is placed there, so the path is genuinely in scope. <b>The accompanying <code>pass</code> verdict is not evidence of anything</b> — see the scanner defect noted below; a clean run is currently indistinguishable from a run that never happened.</td>
+        </tr>
+        <tr>
+          <td>2026-08-24</td>
+          <td>QS-81</td>
+          <td><b>R-08 / partial S6:</b> Angular packages bumped from the vulnerable 20.3.26 line to 20.3.29 (fixes <a href="https://github.com/advisories/GHSA-jhpw-976m-542j">GHSA-jhpw-976m-542j</a> and <a href="https://github.com/advisories/GHSA-jj27-h5hq-8x99">GHSA-jj27-h5hq-8x99</a>; production and full-tree <code>npm audit</code> both report 0 vulnerabilities). <code>.github/workflows/build.yml</code> now also runs frontend install/build/unit-tests, a blocking production <code>npm audit --audit-level=high</code>, an advisory full-tree audit, and a blocking NuGet <code>--vulnerable --include-transitive</code> check for both the solution and the out-of-solution <code>spikes/code-graph</code> project. Actions are still not pinned to commit SHAs, no SBOM is generated, and scheduled dependency updates are not configured — those remain open S6 work.</td>
+          <td><code>.github/workflows/build.yml</code>; <code>frontend/package-lock.json</code>; local runs of every new CI step (build, both audits, both NuGet checks) before commit.</td>
+        </tr>
+        <tr>
+          <td>2026-08-28</td>
+          <td>QS-81</td>
+          <td><b>F-04 completed for Repository mode (scanner defect fixed):</b> the "blocking defect" below is resolved, and verification found the earlier defect writeup was itself incomplete — there were two independent bugs, not one, plus a third bug uncovered in the process:
+            <ul>
+              <li><code>GitleaksSecurityScanner.RunScanAsync</code> passed <code>--redact</code> and <code>100</code> as two argv entries; gitleaks declares <code>--redact</code> as an optional-value flag (<code>uint[=100]</code>), so the unattached value was parsed as an unknown subcommand and the process exited before scanning anything. Fixed to <code>--redact=100</code>.</li>
+              <li>Independently of the flag shape, gitleaks <b>never</b> writes its report to stdout — only to the file named by <code>--report-path</code>, which the scanner never passed. Even with the redact bug fixed alone, every scan would still have parsed an empty stdout into zero findings. Fixed by writing to a per-run temp <code>--report-path</code> file, reading it back, and deleting it in a <code>finally</code>.</li>
+              <li>Repository-mode scans invoked <code>gitleaks dir &lt;absolute-root&gt;</code>, so gitleaks echoed the absolute scan target into every finding's <code>File</code> field. <code>NormalizeRelativePath</code> only strips a leading <code>/</code> and swaps separators, so downstream location binding received a mangled path like <code>tmp/&lt;tempdir&gt;/src/leaked-key.txt</code> instead of <code>src/leaked-key.txt</code> — silently wrong finding locations even once the scan itself worked. Fixed by scanning <code>dir .</code> against the already-set <code>WorkingDirectory</code> instead of the absolute path.</li>
+            </ul>
+            All three were invisible to the existing unit tests because they run against a fake gitleaks binary that <code>Console.WriteLine</code>s JSON straight to stdout and never receives an absolute scan target, so it could not exercise the real CLI's argv contract, its report-path-only output, or its dir-mode path echoing. A new test (<code>ScanAsync_RealGitleaksBinary_DetectsPlantedSecret</code>) runs the actual pinned 8.24.2 binary end to end against a planted fixture; the fake binary was also updated to honor <code>--report-path</code> so the other four tests still exercise the same code path the real binary uses.</td>
+          <td><code>GitleaksSecurityScanner.cs</code> (<code>RunScanAsync</code>, repository-mode target argument); <code>GitleaksSecurityScannerTests.cs</code> (new real-binary test; fake binary now writes <code>--report-path</code>); manual reproduction of both original bugs and the fix against the pinned binary at <code>~/.local/share/QualityStudio/gitleaks/8.24.2/linux-x64/gitleaks</code>; live run against this repository: <code>dotnet run --project src/quality-cli -- security scan .</code> now reports <code>pass | files 355 | new 0 | accepted 1 | block 0</code> with correct repo-relative paths (previously always <code>pass | files N | new 0 | block 0</code> regardless of content). <code>dotnet test</code> full solution green except the pre-existing, load-related <code>ProjectDashboardTests</code> wall-clock flake (passes in isolation, unrelated files).</td>
+        </tr>
+        <tr>
+          <td>2026-08-28</td>
+          <td>QS-81</td>
+          <td><b>R-09-adjacent: narrow baseline suppression for the F-04 unit-key false positive.</b> Once the scanner above actually reports findings, the documented <code>docs/concept.md</code> content-derived 64-hex "unit-key" (see F-04 findings text) is a real, reproducible <code>block</code> in CI, not a hypothetical. Added a single <code>.quality/security/gitleaks.baseline.json</code> entry keyed on the exact gitleaks fingerprint (<code>docs/concept.md:generic-api-key:1536</code>) with a note pointing back to this dossier — a narrow, reviewed, fingerprint-exact suppression, not a path or rule exclusion, matching what S3's exit criteria ask for. This is a partial start on S3, not S3 itself: redaction-before-persistence and the tracked-config policy check (R-09 proper) remain open.</td>
+          <td><code>.quality/security/gitleaks.baseline.json</code>; the live CLI run cited above shows exactly one <code>accepted</code> finding at that fingerprint and zero <code>block</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="box ok">
+      <h4>Resolved 2026-08-28: <code>quality security scan</code> could not fail</h4>
+      <p><b>Status: fixed</b> (see the 2026-08-28 F-04 row above for the full three-bug breakdown and evidence). Originally found while verifying the 2026-08-24 F-04 coverage slice: <code>GitleaksSecurityScanner</code> passed the redaction flag as two separate argv entries (<code>"--redact"</code> then <code>"100"</code>), which gitleaks 8.24.2 rejected as an unknown subcommand, so every repository scan silently reported <code>pass</code> regardless of content. The original writeup called this a "one-line fix" (<code>--redact=100</code>); that undercounted the defect — the scanner also never told gitleaks where to write its report (gitleaks does not write JSON to stdout at all) and, once findings did flow through, dir-mode reported absolute rather than repo-relative paths. All three are fixed and covered by a test that runs the real pinned binary instead of the fake stdout-based test double.</p>
+    </div>
+    <p class="dim">Note on wave history: this run found no integrated commit or merged branch evidence that a prior "QS-68" attempt had landed hardening slices against this dossier — at the time this card started, QS-68 was a separate task still in progress. Treat prior-wave completion claims as unverified until they appear in <code>git log origin/main</code> or this table.</p>
+  </section>
+
   <section id="evidence">
-    <h2><span class="no">10</span>Evidence index and limitations</h2>
+    <h2><span class="no">11</span>Evidence index and limitations</h2>
     <table>
       <thead><tr><th>Question</th><th>Primary repository evidence</th></tr></thead>
       <tbody>
