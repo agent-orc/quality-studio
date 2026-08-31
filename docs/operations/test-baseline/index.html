@@ -143,7 +143,7 @@
     <div class="meta">
       <span><b>Repository state</b> <code>3e0b655</code></span>
       <span><b>Observed</b> 11 August 2026</span>
-      <span><b>Decision</b> pending</span>
+      <span><b>Decision</b> decided &mdash; blanket approval 11 August 2026</span>
       <span><b>Recommended option</b> B</span>
     </div>
   </header>
@@ -180,6 +180,7 @@
     <li><a href="#slices">Implementation slices</a></li>
     <li><a href="#green">Definition of green</a></li>
     <li><a href="#evidence">Evidence ledger</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 
   <h2 id="decision"><span class="no">01</span>Decision requested</h2>
@@ -542,6 +543,64 @@
       <tr><td>Security scanner is pinned but can download on a cold host.</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs"><code>GitleaksBinaryResolver.cs</code></a>; standalone scan passed with 8.24.2</td></tr>
     </tbody>
   </table>
+
+  <h2 id="implementation"><span class="no">11</span>Implementation</h2>
+  <p class="dim">Append-only delivery log. One entry per delivered slice. Later entries never rewrite earlier ones; a correction is a new entry that says what changed.</p>
+
+  <h3>2026-08-31 &mdash; QS-75 &mdash; Slice 1, Truthful required gate <span class="pill done">Delivered</span></h3>
+  <table>
+    <thead>
+      <tr><th>What landed</th><th>Where</th><th>Verification</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>The required gate runs on pull requests again, pins .NET 10.0.301, Node 22.23.1, and Gitleaks 8.24.2, and gives every check a distinct step name and exit status.</td>
+        <td><code>.github/workflows/build.yml</code></td>
+        <td>Contract asserted by <code>tests/required-gate.test.mjs</code>; the same assertions fail 5 of 7 against the previous workflow.</td>
+      </tr>
+      <tr>
+        <td>Frontend install, production Angular build, pinned Chromium provisioning, and the Angular specs joined the gate. The 480&nbsp;kB budget is unchanged.</td>
+        <td><code>.github/workflows/build.yml</code>, <code>frontend/package.json</code></td>
+        <td>Local production build exits 0 at <b>478.30&nbsp;kB</b> initial total; 39 Angular specs pass.</td>
+      </tr>
+      <tr>
+        <td>The Angular runner resolves a browser without configuration: explicit <code>CHROME_BIN</code>, then the Chromium pinned by <code>playwright-core</code>, then a system install. An explicit override that does not exist now fails loudly instead of silently falling back.</td>
+        <td><code>frontend/tests/browser-locator.mjs</code>, <code>frontend/tests/run-tests.mjs</code></td>
+        <td>9 cases in <code>tests/browser-locator.test.mjs</code>. <code>npm --prefix frontend test</code> now exits 0 on a host with no system Chrome and no <code>CHROME_BIN</code>.</td>
+      </tr>
+      <tr>
+        <td>A <code>browser:install</code> script provisions the pinned Chromium. This also repairs the release canary, which already invoked that script name before it existed.</td>
+        <td><code>frontend/package.json</code></td>
+        <td><code>npm --prefix frontend run browser:install</code> exits 0.</td>
+      </tr>
+      <tr>
+        <td>Gitleaks is provisioned in its own step: pinned download, SHA-256 verification against the published checksums, then <code>QUALITY_GITLEAKS_PATH</code> handed to the scanner. An unavailable download now reads as a missing dependency, not a product failure.</td>
+        <td><code>.github/workflows/build.yml</code></td>
+        <td>Provisioning sequence executed locally: checksum <code>OK</code>, binary reports 8.24.2, scan passes over 354 files with 0 findings.</td>
+      </tr>
+      <tr>
+        <td>README now names the same checks branch protection requires, with the local equivalent of each, and states plainly that the launcher suite is not yet in the gate.</td>
+        <td><code>README.md</code></td>
+        <td>Reviewed against the delivered workflow.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <h4>Correction to section 02: the bundle regression is no longer reproducible</h4>
+    <p>This dossier recorded a production initial bundle of <b>494.94&nbsp;kB</b> against the 480&nbsp;kB error budget at commit <code>3e0b655</code>. Measured again on 2026-08-27 at <code>f7557fb</code>, the production build exits <b>0</b> at <b>478.30&nbsp;kB</b>. Feature commits landed after the observation moved the number below the budget on their own; no bundle work was done by this card and the budget was not raised. The headroom is <b>1.70&nbsp;kB</b>, so the gate is one careless import away from red again. The build step is now in the required gate, which is what keeps that visible.</p>
+  </div>
+
+  <div class="box accent">
+    <h4>Not delivered by QS-75, and why</h4>
+    <ul>
+      <li><b>Slice 2, host and fixture repair</b> &mdash; not started. <code>tests/dev-stack.test.mjs</code> still writes a Windows <code>npm.cmd</code> fixture on every platform and still uses six hard-coded port pairs, so 2 of its 5 cases fail on Linux. It is deliberately excluded from the required gate rather than quarantined silently.</li>
+      <li><b>Slice 3, honest portability taxonomy</b> &mdash; not started. The ten process-spawning xUnit classes are still unaudited; only two methods declare <code>MachineBound</code>.</li>
+      <li><b>Slice 4, coverage generation and priority gaps</b> &mdash; not started. No Cobertura or lcov is produced, so there is still no measured ratchet.</li>
+      <li><b>Slice 5, release canary</b> &mdash; landed earlier by a sibling card as <code>.github/workflows/release-canary.yml</code>, not by QS-75. One latent defect observed while implementing Slice 1: that workflow restores with <code>--locked-mode</code>, but no <code>packages.lock.json</code> is committed anywhere in the repository, so the step would fail on a clean runner. Left for the owning card; the required gate is guarded against the same mistake by test.</li>
+    </ul>
+    <p>Each remaining slice is its own card. Scope for this delivery was one slice, implemented fully and tested, in the priority order this dossier defines.</p>
+  </div>
 
   <div class="box">
     <h4>Evidence limits</h4>
