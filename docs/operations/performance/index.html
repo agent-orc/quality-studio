@@ -25,7 +25,7 @@
   <div class="kicker">Quality Studio · performance · living dossier</div>
   <h1>Large-repository transport after QS-82</h1>
   <p class="lede">QS-59 found that a warm project switch still transferred a recursively repeated 29.1 MB tree. QS-82 delivers the next slice cleanly on top of QS-54 and QS-78: one-level tree transport, lazy expansion, snapshot-pinned child pages, complete timing, and production bundle headroom.</p>
-  <div class="meta"><div><b>Status</b><br><span class="pill done">documented</span></div><div><b>Implemented</b><br>12 August 2026</div><div><b>Re-measured</b><br>24 August 2026</div><div><b>Reproduced</b><br>24 August 2026 on <code>b36bfe3</code></div><div><b>Card</b><br><code>QS-82</code></div><div><b>Integration base</b><br><code>origin/main e31089c</code></div><div><b>Target</b><br>3,927 tracked files</div></div>
+  <div class="meta"><div><b>Status</b><br><span class="pill done">documented</span></div><div><b>Implemented</b><br>12 August 2026</div><div><b>Re-measured</b><br>24 August 2026</div><div><b>Final re-gate</b><br>1 September 2026</div><div><b>Card</b><br><code>QS-82</code></div><div><b>Integration base</b><br><code>origin/main 367aeff</code></div><div><b>Target</b><br>3,927 tracked files</div></div>
 </header>
 
 <section class="callout"><b>Outcome.</b> A valid persisted snapshot plus the v2 root made five measured restarts usable in 1,516.87 ms median instead of the QS-59 10,004.99 ms median (84.84% lower; the &lt;2 s target now passes). The root response is 15,391 bytes instead of 29,119,333 bytes (99.95% smaller). Ten same-build project-plus-root samples measured 31.23 ms median / 42.45 ms p95 with v2 against 331.36 / 902.38 ms with v1. Five live Angular switches measured 19.8 / 87.0 ms and first lazy expansion measured 33.1 ms.</section>
@@ -123,4 +123,20 @@
 <tr><td>Warm switch median reduction</td><td>90.58%</td><td>89.90% (259.02 → 26.16 ms)</td><td class="good">reproduces</td></tr>
 </tbody></table>
 <p class="muted">Re-measured against the same Agent Studio target (<code>9af1a848e3be</code>, 3,927 tracked files) with <code>scripts/measure-tree-transport.mjs</code> on a shared host (load average 15–24 during this run), so absolute latencies are higher across the board than the 24 August run on both arms; the reduction ratios, not the absolute times, are the portable claim, and they reproduce within 1.5 points. Raw JSON is not retained beyond this run's job results directory (host is shared and ephemeral per run).</p>
+
+<h2>8. Final integration re-gate (1 September 2026)</h2>
+<p>The previously approved result tip <code>564922a5</code> was replayed as <code>228868c</code> on freshly fetched <code>origin/main 367aeff</code>. The QS-82 replay itself had one text conflict: QS-82's repository-menu width token and main's newer modal tokens occupied the same root design-token block, so both independent token sets were retained. No QS-82 application logic was reworked.</p>
+<p>The first frontend build also proved that <code>origin/main 367aeff</code> already contained literal QS-83 merge markers in <code>review-panel.ts</code>, outside the QS-82 patch. The conservative union retains main's <code>formatTokenCount</code>/<code>parseTokenCount</code> imports and QS-83's <code>ReviewRunCompareResult</code> import. This baseline repair is recorded separately from the QS-82 replay and is necessary for any frontend build at that main revision.</p>
+<ul>
+<li>Token Economy catalog snapshot: valid.</li>
+<li>Release solution build: zero warnings, zero errors.</li>
+<li>Core .NET tests: 175 passed, 1 explicitly gated live-provider test skipped.</li>
+<li>API tests: 62 passed. Combined gate: 237 passed, 1 skipped, 0 failed.</li>
+<li>Security scan: pass — 435 files, 0 new, 1 accepted baseline finding, 0 blocking, 0 warnings (gitleaks 8.24.2).</li>
+<li>NuGet vulnerable-package checks: no vulnerable packages in the solution or code-graph spike.</li>
+<li>Angular tests: 58 passed in Chrome Headless 152. The first bare invocation reproduced the documented cached-browser discovery caveat; the gate passed with <code>CHROME_BIN</code> pointing at the installed browser and the repository's no-sandbox launcher enabled.</li>
+<li>Production Angular build: passed at 438.13 kB initial. Existing template, budget, and PrismJS CommonJS warnings remain non-blocking.</li>
+<li>Frontend production dependency audit: 0 vulnerabilities. ESLint: 0 errors and 25 existing warnings.</li>
+<li>Tree-v2 app-path contract: 13/13 passed; this checkout measured 1,655,058-byte v1 root versus 6,161-byte v2 root (99.63% smaller).</li>
+</ul>
 </main></body></html>
