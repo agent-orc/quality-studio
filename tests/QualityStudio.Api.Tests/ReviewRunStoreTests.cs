@@ -544,13 +544,22 @@ public sealed class ReviewRunStoreTests
         string expected,
         CancellationToken cancellationToken)
     {
+        // Deadline-based wait: the async run state machine (crash-recovery,
+        // pause/resume, token-cap) can take several seconds to reach a terminal
+        // state when the review host is under load. The old fixed 100x20ms (~2s)
+        // budget expired before slow-but-correct transitions landed, so the loop
+        // returned a stale state and the caller's assert flaked. A generous
+        // deadline keeps the happy path fast (returns as soon as the state is
+        // reached) while removing the load-sensitivity.
         JsonElement run = default;
-        for (var attempt = 0; attempt < 100; attempt++)
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        do
         {
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{runId}", cancellationToken);
             if (run.GetProperty("state").GetString() == expected) return run;
-            await Task.Delay(20, cancellationToken);
+            await Task.Delay(50, cancellationToken);
         }
+        while (DateTime.UtcNow < deadline);
         return run;
     }
 

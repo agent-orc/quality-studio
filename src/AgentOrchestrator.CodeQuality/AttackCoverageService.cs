@@ -105,9 +105,23 @@ public static partial class BoundaryCoverageHasher
 
     private static string MethodBody(string content, string handler)
     {
-        var match = Regex.Match(content,
-            $@"(?m)^[^\r\n]*\b{Regex.Escape(handler)}\s*\([^;]*?(?:=>|\{{)",
-            RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+        Match match;
+        try
+        {
+            // 10s (was 1s): the lazy [^;]*? can backtrack heavily on a large file
+            // whose handler token has no nearby '=>'/'{'; under CPU contention on
+            // the review host the 1s budget was exceeded, throwing
+            // RegexMatchTimeoutException and failing the whole coverage snapshot.
+            match = Regex.Match(content,
+                $@"(?m)^[^\r\n]*\b{Regex.Escape(handler)}\s*\([^;]*?(?:=>|\{{)",
+                RegexOptions.CultureInvariant, TimeSpan.FromSeconds(10));
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // Pathological input: degrade gracefully to "no body found" rather than
+            // aborting coverage. Equivalent to a non-match, never a crash.
+            return string.Empty;
+        }
         if (!match.Success) return string.Empty;
         var arrow = match.Value.LastIndexOf("=>", StringComparison.Ordinal);
         if (arrow >= 0)
