@@ -2,7 +2,23 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+
+const treeNode = (name: string): TreeNode => ({ id: name, name, level: 'repository', path: '.', kinds: {}, children: [] });
+
+const dashboard = (fileCount: number): ProjectDashboard => ({
+  generatedAt: '2026-08-31T10:00:00Z',
+  grades: [],
+  findings: { open: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, byReviewState: { fresh: 0, stale: 0 }, path: '.' },
+  staleness: { fresh: 0, stale: 0, missing: 0, total: 0, path: '.' },
+  reviewCoverage: { reviewedFiles: 0, totalFiles: 0, percent: 0, path: '.' },
+  testCoverage: { status: 'reported', linePercent: 0, coveredLines: 0, totalLines: 0, source: 'coverage.xml', path: '.' },
+  metrics: {
+    fileCount, folderCount: 0, bytes: 0, lines: 0, languages: [],
+    fileSizeDistribution: [], folderSizeDistribution: [], duplicationCandidates: [], dependencyEdges: [],
+  },
+  hotspots: [],
+});
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -78,6 +94,103 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('revalidates an unchanged tree and completes the transition with the retained nodes', async () => {
+    const nodes = [treeNode('Agent Studio')];
+    const cold = api.loadTree('default', false);
+    const first = http.expectOne('/api/repos/default/tree?path=');
+    expect(first.request.headers.has('If-None-Match')).toBeFalse();
+    first.flush({ nodes }, { headers: { ETag: '"tree-1"' } });
+    await cold;
+
+    api.repositoryTransition.set({ repositoryId: 'default', hasSnapshot: true });
+    api.connectionState.set('connecting');
+    const warm = api.loadTree('default', false);
+    const second = http.expectOne('/api/repos/default/tree?path=');
+    expect(second.request.headers.get('If-None-Match')).toBe('"tree-1"');
+    second.flush(null, { status: 304, statusText: 'Not Modified' });
+    await warm;
+
+    expect(api.tree()).toEqual(nodes);
+    expect(api.connectionState()).toBe('live');
+    expect(api.repositoryTransition()).toBeNull();
+  });
+
+  it('replaces the tree snapshot and validator when Git state changes', async () => {
+    const cold = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=').flush(
+      { nodes: [treeNode('before')] }, { headers: { ETag: '"tree-1"' } });
+    await cold;
+
+    const changed = api.loadTree('default', false);
+    const changedRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"tree-1"');
+    changedRequest.flush({ nodes: [treeNode('after')] }, { headers: { ETag: '"tree-2"' } });
+    await changed;
+
+    expect(api.tree().map(node => node.name)).toEqual(['after']);
+    const warm = api.loadTree('default', false);
+    const warmRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(warmRequest.request.headers.get('If-None-Match')).toBe('"tree-2"');
+    warmRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await warm;
+    expect(api.tree().map(node => node.name)).toEqual(['after']);
+  });
+
+  it('does not reuse a tree validator for another repository', async () => {
+    const firstLoad = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=').flush(
+      { nodes: [treeNode('default')] }, { headers: { ETag: '"tree-1"' } });
+    await firstLoad;
+
+    const otherLoad = api.loadTree('agent-studio', false);
+    const otherRequest = http.expectOne('/api/repos/agent-studio/tree?path=');
+    expect(otherRequest.request.headers.has('If-None-Match')).toBeFalse();
+    otherRequest.flush({ nodes: [treeNode('agent-studio')] }, { headers: { ETag: '"tree-2"' } });
+    await otherLoad;
+  });
+
+  it('revalidates an unchanged dashboard and completes the transition with the retained project', async () => {
+    const snapshot = dashboard(5116);
+    const cold = api.loadProjectDashboard('default');
+    const first = http.expectOne('/api/repos/default/project');
+    expect(first.request.headers.has('If-None-Match')).toBeFalse();
+    first.flush(snapshot, { headers: { ETag: '"project-1"' } });
+    await cold;
+
+    api.repositoryTransition.set({ repositoryId: 'default', hasSnapshot: true });
+    api.connectionState.set('connecting');
+    const warm = api.loadProjectDashboard('default');
+    const second = http.expectOne('/api/repos/default/project');
+    expect(second.request.headers.get('If-None-Match')).toBe('"project-1"');
+    second.flush(null, { status: 304, statusText: 'Not Modified' });
+    await warm;
+
+    expect(api.project()).toEqual(snapshot);
+    expect(api.connectionState()).toBe('live');
+    expect(api.repositoryTransition()).toBeNull();
+    expect(api.projectLoading()).toBeFalse();
+  });
+
+  it('replaces the dashboard snapshot and validator when Git state changes', async () => {
+    const cold = api.loadProjectDashboard('default');
+    http.expectOne('/api/repos/default/project').flush(dashboard(12), { headers: { ETag: '"project-1"' } });
+    await cold;
+
+    const changed = api.loadProjectDashboard('default');
+    const changedRequest = http.expectOne('/api/repos/default/project');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"project-1"');
+    changedRequest.flush(dashboard(5116), { headers: { ETag: '"project-2"' } });
+    await changed;
+    expect(api.project()?.metrics.fileCount).toBe(5116);
+
+    const warm = api.loadProjectDashboard('default');
+    const warmRequest = http.expectOne('/api/repos/default/project');
+    expect(warmRequest.request.headers.get('If-None-Match')).toBe('"project-2"');
+    warmRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await warm;
+    expect(api.project()?.metrics.fileCount).toBe(5116);
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
