@@ -174,7 +174,7 @@
     <h1>Put deterministic facts before model judgement</h1>
     <p class="lede">Quality Studio already has analyzer and security sensors, but the orchestration still mixes machine facts, prompt context, and review findings. This dossier defines a selective preflight for the repository's .NET 10 and Angular 20 stacks, with measured checks, explicit gate behavior, and token-economy acceptance criteria.</p>
     <div class="meta">
-      <span><b>Status</b> Documented implementation in progress</span>
+      <span><b>Status</b> Decided · implementation in progress</span>
       <span><b>Recommendation</b> Option C approved; deliver in ranked slices</span>
       <span><b>Evidence cut</b> 12 August 2026</span>
       <span><b>Current card</b> QS-86</span>
@@ -561,6 +561,11 @@
     <article class="slice">
       <header><h3>2026-08-27 · QS-86 · final gate after current origin/main rebase</h3><span class="pill done">gate passed</span></header>
       <p>The unchanged QS-86 feature commit was rebased without conflicts onto <code>origin/main</code> at <code>f7557fb</code>. The fixed frontend test runner resolved Angular CLI through the repository-local absolute path and passed all 39 browser specs. Release build completed with zero warnings and zero errors; the non-machine-bound .NET suites passed 207 tests with one explicitly disabled external-live test. Frontend lint completed with zero errors and 25 informational burn-in warnings, and the production frontend build completed with the existing budget, template, style, and CommonJS warnings. The API integration path again proved deterministic check execution before the model request and the independent repository enable flag. No product-code or feature-scope changes were made during this final rebase round.</p>
+    </article>
+
+    <article class="slice">
+      <header><h3>2026-08-31 · QS-72 · Angular AOT template compiler sensor</h3><span class="pill done">decided · landed</span></header>
+      <p><b>Angular AOT template compiler sensor landed; ngc diagnostics normalized before model review.</b> The repository-owned <code>angular-compiler</code> sensor runs the repository-local <code>ngc -p frontend/tsconfig.app.json</code> without a shell, normalizes every emitted <code>NG*</code> and <code>TS*</code> diagnostic to stable deterministic findings at repository-relative locations, and reports missing or failed tooling without parseable diagnostics as unavailable. It is independently enabled per repository when the Angular target exists. Full diagnostics remain in standalone evidence, while affected file prompts receive only bounded rule, severity, range, and result-hash context and continue to model review. Parser, availability, compact-projection, and API execution-order/disablement tests cover the slice.</p>
     </article>
 
     <div class="box warn">

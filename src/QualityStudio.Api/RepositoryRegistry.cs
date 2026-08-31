@@ -398,6 +398,7 @@ public sealed class RepositoryRegistry
 
     private static RepositorySensorConfiguration DefaultSensor(string id, string root) => id switch
     {
+        "angular-compiler" => new RepositorySensorConfiguration(id, AngularCompilerSensor.HasTarget(root)),
         "dotnet-build" => new RepositorySensorConfiguration(id, DotNetBuildSensor.HasTarget(root)),
         "eslint" => EslintDefault(id, root),
         "roslyn" or "sarif" or "tsc" => new RepositorySensorConfiguration(id, Enabled: false),

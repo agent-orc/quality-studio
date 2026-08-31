@@ -50,6 +50,16 @@ public interface IReviewSensor
 }
 
 /// <summary>
+/// Probes tool availability against a specific repository instead of the host process directory.
+/// </summary>
+public interface IRepositoryAwareReviewSensor : IReviewSensor
+{
+    Task<SensorAvailability> ProbeAvailabilityAsync(
+        string repositoryRoot,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// Marks sensor output that is safe to expose to an agent as prior deterministic evidence.
 /// The evidence remains separate from findings authored by the review agent.
 /// </summary>
