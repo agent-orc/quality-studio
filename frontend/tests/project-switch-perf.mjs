@@ -77,9 +77,9 @@ try {
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 2);
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await switchRepository(page, 'Realistic fixture');
-    await page.locator('[data-transition-state="stale"]').waitFor({ state: 'visible' });
-    await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-dark.png'), fullPage: true });
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 3);
+    const warmTransitionCleared = !await page.locator('[data-transition-state]').first().isVisible();
+    await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-dark.png'), fullPage: true });
 
     const transitionEvents = events.filter(event => event.event === 'qs.repository.transition-visible');
     const usableEvents = events.filter(event => event.event === 'qs.repository.switch.usable');
@@ -93,6 +93,7 @@ try {
       transitionEvents,
       usableEvents,
       projectEvents,
+      warmTransitionCleared,
       prewarmEvent: apiLines.find(line => line.includes('"event":"qs.repository.prewarm"') && line.includes('"repositoryId":"realistic"'))?.trim() ?? null,
     };
     await writeFile(resolve(resultsRoot, 'project-switch-perf.json'), JSON.stringify(result, null, 2));
@@ -101,7 +102,8 @@ try {
     const realisticProjectEvents = projectEvents.filter(event => event.repositoryId === 'realistic');
     if (transitionEvents.length < 3 || transitionEvents.some(event => event.durationMs >= transitionBudgetMs) ||
         usableEvents.length < 3 || usableEvents.some(event => event.durationMs >= usableBudgetMs) ||
-        realisticProjectEvents.length < 2 || realisticProjectEvents.some(event => event.durationMs >= 150)) process.exitCode = 1;
+        realisticProjectEvents.length < 2 || realisticProjectEvents.some(event => event.durationMs >= 150) ||
+        !warmTransitionCleared) process.exitCode = 1;
   } finally {
     await browser.close();
   }

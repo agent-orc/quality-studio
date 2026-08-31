@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -78,6 +78,116 @@ describe('QualityApi', () => {
     expect(api.connectionLabel()).toBe('Repository connected');
     expect(api.file()?.path).toBe('missing.cs');
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+  });
+
+  it('revalidates a retained tree only for the identical repository path', async () => {
+    const original = [treeNode('original', '.')];
+    const replacement = [treeNode('replacement', '.')];
+
+    const firstLoad = api.loadTree('default', false);
+    const firstRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(firstRequest.request.headers.has('If-None-Match')).toBeFalse();
+    firstRequest.flush({ nodes: original }, { headers: { ETag: '"tree-v1"' } });
+    await firstLoad;
+
+    const otherPathLoad = api.loadTree('default', false, 'src/app');
+    const otherPathRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp');
+    expect(otherPathRequest.request.headers.has('If-None-Match')).toBeFalse();
+    otherPathRequest.flush({ nodes: [treeNode('app', 'src/app')] }, { headers: { ETag: '"app-v1"' } });
+    await otherPathLoad;
+
+    const unchangedLoad = api.loadTree('default', false);
+    const unchangedRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(unchangedRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    unchangedRequest.flush(null, { status: 304, statusText: 'Not Modified', headers: { ETag: '"tree-v1"' } });
+    await unchangedLoad;
+
+    expect(api.tree()).toBe(original);
+    expect(api.connectionState()).toBe('live');
+
+    const changedLoad = api.loadTree('default', false);
+    const changedRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    changedRequest.flush({ nodes: replacement }, { headers: { ETag: '"tree-v2"' } });
+    await changedLoad;
+
+    expect(api.tree()).toBe(replacement);
+    const revalidateReplacement = api.loadTree('default', false);
+    const replacementRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(replacementRequest.request.headers.get('If-None-Match')).toBe('"tree-v2"');
+    replacementRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await revalidateReplacement;
+  });
+
+  it('reuses a 304 project dashboard and replaces its body and ETag on 200', async () => {
+    const original = projectDashboard(5);
+    const replacement = projectDashboard(8);
+
+    const firstLoad = api.loadProjectDashboard();
+    const firstRequest = http.expectOne('/api/repos/default/project');
+    expect(firstRequest.request.headers.has('If-None-Match')).toBeFalse();
+    firstRequest.flush(original, { headers: { ETag: '"project-v1"' } });
+    await firstLoad;
+
+    const unchangedLoad = api.loadProjectDashboard();
+    const unchangedRequest = http.expectOne('/api/repos/default/project');
+    expect(unchangedRequest.request.headers.get('If-None-Match')).toBe('"project-v1"');
+    unchangedRequest.flush(null, { status: 304, statusText: 'Not Modified', headers: { ETag: '"project-v1"' } });
+    await unchangedLoad;
+
+    expect(api.project()).toBe(original);
+    expect(api.connectionState()).toBe('live');
+    expect(api.projectLoading()).toBeFalse();
+
+    const changedLoad = api.loadProjectDashboard();
+    const changedRequest = http.expectOne('/api/repos/default/project');
+    changedRequest.flush(replacement, { headers: { ETag: '"project-v2"' } });
+    await changedLoad;
+
+    expect(api.project()).toBe(replacement);
+    const revalidateReplacement = api.loadProjectDashboard();
+    const replacementRequest = http.expectOne('/api/repos/default/project');
+    expect(replacementRequest.request.headers.get('If-None-Match')).toBe('"project-v2"');
+    replacementRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await revalidateReplacement;
+  });
+
+  it('finishes a warm repository transition without clearing retained signals', async () => {
+    const retainedTree = [treeNode('warm', '.')];
+    const retainedProject = projectDashboard(5);
+
+    const primeTree = api.loadTree('warm', false);
+    http.expectOne('/api/repos/warm/tree?path=').flush({ nodes: retainedTree }, { headers: { ETag: '"tree-warm"' } });
+    await primeTree;
+    const primeProject = api.loadProjectDashboard('warm');
+    http.expectOne('/api/repos/warm/project').flush(retainedProject, { headers: { ETag: '"project-warm"' } });
+    await primeProject;
+
+    const switching = api.selectRepository('warm');
+    const treeRequest = http.expectOne('/api/repos/warm/tree?path=');
+    const projectRequest = http.expectOne('/api/repos/warm/project');
+    expect(treeRequest.request.headers.get('If-None-Match')).toBe('"tree-warm"');
+    expect(projectRequest.request.headers.get('If-None-Match')).toBe('"project-warm"');
+    treeRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    projectRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await switching;
+
+    expect(api.repositoryTransition()).toBeNull();
+    expect(api.tree()).toBe(retainedTree);
+    expect(api.project()).toBe(retainedProject);
+    expect(api.connectionState()).toBe('live');
+
+    http.expectOne('/api/repos/warm/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
+    http.expectOne('/api/repos/warm/inputs').flush({ kinds: {} });
+    http.expectOne('/api/repos/warm/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
+    http.expectOne('/api/repos/warm/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+    http.expectOne('/api/repos/warm/review/runs').flush({ runs: [] });
+    http.expectOne('/api/repos/warm/usage').flush({
+      generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0,
+      reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [],
+    });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/warm/handover').flush({ targetConfigured: false, dryRun: true });
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
@@ -164,3 +274,28 @@ describe('QualityApi', () => {
     expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
   });
 });
+
+function treeNode(name: string, path: string): TreeNode {
+  return { id: name, name, level: 'project', path, kinds: {}, children: [] };
+}
+
+function projectDashboard(fileCount: number): ProjectDashboard {
+  return {
+    generatedAt: '2026-08-11T10:00:00Z',
+    grades: [],
+    findings: {
+      open: 0,
+      bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+      byReviewState: { fresh: 0, stale: 0 },
+      path: '.',
+    },
+    staleness: { fresh: 0, stale: 0, missing: fileCount, total: fileCount, path: '.' },
+    reviewCoverage: { reviewedFiles: 0, totalFiles: fileCount, percent: 0, path: '.' },
+    testCoverage: { status: 'unavailable', linePercent: null, coveredLines: null, totalLines: null, source: null, path: '.' },
+    metrics: {
+      fileCount, folderCount: 1, bytes: 0, lines: 0, languages: [],
+      fileSizeDistribution: [], folderSizeDistribution: [], duplicationCandidates: [], dependencyEdges: [],
+    },
+    hotspots: [],
+  };
+}
