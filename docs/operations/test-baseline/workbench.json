@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-12T15:32:58Z",
+  "updatedAt": "2026-09-01T06:53:00Z",
   "sourceTaskKeys": [
     "QS-66"
   ],
@@ -57,8 +57,8 @@
   "implementation": {
     "state": "documented",
     "latestTaskKey": "QS-89",
-    "updatedAt": "2026-08-12T15:32:58Z",
-    "summary": "Wave 2 enforces named test lanes, shared process fixtures, zero-selection failure, an honest external-live boundary, and a scoped fast pre-review target."
+    "updatedAt": "2026-09-01T06:53:00Z",
+    "summary": "Wave 2 enforces named non-empty test lanes, shared process fixtures, an honest external-live boundary, and a scoped fast pre-review target. The current-main re-gate also preserves the coverage floor with direct run-archive tests and the renamed analysis-core package selector."
   },
   "editedBy": "Operator, recorded by AGT-2621"
 }

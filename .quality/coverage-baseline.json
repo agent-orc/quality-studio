@@ -10,7 +10,7 @@
       "features": {
         "core-library": {
           "minimum": 0.8013,
-          "packages": ["AgentOrchestrator.CodeQuality"]
+          "packages": ["QualityStudio.Analysis.Core"]
         },
         "cli": {
           "minimum": 0.2356,

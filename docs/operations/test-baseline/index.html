@@ -588,6 +588,10 @@
         <td>2026-08-12</td><td><code>QS-89</code></td><td><b>Keep-green enforcement</b></td>
         <td>Split portable, controlled tool-bound, machine-bound, and external-live xUnit selections behind one tested lane definition; each expected selection now fails when its inventory is empty. Removed the routine live-test skip by classifying it <code>ExternalLive</code> and making missing opt-in fail. Centralized platform-neutral Node process fixtures, enforced class-level <code>ToolBound</code> ownership for real Git/process consumers, and added the scoped <code>npm run test:pre-review</code> target. The gate honesty and fixture rules are documented in <a href="keep-green.md"><code>keep-green.md</code></a>.</td>
       </tr>
+      <tr>
+        <td>2026-09-01</td><td><code>QS-89</code></td><td><b>Current-main integration re-gate</b></td>
+        <td>Replayed the reviewed QS-89 delivery onto current <code>origin/main</code> while retaining the integrated model-catalog and dependency-audit checks. Updated the coverage selector for the renamed <code>QualityStudio.Analysis.Core</code> package and added direct round-trip and failure-path proof for the previously untested run archive. The API package now measures 90.10% against the unchanged 89.18% floor; portable, tool-bound, host-integration, production Angular, browser, coverage, security, and dependency gates passed locally with no test skips.</td>
+      </tr>
     </tbody>
   </table>
 </main>
