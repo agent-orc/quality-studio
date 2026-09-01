@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -17,6 +17,102 @@ describe('QualityApi', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('reuses a retained tree snapshot on 304 and completes the live transition', async () => {
+    const retainedNodes = [{ id: 'old', name: 'Old tree', level: 'project', path: '.', kinds: {}, children: [] }] satisfies TreeNode[];
+    const initial = api.loadTree('default', false, 'src/app');
+    const initialRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp');
+    expect(initialRequest.request.headers.has('If-None-Match')).toBeFalse();
+    initialRequest.flush({ nodes: retainedNodes }, { headers: { ETag: '"tree-v1"' } });
+    await initial;
+
+    api.repositoryTransition.set({ repositoryId: 'default', hasSnapshot: true });
+    api.connectionState.set('connecting');
+    const revalidation = api.loadTree('default', false, 'src/app');
+    const conditionalRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp');
+    expect(conditionalRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    conditionalRequest.flush(null, { status: 304, statusText: 'Not Modified', headers: { ETag: '"tree-v1"' } });
+    await revalidation;
+
+    expect(api.tree()).toBe(retainedNodes);
+    expect(api.connectionState()).toBe('live');
+    expect(api.repositoryTransition()).toBeNull();
+  });
+
+  it('keys retained tree ETags by both repository and requested path', async () => {
+    const first = api.loadTree('default', false, 'src/first');
+    http.expectOne('/api/repos/default/tree?path=src%2Ffirst')
+      .flush({ nodes: [] }, { headers: { ETag: '"first-path"' } });
+    await first;
+
+    const otherPath = api.loadTree('default', false, 'src/second');
+    const otherPathRequest = http.expectOne('/api/repos/default/tree?path=src%2Fsecond');
+    expect(otherPathRequest.request.headers.has('If-None-Match')).toBeFalse();
+    otherPathRequest.flush({ nodes: [] }, { headers: { ETag: '"second-path"' } });
+    await otherPath;
+
+    const firstAgain = api.loadTree('default', false, 'src/first');
+    const firstAgainRequest = http.expectOne('/api/repos/default/tree?path=src%2Ffirst');
+    expect(firstAgainRequest.request.headers.get('If-None-Match')).toBe('"first-path"');
+    firstAgainRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await firstAgain;
+  });
+
+  it('replaces the tree snapshot and retained ETag after a changed 200 response', async () => {
+    const oldNodes = [{ id: 'old', name: 'Old tree', level: 'project', path: '.', kinds: {}, children: [] }] satisfies TreeNode[];
+    const freshNodes = [{ id: 'fresh', name: 'Fresh tree', level: 'project', path: '.', kinds: {}, children: [] }] satisfies TreeNode[];
+    const initial = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=')
+      .flush({ nodes: oldNodes }, { headers: { ETag: '"tree-v1"' } });
+    await initial;
+
+    const changed = api.loadTree('default', false);
+    const changedRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    changedRequest.flush({ nodes: freshNodes }, { headers: { ETag: '"tree-v2"' } });
+    await changed;
+    expect(api.tree()).toBe(freshNodes);
+
+    const verifyTag = api.loadTree('default', false);
+    const verifyRequest = http.expectOne('/api/repos/default/tree?path=');
+    expect(verifyRequest.request.headers.get('If-None-Match')).toBe('"tree-v2"');
+    verifyRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await verifyTag;
+  });
+
+  it('conditionally revalidates dashboards, retaining 304 snapshots and replacing changed 200 responses', async () => {
+    const retained = { generatedAt: '2026-08-11T10:00:00Z', metrics: { fileCount: 5_116 } } as ProjectDashboard;
+    const fresh = { generatedAt: '2026-08-11T10:05:00Z', metrics: { fileCount: 5_117 } } as ProjectDashboard;
+    const initial = api.loadProjectDashboard('default');
+    const initialRequest = http.expectOne('/api/repos/default/project');
+    expect(initialRequest.request.headers.has('If-None-Match')).toBeFalse();
+    initialRequest.flush(retained, { headers: { ETag: '"project-v1"' } });
+    await initial;
+
+    api.repositoryTransition.set({ repositoryId: 'default', hasSnapshot: true });
+    api.connectionState.set('connecting');
+    const unchanged = api.loadProjectDashboard('default');
+    const unchangedRequest = http.expectOne('/api/repos/default/project');
+    expect(unchangedRequest.request.headers.get('If-None-Match')).toBe('"project-v1"');
+    unchangedRequest.flush(null, { status: 304, statusText: 'Not Modified', headers: { ETag: '"project-v1"' } });
+    await unchanged;
+    expect(api.project()).toBe(retained);
+    expect(api.connectionState()).toBe('live');
+    expect(api.repositoryTransition()).toBeNull();
+
+    const changed = api.loadProjectDashboard('default');
+    const changedRequest = http.expectOne('/api/repos/default/project');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"project-v1"');
+    changedRequest.flush(fresh, { headers: { ETag: '"project-v2"' } });
+    await changed;
+    expect(api.project()).toBe(fresh);
+
+    const verifyTag = api.loadProjectDashboard('default');
+    const verifyRequest = http.expectOne('/api/repos/default/project');
+    expect(verifyRequest.request.headers.get('If-None-Match')).toBe('"project-v2"');
+    verifyRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await verifyTag;
+  });
 
   it('loads resolved review inputs with the repository data', async () => {
     const input: ResolvedInputs = {
