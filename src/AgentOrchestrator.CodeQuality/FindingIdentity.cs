@@ -39,7 +39,9 @@ public static partial class FindingIdentity
                 var path = NormalizePath(location["path"]!.GetValue<string>());
                 if (!normalizedSubjects.TryGetValue(path, out var content))
                 {
-                    throw new ReviewResponseException($"Finding location '{path}' is not part of the reviewed subject.");
+                    // A location outside the reviewed subject (agents cite project files or
+                    // neighbors) invalidates this location, not the whole review document.
+                    continue;
                 }
 
                 var range = location["range"]!.AsObject();
@@ -55,7 +57,15 @@ public static partial class FindingIdentity
                 primarySnippet ??= NormalizeSnippet(snippet);
             }
 
-            var fingerprint = Compute(primaryPath!, primarySnippet!, ruleId);
+            if (primaryPath is null)
+            {
+                // No location resolved into the reviewed subject: drop the finding, keep
+                // the completed review document.
+                duplicates.Add(finding);
+                continue;
+            }
+
+            var fingerprint = Compute(primaryPath, primarySnippet!, ruleId);
             if (!fingerprints.Add(fingerprint))
             {
                 // Duplicate identities collapse into one finding instead of discarding the
