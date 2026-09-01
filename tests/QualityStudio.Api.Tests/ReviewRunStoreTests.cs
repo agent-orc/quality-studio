@@ -80,6 +80,76 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Angular_compiler_finding_runs_before_model_projects_to_subject_and_can_be_disabled()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var events = new ConcurrentQueue<string>();
+        var editorPath = Path.Combine(fixture.RepositoryRoot, "frontend", "src", "app", "editor",
+            "editor.html");
+        Directory.CreateDirectory(Path.GetDirectoryName(editorPath)!);
+        await File.WriteAllTextAsync(editorPath, "<input [value]=\"value ?? ''\">", cancellationToken);
+        await AddAngularTargetAsync(fixture.RepositoryRoot, cancellationToken);
+        var runner = new AngularIntegrationRunner(events);
+        var sensor = new AngularCompilerSensor(runner, fixture.RepositoryRoot);
+        var executor = new OrderingExecutorFactory(events);
+        try
+        {
+            await using var application = fixture.CreateApplication(executor, sensor);
+            using var client = application.CreateClient();
+            using var enabledResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "frontend/src/app/editor/editor.html",
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            enabledResponse.EnsureSuccessStatusCode();
+            var enabled = await enabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            await WaitForStateAsync(client, enabled.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(["check", "model"], events.ToArray());
+            var firstRequest = Assert.Single(executor.Requests);
+            var evidence = Assert.Single(firstRequest.DeterministicEvidence!);
+            Assert.Equal("angular-compiler", evidence.Provenance.SensorId);
+            var finding = Assert.Single(evidence.Findings);
+            Assert.Equal("NG8102", finding.RuleId);
+            Assert.Equal("frontend/src/app/editor/editor.html", Assert.Single(finding.Locations).Path);
+            Assert.Equal(new FindingPosition(169, 61), finding.Locations[0].Range!.Start);
+
+            Directory.CreateDirectory(Path.Combine(fixture.RepositoryRoot, ".git"));
+            using var update = await client.PutAsJsonAsync("/api/repos/default", new
+            {
+                displayName = new DirectoryInfo(fixture.RepositoryRoot).Name,
+                rootPath = fixture.RepositoryRoot,
+                globalInputsDirectory = (string?)null,
+                inputBudgetCharacters = 12000,
+                enabledReviewKinds = new[] { "code", "security", "performance" },
+                sensors = new[] { new { id = "angular-compiler", enabled = false } },
+            }, cancellationToken);
+            update.EnsureSuccessStatusCode();
+
+            using var disabledResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "frontend/src/app/editor/editor.html",
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            disabledResponse.EnsureSuccessStatusCode();
+            var disabled = await disabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            await WaitForStateAsync(client, disabled.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(["check", "model", "model"], events.ToArray());
+            Assert.Empty(executor.Requests[1].DeterministicEvidence!);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -739,6 +809,43 @@ public sealed class ReviewRunStoreTests
                     services.AddSingleton(deterministicSensor);
                 }
             });
+        }
+    }
+
+    private static async Task AddAngularTargetAsync(string root, CancellationToken cancellationToken)
+    {
+        var compilerDirectory = Path.Combine(root, "frontend", "node_modules", "@angular",
+            "compiler-cli");
+        var binaryDirectory = Path.Combine(compilerDirectory, "bundles", "src", "bin");
+        Directory.CreateDirectory(binaryDirectory);
+        await File.WriteAllTextAsync(Path.Combine(root, "frontend", "angular.json"),
+            "{\"projects\":{\"frontend\":{\"root\":\"\",\"sourceRoot\":\"src\"}}}",
+            cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(root, "frontend", "tsconfig.app.json"), "{}",
+            cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(binaryDirectory, "ngc.js"), "// fixture",
+            cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(compilerDirectory, "package.json"),
+            "{\"version\":\"20.3.29\"}", cancellationToken);
+    }
+
+    private sealed class AngularIntegrationRunner(ConcurrentQueue<string> events) : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken = default)
+        {
+            if (!arguments.Contains("-p", StringComparer.Ordinal))
+                return Task.FromResult(new SensorCommandResult(0, "0.0.0", string.Empty));
+            events.Enqueue("check");
+            return Task.FromResult(new SensorCommandResult(0, """
+                src/app/editor/editor.html:169:61 - warning NG8102: The left side does not include 'null' or 'undefined'.
+
+                169                   <input [value]="drafts()[row.thread.id] ?? ''">
+                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                """, string.Empty));
         }
     }
 
