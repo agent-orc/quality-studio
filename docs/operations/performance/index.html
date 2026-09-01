@@ -123,4 +123,19 @@
 <tr><td>Warm switch median reduction</td><td>90.58%</td><td>89.90% (259.02 → 26.16 ms)</td><td class="good">reproduces</td></tr>
 </tbody></table>
 <p class="muted">Re-measured against the same Agent Studio target (<code>9af1a848e3be</code>, 3,927 tracked files) with <code>scripts/measure-tree-transport.mjs</code> on a shared host (load average 15–24 during this run), so absolute latencies are higher across the board than the 24 August run on both arms; the reduction ratios, not the absolute times, are the portable claim, and they reproduce within 1.5 points. Raw JSON is not retained beyond this run's job results directory (host is shared and ephemeral per run).</p>
+
+<h2>8. Final current-main re-gate (1 September 2026)</h2>
+<p>The previously reviewed QS-82 delivery <code>564922a5</code> was replayed onto current <code>origin/main 7d3abdf</code> as <code>320b7a3</code>. The only replay conflict was the shared token block in <code>frontend/src/styles.css</code>; the resolution retains both main's modal tokens and QS-82's repository-menu width token. No feature code was reworked.</p>
+<ul>
+<li>Token Economy catalog snapshot check: valid.</li>
+<li>Release solution build: zero warnings, zero errors.</li>
+<li>Portable .NET tests: 175 core passed, 1 explicitly gated live-provider test skipped; 62 API tests passed (238 total outcomes, zero failures).</li>
+<li>Security scan: pass — 435 files, 0 new, 1 accepted fixture finding, 0 blocking, 0 warnings (gitleaks 8.24.2).</li>
+<li>NuGet vulnerability checks: solution and code-graph spike both report no vulnerable packages.</li>
+<li>Angular production build: passed at 438.13 kB initial, below the 480 kB error ceiling; the mainline template, style-budget warning threshold, and prismjs CommonJS warnings remain non-blocking.</li>
+<li>Angular tests: 58/58 passed in Chrome Headless 152 using the container's cached browser through <code>CHROME_BIN</code>.</li>
+<li>npm production and full dependency audits: zero vulnerabilities.</li>
+<li>Tree-v2 live contract harness: 13/13 passed; this checkout measured 1,653,398-byte v1 versus 5,331-byte v2 roots, a 99.68% reduction.</li>
+</ul>
+<p class="muted">The 24 August before/after series remains the controlled QS-59 comparison and is not replaced by this final integration gate. The 1 September contract run is a functional current-tree receipt; its smaller repository is not used to revise the large-repository performance claims.</p>
 </main></body></html>
