@@ -23,6 +23,7 @@ public static partial class FindingIdentity
             pair => NormalizePath(pair.Key), pair => NormalizeLineEndings(pair.Value), StringComparer.Ordinal);
         var result = new List<FindingIdentityRecord>();
         var fingerprints = new HashSet<string>(StringComparer.Ordinal);
+        var duplicates = new List<JsonObject>();
 
         foreach (var finding in response["findings"]!.AsArray().OfType<JsonObject>())
         {
@@ -57,7 +58,10 @@ public static partial class FindingIdentity
             var fingerprint = Compute(primaryPath!, primarySnippet!, ruleId);
             if (!fingerprints.Add(fingerprint))
             {
-                throw new ReviewResponseException($"The agent returned duplicate finding identity '{fingerprint}'.");
+                // Duplicate identities collapse into one finding instead of discarding the
+                // whole completed review document.
+                duplicates.Add(finding);
+                continue;
             }
 
             var id = "finding-" + fingerprint[7..];
@@ -69,6 +73,11 @@ public static partial class FindingIdentity
                 AttachRunnerCapturedEvidence(finding, primaryPath!, primaryRange, primaryRawSnippet!, primaryContent!);
             }
             result.Add(new FindingIdentityRecord(fingerprint, id, primaryPath!, ruleId));
+        }
+
+        foreach (var duplicate in duplicates)
+        {
+            response["findings"]!.AsArray().Remove(duplicate);
         }
 
         return result;
@@ -135,17 +144,24 @@ public static partial class FindingIdentity
     {
         var start = range["start"]!.AsObject();
         var end = range["end"]!.AsObject();
-        var startLine = start["line"]!.GetValue<int>();
-        var startColumn = start["column"]!.GetValue<int>();
-        var endLine = end["line"]!.GetValue<int>();
-        var endColumn = end["column"]!.GetValue<int>();
         var lines = content.Split('\n');
-        if (startLine > lines.Length || endLine > lines.Length || endLine < startLine ||
-            startColumn > lines[startLine - 1].Length + 1 || endColumn > lines[endLine - 1].Length + 1 ||
-            (startLine == endLine && endColumn < startColumn))
+
+        // Agents locate findings against unnumbered file content, so ranges arrive slightly
+        // off. An out-of-bounds range is clamped to the file instead of discarding the whole
+        // completed review document; the persisted range is rewritten to stay consistent
+        // with the captured excerpt.
+        var startLine = Math.Clamp(start["line"]!.GetValue<int>(), 1, lines.Length);
+        var endLine = Math.Clamp(end["line"]!.GetValue<int>(), startLine, lines.Length);
+        var startColumn = Math.Clamp(start["column"]!.GetValue<int>(), 1, lines[startLine - 1].Length + 1);
+        var endColumn = Math.Clamp(end["column"]!.GetValue<int>(), 1, lines[endLine - 1].Length + 1);
+        if (startLine == endLine && endColumn < startColumn)
         {
-            throw new ReviewResponseException($"Finding range is outside reviewed file '{path}'.");
+            (startColumn, endColumn) = (1, lines[startLine - 1].Length + 1);
         }
+        start["line"] = startLine;
+        start["column"] = startColumn;
+        end["line"] = endLine;
+        end["column"] = endColumn;
 
         if (startLine == endLine)
         {
