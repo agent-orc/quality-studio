@@ -21,6 +21,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     private string ForeignRepositoryRoot => Path.Combine(testRoot, "foreign");
     private string OutsideRoot => Path.Combine(testRoot, "outside");
     private string HostRoot => Path.Combine(testRoot, "host");
+    private string RegistryPath => Path.Combine(HostRoot, ".quality-studio", "repositories.json");
     private HostedApplication? application;
 
     [Fact]
@@ -68,6 +69,88 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal("foreign", Assert.Single(bobReport.GetProperty("repositories").EnumerateArray())
             .GetProperty("id").GetString());
         Assert.DoesNotContain(RepositoryRoot, bobReport.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Repository_scoped_identity_cannot_update_or_archive_its_repository()
+    {
+        var registryBefore = await File.ReadAllTextAsync(RegistryPath, TestContext.Current.CancellationToken);
+        using var bob = CreateClient("bob", BobToken);
+        using var update = await bob.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            id = "foreign",
+            displayName = "Compromised",
+            rootPath = RepositoryRoot,
+            globalInputsDirectory = RepositoryRoot,
+            enabledReviewKinds = new[] { "security" },
+            sensors = new[]
+            {
+                new
+                {
+                    id = "sarif",
+                    enabled = true,
+                    configuration = new Dictionary<string, string>
+                    {
+                        ["command"] = "sh -c compromised",
+                        ["reportPath"] = "compromised.sarif",
+                    },
+                },
+            },
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+        Assert.Equal(registryBefore,
+            await File.ReadAllTextAsync(RegistryPath, TestContext.Current.CancellationToken));
+
+        using var archive = await bob.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, archive.StatusCode);
+        Assert.Equal(registryBefore,
+            await File.ReadAllTextAsync(RegistryPath, TestContext.Current.CancellationToken));
+        var unchanged = ReadRepository("foreign");
+        Assert.Equal("Foreign", unchanged.DisplayName);
+        Assert.Equal(ForeignRepositoryRoot, unchanged.RootPath);
+        Assert.Null(unchanged.GlobalInputsDirectory);
+        Assert.False(unchanged.Archived);
+    }
+
+    [Fact]
+    public async Task Registrar_identity_can_update_and_archive_a_repository()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+        using var update = await admin.PutAsJsonAsync("/api/repos/foreign", new
+        {
+            id = "foreign",
+            displayName = "Foreign (updated)",
+            rootPath = RepositoryRoot,
+            globalInputsDirectory = RepositoryRoot,
+            enabledReviewKinds = new[] { "security" },
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var updated = ReadRepository("foreign");
+        Assert.Equal("Foreign (updated)", updated.DisplayName);
+        Assert.Equal(RepositoryRoot, updated.RootPath);
+        Assert.Equal(RepositoryRoot, updated.GlobalInputsDirectory);
+        Assert.False(updated.Archived);
+
+        using var archive = await admin.DeleteAsync("/api/repos/foreign", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, archive.StatusCode);
+        Assert.True(ReadRepository("foreign").Archived);
+    }
+
+    [Fact]
+    public async Task Repository_scoped_identity_retains_read_and_review_access()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        using var file = await bob.GetAsync("/api/repos/foreign/file?path=Foreign.cs",
+            TestContext.Current.CancellationToken);
+        using var reviewRuns = await bob.GetAsync("/api/repos/foreign/review/runs",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, reviewRuns.StatusCode);
     }
 
     [Fact]
@@ -212,6 +295,13 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         if (token is not null) client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         if (includeClientId && clientId is not null) client.DefaultRequestHeaders.Add(ApiSecurity.ClientIdHeader, clientId);
         return client;
+    }
+
+    private RepositoryRegistration ReadRepository(string id)
+    {
+        var repositories = JsonSerializer.Deserialize<RepositoryRegistration[]>(File.ReadAllText(RegistryPath),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return Assert.Single(repositories!, repository => string.Equals(repository.Id, id, StringComparison.Ordinal));
     }
 
     private void WriteRegistry(string hostRoot)
