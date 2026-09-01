@@ -141,7 +141,7 @@
     <h1>Separate reviewed code from the Studio host</h1>
     <p class="lede">An end-to-end assessment of repository ingestion, model review, deterministic sensors, credentials, storage, rendering, and handover. The current implementation is suitable only for trusted, local repositories until the two critical host-boundary chains are closed.</p>
     <div class="meta">
-      <span><b>Status</b> decision pending</span>
+      <span><b>Status</b> decided</span>
       <span><b>Phase</b> decision ready</span>
       <span><b>Source</b> QS-58</span>
       <span><b>Assessed</b> 2026-08-11</span>
@@ -449,7 +449,7 @@
 
   <section id="implementation-state">
     <h2><span class="no">10</span>Implementation state</h2>
-    <p>Option C and S0–S6 remain <b>decision-pending</b>: no operator sign-off is recorded, and the critical worker-boundary chain (R-01, R-02 → S0, S1) is still open. The slices below are narrow, reviewable, defense-in-depth pieces implemented ahead of that decision because they carry low blast radius and no architectural lock-in; they do not substitute for S0/S1 and untrusted-repository review must stay blocked until those land.</p>
+    <p>Option C and S0–S6 are <b>decided</b> under the operator's blanket approval of 2026-08-11. The critical worker-boundary chain (R-01, R-02 → S0, S1) remains open until every required slice lands. The entries below are narrow, reviewable pieces of that approved plan; they do not substitute for S0/S1 and untrusted-repository review must stay blocked until those land.</p>
     <table>
       <thead><tr><th>Date</th><th>Card</th><th>What changed</th><th>Evidence</th></tr></thead>
       <tbody>
@@ -488,6 +488,12 @@
           <td>QS-81</td>
           <td><b>R-09-adjacent: narrow baseline suppression for the F-04 unit-key false positive.</b> Once the scanner above actually reports findings, the documented <code>docs/concept.md</code> content-derived 64-hex "unit-key" (see F-04 findings text) is a real, reproducible <code>block</code> in CI, not a hypothetical. Added a single <code>.quality/security/gitleaks.baseline.json</code> entry keyed on the exact gitleaks fingerprint (<code>docs/concept.md:generic-api-key:1536</code>) with a note pointing back to this dossier — a narrow, reviewed, fingerprint-exact suppression, not a path or rule exclusion, matching what S3's exit criteria ask for. This is a partial start on S3, not S3 itself: redaction-before-persistence and the tracked-config policy check (R-09 proper) remain open.</td>
           <td><code>.quality/security/gitleaks.baseline.json</code>; the live CLI run cited above shows exactly one <code>accepted</code> finding at that fingerprint and zero <code>block</code>.</td>
+        </tr>
+        <tr>
+          <td>2026-09-01</td>
+          <td>QS-68</td>
+          <td><b>F-01/R-01: closed the authorization half of S0 at route granularity.</b> Registrar privilege is now required for every <code>PUT</code> or <code>DELETE</code> to <code>/api/repos/{repoId}</code>, covering repository root, global-input directory, sensor configuration, and archive mutations. Repository-scoped non-registrars retain their read and review access. The command-rejection half of R-01 (host-owned analyzer profiles) and the optional split of immutable host-owned root/sensor configuration from repo-scoped display settings remain open.</td>
+          <td><code>src/QualityStudio.Api/Program.cs</code> authorization middleware; <code>ApiSecurityTests.Repository_scoped_identity_cannot_update_or_archive_its_repository</code>, <code>Registrar_identity_can_update_and_archive_a_repository</code>, and <code>Repository_scoped_identity_retains_read_and_review_access</code>; <code>dotnet build</code> and <code>dotnet test</code>.</td>
         </tr>
       </tbody>
     </table>
