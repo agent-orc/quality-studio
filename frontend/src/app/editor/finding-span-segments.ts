@@ -12,12 +12,6 @@ export interface FindingSpanSegment {
   endOfLine: boolean;
 }
 
-interface LineRange {
-  start: number;
-  end: number;
-  finding: ReviewFinding;
-}
-
 export function segmentFindingSpans(
   tokens: TokenLine,
   line: number,

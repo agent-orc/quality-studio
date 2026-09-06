@@ -638,6 +638,7 @@
     <div class="box">
       <h4>Integration note</h4>
       <p>As of this receipt, <code>origin/main</code> contains no exact-span or suppression code. The wave-1 card <code>QS-70</code> implemented S1 on its own branch (<code>finding-span-segmentation.ts</code>) but that work has not reached the integration branch, so QS-84 carries its own S1 implementation (<code>finding-span-segments.ts</code>, additionally covering the overlap chooser and suppression-aware highlighting). Whichever branch integrates second must reconcile the two S1 implementations rather than merge both.</p>
+      <p><b>7 September 2026 &middot; QS-84 final integration:</b> rebased onto <code>origin/main@6277ded</code>, where QS-70 is now integrated. The unreferenced QS-70 segmentation module and its duplicate tests were removed; the editor uses QS-84's superset implementation and retains QS-70's column semantics, syntax-token preservation, and multi-line/Unicode coverage. Independent current-main additions in the review panel, API, central tokens, and frontend scripts were preserved.</p>
     </div>
   </section>
 

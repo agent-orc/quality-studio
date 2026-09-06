@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -696,28 +695,28 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
         Directory.CreateDirectory(metadataDirectory);
         var metadataPath = Path.Combine(metadataDirectory, "file.ignore.review-meta.code.json");
-        var metadata = new JsonObject
+        var grade = new ReviewGrade(60, GradeBand.D, "One finding.");
+        var metadata = new ReviewMetaDocument
         {
-            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
-            ["reviewedAt"] = "2026-08-12T20:00:00.000Z",
-            ["kind"] = "code",
-            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
-            ["grade"] = new JsonObject { ["score"] = 60, ["band"] = "D", ["rationale"] = "One finding." },
-            ["summary"] = "One finding.",
-            ["findings"] = new JsonArray(new JsonObject
-            {
-                ["id"] = findingId,
-                ["fingerprint"] = fingerprint,
-                ["ruleId"] = "correctness.ignore-test",
-                ["aspect"] = "correctness",
-                ["severity"] = "high",
-                ["title"] = "Persistent ignored finding",
-                ["description"] = "A finding used by the ignore-list API test.",
-                ["recommendation"] = "Review it.",
-                ["locations"] = new JsonArray(new JsonObject { ["path"] = "Sample.cs" }),
-            }),
+            Unit = new ReviewUnit("qs-v1/generic/file/" + new string('a', 64), ReviewAdapter.Generic,
+                ReviewLevel.File, "Sample.cs", "Sample.cs"),
+            ReviewedAt = new DateTimeOffset(2026, 8, 12, 20, 0, 0, TimeSpan.Zero),
+            Kind = ReviewKind.Code,
+            Reviewer = new ReviewerIdentity("test", "test"),
+            ReviewedHash = ManifestHash.Subject(new string('b', 64)),
+            SubjectInputs = [new SubjectInputHash("Sample.cs", "file", "sha256:" + new string('c', 64))],
+            ReviewInputs = new ReviewInputs(
+                ManifestHash.ReviewInput(new string('d', 64)), true, [], [],
+                new PromptReference("file-code-review", "1.0.0", "sha256:" + new string('f', 64))),
+            Grade = grade,
+            Summary = "One finding.",
+            Aspects = [new ReviewAspect("correctness", "Correctness", grade)],
+            Findings = [new ReviewFinding(findingId, "correctness", FindingSeverity.High,
+                "Persistent ignored finding", "A finding used by the ignore-list API test.", "Review it.",
+                [new FindingLocation("Sample.cs")], fingerprint, "correctness.ignore-test")],
         };
-        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(
+            metadataPath, ReviewMetaJson.Serialize(metadata), TestContext.Current.CancellationToken);
 
         try
         {
