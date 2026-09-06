@@ -17,6 +17,8 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
     <EmbeddedResource Include="prompts/*.md" />
     <EmbeddedResource Include="catalogues/*.json" />
+    <!-- Reviewed SHA-256 of each pinned Gitleaks release archive; see docs/security-gitleaks.md. -->
+    <EmbeddedResource Include="gitleaks-binaries.json" />
     <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>
