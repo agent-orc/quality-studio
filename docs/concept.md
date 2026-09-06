@@ -986,6 +986,13 @@ to its content state. `complete: false` adds `inputs-incomplete`. This separatio
 answers whether code moved, the briefing moved, or both. It also prevents a
 policy edit from masquerading as a source edit.
 
+Amendment 2026-09-06: `invalid` is implemented for File-level subjects. One typed reader loads
+every review-meta sidecar and reports a JSON, schema-version, or required-field fault with the
+sidecar's path and cause; a subject whose sidecar fails that reader is reported as `invalid` and is
+counted neither as fresh nor as review coverage. A sidecar that cannot be attributed to a subject is
+reported through the `ReviewMetaUnreadable` event and attaches to no unit, so hierarchy aggregation
+sees that unit as not reviewed rather than inheriting an unvalidated grade.
+
 States are mutually exclusive with precedence `invalid` → `orphaned` →
 `unsupported` → `missing` → content comparison (`fresh`, `partially-stale`, or
 `stale`). Repository-wide adapter failure is a scan error, not a fabricated unit

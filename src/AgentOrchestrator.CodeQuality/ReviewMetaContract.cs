@@ -315,6 +315,7 @@ public static class ReviewMetaJson
         };
         options.Converters.Add(new UtcTimestampConverter());
         options.Converters.Add(new GradeBandConverter());
+        options.Converters.Add(new StandardScopeConverter());
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         return options;
     }
@@ -381,6 +382,28 @@ public static class ReviewMetaJson
 
             writer.WriteStringValue(value.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture));
         }
+    }
+
+    // The schema spells the lowest scope "built-in"; the camel-case enum policy would write
+    // "builtIn" and fail validation on the first standard that is not global or project.
+    private sealed class StandardScopeConverter : JsonConverter<StandardScope>
+    {
+        public override StandardScope Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.GetString() switch
+            {
+                "built-in" => StandardScope.BuiltIn,
+                "global" => StandardScope.Global,
+                "project" => StandardScope.Project,
+                var value => throw new JsonException($"Unsupported standard scope '{value}'."),
+            };
+
+        public override void Write(Utf8JsonWriter writer, StandardScope value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value switch
+            {
+                StandardScope.BuiltIn => "built-in",
+                StandardScope.Global => "global",
+                _ => "project",
+            });
     }
 
     private sealed class GradeBandConverter : JsonConverter<GradeBand>

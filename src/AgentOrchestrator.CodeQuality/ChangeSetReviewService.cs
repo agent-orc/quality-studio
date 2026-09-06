@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -141,54 +140,28 @@ public sealed class ChangeSetReviewService
                                     path.EndsWith(".json", StringComparison.Ordinal)))
         {
             var content = await ReadFileAsync(root, revision, path, cancellationToken).ConfigureAwait(false);
-            try
-            {
-                var json = JsonNode.Parse(content!)?.AsObject();
-                if (json?["unit"] is not JsonObject unit ||
-                    json["grade"] is not JsonObject grade ||
-                    json["kind"] is not JsonValue kindNode ||
-                    !kindNode.TryGetValue<string>(out var kind)) continue;
-                var unitId = unit["id"]?.GetValue<string>();
-                var unitPath = unit["path"]?.GetValue<string>();
-                if (string.IsNullOrWhiteSpace(unitId) || string.IsNullOrWhiteSpace(unitPath)) continue;
-                var findings = (json["findings"] as JsonArray)?.OfType<JsonObject>()
-                    .Select(finding => new FindingSnapshot(
-                        Identity(finding),
-                        finding["ruleId"]?.GetValue<string>() ?? "unknown",
-                        finding["severity"]?.GetValue<string>() ?? "info",
-                        finding["title"]?.GetValue<string>() ?? "Untitled finding"))
-                    .ToArray() ?? [];
-                var inputs = (json["subjectInputs"] as JsonArray)?.OfType<JsonObject>()
-                    .Select(input => new MetaInput(
-                        Normalize(input["path"]?.GetValue<string>() ?? string.Empty),
-                        input["selector"]?.GetValue<string>() ?? string.Empty,
-                        input["contentHash"]?.GetValue<string>() ?? string.Empty))
-                    .ToArray() ?? [];
-                result.Add(new MetaSnapshot(
-                    path,
-                    unitId!,
-                    Normalize(unitPath!),
-                    unit["level"]?.GetValue<string>() ?? "file",
-                    unit["adapter"]?.GetValue<string>() ?? "unknown",
-                    kind!,
-                    grade["score"]!.GetValue<int>(),
-                    grade["band"]!.GetValue<string>(),
-                    findings,
-                    inputs));
-            }
-            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
-            {
-                throw new ChangeReviewException($"Cannot parse review metadata '{path}' at '{revision}'.", exception);
-            }
+            // A delta between two commits is only as trustworthy as the sidecars on both sides, so
+            // an unreadable one fails the change review rather than silently shrinking the delta.
+            if (!ReviewMetaReader.TryParse(content ?? string.Empty, $"{revision}:{path}", out var sidecar, out var error))
+                throw new ChangeReviewException($"Cannot parse review metadata '{path}' at '{revision}': {error.Reason}");
+            var document = sidecar.Document;
+            result.Add(new MetaSnapshot(
+                path,
+                document.Unit.Id,
+                Normalize(document.Unit.Path),
+                document.Unit.Level.ToString().ToLowerInvariant(),
+                document.Unit.Adapter.ToString().ToLowerInvariant(),
+                document.Kind.ToString().ToLowerInvariant(),
+                document.Grade.Score,
+                document.Grade.Band.ToString(),
+                document.Findings.Select(finding => new FindingSnapshot(
+                    finding.Fingerprint, finding.RuleId,
+                    finding.Severity.ToString().ToLowerInvariant(), finding.Title)).ToArray(),
+                document.SubjectInputs.Select(input => new MetaInput(
+                    Normalize(input.Path), input.Selector, input.ContentHash)).ToArray()));
         }
 
         return result;
-    }
-
-    private static string Identity(JsonObject finding)
-    {
-        var value = finding["fingerprint"]?.GetValue<string>() ?? finding["id"]?.GetValue<string>();
-        return string.IsNullOrWhiteSpace(value) ? "legacy:" + Hash(finding.ToJsonString()) : value;
     }
 
     private static bool IsTouched(MetaSnapshot meta, ChangeSet changeSet, bool beforeSide)

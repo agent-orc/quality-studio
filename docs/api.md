@@ -103,7 +103,11 @@ curl "http://127.0.0.1:5127/api/file?path=src/QualityStudio.Api/appsettings.json
 # 200 {"path":"src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[]}
 
 curl "http://127.0.0.1:5127/api/scan"
-# 200 {"files":[...],"freshCount":0,"staleCount":0,"policyDriftCount":0,"missingCount":20}
+# 200 {"files":[...],"freshCount":0,"staleCount":0,"policyDriftCount":0,"missingCount":20,
+#      "invalidCount":0}
+# Each file carries a state of fresh, stale, policyDrift, missing, or invalid. `invalid` means the
+# subject's sidecar exists but its JSON, schema version, or required fields could not be validated;
+# it is never counted as fresh, stale, or reviewed coverage.
 
 curl "http://127.0.0.1:5127/api/security/scan"
 # 200 {"verdict":"pass","available":true,"scanner":"gitleaks",...}

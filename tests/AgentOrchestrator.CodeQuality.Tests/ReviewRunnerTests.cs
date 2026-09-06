@@ -890,24 +890,22 @@ public sealed class ReviewRunnerTests
             var range = new FindingRange(new FindingPosition(2, 1), new FindingPosition(2, 1));
             var contextHash = ReviewThreadManager.ComputeContextHash("before\ntarget\nafter", range);
             var metaPath = Path.Combine(root.FullName, "meta.json");
-            static JsonObject Thread(string id, string fingerprint, string hash, int line) => new()
-            {
-                ["id"] = id,
-                ["anchor"] = new JsonObject
-                {
-                    ["path"] = "a.cs", ["fingerprint"] = fingerprint, ["contextHash"] = hash,
-                    ["lastKnownRange"] = new JsonObject
-                    {
-                        ["start"] = new JsonObject { ["line"] = line, ["column"] = 1 },
-                        ["end"] = new JsonObject { ["line"] = line, ["column"] = 1 },
-                    },
-                },
-                ["status"] = "open", ["entries"] = new JsonArray(),
-            };
-            var stored = new JsonObject { ["threads"] = new JsonArray(
-                Thread("moving", "sha256:" + new string('a', 64), contextHash, 2),
-                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1)) };
-            File.WriteAllText(metaPath, stored.ToJsonString());
+            static ReviewThread Thread(string id, string fingerprint, string hash, int line) => new(
+                id,
+                new ReviewThreadAnchor("a.cs", fingerprint, hash,
+                    new FindingRange(new FindingPosition(line, 1), new FindingPosition(line, 1))),
+                ReviewThreadStatus.Open,
+                []);
+            File.WriteAllText(metaPath, ReviewMetaJson.Serialize(ReviewMetaFixture.Document(
+                "qs-v1/generic/file/" + new string('e', 64),
+                "a.cs",
+                "sha256:" + new string('f', 64),
+                [new SubjectInputHash("a.cs", "file", "sha256:" + new string('9', 64))],
+                threads:
+                [
+                    Thread("moving", "sha256:" + new string('a', 64), contextHash, 2),
+                    Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1),
+                ])));
 
             var threads = ReviewThreadManager.LoadAndHeal(metaPath, "a.cs", "added\nbefore\ntarget\nafter");
 

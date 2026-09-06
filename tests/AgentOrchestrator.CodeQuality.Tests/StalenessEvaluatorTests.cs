@@ -90,11 +90,7 @@ public sealed class StalenessEvaluatorTests
         await fixture.WriteSourceAsync("src/stable.cs", "class Stable {}\n");
         await fixture.WriteSourceAsync(".quality/inputs/style.md", "---\nid: stable-style\nenabled: true\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nBefore.\n");
         var metaPath = await fixture.WriteMetaAsync("src/stable.cs", "class Stable {}\n");
-        var root = JsonNode.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken))!.AsObject();
-        var resolved = new InputResolver().Resolve(fixture.Root, "code", ReviewLevel.File);
-        root["reviewInputs"] = new JsonObject { ["effectiveHash"] = new JsonObject { ["value"] = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash("code")) } };
-        await File.WriteAllTextAsync(metaPath, root.ToJsonString(), cancellationToken);
-        var reviewedHash = root["reviewedHash"]!["value"]!.GetValue<string>();
+        var reviewedHash = ReviewMetaReader.Load(metaPath).Document.ReviewedHash.Value;
         await fixture.WriteSourceAsync(".quality/inputs/style.md", "---\nid: stable-style\nenabled: true\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nAfter.\n");
 
         var report = await new StalenessEvaluator().ScanAsync(fixture.Root,
@@ -104,6 +100,55 @@ public sealed class StalenessEvaluatorTests
         Assert.Equal(1, report.PolicyDriftCount);
         using var unchanged = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken));
         Assert.Equal(reviewedHash, unchanged.RootElement.GetProperty("reviewedHash").GetProperty("value").GetString());
+    }
+
+    [Fact]
+    public async Task An_unreadable_sidecar_is_invalid_rather_than_fresh_stale_or_missing()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var fixture = await RepositoryFixture.CreateAsync();
+        await fixture.WriteSourceAsync("src/broken.cs", "class Broken {}\n");
+        await fixture.WriteSourceAsync("src/intact.cs", "class Intact {}\n");
+        await fixture.WriteMetaAsync("src/intact.cs", "class Intact {}\n");
+        var brokenMeta = await fixture.WriteMetaAsync("src/broken.cs", "class Broken {}\n");
+        await File.WriteAllTextAsync(brokenMeta, "{ \"schemaVersion\": ", cancellationToken);
+
+        var report = await new StalenessEvaluator().ScanAsync(fixture.Root,
+            new StalenessEvaluatorOptions { IncludeGlobs = ["**/*.cs"] }, cancellationToken);
+
+        var broken = Assert.Single(report.Files, file => file.RelativePath == "src/broken.cs");
+        Assert.Equal(StalenessState.Invalid, broken.State);
+        Assert.Equal(
+            Path.GetRelativePath(fixture.Root, brokenMeta).Replace('\\', '/'),
+            broken.MetaRelativePath);
+        Assert.Equal(1, report.InvalidCount);
+        // The rest of the scan still runs; one bad sidecar is not a scan failure.
+        Assert.Equal(StalenessState.Fresh, Assert.Single(report.Files, file => file.RelativePath == "src/intact.cs").State);
+        Assert.Equal(0, report.MissingCount);
+    }
+
+    [Fact]
+    public async Task An_unreadable_sidecar_is_never_treated_as_a_fresh_review()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var directory = Directory.CreateTempSubdirectory("quality-review-invalid-");
+        try
+        {
+            var metaPath = Path.Combine(directory.FullName, "review-meta.json");
+            await File.WriteAllTextAsync(metaPath, "{ \"schemaVersion\": 3 }", cancellationToken);
+
+            var freshness = await new StalenessEvaluator().EvaluateReviewAsync(
+                metaPath, "subject", "inputs", "model", cancellationToken);
+
+            Assert.False(freshness.IsFresh);
+            Assert.False(freshness.SubjectUnchanged);
+            Assert.False(freshness.ReviewInputsUnchanged);
+            Assert.False(freshness.ModelUnchanged);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
     }
 
     [Fact]
@@ -133,12 +178,13 @@ public sealed class StalenessEvaluatorTests
         try
         {
             var metaPath = Path.Combine(directory.FullName, "review-meta.json");
-            await File.WriteAllTextAsync(metaPath, JsonSerializer.Serialize(new
-            {
-                reviewedHash = new { value = storedSubject },
-                reviewInputs = new { effectiveHash = new { value = storedInputs } },
-                reviewer = new { model = storedModel },
-            }), TestContext.Current.CancellationToken);
+            await ReviewMetaFixture.WriteAsync(metaPath, ReviewMetaFixture.Document(
+                "qs-v1/generic/file/" + new string('a', 64),
+                "src/a.cs",
+                storedSubject,
+                [new SubjectInputHash("src/a.cs", "file", "sha256:" + new string('c', 64))],
+                effectiveHash: storedInputs,
+                model: storedModel), TestContext.Current.CancellationToken);
 
             var result = await new StalenessEvaluator().EvaluateReviewAsync(
                 metaPath,
@@ -181,28 +227,17 @@ public sealed class StalenessEvaluatorTests
 
         public async Task<string> WriteMetaAsync(string subjectPath, string reviewedContent)
         {
-            var unitId = "qs-v1/test/file/" + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(subjectPath)));
+            var unitId = "qs-v1/generic/file/" + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(subjectPath)));
             var contentPath = Path.Combine(Root, subjectPath.Replace('/', Path.DirectorySeparatorChar));
             var temporaryPath = contentPath + ".reviewed";
             await File.WriteAllTextAsync(temporaryPath, reviewedContent);
             var contentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(temporaryPath);
             File.Delete(temporaryPath);
-            var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(
-                unitId,
-                [new SubjectInputHash(subjectPath, "file", contentHash)]);
-            var key = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(unitId)));
-            var directory = Path.Combine(Path.GetDirectoryName(contentPath)!, ".quality", "reviews", "files");
-            Directory.CreateDirectory(directory);
-            var metaPath = Path.Combine(directory, $"file.{key}.review-meta.code.json");
-            var document = new
-            {
-                schemaVersion = 1,
-                unit = new { id = unitId, level = "file", path = subjectPath },
-                kind = "code",
-                reviewedHash = new { algorithm = "sha256", value = reviewedHash },
-                subjectInputs = new[] { new { path = subjectPath, selector = "file", contentHash } },
-            };
-            await File.WriteAllTextAsync(metaPath, JsonSerializer.Serialize(document));
+            var inputs = new[] { new SubjectInputHash(subjectPath, "file", contentHash) };
+            var metaPath = ReviewMetaPath.ForFile(Root, subjectPath, "code");
+            await ReviewMetaFixture.WriteAsync(metaPath, ReviewMetaFixture.Document(
+                unitId, subjectPath, ReviewSubjectHasher.ComputeManifestHash(unitId, inputs), inputs,
+                effectiveHash: ReviewMetaFixture.EffectiveHash(Root)), default);
             return metaPath;
         }
 

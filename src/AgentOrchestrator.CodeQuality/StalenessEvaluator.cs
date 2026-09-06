@@ -13,7 +13,7 @@ public sealed class StalenessEvaluator
 
     public StalenessEvaluator(InputResolver? inputResolver = null) => this.inputResolver = inputResolver ?? new InputResolver();
 
-    public async Task<ReviewFreshness> EvaluateReviewAsync(
+    public Task<ReviewFreshness> EvaluateReviewAsync(
         string metaPath,
         string currentSubjectHash,
         string currentReviewInputsHash,
@@ -23,31 +23,23 @@ public sealed class StalenessEvaluator
         ArgumentException.ThrowIfNullOrWhiteSpace(metaPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(currentSubjectHash);
         ArgumentException.ThrowIfNullOrWhiteSpace(currentReviewInputsHash);
-        if (!File.Exists(metaPath)) return new(false, false, false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!ReviewMetaReader.TryLoad(metaPath, out var sidecar, out var error))
+        {
+            // A sidecar nobody can read is never fresh. The reader has already reported it, and the
+            // review that runs instead of the skip replaces the unreadable file.
+            _ = error;
+            return Task.FromResult(new ReviewFreshness(false, false, false));
+        }
 
-        try
-        {
-            await using var stream = File.OpenRead(metaPath);
-            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-            var root = document.RootElement;
-            var storedSubjectHash = root.GetProperty("reviewedHash").GetProperty("value").GetString();
-            var storedReviewInputsHash = root.GetProperty("reviewInputs").GetProperty("effectiveHash")
-                .GetProperty("value").GetString();
-            var storedModel = root.GetProperty("reviewer").GetProperty("model").GetString();
-            var modelUnchanged = string.IsNullOrWhiteSpace(requestedModel)
-                ? !string.IsNullOrWhiteSpace(storedModel)
-                : string.Equals(storedModel, requestedModel.Trim(), StringComparison.Ordinal);
-            return new ReviewFreshness(
-                string.Equals(storedSubjectHash, currentSubjectHash, StringComparison.Ordinal),
-                string.Equals(storedReviewInputsHash, currentReviewInputsHash, StringComparison.Ordinal),
-                modelUnchanged);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException
-                                           or KeyNotFoundException or InvalidOperationException)
-        {
-            return new(false, false, false);
-        }
+        var document = sidecar.Document;
+        var modelUnchanged = string.IsNullOrWhiteSpace(requestedModel)
+            ? !string.IsNullOrWhiteSpace(document.Reviewer.Model)
+            : string.Equals(document.Reviewer.Model, requestedModel.Trim(), StringComparison.Ordinal);
+        return Task.FromResult(new ReviewFreshness(
+            string.Equals(document.ReviewedHash.Value, currentSubjectHash, StringComparison.Ordinal),
+            string.Equals(document.ReviewInputs.EffectiveHash.Value, currentReviewInputsHash, StringComparison.Ordinal),
+            modelUnchanged));
     }
 
     public async Task<StalenessReport> ScanAsync(
@@ -84,7 +76,7 @@ public sealed class StalenessEvaluator
         try
         {
             var repositoryFiles = EnumerateGitFilesAsync(root, cancellationToken);
-            var metaBySubject = await LoadMetadataAsync(repositoryFiles, root, options.ReviewKind, cancellationToken)
+            var index = await LoadMetadataAsync(repositoryFiles, root, options.ReviewKind, cancellationToken)
                 .ConfigureAwait(false);
 
             await foreach (var relativePath in EnumerateGitFilesAsync(root, cancellationToken))
@@ -95,9 +87,15 @@ public sealed class StalenessEvaluator
                 }
 
                 count++;
-                if (!metaBySubject.TryGetValue(relativePath, out var metadata))
+                if (!index.BySubject.TryGetValue(relativePath, out var metadata))
                 {
-                    yield return new FileStaleness(relativePath, StalenessState.Missing, options.ReviewKind);
+                    // The subject's own sidecar path is the only attribution left once its content
+                    // cannot be trusted, so an unreadable sidecar there marks the subject invalid.
+                    var conventional = ReviewMetaPath.ForFile(root, relativePath, options.ReviewKind);
+                    yield return index.Unreadable.Contains(conventional)
+                        ? new FileStaleness(relativePath, StalenessState.Invalid, options.ReviewKind,
+                            NormalizeRelativePath(Path.GetRelativePath(root, conventional)))
+                        : new FileStaleness(relativePath, StalenessState.Missing, options.ReviewKind);
                     continue;
                 }
 
@@ -149,66 +147,50 @@ public sealed class StalenessEvaluator
             : StalenessState.PolicyDrift;
     }
 
-    private static async Task<Dictionary<string, ReviewMetadata>> LoadMetadataAsync(
+    private static async Task<MetadataIndex> LoadMetadataAsync(
         IAsyncEnumerable<string> repositoryFiles,
         string root,
         string reviewKind,
         CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, ReviewMetadata>(StringComparer.Ordinal);
-        await foreach (var relativePath in repositoryFiles)
+        var unreadable = new HashSet<string>(
+            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        await foreach (var relativePath in repositoryFiles.WithCancellation(cancellationToken))
         {
             if (!IsMetaPath(relativePath))
             {
                 continue;
             }
 
-            ReviewMetadata? metadata;
-            try
+            var absolutePath = ResolveWithinRoot(root, relativePath);
+            if (!ReviewMetaReader.TryLoad(absolutePath, out var sidecar, out var error))
             {
-                await using var stream = File.OpenRead(ResolveWithinRoot(root, relativePath));
-                using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-                var json = document.RootElement;
-                var kind = json.GetProperty("kind").GetString();
-                if (!string.Equals(kind, reviewKind, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var unit = json.GetProperty("unit");
-                if (!string.Equals(unit.GetProperty("level").GetString(), "file", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var inputs = json.GetProperty("subjectInputs").EnumerateArray()
-                    .Select(input => new StoredSubjectInput(
-                        NormalizeRelativePath(input.GetProperty("path").GetString()!),
-                        input.GetProperty("selector").GetString()!))
-                    .ToArray();
-                var levelText = unit.GetProperty("level").GetString()!;
-                var level = Enum.TryParse<ReviewLevel>(levelText, true, out var parsedLevel) ? parsedLevel : ReviewLevel.File;
-                var reviewInputHash = json.TryGetProperty("reviewInputs", out var reviewInputs) &&
-                                      reviewInputs.TryGetProperty("effectiveHash", out var effectiveHash) &&
-                                      effectiveHash.TryGetProperty("value", out var effectiveValue)
-                    ? effectiveValue.GetString()
-                    : null;
-                metadata = new ReviewMetadata(
-                    NormalizeRelativePath(unit.GetProperty("path").GetString()!),
-                    unit.GetProperty("id").GetString()!,
-                    json.GetProperty("reviewedHash").GetProperty("value").GetString()!,
-                    NormalizeRelativePath(relativePath),
-                    inputs,
-                    kind!,
-                    level,
-                    reviewInputHash);
-            }
-            catch (Exception exception) when (exception is IOException or JsonException or KeyNotFoundException or InvalidOperationException)
-            {
-                throw new StalenessScanException($"Cannot read review metadata '{relativePath}'.", exception);
+                // A scan records the sidecars it cannot trust instead of failing whole; the
+                // affected subjects come back as `invalid`, and the rest of the scan still runs.
+                _ = error;
+                unreadable.Add(absolutePath);
+                continue;
             }
 
+            var document = sidecar.Document;
+            if (!string.Equals(document.Kind.ToString().ToLowerInvariant(), reviewKind, StringComparison.Ordinal) ||
+                document.Unit.Level != ReviewLevel.File)
+            {
+                continue;
+            }
+
+            var metadata = new ReviewMetadata(
+                NormalizeRelativePath(document.Unit.Path),
+                document.Unit.Id,
+                document.ReviewedHash.Value,
+                NormalizeRelativePath(relativePath),
+                document.SubjectInputs
+                    .Select(input => new StoredSubjectInput(NormalizeRelativePath(input.Path), input.Selector))
+                    .ToArray(),
+                reviewKind,
+                document.Unit.Level,
+                document.ReviewInputs.EffectiveHash.Value);
             if (!result.TryAdd(metadata.SubjectPath, metadata))
             {
                 throw new StalenessScanException(
@@ -216,7 +198,7 @@ public sealed class StalenessEvaluator
             }
         }
 
-        return result;
+        return new MetadataIndex(result, unreadable);
     }
 
     private static async IAsyncEnumerable<string> EnumerateGitFilesAsync(
@@ -336,6 +318,10 @@ public sealed class StalenessEvaluator
         }
     }
 
+    private sealed record MetadataIndex(
+        IReadOnlyDictionary<string, ReviewMetadata> BySubject,
+        IReadOnlySet<string> Unreadable);
+
     private sealed record StoredSubjectInput(string Path, string Selector);
 
     private sealed record ReviewMetadata(
@@ -393,4 +379,8 @@ internal sealed class QualityStudioEventSource : EventSource
     public void UsageRecorded(string runId, string path, string kind, long inputTokens, long outputTokens,
         long cachedInputTokens, long durationMs) =>
         WriteEvent(10, runId, path, kind, inputTokens, outputTokens, cachedInputTokens, durationMs);
+
+    [Event(11, Level = EventLevel.Error)]
+    public void ReviewMetaUnreadable(string source, string failure, string reason) =>
+        WriteEvent(11, source, failure, reason);
 }

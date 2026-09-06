@@ -323,7 +323,7 @@ public class GitleaksSecurityScanner : IReviewSensor
                 Findings = allFindings.Select(ToReviewFinding).ToArray(),
             };
 
-            var metaPath = Path.Combine(Path.GetDirectoryName(absolutePath)!, ".quality", "reviews", "files", $"file.{Sha256(relativePath)}.review-meta.security.json");
+            var metaPath = ReviewMetaPath.For(root, absolutePath, relativePath, ReviewLevel.File, "security");
             var previous = LoadPersistedFindingIdentities(metaPath);
             var current = allFindings.Select(finding => new FindingIdentityRecord(
                 finding.Fingerprint, finding.Id, finding.Path, finding.RuleId)).ToArray();
@@ -345,11 +345,9 @@ public class GitleaksSecurityScanner : IReviewSensor
         {
             foreach (var metaPath in Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories))
             {
-                using var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken).ConfigureAwait(false));
-                var document = metadata.RootElement;
-                if (document.GetProperty("reviewer").GetProperty("agent").GetString() != "gitleaks") continue;
-                var path = document.GetProperty("unit").GetProperty("path").GetString()!;
-                if (observedPaths.Contains(path)) continue;
+                if (!ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)) continue;
+                if (sidecar.Document.Reviewer.Agent != "gitleaks") continue;
+                if (observedPaths.Contains(sidecar.Document.Unit.Path)) continue;
                 await new FindingStateStore(root).MergeReviewAsync(
                     [], LoadPersistedFindingIdentities(metaPath), "gitleaks", cancellationToken).ConfigureAwait(false);
             }
@@ -369,16 +367,14 @@ public class GitleaksSecurityScanner : IReviewSensor
             finding.RuleId,
             finding.Evidence);
 
-    private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath)
-    {
-        if (!File.Exists(metaPath)) return [];
-        using var document = JsonDocument.Parse(File.ReadAllText(metaPath));
-        return document.RootElement.GetProperty("findings").EnumerateArray().Select(finding => new FindingIdentityRecord(
-            finding.GetProperty("fingerprint").GetString()!,
-            finding.GetProperty("id").GetString()!,
-            finding.GetProperty("locations")[0].GetProperty("path").GetString()!,
-            finding.GetProperty("ruleId").GetString()!)).ToArray();
-    }
+    private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath) =>
+        ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)
+            ? sidecar.Document.Findings.Select(finding => new FindingIdentityRecord(
+                finding.Fingerprint,
+                finding.Id,
+                finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
+                finding.RuleId)).ToArray()
+            : [];
 
     private static ReviewGrade BuildGrade(IReadOnlyCollection<SecurityFindingRecord> findings)
     {

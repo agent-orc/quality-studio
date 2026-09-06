@@ -159,6 +159,8 @@ public sealed record KindStateResponse(
         return new(Map(aggregation.Direct), Map(aggregation.Descendants), Map(aggregation.Overall), score, band, metaPath);
     }
 
+    // Hierarchy aggregation has no `invalid`: a sidecar the contract rejects attaches to no unit,
+    // so the unit degrades to "missing" here while /api/scan reports it as `invalid` per subject.
     private static string Map(ReviewState state) => state switch
     {
         ReviewState.Current => "fresh",
