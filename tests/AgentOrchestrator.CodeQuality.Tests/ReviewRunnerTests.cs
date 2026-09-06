@@ -367,7 +367,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 
@@ -779,7 +779,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 
@@ -823,7 +823,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 
@@ -904,7 +904,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 
@@ -1073,7 +1073,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 

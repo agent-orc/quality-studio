@@ -25,7 +25,8 @@ public sealed record ReviewRequest(
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
     IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
-    string? ModelSource = null);
+    string? ModelSource = null,
+    IReadOnlyList<ReviewSubjectGroup>? SubjectGroups = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -98,13 +99,13 @@ public sealed class ReviewRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
-            sensorEvidence, deterministicEvidence) = prepared;
+        var (root, relativePath, subjectPaths, files, fileContent, memberFindings, inputs, prompt, unitId,
+            metaPath, threads, sensorEvidence, deterministicEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
-        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
+        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Level, request.Kind));
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
@@ -168,6 +169,7 @@ public sealed class ReviewRunner
                 SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
             }
             var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+            AggregateFindingRollup.Apply(response, request.Level, subjectContents, memberFindings);
             if (request.Kind == "security")
             {
                 findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
@@ -306,7 +308,9 @@ public sealed class ReviewRunner
                     $"Review target '{subjectPaths[index]}' is excluded: {decision.Reason}", nameof(request));
         }
 
-        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
+        var subject = await BuildSubjectContentAsync(
+            root, relativePath, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
+        var fileContent = subject.Text;
         // The unit identifies the technology, and the technology selects the named rules that
         // reach this review, so it is resolved before the inputs rather than with the metadata.
         var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
@@ -336,8 +340,8 @@ public sealed class ReviewRunner
             request.Level,
             coverageEvidence,
             DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
-        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
-            prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
+        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, subject.MemberFindings,
+            inputs, prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
 
     private async Task<SecurityEvidenceBundle> CollectSensorEvidenceAsync(
@@ -414,7 +418,7 @@ public sealed class ReviewRunner
         IReadOnlyList<SensorScanResult> deterministicEvidence,
         string? sourceRevision)
     {
-        var promptHash = ReviewPromptBuilder.TemplateHash(kind);
+        var promptHash = ReviewPromptBuilder.TemplateHash(level, kind);
         var effectiveHash = inputs.EffectiveHash(promptHash);
         var reviewer = new JsonObject
         {
@@ -482,7 +486,7 @@ public sealed class ReviewRunner
                 ["omitted"] = new JsonArray(inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).Select(id => (JsonNode)id).ToArray()),
                 ["prompt"] = new JsonObject
                 {
-                    ["id"] = $"file-{kind}-review",
+                    ["id"] = ReviewPromptBuilder.TemplateId(level, kind),
                     ["version"] = "1.0.0",
                     ["contentHash"] = promptHash,
                 },
@@ -549,18 +553,42 @@ public sealed class ReviewRunner
         return Path.Combine(directory, ".quality", "reviews", lane, $"{prefix}.{key}.review-meta.{kind}.json");
     }
 
-    private static async Task<string> BuildSubjectContentAsync(
-        IReadOnlyList<string> paths, IReadOnlyList<string> files, ReviewLevel level, CancellationToken cancellationToken)
+    /// <summary>
+    /// A file review sees its file. An aggregate review sees a digest of its members - their sizes,
+    /// their own review state and findings, the derived structure, the boundary inventory for a
+    /// security pass, and a budgeted sample of real source - because concatenating every member
+    /// asks the file question N times over and does not fit. The subject hash is unaffected: it
+    /// stays the manifest of member hashes, and only the prompt content changes.
+    /// </summary>
+    private static async Task<SubjectContent> BuildSubjectContentAsync(
+        string root,
+        string relativePath,
+        ReviewRequest request,
+        IReadOnlyList<string> paths,
+        IReadOnlyList<string> files,
+        CancellationToken cancellationToken)
     {
-        if (level == ReviewLevel.File) return await File.ReadAllTextAsync(files[0], cancellationToken).ConfigureAwait(false);
-        var builder = new StringBuilder();
-        for (var index = 0; index < files.Count; index++)
+        if (request.Level == ReviewLevel.File)
         {
-            builder.AppendLine($"\n--- {paths[index]} ---");
-            builder.AppendLine(await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false));
+            return new SubjectContent(
+                await File.ReadAllTextAsync(files[0], cancellationToken).ConfigureAwait(false),
+                EmptyMemberFindings);
         }
-        return builder.ToString();
+
+        var digest = await AggregateSubjectDigest.BuildAsync(new AggregateDigestRequest(
+            root,
+            relativePath,
+            request.DisplayName ?? Path.GetFileName(relativePath),
+            request.Level,
+            request.Kind,
+            paths,
+            request.AggregateExclusions ?? [],
+            request.SubjectGroups ?? []), cancellationToken).ConfigureAwait(false);
+        return new SubjectContent(digest.Text, digest.MemberFindings);
     }
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyMemberFindings =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 
     private static async Task<IReadOnlyDictionary<string, string>> ReadSubjectContentsAsync(
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
@@ -703,12 +731,15 @@ public sealed class ReviewRunner
         IReadOnlyList<AggregateMemberHash>? Members,
         IReadOnlyList<ScopeExclusion>? Exclusions);
 
+    private sealed record SubjectContent(string Text, IReadOnlyDictionary<string, string> MemberFindings);
+
     private sealed record PreparedPrompt(
         string Root,
         string RelativePath,
         string[] SubjectPaths,
         string[] Files,
         string FileContent,
+        IReadOnlyDictionary<string, string> MemberFindings,
         ResolvedInputs Inputs,
         string Prompt,
         string UnitId,

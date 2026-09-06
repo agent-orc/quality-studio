@@ -115,7 +115,7 @@ public static class ReviewMetaDiscovery
             ? storedAdapter.GetString()
             : RuleCatalogueResolver.AdapterFromUnitId(document.GetProperty("unit").GetProperty("id").GetString());
         var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, adapter);
-        var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
+        var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(level, kind));
         return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
             ? ReviewState.Current
             : ReviewState.PolicyDrift;
