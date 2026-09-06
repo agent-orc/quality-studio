@@ -57,4 +57,28 @@ describe('Explorer container activation', () => {
     expect(component.expanded().has('quality-studio')).toBeFalse();
     expect(opened).toEqual([]);
   });
+
+  it('applies the filter only after typing settles', async () => {
+    component.setQuery('P');
+    component.setQuery('Pr');
+    component.setQuery('Program');
+
+    expect(component.queryInput()).toBe('Program');
+    expect(component.query()).withContext('filter is not applied per keystroke').toBe('');
+
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    expect(component.query()).toBe('Program');
+    expect(component.filteredRows().map(row => row.name)).toEqual(['Program.cs']);
+  });
+
+  it('clears an active filter immediately on Escape', async () => {
+    component.setQuery('Program');
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    component.onTreeKeydown(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    expect(component.queryInput()).toBe('');
+    expect(component.query()).toBe('');
+  });
 });

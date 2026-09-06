@@ -9,7 +9,8 @@ export interface UrlPreviewNavigation {
 
 export interface UrlPreviewEmbedEnvironment {
   readonly href: string;
-  replaceUrl(url: string): void;
+  /** Writes the shell URL. The caller decides between a history push and a replace. */
+  applyUrl(url: string): void;
   postToParent(message: UrlPreviewNavigationMessage, targetOrigin: '*'): void;
 }
 
@@ -34,7 +35,7 @@ export function reportUrlPreviewNavigation(
   url.searchParams.set('kind', navigation.kind);
   url.searchParams.set('repo', navigation.repository);
   const relativeUrl = `${url.pathname}?${url.searchParams}${url.hash}`;
-  environment.replaceUrl(relativeUrl);
+  environment.applyUrl(relativeUrl);
   if (!embedded) return;
 
   environment.postToParent({

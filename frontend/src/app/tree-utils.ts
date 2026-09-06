@@ -2,7 +2,7 @@ import { ReviewState, TreeNode } from './contracts';
 
 export type FlatNode = TreeNode & { depth: number; state: ReviewState; decorations: { kind: string; state: ReviewState; label: string }[] };
 
-export function flattenTree(nodes: TreeNode[], expanded: Set<string>, all = false, depth = 0): FlatNode[] {
+export function flattenTree(nodes: TreeNode[], expanded: ReadonlySet<string>, all = false, depth = 0): FlatNode[] {
   const result: FlatNode[] = [];
   for (const node of nodes) {
     const state = (node.kinds['code']?.overall ?? Object.values(node.kinds)[0]?.overall ?? 'missing') as ReviewState;

@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { describeFileError } from './api-errors';
 import type { PreviewFixtures } from './preview-fixtures';
+import { FlatNode, flattenTree } from './tree-utils';
 
 import {
   AgentStudioImportResponse,
@@ -53,6 +54,8 @@ import {
   UsageReport,
 } from './contracts';
 
+const NO_EXPANSION: ReadonlySet<string> = new Set<string>();
+
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
 const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
 
@@ -62,6 +65,12 @@ export class QualityApi {
   private readonly http = inject(HttpClient);
   private legacyApi = false;
   readonly tree = signal<TreeNode[]>([]);
+  /**
+   * One flattening of the whole tree, shared by every consumer that resolves a path. Callers used
+   * to run `flattenTree(..., true)` three or four times per click; this caches it per tree value.
+   */
+  readonly allNodes = computed(() => flattenTree(this.tree(), NO_EXPANSION, true));
+  readonly nodesByPath = computed(() => new Map(this.allNodes().map(node => [node.path, node])));
   readonly file = signal<FileDocument | null>(null);
   readonly fileError = signal<FileError | null>(null);
   readonly scan = signal<ScanReport>({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
@@ -447,6 +456,9 @@ export class QualityApi {
   }
 
   clearFile(): void { this.file.set(null); this.fileError.set(null); }
+
+  /** Resolves a repository path against the cached flattening. */
+  nodeAt(path: string): FlatNode | undefined { return this.nodesByPath().get(path); }
 
   /** Serves the labelled preview document; the editor pairs it with a banner and hides mutations. */
   private async showPreviewFile(path: string): Promise<void> {

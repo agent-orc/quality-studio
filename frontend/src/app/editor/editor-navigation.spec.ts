@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { QualityApi } from '../quality-api';
-import { ReviewFinding } from '../contracts';
+import { FileError, ReviewFinding } from '../contracts';
 import { Editor } from './editor';
 import { SyntaxHighlighting } from './syntax-highlighting';
 
@@ -20,7 +20,7 @@ describe('Editor finding navigation', () => {
         grade: { score: 80, band: 'B', rationale: 'Test.' }, summary: 'Test.', findings: [finding] }],
       sizeBytes: 240, lineEnding: 'lf' as const, encoding: 'utf-8' as const,
     }),
-    fileError: signal(null), preview: signal(false),
+    fileError: signal<FileError | null>(null), preview: signal(false),
     loading: signal(false), risk: signal({ rows: [], matrix: [] }), focusedThreadId: signal(null),
     mutateThread: jasmine.createSpy('mutateThread'),
   };
@@ -63,5 +63,50 @@ describe('Editor finding navigation', () => {
     expect(component.selectedLocation()).toBeNull();
     expect(component.isSelectedLine(8)).toBeFalse();
     expect(fixture.nativeElement.querySelectorAll('.code-line.selected-range').length).toBe(0);
+  });
+
+  it('selects a finding on click and keyboard focus, but never on hover', async () => {
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const selected: string[] = [];
+    component.findingSelect.subscribe(emitted => selected.push(emitted.id));
+    const marker = fixture.nativeElement.querySelector('.finding-marker') as HTMLButtonElement;
+
+    marker.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+    marker.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(selected).withContext('hover only highlights').toEqual([]);
+
+    marker.click();
+    expect(selected).toEqual(['range']);
+
+    marker.dispatchEvent(new FocusEvent('focus'));
+    expect(selected).toEqual(['range', 'range']);
+  });
+
+  it('offers a retry for a retryable file failure and never renders code for it', () => {
+    api.fileError.set({
+      path: 'src/A.cs', kind: 'unavailable', status: 503, title: 'File could not be loaded',
+      detail: 'The API did not deliver this document.', retryable: true,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.code-line').length).toBe(0);
+    expect(fixture.nativeElement.querySelector('.file-error b')?.textContent).toContain('File could not be loaded');
+    expect(fixture.nativeElement.querySelector('.file-error button')).not.toBeNull();
+
+    api.fileError.set(null);
+    fixture.detectChanges();
+  });
+
+  it('labels preview content and hides comment mutations while the API is unreachable', () => {
+    api.preview.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.preview-banner')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.comment-add').length).toBe(0);
+
+    api.preview.set(false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.comment-add').length).toBeGreaterThan(0);
   });
 });

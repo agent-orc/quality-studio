@@ -8,7 +8,6 @@ import { AgentStudioImportResponse, Guideline, GuidelineDraft, GuidelineImpact, 
 import { ReviewPanel } from './review-panel/review-panel';
 import { ReviewActions } from './review-actions/review-actions';
 import { ProjectDashboardView } from './project-dashboard/project-dashboard';
-import { flattenTree } from './tree-utils';
 import { UsageHistory } from './usage-history/usage-history';
 import { readFindingRoute, writeFindingRoute } from './review-navigation';
 import { reportUrlPreviewNavigation } from './url-preview-embed';
@@ -16,6 +15,8 @@ import { formatTokenCount, parseTokenCount } from './format';
 import { RepositoryDialog } from './repository-dialog/repository-dialog';
 
 const LAYOUT_STORAGE_KEY = 'qs-layout';
+/** Collapses a salvo of position changes into one history write. */
+const URL_SYNC_DEBOUNCE_MS = 120;
 const RESIZE_HANDLE_WIDTH = 6;
 const EXPLORER_DEFAULT_WIDTH = 280;
 const EXPLORER_MIN_WIDTH = 180;
@@ -32,6 +33,13 @@ interface WorkspaceLayout {
 }
 
 type ResizablePane = 'explorer' | 'review';
+interface ShellPosition {
+  repository: string;
+  path: string;
+  kind: ReviewKind;
+  fingerprint: string | null;
+  locationIndex: number;
+}
 interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds: string; levels: string; content: string; }
 
 @Component({
@@ -43,6 +51,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
   host: {
     '(window:resize)': 'onResize()',
     '(window:keydown)': 'onKeydown($event)',
+    '(window:popstate)': 'onPopState()',
     '(window:pointermove)': 'onDragMove($event)',
     '(window:pointerup)': 'onDragEnd()',
     '(window:pointercancel)': 'onDragEnd()',
@@ -80,11 +89,8 @@ export class App implements OnDestroy {
   readonly attackCoverageDialogOpen = signal(false);
   readonly usageHistoryOpen = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
-  readonly selectedNode = computed(() => {
-    const nodes = flattenTree(this.api.tree(), new Set(), true);
-    return nodes.find(node => node.path === this.selected())
-      ?? (this.selected() === '.' ? nodes.find(node => node.level === 'project') : undefined);
-  });
+  readonly selectedNode = computed(() => this.api.nodeAt(this.selected())
+    ?? (this.selected() === '.' ? this.api.allNodes().find(node => node.level === 'project') : undefined));
   readonly explorerSelectedPath = computed(() => this.selected() === '.' ? this.selectedNode()?.path ?? '.' : this.selected());
   readonly isProjectView = computed(() => this.selected() === '.' || this.selectedNode()?.level === 'project');
   readonly editingRepository = computed(() => this.api.repositories().find(repository => repository.id === this.editingRepositoryId()) ?? null);
@@ -108,6 +114,10 @@ export class App implements OnDestroy {
     const reviewTrack = this.reviewVisible() ? `${RESIZE_HANDLE_WIDTH}px ${this.reviewWidth()}px` : '0px 0px';
     return `${explorerTrack} minmax(400px,1fr) ${reviewTrack}`;
   });
+  private urlSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingPosition: ShellPosition | null = null;
+  /** The position the current history entry represents, so refinements only replace it. */
+  private historyPosition: { repository: string; path: string } | null = null;
   private dragStartX = 0;
   private dragStartWidth = 0;
   private dragFrame: number | null = null;
@@ -118,21 +128,25 @@ export class App implements OnDestroy {
     effect(() => document.documentElement.dataset['theme'] = this.theme());
     // Deep-linkable position: mirror the selected path and review kind into the
     // URL, and report every navigation to an embedding Studio preview so its
-    // address bar stays current (url-preview-embed contract).
+    // address bar stays current (url-preview-embed contract). Writes are
+    // debounced: selecting findings with the keyboard used to fire one
+    // history write per event, which Safari throttles.
     effect(() => {
-      const params = new URLSearchParams(location.search);
-      writeFindingRoute(params, this.selectedFindingFingerprint(), this.selectedLocationIndex());
-      const href = new URL(location.href);
-      href.search = params.toString();
-      reportUrlPreviewNavigation({
-        href: href.href,
-        replaceUrl: url => history.replaceState(null, '', url),
-        postToParent: (message, targetOrigin) => window.parent.postMessage(message, targetOrigin),
-      }, {
+      const position: ShellPosition = {
+        repository: this.api.selectedRepositoryId(),
         path: this.selected(),
         kind: this.activeKind(),
-        repository: this.api.selectedRepositoryId(),
-      }, this.embedded());
+        fingerprint: this.selectedFindingFingerprint(),
+        locationIndex: this.selectedLocationIndex(),
+      };
+      this.pendingPosition = position;
+      if (this.urlSyncTimer !== null) return;
+      this.urlSyncTimer = setTimeout(() => {
+        this.urlSyncTimer = null;
+        const pending = this.pendingPosition;
+        this.pendingPosition = null;
+        if (pending) this.syncUrl(pending);
+      }, URL_SYNC_DEBOUNCE_MS);
     });
     effect(() => {
       const file = this.api.file();
@@ -171,7 +185,49 @@ export class App implements OnDestroy {
     if (path) this.open(path, false, false, !!this.selectedFindingFingerprint());
   }
 
-  ngOnDestroy(): void { clearInterval(this.quotaRefreshTimer); }
+  ngOnDestroy(): void {
+    clearInterval(this.quotaRefreshTimer);
+    if (this.urlSyncTimer !== null) clearTimeout(this.urlSyncTimer);
+  }
+
+  /**
+   * Writes one history entry per visited position and replaces it for refinements such as
+   * selecting another finding in the same file. Without the push, every navigation replaced the
+   * single entry and the browser's Back button left the application entirely.
+   */
+  private syncUrl(position: ShellPosition): void {
+    const params = new URLSearchParams(location.search);
+    writeFindingRoute(params, position.fingerprint, position.locationIndex);
+    const href = new URL(location.href);
+    href.search = params.toString();
+    const push = this.historyPosition !== null
+      && (this.historyPosition.repository !== position.repository || this.historyPosition.path !== position.path);
+    this.historyPosition = { repository: position.repository, path: position.path };
+    reportUrlPreviewNavigation({
+      href: href.href,
+      applyUrl: url => push ? history.pushState(null, '', url) : history.replaceState(null, '', url),
+      postToParent: (message, targetOrigin) => window.parent.postMessage(message, targetOrigin),
+    }, { path: position.path, kind: position.kind, repository: position.repository }, this.embedded());
+  }
+
+  /** Restores the shell position a Back or Forward navigation moved to. */
+  onPopState(): void {
+    const params = new URLSearchParams(location.search);
+    const route = readFindingRoute(location.search);
+    const kind = params.get('kind') as ReviewKind | null;
+    const repository = params.get('repo');
+    const path = params.get('path') || '.';
+    this.selectedFindingFingerprint.set(route.fingerprint);
+    this.selectedLocationIndex.set(route.locationIndex);
+    if (kind && this.reviewKinds.includes(kind)) this.activeKind.set(kind);
+    // The popped entry already exists, so the next sync must replace it rather than push again.
+    this.historyPosition = { repository: repository ?? this.api.selectedRepositoryId(), path };
+    if (repository && repository !== this.api.selectedRepositoryId()) {
+      void this.switchRepository(repository);
+      return;
+    }
+    this.open(path, false, true, true);
+  }
 
   quotaRemaining(provider: QuotaProvider): number | null {
     const values = provider.windows.map(window => window.remainingPct).filter((value): value is number => value !== null);
@@ -195,7 +251,7 @@ export class App implements OnDestroy {
   open(path: string, track = true, expandContainer = false, preserveFinding = false): void {
     const start = performance.now();
     this.selected.set(path);
-    const node = flattenTree(this.api.tree(), new Set(), true).find(candidate => candidate.path === path);
+    const node = this.api.nodeAt(path);
     if (node?.level !== 'file') {
       this.api.clearFile();
       if (!preserveFinding) this.clearFindingSelection();
@@ -293,7 +349,7 @@ export class App implements OnDestroy {
   }
 
   async dryRunGuideline(): Promise<void> {
-    const sample = this.api.file()?.path ?? flattenTree(this.api.tree(), new Set(), true).find(node => node.level === 'file')?.path;
+    const sample = this.api.file()?.path ?? this.api.allNodes().find(node => node.level === 'file')?.path;
     if (!sample) { this.guidelineError.set('Open or select a sample file first.'); return; }
     this.guidelineDryRunning.set(true); this.guidelineError.set(''); this.guidelineImpact.set(null);
     const requestedKind = this.guidelineDraft().kinds.find(kind => ['code', 'security', 'performance'].includes(kind)) as ReviewKind | undefined;
@@ -575,11 +631,9 @@ export class App implements OnDestroy {
     console.info(JSON.stringify({ event: name, durationMs: +duration.toFixed(2), budgetMs: budget, withinBudget: duration < budget }));
   }
 
-  private selectionPathOrFirst(preferred: string): string | null {
-    const nodes = flattenTree(this.api.tree(), new Set(), true);
+  private selectionPathOrFirst(preferred: string): string {
     if (!preferred || preferred === '.') return '.';
-    const preferredNode = nodes.find(node => node.path === preferred);
-    return preferredNode?.path ?? '.';
+    return this.api.nodeAt(preferred)?.path ?? '.';
   }
 
   private emptyRepositoryForm(): RepositoryRegistrationRequest {
