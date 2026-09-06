@@ -440,6 +440,18 @@ public sealed class ReviewJobService : BackgroundService
         foreach (var registration in repositories.List())
         {
             var store = new ReviewRunStore(registration.RootPath);
+            var pinned = new QualityRunReportPinStore(registration.RootPath).Load();
+            var pruned = store.Prune(QualityRunReportStore.DefaultRetentionKeep, pinned,
+                (directory, exception) => logger.LogWarning(new EventId(1513, "ReviewRunPruneFailed"), exception,
+                    "Could not prune durable review run journal {ReviewRunDirectory}", directory));
+            if (pruned.Removed > 0)
+                logger.LogInformation(new EventId(1514, "ReviewRunJournalsPruned"),
+                    "Pruned {PrunedCount} terminal review journals in repository {RepositoryId}; {RemainingCount} remain",
+                    pruned.Removed, registration.Id, pruned.Remaining);
+            // Below this finish time retention already removed the report on purpose, so recovery must
+            // not write it again and hand the next prune the same work.
+            var retentionFloor = new QualityRunReportStore(registration.RootPath)
+                .RetentionFloor(QualityRunReportStore.DefaultRetentionKeep, pinned);
             foreach (var stored in store.LoadAll((directory, exception) =>
                          logger.LogError(new EventId(1511, "ReviewRunRecoveryFailed"), exception,
                              "Could not load durable review run from {ReviewRunDirectory}", directory)))
@@ -455,7 +467,7 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     var item = ReviewWorkItem.Restore(stored, registration, store);
                     if (!runs.TryAdd(item.Id, item)) continue;
-                    item.EnsureTerminalReport();
+                    item.EnsureTerminalReport(retentionFloor);
                     if (!ReviewRunStore.IsTerminal(item.State))
                     {
                         item.PrepareForRecovery();
@@ -1182,11 +1194,17 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate) return DurableStatusCore();
         }
 
-        public void EnsureTerminalReport()
+        /// <summary>
+        /// Publishes the terminal report for a recovered run, unless snapshot retention already removed
+        /// it: a run that finished before <paramref name="retentionFloor"/> lost its report on purpose,
+        /// and republishing it here is what made pruned reports reappear on every restart.
+        /// </summary>
+        public void EnsureTerminalReport(DateTimeOffset? retentionFloor = null)
         {
             lock (gate)
             {
                 if (!ReviewRunStore.IsTerminal(state) || reportStore.TryLoad(Id, out _)) return;
+                if (retentionFloor is not null && (FinishedAt ?? CreatedAt) < retentionFloor) return;
                 PublishReport();
             }
         }

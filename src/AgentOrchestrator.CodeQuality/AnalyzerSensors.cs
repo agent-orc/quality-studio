@@ -18,14 +18,15 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
         string executable,
         string[] versionArguments,
         ISensorCommandRunner? commandRunner,
-        string? toolVersionKey = null)
+        string? toolVersionKey = null,
+        AnalyzerProfileCatalog? profiles = null)
     {
         Id = id;
         this.executable = executable;
         this.versionArguments = versionArguments;
         this.toolVersionKey = toolVersionKey ?? id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
-        sarif = new SarifSensor(id, this.commandRunner);
+        sarif = new SarifSensor(id, this.commandRunner, profiles);
     }
 
     public string Id { get; }
@@ -65,16 +66,16 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
 
 public sealed class RoslynAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("roslyn", "dotnet", ["--version"], commandRunner, "dotnet")
+    public RoslynAnalyzerSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+        : base("roslyn", "dotnet", ["--version"], commandRunner, "dotnet", profiles)
     {
     }
 }
 
 public sealed class EslintAnalyzerSensor : SarifCommandAnalyzerSensor
 {
-    public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null)
-        : base("eslint", "node", ["--version"], commandRunner, "node")
+    public EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+        : base("eslint", "node", ["--version"], commandRunner, "node", profiles)
     {
     }
 }
@@ -83,9 +84,13 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
 {
     public const string SensorVersion = "1.0.0";
     private readonly ISensorCommandRunner commandRunner;
+    private readonly AnalyzerProfileCatalog profiles;
 
-    public TypeScriptAnalyzerSensor(ISensorCommandRunner? commandRunner = null) =>
+    public TypeScriptAnalyzerSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+    {
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
+        this.profiles = profiles ?? AnalyzerProfileCatalog.BuiltIn;
+    }
 
     public string Id => "tsc";
     public string Version => SensorVersion;
@@ -121,11 +126,13 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         var root = Path.GetFullPath(request.RepositoryRoot);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var configuration = request.Configuration ?? new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!configuration.TryGetValue("command", out var configuredCommand) ||
-            string.IsNullOrWhiteSpace(configuredCommand))
-            return Unavailable(request, "tsc analyzer configuration requires command.");
-        if (!configuration.TryGetValue("reportPath", out var configuredReport) ||
-            string.IsNullOrWhiteSpace(configuredReport))
+        if (!AnalyzerInvocation.TryResolve(Id, configuration, profiles, out var invocation, out var refusal))
+            return Unavailable(request, refusal);
+        var configuredCommand = invocation.Command;
+        if (string.IsNullOrWhiteSpace(configuredCommand))
+            return Unavailable(request, "tsc analyzer configuration requires a host-owned profile.");
+        var configuredReport = invocation.ReportPath;
+        if (string.IsNullOrWhiteSpace(configuredReport))
             return Unavailable(request, "tsc analyzer configuration requires reportPath.");
 
         string reportPath;
@@ -138,9 +145,8 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
                 ? AnalyzerCommand.ContainedPath(root, request.Path)
                 : root;
             reportPath = AnalyzerCommand.ContainedPath(root, configuredReport);
-            workingDirectory = configuration.TryGetValue("workingDirectory", out var configuredWorkingDirectory) &&
-                               !string.IsNullOrWhiteSpace(configuredWorkingDirectory)
-                ? AnalyzerCommand.ContainedPath(root, configuredWorkingDirectory)
+            workingDirectory = !string.IsNullOrWhiteSpace(invocation.WorkingDirectory)
+                ? AnalyzerCommand.ContainedPath(root, invocation.WorkingDirectory)
                 : Directory.Exists(target) ? target : Path.GetDirectoryName(target)!;
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "tsc workingDirectory must be an existing repository directory.");

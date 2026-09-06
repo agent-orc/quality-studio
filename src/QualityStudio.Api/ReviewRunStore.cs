@@ -112,6 +112,9 @@ public sealed record StoredReviewRun(
 
 public sealed record StoredReviewObservation(string OperationId, ReviewObservationSnapshot Snapshot);
 
+/// <summary>How many run journals retention removed, and how many remain.</summary>
+public sealed record ReviewRunPruneResult(int Removed, int Remaining);
+
 /// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
 public sealed class ReviewRunStore
 {
@@ -264,6 +267,44 @@ public sealed class ReviewRunStore
             }
         }
         return loaded;
+    }
+
+    /// <summary>
+    /// Applies the report retention to the journals. Journals used to be kept forever while their
+    /// reports were pruned to the newest few, so start-up recovery rebuilt exactly the reports the last
+    /// prune deleted, on every restart. Only terminal, unpinned runs beyond the newest
+    /// <paramref name="keep"/> are removed: a run that can still be resumed is never touched.
+    /// </summary>
+    public ReviewRunPruneResult Prune(
+        int keep,
+        IReadOnlySet<string> pinnedRunIds,
+        Action<string, Exception>? pruneFailed = null)
+    {
+        if (keep < 0) throw new ArgumentOutOfRangeException(nameof(keep), "Retention count cannot be negative.");
+        ArgumentNullException.ThrowIfNull(pinnedRunIds);
+        if (!Directory.Exists(runsPath)) return new ReviewRunPruneResult(0, 0);
+        var loaded = LoadAll();
+        var prunable = loaded
+            .Where(run => IsTerminal(run.Status.State) && !pinnedRunIds.Contains(run.Manifest.RunId))
+            .OrderByDescending(run => run.Status.FinishedAt ?? run.Status.CreatedAt)
+            .ThenByDescending(run => run.Manifest.RunId, StringComparer.Ordinal)
+            .Skip(keep)
+            .ToArray();
+        var removed = 0;
+        foreach (var run in prunable)
+        {
+            var directory = RunDirectory(run.Manifest.RunId);
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+                removed++;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                pruneFailed?.Invoke(directory, exception);
+            }
+        }
+        return new ReviewRunPruneResult(removed, loaded.Count - removed);
     }
 
     public static bool IsTerminal(string state) => state is "done" or "failed" or "cancelled" or "capped";

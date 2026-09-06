@@ -5,16 +5,34 @@ Quality Studio treats Gitleaks as a deterministic secret-detection sensor, not a
 ## Versioning and licensing
 
 - The pinned upstream version is `v8.24.2`.
-- Binaries are fetched only from the official Gitleaks GitHub release archive and verified against the matching release checksum asset.
+- Binaries are fetched only from the official Gitleaks GitHub release archive and verified against the
+  SHA-256 tracked in [`gitleaks-binaries.json`](../src/AgentOrchestrator.CodeQuality/gitleaks-binaries.json).
+  That file is the authority: the release checksum asset is fetched as well and must agree with it, but
+  a checksum served from the same release as the archive proves only that the two match each other.
+- A platform with no tracked digest is refused rather than installed. Provide the binary yourself and
+  point `QUALITY_GITLEAKS_PATH` at it, or add the digest.
+- Provisioning is serialized per cache path, so two scans starting together download once and never
+  read a half-written binary. The unpacked executable is moved into place in one step.
 - Gitleaks is MIT licensed; the upstream project license applies to the downloaded binary and release artifacts.
+
+## Running without a download
+
+Set `QUALITY_GITLEAKS_PATH` to an existing Gitleaks executable and nothing is downloaded; the resolver
+only checks that it reports the pinned version. This is how the container image works: it installs the
+pinned binary at build time and sets the variable, so no scan reaches the network at run time. It is
+also the way to run scans on an air-gapped host or on a platform without a tracked digest.
 
 ## Update process
 
 1. Bump `GitleaksBinaryResolver.PinnedVersion` in [`src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs`](../src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs).
-2. Review and update repository-owned allowlists in [`/.quality/security/gitleaks.toml`](../.quality/security/gitleaks.toml).
-3. Run `quality security scan` on a representative checkout.
-4. Inspect generated `.review-meta.security.json` files and adjust baselines for known placeholders only.
-5. Update tests and this document if the report shape changes.
+2. Replace the digests in [`gitleaks-binaries.json`](../src/AgentOrchestrator.CodeQuality/gitleaks-binaries.json)
+   from the new release's `gitleaks_<version>_checksums.txt`, and set its `version` to match. A mismatch
+   between the two fails the host at first use instead of silently installing an unreviewed binary.
+3. Update `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the [`Dockerfile`](../Dockerfile).
+4. Review and update repository-owned allowlists in [`/.quality/security/gitleaks.toml`](../.quality/security/gitleaks.toml).
+5. Run `quality security scan` on a representative checkout.
+6. Inspect generated `.review-meta.security.json` files and adjust baselines for known placeholders only.
+7. Update tests and this document if the report shape changes.
 
 ## Threat model
 

@@ -324,6 +324,24 @@ public sealed class QualityRunReportStore
             all.Count - toRemove.Length, pinnedRunIds.Count(id => all.Any(report => report.Run.Id == id)));
     }
 
+    /// <summary>
+    /// The finish time of the oldest snapshot <paramref name="keep"/> would retain, or null while the
+    /// store is still below the limit. Recovery uses it to tell "no report was ever written" from
+    /// "retention removed this report on purpose"; without it, every restart republishes exactly the
+    /// snapshots the previous prune deleted.
+    /// </summary>
+    public DateTimeOffset? RetentionFloor(int keep, IReadOnlySet<string> pinnedRunIds)
+    {
+        if (keep < 0) throw new ArgumentOutOfRangeException(nameof(keep), "Retention count cannot be negative.");
+        ArgumentNullException.ThrowIfNull(pinnedRunIds);
+        if (keep == 0) return DateTimeOffset.MaxValue;
+        var eligible = LoadAll().Where(report => !pinnedRunIds.Contains(report.Run.Id))
+            .OrderByDescending(report => report.Run.FinishedAt ?? DateTimeOffset.MinValue)
+            .ThenByDescending(report => report.Run.Revision)
+            .ToArray();
+        return eligible.Length < keep ? null : eligible[keep - 1].Run.FinishedAt ?? DateTimeOffset.MinValue;
+    }
+
     public IReadOnlyList<QualityRunReportDocument> LoadAll(Action<string, Exception>? loadFailed = null)
     {
         if (!Directory.Exists(reportsPath)) return [];

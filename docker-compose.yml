@@ -1,0 +1,46 @@
+# Example deployment of the single-container Quality Studio host. See docs/deployment.md.
+#
+# Before the first start:
+#   node scripts/new-api-token.mjs agent-studio
+# Put the printed token into QUALITY_STUDIO_AGENT_STUDIO_TOKEN_SHA256 (the hash, not the token)
+# and keep the token itself in Agent Studio.
+
+services:
+  quality-studio:
+    image: quality-studio:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Loopback publish only. Put a TLS reverse proxy in front before exposing this beyond the host
+    # and then set QualityStudio__Security__RequireHttps=true.
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Hosted mode: every /api request needs a bearer token, every mutation a matching X-Client-Id.
+      QualityStudio__Security__Mode: Hosted
+      QualityStudio__Security__RequireHttps: "false"
+      QualityStudio__AllowedOrigins__0: "http://127.0.0.1:8080"
+
+      # The Agent Studio integration client. Repositories "*" plus CanRegisterRepositories lets it
+      # import repositories; narrow both if it should only read one repository.
+      QualityStudio__Security__Clients__0__Id: agent-studio
+      QualityStudio__Security__Clients__0__CredentialSha256: "${QUALITY_STUDIO_AGENT_STUDIO_TOKEN_SHA256:?set the SHA-256 printed by scripts/new-api-token.mjs}"
+      QualityStudio__Security__Clients__0__Repositories__0: "*"
+      QualityStudio__Security__Clients__0__CanRegisterRepositories: "true"
+
+      # Repository roots the registry may point at. Everything reviewable must live below one of them.
+      QualityStudio__RepositoryRoot: /repositories
+      QualityStudio__AllowedRoots__0: /repositories
+    volumes:
+      # The reviewed working copies. Read-write: reviews write .quality outputs next to the code.
+      - ./repositories:/repositories
+      # Server-owned repository registry, so registrations survive a container replacement.
+      - quality-studio-registry:/app/.quality-studio
+      # Reserved for the relocated .quality outputs of QS-102. Harmless until that card lands; keep
+      # the mount so the data survives the upgrade.
+      - quality-studio-data:/data
+    restart: unless-stopped
+
+volumes:
+  quality-studio-registry:
+  quality-studio-data:
