@@ -5,9 +5,45 @@ using System.Text.RegularExpressions;
 
 namespace AgentOrchestrator.CodeQuality;
 
+/// <summary>
+/// The rule and guideline ids a review may cite, resolved for the unit under review. An agent that
+/// names anything else — an invented rule, a rule for another technology, a guideline the budget
+/// omitted — has its <c>ruleId</c> replaced with the base-criteria id rather than the review being
+/// rejected. That replacement is what keeps finding fingerprints stable: the fingerprint covers the
+/// rule id, so an unchecked invented id would give the same defect a new identity on every run.
+/// </summary>
+public sealed class RuleIdPolicy
+{
+    private readonly Dictionary<string, string> canonical;
+
+    public RuleIdPolicy(IEnumerable<string> knownIds, string kind)
+    {
+        ArgumentNullException.ThrowIfNull(knownIds);
+        ArgumentException.ThrowIfNullOrWhiteSpace(kind);
+        Kind = kind;
+        Fallback = "built-in:" + kind;
+        canonical = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in knownIds) canonical[id] = id;
+        canonical[Fallback] = Fallback;
+    }
+
+    public string Kind { get; }
+
+    public string Fallback { get; }
+
+    /// <summary>
+    /// Returns the catalogue's own spelling of <paramref name="ruleId"/>, or null when no input
+    /// carries that id. Matching ignores case so a lowercased citation still resolves to the rule.
+    /// </summary>
+    public string? Canonicalize(string ruleId) =>
+        canonical.TryGetValue(ruleId.Trim(), out var known) ? known : null;
+}
+
 public sealed partial class ReviewResponseParser
 {
-    public JsonObject Parse(string response)
+    public JsonObject Parse(string response) => Parse(response, null);
+
+    public JsonObject Parse(string response, RuleIdPolicy? rules)
     {
         if (string.IsNullOrWhiteSpace(response))
         {
@@ -67,9 +103,21 @@ public sealed partial class ReviewResponseParser
             {
                 RequireString(finding, property);
             }
-            if (finding["ruleId"]!.GetValue<string>().Length > 200)
+            var ruleId = finding["ruleId"]!.GetValue<string>();
+            if (ruleId.Length > 200)
             {
                 throw Invalid("ruleId");
+            }
+
+            if (rules is not null)
+            {
+                var known = rules.Canonicalize(ruleId);
+                if (known is null)
+                {
+                    QualityStudioEventSource.Log.RuleIdRejected(ruleId, rules.Kind, rules.Fallback);
+                    known = rules.Fallback;
+                }
+                finding["ruleId"] = known;
             }
 
             var aspect = CanonicalAspectId(finding["aspect"]!.GetValue<string>());

@@ -394,4 +394,8 @@ internal sealed class QualityStudioEventSource : EventSource
     public void UsageRecorded(string runId, string path, string kind, long inputTokens, long outputTokens,
         long cachedInputTokens, long durationMs) =>
         WriteEvent(10, runId, path, kind, inputTokens, outputTokens, cachedInputTokens, durationMs);
+
+    [Event(11, Level = EventLevel.Warning)]
+    public void RuleIdRejected(string ruleId, string kind, string replacement) =>
+        WriteEvent(11, ruleId, kind, replacement);
 }

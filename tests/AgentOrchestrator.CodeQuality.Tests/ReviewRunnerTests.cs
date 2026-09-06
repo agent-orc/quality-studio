@@ -264,6 +264,64 @@ public sealed class ReviewResponseParserTests
         }
         """;
 
+    [Fact]
+    public void Parse_KeepsARuleIdTheResolvedInputsCarry()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("QS-CS-003") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy(["QS-CS-003"], "code"));
+
+        Assert.Equal("QS-CS-003", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_NormalizesACitationToTheCatalogueSpelling()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("qs-cs-003") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy(["QS-CS-003"], "code"));
+
+        Assert.Equal("QS-CS-003", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_ReplacesAnUnknownRuleIdWithTheBaseCriteriaIdInsteadOfFailing()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("QS-CS-999") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy(["QS-CS-003"], "code"));
+
+        Assert.Equal("built-in:code", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_AcceptsTheBaseCriteriaIdOfTheReviewedKind()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("built-in:security") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy([], "security"));
+
+        Assert.Equal("built-in:security", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_LeavesRuleIdsAloneWhenNoPolicyIsSupplied()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("some-guideline") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response);
+
+        Assert.Equal("some-guideline", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    private static string Finding(string ruleId) =>
+        ValidFinding.Replace("\"ruleId\":\"correctness.risk\"", "\"ruleId\":\"" + ruleId + "\"", StringComparison.Ordinal);
+
     internal const string ValidFinding = """
         {"id":"correctness-1","ruleId":"correctness.risk","aspect":"correctness","severity":"medium","title":"Risk","description":"A risk.","recommendation":"Fix it.","locations":[{"path":"src/Small.cs","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":8}}}]}
         """;

@@ -143,7 +143,10 @@ public sealed class ReviewRunner
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
                 agentResult.EffectiveModel, startedAt, request, relativePath);
             await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
-            var response = _responseParser.Parse(agentResult.Response);
+            // Every resolved input id is citable, whether or not the budget included its body: the
+            // agent can only have seen the included ones, and accepting the rest costs nothing.
+            var response = _responseParser.Parse(agentResult.Response,
+                new RuleIdPolicy(inputs.Inputs.Select(input => input.Id), request.Kind));
             if (request.Level == ReviewLevel.Project &&
                 string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
                 request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
