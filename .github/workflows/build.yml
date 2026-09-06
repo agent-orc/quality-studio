@@ -17,6 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        # bash on both legs: PowerShell quotes native arguments differently, and the
+        # matrix is only meaningful if both legs run the same command line.
+        shell: bash
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

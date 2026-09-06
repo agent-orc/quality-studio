@@ -5,14 +5,14 @@
   "toleranceRationale": "The recorded values were measured on Windows while the gate runs on Linux, and platform-specific branches move the number by a point or two. Tighten this once a few Linux runs have shown the real spread.",
   "projects": {
     "AgentOrchestrator.CodeQuality.Tests": {
-      "linePercent": 77.56,
-      "coveredLines": 16997,
-      "totalLines": 21915
+      "linePercent": 79.07,
+      "coveredLines": 18394,
+      "totalLines": 23264
     },
     "QualityStudio.Api.Tests": {
-      "linePercent": 40.38,
-      "coveredLines": 10476,
-      "totalLines": 25944
+      "linePercent": 43.26,
+      "coveredLines": 11955,
+      "totalLines": 27637
     },
     "frontend": {
       "linePercent": 60.82,
