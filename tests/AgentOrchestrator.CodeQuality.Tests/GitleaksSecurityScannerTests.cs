@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using Xunit;
 using QualityStudio.Testing;
+using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 

@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
-using Xunit;
 using QualityStudio.Testing;
+using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -853,14 +853,18 @@ public sealed class ReviewRunnerTests
                 ["id"] = "thread-1",
                 ["anchor"] = new JsonObject
                 {
-                    ["path"] = "src/Small.cs", ["fingerprint"] = "sha256:" + new string('a', 64),
+                    ["path"] = "src/Small.cs",
+                    ["fingerprint"] = "sha256:" + new string('a', 64),
                     ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
                     ["lastKnownRange"] = new JsonObject { ["start"] = new JsonObject { ["line"] = 1, ["column"] = 1 }, ["end"] = new JsonObject { ["line"] = 1, ["column"] = 1 } },
                 },
-                ["status"] = "open", ["entries"] = new JsonArray(new JsonObject
+                ["status"] = "open",
+                ["entries"] = new JsonArray(new JsonObject
                 {
-                    ["id"] = "entry-human", ["author"] = new JsonObject { ["kind"] = "human", ["name"] = "Ada" },
-                    ["createdAt"] = "2026-07-21T10:00:00.000Z", ["body"] = "Is this intentional?",
+                    ["id"] = "entry-human",
+                    ["author"] = new JsonObject { ["kind"] = "human", ["name"] = "Ada" },
+                    ["createdAt"] = "2026-07-21T10:00:00.000Z",
+                    ["body"] = "Is this intentional?",
                 }),
             });
             await File.WriteAllTextAsync(initial.MetaPath, meta.ToJsonString(), TestContext.Current.CancellationToken);
@@ -896,18 +900,24 @@ public sealed class ReviewRunnerTests
                 ["id"] = id,
                 ["anchor"] = new JsonObject
                 {
-                    ["path"] = "a.cs", ["fingerprint"] = fingerprint, ["contextHash"] = hash,
+                    ["path"] = "a.cs",
+                    ["fingerprint"] = fingerprint,
+                    ["contextHash"] = hash,
                     ["lastKnownRange"] = new JsonObject
                     {
                         ["start"] = new JsonObject { ["line"] = line, ["column"] = 1 },
                         ["end"] = new JsonObject { ["line"] = line, ["column"] = 1 },
                     },
                 },
-                ["status"] = "open", ["entries"] = new JsonArray(),
+                ["status"] = "open",
+                ["entries"] = new JsonArray(),
             };
-            var stored = new JsonObject { ["threads"] = new JsonArray(
+            var stored = new JsonObject
+            {
+                ["threads"] = new JsonArray(
                 Thread("moving", "sha256:" + new string('a', 64), contextHash, 2),
-                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1)) };
+                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1))
+            };
             File.WriteAllText(metaPath, stored.ToJsonString());
 
             var threads = ReviewThreadManager.LoadAndHeal(metaPath, "a.cs", "added\nbefore\ntarget\nafter");

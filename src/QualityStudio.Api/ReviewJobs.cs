@@ -4,9 +4,9 @@ using System.Threading.Channels;
 using AgentOrchestrator.CodeQuality;
 using CodingAgentRunner.Events;
 using CodingAgentRunner.Quota;
+using Microsoft.Extensions.Options;
 using ModelPriceCatalog = CodingAgentRunner.Pricing.ModelPriceCatalog;
 using PricingTokenUsage = CodingAgentRunner.Pricing.TokenUsage;
-using Microsoft.Extensions.Options;
 
 namespace QualityStudio.Api;
 

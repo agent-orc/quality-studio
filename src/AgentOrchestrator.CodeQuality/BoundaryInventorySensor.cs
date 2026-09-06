@@ -606,38 +606,38 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             }
 
             if (!file.Path.Contains(".worker.", StringComparison.OrdinalIgnoreCase))
-            foreach (Match match in BrowserMessageRegex().Matches(file.Content))
-            {
-                var direction = match.Groups["receive"].Success ? "inbound" : "outbound";
-                var line = Line(file.Content, match.Index);
-                var statement = StatementAt(file.Content, match.Index);
-                var target = match.Groups["target"].Success ? match.Groups["target"].Value : "message event";
-                entries.Add(new BoundaryEntry(
-                    StableId("browser-message", file.Path, line.ToString()),
-                    "browser-message",
-                    direction,
-                    direction == "inbound" ? "postMessage receiver" : $"postMessage to {target}",
-                    "postmessage",
-                    new BoundarySourceLocation(file.Path, line),
-                    new BoundaryFact(direction == "inbound" ? "public" : "hosting-page",
-                        [$"{file.Path}:{line} uses the browser postMessage boundary"]),
-                    new BoundaryFact("none", [$"{file.Path}:{line} contains no transport authentication"]),
-                    new BoundaryFact(
-                        statement.Contains(".origin", StringComparison.Ordinal) || statement.Contains("origin", StringComparison.OrdinalIgnoreCase)
-                            ? "origin-checked"
-                            : "none",
-                        [$"{file.Path}:{line} " +
+                foreach (Match match in BrowserMessageRegex().Matches(file.Content))
+                {
+                    var direction = match.Groups["receive"].Success ? "inbound" : "outbound";
+                    var line = Line(file.Content, match.Index);
+                    var statement = StatementAt(file.Content, match.Index);
+                    var target = match.Groups["target"].Success ? match.Groups["target"].Value : "message event";
+                    entries.Add(new BoundaryEntry(
+                        StableId("browser-message", file.Path, line.ToString()),
+                        "browser-message",
+                        direction,
+                        direction == "inbound" ? "postMessage receiver" : $"postMessage to {target}",
+                        "postmessage",
+                        new BoundarySourceLocation(file.Path, line),
+                        new BoundaryFact(direction == "inbound" ? "public" : "hosting-page",
+                            [$"{file.Path}:{line} uses the browser postMessage boundary"]),
+                        new BoundaryFact("none", [$"{file.Path}:{line} contains no transport authentication"]),
+                        new BoundaryFact(
+                            statement.Contains(".origin", StringComparison.Ordinal) || statement.Contains("origin", StringComparison.OrdinalIgnoreCase)
+                                ? "origin-checked"
+                                : "none",
+                            [$"{file.Path}:{line} " +
                          (statement.Contains("origin", StringComparison.OrdinalIgnoreCase)
                              ? "references message origin"
                              : "has no derived origin check")]),
-                    direction == "inbound" ? [new BoundaryInput("event.data", "message", "unknown", null)] : [],
-                    new BoundaryResponse("message", null),
-                    [],
-                    new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message rate limit"]),
-                    new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message size limit"]),
-                    [],
-                    [statement.Trim()]));
-            }
+                        direction == "inbound" ? [new BoundaryInput("event.data", "message", "unknown", null)] : [],
+                        new BoundaryResponse("message", null),
+                        [],
+                        new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message rate limit"]),
+                        new BoundaryLimit("absent", [$"{file.Path}:{line} has no recognized message size limit"]),
+                        [],
+                        [statement.Trim()]));
+                }
 
             foreach (Match match in JavaScriptTriggerRegex().Matches(file.Content))
             {

@@ -2,8 +2,8 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
-using Xunit;
 using QualityStudio.Testing;
+using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 

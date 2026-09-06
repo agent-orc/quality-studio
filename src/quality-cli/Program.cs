@@ -1,7 +1,7 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text;
 using AgentOrchestrator.CodeQuality;
 
 return await QualityCli.RunAsync(args);
@@ -460,10 +460,10 @@ public static class QualityCli
         var options = globs.Count == 0
             ? new StalenessEvaluatorOptions { ReviewKind = kind }
             : new StalenessEvaluatorOptions
-        {
-            ReviewKind = kind,
-            IncludeGlobs = globs,
-        };
+            {
+                ReviewKind = kind,
+                IncludeGlobs = globs,
+            };
         return (path, options);
     }
 

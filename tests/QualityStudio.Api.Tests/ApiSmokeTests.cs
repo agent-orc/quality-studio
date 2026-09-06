@@ -2,15 +2,15 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using AgentOrchestrator.CodeQuality;
+using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using AgentOrchestrator.CodeQuality;
-using CodingAgentRunner.Quota;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Xunit;
 using QualityStudio.Testing;
+using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
@@ -121,8 +121,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var response = await client.PostAsJsonAsync("/api/review/estimate", new
         {
-            path = "Sample.cs", kind = "code", cliType = "claude",
-            model = "claude-opus-5", thinkingLevel = "max",
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "claude",
+            model = "claude-opus-5",
+            thinkingLevel = "max",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -144,7 +147,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
         {
-            path = "Sample.cs", kind = "code", cliType,
+            path = "Sample.cs",
+            kind = "code",
+            cliType,
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
@@ -165,7 +170,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
         {
-            path = "Sample.cs", kind = "code", cliType = "codex", model = "gpt-5.6-sol", thinkingLevel = "medium",
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "codex",
+            model = "gpt-5.6-sol",
+            thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
@@ -180,8 +189,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium",
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
@@ -195,15 +207,22 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var rejected = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium",
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
 
         using var accepted = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium", confirmBelowFloor = true,
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
+            confirmBelowFloor = true,
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
         var run = await accepted.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -231,7 +250,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var previewResponse = await client.PostAsJsonAsync("/api/scope/rules/preview", new
         {
-            action = "exclude", pattern = "*.cs", reason = "Reviewed by the generated-code pipeline.",
+            action = "exclude",
+            pattern = "*.cs",
+            reason = "Reviewed by the generated-code pipeline.",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
         var preview = await previewResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -240,7 +261,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var createdResponse = await client.PostAsJsonAsync("/api/scope/rules", new
         {
-            action = "exclude", pattern = "Sample.cs", reason = "Ignore this exact path in future reviews.",
+            action = "exclude",
+            pattern = "Sample.cs",
+            reason = "Ignore this exact path in future reviews.",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
         var created = await createdResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -255,7 +278,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var updatedResponse = await client.PutAsJsonAsync("/api/scope/rules/0", new
         {
-            action = "include", pattern = "Sample.cs",
+            action = "include",
+            pattern = "Sample.cs",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, updatedResponse.StatusCode);
         var updated = await updatedResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -350,8 +374,12 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/guidelines", new
         {
-            id = "ui-created-rule", enabled = true, priority = 90,
-            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Prefer immutable values.",
+            id = "ui-created-rule",
+            enabled = true,
+            priority = 90,
+            kinds = new[] { "code" },
+            levels = new[] { "file" },
+            content = "Prefer immutable values.",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);

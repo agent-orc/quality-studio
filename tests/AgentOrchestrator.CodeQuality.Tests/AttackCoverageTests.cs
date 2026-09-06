@@ -1,5 +1,5 @@
-using Json.Schema;
 using System.Text.Json;
+using Json.Schema;
 using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;

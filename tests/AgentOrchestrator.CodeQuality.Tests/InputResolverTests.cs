@@ -1,6 +1,6 @@
 using AgentOrchestrator.CodeQuality;
-using Xunit;
 using QualityStudio.Testing;
+using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 

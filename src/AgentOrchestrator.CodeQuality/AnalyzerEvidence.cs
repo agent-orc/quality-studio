@@ -89,8 +89,8 @@ public static class DeterministicEvidenceProjection
         if (evidence is not { Count: > 0 }) return [];
         var subjects = subjectPaths.Select(NormalizePath).ToHashSet(StringComparer.Ordinal);
         return evidence.Select(result => result with
-            {
-                Findings = result.Findings
+        {
+            Findings = result.Findings
                     .Where(finding => finding.Locations.Count == 0 ||
                                       finding.Locations.Any(location =>
                                           subjects.Contains(NormalizePath(location.Path))))
@@ -99,7 +99,7 @@ public static class DeterministicEvidenceProjection
                         StringComparer.Ordinal)
                     .ThenBy(finding => finding.RuleId, StringComparer.Ordinal)
                     .ToArray(),
-            })
+        })
             .OrderBy(result => result.Provenance.SensorId, StringComparer.Ordinal)
             .ToArray();
     }

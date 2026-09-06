@@ -1,5 +1,5 @@
-using AgentOrchestrator.CodeQuality;
 using System.Diagnostics;
+using AgentOrchestrator.CodeQuality;
 using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;

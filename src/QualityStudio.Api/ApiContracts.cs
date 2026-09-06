@@ -57,8 +57,8 @@ public sealed record TreeNodeResponse(
     {
         yield return node;
         foreach (var child in node.Children)
-        foreach (var descendant in Flatten(child))
-            yield return descendant;
+            foreach (var descendant in Flatten(child))
+                yield return descendant;
     }
 
     private sealed record DirectReviewSummary(int FindingsCount, FindingStateCounts Counts, string? ReviewedAt)
