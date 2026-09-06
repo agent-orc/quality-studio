@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentOrchestrator.CodeQuality;
 using Microsoft.Extensions.Options;
+using System.Text.Json.Serialization;
 
 namespace QualityStudio.Api;
 
@@ -14,7 +15,11 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null)
+{
+    [JsonIgnore]
+    public string DataRootPath { get; init; } = string.Empty;
+}
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -44,17 +49,22 @@ public sealed class RepositoryRegistry
     private readonly IReadOnlyList<string> supportedSensors;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
+    private readonly QualityDataRoot dataRoot;
+    private readonly QualityDataMigrator dataMigrator;
     private readonly SemaphoreSlim gate = new(1, 1);
     private List<RepositoryRegistration> entries;
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
-        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex)
+        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex,
+        QualityDataRoot dataRoot, QualityDataMigrator dataMigrator)
     {
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
         this.logger = logger;
         this.metaIndex = metaIndex;
+        this.dataRoot = dataRoot;
+        this.dataMigrator = dataMigrator;
         if (legacyOptions.AllowedRoots.Length == 0)
             throw new InvalidOperationException("QualityStudio:AllowedRoots must contain at least one directory.");
         allowedRoots = legacyOptions.AllowedRoots.Select(path => ResolvePath(path, contentRoot))
@@ -66,7 +76,7 @@ public sealed class RepositoryRegistry
             PathConfinement.RejectReparseTraversal(allowedRoot, allowedRoot);
         }
         registryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
-        entries = LoadOrSeed();
+        entries = LoadOrSeed().Select(WithDataRoot).ToList();
     }
 
     public string RegistryPath => registryPath;
@@ -86,19 +96,24 @@ public sealed class RepositoryRegistry
                ?? throw new KeyNotFoundException($"Repository '{resolvedId}' was not found.");
     }
 
-    public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
+    public RepositoryAccess Access(string? id)
+    {
+        var repository = Get(id);
+        return new RepositoryAccess(repository.RootPath, repository.DataRootPath, metaIndex);
+    }
 
     public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var entry = Validate(request, null);
+            var entry = WithDataRoot(Validate(request, null));
             if (entries.Any(existing => string.Equals(existing.Id, entry.Id, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new RepositoryRegistryValidationException($"A repository with id '{entry.Id}' already exists.");
             }
 
+            InitializeData(entry);
             entries.Add(entry);
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1400, "RepositoryOnboarded"),
@@ -122,11 +137,12 @@ public sealed class RepositoryRegistry
                 throw new RepositoryRegistryValidationException("Archived repositories cannot be edited.");
             }
 
-            var updated = Validate(request with
+            var updated = WithDataRoot(Validate(request with
             {
                 Id = existing.Id,
                 Sensors = request.Sensors ?? existing.Sensors,
-            }, existing.Id);
+            }, existing.Id));
+            InitializeData(updated);
             entries[entries.IndexOf(existing)] = updated;
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1401, "RepositoryUpdated"),
@@ -369,6 +385,25 @@ public sealed class RepositoryRegistry
 
     private static StringComparer PathComparer =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    private RepositoryRegistration WithDataRoot(RepositoryRegistration registration)
+    {
+        var path = dataRoot.ForProject(registration.Id);
+        if (PathConfinement.IsWithin(registration.RootPath, path))
+            throw new InvalidOperationException("Quality Studio data root must be outside the analysed checkout.");
+        Directory.CreateDirectory(path);
+        return registration with { DataRootPath = path };
+    }
+
+    private void InitializeData(RepositoryRegistration registration)
+    {
+        var dirty = QualityDataMigrator.DirtyQualityPaths(registration.RootPath);
+        if (dirty.Count > 0)
+            logger.LogWarning(new EventId(1411, "DirtyQualityTree"),
+                "Repository {RepositoryId} has dirty in-checkout .quality data: {DirtyPaths}",
+                registration.Id, string.Join(", ", dirty));
+        dataMigrator.Migrate(registration.RootPath, registration.DataRootPath);
+    }
 
     private IReadOnlyList<RepositorySensorConfiguration> DefaultSensors(string root) =>
         supportedSensors.Select(id => DefaultSensor(id, root)).ToArray();

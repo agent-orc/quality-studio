@@ -7,7 +7,8 @@ public sealed record GuidelineImpactRequest(
     IReadOnlyList<string> SamplePaths,
     string Kind = "code",
     string? GlobalInputsDirectory = null,
-    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters);
+    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+    string? DataRoot = null);
 
 public sealed record ImpactFinding(
     string Id,
@@ -60,7 +61,7 @@ public class GuidelineImpactAnalyzer
             throw new ArgumentException("Dry-run impact requires between one and ten sample files.");
         var root = Path.GetFullPath(repositoryRoot);
         var current = resolver.Resolve(root, request.Kind, ReviewLevel.File,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+            request.GlobalInputsDirectory, request.InputBudgetCharacters, request.DataRoot);
         var draft = ApplyDraft(current, request.Guideline);
         var results = new List<FileGuidelineImpact>();
         foreach (var requestedPath in request.SamplePaths.Distinct(StringComparer.Ordinal))

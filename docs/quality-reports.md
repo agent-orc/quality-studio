@@ -15,7 +15,7 @@ each hierarchy level. Coverage counts a source file once when it has any review,
 regardless of kind. Staleness counts file-kind pairs, which makes missing review
 coverage visible instead of treating absence as a passing grade.
 
-Finding state comes from `.quality/findings/state.json`. Open and accepted
+Finding state comes from the project data root's `.quality/findings/state.json`. Open and accepted
 findings remain active and affect `--fail-on`; waived, false-positive, and
 resolved findings do not fail that gate. All states remain represented in JSON
 counts. A lifecycle record whose observation is no longer in a current sidecar
@@ -55,7 +55,7 @@ that severity or higher.
 ## Run-scoped reports
 
 Every terminal UI review run writes a strict canonical document to
-`.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
+`<project-data-root>/.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
 manifest, routing provenance, usage and cap outcome, one explicit outcome per
 planned unit, the exact sidecar bytes captured by the run, finding lifecycle
 state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and

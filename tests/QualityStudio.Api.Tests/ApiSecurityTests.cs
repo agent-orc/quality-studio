@@ -135,7 +135,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         using var alice = CreateClient(rateApplication, "alice", AliceToken);
         using var firstReview = await alice.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "code", cliType = "adapter-that-does-not-exist",
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "adapter-that-does-not-exist",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Accepted, firstReview.StatusCode);
         using var secondReview = await alice.PostAsJsonAsync("/api/review",
@@ -171,7 +173,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         using var mutation = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+            path = "Sample.cs",
+            kind = "code",
+            model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
     }
@@ -252,6 +256,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
                     ["QualityStudio:AllowedRoots:1"] = foreignRoot,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "data"),
                     ["QualityStudio:Security:Mode"] = "Hosted",
                     ["QualityStudio:Security:RequireHttps"] = "true",
                     ["QualityStudio:Security:SpendRequestsPerMinute"] = spendRequestsPerMinute.ToString(),
@@ -286,6 +291,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "data"),
                     ["QualityStudio:Security:Mode"] = "Local",
                 }));
         }

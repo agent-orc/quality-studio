@@ -21,6 +21,9 @@ dotnet run --project src/QualityStudio.Api
 ```
 
 `QualityStudio:RepositoryRoot` defaults to `../..` relative to the API content root.
+`QualityStudio:DataRoot` defaults to the current user's local application-data
+`QualityStudio/projects` directory. Project runtime data is keyed below it by
+repository registration id; see [operations/data-root.md](operations/data-root.md).
 The same repository is the only allowed root by default. Deployments that register
 repositories below another neutral host root must supply it through configuration,
 for example `QualityStudio__AllowedRoots__0=/srv/source` in the host environment;
@@ -114,7 +117,7 @@ curl "http://127.0.0.1:5127/api/security/attack-coverage?path=src/QualityStudio.
 curl -X POST "http://127.0.0.1:5127/api/security/attack-coverage/judgements?path=src/QualityStudio.Api" \
   -H "Content-Type: application/json" \
   -d '{"assessmentId":"assessment-42","boundaryId":"...","attackId":"OWASP-API7-SSRF","verdict":"pass","reasoning":"The target is selected from a fixed allowlist.","evidence":[{"kind":"code","reference":"src/Api.cs#symbol:Fetch","summary":"Allowlist checked immediately before the HTTP call."}],"deterministicSensorInput":[],"source":"agent","reviewer":{"agent":"security-reviewer","model":"routed-model","thinkingLevel":"routed-level"},"tokenCost":{"inputTokens":1200,"outputTokens":180,"cachedInputTokens":0,"reasoningOutputTokens":80},"commit":"...","commitRange":"base..head"}'
-# 201 and appends .quality/attacks/coverage-ledger.jsonl
+# 201 and appends <project-data-root>/.quality/attacks/coverage-ledger.jsonl
 
 curl "http://127.0.0.1:5127/api/sensors"
 # 200 {"sensors":[{"id":"dependencies","version":"1.0.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
@@ -124,7 +127,7 @@ curl -X POST "http://127.0.0.1:5127/api/sensors/dependencies/scan?path=frontend"
 
 curl -X POST "http://127.0.0.1:5127/api/sensors/boundaries/scan"
 # 200 {"available":true,"findings":[...],"provenance":{"sensorId":"boundaries",...}}
-# also writes <repository>/.quality/boundaries/inventory.json
+# also writes <project-data-root>/.quality/boundaries/inventory.json
 
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}
@@ -134,7 +137,7 @@ curl "http://127.0.0.1:5127/api/guidelines"
 
 curl -X POST "http://127.0.0.1:5127/api/guidelines" -H "Content-Type: application/json" \
   -d '{"id":"api-boundaries","enabled":true,"priority":80,"kinds":["code"],"levels":["file"],"content":"Validate public boundary input."}'
-# 201 and writes .quality/inputs/api-boundaries.md
+# 201 and writes <project-data-root>/.quality/inputs/api-boundaries.md
 
 curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/security-boundaries/install"
 # 201 and installs an editable repository copy

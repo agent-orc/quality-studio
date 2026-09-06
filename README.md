@@ -1,6 +1,6 @@
 # Quality Studio
 
-**The engineer room of the Agent Orchestrator universe: agent-driven, layered code reviews with quality truth persisted next to the code.**
+**The engineer room of the Agent Orchestrator universe: agent-driven, layered code reviews without mutating the analysed checkout.**
 
 Part of the [Agent Orchestrator](https://agent-orchestrator.dev) universe — alongside
 Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
@@ -18,7 +18,7 @@ Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 
 This is **not static code analysis**. Coding agents read, judge, and grade the code —
 orchestrated across review kinds and abstraction levels — and their findings become
-versioned, repo-owned facts. You work *with* agents on quality; the tool orchestrates
+durable project data. You work *with* agents on quality; the tool orchestrates
 them and keeps the ledger honest.
 
 ## The concept
@@ -37,10 +37,10 @@ Sweeps run over a whole project per **review kind**: `code`, `security`, and
 own thing). Architecture is a project/module code-review aspect in v1, not a
 fourth kind.
 
-### 2. Review metadata lives next to the code (the heart)
+### 2. Review metadata follows the code without living in the checkout
 
-Every reviewed unit gets a small structured JSON meta file **in the same feature
-folder** as the code it describes:
+Every reviewed unit gets a small structured JSON meta file in an external data-root
+mirror of the feature folder it describes:
 
 - `reviewedAt` — when the last review ran
 - `kind` — code / security / performance
@@ -49,8 +49,28 @@ folder** as the code it describes:
 - `reviewedHash` — hash of the exact content that was reviewed
 
 The hash makes staleness self-evident: if the code has moved on, the review visibly
-no longer applies. History comes for free via Git. The repository owns its quality
-truth — diffable, portable, reviewable like any other artifact.
+no longer applies. The checkout remains read-only during analysis. Reports become
+portable only through an explicit user-triggered export.
+
+## Runtime data root and versioning decision
+
+The API stores every project's `.quality/**` runtime data below
+`QualityStudio:DataRoot/<project-id>/`. When `QualityStudio:DataRoot` is not set, the
+base is `%LOCALAPPDATA%/QualityStudio/projects` on Windows and the platform local
+application-data equivalent elsewhere. The data root mirrors repository-relative
+paths, so a sidecar formerly written to `src/.quality/reviews/...` is stored at
+`<data-root>/<project-id>/src/.quality/reviews/...`.
+
+On startup, Quality Studio warns if Git reports dirty `.quality` paths, then performs
+the one-time migration of existing root and per-folder `.quality` trees. That move is
+the sole automatic checkout mutation; after it, runs treat the checkout as read-only.
+Conflicting destination bytes stop migration rather than overwrite data. `.quality/`
+is ignored at every checkout depth.
+
+No runtime artefacts are meant to be versioned: not findings, sidecars, ledgers,
+run state, sensor snapshots, nor canonical run reports. Version a deliberately
+exported Markdown, HTML, JSON, or SARIF report only when a user explicitly chooses
+an output path. See [`docs/operations/data-root.md`](docs/operations/data-root.md).
 
 Relationship to task-time reviews in Agent Studio: a task review is a **snapshot of a
 diff**; Code Quality is the **standing truth of the codebase**.
@@ -132,8 +152,7 @@ and caller-influenced outbound surfaces and run the standard mechanical checks:
 dotnet run --project src/quality-cli -- boundaries scan .
 ```
 
-The stable result is written to `.quality/boundaries/inventory.json`, so boundary
-changes appear in normal source-control diffs. See
+The stable result is written to the project's data-root `.quality/boundaries/inventory.json`. See
 [`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and
 derivation rules.
 
@@ -147,7 +166,7 @@ dotnet run --project src/quality-cli -- diff . --base <base> --head <head> --fai
 dotnet run --project src/quality-cli -- diff . --last 20
 ```
 
-Change truth is committed under `.quality/changes/`. See
+Change truth is stored under the project's data-root `.quality/changes/`. See
 [`docs/change-reviews.md`](docs/change-reviews.md) for provider semantics,
 deterministic delta fields, agent aspects, economy measurements, and gate exit
 codes.
@@ -155,7 +174,7 @@ codes.
 ## Security scan
 
 Run the deterministic Gitleaks sensor to produce structured security findings and
-repository-owned security review sidecars:
+project-owned security review sidecars in the external data root:
 
 ```shell
 dotnet run --project src/quality-cli -- security scan .
@@ -180,7 +199,7 @@ Global and repository-owned Markdown guidelines can be resolved into review prom
 ## Review usage telemetry
 
 Agent-backed reviews persist their model, CLI, token counts, duration, and run
-identity both with the review truth and in a repository-local append-only ledger.
+identity both with the review truth and in a project data-root append-only ledger.
 The API exposes repository usage aggregates and provider quota availability. See
 [`docs/usage-telemetry.md`](docs/usage-telemetry.md) for the versioned storage
 contracts, endpoint semantics, quota source of truth, and unavailable behavior.
@@ -200,8 +219,8 @@ dotnet run --project src/quality-cli -- report . --format sarif --output quality
 dotnet run --project src/quality-cli -- report . --run <run-id> --format html --output quality-run.html
 ```
 
-Run-scoped exports render the exact terminal snapshot captured under
-`.quality/reports/runs/`; they do not re-read mutable review sidecars. CI gates
+Run-scoped exports render the exact terminal snapshot captured under the project's
+data-root `.quality/reports/runs/`; they do not re-read mutable review sidecars. CI gates
 use `--fail-under <score>` and `--fail-on <severity>`. See
 [`docs/quality-reports.md`](docs/quality-reports.md) for report semantics,
 endpoint formats, and documented exit codes.

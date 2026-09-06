@@ -62,7 +62,8 @@ public class GitleaksSecurityScanner : IReviewSensor
             configuration.GetValueOrDefault("range"),
             configuration.GetValueOrDefault("configPath"),
             configuration.GetValueOrDefault("baselinePath"),
-            request.PersistMetadata), cancellationToken).ConfigureAwait(false);
+            request.PersistMetadata,
+            request.DataRoot), cancellationToken).ConfigureAwait(false);
         var findings = result.Findings.Where(finding => !finding.Accepted).Select(ToReviewFinding).ToArray();
         return new SensorScanResult(
             result.Report.Available,
@@ -104,13 +105,14 @@ public class GitleaksSecurityScanner : IReviewSensor
     {
         ArgumentNullException.ThrowIfNull(request);
         var root = Path.GetFullPath(request.RepositoryRoot);
+        var dataRoot = Path.GetFullPath(request.DataRoot ?? root);
         if (!Directory.Exists(root))
         {
             throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         }
 
-        var configPath = ResolveOptionalPath(root, request.ConfigPath, ".quality/security/gitleaks.toml");
-        var baselinePath = ResolveOptionalPath(root, request.BaselinePath, ".quality/security/gitleaks.baseline.json");
+        var configPath = ResolveOptionalPath(dataRoot, request.ConfigPath, ".quality/security/gitleaks.toml");
+        var baselinePath = ResolveOptionalPath(dataRoot, request.BaselinePath, ".quality/security/gitleaks.baseline.json");
         var stopwatch = Stopwatch.StartNew();
         SecurityScanOutput output;
         string binaryPath;
@@ -162,7 +164,7 @@ public class GitleaksSecurityScanner : IReviewSensor
         var grouped = findings.GroupBy(finding => finding.Path, StringComparer.OrdinalIgnoreCase).ToArray();
         if (request.PersistMetadata)
         {
-            await PersistFindingsAsync(root, binaryPath, request, grouped, configPath, baselinePath, cancellationToken)
+            await PersistFindingsAsync(root, dataRoot, binaryPath, request, grouped, configPath, baselinePath, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -250,6 +252,7 @@ public class GitleaksSecurityScanner : IReviewSensor
 
     private async Task PersistFindingsAsync(
         string root,
+        string dataRoot,
         string gitleaksPath,
         SecurityScanRequest request,
         IEnumerable<IGrouping<string, SecurityFindingRecord>> grouped,
@@ -257,7 +260,7 @@ public class GitleaksSecurityScanner : IReviewSensor
         string? baselinePath,
         CancellationToken cancellationToken)
     {
-        var hierarchyFiles = FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
+        var hierarchyFiles = FlattenHierarchy(RepositoryHierarchyBuilder.Build(root, dataRoot))
             .Where(node => node.Level == ReviewLevel.File)
             .GroupBy(node => node.Path, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.OrderBy(node => node.Id, StringComparer.Ordinal).First(),
@@ -322,11 +325,12 @@ public class GitleaksSecurityScanner : IReviewSensor
                 Findings = allFindings.Select(ToReviewFinding).ToArray(),
             };
 
-            var metaPath = Path.Combine(Path.GetDirectoryName(absolutePath)!, ".quality", "reviews", "files", $"file.{Sha256(relativePath)}.review-meta.security.json");
+            var metaPath = Path.Combine(dataRoot, Path.GetDirectoryName(relativePath) ?? string.Empty,
+                ".quality", "reviews", "files", $"file.{Sha256(relativePath)}.review-meta.security.json");
             var previous = LoadPersistedFindingIdentities(metaPath);
             var current = allFindings.Select(finding => new FindingIdentityRecord(
                 finding.Fingerprint, finding.Id, finding.Path, finding.RuleId)).ToArray();
-            var stateStore = new FindingStateStore(root);
+            var stateStore = new FindingStateStore(dataRoot);
             var before = await stateStore.ReadAsync(cancellationToken).ConfigureAwait(false);
             var merged = await stateStore.MergeReviewAsync(current, previous, "gitleaks", cancellationToken).ConfigureAwait(false);
             foreach (var accepted in acceptedFindings.Where(finding => !before.ContainsKey(finding.Fingerprint)))
@@ -345,14 +349,14 @@ public class GitleaksSecurityScanner : IReviewSensor
 
         if (request.Mode == SecurityScanMode.Repository)
         {
-            foreach (var metaPath in Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories))
+            foreach (var metaPath in Directory.EnumerateFiles(dataRoot, "*.review-meta.security.json", SearchOption.AllDirectories))
             {
                 using var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken).ConfigureAwait(false));
                 var document = metadata.RootElement;
                 if (document.GetProperty("reviewer").GetProperty("agent").GetString() != "gitleaks") continue;
                 var path = document.GetProperty("unit").GetProperty("path").GetString()!;
                 if (observedPaths.Contains(path)) continue;
-                await new FindingStateStore(root).MergeReviewAsync(
+                await new FindingStateStore(dataRoot).MergeReviewAsync(
                     [], LoadPersistedFindingIdentities(metaPath), "gitleaks", cancellationToken).ConfigureAwait(false);
             }
         }

@@ -1,6 +1,10 @@
 # Review inputs
 
-Quality Studio reads project review guidance from `.quality/inputs/*.md` in the reviewed repository. A separate global directory can be configured with `QualityStudio:GlobalInputsDirectory`, the `QUALITY_GLOBAL_INPUTS` environment variable, or the CLI's `--global-inputs` option.
+Quality Studio reads project review guidance from
+`<data-root>/<project-id>/.quality/inputs/*.md`, outside the reviewed repository.
+A separate global directory can be configured with
+`QualityStudio:GlobalInputsDirectory`, the `QUALITY_GLOBAL_INPUTS` environment
+variable, or the CLI's `--global-inputs` option.
 
 Each Markdown file starts with small frontmatter:
 
@@ -18,11 +22,11 @@ Prefer cancellation-aware asynchronous APIs on request paths.
 `kinds` and `levels` accept comma-separated bracket lists; `all` applies everywhere. Singular `kind` and `level` are also accepted. Higher priority inputs are injected first. Applicable global inputs precede project inputs, while a project input with the same `id` replaces its global counterpart.
 
 `enabled` defaults to `true`. The Guidelines workspace in Quality Studio creates,
-edits, enables/disables, and deletes these files directly. Changes are ordinary
-repository working-tree changes: Quality Studio does not hide them in application
-state or commit them automatically. The starter catalogue contains .NET, Angular /
-TypeScript, testing, and security entries; installing one copies it into
-`.quality/inputs` so it can be edited like any other guideline.
+edits, enables/disables, and deletes these project-data files directly. They do
+not change the repository working tree. The starter catalogue contains .NET,
+Angular / TypeScript, testing, and security entries; installing one copies it
+into the project data root's `.quality/inputs` directory so it can be edited like
+any other guideline.
 
 The default 12,000-character budget is configurable as `QualityStudio:InputBudgetCharacters` or with `--input-budget`. Partial and omitted content is reported by the resolver and persisted in `reviewInputs.omitted`; it is never silently dropped.
 

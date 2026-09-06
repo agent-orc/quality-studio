@@ -11,7 +11,8 @@ Quality Studio treats Gitleaks as a deterministic secret-detection sensor, not a
 ## Update process
 
 1. Bump `GitleaksBinaryResolver.PinnedVersion` in [`src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs`](../src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs).
-2. Review and update repository-owned allowlists in [`/.quality/security/gitleaks.toml`](../.quality/security/gitleaks.toml).
+2. Review and update project-owned allowlists at
+   `<data-root>/<project-id>/.quality/security/gitleaks.toml`.
 3. Run `quality security scan` on a representative checkout.
 4. Inspect generated `.review-meta.security.json` files and adjust baselines for known placeholders only.
 5. Update tests and this document if the report shape changes.
@@ -21,7 +22,8 @@ Quality Studio treats Gitleaks as a deterministic secret-detection sensor, not a
 - Secret values are never written to logs, UI text, task handover prompts, or persisted reports.
 - The scanner only stores file paths, rule ids, fingerprints, and safe line ranges.
 - A missing or failed scanner is reported as `unavailable`; it is never treated as a clean pass.
-- Baselines and allowlists are repository-owned so accepted placeholders stay auditable.
+- Baselines and allowlists are project-owned external data so accepted placeholders
+  stay auditable without changing the analysed checkout.
 - High-confidence new findings are treated as a blocking security verdict.
 
 ## Commands

@@ -69,13 +69,13 @@ fails the request cleanly with zero partial writes.
 
 ## Flow and ownership
 
-1. A review writes repository-owned review metadata.
+1. A review writes project-owned review metadata below the external data root.
 2. The engineer inspects and triages its findings in Quality Studio.
 3. The engineer hands over only the actionable findings they choose.
 4. Agent Studio receives an ordinary backlog card through its normal mutation
    boundary and owns prioritization, execution, and archival.
 5. Completion is verified by rerunning the Quality Studio review; the fresh,
-   clean review statement remains beside the code.
+   clean review statement remains associated with the code in the external mirror.
 
 Handover is preferable to embedding because each product keeps one clear job.
 Quality Studio owns durable quality truth and review UX; Agent Studio owns task

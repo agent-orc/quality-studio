@@ -18,11 +18,14 @@ public static class ReviewMetaDiscovery
         IEnumerable<HierarchyNode> projects,
         InputResolver? inputResolver = null,
         string? globalInputsDirectory = null,
-        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+        string? dataRoot = null)
     {
         var root = Path.GetFullPath(repositoryPath);
+        var metadataRoot = Path.GetFullPath(dataRoot ?? root);
         var nodes = Flatten(projects).ToDictionary(node => node.Id, StringComparer.Ordinal);
-        foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
+        if (!Directory.Exists(metadataRoot)) return;
+        foreach (var path in Directory.EnumerateFiles(metadataRoot, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
             using var json = JsonDocument.Parse(File.ReadAllText(path));
@@ -44,8 +47,9 @@ public static class ReviewMetaDiscovery
             node.Attach(new AttachedReviewMetaDocument(
                 unitId,
                 kind,
-                DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
-                Path.GetRelativePath(root, path).Replace('\\', '/'),
+                DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory,
+                    inputBudgetCharacters, metadataRoot),
+                Path.GetRelativePath(metadataRoot, path).Replace('\\', '/'),
                 document.GetRawText()));
         }
     }
@@ -56,7 +60,8 @@ public static class ReviewMetaDiscovery
         JsonElement document,
         InputResolver inputResolver,
         string? globalInputsDirectory,
-        int inputBudgetCharacters)
+        int inputBudgetCharacters,
+        string dataRoot)
     {
         if (!document.TryGetProperty("subjectInputs", out var inputs))
         {
@@ -105,7 +110,7 @@ public static class ReviewMetaDiscovery
         var kind = document.GetProperty("kind").GetString()!;
         var levelText = document.GetProperty("unit").GetProperty("level").GetString()!;
         if (!Enum.TryParse<ReviewLevel>(levelText, true, out var level)) return ReviewState.Current;
-        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters);
+        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, dataRoot);
         var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
         return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
             ? ReviewState.Current

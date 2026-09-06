@@ -10,23 +10,10 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 public sealed class ChangeSetReviewTests
 {
     [Fact]
-    public void Committed_twenty_transition_sample_validates_against_the_contract()
+    public void Repository_does_not_version_change_review_runtime_data()
     {
         var root = RepositoryTestContext.FindRepositoryRoot();
-        var schema = JsonSchema.FromText(File.ReadAllText(
-            Path.Combine(root, "schemas", "change-review.v1.schema.json")));
-        var samples = Directory.GetFiles(Path.Combine(root, ".quality", "changes"), "*.json");
-
-        Assert.Equal(20, samples.Length);
-        foreach (var path in samples)
-        {
-            using var json = JsonDocument.Parse(File.ReadAllText(path));
-            var evaluation = schema.Evaluate(json.RootElement, new EvaluationOptions
-            {
-                OutputFormat = OutputFormat.List,
-            });
-            Assert.True(evaluation.IsValid, $"{Path.GetFileName(path)}: {evaluation}");
-        }
+        Assert.False(Directory.Exists(Path.Combine(root, ".quality", "changes")));
     }
 
     [Fact]

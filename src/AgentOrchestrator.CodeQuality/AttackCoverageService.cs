@@ -271,20 +271,22 @@ public sealed class AttackCoverageService
         ResolvedAttackCatalogue catalogue,
         string scope = ".",
         bool recheckDeterministic = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? sourceRoot = null)
     {
         ArgumentNullException.ThrowIfNull(inventory);
         ArgumentNullException.ThrowIfNull(catalogue);
         var prompt = AttackCoveragePrompt.Reference();
         var ledger = new AttackCoverageLedger(repositoryRoot);
+        var analysedRoot = Path.GetFullPath(sourceRoot ?? repositoryRoot);
         var snapshots = new Dictionary<string, BoundaryCoverageSnapshot>(StringComparer.Ordinal);
         foreach (var boundary in inventory.Entries)
             snapshots[boundary.Id] = await BoundaryCoverageHasher.SnapshotAsync(
-                repositoryRoot, boundary, cancellationToken).ConfigureAwait(false);
+                analysedRoot, boundary, cancellationToken).ConfigureAwait(false);
 
         var observations = (await ledger.ReadAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var appended = await RefreshDeterministicAsync(
-            repositoryRoot, inventory, catalogue, snapshots, observations, ledger,
+            analysedRoot, inventory, catalogue, snapshots, observations, ledger,
             recheckDeterministic, cancellationToken).ConfigureAwait(false);
         observations.AddRange(appended);
 
@@ -331,7 +333,8 @@ public sealed class AttackCoverageService
         BoundaryInventory inventory,
         ResolvedAttackCatalogue catalogue,
         AttackJudgementSubmission submission,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? sourceRoot = null)
     {
         ArgumentNullException.ThrowIfNull(submission);
         if (string.IsNullOrWhiteSpace(submission.Reasoning))
@@ -353,9 +356,10 @@ public sealed class AttackCoverageService
             ?? throw new KeyNotFoundException($"Attack '{submission.AttackId}' was not found.");
         if (!AttackCatalogueResolver.Applies(attack.Entry, boundary))
             throw new ArgumentException("The attack does not apply to the selected boundary.", nameof(submission));
+        var analysedRoot = Path.GetFullPath(sourceRoot ?? repositoryRoot);
         await EnsureFindingLifecycleLinkAsync(
             repositoryRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);
-        var snapshot = await BoundaryCoverageHasher.SnapshotAsync(repositoryRoot, boundary, cancellationToken)
+        var snapshot = await BoundaryCoverageHasher.SnapshotAsync(analysedRoot, boundary, cancellationToken)
             .ConfigureAwait(false);
         var prompt = AttackCoveragePrompt.Reference();
         var observation = new AttackCoverageObservation(
@@ -379,7 +383,7 @@ public sealed class AttackCoverageService
             snapshot.CoveredCodeHash,
             submission.TokenCost,
             clock().ToUniversalTime(),
-            submission.Commit ?? await GitAsync(repositoryRoot, "rev-parse", "HEAD").ConfigureAwait(false),
+            submission.Commit ?? await GitAsync(analysedRoot, "rev-parse", "HEAD").ConfigureAwait(false),
             submission.CommitRange);
         await new AttackCoverageLedger(repositoryRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
         return observation;

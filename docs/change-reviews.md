@@ -2,9 +2,9 @@
 
 Standing review metadata answers how a unit scores until its reviewed inputs
 change. A change review answers a different question: what one integration
-transition changed in that standing evidence. It is repository-owned at
-`.quality/changes/<merge-commit>.json` and never replaces a unit sidecar or an
-Agent Studio task review.
+transition changed in that standing evidence. It is project-owned at
+`<data-root>/<project-id>/.quality/changes/<merge-commit>.json` and never
+replaces a unit sidecar or an Agent Studio task review.
 
 ## Subject and provider contract
 
@@ -129,10 +129,10 @@ same reviewable files. It also records file and diff-line counts. Small files
 can have more diff framing than source text, so savings are honestly clamped at
 zero rather than presented as negative efficiency.
 
-The committed 20-transition sample under `.quality/changes/` measured 922,304
-diff characters against 3,351,261 full-sweep characters: 72.48% less evidence
-in aggregate. Seventeen of twenty transitions saved work, and median per-change
-savings were 67.89%.
+The historical 20-transition sample measured 922,304 diff characters against
+3,351,261 full-sweep characters: 72.48% less evidence in aggregate. Seventeen of
+twenty transitions saved work, and median per-change savings were 67.89%. Runtime
+samples now live in the external data root rather than source control.
 
 ## Sample trajectory
 

@@ -2,11 +2,11 @@
 
 Quality Studio's `boundaries` sensor derives externally callable and
 caller-influenced surfaces from source and configuration. It does not consume a
-hand-maintained endpoint list. A repository scan atomically writes the stable,
-diffable result to:
+hand-maintained endpoint list. A repository scan atomically writes the stable
+result outside the checkout to:
 
 ```text
-.quality/boundaries/inventory.json
+<data-root>/<project-id>/.quality/boundaries/inventory.json
 ```
 
 Run it directly with:
@@ -49,4 +49,4 @@ stages consume the same deterministic evidence.
 
 The inventory intentionally contains no generation timestamp. Re-running it
 against unchanged source produces identical content, while adding, changing, or
-removing a boundary creates a normal repository diff.
+removing a boundary changes only the external project-data snapshot.

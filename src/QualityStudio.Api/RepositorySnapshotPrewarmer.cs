@@ -40,7 +40,7 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
     public void Queue(RepositoryRegistration registration)
     {
         if (registration.Archived) return;
-        var key = string.Join('\0', registration.RootPath, registration.GlobalInputsDirectory,
+        var key = string.Join('\0', registration.RootPath, registration.DataRootPath, registration.GlobalInputsDirectory,
             registration.InputBudgetCharacters.ToString(System.Globalization.CultureInfo.InvariantCulture));
         if (!pending.TryAdd(key, 0)) return;
         if (!queue.Writer.TryWrite(registration)) pending.TryRemove(key, out _);
@@ -53,7 +53,7 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
         QueueAll(registry.List());
         await foreach (var registration in queue.Reader.ReadAllAsync(stoppingToken))
         {
-            var key = string.Join('\0', registration.RootPath, registration.GlobalInputsDirectory,
+            var key = string.Join('\0', registration.RootPath, registration.DataRootPath, registration.GlobalInputsDirectory,
                 registration.InputBudgetCharacters.ToString(System.Globalization.CultureInfo.InvariantCulture));
             try
             {
@@ -65,7 +65,8 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
                     registration.RootPath,
                     inputResolver,
                     globalDirectory,
-                    registration.InputBudgetCharacters), stoppingToken);
+                    registration.InputBudgetCharacters,
+                    registration.DataRootPath), stoppingToken);
                 var projection = dashboards.GetMeasured(registration.RootPath, hierarchy.Snapshot);
                 var prewarmEvent = JsonSerializer.Serialize(new
                 {

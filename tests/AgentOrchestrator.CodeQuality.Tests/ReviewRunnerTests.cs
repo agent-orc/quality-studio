@@ -205,6 +205,43 @@ public sealed class ReviewResponseParserTests
 public sealed class ReviewRunnerTests
 {
     [Fact]
+    public async Task Review_run_writes_only_to_external_data_root()
+    {
+        var checkout = Path.Combine(Path.GetTempPath(), "quality-review-checkouts", Guid.NewGuid().ToString("N"));
+        var dataRoot = Path.Combine(Path.GetTempPath(), "quality-review-data", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(checkout, "src"));
+        Directory.CreateDirectory(dataRoot);
+        var source = Path.Combine(checkout, "src", "Small.cs");
+        await File.WriteAllTextAsync(source, "internal static class Small { }\n", TestContext.Current.CancellationToken);
+        RunGit(checkout, "init", "--quiet");
+        RunGit(checkout, "config", "user.email", "fixture@example.test");
+        RunGit(checkout, "config", "user.name", "Fixture");
+        RunGit(checkout, "add", ".");
+        RunGit(checkout, "commit", "--quiet", "-m", "seed");
+        var before = Directory.EnumerateFiles(checkout, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => Path.GetRelativePath(checkout, path), File.ReadAllBytes, StringComparer.Ordinal);
+        try
+        {
+            var result = await new ReviewRunner(new FakeAgent()).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: checkout, DataRoot: dataRoot),
+                TestContext.Current.CancellationToken);
+
+            var after = Directory.EnumerateFiles(checkout, "*", SearchOption.AllDirectories)
+                .ToDictionary(path => Path.GetRelativePath(checkout, path), File.ReadAllBytes, StringComparer.Ordinal);
+            Assert.Equal(before.Keys, after.Keys);
+            Assert.All(before, pair => Assert.Equal(pair.Value, after[pair.Key]));
+            Assert.False(Directory.EnumerateDirectories(checkout, ".quality", SearchOption.AllDirectories).Any());
+            Assert.StartsWith(dataRoot, result.MetaPath, StringComparison.Ordinal);
+            Assert.Single(Directory.EnumerateFiles(Path.Combine(dataRoot, ".quality", "usage"), "*.jsonl"));
+        }
+        finally
+        {
+            Directory.Delete(checkout, true);
+            Directory.Delete(dataRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesFreshQs3Metadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -783,14 +820,18 @@ public sealed class ReviewRunnerTests
                 ["id"] = "thread-1",
                 ["anchor"] = new JsonObject
                 {
-                    ["path"] = "src/Small.cs", ["fingerprint"] = "sha256:" + new string('a', 64),
+                    ["path"] = "src/Small.cs",
+                    ["fingerprint"] = "sha256:" + new string('a', 64),
                     ["contextHash"] = ReviewThreadManager.ComputeContextHash(content, range),
                     ["lastKnownRange"] = new JsonObject { ["start"] = new JsonObject { ["line"] = 1, ["column"] = 1 }, ["end"] = new JsonObject { ["line"] = 1, ["column"] = 1 } },
                 },
-                ["status"] = "open", ["entries"] = new JsonArray(new JsonObject
+                ["status"] = "open",
+                ["entries"] = new JsonArray(new JsonObject
                 {
-                    ["id"] = "entry-human", ["author"] = new JsonObject { ["kind"] = "human", ["name"] = "Ada" },
-                    ["createdAt"] = "2026-07-21T10:00:00.000Z", ["body"] = "Is this intentional?",
+                    ["id"] = "entry-human",
+                    ["author"] = new JsonObject { ["kind"] = "human", ["name"] = "Ada" },
+                    ["createdAt"] = "2026-07-21T10:00:00.000Z",
+                    ["body"] = "Is this intentional?",
                 }),
             });
             await File.WriteAllTextAsync(initial.MetaPath, meta.ToJsonString(), TestContext.Current.CancellationToken);
@@ -826,18 +867,24 @@ public sealed class ReviewRunnerTests
                 ["id"] = id,
                 ["anchor"] = new JsonObject
                 {
-                    ["path"] = "a.cs", ["fingerprint"] = fingerprint, ["contextHash"] = hash,
+                    ["path"] = "a.cs",
+                    ["fingerprint"] = fingerprint,
+                    ["contextHash"] = hash,
                     ["lastKnownRange"] = new JsonObject
                     {
                         ["start"] = new JsonObject { ["line"] = line, ["column"] = 1 },
                         ["end"] = new JsonObject { ["line"] = line, ["column"] = 1 },
                     },
                 },
-                ["status"] = "open", ["entries"] = new JsonArray(),
+                ["status"] = "open",
+                ["entries"] = new JsonArray(),
             };
-            var stored = new JsonObject { ["threads"] = new JsonArray(
+            var stored = new JsonObject
+            {
+                ["threads"] = new JsonArray(
                 Thread("moving", "sha256:" + new string('a', 64), contextHash, 2),
-                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1)) };
+                Thread("gone", "sha256:" + new string('b', 64), "sha256:" + new string('c', 64), 1))
+            };
             File.WriteAllText(metaPath, stored.ToJsonString());
 
             var threads = ReviewThreadManager.LoadAndHeal(metaPath, "a.cs", "added\nbefore\ntarget\nafter");

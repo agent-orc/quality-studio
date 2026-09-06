@@ -17,7 +17,7 @@ public static partial class RepositoryHierarchyBuilder
     /// Selects hierarchy adapters from repository content. Recognized adapters may coexist;
     /// the path-based generic adapter is used only when no recognized workspace is present.
     /// </summary>
-    public static IReadOnlyList<HierarchyNode> Build(string repositoryPath)
+    public static IReadOnlyList<HierarchyNode> Build(string repositoryPath, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
         var root = Path.GetFullPath(repositoryPath);
@@ -32,7 +32,7 @@ public static partial class RepositoryHierarchyBuilder
                               path.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase) ||
                               path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
-            result.AddRange(BuildDotNet(root));
+            result.AddRange(BuildDotNet(root, dataRoot));
         }
 
         var angular = BuildAngular(root, files);

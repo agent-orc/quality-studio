@@ -54,7 +54,7 @@ internal sealed class RepositoryScope
         ? ConfigurationPath
         : null;
 
-    public static RepositoryScope Load(string repositoryRoot)
+    public static RepositoryScope Load(string repositoryRoot, string? dataRoot = null)
     {
         var root = Path.GetFullPath(repositoryRoot);
         var rules = new List<ScopeRule>();
@@ -64,7 +64,7 @@ internal sealed class RepositoryScope
         }
 
         LoadGitIgnoreRules(root, rules);
-        LoadCuratedRules(root, rules);
+        LoadCuratedRules(Path.GetFullPath(dataRoot ?? root), rules);
         return new RepositoryScope(root, rules);
     }
 

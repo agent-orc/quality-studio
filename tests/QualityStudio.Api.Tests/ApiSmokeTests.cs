@@ -18,6 +18,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-tests", Guid.NewGuid().ToString("N"));
     private readonly string hostRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-hosts", Guid.NewGuid().ToString("N"));
     private TestApplication? application;
+    private string DataRoot => Path.Combine(hostRoot, "data", RepositoryRegistry.DefaultRepositoryId);
 
     [Fact]
     public async Task Tree_returns_derived_hierarchy_and_kind_states()
@@ -116,8 +117,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var response = await client.PostAsJsonAsync("/api/review/estimate", new
         {
-            path = "Sample.cs", kind = "code", cliType = "claude",
-            model = "claude-opus-5", thinkingLevel = "max",
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "claude",
+            model = "claude-opus-5",
+            thinkingLevel = "max",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -134,8 +138,11 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium",
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
@@ -149,15 +156,22 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var rejected = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium",
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
 
         using var accepted = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "security", cliType = "codex",
-            model = "gpt-5.6-luna", thinkingLevel = "medium", confirmBelowFloor = true,
+            path = "Sample.cs",
+            kind = "security",
+            cliType = "codex",
+            model = "gpt-5.6-luna",
+            thinkingLevel = "medium",
+            confirmBelowFloor = true,
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
         var run = await accepted.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -185,7 +199,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var previewResponse = await client.PostAsJsonAsync("/api/scope/rules/preview", new
         {
-            action = "exclude", pattern = "*.cs", reason = "Reviewed by the generated-code pipeline.",
+            action = "exclude",
+            pattern = "*.cs",
+            reason = "Reviewed by the generated-code pipeline.",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
         var preview = await previewResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -194,13 +210,15 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var createdResponse = await client.PostAsJsonAsync("/api/scope/rules", new
         {
-            action = "exclude", pattern = "Sample.cs", reason = "Ignore this exact path in future reviews.",
+            action = "exclude",
+            pattern = "Sample.cs",
+            reason = "Ignore this exact path in future reviews.",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
         var created = await createdResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var rule = Assert.Single(created.GetProperty("rules").EnumerateArray());
         Assert.Equal("Sample.cs", rule.GetProperty("pattern").GetString());
-        var scopePath = Path.Combine(repositoryRoot, ".quality", "scope.json");
+        var scopePath = Path.Combine(DataRoot, ".quality", "scope.json");
         Assert.True(File.Exists(scopePath));
         using (var persisted = JsonDocument.Parse(await File.ReadAllTextAsync(scopePath, TestContext.Current.CancellationToken)))
         {
@@ -209,7 +227,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         using var updatedResponse = await client.PutAsJsonAsync("/api/scope/rules/0", new
         {
-            action = "include", pattern = "Sample.cs",
+            action = "include",
+            pattern = "Sample.cs",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, updatedResponse.StatusCode);
         var updated = await updatedResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -304,12 +323,16 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/guidelines", new
         {
-            id = "ui-created-rule", enabled = true, priority = 90,
-            kinds = new[] { "code" }, levels = new[] { "file" }, content = "Prefer immutable values.",
+            id = "ui-created-rule",
+            enabled = true,
+            priority = 90,
+            kinds = new[] { "code" },
+            levels = new[] { "file" },
+            content = "Prefer immutable values.",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var path = Path.Combine(repositoryRoot, ".quality", "inputs", "ui-created-rule.md");
+        var path = Path.Combine(DataRoot, ".quality", "inputs", "ui-created-rule.md");
         Assert.True(File.Exists(path));
         Assert.Contains("enabled: true", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         using var inputsResponse = await client.GetAsync("/api/inputs", TestContext.Current.CancellationToken);
@@ -381,7 +404,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        Assert.True(File.Exists(Path.Combine(repositoryRoot, AttackCoverageLedger.RelativePath)));
+        Assert.True(File.Exists(Path.Combine(DataRoot, AttackCoverageLedger.RelativePath)));
         var observation = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("api-test", observation.GetProperty("reviewer").GetProperty("agent").GetString());
         Assert.Equal("fixture-model", observation.GetProperty("reviewer").GetProperty("model").GetString());
@@ -417,7 +440,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
+        var path = Path.Combine(DataRoot, BoundaryInventorySensor.InventoryRelativePath);
         Assert.True(File.Exists(path));
         using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
@@ -458,7 +481,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     {
         var fingerprint = "sha256:" + new string('d', 64);
         var findingId = "finding-" + new string('d', 64);
-        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        var metadataDirectory = Path.Combine(DataRoot, ".quality", "reviews", "files");
         Directory.CreateDirectory(metadataDirectory);
         var metadataPath = Path.Combine(metadataDirectory, "file.test.review-meta.code.json");
         var metadata = new JsonObject
@@ -484,7 +507,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         };
         await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
         var identity = new FindingIdentityRecord(fingerprint, findingId, "Sample.cs", "correctness.test");
-        var store = new FindingStateStore(repositoryRoot);
+        var store = new FindingStateStore(DataRoot);
         var state = (await store.MergeReviewAsync([identity], [], "test", TestContext.Current.CancellationToken))[fingerprint];
 
         try
@@ -599,7 +622,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var id = accepted.GetProperty("id").GetString()!;
         Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
-        var runDirectory = Path.Combine(repositoryRoot, ".quality", "runs", id);
+        var runDirectory = Path.Combine(DataRoot, ".quality", "runs", id);
         using (var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
                    Path.Combine(runDirectory, "manifest.json"), TestContext.Current.CancellationToken)))
         {
@@ -746,7 +769,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                     new Dictionary<string, int> { ["critical"] = 0, ["high"] = qualityFindings.Length, ["medium"] = 0, ["low"] = 0, ["info"] = 0 },
                     new Dictionary<string, int> { ["open"] = qualityFindings.Length }),
                 qualityFindings.Length > 0 ? "high" : null, null));
-        new QualityRunReportStore(repositoryRoot).Save(report);
+        new QualityRunReportStore(DataRoot).Save(report);
     }
 
     [Fact]
@@ -906,6 +929,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = Path.GetDirectoryName(root),
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "data"),
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",

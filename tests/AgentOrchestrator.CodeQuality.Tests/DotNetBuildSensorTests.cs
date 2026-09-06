@@ -52,8 +52,10 @@ public sealed class DotNetBuildSensorTests
             Assert.Equal("10.0.301", result.Provenance.ToolVersions["dotnet"]);
             Assert.Equal(["--version"], runner.Calls[0].Arguments);
             Assert.Equal("restore", runner.Calls[1].Arguments[0]);
+            Assert.Contains("--artifacts-path", runner.Calls[1].Arguments);
             Assert.Equal("build", runner.Calls[2].Arguments[0]);
             Assert.Contains("--no-restore", runner.Calls[2].Arguments);
+            Assert.Contains("--artifacts-path", runner.Calls[2].Arguments);
         }
         finally
         {
