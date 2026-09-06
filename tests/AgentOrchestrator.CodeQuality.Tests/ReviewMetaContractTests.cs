@@ -306,6 +306,29 @@ public sealed class ReviewMetaContractTests
     }
 
     [Fact]
+    public void SidecarsWrittenByTheReviewRunnerLoadThroughTheTypedContract()
+    {
+        // The runner writes reviewedAt with round-trip precision while this contract writes
+        // milliseconds; the typed reader must accept what the product actually persists.
+        var directory = Path.Combine(RepositoryTestContext.FindRepositoryRoot(),
+            "src", "AgentOrchestrator.CodeQuality", ".quality", "reviews", "files");
+        var sidecars = Directory.Exists(directory)
+            ? Directory.GetFiles(directory, "*.review-meta.code.json").OrderBy(path => path, StringComparer.Ordinal).Take(5).ToArray()
+            : [];
+        Assert.NotEmpty(sidecars);
+
+        foreach (var sidecar in sidecars)
+        {
+            var loaded = ReviewMetaJson.Deserialize(File.ReadAllText(sidecar));
+            Assert.Equal(ReviewKind.Code, loaded.Kind);
+        }
+
+        var roundTrip = JsonSerializer.Deserialize<DateTimeOffset>(
+            "\"2026-09-01T09:43:46.0564003Z\"", ReviewMetaJson.Options);
+        Assert.Equal(new DateTimeOffset(2026, 9, 1, 9, 43, 46, TimeSpan.Zero).AddTicks(564003), roundTrip);
+    }
+
+    [Fact]
     public async Task UsageLedgerParsesV1AndAggregatesV2OperationsByDurableReviewRun()
     {
         var root = Directory.CreateTempSubdirectory("quality-studio-usage-");
@@ -360,10 +383,15 @@ public sealed class ReviewMetaContractTests
         }
     }
 
+    // JsonSchema.Net registers each schema's $id globally and refuses a second registration, so
+    // one parsed schema per file serves every validation.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonSchema> LedgerSchemas =
+        new(StringComparer.Ordinal);
+
     private static void ValidateUsageLedgerLine(string line, string schemaFile)
     {
-        var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            RepositoryTestContext.FindRepositoryRoot(), "schemas", schemaFile)));
+        var schema = LedgerSchemas.GetOrAdd(schemaFile, file => JsonSchema.FromText(File.ReadAllText(Path.Combine(
+            RepositoryTestContext.FindRepositoryRoot(), "schemas", file))));
         using var json = JsonDocument.Parse(line);
         var validation = schema.Evaluate(json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());

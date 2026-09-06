@@ -344,14 +344,29 @@ public static class ReviewMetaJson
 
     private sealed class UtcTimestampConverter : JsonConverter<DateTimeOffset>
     {
+        // Any fractional-second precision from none to the seven digits of .NET's round-trip ("O")
+        // format loads: the review runner writes "O" while this contract writes milliseconds, and
+        // both are UTC instants under the same schema.
+        private static readonly string[] UtcFormats =
+        [
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.f'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.ff'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.ffff'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.fffff'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'",
+        ];
+
         public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var value = reader.GetString();
             if (value is null || !value.EndsWith('Z') ||
-                !DateTimeOffset.TryParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture,
+                !DateTimeOffset.TryParseExact(value, UtcFormats, CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeUniversal, out var timestamp))
             {
-                throw new JsonException("reviewedAt must use UTC ISO 8601 with millisecond precision.");
+                throw new JsonException("reviewedAt must be a UTC ISO 8601 instant ending in 'Z'.");
             }
 
             return timestamp;
