@@ -125,6 +125,6 @@ At startup the API scans the registered repositories for durable runs. `queued` 
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
-`.quality/runs/` is ignored by Git because it is disposable orchestration working
-data. Review sidecars remain the committed current-state truth, while canonical
-run reports preserve the historical truth of each terminal execution.
+`.quality/runs/` is disposable orchestration working data beneath the external
+project data root. Review sidecars are the external current-state truth, while
+canonical run reports preserve the historical truth of each terminal execution.

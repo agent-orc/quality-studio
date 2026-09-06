@@ -17,7 +17,7 @@ public sealed class RepositoryScopeConfigurationStoreTests
         var rule = Assert.Single(created.Rules);
         Assert.Equal("src/A.cs", rule.Pattern);
         Assert.Equal(new[] { "src/A.cs" }, store.Preview(rule, files).MatchedFiles);
-        var configurationPath = Path.Combine(root.Path, ".quality", "scope.json");
+        var configurationPath = QualityDataRoot.PathFor(root.Path, ".quality/scope.json");
         using (var json = JsonDocument.Parse(File.ReadAllText(configurationPath)))
         {
             Assert.Equal(RepositoryScopeConfigurationStore.Schema, json.RootElement.GetProperty("$schema").GetString());

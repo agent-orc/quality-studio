@@ -50,7 +50,7 @@ internal sealed class RepositoryScope
         this.rules = rules;
     }
 
-    public string? ConfigurationFile => File.Exists(Path.Combine(root, ConfigurationPath.Replace('/', Path.DirectorySeparatorChar)))
+    public string? ConfigurationFile => File.Exists(QualityDataRoot.PathFor(root, ConfigurationPath))
         ? ConfigurationPath
         : null;
 
@@ -166,7 +166,7 @@ internal sealed class RepositoryScope
 
     private static void LoadCuratedRules(string root, List<ScopeRule> rules)
     {
-        var path = Path.Combine(root, ConfigurationPath.Replace('/', Path.DirectorySeparatorChar));
+        var path = QualityDataRoot.PathFor(root, ConfigurationPath);
         if (!File.Exists(path)) return;
 
         using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions

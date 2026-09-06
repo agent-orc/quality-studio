@@ -112,7 +112,7 @@ public sealed record StoredReviewRun(
 
 public sealed record StoredReviewObservation(string OperationId, ReviewObservationSnapshot Snapshot);
 
-/// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
+/// <summary>Persists review-sweep orchestration state in the repository's external data root.</summary>
 public sealed class ReviewRunStore
 {
     public const string RelativeRunsPath = ".quality/runs";
@@ -124,7 +124,7 @@ public sealed class ReviewRunStore
     public ReviewRunStore(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        runsPath = Path.Combine(Path.GetFullPath(repositoryRoot), RelativeRunsPath.Replace('/', Path.DirectorySeparatorChar));
+        runsPath = QualityDataRoot.PathFor(repositoryRoot, RelativeRunsPath);
     }
 
     public string RunsPath => runsPath;

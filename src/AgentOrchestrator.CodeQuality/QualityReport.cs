@@ -259,8 +259,12 @@ public sealed class QualityReportBuilder
             RecurseSubdirectories = true,
             AttributesToSkip = FileAttributes.ReparsePoint,
         };
-        return Directory.EnumerateFiles(root, "*.json", options)
-            .Where(path => IsSidecar(Path.GetRelativePath(root, path).Replace('\\', '/')))
+        var dataRoot = QualityDataRoot.Resolve(root);
+        return !Directory.Exists(dataRoot)
+            ? []
+            : Directory.EnumerateFiles(dataRoot, "*.json", options)
+            .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal) &&
+                           path.EndsWith(".json", StringComparison.Ordinal))
             .OrderBy(path => path, StringComparer.Ordinal);
     }
 

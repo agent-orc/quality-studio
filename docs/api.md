@@ -7,7 +7,7 @@ documented in [usage-telemetry.md](usage-telemetry.md).
 Attack catalogue, ledger, provenance, and matrix semantics are documented in
 [attack-coverage.md](attack-coverage.md).
 
-Quality scorecards, Git-backed trends, registry comparison, and export formats
+Quality scorecards, run trends, legacy Git-backed trends, registry comparison, and export formats
 are documented in [quality-reports.md](quality-reports.md). Use
 `GET /api/report` for all accessible registry repositories or
 `GET /api/repos/{repoId}/report` for one repository. JSON is the default;
@@ -25,6 +25,9 @@ The same repository is the only allowed root by default. Deployments that regist
 repositories below another neutral host root must supply it through configuration,
 for example `QualityStudio__AllowedRoots__0=/srv/source` in the host environment;
 machine-specific paths do not belong in `appsettings.json`.
+`QualityStudio:DataRoot` selects the external project-data base directory; it
+defaults to the platform local application-data directory under
+`QualityStudio/projects`. See [operations/data-root.md](operations/data-root.md).
 On first start it seeds the repository with id `default`; existing single-repository
 deployments therefore need no configuration change. CORS origins are configured with
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
@@ -128,7 +131,7 @@ curl -X POST "http://127.0.0.1:5127/api/sensors/dependencies/scan?path=frontend"
 
 curl -X POST "http://127.0.0.1:5127/api/sensors/boundaries/scan"
 # 200 {"available":true,"findings":[...],"provenance":{"sensorId":"boundaries",...}}
-# also writes <repository>/.quality/boundaries/inventory.json
+# also writes .quality/boundaries/inventory.json under the external project data root
 
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}
@@ -141,7 +144,7 @@ curl "http://127.0.0.1:5127/api/guidelines"
 
 curl -X POST "http://127.0.0.1:5127/api/guidelines" -H "Content-Type: application/json" \
   -d '{"id":"api-boundaries","enabled":true,"priority":80,"kinds":["code"],"levels":["file"],"content":"Validate public boundary input."}'
-# 201 and writes .quality/inputs/api-boundaries.md
+# 201 and writes .quality/inputs/api-boundaries.md under the external project data root
 
 curl -X POST "http://127.0.0.1:5127/api/guidelines/catalog/security-boundaries/install"
 # 201 and installs an editable repository copy

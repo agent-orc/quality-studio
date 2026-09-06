@@ -89,7 +89,7 @@ public sealed class SarifSensorTests
         var root = CreateRepository("src/Calculator.cs");
         try
         {
-            var report = Path.Combine(root, ".quality", "analyzers", "roslyn.sarif");
+            var report = QualityDataRoot.PathFor(root, ".quality/analyzers/roslyn.sarif");
             Directory.CreateDirectory(Path.GetDirectoryName(report)!);
             File.Copy(Fixture("roslyn.sarif.json"), report);
 
@@ -188,7 +188,7 @@ public sealed class SarifSensorTests
 
             Assert.True(result.Available);
             Assert.Equal("TS2322", Assert.Single(result.Findings).RuleId);
-            Assert.True(File.Exists(Path.Combine(root, ".quality", "analyzers", "tsc.txt")));
+            Assert.True(File.Exists(QualityDataRoot.PathFor(root, ".quality/analyzers/tsc.txt")));
             Assert.Equal("5.9.2", result.Provenance.ToolVersions["typescript"]);
         }
         finally

@@ -32,7 +32,7 @@ public sealed record CoverageSnapshot(
 
     public static CoverageSnapshot? Load(string repositoryRoot)
     {
-        var path = System.IO.Path.Combine(repositoryRoot, RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var path = QualityDataRoot.PathFor(repositoryRoot, RelativePath);
         if (!File.Exists(path)) return null;
         try
         {
@@ -46,7 +46,7 @@ public sealed record CoverageSnapshot(
 
     public async Task SaveAsync(string repositoryRoot, CancellationToken cancellationToken = default)
     {
-        var path = System.IO.Path.Combine(repositoryRoot, RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var path = QualityDataRoot.PathFor(repositoryRoot, RelativePath);
         await AtomicFile.WriteAllTextAsync(
             path, JsonSerializer.Serialize(this, JsonOptions) + Environment.NewLine, cancellationToken)
             .ConfigureAwait(false);

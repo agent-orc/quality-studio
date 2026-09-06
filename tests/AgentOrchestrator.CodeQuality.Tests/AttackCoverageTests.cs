@@ -57,8 +57,7 @@ public sealed class AttackCoverageTests
                     AttackCoverageJson.Options),
                 TestContext.Current.CancellationToken);
             var projectEntry = globalEntry with { Version = "2.0.0", Title = "Project" };
-            var projectPath = Path.Combine(root,
-                AttackCatalogueResolver.ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar));
+            var projectPath = QualityDataRoot.PathFor(root, AttackCatalogueResolver.ProjectRelativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);
             await File.WriteAllTextAsync(
                 projectPath,

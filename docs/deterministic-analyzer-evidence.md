@@ -10,7 +10,7 @@ The prompt asks the agent to judge applicability, deduplicate and prioritise the
 
 ## Repository configuration
 
-Analyzer commands are repository-specific entries in the existing `sensors` array. Commands are launched directly, without a shell. The placeholders `{repositoryRoot}`, `{target}` and `{reportPath}` are expanded inside individual arguments. `reportPath` and an optional `workingDirectory` must remain inside the repository.
+Analyzer commands are repository-specific entries in the existing `sensors` array. Commands are launched directly, without a shell. The placeholders `{repositoryRoot}`, `{target}` and `{reportPath}` are expanded inside individual arguments. Logical `.quality/...` report paths resolve beneath the external project data root; an optional `workingDirectory` remains confined to the repository.
 
 ### Generic SARIF 2.1.0
 

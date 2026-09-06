@@ -41,7 +41,7 @@ public sealed class RepositoryHierarchyCache
         var totalStarted = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
         var gitStatusStarted = Stopwatch.GetTimestamp();
-        var state = ComputeGitState(root) + "\0" +
+        var state = ComputeGitState(root) + "\0" + ComputeDataState(root) + "\0" +
                     ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
         var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
         var slot = slots.GetOrAdd(root, _ => new CacheSlot());
@@ -140,6 +140,29 @@ public sealed class RepositoryHierarchyCache
             var buffer = new byte[16 * 1024];
             int read;
             while ((read = stream.Read(buffer)) > 0) hash.AppendData(buffer, 0, read);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    private static string ComputeDataState(string repositoryRoot)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var root = QualityDataRoot.Resolve(repositoryRoot);
+        if (!Directory.Exists(root))
+        {
+            Append(hash, "missing");
+            return Convert.ToHexStringLower(hash.GetHashAndReset());
+        }
+        foreach (var path in Directory.EnumerateFiles(root, "*", new EnumerationOptions
+                 {
+                     RecurseSubdirectories = true,
+                     AttributesToSkip = FileAttributes.ReparsePoint,
+                 }).Order(StringComparer.Ordinal))
+        {
+            Append(hash, Path.GetRelativePath(root, path).Replace('\\', '/'));
+            var info = new FileInfo(path);
+            Append(hash, info.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Append(hash, info.LastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }

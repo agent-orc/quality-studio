@@ -2,8 +2,8 @@
 
 Standing review metadata answers how a unit scores until its reviewed inputs
 change. A change review answers a different question: what one integration
-transition changed in that standing evidence. It is repository-owned at
-`.quality/changes/<merge-commit>.json` and never replaces a unit sidecar or an
+transition changed in that standing evidence. It is stored in the external
+project data root at `.quality/changes/<merge-commit>.json` and never replaces a unit sidecar or an
 Agent Studio task review.
 
 ## Subject and provider contract
@@ -27,8 +27,8 @@ repositories that mix merge commits with squash or fast-forward integration.
 
 Before any agent is called, the service computes:
 
-- before/after grades for touched reviewed units, directly from committed
-  review sidecars;
+- before/after grades for touched reviewed units from legacy committed review
+  sidecars when the compared revisions contain them;
 - new, resolved, and persisting findings by stable fingerprint (with `id` only
   as a legacy fallback);
 - units newly made stale, including the changed or missing reviewed input;

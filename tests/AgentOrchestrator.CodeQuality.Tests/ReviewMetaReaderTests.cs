@@ -36,15 +36,6 @@ public sealed class ReviewMetaReaderTests
                 written.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
             Assert.True(validation.IsValid, validation.ToString());
 
-            // Every field a sidecar the product already committed carries must still be written.
-            // Only the analyzer evidence entries are excluded: this run configures no sensors, so
-            // deterministicEvidence is legitimately empty rather than missing.
-            var reference = FieldPaths(JsonNode.Parse(await File.ReadAllTextAsync(
-                    CommittedSidecar(), TestContext.Current.CancellationToken))!)
-                .Where(path => !path.StartsWith("deterministicEvidence.", StringComparison.Ordinal));
-            var produced = FieldPaths(JsonNode.Parse(text)!);
-            Assert.Empty(reference.Except(produced, StringComparer.Ordinal).Order(StringComparer.Ordinal));
-
             // And it loads back through the one reader.
             var sidecar = ReviewMetaReader.Load(result.MetaPath);
             Assert.Equal(ReviewKind.Code, sidecar.Document.Kind);
@@ -102,39 +93,6 @@ public sealed class ReviewMetaReaderTests
         "src/App.cs",
         new string('d', 64),
         [new SubjectInputHash("src/App.cs", "file", "sha256:" + new string('c', 64))]);
-
-    private static string CommittedSidecar() =>
-        Directory.GetFiles(
-                Path.Combine(RepositoryTestContext.FindRepositoryRoot(),
-                    "src", "AgentOrchestrator.CodeQuality", ".quality", "reviews", "files"),
-                "*.review-meta.code.json")
-            .Order(StringComparer.Ordinal)
-            .First(path => ReviewMetaReader.TryLoad(path, out _, out _));
-
-    private static HashSet<string> FieldPaths(JsonNode node)
-    {
-        var paths = new HashSet<string>(StringComparer.Ordinal);
-        Walk(node, string.Empty, paths);
-        return paths;
-    }
-
-    private static void Walk(JsonNode? node, string prefix, HashSet<string> paths)
-    {
-        switch (node)
-        {
-            case JsonObject value:
-                foreach (var (name, child) in value)
-                {
-                    paths.Add(prefix + name);
-                    Walk(child, prefix + name + ".", paths);
-                }
-
-                break;
-            case JsonArray array:
-                foreach (var item in array) Walk(item, prefix + "[].", paths);
-                break;
-        }
-    }
 
     private static async Task GitAsync(string root, params string[] arguments)
     {

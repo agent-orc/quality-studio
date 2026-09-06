@@ -75,8 +75,7 @@ public sealed class StalenessEvaluator
         var count = 0;
         try
         {
-            var repositoryFiles = EnumerateGitFilesAsync(root, cancellationToken);
-            var index = await LoadMetadataAsync(repositoryFiles, root, options.ReviewKind, cancellationToken)
+            var index = await LoadMetadataAsync(root, options.ReviewKind, cancellationToken)
                 .ConfigureAwait(false);
 
             await foreach (var relativePath in EnumerateGitFilesAsync(root, cancellationToken))
@@ -94,7 +93,7 @@ public sealed class StalenessEvaluator
                     var conventional = ReviewMetaPath.ForFile(root, relativePath, options.ReviewKind);
                     yield return index.Unreadable.Contains(conventional)
                         ? new FileStaleness(relativePath, StalenessState.Invalid, options.ReviewKind,
-                            NormalizeRelativePath(Path.GetRelativePath(root, conventional)))
+                            QualityDataRoot.LogicalPath(root, conventional))
                         : new FileStaleness(relativePath, StalenessState.Missing, options.ReviewKind);
                     continue;
                 }
@@ -150,8 +149,7 @@ public sealed class StalenessEvaluator
             : StalenessState.PolicyDrift;
     }
 
-    private static async Task<MetadataIndex> LoadMetadataAsync(
-        IAsyncEnumerable<string> repositoryFiles,
+    private static Task<MetadataIndex> LoadMetadataAsync(
         string root,
         string reviewKind,
         CancellationToken cancellationToken)
@@ -159,14 +157,15 @@ public sealed class StalenessEvaluator
         var result = new Dictionary<string, ReviewMetadata>(StringComparer.Ordinal);
         var unreadable = new HashSet<string>(
             OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        await foreach (var relativePath in repositoryFiles.WithCancellation(cancellationToken))
+        var dataRoot = QualityDataRoot.Resolve(root);
+        if (!Directory.Exists(dataRoot)) return Task.FromResult(new MetadataIndex(result, unreadable));
+        foreach (var absolutePath in Directory.EnumerateFiles(dataRoot, "*.json", new EnumerationOptions
+                 {
+                     RecurseSubdirectories = true,
+                     AttributesToSkip = FileAttributes.ReparsePoint,
+                 }).Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
-            if (!IsMetaPath(relativePath))
-            {
-                continue;
-            }
-
-            var absolutePath = ResolveWithinRoot(root, relativePath);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!ReviewMetaReader.TryLoad(absolutePath, out var sidecar, out var error))
             {
                 // A scan records the sidecars it cannot trust instead of failing whole; the
@@ -187,7 +186,7 @@ public sealed class StalenessEvaluator
                 NormalizeRelativePath(document.Unit.Path),
                 document.Unit.Id,
                 document.ReviewedHash.Value,
-                NormalizeRelativePath(relativePath),
+                QualityDataRoot.LogicalPath(root, absolutePath),
                 document.SubjectInputs
                     .Select(input => new StoredSubjectInput(NormalizeRelativePath(input.Path), input.Selector))
                     .ToArray(),
@@ -201,7 +200,7 @@ public sealed class StalenessEvaluator
             }
         }
 
-        return new MetadataIndex(result, unreadable);
+        return Task.FromResult(new MetadataIndex(result, unreadable));
     }
 
     private static async IAsyncEnumerable<string> EnumerateGitFilesAsync(

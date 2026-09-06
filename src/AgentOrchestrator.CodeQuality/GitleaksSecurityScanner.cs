@@ -343,7 +343,10 @@ public class GitleaksSecurityScanner : IReviewSensor
 
         if (request.Mode == SecurityScanMode.Repository)
         {
-            foreach (var metaPath in Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories))
+            var reviewsRoot = Path.Combine(QualityDataRoot.Resolve(root), "reviews");
+            foreach (var metaPath in Directory.Exists(reviewsRoot)
+                         ? Directory.EnumerateFiles(reviewsRoot, "*.review-meta.security.json", SearchOption.AllDirectories)
+                         : [])
             {
                 if (!ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)) continue;
                 if (sidecar.Document.Reviewer.Agent != "gitleaks") continue;
@@ -828,10 +831,12 @@ public class GitleaksSecurityScanner : IReviewSensor
     private static string? ResolveOptionalPath(string root, string? supplied, string relativeDefault)
     {
         var candidate = string.IsNullOrWhiteSpace(supplied)
-            ? Path.Combine(root, relativeDefault.Replace('/', Path.DirectorySeparatorChar))
+            ? QualityDataRoot.PathFor(root, relativeDefault)
             : Path.IsPathRooted(supplied)
                 ? supplied
-                : Path.Combine(root, supplied);
+                : supplied.Replace('\\', '/').StartsWith(".quality/", StringComparison.Ordinal)
+                    ? QualityDataRoot.PathFor(root, supplied)
+                    : Path.Combine(root, supplied);
         return File.Exists(candidate) ? Path.GetFullPath(candidate) : null;
     }
 

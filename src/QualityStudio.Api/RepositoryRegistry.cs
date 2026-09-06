@@ -14,7 +14,8 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    string? DataRootPath = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -35,7 +36,8 @@ public sealed record RepositorySensorConfiguration(
 public sealed class RepositoryRegistry
 {
     public const string DefaultRepositoryId = "default";
-    public const string RelativeRegistryPath = ".quality-studio/repositories.json";
+    public const string RelativeRegistryPath = "repositories.json";
+    private const string LegacyRelativeRegistryPath = ".quality-studio/repositories.json";
     private static readonly string[] SupportedKinds = ["code", "security", "performance"];
     private readonly string registryPath;
     private readonly string contentRoot;
@@ -65,7 +67,8 @@ public sealed class RepositoryRegistry
                 throw new InvalidOperationException("A configured repository allowed root does not exist.");
             PathConfinement.RejectReparseTraversal(allowedRoot, allowedRoot);
         }
-        registryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
+        registryPath = Path.Combine(QualityDataRoot.ResolveBasePath(legacyOptions.DataRoot), RelativeRegistryPath);
+        MigrateLegacyRegistry();
         entries = LoadOrSeed();
     }
 
@@ -86,7 +89,12 @@ public sealed class RepositoryRegistry
                ?? throw new KeyNotFoundException($"Repository '{resolvedId}' was not found.");
     }
 
-    public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
+    public RepositoryAccess Access(string? id)
+    {
+        var repository = Get(id);
+        EnsureDataRoot(repository);
+        return new RepositoryAccess(repository.RootPath, metaIndex);
+    }
 
     public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
     {
@@ -184,6 +192,7 @@ public sealed class RepositoryRegistry
                     var migrated = loaded.Select(entry => entry with
                     {
                         Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
+                        DataRootPath = QualityDataRoot.Register(entry.RootPath, entry.Id, legacyOptions.DataRoot),
                     }).ToList();
                     foreach (var entry in migrated) ValidatePersistedEntry(entry);
                     return migrated;
@@ -206,7 +215,8 @@ public sealed class RepositoryRegistry
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
             DefaultSensors(root),
-            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
+            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap,
+            DataRootPath: QualityDataRoot.Register(root, DefaultRepositoryId, legacyOptions.DataRoot));
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
@@ -214,6 +224,19 @@ public sealed class RepositoryRegistry
         logger.LogInformation(new EventId(1403, "RepositoryRegistrySeeded"),
             "Seeded repository registry {RegistryPath} from legacy root {RepositoryRoot}", registryPath, root);
         return result;
+    }
+
+    private void MigrateLegacyRegistry()
+    {
+        if (File.Exists(registryPath)) return;
+        var legacyPath = Path.Combine(contentRoot,
+            LegacyRelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(legacyPath)) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
+        File.Copy(legacyPath, registryPath, overwrite: false);
+        File.Delete(legacyPath);
+        var legacyDirectory = Path.GetDirectoryName(legacyPath)!;
+        if (!Directory.EnumerateFileSystemEntries(legacyDirectory).Any()) Directory.Delete(legacyDirectory);
     }
 
     private RepositoryRegistration Validate(RepositoryRegistrationRequest request, string? existingId)
@@ -297,7 +320,8 @@ public sealed class RepositoryRegistry
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
             ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors,
             DefaultReviewTokenCap: request.DefaultReviewTokenCap,
-            DefaultReviewCostCap: request.DefaultReviewCostCap);
+            DefaultReviewCostCap: request.DefaultReviewCostCap,
+            DataRootPath: QualityDataRoot.Register(root, id, legacyOptions.DataRoot));
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken) =>
@@ -332,6 +356,9 @@ public sealed class RepositoryRegistry
                 "A registered global inputs directory is outside the configured allowed roots.");
         }
     }
+
+    private void EnsureDataRoot(RepositoryRegistration entry) =>
+        QualityDataRoot.Register(entry.RootPath, entry.Id, legacyOptions.DataRoot);
 
     private void EnsureAllowedDirectory(string path, string internalMessage)
     {

@@ -73,8 +73,8 @@ active finding exists at that severity or higher.
 
 ## Run-scoped reports
 
-Every terminal UI review run writes a strict canonical document to
-`.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
+Every terminal UI review run writes a strict canonical document to the external
+project data root at `.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
 manifest, routing provenance, usage and cap outcome, one explicit outcome per
 planned unit, the exact sidecar bytes captured by the run, finding lifecycle
 state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
@@ -114,7 +114,7 @@ resolved through the same registration boundary as the existing run routes.
 repository-scoped form return paged run history. A series is keyed by repository,
 kind, scope unit ID, and level. Only complete runs are comparable; partial runs
 remain visible as events, and the highest revision wins for a resumed run. This
-run trend is separate from the Git-backed commit trend below.
+run trend is the durable history for new executions.
 
 The JSON contract is described by
 [`schemas/quality-report.v1.schema.json`](../schemas/quality-report.v1.schema.json).
@@ -122,13 +122,15 @@ SARIF declares version 2.1.0 and the official OASIS schema URI, produces one run
 per repository, preserves stable finding fingerprints, and includes scorecard
 and trend data in run properties.
 
-## Git-backed commit trend
+## Legacy Git-backed commit trend
 
-Trend storage is Git itself. Quality Studio finds commits that changed review
+For repositories that historically committed sidecars, Quality Studio can still
+find commits that changed review
 sidecars, reconstructs the complete sidecar set at each such commit, and emits an
 aggregate-score point only when the per-kind curve changes. Commit IDs and author
 timestamps identify every point. No report database or new history file is
-written.
+written. New review data is external and does not extend this legacy curve; use
+the run trend for current history.
 
 The committed sample generated for this repository is
 [`results/quality-report.sample.md`](../results/quality-report.sample.md).

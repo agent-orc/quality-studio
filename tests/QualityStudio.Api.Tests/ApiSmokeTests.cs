@@ -275,7 +275,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var created = await createdResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var rule = Assert.Single(created.GetProperty("rules").EnumerateArray());
         Assert.Equal("Sample.cs", rule.GetProperty("pattern").GetString());
-        var scopePath = Path.Combine(repositoryRoot, ".quality", "scope.json");
+        var scopePath = QualityDataRoot.PathFor(repositoryRoot, ".quality/scope.json");
         Assert.True(File.Exists(scopePath));
         using (var persisted = JsonDocument.Parse(await File.ReadAllTextAsync(scopePath, TestContext.Current.CancellationToken)))
         {
@@ -423,7 +423,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     [Fact]
     public async Task Rules_reports_a_repository_override_as_its_scope_without_leaking_the_path()
     {
-        var overrides = Path.Combine(repositoryRoot, ".quality", "rules");
+        var overrides = QualityDataRoot.PathFor(repositoryRoot, ".quality/rules");
         Directory.CreateDirectory(overrides);
         await File.WriteAllTextAsync(Path.Combine(overrides, "overrides.json"),
             """
@@ -466,7 +466,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var path = Path.Combine(repositoryRoot, ".quality", "inputs", "ui-created-rule.md");
+        var path = QualityDataRoot.PathFor(repositoryRoot, ".quality/inputs/ui-created-rule.md");
         Assert.True(File.Exists(path));
         Assert.Contains("enabled: true", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         using var inputsResponse = await client.GetAsync("/api/inputs", TestContext.Current.CancellationToken);
@@ -538,7 +538,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        Assert.True(File.Exists(Path.Combine(repositoryRoot, AttackCoverageLedger.RelativePath)));
+        Assert.True(File.Exists(QualityDataRoot.PathFor(repositoryRoot, AttackCoverageLedger.RelativePath)));
         var observation = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("api-test", observation.GetProperty("reviewer").GetProperty("agent").GetString());
         Assert.Equal("fixture-model", observation.GetProperty("reviewer").GetProperty("model").GetString());
@@ -574,7 +574,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
+        var path = QualityDataRoot.PathFor(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
         Assert.True(File.Exists(path));
         using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
@@ -615,7 +615,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     {
         var fingerprint = "sha256:" + new string('d', 64);
         var findingId = "finding-" + new string('d', 64);
-        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        var metadataDirectory = QualityDataRoot.PathFor(repositoryRoot, ".quality/reviews/files");
         Directory.CreateDirectory(metadataDirectory);
         var metadataPath = Path.Combine(metadataDirectory, "file.test.review-meta.code.json");
         var grade = new ReviewGrade(60, GradeBand.D, "One finding.");
@@ -756,7 +756,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var id = accepted.GetProperty("id").GetString()!;
         Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
-        var runDirectory = Path.Combine(repositoryRoot, ".quality", "runs", id);
+        var runDirectory = QualityDataRoot.PathFor(repositoryRoot, $".quality/runs/{id}");
         using (var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
                    Path.Combine(runDirectory, "manifest.json"), TestContext.Current.CancellationToken)))
         {
@@ -949,7 +949,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             using var traversal = await client.GetAsync($"/api/file?path=../{Path.GetFileName(secondRoot)}/Second.cs", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, traversal.StatusCode);
 
-            var persisted = await File.ReadAllTextAsync(Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken);
+            var persisted = await File.ReadAllTextAsync(
+                Path.Combine(hostRoot, "quality-data", RepositoryRegistry.RelativeRegistryPath),
+                TestContext.Current.CancellationToken);
             Assert.Contains("Second repository", persisted);
             Assert.Contains("ecosystems", persisted);
         }
@@ -990,6 +992,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     {
         Directory.CreateDirectory(repositoryRoot);
         Directory.CreateDirectory(hostRoot);
+        QualityDataRoot.Register(repositoryRoot, RepositoryRegistry.DefaultRepositoryId,
+            Path.Combine(hostRoot, "quality-data"));
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.cs"), "namespace Sample; public static class Greeter { public static string Hello() => \"hello\"; }");
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "bin"));
@@ -997,9 +1001,14 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "generated"));
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "generated", "Generated.cs"), "namespace Generated; internal sealed class Local { }");
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, ".gitignore"), "bin/\ngenerated/\n");
-        Directory.CreateDirectory(Path.Combine(repositoryRoot, ".quality", "inputs"));
-        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, ".quality", "inputs", "sample.md"),
+        var inputDirectory = Path.Combine(hostRoot, "quality-data", RepositoryRegistry.DefaultRepositoryId, "inputs");
+        Directory.CreateDirectory(inputDirectory);
+        await File.WriteAllTextAsync(Path.Combine(inputDirectory, "sample.md"),
             "---\nid: sample-rules\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nPrefer explicit names.\n");
+        var handoverMetadata = QualityDataRoot.PathFor(repositoryRoot,
+            ".quality/reviews/sample.review-meta.performance.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(handoverMetadata)!);
+        await File.WriteAllTextAsync(handoverMetadata, "{}");
         await RunGitAsync("init", "--quiet");
         application = new TestApplication(repositoryRoot, hostRoot);
     }
@@ -1065,6 +1074,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = Path.GetDirectoryName(root),
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "quality-data"),
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                     ["AgentStudio:ClientId"] = "quality-studio-test",
                     ["AgentStudio:Project"] = "QS",

@@ -70,7 +70,7 @@ public static class UsageLedger
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public static string GetLedgerPath(string repositoryRoot, DateTimeOffset timestamp) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage", timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
+        Path.Combine(QualityDataRoot.Resolve(repositoryRoot), "usage", timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
 
     public static async Task AppendAsync(string repositoryRoot, ReviewUsageEntry entry, CancellationToken cancellationToken = default)
     {
@@ -98,7 +98,7 @@ public static class UsageLedger
         string? kind = null, int recentLimit = 50, CancellationToken cancellationToken = default)
     {
         var entries = new List<ReviewUsageEntry>();
-        var directory = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage");
+        var directory = Path.Combine(QualityDataRoot.Resolve(repositoryRoot), "usage");
         if (Directory.Exists(directory))
         {
             foreach (var path in Directory.EnumerateFiles(directory, "????-??.jsonl", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))

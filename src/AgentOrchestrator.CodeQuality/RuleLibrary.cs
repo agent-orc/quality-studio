@@ -75,8 +75,7 @@ public sealed class RuleCatalogueResolver
             var globalPath = Path.Combine(Path.GetFullPath(globalInputsDirectory), GlobalFileName);
             if (File.Exists(globalPath)) Apply(ReadOverrides(globalPath), globalPath, builtIn, overridesById, sources);
         }
-        var projectPath = Path.Combine(Path.GetFullPath(repositoryRoot),
-            ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var projectPath = QualityDataRoot.PathFor(repositoryRoot, ProjectRelativePath);
         if (File.Exists(projectPath)) Apply(ReadOverrides(projectPath), projectPath, builtIn, overridesById, sources);
 
         var resolved = builtIn.Entries

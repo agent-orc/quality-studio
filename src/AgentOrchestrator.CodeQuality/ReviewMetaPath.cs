@@ -16,13 +16,6 @@ public static class ReviewMetaPath
         ArgumentException.ThrowIfNullOrWhiteSpace(subjectFile);
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
-        var directory = level switch
-        {
-            ReviewLevel.Project => repositoryRoot,
-            ReviewLevel.Module when File.Exists(Path.Combine(repositoryRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)))
-                => Path.GetDirectoryName(Path.Combine(repositoryRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)))!,
-            _ => Path.GetDirectoryName(subjectFile)!,
-        };
         var lane = level switch
         {
             ReviewLevel.File => "files",
@@ -30,7 +23,7 @@ public static class ReviewMetaPath
             _ => string.Empty,
         };
         var prefix = level.ToString().ToLowerInvariant();
-        return Path.Combine(directory, ".quality", "reviews", lane,
+        return Path.Combine(QualityDataRoot.Resolve(repositoryRoot), "reviews", lane,
             $"{prefix}.{Key(relativePath)}.review-meta.{kind}.json");
     }
 

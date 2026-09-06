@@ -72,7 +72,7 @@ public sealed class BoundaryInventorySensorTests
             Assert.Contains(mvc.Inputs, input => input.Name == "id" && input.Source == "route");
             Assert.Contains(mvc.Inputs, input => input.Name == "request" && input.Source == "body");
 
-            var persisted = Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath);
+            var persisted = QualityDataRoot.PathFor(root, BoundaryInventorySensor.InventoryRelativePath);
             Assert.True(File.Exists(persisted));
             using var json = JsonDocument.Parse(await File.ReadAllTextAsync(persisted, TestContext.Current.CancellationToken));
             Assert.Equal(1, json.RootElement.GetProperty("schemaVersion").GetInt32());
@@ -98,7 +98,7 @@ public sealed class BoundaryInventorySensorTests
             var sensor = new BoundaryInventorySensor();
             await sensor.RunAsync(new SensorScanRequest(root), TestContext.Current.CancellationToken);
             var before = await File.ReadAllTextAsync(
-                Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath),
+                QualityDataRoot.PathFor(root, BoundaryInventorySensor.InventoryRelativePath),
                 TestContext.Current.CancellationToken);
 
             await File.WriteAllTextAsync(program, """
@@ -109,7 +109,7 @@ public sealed class BoundaryInventorySensorTests
                 """, TestContext.Current.CancellationToken);
             await sensor.RunAsync(new SensorScanRequest(root), TestContext.Current.CancellationToken);
             var after = await File.ReadAllTextAsync(
-                Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath),
+                QualityDataRoot.PathFor(root, BoundaryInventorySensor.InventoryRelativePath),
                 TestContext.Current.CancellationToken);
 
             Assert.NotEqual(before, after);

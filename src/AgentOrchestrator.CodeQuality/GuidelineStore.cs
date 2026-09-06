@@ -108,7 +108,7 @@ public sealed partial class GuidelineStore
     }
 
     private static string DirectoryPath(string repositoryRoot) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "inputs");
+        QualityDataRoot.PathFor(repositoryRoot, ".quality/inputs");
 
     private static string FileName(string id) => id + ".md";
 

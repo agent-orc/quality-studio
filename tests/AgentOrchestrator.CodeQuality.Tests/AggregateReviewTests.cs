@@ -96,9 +96,9 @@ public sealed class AggregateReviewTests
         await WithModuleAsync(async root =>
         {
             var cancellationToken = TestContext.Current.CancellationToken;
-            Directory.CreateDirectory(Path.Combine(root, ".quality", "boundaries"));
+            Directory.CreateDirectory(QualityDataRoot.PathFor(root, ".quality/boundaries"));
             await File.WriteAllTextAsync(
-                Path.Combine(root, ".quality", "boundaries", "inventory.json"), BoundaryInventoryJson, cancellationToken);
+                QualityDataRoot.PathFor(root, ".quality/boundaries/inventory.json"), BoundaryInventoryJson, cancellationToken);
 
             var agent = new RecordingAgent(CleanResponse);
             await new ReviewRunner(agent).ReviewAsync(new ReviewRequest(

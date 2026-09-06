@@ -24,6 +24,7 @@ builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(R
 builder.Services.AddSingleton<ApiSecurity>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
+builder.Services.AddHostedService<QualityDataStartupService>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<ProjectDashboardService>();
 builder.Services.AddSingleton<RepositorySnapshotPrewarmer>();
@@ -798,8 +799,7 @@ static IResult Rules(HttpContext context, string? kind, string? adapter, Reposit
     }
 
     var catalogue = new RuleCatalogueResolver().Resolve(repository.Root, globalDirectory);
-    var projectOverridePath = Path.GetFullPath(Path.Combine(repository.Root,
-        RuleCatalogueResolver.ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+    var projectOverridePath = QualityDataRoot.PathFor(repository.Root, RuleCatalogueResolver.ProjectRelativePath);
     string ScopeOf(string source) =>
         source == "built-in" || source.StartsWith("embedded:", StringComparison.Ordinal) ? "built-in"
         : string.Equals(source, projectOverridePath, StringComparison.OrdinalIgnoreCase) ? "project" : "global";
@@ -911,7 +911,11 @@ static IReadOnlyList<GuidelineTraceResponse> BuildGuidelineTraces(string reposit
 {
     var ids = guidelineIds.ToHashSet(StringComparer.Ordinal);
     var findings = ids.ToDictionary(id => id, _ => new List<GuidelineTraceFindingResponse>(), StringComparer.Ordinal);
-    foreach (var path in Directory.EnumerateFiles(repositoryRoot, "*.json", SearchOption.AllDirectories)
+    var dataRoot = QualityDataRoot.Resolve(repositoryRoot);
+    if (!Directory.Exists(dataRoot)) return findings
+        .Select(pair => new GuidelineTraceResponse(pair.Key, 0, []))
+        .ToArray();
+    foreach (var path in Directory.EnumerateFiles(dataRoot, "*.json", SearchOption.AllDirectories)
                  .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
     {
         using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -927,7 +931,7 @@ static IReadOnlyList<GuidelineTraceResponse> BuildGuidelineTraces(string reposit
             target.Add(new GuidelineTraceFindingResponse(
                 finding.GetProperty("id").GetString()!, ruleId, finding.GetProperty("title").GetString()!,
                 finding.GetProperty("severity").GetString()!, kind, unitPath,
-                Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')));
+                QualityDataRoot.LogicalPath(repositoryRoot, path)));
         }
     }
     return findings.Select(pair => new GuidelineTraceResponse(pair.Key, pair.Value.Count, pair.Value)).ToArray();
@@ -1343,7 +1347,12 @@ static async Task<IResult> Handover(
     var filePath = repository.NormalizeRelativePath(request.FilePath);
     repository.ResolveFile(filePath);
     var metaReferencePath = request.MetaReference.Split('#', 2)[0];
-    if (!string.IsNullOrWhiteSpace(metaReferencePath)) repository.NormalizeRelativePath(metaReferencePath);
+    if (!string.IsNullOrWhiteSpace(metaReferencePath))
+    {
+        if (!metaReferencePath.StartsWith(".quality/", StringComparison.Ordinal))
+            throw new ArgumentException("Review metadata reference must be a logical .quality path.");
+        _ = QualityDataRoot.PathFor(repository.Root, metaReferencePath);
+    }
     var result = await client.CreateTaskAsync(new FindingTaskTemplate(
         request.FindingSummary,
         filePath,

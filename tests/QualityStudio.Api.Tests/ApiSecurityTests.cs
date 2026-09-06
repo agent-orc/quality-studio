@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using AgentOrchestrator.CodeQuality;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -21,7 +22,8 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     private string ForeignRepositoryRoot => Path.Combine(testRoot, "foreign");
     private string OutsideRoot => Path.Combine(testRoot, "outside");
     private string HostRoot => Path.Combine(testRoot, "host");
-    private string RegistryPath => Path.Combine(HostRoot, ".quality-studio", "repositories.json");
+    private string DataRoot => Path.Combine(testRoot, "quality-data");
+    private string RegistryPath => Path.Combine(DataRoot, RepositoryRegistry.RelativeRegistryPath);
     private HostedApplication? application;
 
     [Fact]
@@ -211,7 +213,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     {
         var rateHost = Path.Combine(testRoot, "rate-host");
         Directory.CreateDirectory(rateHost);
-        WriteRegistry(rateHost);
+        WriteRegistry(DataRoot);
         await using var rateApplication = new HostedApplication(
             RepositoryRoot, ForeignRepositoryRoot, rateHost, spendRequestsPerMinute: 1);
 
@@ -270,7 +272,13 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         await RunGitAsync(RepositoryRoot);
         await RunGitAsync(ForeignRepositoryRoot);
         await RunGitAsync(OutsideRoot);
-        WriteRegistry(HostRoot);
+        WriteRegistry(DataRoot);
+        QualityDataRoot.Register(RepositoryRoot, RepositoryRegistry.DefaultRepositoryId, DataRoot);
+        QualityDataRoot.Register(ForeignRepositoryRoot, "foreign", DataRoot);
+        var handoverMetadata = QualityDataRoot.PathFor(ForeignRepositoryRoot,
+            ".quality/reviews/example.review-meta.security.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(handoverMetadata)!);
+        await File.WriteAllTextAsync(handoverMetadata, "{}");
         application = new HostedApplication(RepositoryRoot, ForeignRepositoryRoot, HostRoot, spendRequestsPerMinute: 100);
     }
 
@@ -304,9 +312,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         return Assert.Single(repositories!, repository => string.Equals(repository.Id, id, StringComparison.Ordinal));
     }
 
-    private void WriteRegistry(string hostRoot)
+    private void WriteRegistry(string dataRoot)
     {
-        var path = Path.Combine(hostRoot, ".quality-studio", "repositories.json");
+        var path = Path.Combine(dataRoot, RepositoryRegistry.RelativeRegistryPath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var entries = new[]
         {
@@ -342,6 +350,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
                     ["QualityStudio:AllowedRoots:1"] = foreignRoot,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "..", "quality-data"),
                     ["QualityStudio:Security:Mode"] = "Hosted",
                     ["QualityStudio:Security:RequireHttps"] = "true",
                     ["QualityStudio:Security:SpendRequestsPerMinute"] = spendRequestsPerMinute.ToString(),
@@ -376,6 +385,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "quality-data"),
                     ["QualityStudio:Security:Mode"] = "Local",
                 }));
         }

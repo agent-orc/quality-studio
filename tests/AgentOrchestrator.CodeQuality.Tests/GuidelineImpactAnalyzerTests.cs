@@ -8,10 +8,11 @@ public sealed class GuidelineImpactAnalyzerTests
     public async Task Dry_run_reports_a_real_finding_diff_on_a_fixture_repository()
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-impact-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(root, ".quality", "inputs"));
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(QualityDataRoot.PathFor(root, ".quality/inputs"));
         var cancellationToken = TestContext.Current.CancellationToken;
         await File.WriteAllTextAsync(Path.Combine(root, "Sample.cs"), "class Sample { }\n", cancellationToken);
-        await File.WriteAllTextAsync(Path.Combine(root, ".quality", "inputs", "fixture-rule.md"),
+        await File.WriteAllTextAsync(QualityDataRoot.PathFor(root, ".quality/inputs/fixture-rule.md"),
             "---\nid: fixture-rule\nenabled: true\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nAllow marker.\n", cancellationToken);
         try
         {
@@ -23,10 +24,11 @@ public sealed class GuidelineImpactAnalyzerTests
             Assert.True(result.Changed);
             Assert.Equal(1, result.AddedCount);
             Assert.Equal("fixture-rule", Assert.Single(Assert.Single(result.Files).Added).RuleId);
-            Assert.False(File.Exists(Path.Combine(root, ".quality", "reviews")));
+            Assert.False(Directory.Exists(Path.Combine(QualityDataRoot.Resolve(root), "reviews")));
         }
         finally
         {
+            TestDirectory.Delete(QualityDataRoot.Resolve(root));
             Directory.Delete(root, true);
         }
     }

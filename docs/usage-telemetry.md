@@ -6,7 +6,7 @@ identifiers to two places:
 
 - the review-meta `reviewer.usage` block, alongside `reviewer.model` and
   `reviewer.runId`; and
-- the repository append-only ledger at `.quality/usage/YYYY-MM.jsonl`.
+- the external project data-root ledger at `.quality/usage/YYYY-MM.jsonl`.
 
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
@@ -76,16 +76,14 @@ The Usage button in the top bar opens the repository history view. It shows
 input-plus-output token spend, model and daily aggregates, and keyboard-accessible
 recent-entry details containing both run identifiers.
 
-## Git history policy
+## Retention policy
 
-`.quality/usage/YYYY-MM.jsonl` is committed repository history. The files are
-monthly and append-only; do not compact, reorder, rewrite, or discard prior
-lines. `.gitignore` explicitly keeps these files committable and `.gitattributes`
-uses Git's union merge driver so independent appends are retained during merges.
-The application intentionally does not invoke Git: the active monthly file is
-staged and committed through the repository's normal development workflow.
+`.quality/usage/YYYY-MM.jsonl` is local project history under the external data
+root. The files are monthly and append-only; do not compact, reorder, rewrite,
+or discard prior lines. They are not source-control artifacts. Back up the
+project data directory when durable retention is required.
 
-This policy begins with the ledger data available in each repository. Missing
+This policy begins with the ledger data available for each project. Missing
 historical entries are not fabricated retroactively.
 
 ## Quota ownership

@@ -10,26 +10,6 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 public sealed class ChangeSetReviewTests
 {
     [Fact]
-    public void Committed_twenty_transition_sample_validates_against_the_contract()
-    {
-        var root = RepositoryTestContext.FindRepositoryRoot();
-        var schema = JsonSchema.FromText(File.ReadAllText(
-            Path.Combine(root, "schemas", "change-review.v1.schema.json")));
-        var samples = Directory.GetFiles(Path.Combine(root, ".quality", "changes"), "*.json");
-
-        Assert.Equal(20, samples.Length);
-        foreach (var path in samples)
-        {
-            using var json = JsonDocument.Parse(File.ReadAllText(path));
-            var evaluation = schema.Evaluate(json.RootElement, new EvaluationOptions
-            {
-                OutputFormat = OutputFormat.List,
-            });
-            Assert.True(evaluation.IsValid, $"{Path.GetFileName(path)}: {evaluation}");
-        }
-    }
-
-    [Fact]
     public async Task Merge_range_detects_lower_grade_new_finding_boundary_and_staleness()
     {
         using var repository = await TestRepository.CreateAsync();
@@ -116,7 +96,7 @@ public sealed class ChangeSetReviewTests
         Assert.Equal(merge, change.MergeCommit);
         Assert.Equal(merge, change.ResultCommit);
         Assert.Equal(ChangeSetReviewService.GetPath(repository.Root, change),
-            Path.Combine(repository.Root, ".quality", "changes", merge + ".json"));
+            QualityDataRoot.PathFor(repository.Root, $".quality/changes/{merge}.json"));
     }
 
     [Fact]
@@ -199,7 +179,7 @@ public sealed class ChangeSetReviewTests
         Assert.Equal(ChangeDiffCommand.SuccessExitCode, exitCode);
         Assert.Empty(error.ToString());
         Assert.True(File.Exists(artifactPath));
-        Assert.False(Directory.Exists(Path.Combine(repository.Root, ".quality", "changes")));
+        Assert.False(Directory.Exists(QualityDataRoot.PathFor(repository.Root, ".quality/changes")));
         Assert.Equal(statusBefore,
             await repository.GitCommandAsync("status", "--porcelain=v1", "--untracked-files=all"));
         Assert.Equal(indexBefore, await repository.GitCommandAsync("diff", "--cached", "--binary"));

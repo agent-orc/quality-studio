@@ -118,9 +118,7 @@ public sealed class StalenessEvaluatorTests
 
         var broken = Assert.Single(report.Files, file => file.RelativePath == "src/broken.cs");
         Assert.Equal(StalenessState.Invalid, broken.State);
-        Assert.Equal(
-            Path.GetRelativePath(fixture.Root, brokenMeta).Replace('\\', '/'),
-            broken.MetaRelativePath);
+        Assert.Equal(QualityDataRoot.LogicalPath(fixture.Root, brokenMeta), broken.MetaRelativePath);
         Assert.Equal(1, report.InvalidCount);
         // The rest of the scan still runs; one bad sidecar is not a scan failure.
         Assert.Equal(StalenessState.Fresh, Assert.Single(report.Files, file => file.RelativePath == "src/intact.cs").State);
@@ -220,7 +218,9 @@ public sealed class StalenessEvaluatorTests
 
         public async Task WriteSourceAsync(string relativePath, string content)
         {
-            var path = Path.Combine(Root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var path = relativePath.StartsWith(".quality/", StringComparison.Ordinal)
+                ? QualityDataRoot.PathFor(Root, relativePath)
+                : Path.Combine(Root, relativePath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             await File.WriteAllTextAsync(path, content);
         }
@@ -245,6 +245,7 @@ public sealed class StalenessEvaluatorTests
         {
             try
             {
+                TestDirectory.Delete(QualityDataRoot.Resolve(Root));
                 Directory.Delete(Root, true);
             }
             catch (IOException)

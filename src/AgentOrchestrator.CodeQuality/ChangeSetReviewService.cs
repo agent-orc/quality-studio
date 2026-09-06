@@ -118,7 +118,7 @@ public sealed class ChangeSetReviewService
         JsonSerializer.Serialize(document, JsonOptions) + "\n";
 
     public static string GetPath(string repositoryRoot, ChangeSet changeSet) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "changes",
+        Path.Combine(QualityDataRoot.Resolve(repositoryRoot), "changes",
             (changeSet.MergeCommit ?? changeSet.HeadCommit) + ".json");
 
     private static async Task SaveAsync(

@@ -28,8 +28,9 @@ if (!existsSync(apiDll)) throw new Error(`QualityStudio.Api is not built. Expect
 try {
   temporaryRoot = await mkdtemp(resolve(tmpdir(), 'qs-tree-payload-perf-'));
   const apiHost = resolve(temporaryRoot, 'api-host');
+  const dataRoot = resolve(temporaryRoot, 'quality-data');
   await Promise.all([mkdir(apiHost, { recursive: true }), mkdir(resultsRoot, { recursive: true })]);
-  await writeRegistry(apiHost);
+  await writeRegistry(dataRoot);
 
   const apiPort = await freePort();
   const webPort = await freePort();
@@ -43,6 +44,7 @@ try {
     QualityStudio__RepositoryRoot: repositoryRoot,
     QualityStudio__AllowedRoots__0: repositoryRoot,
     QualityStudio__AllowedRoots__1: targetRoot,
+    QualityStudio__DataRoot: dataRoot,
     QualityStudio__Security__Mode: 'Local',
   }, apiLines);
   await waitForHttp(`http://127.0.0.1:${apiPort}/health`, 30_000);
@@ -115,15 +117,14 @@ try {
   if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true });
 }
 
-async function writeRegistry(apiHost) {
-  const registryDirectory = resolve(apiHost, '.quality-studio');
-  await mkdir(registryDirectory, { recursive: true });
+async function writeRegistry(dataRoot) {
+  await mkdir(dataRoot, { recursive: true });
   const entry = (id, displayName, rootPath) => ({
     id, displayName, rootPath, globalInputsDirectory: null, inputBudgetCharacters: 12_000,
     enabledReviewKinds: ['code', 'security', 'performance'], sensors: null, archived: false,
     defaultReviewTokenCap: 100_000, defaultReviewCostCap: null,
   });
-  await writeFile(resolve(registryDirectory, 'repositories.json'), JSON.stringify([
+  await writeFile(resolve(dataRoot, 'repositories.json'), JSON.stringify([
     entry('default', 'Quality Studio', repositoryRoot),
     entry('agent-studio', 'Agent Studio', targetRoot),
   ], null, 2));

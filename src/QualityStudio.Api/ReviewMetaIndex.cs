@@ -22,7 +22,12 @@ public sealed class ReviewMetaIndex : IDisposable
         repositories.Clear();
     }
 
-    private RepositoryIndex Get(string root) => repositories.GetOrAdd(Path.GetFullPath(root), static path => new(path));
+    private RepositoryIndex Get(string root)
+    {
+        var repositoryRoot = Path.GetFullPath(root);
+        var dataRoot = QualityDataRoot.Resolve(repositoryRoot);
+        return repositories.GetOrAdd(repositoryRoot + "\0" + dataRoot, _ => new(repositoryRoot, dataRoot));
+    }
 
     private sealed class RepositoryIndex : IDisposable
     {
@@ -33,18 +38,20 @@ public sealed class ReviewMetaIndex : IDisposable
         };
         private readonly object gate = new();
         private readonly string root;
+        private readonly string dataRoot;
         private readonly Dictionary<string, IndexedDocument> documents =
             new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         private readonly FileSystemWatcher watcher;
 
-        public RepositoryIndex(string root)
+        public RepositoryIndex(string root, string dataRoot)
         {
             this.root = root;
-            foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
-                         .Where(IsReviewMetaPath))
-                Update(path);
+            this.dataRoot = dataRoot;
+            Directory.CreateDirectory(dataRoot);
+            foreach (var path in Directory.EnumerateFiles(dataRoot, "*.json", ConfinedEnumeration)
+                         .Where(IsReviewMetaPath)) Update(path);
 
-            watcher = new FileSystemWatcher(root, "*.json")
+            watcher = new FileSystemWatcher(dataRoot, "*.json")
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
@@ -90,8 +97,8 @@ public sealed class ReviewMetaIndex : IDisposable
             if (!IsReviewMetaPath(path) || !File.Exists(path)) return;
             try
             {
-                if (!PathConfinement.IsWithin(root, path)) return;
-                PathConfinement.RejectReparseTraversal(root, path);
+                if (!PathConfinement.IsWithin(dataRoot, path)) return;
+                PathConfinement.RejectReparseTraversal(dataRoot, path);
                 // The one reader decides what a sidecar says and reports what it cannot read; the
                 // raw payload is kept because callers still project over the whole document.
                 if (!ReviewMetaReader.TryLoad(path, out var sidecar, out _)) return;

@@ -229,8 +229,7 @@ public sealed class AttackCatalogueResolver
             var globalPath = Path.Combine(Path.GetFullPath(globalInputsDirectory), GlobalFileName);
             if (File.Exists(globalPath)) documents.Add((ReadFile(globalPath), "global", globalPath));
         }
-        var projectPath = Path.Combine(Path.GetFullPath(repositoryRoot),
-            ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var projectPath = QualityDataRoot.PathFor(repositoryRoot, ProjectRelativePath);
         if (File.Exists(projectPath)) documents.Add((ReadFile(projectPath), "project", projectPath));
 
         var effective = new Dictionary<string, ResolvedAttackCatalogueEntry>(StringComparer.OrdinalIgnoreCase);

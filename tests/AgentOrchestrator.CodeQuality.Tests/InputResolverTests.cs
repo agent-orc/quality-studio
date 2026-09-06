@@ -12,7 +12,7 @@ public sealed class InputResolverTests : IDisposable
     {
         global = Path.Combine(root, "global");
         Directory.CreateDirectory(global);
-        Directory.CreateDirectory(Path.Combine(root, ".quality", "inputs"));
+        Directory.CreateDirectory(Project);
     }
 
     [Fact]
@@ -62,8 +62,8 @@ public sealed class InputResolverTests : IDisposable
     [Fact]
     public void A_project_override_disables_a_rule_and_restates_its_severity()
     {
-        Directory.CreateDirectory(Path.Combine(root, ".quality", "rules"));
-        File.WriteAllText(Path.Combine(root, ".quality", "rules", "overrides.json"),
+        Directory.CreateDirectory(QualityDataRoot.PathFor(root, ".quality/rules"));
+        File.WriteAllText(QualityDataRoot.PathFor(root, ".quality/rules/overrides.json"),
             """
             {
               "schemaVersion": 1,
@@ -150,7 +150,7 @@ public sealed class InputResolverTests : IDisposable
         Assert.Empty(Authored(new InputResolver().Resolve(root, "code", ReviewLevel.File)));
     }
 
-    private string Project => Path.Combine(root, ".quality", "inputs");
+    private string Project => QualityDataRoot.PathFor(root, ".quality/inputs");
 
     /// <summary>The file-authored guidelines, without the built-in named rules resolved alongside them.</summary>
     private static ReviewInput[] Authored(ResolvedInputs resolved) =>

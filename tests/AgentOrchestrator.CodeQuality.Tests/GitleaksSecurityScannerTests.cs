@@ -47,8 +47,8 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         try
         {
             await InitializeGitRepositoryAsync(root, cancellationToken);
-            Directory.CreateDirectory(Path.Combine(root, ".quality", "security"));
-            await File.WriteAllTextAsync(Path.Combine(root, ".quality", "security", "gitleaks.toml"), """
+            Directory.CreateDirectory(QualityDataRoot.PathFor(root, ".quality/security"));
+            await File.WriteAllTextAsync(QualityDataRoot.PathFor(root, ".quality/security/gitleaks.toml"), """
                 title = "Quality Studio Gitleaks configuration"
 
                 [extend]
@@ -61,7 +61,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             await WriteRepoFixtureAsync(root, "src/entropy.txt", "entropy false positive fixture\n", cancellationToken);
             await WriteRepoFixtureAsync(root, "bin/Generated.cs", "generated output fixture\n", cancellationToken);
 
-            var baselinePath = Path.Combine(root, ".quality", "security", "gitleaks.baseline.json");
+            var baselinePath = QualityDataRoot.PathFor(root, ".quality/security/gitleaks.baseline.json");
             Directory.CreateDirectory(Path.GetDirectoryName(baselinePath)!);
             await File.WriteAllTextAsync(baselinePath, """
                 [
@@ -79,19 +79,21 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             Assert.True(result.Report.Available);
             Assert.Equal(SecurityVerdict.Block, result.Report.Verdict);
             Assert.Equal(Version, result.Report.Version);
-            Assert.Equal(7, result.Report.FilesScanned);
+            Assert.Equal(5, result.Report.FilesScanned);
             Assert.Equal(3, result.Report.NewFindings);
             Assert.Equal(1, result.Report.AcceptedFindings);
             Assert.Equal(2, result.Report.BlockFindings);
             Assert.Equal(1, result.Report.WarnFindings);
-            Assert.Equal(3, result.Report.CleanFiles);
+            Assert.Equal(1, result.Report.CleanFiles);
             Assert.Equal(4, result.Findings.Count);
             Assert.Contains(result.Findings, finding => finding.Accepted && finding.RuleId == "accepted-placeholder");
             Assert.All(result.Findings, finding => Assert.Null(finding.Evidence));
 
-            var sidecars = Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories).ToArray();
+            var sidecars = Directory.EnumerateFiles(QualityDataRoot.Resolve(root),
+                "*.review-meta.security.json", SearchOption.AllDirectories).ToArray();
             Assert.Equal(4, sidecars.Length);
-            Assert.Contains(sidecars, path => path.Contains($"{Path.DirectorySeparatorChar}src{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+            Assert.All(sidecars, path => Assert.StartsWith(
+                Path.Combine(QualityDataRoot.Resolve(root), "reviews", "files"), path, StringComparison.Ordinal));
             foreach (var path in sidecars)
             {
                 var content = await File.ReadAllTextAsync(path, cancellationToken);

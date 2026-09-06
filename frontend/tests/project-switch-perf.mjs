@@ -25,12 +25,13 @@ try {
   const smallRepository = resolve(state.tempRoot, 'small-repository');
   const realisticRepository = resolve(state.tempRoot, 'realistic-repository');
   const apiHost = resolve(state.tempRoot, 'api-host');
+  const dataRoot = resolve(state.tempRoot, 'quality-data');
   await Promise.all([
     createFixtureRepository(smallRepository, 12),
     createFixtureRepository(realisticRepository, 1_600),
     mkdir(apiHost, { recursive: true }),
   ]);
-  await writeRegistry(apiHost, smallRepository, realisticRepository);
+  await writeRegistry(dataRoot, smallRepository, realisticRepository);
 
   const apiPort = await freePort();
   const webPort = await freePort();
@@ -43,6 +44,7 @@ try {
   start('api', 'dotnet', [apiDll, '--urls', `http://127.0.0.1:${apiPort}`, '--contentRoot', apiHost], apiHost, {
     QualityStudio__RepositoryRoot: smallRepository,
     QualityStudio__AllowedRoots__0: state.tempRoot,
+    QualityStudio__DataRoot: dataRoot,
     QualityStudio__Security__Mode: 'Local',
   }, apiLines);
   await waitForHttp(`http://127.0.0.1:${apiPort}/health`, 30_000);
@@ -146,15 +148,14 @@ async function createFixtureRepository(root, fileCount) {
   runGit(root, 'commit', '--quiet', '-m', 'Create realistic project-switch fixture');
 }
 
-async function writeRegistry(apiHost, smallRepository, realisticRepository) {
-  const registryDirectory = resolve(apiHost, '.quality-studio');
-  await mkdir(registryDirectory, { recursive: true });
+async function writeRegistry(dataRoot, smallRepository, realisticRepository) {
+  await mkdir(dataRoot, { recursive: true });
   const entry = (id, displayName, rootPath) => ({
     id, displayName, rootPath, globalInputsDirectory: null, inputBudgetCharacters: 12000,
     enabledReviewKinds: ['code', 'security', 'performance'], sensors: null, archived: false,
     defaultReviewTokenCap: 100000, defaultReviewCostCap: null,
   });
-  await writeFile(resolve(registryDirectory, 'repositories.json'), JSON.stringify([
+  await writeFile(resolve(dataRoot, 'repositories.json'), JSON.stringify([
     entry('default', 'Small fixture', smallRepository),
     entry('realistic', 'Realistic fixture', realisticRepository),
   ], null, 2));

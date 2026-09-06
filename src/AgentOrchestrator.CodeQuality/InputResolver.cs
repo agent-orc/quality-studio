@@ -105,8 +105,8 @@ public sealed class InputResolver
             .ThenBy(input => input.Source, StringComparer.Ordinal)
             .ToArray();
         var projectRoot = Path.GetFullPath(repositoryRoot);
-        var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
-        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
+        var projectDirectory = QualityDataRoot.PathFor(projectRoot, ".quality/inputs");
+        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectDirectory);
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var omissions = global
             .Where(input => projectIds.Contains(input.Id))

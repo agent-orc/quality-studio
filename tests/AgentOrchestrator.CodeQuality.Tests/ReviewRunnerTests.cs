@@ -349,9 +349,9 @@ public sealed class ReviewRunnerTests
             Assert.Equal("file", json.GetProperty("unit").GetProperty("level").GetString());
             Assert.Equal("src/Small.cs", json.GetProperty("unit").GetProperty("path").GetString());
             Assert.Equal(result.ReviewedHash, json.GetProperty("reviewedHash").GetProperty("value").GetString());
-            Assert.StartsWith(Path.Combine(root, "src", ".quality", "reviews", "files"), result.MetaPath, StringComparison.Ordinal);
+            Assert.StartsWith(Path.Combine(QualityDataRoot.Resolve(root), "reviews", "files"), result.MetaPath, StringComparison.Ordinal);
             Assert.NotNull(result.Observation);
-            Assert.StartsWith("src/.quality/reviews/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);
+            Assert.StartsWith(".quality/reviews/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);
             Assert.EndsWith(".review-meta.code.json", result.Observation.SidecarPath, StringComparison.Ordinal);
             Assert.DoesNotContain(root, result.Observation.ReviewMetaJson, StringComparison.Ordinal);
             Assert.Equal("sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
@@ -413,8 +413,8 @@ public sealed class ReviewRunnerTests
             var before = await new ReviewRunner(new FakeAgent()).ReviewAsync(
                 new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
             var beforeHash = before.Inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash("code"));
-            Directory.CreateDirectory(Path.Combine(root, ".quality", "rules"));
-            await File.WriteAllTextAsync(Path.Combine(root, ".quality", "rules", "overrides.json"),
+            Directory.CreateDirectory(QualityDataRoot.PathFor(root, ".quality/rules"));
+            await File.WriteAllTextAsync(QualityDataRoot.PathFor(root, ".quality/rules/overrides.json"),
                 """
                 {
                   "schemaVersion": 1,
@@ -439,7 +439,7 @@ public sealed class ReviewRunnerTests
         var cancellationToken = TestContext.Current.CancellationToken;
         await WithReviewFileAsync(async (root, file) =>
         {
-            var inputDirectory = Path.Combine(root, ".quality", "inputs");
+            var inputDirectory = QualityDataRoot.PathFor(root, ".quality/inputs");
             Directory.CreateDirectory(inputDirectory);
             await File.WriteAllTextAsync(Path.Combine(inputDirectory, "security.md"),
                 "---\nid: secure-boundaries\nkinds: [security]\nlevels: [file]\npriority: 50\n---\nTreat external data as untrusted.\n", cancellationToken);
@@ -584,7 +584,8 @@ public sealed class ReviewRunnerTests
             Assert.Matches("^sha256:[a-f0-9]{64}$", sensorReference.GetProperty("resultHash").GetString());
             Assert.Contains("\"id\": \"gitleaks\"", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("machine-produced sensor evidence", agent.Prompt, StringComparison.OrdinalIgnoreCase);
-            Assert.Single(Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories));
+            Assert.Single(Directory.EnumerateFiles(QualityDataRoot.Resolve(root),
+                "*.review-meta.security.json", SearchOption.AllDirectories));
         });
     }
 
@@ -788,7 +789,7 @@ public sealed class ReviewRunnerTests
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-review-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, "src", "Demo"));
-        Directory.CreateDirectory(Path.Combine(root, ".quality"));
+        Directory.CreateDirectory(QualityDataRoot.Resolve(root));
         await File.WriteAllTextAsync(Path.Combine(root, "Demo.slnx"),
             "<Solution><Project Path=\"src/Demo/Demo.csproj\" /></Solution>", TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(Path.Combine(root, "src", "Demo", "Demo.csproj"),
@@ -797,7 +798,7 @@ public sealed class ReviewRunnerTests
             "namespace Demo; internal sealed class Keep { }", TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(Path.Combine(root, "src", "Demo", "Fixture.cs"),
             "namespace Demo; internal sealed class Fixture { }", TestContext.Current.CancellationToken);
-        var scopePath = Path.Combine(root, ".quality", "scope.json");
+        var scopePath = QualityDataRoot.PathFor(root, ".quality/scope.json");
         await File.WriteAllTextAsync(scopePath,
             "{\"rules\":[{\"action\":\"exclude\",\"pattern\":\"**/Fixture.cs\",\"reason\":\"Test fixture\"}]}",
             TestContext.Current.CancellationToken);
@@ -836,7 +837,7 @@ public sealed class ReviewRunnerTests
             var runner = new ReviewRunner(agent);
             var request = new ReviewRequest("src/Small.cs", RepositoryRoot: root);
             await runner.ReviewAsync(request, TestContext.Current.CancellationToken);
-            var inputDirectory = Path.Combine(root, ".quality", "inputs");
+            var inputDirectory = QualityDataRoot.PathFor(root, ".quality/inputs");
             Directory.CreateDirectory(inputDirectory);
             await File.WriteAllTextAsync(Path.Combine(inputDirectory, "code.md"),
                 "---\nid: current-rule\nkinds: [code]\nlevels: [file]\npriority: 50\n---\nApply the current rule.\n",

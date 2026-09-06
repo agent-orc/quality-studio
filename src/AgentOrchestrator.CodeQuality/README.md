@@ -33,6 +33,8 @@ foreach (var finding in result.Findings)
 Built-in analysis names are exposed by `QualityAnalysisNames`. Configuration
 is passed per analysis as string key/value data, matching the underlying sensor
 contract. Repository metadata is not written unless `PersistMetadata` is set.
+When enabled, metadata is written through `QualityDataRoot` to the external
+project data directory, never beneath the analyzed checkout.
 
 Rule libraries are content supplied by the host and translated into analysis
 configuration or registered analysis implementations. They are deliberately

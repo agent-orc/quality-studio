@@ -146,8 +146,7 @@ public sealed class RuleLibraryTests : IDisposable
     public void AdapterFromUnitId_reads_only_a_well_formed_unit_id(string? unitId, string? expected) =>
         Assert.Equal(expected, RuleCatalogueResolver.AdapterFromUnitId(unitId));
 
-    private string OverridePath() => Path.Combine(root,
-        RuleCatalogueResolver.ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar));
+    private string OverridePath() => QualityDataRoot.PathFor(root, RuleCatalogueResolver.ProjectRelativePath);
 
     private static string WriteOverrides() => """
             {

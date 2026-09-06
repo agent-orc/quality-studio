@@ -255,75 +255,21 @@ public sealed class RepositoryHierarchyDerivationTests : IDisposable
         Assert.Equal(["src/Demo/Program.cs"], Files(module).Select(file => file.Path).ToArray());
     }
 
-    /// <summary>
-    /// Units stored by the very first review runs of 2026-07-11 whose IDs no reachable
-    /// solution/project/file tuple reproduces — not even in the repository trees of that week. They
-    /// were orphaned long before the derivation was sharpened and are listed so that a genuinely
-    /// new orphan cannot hide behind them.
-    /// </summary>
-    private static readonly string[] KnownOrphanedUnits =
-    [
-        // src/AgentOrchestrator.CodeQuality/StalenessState.cs, code, reviewed 2026-07-11T19:18:11Z.
-        "qs-v1/dotnet/file/81d3729e439083d881cfae72aeb40974a8982a9f2bac908f5a03e66657fb7f6d",
-    ];
-
-    /// <summary>
-    /// File, Module, and Project IDs are the anchor of every published sidecar. Derivation may be
-    /// sharpened, but a stored unit must keep resolving without a migration registry.
-    /// </summary>
     [Fact]
-    public void PublishedReviewSidecarUnitIdsStillResolve()
+    public async Task RuntimeReviewSidecarUnitIdResolvesInTheCurrentHierarchy()
     {
-        var repositoryRoot = RepositoryTestContext.FindRepositoryRoot();
-        var identifiers = Flatten(RepositoryHierarchyBuilder.Build(repositoryRoot))
+        CreateSolution();
+        WriteSource("src/Demo/Greeter.cs", "namespace Demo;\npublic sealed class Greeter { }\n");
+        var result = await new ReviewRunner(new HierarchyReviewAgent()).ReviewAsync(
+            new ReviewRequest("src/Demo/Greeter.cs", RepositoryRoot: root),
+            TestContext.Current.CancellationToken);
+        var identifiers = Flatten(RepositoryHierarchyBuilder.Build(root))
             .Select(node => node.Id)
             .ToHashSet(StringComparer.Ordinal);
-        var sidecars = EnumerateReviewSidecars(repositoryRoot).Order(StringComparer.Ordinal).ToArray();
+        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(
+            result.MetaPath, TestContext.Current.CancellationToken));
 
-        Assert.NotEmpty(sidecars);
-        var unresolved = sidecars
-            .Select(path => (Path: Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'), Unit: ReadUnitId(path)))
-            .Where(entry => entry.Unit is not null && !identifiers.Contains(entry.Unit))
-            .Where(entry => !KnownOrphanedUnits.Contains(entry.Unit, StringComparer.Ordinal))
-            .Select(entry => $"{entry.Path} -> {entry.Unit}")
-            .ToArray();
-
-        Assert.True(unresolved.Length == 0,
-            $"{unresolved.Length} of {sidecars.Length} stored units no longer resolve:{Environment.NewLine}" +
-            string.Join(Environment.NewLine, unresolved));
-    }
-
-    private static string? ReadUnitId(string path)
-    {
-        using var document = JsonDocument.Parse(File.ReadAllText(path));
-        return document.RootElement.TryGetProperty("unit", out var unit) && unit.TryGetProperty("id", out var id)
-            ? id.GetString()
-            : null;
-    }
-
-    private static IEnumerable<string> EnumerateReviewSidecars(string repositoryRoot)
-    {
-        var pending = new Stack<string>();
-        pending.Push(repositoryRoot);
-        while (pending.Count > 0)
-        {
-            var current = pending.Pop();
-            if (current.Replace('\\', '/').EndsWith("/.quality/reviews", StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (var file in Directory.EnumerateFiles(current, "*.review-meta.*.json", SearchOption.AllDirectories))
-                {
-                    yield return file;
-                }
-            }
-
-            foreach (var directory in Directory.EnumerateDirectories(current))
-            {
-                if (Path.GetFileName(directory) is not ("node_modules" or "bin" or "obj" or ".git" or "dist"))
-                {
-                    pending.Push(directory);
-                }
-            }
-        }
+        Assert.Contains(document.RootElement.GetProperty("unit").GetProperty("id").GetString()!, identifiers);
     }
 
     private HierarchyNode SingleModule() =>
@@ -370,6 +316,17 @@ public sealed class RepositoryHierarchyDerivationTests : IDisposable
             yield return node;
             foreach (var child in Flatten(node.Children)) yield return child;
         }
+    }
+
+    private sealed class HierarchyReviewAgent : IReviewAgent
+    {
+        public string AgentName => "hierarchy-test";
+        public string? Model => "deterministic";
+
+        public Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory,
+            CancellationToken cancellationToken = default) => Task.FromResult(new ReviewAgentResult(
+            "hierarchy-run", $"```json\n{ReviewResponseParserTests.ValidResponse}\n```",
+            new TokenUsage(1, 1, 0, 0, 1), Model));
     }
 
     public void Dispose()

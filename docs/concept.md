@@ -5,8 +5,8 @@ operator-approved product concept in the repository README; it does not replace
 or reopen that concept. Normative words such as **MUST**, **SHOULD**, and **MAY**
 describe the intended v1 implementation.
 
-Quality Studio stores standing, agent-produced review statements beside the
-code. A statement belongs to exactly one derived unit and one review kind. A
+Quality Studio stores standing, agent-produced review statements for the code.
+A statement belongs to exactly one derived unit and one review kind. A
 Project, Module, Namespace, File, or Function statement is independently
 authored: an aggregate view never turns child grades into a substitute for a
 review at another level.
@@ -16,6 +16,14 @@ review sidecars that currently exist — a rounded mean per kind and per hierarc
 level. Such a value is labelled "projection", is never stored or displayed as
 the grade of a unit, and carries no unit identity. A Project or Module review
 statement stands beside it: neither replaces the other.
+
+Amendment 2026-09-07 (QS-102): every logical `.quality/**` artifact is physically
+stored beneath the project's external Quality Studio data root. The analyzed
+checkout is read-only except for explicit user exports. Logical paths in schemas
+and examples retain their `.quality/` prefix, but no runtime artifact is intended
+for Git. This amendment supersedes older placement and Git-history wording in
+historical examples below; the normative storage contract is
+[`operations/data-root.md`](operations/data-root.md).
 
 ## Decisions at a glance
 
@@ -1556,24 +1564,23 @@ enforce all of the following:
 SHA-256 hex digest of the UTF-8 bytes of `unit.id`. Full hashes avoid escaping,
 case, and collision rules in cross-platform filenames.
 
-| Level | Anchor and filename |
+| Level | Logical data-root path |
 | --- | --- |
-| Project | `<project-root>/.quality/reviews/project.<unit-key>.review-meta.<kind>.json` |
-| Module | `<module-root>/.quality/reviews/module.<unit-key>.review-meta.<kind>.json` |
-| Namespace | `<namespace-anchor>/.quality/reviews/namespaces/namespace.<unit-key>.review-meta.<kind>.json` |
-| File | `<source-directory>/.quality/reviews/files/file.<unit-key>.review-meta.<kind>.json` |
-| Function | `<source-directory>/.quality/reviews/functions/function.<unit-key>.review-meta.<kind>.json` |
+| Project | `.quality/reviews/project.<unit-key>.review-meta.<kind>.json` |
+| Module | `.quality/reviews/module.<unit-key>.review-meta.<kind>.json` |
+| Namespace | `.quality/reviews/namespaces/namespace.<unit-key>.review-meta.<kind>.json` |
+| File | `.quality/reviews/files/file.<unit-key>.review-meta.<kind>.json` |
+| Function | `.quality/reviews/function.<unit-key>.review-meta.<kind>.json` |
 
 A loader derives this exact path from the validated body. The filename level
 prefix MUST equal `unit.level`, `<unit-key>` MUST equal SHA-256 of `unit.id`, the
-kind suffix MUST equal `kind`, and the containing anchor MUST equal the adapter's
-derived anchor. A second file for the same `(unit.id, kind)` or a valid document
+kind suffix MUST equal `kind`, and the document MUST be under the external
+project data root. A second file for the same `(unit.id, kind)` or a valid document
 at the wrong path is `invalid`; discovery never chooses a filesystem-order winner.
 
 File IDs include their compiler/module context, so the unit key prevents a linked
-.NET file compiled by two modules from colliding with itself. The `.quality`
-directory is a child of the source's feature folder and therefore remains beside
-the code rather than in a central service database. Review discovery MUST exclude
+.NET file compiled by two modules from colliding with itself. Review metadata is
+centralized within the external project data directory. Source discovery MUST exclude
 `*.review-meta.*.json`, `.quality/`, `bin/`, `obj/`, Angular output directories,
 and adapter-identified generated files from source inputs.
 
@@ -1587,7 +1594,6 @@ are the requested aggregate files; namespace uses the same aggregate contract.
 Multiple kinds are siblings, for example:
 
 ```text
-order-card.component.ts
 .quality/reviews/files/
   file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.code.json
   file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.performance.json
@@ -1685,8 +1691,8 @@ This example assumes Project tuple
 `["qs-v1/angular/project/254c8c041896bb3ef68a596323c46467df421c2dffe9be0658c2ca18df62deb7","root","frontend","root"]`,
 and File tuple
 `["qs-v1/angular/module/3ed36aa4e7c06837ce411a6a11a1b353dcaf7f11a2a39583620986c0c552adbf","frontend/src/app/orders/order-card/order-card.component.ts"]`.
-Location:
-`frontend/src/app/orders/order-card/.quality/reviews/files/file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.code.json`.
+Logical location:
+`.quality/reviews/files/file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.code.json`.
 The unit ID, filename key, and enclosing manifest hashes are calculated from the
 displayed values.
 

@@ -29,7 +29,7 @@ public sealed class RepositoryScopeConfigurationStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         root = Path.GetFullPath(repositoryRoot);
-        path = Path.Combine(root, RepositoryScope.ConfigurationPath.Replace('/', Path.DirectorySeparatorChar));
+        path = QualityDataRoot.PathFor(root, RepositoryScope.ConfigurationPath);
         gate = Gates.GetOrAdd(root, _ => new object());
     }
 

@@ -18,7 +18,7 @@ public sealed class QualityRunReportPinStore
     public QualityRunReportPinStore(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        path = Path.Combine(Path.GetFullPath(repositoryRoot), RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        path = QualityDataRoot.PathFor(repositoryRoot, RelativePath);
     }
 
     public IReadOnlySet<string> Load()

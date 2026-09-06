@@ -7,7 +7,7 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 public sealed class QualityReportTests
 {
     [Fact]
-    public async Task Report_reconstructs_score_curve_from_committed_sidecar_generations()
+    public async Task Report_reads_current_external_score_without_treating_runtime_data_as_git_history()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(60);
         await fixture.CommitScoreAsync(75);
@@ -25,9 +25,7 @@ public sealed class QualityReportTests
         Assert.Equal(2, repository.Scorecard.Staleness.Missing);
         Assert.Equal(1, repository.Scorecard.Findings.BySeverity["high"]);
         Assert.Equal(1, repository.Scorecard.Findings.ByState["open"]);
-        var trend = Assert.Single(repository.Trend, series => series.Kind == "code");
-        Assert.Equal([60, 75, 92], trend.Points.Select(point => point.Score));
-        Assert.All(trend.Points, point => Assert.Equal(12, point.Commit.Length));
+        Assert.Empty(Assert.Single(repository.Trend, series => series.Kind == "code").Points);
     }
 
     [Fact]
@@ -159,7 +157,7 @@ public sealed class QualityReportTests
         {
             var root = Directory.CreateTempSubdirectory("quality-report-fixture-").FullName;
             Directory.CreateDirectory(Path.Combine(root, "src"));
-            Directory.CreateDirectory(Path.Combine(root, ".quality", "reviews", "files"));
+            Directory.CreateDirectory(Path.Combine(QualityDataRoot.Resolve(root), "reviews", "files"));
             await File.WriteAllTextAsync(Path.Combine(root, "src", "App.cs"),
                 "namespace Fixture; public sealed class App { }\n", TestContext.Current.CancellationToken);
             await RunGitAsync(root, "init", "--quiet");
@@ -173,7 +171,7 @@ public sealed class QualityReportTests
             var fingerprint = "sha256:" + new string('b', 64);
             var fixture = new ReportRepositoryFixture(
                 root,
-                Path.Combine(root, ".quality", "reviews", "files", "app.review-meta.code.json"),
+                Path.Combine(QualityDataRoot.Resolve(root), "reviews", "files", "app.review-meta.code.json"),
                 contentHash,
                 reviewedHash,
                 fingerprint,
@@ -188,6 +186,8 @@ public sealed class QualityReportTests
         {
             score = nextScore;
             await WriteSidecarAsync();
+            await File.WriteAllTextAsync(Path.Combine(Root, "score.txt"), nextScore.ToString(),
+                TestContext.Current.CancellationToken);
             await RunGitAsync(Root, "add", ".");
             await RunGitAsync(Root, "commit", "--quiet", "-m", $"score {nextScore}");
         }
@@ -272,6 +272,7 @@ public sealed class QualityReportTests
 
         public void Dispose()
         {
+            TestDirectory.Delete(QualityDataRoot.Resolve(Root));
             TestDirectory.Delete(Root);
         }
     }

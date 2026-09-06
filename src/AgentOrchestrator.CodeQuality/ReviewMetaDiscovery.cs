@@ -25,7 +25,9 @@ public static class ReviewMetaDiscovery
         var nodes = Flatten(projects)
             .DistinctBy(node => node.Id, StringComparer.Ordinal)
             .ToDictionary(node => node.Id, StringComparer.Ordinal);
-        foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
+        var dataRoot = QualityDataRoot.Resolve(root);
+        if (!Directory.Exists(dataRoot)) return;
+        foreach (var path in Directory.EnumerateFiles(dataRoot, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
             // A sidecar that cannot be trusted attaches to no unit; the reader reports it, and the
@@ -38,7 +40,7 @@ public static class ReviewMetaDiscovery
                 document.Unit.Id,
                 document.Kind,
                 DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
-                Path.GetRelativePath(root, path).Replace('\\', '/'),
+                QualityDataRoot.LogicalPath(root, path),
                 sidecar.Json));
         }
     }

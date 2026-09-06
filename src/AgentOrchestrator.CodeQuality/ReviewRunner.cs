@@ -265,7 +265,7 @@ public sealed class ReviewRunner
             pair => FindingStateStore.StateName(pair.Value.State),
             StringComparer.Ordinal);
         return new ReviewObservationSnapshot(
-            NormalizeRelativePath(root, metaPath),
+            QualityDataRoot.LogicalPath(root, metaPath),
             "sha256:" + Convert.ToHexStringLower(SHA256.HashData(bytes)),
             DateTimeOffset.UtcNow,
             metadataJson,

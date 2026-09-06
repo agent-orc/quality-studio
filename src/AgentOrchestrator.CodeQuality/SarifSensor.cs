@@ -54,7 +54,7 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             target = request.Scope == SensorScope.Path && !string.IsNullOrWhiteSpace(request.Path)
                 ? AnalyzerCommand.ContainedPath(root, request.Path)
                 : root;
-            reportPath = AnalyzerCommand.ContainedPath(root, configuredReport);
+            reportPath = AnalyzerCommand.ReportPath(root, configuredReport);
             workingDirectory = configuration.TryGetValue("workingDirectory", out var configuredWorkingDirectory) &&
                                !string.IsNullOrWhiteSpace(configuredWorkingDirectory)
                 ? AnalyzerCommand.ContainedPath(root, configuredWorkingDirectory)
@@ -637,6 +637,11 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
 
 internal static class AnalyzerCommand
 {
+    public static string ReportPath(string root, string value) =>
+        value.Replace('\\', '/').StartsWith(".quality/", StringComparison.Ordinal)
+            ? QualityDataRoot.PathFor(root, value)
+            : ContainedPath(root, value);
+
     public static IReadOnlyList<string> Expand(
         string command,
         string repositoryRoot,

@@ -316,22 +316,12 @@ public sealed class ReviewMetaContractTests
     }
 
     [Fact]
-    public void SidecarsWrittenByTheReviewRunnerLoadThroughTheTypedContract()
+    public void SidecarsWrittenWithRoundTripTimestampsLoadThroughTheTypedContract()
     {
         // The runner writes reviewedAt with round-trip precision while this contract writes
         // milliseconds; the typed reader must accept what the product actually persists.
-        var directory = Path.Combine(RepositoryTestContext.FindRepositoryRoot(),
-            "src", "AgentOrchestrator.CodeQuality", ".quality", "reviews", "files");
-        var sidecars = Directory.Exists(directory)
-            ? Directory.GetFiles(directory, "*.review-meta.code.json").OrderBy(path => path, StringComparer.Ordinal).Take(5).ToArray()
-            : [];
-        Assert.NotEmpty(sidecars);
-
-        foreach (var sidecar in sidecars)
-        {
-            var loaded = ReviewMetaJson.Deserialize(File.ReadAllText(sidecar));
-            Assert.Equal(ReviewKind.Code, loaded.Kind);
-        }
+        var loaded = ReviewMetaJson.Deserialize(ReviewMetaJson.Serialize(CreateDocument()));
+        Assert.Equal(ReviewKind.Code, loaded.Kind);
 
         var roundTrip = JsonSerializer.Deserialize<DateTimeOffset>(
             "\"2026-09-01T09:43:46.0564003Z\"", ReviewMetaJson.Options);

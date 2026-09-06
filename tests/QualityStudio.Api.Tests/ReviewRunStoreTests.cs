@@ -753,6 +753,8 @@ public sealed class ReviewRunStoreTests
         {
             RepositoryRoot = repositoryRoot;
             HostRoot = hostRoot;
+            QualityDataRoot.Register(repositoryRoot, RepositoryRegistry.DefaultRepositoryId,
+                Path.Combine(hostRoot, "quality-data"));
             Store = new ReviewRunStore(repositoryRoot);
         }
 
@@ -854,6 +856,7 @@ public sealed class ReviewRunStoreTests
                 {
                     ["QualityStudio:RepositoryRoot"] = repositoryRoot,
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "quality-data"),
                 }));
             builder.ConfigureServices(services =>
             {

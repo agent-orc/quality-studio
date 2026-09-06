@@ -1158,7 +1158,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         BoundaryInventory inventory,
         CancellationToken cancellationToken)
     {
-        var path = Path.Combine(root, InventoryRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = QualityDataRoot.PathFor(root, InventoryRelativePath);
         await AtomicFile.WriteAllTextAsync(
             path,
             JsonSerializer.Serialize(inventory, JsonOptions) + Environment.NewLine,
