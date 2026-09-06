@@ -98,10 +98,12 @@ try {
     await writeFile(resolve(resultsRoot, 'project-switch-perf.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
 
+    // A repository paints its dashboard from scratch once; the return switch is served from the
+    // browser snapshot (QS-78) and is measured by its usable event, not by a second first paint.
     const realisticProjectEvents = projectEvents.filter(event => event.repositoryId === 'realistic');
     if (transitionEvents.length < 3 || transitionEvents.some(event => event.durationMs >= transitionBudgetMs) ||
         usableEvents.length < 3 || usableEvents.some(event => event.durationMs >= usableBudgetMs) ||
-        realisticProjectEvents.length < 2 || realisticProjectEvents.some(event => event.durationMs >= 150)) process.exitCode = 1;
+        realisticProjectEvents.length < 1 || realisticProjectEvents.some(event => event.durationMs >= 150)) process.exitCode = 1;
   } finally {
     await browser.close();
   }

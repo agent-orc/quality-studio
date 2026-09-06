@@ -26,6 +26,12 @@ route intercept is installed for this stage. The first target switch showed a
 transition in 13.6 ms and had a usable dashboard plus tree in 131.3 ms. A
 return switch reused the last browser snapshot, marked it as updating, and was
 usable in 73.3 ms. The target dashboard's first interactive paint was 32.2 ms.
+A repository paints its dashboard from scratch once per session; the return
+switch is served from the snapshot and therefore emits no second
+`qs.project.first-interactive` event. The harness asserts one first paint per
+repository and judges the return switch by its `qs.repository.switch.usable`
+event (corrected 2026-09-07 after the CI run measured every budget within
+bounds but expected a second first paint).
 The backend prewarm phase measured 169.58 ms total for 1,603 tracked fixture
 files (18.20 ms Git state, 45.46 ms hierarchy scan, 3.80 ms review-meta
 discovery, and 102.07 ms projection).
