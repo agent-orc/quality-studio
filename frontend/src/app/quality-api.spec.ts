@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { QualityApi } from './quality-api';
-import { ProjectDashboard, ResolvedInputs, TreeNode } from './contracts';
+import { ProjectDashboard, ResolvedInputs, ReviewRun, TreeNode } from './contracts';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -232,6 +232,39 @@ describe('QualityApi', () => {
     expect(api.connectionState()).toBe('offline');
     expect(api.preview()).toBeFalse();
     expect(api.connectionError()).toBe('Repository root is not readable.');
+  });
+
+  it('keeps polling review runs while the connection is down and resumes when it returns', async () => {
+    api.connectionState.set('preview');
+    api.reviewRuns.set([{ id: 'run-1', state: 'running' } as ReviewRun]);
+
+    const failing = api.loadReviewRuns();
+    http.expectOne('/api/repos/default/review/runs')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await failing;
+
+    expect(api.reviewError()).toBe('The API is not reachable. Check that the Quality Studio API is running.');
+
+    // The poll no longer refuses to run because the connection state is not live.
+    const retrying = api.loadReviewRuns();
+    http.expectOne('/api/repos/default/review/runs').flush({ runs: [{ id: 'run-1', state: 'running', totalFiles: 4, completedFiles: 2 }] });
+    await retrying;
+
+    expect(api.reviewRuns()[0].completedFiles).toBe(2);
+  });
+
+  it('loads usage without waiting for the connection state to be live', async () => {
+    api.connectionState.set('preview');
+
+    const loading = api.loadUsage();
+    http.expectOne(request => request.url === '/api/repos/default/usage').flush({
+      generatedAt: '2026-09-06T10:00:00Z', runs: 1, inputTokens: 7, outputTokens: 3,
+      cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 10,
+      byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [],
+    });
+    await loading;
+
+    expect(api.usage().inputTokens).toBe(7);
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {

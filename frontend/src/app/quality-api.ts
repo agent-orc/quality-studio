@@ -1,8 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { describeFileError } from './api-errors';
+import { describeFileError, describeHttpError, isUnreachable } from './api-errors';
 import type { PreviewFixtures } from './preview-fixtures';
 import { FlatNode, flattenTree } from './tree-utils';
 
@@ -55,6 +55,8 @@ import {
 } from './contracts';
 
 const NO_EXPANSION: ReadonlySet<string> = new Set<string>();
+/** How long the shell waits before probing an unreachable API again. */
+const RECONNECT_INTERVAL_MS = 5_000;
 
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
 const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
@@ -119,7 +121,17 @@ export class QualityApi {
   private readonly projectSnapshots = new Map<string, [ProjectDashboard, string | null]>();
   private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private loadedPreviewFixtures: PreviewFixtures | null = null;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      if (this.reviewPollTimer !== null) clearTimeout(this.reviewPollTimer);
+      if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+      this.reviewPollTimer = null;
+      this.reconnectTimer = null;
+    });
+  }
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
@@ -220,6 +232,7 @@ export class QualityApi {
           this.connectionState.set('offline');
         }
         this.connectionError.set(this.errorMessage(error));
+        this.scheduleReconnect();
         console.warn(JSON.stringify({
           event: 'qs.data.tree-unavailable',
           repositoryId,
@@ -290,7 +303,7 @@ export class QualityApi {
   }
 
   async loadReviewRuns(repositoryId = this.selectedRepositoryId()): Promise<void> {
-    if (!this.connected() || repositoryId !== this.selectedRepositoryId()) return;
+    if (repositoryId !== this.selectedRepositoryId()) return;
     try {
       const before = new Map(this.reviewRuns().map(run => [run.id, run.state]));
       const result = await firstValueFrom(this.http.get<{ runs: ReviewRun[] }>(`${this.repositoryApiBase(repositoryId)}/review/runs`));
@@ -307,6 +320,10 @@ export class QualityApi {
       if (result.runs.some(run => run.state === 'queued' || run.state === 'running')) this.scheduleReviewPoll();
     } catch (error) {
       this.reviewError.set(this.errorMessage(error));
+      // A failed poll used to end the poll loop for the session. Keep watching instead: unfinished
+      // runs stay polled, and an unreachable API is retried until it answers again.
+      if (this.reviewRuns().some(run => run.state === 'queued' || run.state === 'running')) this.scheduleReviewPoll();
+      if (this.unreachable(error)) this.scheduleReconnect();
     }
   }
 
@@ -363,7 +380,7 @@ export class QualityApi {
   }
 
   async loadUsage(since?: string, kind?: ReviewKind, repositoryId = this.selectedRepositoryId()): Promise<void> {
-    if (!this.connected() || repositoryId !== this.selectedRepositoryId()) return;
+    if (repositoryId !== this.selectedRepositoryId()) return;
     try {
       const params: Record<string, string> = {};
       if (since) params['since'] = since;
@@ -373,6 +390,7 @@ export class QualityApi {
     } catch (error) {
       if (repositoryId === this.selectedRepositoryId()) {
         this.usage.set(emptyUsageReport());
+        if (this.unreachable(error)) this.scheduleReconnect();
         console.warn(JSON.stringify({ event: 'qs.usage.unavailable', reason: this.errorMessage(error) }));
       }
     }
@@ -418,6 +436,24 @@ export class QualityApi {
     } catch (error) {
       this.reviewError.set(this.errorMessage(error));
     }
+  }
+
+  /**
+   * Re-probes an unreachable API until it answers, then resumes the work that stopped with it.
+   * Without this the shell stayed in preview for the rest of the session once a request failed.
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer !== null || this.connected()) return;
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      await this.loadTree();
+      if (!this.connected()) {
+        this.scheduleReconnect();
+        return;
+      }
+      console.info(JSON.stringify({ event: 'qs.data.reconnected', repositoryId: this.selectedRepositoryId() }));
+      await Promise.all([this.loadReviewRuns(), this.loadUsage(), this.loadQuotas()]);
+    }, RECONNECT_INTERVAL_MS);
   }
 
   private scheduleReviewPoll(): void {
@@ -491,9 +527,7 @@ export class QualityApi {
   }
 
   /** True when the request never reached the API, so no server-side judgement exists. */
-  private unreachable(error: unknown): boolean {
-    return error instanceof HttpErrorResponse && error.status === 0;
-  }
+  private unreachable(error: unknown): boolean { return isUnreachable(error); }
 
   async loadProjectDashboard(repositoryId = this.selectedRepositoryId()): Promise<void> {
     if (repositoryId === this.selectedRepositoryId()) {
@@ -636,12 +670,7 @@ export class QualityApi {
     }
   }
 
-  errorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse) {
-      return error.error?.detail || error.error?.title || error.message;
-    }
-    return error instanceof Error ? error.message : 'The repository request failed.';
-  }
+  errorMessage(error: unknown): string { return describeHttpError(error); }
 
   private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {
     return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(repositoryId)}`;
