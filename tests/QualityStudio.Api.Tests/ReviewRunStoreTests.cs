@@ -856,9 +856,14 @@ public sealed class ReviewRunStoreTests
                     services.RemoveAll<IReviewExecutorFactory>();
                     services.AddSingleton(executorFactory);
                 }
+                // These tests are about the run state machine, not about sensors. The real
+                // registry runs every deterministic sensor before each attempt - including a
+                // `dotnet build` of the fixture project - which dominated their runtime while
+                // nothing here asserts on it. Sensor behaviour has its own tests, two of which
+                // inject the one sensor they measure.
+                services.RemoveAll<IReviewSensor>();
                 if (deterministicSensor is not null)
                 {
-                    services.RemoveAll<IReviewSensor>();
                     services.AddSingleton(deterministicSensor);
                 }
                 if (cancelReclaimGraceSeconds.HasValue)
