@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ApiAccess } from './api-access';
+import { ApiAccessDialog } from './api-access-dialog/api-access-dialog';
 import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
@@ -44,7 +46,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog, ApiAccessDialog],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,6 +61,7 @@ interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds:
 })
 export class App implements OnDestroy {
   readonly api = inject(QualityApi);
+  readonly access = inject(ApiAccess);
   readonly explorer = viewChild(Explorer);
   readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
@@ -88,6 +91,8 @@ export class App implements OnDestroy {
   readonly guidelineImpact = signal<GuidelineImpact | null>(null);
   readonly attackCoverageDialogOpen = signal(false);
   readonly usageHistoryOpen = signal(false);
+  readonly apiAccessDialogOpen = signal(false);
+  readonly apiAccessRejected = signal(false);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
   readonly selectedNode = computed(() => this.api.nodeAt(this.selected())
     ?? (this.selected() === '.' ? this.api.allNodes().find(node => node.level === 'project') : undefined));
@@ -166,6 +171,12 @@ export class App implements OnDestroy {
         reviewWidth: this.reviewWidth(),
       };
       localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+    });
+    // A hosted API answers 401 without a token. Ask for one instead of failing quietly.
+    effect(() => {
+      if (this.access.unauthorizedAt() === 0) return;
+      this.apiAccessRejected.set(true);
+      this.apiAccessDialogOpen.set(true);
     });
     void this.initialize();
     this.quotaRefreshTimer = setInterval(() => void this.api.loadQuotas(), 60_000);
@@ -522,6 +533,17 @@ export class App implements OnDestroy {
     const next = this.theme() === 'dark' ? 'light' : 'dark';
     this.theme.set(next);
     localStorage.setItem('qs-theme', next);
+  }
+
+  openApiAccess(): void {
+    this.repositoryMenuOpen.set(false);
+    this.apiAccessRejected.set(false);
+    this.apiAccessDialogOpen.set(true);
+  }
+
+  closeApiAccess(): void {
+    this.apiAccessDialogOpen.set(false);
+    this.apiAccessRejected.set(false);
   }
 
   openUsageHistory(): void {

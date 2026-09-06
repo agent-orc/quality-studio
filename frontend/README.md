@@ -18,6 +18,14 @@ clearly labeled preview data so the workspace remains inspectable.
 
 Run `npm run build` for the production bundle and `npm run perf` against a running server for the interaction-budget harness. See [PERF.md](./PERF.md) for the acceptance numbers and Chrome tracing procedure, and [DESIGN-KINSHIP.md](./DESIGN-KINSHIP.md) for the Agent Studio token mapping.
 
+## API access
+
+A locally started API accepts requests without credentials, and nothing has to be configured. A
+hosted API expects a bearer token: open **API access** from the repository menu, paste the token,
+and every request carries it in the `Authorization` header. The token is kept in `localStorage`
+under `qs-api-token`, is never logged, and is never sent anywhere else. A rejected request (HTTP
+401) opens the same dialog with the reason.
+
 ## Workspace layout
 
 The Explorer and Review panel can be collapsed to give the editor more room, and both side panes can be resized by dragging the handle on their border (double-click a handle to reset that pane to its default width). Layout state — which panes are visible and how wide they are — persists in `localStorage` under `qs-layout`, separate from the `qs-theme` key.

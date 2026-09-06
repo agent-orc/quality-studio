@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { ApiAccess } from './api-access';
 import { App } from './app';
 import { ReviewFinding } from './contracts';
 import { QualityApi } from './quality-api';
@@ -119,5 +120,18 @@ describe('App shell URL state', () => {
     expect(api.allNodes()).toBe(api.allNodes());
     expect(api.nodeAt('src/A.cs')?.name).toBe('A.cs');
     expect(api.nodeAt('src/missing.cs')).toBeUndefined();
+  });
+
+  it('opens the API access dialog when the API rejects a request as unauthenticated', () => {
+    expect(app.apiAccessDialogOpen()).toBeFalse();
+
+    TestBed.inject(ApiAccess).reportUnauthorized();
+    fixture.detectChanges();
+
+    expect(app.apiAccessDialogOpen()).toBeTrue();
+    expect(app.apiAccessRejected()).withContext('the dialog explains why it opened').toBeTrue();
+
+    app.closeApiAccess();
+    expect(app.apiAccessRejected()).toBeFalse();
   });
 });

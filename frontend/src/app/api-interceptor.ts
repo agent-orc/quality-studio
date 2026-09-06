@@ -1,7 +1,8 @@
 import { HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpRequest } from '@angular/common/http';
 import { InjectionToken, inject } from '@angular/core';
-import { Observable, retry, throwError, timeout, timer } from 'rxjs';
+import { Observable, retry, tap, throwError, timeout, timer } from 'rxjs';
 
+import { ApiAccess } from './api-access';
 import { ApiTimeoutError } from './api-errors';
 
 export interface ApiRequestPolicy {
@@ -53,8 +54,14 @@ function budgetFor(url: string, policy: ApiRequestPolicy): number {
  */
 export function apiInterceptor(request: HttpRequest<unknown>, next: HttpHandlerFn): Observable<HttpEvent<unknown>> {
   const policy = inject(API_REQUEST_POLICY);
+  const access = inject(ApiAccess);
   const budget = budgetFor(request.urlWithParams, policy);
-  return next(request).pipe(
+  const token = access.token();
+  // A local API needs no credential, so without a configured token the request is unchanged.
+  const authorized = token
+    ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
+    : request;
+  return next(authorized).pipe(
     // Ahead of the retry, so every repeated attempt gets its own budget.
     timeout({ each: budget, with: () => throwError(() => new ApiTimeoutError(request.urlWithParams, budget)) }),
     retry({
@@ -62,6 +69,11 @@ export function apiInterceptor(request: HttpRequest<unknown>, next: HttpHandlerF
       delay: (error, attempt) => retryable(request, error)
         ? timer(policy.retryDelayMs * 2 ** (attempt - 1))
         : throwError(() => error),
+    }),
+    tap({
+      error: error => {
+        if (error instanceof HttpErrorResponse && error.status === 401) access.reportUnauthorized();
+      },
     }),
   );
 }
