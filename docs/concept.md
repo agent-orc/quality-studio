@@ -448,7 +448,7 @@ treat an unsupported `schemaVersion` as current.
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
         },
         "scope": {
           "enum": ["built-in", "global", "project"]
@@ -504,7 +504,7 @@ treat an unsupported `schemaVersion` as current.
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
           }
         },
         "prompt": {
