@@ -1,21 +1,22 @@
-# Quality Studio Analysis Core
+# Quality Studio analysis core
 
-`QualityStudio.Analysis.Core` runs Quality Studio analyses directly inside a
+`AgentOrchestrator.CodeQuality` runs Quality Studio analyses directly inside a
 .NET process. It is intended for Agent Studio pipeline steps, `quality-cli`,
 and CI jobs that already have a repository checkout. It does not start a web
 server and does not require the Quality Studio UI.
 
-The first stable entry point is `QualityStudio.Analysis.QualityAnalysisRunner`.
+The package id, the assembly name and the root namespace are the same name.
+The first stable entry point is `AgentOrchestrator.CodeQuality.QualityAnalysisRunner`.
 Call it with a repository path and one or more named analysis definitions. The
 result contains execution provenance and findings in the Quality Studio
 `QualityFindingEnvelope` model.
 
 ```xml
-<PackageReference Include="QualityStudio.Analysis.Core" Version="0.1.0" />
+<PackageReference Include="AgentOrchestrator.CodeQuality" Version="0.1.0" />
 ```
 
 ```csharp
-using QualityStudio.Analysis;
+using AgentOrchestrator.CodeQuality;
 
 var runner = new QualityAnalysisRunner();
 var result = await runner.RunAsync(new QualityAnalysisRequest(
@@ -42,8 +43,9 @@ this package.
 The caller owns checkout lifecycle, path authorization, process isolation,
 logging, and any persistence or later upload of results. Some named analyses
 invoke repository-configured tools; Gitleaks can resolve its pinned binary when
-the caller does not supply one.
+the caller does not supply one, or the caller points `QUALITY_GITLEAKS_PATH` at
+a binary of its own for offline hosts.
 
-The package currently targets .NET 10 and uses the existing
-`AgentOrchestrator.CodeQuality` model namespace for compatibility. The stable
-orchestration facade lives in `QualityStudio.Analysis`.
+The package targets .NET 10. CI packs it on every push to `main`
+(`dotnet pack`, artifact `nuget-package`); publication to a NuGet feed is a
+separate, not yet configured release step.

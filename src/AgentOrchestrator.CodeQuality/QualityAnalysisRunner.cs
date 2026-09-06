@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using AgentOrchestrator.CodeQuality;
 
-namespace QualityStudio.Analysis;
+namespace AgentOrchestrator.CodeQuality;
 
 /// <summary>Stable names for analyses shipped with the core package.</summary>
 public static class QualityAnalysisNames

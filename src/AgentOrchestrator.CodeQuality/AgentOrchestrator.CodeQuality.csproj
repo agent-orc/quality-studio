@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>AgentOrchestrator.CodeQuality</RootNamespace>
-    <AssemblyName>QualityStudio.Analysis.Core</AssemblyName>
-    <PackageId>QualityStudio.Analysis.Core</PackageId>
+    <AssemblyName>AgentOrchestrator.CodeQuality</AssemblyName>
+    <PackageId>AgentOrchestrator.CodeQuality</PackageId>
     <PackageVersion>0.1.0</PackageVersion>
-    <Title>Quality Studio Analysis Core</Title>
+    <Title>Quality Studio analysis core</Title>
     <Description>In-process repository analysis for Quality Studio, CI, command-line, and Agent Studio pipeline consumers.</Description>
     <PackageTags>quality;analysis;static-analysis;findings;quality-studio</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

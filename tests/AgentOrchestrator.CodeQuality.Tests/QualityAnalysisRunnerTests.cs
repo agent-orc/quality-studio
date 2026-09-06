@@ -1,5 +1,3 @@
-using QualityStudio.Analysis;
-
 namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class QualityAnalysisRunnerTests

@@ -6,13 +6,16 @@ Part of the [Agent Orchestrator](https://agent-orchestrator.dev) universe — al
 Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 (converses), and Token Economy (accounts). Quality Studio is the room you step into when you wear the engineer hat — the one that **reviews**.
 
-> Working state, 2026-08-04: the core library, the `quality` CLI, the review API
+> Working state, 2026-09-06: the core library, the `quality` CLI, the review API
 > and the Angular browser all ship from this repository and are covered by CI;
-> cards through QS-52 are delivered. No package is published to NuGet yet.
-> Product URL will be `agent-orchestrator.dev/quality`; the proposed final
-> core package ID and root namespace are `AgentOrchestrator.CodeQuality` (subject
-> to a release-time ownership/availability recheck); formal long name: Agent
-> Quality Studio. The detailed v1 contracts live in [`docs/concept.md`](docs/concept.md).
+> cards through QS-94 are delivered or salvaged, QS-95 to QS-102 are open. The
+> core package, its assembly and its root namespace share one name,
+> `AgentOrchestrator.CodeQuality`; CI packs it, publication to NuGet is not yet
+> configured. Product URL is `agent-orchestrator.dev/quality`; formal long name:
+> Agent Quality Studio. The detailed v1 contracts live in
+> [`docs/concept.md`](docs/concept.md); the September 2026 assessment with the
+> open decisions lives in
+> [`docs/operations/product-assessment-2026-09/`](docs/operations/product-assessment-2026-09/index.html).
 
 ## What this is — and what it is not
 
@@ -208,7 +211,7 @@ endpoint formats, and documented exit codes.
 
 ## In-process analysis package
 
-`QualityStudio.Analysis.Core` is the headless package boundary for Agent Studio
+`AgentOrchestrator.CodeQuality` is the headless package boundary for Agent Studio
 pipeline steps, the CLI, and CI hosts that already own a repository checkout.
 Run the real CLI proof without starting the API or UI:
 
