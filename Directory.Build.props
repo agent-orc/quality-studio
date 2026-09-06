@@ -8,5 +8,8 @@
     <RepositoryType>git</RepositoryType>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Every project writes a packages.lock.json so CI can restore in locked mode and
+         dependency drift fails the build instead of silently resolving to something new. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 </Project>
