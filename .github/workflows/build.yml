@@ -10,8 +10,13 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
+  dotnet:
+    name: .NET (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -19,23 +24,16 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Verify Token Economy model catalog snapshot
-        run: npm run catalog:check
-
-      - name: Test coverage report validator
-        run: python3 .github/scripts/test_validate_coverage.py
-
+      # --locked-mode fails the restore when a packages.lock.json no longer matches the
+      # project references, so dependency drift surfaces here instead of in the canary.
       - name: Restore
-        run: dotnet restore QualityStudio.slnx
+        run: dotnet restore QualityStudio.slnx --locked-mode
+
+      - name: Verify formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet format QualityStudio.slnx --verify-no-changes --no-restore
 
       - name: Build
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
@@ -50,14 +48,23 @@ jobs:
           --
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
-      - name: Validate .NET coverage reports
-        run: >-
-          python3 .github/scripts/validate_coverage.py
-          --format cobertura
-          --report "tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml"
-          --report "tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml"
+      - name: Validate .NET coverage against the baseline
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/validate_coverage.py \
+            --format cobertura \
+            --report "tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml" \
+            --baseline tests/coverage-baseline.json \
+            --baseline-key AgentOrchestrator.CodeQuality.Tests
+          python3 .github/scripts/validate_coverage.py \
+            --format cobertura \
+            --report "tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml" \
+            --baseline tests/coverage-baseline.json \
+            --baseline-key QualityStudio.Api.Tests
 
       - name: Upload AgentOrchestrator.CodeQuality coverage
+        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-coverage-agent-orchestrator-code-quality
@@ -65,6 +72,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload QualityStudio.Api coverage
+        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-coverage-quality-studio-api
@@ -72,6 +80,7 @@ jobs:
           if-no-files-found: error
 
       - name: Pack analysis core
+        if: matrix.os == 'ubuntu-latest'
         run: >-
           dotnet pack src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj
           --configuration Release
@@ -79,12 +88,28 @@ jobs:
           --output artifacts/nuget
 
       - name: Upload package artifact
+        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: nuget-package
           path: artifacts/nuget/*.nupkg
           if-no-files-found: error
           retention-days: 30
+
+  security:
+    name: Security scan and dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore QualityStudio.slnx --locked-mode
 
       - name: Security scan
         run: dotnet run --project src/quality-cli -- security scan .
@@ -102,7 +127,7 @@ jobs:
       - name: NuGet vulnerable package check (code-graph spike)
         run: |
           set -euo pipefail
-          dotnet restore spikes/code-graph/CodeGraphSpike.csproj
+          dotnet restore spikes/code-graph/CodeGraphSpike.csproj --locked-mode
           dotnet list spikes/code-graph/CodeGraphSpike.csproj package --vulnerable --include-transitive --format json > nuget-vulnerable-spike.json
           cat nuget-vulnerable-spike.json
           if jq -e '.projects[]? | select(.frameworks != null)' nuget-vulnerable-spike.json >/dev/null; then
@@ -110,9 +135,50 @@ jobs:
             exit 1
           fi
 
+  scripts:
+    name: Repository scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Verify Token Economy model catalog snapshot
+        run: npm run catalog:check
+
+      - name: Test coverage report validator
+        run: python3 .github/scripts/test_validate_coverage.py
+
+      - name: Dev stack launcher tests
+        run: npm run test:dev-stack
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
 
       - name: Build frontend
         working-directory: frontend
@@ -122,11 +188,13 @@ jobs:
         working-directory: frontend
         run: npm run test:coverage
 
-      - name: Validate Angular coverage report
+      - name: Validate Angular coverage against the baseline
         run: >-
           python3 .github/scripts/validate_coverage.py
           --format lcov
           --report "frontend/coverage/lcov.info"
+          --baseline tests/coverage-baseline.json
+          --baseline-key frontend
 
       - name: Upload Angular coverage
         uses: actions/upload-artifact@v4
@@ -139,6 +207,84 @@ jobs:
         working-directory: frontend
         run: npm audit --omit=dev --audit-level=high
 
+      # Dev tooling advisories do not ship to users, so they inform rather than block -
+      # but they belong in the run summary instead of scrolling past in the log.
       - name: Frontend full dependency tree audit (advisory, dev tooling included)
         working-directory: frontend
-        run: npm audit || true
+        run: |
+          set -uo pipefail
+          npm audit > audit.txt 2>&1 || true
+          {
+            echo "## Frontend dependency audit (advisory)"
+            echo
+            echo '```'
+            cat audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat audit.txt
+
+  perf:
+    name: Browser performance budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CHROME_NO_SANDBOX: "1"
+      CANARY_RESULTS: ${{ github.workspace }}/.perf-results
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the product stack
+        run: |
+          set -euo pipefail
+          dotnet restore QualityStudio.slnx --locked-mode
+          dotnet build QualityStudio.slnx --configuration Release --no-restore
+          npm --prefix frontend ci
+          npm --prefix frontend run browser:install
+
+      - name: Start the product stack
+        id: stack
+        run: |
+          set -euo pipefail
+          mkdir -p "$CANARY_RESULTS"
+          JOB_RESULTS_DIR="$CANARY_RESULTS/stack" node scripts/dev-stack.mjs > "$CANARY_RESULTS/stack.log" 2>&1 &
+          echo $! > "$CANARY_RESULTS/stack.pid"
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:4200/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$CANARY_RESULTS/stack.log"
+          exit 1
+
+      - name: Run browser performance budgets
+        working-directory: frontend
+        env:
+          JOB_RESULTS_DIR: ${{ github.workspace }}/.perf-results/browser
+          QS_API_DLL: ${{ github.workspace }}/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll
+        run: npm run perf
+
+      - name: Stop the product stack
+        if: always()
+        run: |
+          if test -f "$CANARY_RESULTS/stack.pid"; then kill -TERM "$(cat "$CANARY_RESULTS/stack.pid")" || true; fi
+
+      - name: Publish performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-evidence
+          path: ${{ github.workspace }}/.perf-results
+          if-no-files-found: warn
+          retention-days: 14
