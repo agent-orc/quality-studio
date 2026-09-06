@@ -104,7 +104,7 @@ public sealed class ReviewRunner
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
-        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
+        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Level, request.Kind));
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
@@ -409,7 +409,7 @@ public sealed class ReviewRunner
         IReadOnlyList<SensorScanResult> deterministicEvidence,
         string? sourceRevision)
     {
-        var promptHash = ReviewPromptBuilder.TemplateHash(kind);
+        var promptHash = ReviewPromptBuilder.TemplateHash(level, kind);
         var effectiveHash = inputs.EffectiveHash(promptHash);
         var reviewer = new JsonObject
         {
@@ -477,7 +477,7 @@ public sealed class ReviewRunner
                 ["omitted"] = new JsonArray(inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).Select(id => (JsonNode)id).ToArray()),
                 ["prompt"] = new JsonObject
                 {
-                    ["id"] = $"file-{kind}-review",
+                    ["id"] = ReviewPromptBuilder.TemplateId(level, kind),
                     ["version"] = "1.0.0",
                     ["contentHash"] = promptHash,
                 },

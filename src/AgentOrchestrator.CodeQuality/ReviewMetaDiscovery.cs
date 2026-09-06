@@ -106,7 +106,7 @@ public static class ReviewMetaDiscovery
         var levelText = document.GetProperty("unit").GetProperty("level").GetString()!;
         if (!Enum.TryParse<ReviewLevel>(levelText, true, out var level)) return ReviewState.Current;
         var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters);
-        var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
+        var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(level, kind));
         return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
             ? ReviewState.Current
             : ReviewState.PolicyDrift;
