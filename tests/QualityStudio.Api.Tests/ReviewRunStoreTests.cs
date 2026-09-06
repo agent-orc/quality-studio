@@ -115,7 +115,7 @@ public sealed class ReviewRunStoreTests
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
             Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
             Assert.Equal(1, fake.OperationCount);
-            var reportStore = new QualityRunReportStore(fixture.RepositoryRoot);
+            var reportStore = new QualityRunReportStore(fixture.DataRoot);
             var cappedReport = reportStore.Load(accepted.GetProperty("id").GetString()!);
             Assert.Equal(1, cappedReport.Run.Revision);
             Assert.Equal("capped", cappedReport.Run.State);
@@ -221,7 +221,7 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("skipped-fresh", fresh.GetProperty("aggregateState").GetString());
             Assert.Equal(0, fresh.GetProperty("usageOperations").GetInt32());
             Assert.Equal(0, fake.AgentCalls);
-            var freshReport = new QualityRunReportStore(fixture.RepositoryRoot)
+            var freshReport = new QualityRunReportStore(fixture.DataRoot)
                 .Load(freshAccepted.GetProperty("id").GetString()!);
             Assert.Equal("complete", freshReport.Run.Completeness);
             Assert.Equal(0, freshReport.Execution.Reviewed);
@@ -466,7 +466,7 @@ public sealed class ReviewRunStoreTests
             using var client = application.CreateClient();
             var run = await client.GetFromJsonAsync<JsonElement>(
                 $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
-            var report = new QualityRunReportStore(fixture.RepositoryRoot).Load(stored.Manifest.RunId);
+            var report = new QualityRunReportStore(fixture.DataRoot).Load(stored.Manifest.RunId);
 
             Assert.Equal(state, run.GetProperty("state").GetString());
             Assert.Equal(state, report.Run.State);
@@ -620,15 +620,19 @@ public sealed class ReviewRunStoreTests
 
     private sealed class DurableRunFixture : IDisposable
     {
-        private DurableRunFixture(string repositoryRoot, string hostRoot)
+        private DurableRunFixture(string repositoryRoot, string hostRoot, string projectsRoot)
         {
             RepositoryRoot = repositoryRoot;
             HostRoot = hostRoot;
-            Store = new ReviewRunStore(repositoryRoot);
+            ProjectsRoot = projectsRoot;
+            DataRoot = QualityDataRoot.ResolveProject(QualityDataRoot.RepositoryIdentity(repositoryRoot), projectsRoot);
+            Store = new ReviewRunStore(DataRoot);
         }
 
         public string RepositoryRoot { get; }
         public string HostRoot { get; }
+        public string ProjectsRoot { get; }
+        public string DataRoot { get; }
         public ReviewRunStore Store { get; }
 
         public static async Task<DurableRunFixture> CreateAsync(CancellationToken cancellationToken)
@@ -644,7 +648,8 @@ public sealed class ReviewRunStoreTests
                 "namespace Sample; public static class Second { }", cancellationToken);
             await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"),
                 "<Project Sdk=\"Microsoft.NET.Sdk\" />", cancellationToken);
-            return new DurableRunFixture(repositoryRoot, hostRoot);
+            return new DurableRunFixture(repositoryRoot, hostRoot,
+                Path.Combine(Path.GetTempPath(), "quality-studio-run-store-tests", id, "data"));
         }
 
         public StoredReviewRun CreateRun(
@@ -695,7 +700,7 @@ public sealed class ReviewRunStoreTests
         public TestApplication CreateApplication(
             IReviewExecutorFactory? executorFactory = null,
             IReviewSensor? deterministicSensor = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory, deterministicSensor);
+            new(RepositoryRoot, HostRoot, ProjectsRoot, executorFactory, deterministicSensor);
 
         public void Dispose()
         {
@@ -712,6 +717,7 @@ public sealed class ReviewRunStoreTests
     private sealed class TestApplication(
         string repositoryRoot,
         string contentRoot,
+        string projectsRoot,
         IReviewExecutorFactory? executorFactory,
         IReviewSensor? deterministicSensor) : WebApplicationFactory<Program>
     {
@@ -723,6 +729,7 @@ public sealed class ReviewRunStoreTests
                 {
                     ["QualityStudio:RepositoryRoot"] = repositoryRoot,
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
+                    ["QualityStudio:DataRoot"] = projectsRoot,
                 }));
             builder.ConfigureServices(services =>
             {
@@ -841,7 +848,7 @@ public sealed class ReviewRunStoreTests
                 var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
                     model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
                     request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
-                await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
+                await UsageLedger.AppendAsync(request.DataRoot ?? request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
                 return CapturedExecution(request, skippedFresh: false, operation);
             }

@@ -23,7 +23,8 @@ public sealed record SecurityScanRequest(
     string? Range = null,
     string? ConfigPath = null,
     string? BaselinePath = null,
-    bool PersistMetadata = true);
+    bool PersistMetadata = true,
+    string? DataRoot = null);
 
 public sealed record SecurityScanReport(
     SecurityVerdict Verdict,
@@ -101,4 +102,3 @@ public sealed record SecurityReviewSnapshot(
     IReadOnlyList<SecurityFindingRecord> Findings,
     IReadOnlyList<SecurityFindingRecord> AcceptedFindings,
     SecurityVerdict Verdict);
-

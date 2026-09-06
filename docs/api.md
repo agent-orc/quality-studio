@@ -17,10 +17,13 @@ Run the development host from the repository root:
 
 ```powershell
 $env:QualityStudio__RepositoryRoot = (Get-Location).Path
+$env:QualityStudio__DataRoot = "$env:LOCALAPPDATA/QualityStudio/projects"
 dotnet run --project src/QualityStudio.Api
 ```
 
 `QualityStudio:RepositoryRoot` defaults to `../..` relative to the API content root.
+Runtime state is resolved below `QualityStudio:DataRoot`, or the platform local app-data
+default when it is unset; it is never written below `RepositoryRoot` during normal runs.
 The same repository is the only allowed root by default. Deployments that register
 repositories below another neutral host root must supply it through configuration,
 for example `QualityStudio__AllowedRoots__0=/srv/source` in the host environment;
@@ -30,7 +33,8 @@ deployments therefore need no configuration change. CORS origins are configured 
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
 
 Repository registrations are server-owned state persisted at
-`<API content root>/.quality-studio/repositories.json`. Each entry stores its id,
+`<QualityStudio:DataRoot>/repositories.json`. Existing API-content-root registries are
+moved there on first startup. Each entry stores its id,
 display name, normalized root path, optional global inputs directory, input character
 budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
 there are no environment-specific registry copies. Repository roots must be existing

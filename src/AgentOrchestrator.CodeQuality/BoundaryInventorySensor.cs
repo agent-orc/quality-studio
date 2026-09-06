@@ -129,7 +129,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
         if (request.PersistMetadata && request.Scope == SensorScope.Repository)
         {
-            await PersistAsync(root, inventory, cancellationToken).ConfigureAwait(false);
+            await PersistAsync(Path.GetFullPath(request.DataRoot ?? root), inventory, cancellationToken).ConfigureAwait(false);
         }
 
         return inventory;

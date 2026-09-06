@@ -9,11 +9,11 @@ public sealed class ReviewMetaIndex : IDisposable
     private readonly ConcurrentDictionary<string, RepositoryIndex> repositories =
         new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
-    public IReadOnlyList<JsonElement> Read(string root, string relativePath) =>
-        Get(root).Read(relativePath);
+    public IReadOnlyList<JsonElement> Read(string dataRoot, string repositoryRoot, string relativePath) =>
+        Get(dataRoot, repositoryRoot).Read(relativePath);
 
-    public string Find(string root, string relativePath, string kind) =>
-        Get(root).Find(relativePath, kind);
+    public string Find(string dataRoot, string repositoryRoot, string relativePath, string kind) =>
+        Get(dataRoot, repositoryRoot).Find(relativePath, kind);
 
     public void Dispose()
     {
@@ -21,7 +21,8 @@ public sealed class ReviewMetaIndex : IDisposable
         repositories.Clear();
     }
 
-    private RepositoryIndex Get(string root) => repositories.GetOrAdd(Path.GetFullPath(root), static path => new(path));
+    private RepositoryIndex Get(string dataRoot, string repositoryRoot) => repositories.GetOrAdd(
+        Path.GetFullPath(dataRoot), _ => new RepositoryIndex(Path.GetFullPath(dataRoot), Path.GetFullPath(repositoryRoot)));
 
     private sealed class RepositoryIndex : IDisposable
     {
@@ -32,13 +33,16 @@ public sealed class ReviewMetaIndex : IDisposable
         };
         private readonly object gate = new();
         private readonly string root;
+        private readonly string repositoryRoot;
         private readonly Dictionary<string, IndexedDocument> documents =
             new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         private readonly FileSystemWatcher watcher;
 
-        public RepositoryIndex(string root)
+        public RepositoryIndex(string root, string repositoryRoot)
         {
             this.root = root;
+            this.repositoryRoot = repositoryRoot;
+            Directory.CreateDirectory(root);
             foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
                          .Where(IsReviewMetaPath))
                 Update(path);
@@ -98,11 +102,11 @@ public sealed class ReviewMetaIndex : IDisposable
                     !payload.TryGetProperty("kind", out var kindElement)) return;
                 var storedPath = unitPathElement.GetString()?.Replace('\\', '/').TrimStart('/');
                 if (string.IsNullOrWhiteSpace(storedPath) || string.IsNullOrWhiteSpace(kindElement.GetString())) return;
-                var absoluteSubject = Path.GetFullPath(Path.Combine(root,
+                var absoluteSubject = Path.GetFullPath(Path.Combine(repositoryRoot,
                     storedPath.Replace('/', Path.DirectorySeparatorChar)));
-                if (!PathConfinement.IsWithin(root, absoluteSubject)) return;
-                PathConfinement.RejectReparseTraversal(root, absoluteSubject);
-                var normalized = Path.GetRelativePath(root, absoluteSubject).Replace('\\', '/');
+                if (!PathConfinement.IsWithin(repositoryRoot, absoluteSubject)) return;
+                PathConfinement.RejectReparseTraversal(repositoryRoot, absoluteSubject);
+                var normalized = Path.GetRelativePath(repositoryRoot, absoluteSubject).Replace('\\', '/');
                 lock (gate)
                     documents[path] = new IndexedDocument(path, normalized, kindElement.GetString()!, payload.Clone());
             }

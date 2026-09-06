@@ -13,6 +13,7 @@ public sealed record ReviewRequest(
     string? GlobalGuidelines = null,
     string? ProjectGuidelines = null,
     string? RepositoryRoot = null,
+    string? DataRoot = null,
     string? GlobalInputsDirectory = null,
     int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
     string? UnitId = null,
@@ -97,7 +98,7 @@ public sealed class ReviewRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
+        var (root, dataRoot, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
             sensorEvidence, deterministicEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
@@ -110,7 +111,7 @@ public sealed class ReviewRunner
                 metaPath, reviewedHash, reviewInputsHash, _agent.Model, cancellationToken).ConfigureAwait(false);
             if (freshness.IsFresh)
             {
-                var observation = await CaptureExistingObservationAsync(root, metaPath, cancellationToken)
+                var observation = await CaptureExistingObservationAsync(dataRoot, metaPath, cancellationToken)
                     .ConfigureAwait(false);
                 return new ReviewExecutionResult(true, null, observation);
             }
@@ -127,13 +128,13 @@ public sealed class ReviewRunner
             }
             catch (ReviewAgentRunCanceledException exception)
             {
-                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
+                await RecordUsageAsync(dataRoot, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
                     startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
                 throw;
             }
             catch (ReviewAgentRunException exception)
             {
-                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
+                await RecordUsageAsync(dataRoot, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
                     startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
                 throw;
             }
@@ -141,7 +142,7 @@ public sealed class ReviewRunner
             var usage = CreateUsage(agentResult.RunId,
                 agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
                 agentResult.EffectiveModel, startedAt, request, relativePath);
-            await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
+            await RecordUsageAsync(dataRoot, usage, relativePath, request.Kind).ConfigureAwait(false);
             var response = _responseParser.Parse(agentResult.Response);
             if (request.Level == ReviewLevel.Project &&
                 string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
@@ -176,7 +177,7 @@ public sealed class ReviewRunner
             try
             {
                 var previousFindings = LoadFindingIdentities(metaPath);
-                var findingStates = await new FindingStateStore(root).MergeReviewAsync(
+                var findingStates = await new FindingStateStore(dataRoot).MergeReviewAsync(
                     findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
                 threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
                 ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
@@ -209,7 +210,7 @@ public sealed class ReviewRunner
                     new UTF8Encoding(false),
                     cancellationToken).ConfigureAwait(false);
                 File.Move(temporaryPath, metaPath, true);
-                observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);
+                observation = CreateObservationSnapshot(dataRoot, metaPath, metadataJson, findingStates);
             }
             finally
             {
@@ -278,6 +279,7 @@ public sealed class ReviewRunner
     private async Task<PreparedPrompt> PreparePromptAsync(ReviewRequest request, CancellationToken cancellationToken)
     {
         var root = Path.GetFullPath(request.RepositoryRoot ?? Directory.GetCurrentDirectory());
+        var dataRoot = Path.GetFullPath(request.DataRoot ?? root);
         var relativePath = NormalizeRelativePath(root, request.FilePath);
         string[] subjectPaths = request.Level == ReviewLevel.File
             ? [relativePath]
@@ -293,7 +295,7 @@ public sealed class ReviewRunner
             if (!File.Exists(file)) throw new FileNotFoundException("Review target does not exist.", file);
         }
 
-        var scope = RepositoryScope.Load(root);
+        var scope = RepositoryScope.Load(root, dataRoot);
         for (var index = 0; index < files.Length; index++)
         {
             var decision = scope.Evaluate(subjectPaths[index], files[index]);
@@ -303,13 +305,13 @@ public sealed class ReviewRunner
         }
 
         var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
-        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
+        var inputs = _inputResolver.Resolve(dataRoot, request.Kind, request.Level,
             request.GlobalInputsDirectory, request.InputBudgetCharacters);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
         var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
             ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
-        var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
+        var metaPath = GetMetaPath(dataRoot, request.Kind, relativePath, request.Level);
         var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
             .Where(thread => thread["status"]?.GetValue<string>() == "open")
@@ -321,7 +323,7 @@ public sealed class ReviewRunner
             await CollectDeterministicEvidenceAsync(request, root, cancellationToken).ConfigureAwait(false),
             subjectPaths);
         var coverageEvidence = CoverageProjection.Evidence(
-            CoverageSnapshot.Load(root),
+            CoverageSnapshot.Load(dataRoot),
             CoverageSensor.GitValue(root, "rev-parse", "--verify", "HEAD"),
             subjectPaths);
         var prompt = _promptBuilder.Build(relativePath, request.Kind, globalGuidelines,
@@ -330,7 +332,7 @@ public sealed class ReviewRunner
             request.Level,
             coverageEvidence,
             DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
-        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
+        return new PreparedPrompt(root, dataRoot, relativePath, subjectPaths, files, fileContent, inputs,
             prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
 
@@ -514,16 +516,9 @@ public sealed class ReviewRunner
         return meta;
     }
 
-    private static string GetMetaPath(string root, string firstFile, string kind, string relativePath, ReviewLevel level)
+    private static string GetMetaPath(string dataRoot, string kind, string relativePath, ReviewLevel level)
     {
         var key = Sha256(relativePath);
-        var directory = level switch
-        {
-            ReviewLevel.Project => root,
-            ReviewLevel.Module when File.Exists(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))
-                => Path.GetDirectoryName(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))!,
-            _ => Path.GetDirectoryName(firstFile)!,
-        };
         var lane = level switch
         {
             ReviewLevel.File => "files",
@@ -531,7 +526,7 @@ public sealed class ReviewRunner
             _ => string.Empty,
         };
         var prefix = level.ToString().ToLowerInvariant();
-        return Path.Combine(directory, ".quality", "reviews", lane, $"{prefix}.{key}.review-meta.{kind}.json");
+        return Path.Combine(dataRoot, ".quality", "reviews", lane, $"{prefix}.{key}.review-meta.{kind}.json");
     }
 
     private static async Task<string> BuildSubjectContentAsync(
@@ -690,6 +685,7 @@ public sealed class ReviewRunner
 
     private sealed record PreparedPrompt(
         string Root,
+        string DataRoot,
         string RelativePath,
         string[] SubjectPaths,
         string[] Files,

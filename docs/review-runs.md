@@ -24,7 +24,7 @@ A capped run is resumable without repeating completed files. `POST /api/review/r
 
 ## Durable state
 
-Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
+Run orchestration is durable under `<project-data-root>/.quality/runs/<runId>/`:
 
 - `manifest.json` is the immutable enqueue-time plan. It records the selected node and level, kind, model, CLI type, force flag, preflight estimate, initial cap, aggregate controls, and every target file with its subject hash.
 - `progress.jsonl` is an append-only file-transition log. Each flushed line records the run and file path, state, timestamps, and any error. Recovery ignores an incomplete line left by a crash and continues from the other records.
@@ -39,7 +39,7 @@ Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
 
 At every terminal transition the API projects these immutable inputs into
 `.quality/reports/runs/<runId>.json`. This canonical, strict-schema snapshot is
-repository-owned durable history. A capped run publishes revision 1; resuming and
+project data-root durable history. A capped run publishes revision 1; resuming and
 finishing that run publishes a higher revision without repeating already completed
 operations. Renderers, API downloads, CLI gates, and run trends all consume this
 snapshot rather than mutable current sidecars. See
@@ -54,6 +54,6 @@ At startup the API scans the registered repositories for durable runs. `queued` 
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
-`.quality/runs/` is ignored by Git because it is disposable orchestration working
-data. Review sidecars remain the committed current-state truth, while canonical
+`.quality/runs/` is outside the checkout because it is disposable orchestration working
+data. Review sidecars remain the external current-state truth, while canonical
 run reports preserve the historical truth of each terminal execution.

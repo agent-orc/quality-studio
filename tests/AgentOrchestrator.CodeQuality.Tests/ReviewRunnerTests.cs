@@ -224,9 +224,9 @@ public sealed class ReviewRunnerTests
             Assert.Equal("file", json.GetProperty("unit").GetProperty("level").GetString());
             Assert.Equal("src/Small.cs", json.GetProperty("unit").GetProperty("path").GetString());
             Assert.Equal(result.ReviewedHash, json.GetProperty("reviewedHash").GetProperty("value").GetString());
-            Assert.StartsWith(Path.Combine(root, "src", ".quality", "reviews", "files"), result.MetaPath, StringComparison.Ordinal);
+            Assert.StartsWith(Path.Combine(root, ".quality", "reviews", "files"), result.MetaPath, StringComparison.Ordinal);
             Assert.NotNull(result.Observation);
-            Assert.StartsWith("src/.quality/reviews/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);
+            Assert.StartsWith(".quality/reviews/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);
             Assert.EndsWith(".review-meta.code.json", result.Observation.SidecarPath, StringComparison.Ordinal);
             Assert.DoesNotContain(root, result.Observation.ReviewMetaJson, StringComparison.Ordinal);
             Assert.Equal("sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(

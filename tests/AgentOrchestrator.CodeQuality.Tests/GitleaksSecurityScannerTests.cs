@@ -91,7 +91,9 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
             var sidecars = Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories).ToArray();
             Assert.Equal(4, sidecars.Length);
-            Assert.Contains(sidecars, path => path.Contains($"{Path.DirectorySeparatorChar}src{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+            Assert.All(sidecars, path => Assert.Contains(
+                $"{Path.DirectorySeparatorChar}.quality{Path.DirectorySeparatorChar}reviews{Path.DirectorySeparatorChar}files{Path.DirectorySeparatorChar}",
+                path, StringComparison.Ordinal));
             foreach (var path in sidecars)
             {
                 var content = await File.ReadAllTextAsync(path, cancellationToken);

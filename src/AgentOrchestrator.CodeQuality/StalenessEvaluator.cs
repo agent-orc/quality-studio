@@ -83,8 +83,8 @@ public sealed class StalenessEvaluator
         var count = 0;
         try
         {
-            var repositoryFiles = EnumerateGitFilesAsync(root, cancellationToken);
-            var metaBySubject = await LoadMetadataAsync(repositoryFiles, root, options.ReviewKind, cancellationToken)
+            var dataRoot = Path.GetFullPath(options.DataRoot ?? root);
+            var metaBySubject = await LoadMetadataAsync(EnumerateMetadataFilesAsync(dataRoot, cancellationToken), dataRoot, options.ReviewKind, cancellationToken)
                 .ConfigureAwait(false);
 
             await foreach (var relativePath in EnumerateGitFilesAsync(root, cancellationToken))
@@ -141,7 +141,7 @@ public sealed class StalenessEvaluator
         var currentHash = ReviewSubjectHasher.ComputeManifestHash(metadata.UnitId, currentInputs);
         if (!string.Equals(currentHash, metadata.ReviewedHash, StringComparison.Ordinal)) return StalenessState.Stale;
         if (metadata.ReviewInputHash is null) return StalenessState.Fresh;
-        var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
+        var inputs = inputResolver.Resolve(options.DataRoot ?? root, metadata.Kind, metadata.Level,
             options.GlobalInputsDirectory, options.InputBudgetCharacters);
         var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
@@ -278,6 +278,24 @@ public sealed class StalenessEvaluator
         }
     }
 
+    private static async IAsyncEnumerable<string> EnumerateMetadataFilesAsync(
+        string root,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(root)) yield break;
+        foreach (var path in Directory.EnumerateFiles(root, "*.json", new EnumerationOptions
+                 {
+                     RecurseSubdirectories = true,
+                     AttributesToSkip = FileAttributes.ReparsePoint,
+                 }))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+            if (relative.Contains(".review-meta.", StringComparison.Ordinal)) yield return relative;
+            await Task.Yield();
+        }
+    }
+
     private static Regex GlobToRegex(string glob)
     {
         var normalized = NormalizeRelativePath(glob);
@@ -316,8 +334,8 @@ public sealed class StalenessEvaluator
         IsMetaPath(path);
 
     private static bool IsMetaPath(string path) =>
-        (path.StartsWith(".quality/reviews/", StringComparison.Ordinal) ||
-         path.Contains("/.quality/reviews/", StringComparison.Ordinal)) &&
+        path.Contains(".quality/", StringComparison.Ordinal) &&
+        path.Contains("/reviews/", StringComparison.Ordinal) &&
         path.Contains(".review-meta.", StringComparison.Ordinal) &&
         path.EndsWith(".json", StringComparison.Ordinal);
 

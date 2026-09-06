@@ -2,7 +2,7 @@
 
 Standing review metadata answers how a unit scores until its reviewed inputs
 change. A change review answers a different question: what one integration
-transition changed in that standing evidence. It is repository-owned at
+transition changed in that standing evidence. It is stored in the project data root at
 `.quality/changes/<merge-commit>.json` and never replaces a unit sidecar or an
 Agent Studio task review.
 

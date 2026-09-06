@@ -271,12 +271,14 @@ public sealed class AttackCoverageService
         ResolvedAttackCatalogue catalogue,
         string scope = ".",
         bool recheckDeterministic = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? dataRoot = null)
     {
         ArgumentNullException.ThrowIfNull(inventory);
         ArgumentNullException.ThrowIfNull(catalogue);
         var prompt = AttackCoveragePrompt.Reference();
-        var ledger = new AttackCoverageLedger(repositoryRoot);
+        var storageRoot = dataRoot ?? repositoryRoot;
+        var ledger = new AttackCoverageLedger(storageRoot);
         var snapshots = new Dictionary<string, BoundaryCoverageSnapshot>(StringComparer.Ordinal);
         foreach (var boundary in inventory.Entries)
             snapshots[boundary.Id] = await BoundaryCoverageHasher.SnapshotAsync(
@@ -284,7 +286,7 @@ public sealed class AttackCoverageService
 
         var observations = (await ledger.ReadAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var appended = await RefreshDeterministicAsync(
-            repositoryRoot, inventory, catalogue, snapshots, observations, ledger,
+            repositoryRoot, storageRoot, inventory, catalogue, snapshots, observations, ledger,
             recheckDeterministic, cancellationToken).ConfigureAwait(false);
         observations.AddRange(appended);
 
@@ -331,7 +333,8 @@ public sealed class AttackCoverageService
         BoundaryInventory inventory,
         ResolvedAttackCatalogue catalogue,
         AttackJudgementSubmission submission,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? dataRoot = null)
     {
         ArgumentNullException.ThrowIfNull(submission);
         if (string.IsNullOrWhiteSpace(submission.Reasoning))
@@ -353,8 +356,9 @@ public sealed class AttackCoverageService
             ?? throw new KeyNotFoundException($"Attack '{submission.AttackId}' was not found.");
         if (!AttackCatalogueResolver.Applies(attack.Entry, boundary))
             throw new ArgumentException("The attack does not apply to the selected boundary.", nameof(submission));
+        var storageRoot = dataRoot ?? repositoryRoot;
         await EnsureFindingLifecycleLinkAsync(
-            repositoryRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);
+            storageRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);
         var snapshot = await BoundaryCoverageHasher.SnapshotAsync(repositoryRoot, boundary, cancellationToken)
             .ConfigureAwait(false);
         var prompt = AttackCoveragePrompt.Reference();
@@ -381,12 +385,13 @@ public sealed class AttackCoverageService
             clock().ToUniversalTime(),
             submission.Commit ?? await GitAsync(repositoryRoot, "rev-parse", "HEAD").ConfigureAwait(false),
             submission.CommitRange);
-        await new AttackCoverageLedger(repositoryRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
+        await new AttackCoverageLedger(storageRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
         return observation;
     }
 
     private async Task<IReadOnlyList<AttackCoverageObservation>> RefreshDeterministicAsync(
         string repositoryRoot,
+        string storageRoot,
         BoundaryInventory inventory,
         ResolvedAttackCatalogue catalogue,
         IReadOnlyDictionary<string, BoundaryCoverageSnapshot> snapshots,
@@ -429,7 +434,7 @@ public sealed class AttackCoverageService
                     .ToArray();
                 if (currentFindings.Length > 0 || previousFindings.Length > 0)
                 {
-                    await new FindingStateStore(repositoryRoot).MergeReviewAsync(
+                    await new FindingStateStore(storageRoot).MergeReviewAsync(
                         currentFindings, previousFindings, "boundary-analyzer", cancellationToken)
                         .ConfigureAwait(false);
                 }

@@ -14,7 +14,8 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    string? DataRoot = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -38,6 +39,7 @@ public sealed class RepositoryRegistry
     public const string RelativeRegistryPath = ".quality-studio/repositories.json";
     private static readonly string[] SupportedKinds = ["code", "security", "performance"];
     private readonly string registryPath;
+    private readonly string projectsRoot;
     private readonly string contentRoot;
     private readonly RepositoryOptions legacyOptions;
     private readonly string[] allowedRoots;
@@ -65,8 +67,19 @@ public sealed class RepositoryRegistry
                 throw new InvalidOperationException("A configured repository allowed root does not exist.");
             PathConfinement.RejectReparseTraversal(allowedRoot, allowedRoot);
         }
-        registryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
+        var configuredDataRoot = string.IsNullOrWhiteSpace(legacyOptions.DataRoot)
+            ? null
+            : ResolvePath(legacyOptions.DataRoot, contentRoot);
+        projectsRoot = QualityDataRoot.ResolveProjectsRoot(configuredDataRoot);
+        registryPath = Path.Combine(projectsRoot, "repositories.json");
+        var legacyRegistryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(registryPath) && File.Exists(legacyRegistryPath))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
+            File.Move(legacyRegistryPath, registryPath);
+        }
         entries = LoadOrSeed();
+        entries = entries.Select(PrepareDataRoot).ToList();
     }
 
     public string RegistryPath => registryPath;
@@ -86,14 +99,18 @@ public sealed class RepositoryRegistry
                ?? throw new KeyNotFoundException($"Repository '{resolvedId}' was not found.");
     }
 
-    public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
+    public RepositoryAccess Access(string? id)
+    {
+        var registration = Get(id);
+        return new RepositoryAccess(registration.RootPath, registration.DataRoot!, metaIndex);
+    }
 
     public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var entry = Validate(request, null);
+            var entry = PrepareDataRoot(Validate(request, null));
             if (entries.Any(existing => string.Equals(existing.Id, entry.Id, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new RepositoryRegistryValidationException($"A repository with id '{entry.Id}' already exists.");
@@ -126,7 +143,7 @@ public sealed class RepositoryRegistry
             {
                 Id = existing.Id,
                 Sensors = request.Sensors ?? existing.Sensors,
-            }, existing.Id);
+            }, existing.Id) with { DataRoot = existing.DataRoot };
             entries[entries.IndexOf(existing)] = updated;
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1401, "RepositoryUpdated"),
@@ -214,6 +231,55 @@ public sealed class RepositoryRegistry
         logger.LogInformation(new EventId(1403, "RepositoryRegistrySeeded"),
             "Seeded repository registry {RegistryPath} from legacy root {RepositoryRoot}", registryPath, root);
         return result;
+    }
+
+    private RepositoryRegistration PrepareDataRoot(RepositoryRegistration entry)
+    {
+        var dataRoot = QualityDataRoot.ResolveProject(
+            QualityDataRoot.RepositoryIdentity(entry.RootPath), projectsRoot);
+        var migrated = QualityDataMigration.Migrate(entry.RootPath, dataRoot);
+        if (migrated.Performed && migrated.FilesMoved > 0)
+            logger.LogInformation(new EventId(1404, "QualityDataMigrated"),
+                "Migrated {FileCount} Quality Studio files for {RepositoryId} to {DataRoot}",
+                migrated.FilesMoved, entry.Id, dataRoot);
+        var dirty = DirtyQualityPaths(entry.RootPath);
+        if (dirty.Count > 0)
+            logger.LogWarning(new EventId(1405, "DirtyInTreeQualityData"),
+                "Repository {RepositoryId} has dirty in-tree .quality data. Quality Studio uses {DataRoot}; remove or export these paths: {DirtyPaths}",
+                entry.Id, dataRoot, string.Join(", ", dirty.Take(20)));
+        return entry with { DataRoot = dataRoot };
+    }
+
+    private static IReadOnlyList<string> DirtyQualityPaths(string repositoryRoot)
+    {
+        using var process = new System.Diagnostics.Process
+        {
+            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
+            {
+                WorkingDirectory = repositoryRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        foreach (var argument in new[] { "status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching" })
+            process.StartInfo.ArgumentList.Add(argument);
+        try
+        {
+            if (!process.Start()) return [];
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            if (process.ExitCode != 0) return [];
+            return output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Length > 3 ? line[3..].Replace('\\', '/') : string.Empty)
+                .Where(path => path.StartsWith(".quality/", StringComparison.Ordinal) ||
+                               path.Contains("/.quality/", StringComparison.Ordinal))
+                .ToArray();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return [];
+        }
     }
 
     private RepositoryRegistration Validate(RepositoryRegistrationRequest request, string? existingId)

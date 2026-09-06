@@ -6,7 +6,7 @@ identifiers to two places:
 
 - the review-meta `reviewer.usage` block, alongside `reviewer.model` and
   `reviewer.runId`; and
-- the repository append-only ledger at `.quality/usage/YYYY-MM.jsonl`.
+- the project data-root append-only ledger at `.quality/usage/YYYY-MM.jsonl`.
 
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
@@ -28,14 +28,12 @@ The Usage button in the top bar opens the repository history view. It shows
 input-plus-output token spend, model and daily aggregates, and keyboard-accessible
 recent-entry details containing both run identifiers.
 
-## Git history policy
+## Persistence policy
 
-`.quality/usage/YYYY-MM.jsonl` is committed repository history. The files are
-monthly and append-only; do not compact, reorder, rewrite, or discard prior
-lines. `.gitignore` explicitly keeps these files committable and `.gitattributes`
-uses Git's union merge driver so independent appends are retained during merges.
-The application intentionally does not invoke Git: the active monthly file is
-staged and committed through the repository's normal development workflow.
+`.quality/usage/YYYY-MM.jsonl` is external runtime state. The files are monthly and
+append-only; do not compact, reorder, rewrite, or discard prior lines. Quality Studio
+does not stage or commit them. Use an explicit export when a ledger snapshot is needed
+as a versioned or audit artifact; see [`operations/data-root.md`](operations/data-root.md).
 
 This policy begins with the ledger data available in each repository. Missing
 historical entries are not fabricated retroactively.

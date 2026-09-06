@@ -252,6 +252,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
                     ["QualityStudio:AllowedRoots:1"] = foreignRoot,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "runtime-data"),
                     ["QualityStudio:Security:Mode"] = "Hosted",
                     ["QualityStudio:Security:RequireHttps"] = "true",
                     ["QualityStudio:Security:SpendRequestsPerMinute"] = spendRequestsPerMinute.ToString(),
@@ -286,6 +287,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "runtime-data"),
                     ["QualityStudio:Security:Mode"] = "Local",
                 }));
         }

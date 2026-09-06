@@ -510,7 +510,7 @@ public sealed class CoverageSensor : IReviewSensor
         var commit = GitValue(root, "rev-parse", "--verify", "HEAD");
         var relativeReports = reports.Select(report => System.IO.Path.GetRelativePath(root, report).Replace('\\', '/')).ToArray();
         var snapshot = new CoverageSnapshot(1, Version, measuredAt, commit, relativeReports, files);
-        if (request.PersistMetadata) await snapshot.SaveAsync(root, cancellationToken).ConfigureAwait(false);
+        if (request.PersistMetadata) await snapshot.SaveAsync(request.DataRoot ?? root, cancellationToken).ConfigureAwait(false);
         return new SensorScanResult(true, reports.Length == 0 ? "No coverage reports matched the configured report paths." : null,
             [], new SensorProvenance(Id, Version, "repository", ".", measuredAt,
                 new Dictionary<string, string> { ["parser"] = Version, ["reports"] = reports.Length.ToString(CultureInfo.InvariantCulture) }));

@@ -28,23 +28,26 @@ public sealed class RepositoryHierarchyCache
         string repositoryPath,
         InputResolver? inputResolver = null,
         string? globalInputsDirectory = null,
-        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters) =>
-        GetMeasured(repositoryPath, inputResolver, globalInputsDirectory, inputBudgetCharacters).Snapshot;
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+        string? dataRoot = null) =>
+        GetMeasured(repositoryPath, inputResolver, globalInputsDirectory, inputBudgetCharacters, dataRoot).Snapshot;
 
     public RepositoryHierarchyMeasurement GetMeasured(
         string repositoryPath,
         InputResolver? inputResolver = null,
         string? globalInputsDirectory = null,
-        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+        string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
         var totalStarted = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
         var gitStatusStarted = Stopwatch.GetTimestamp();
-        var state = ComputeGitState(root) + "\0" +
+        var metadataRoot = Path.GetFullPath(dataRoot ?? root);
+        var state = ComputeGitState(root) + "\0" + ComputeDataState(metadataRoot) + "\0" +
                     ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
         var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
-        var slot = slots.GetOrAdd(root, _ => new CacheSlot());
+        var slot = slots.GetOrAdd(root + "\0" + metadataRoot, _ => new CacheSlot());
         var cacheWaitStarted = Stopwatch.GetTimestamp();
         lock (slot.Gate)
         {
@@ -62,11 +65,11 @@ public sealed class RepositoryHierarchyCache
             }
 
             var scanStarted = Stopwatch.GetTimestamp();
-            var hierarchy = RepositoryHierarchyBuilder.Build(root);
+            var hierarchy = RepositoryHierarchyBuilder.Build(root, metadataRoot);
             var scanMilliseconds = Stopwatch.GetElapsedTime(scanStarted).TotalMilliseconds;
             var discoveryStarted = Stopwatch.GetTimestamp();
             ReviewMetaDiscovery.AttachDiscovered(
-                root, hierarchy, inputResolver, globalInputsDirectory, inputBudgetCharacters);
+                root, hierarchy, inputResolver, globalInputsDirectory, inputBudgetCharacters, metadataRoot);
             var reviewMetaDiscoveryMilliseconds = Stopwatch.GetElapsedTime(discoveryStarted).TotalMilliseconds;
             var etagHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
             slot.Snapshot = new RepositoryHierarchySnapshot(hierarchy, state, $"\"{etagHash}\"");
@@ -168,6 +171,20 @@ public sealed class RepositoryHierarchyCache
         {
             Append(hash, Path.GetRelativePath(root, path).Replace('\\', '/'));
             var info = new FileInfo(path);
+            Append(hash, info.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Append(hash, info.LastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    private static string ComputeDataState(string root)
+    {
+        if (!Directory.Exists(root)) return "missing";
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var path in Directory.EnumerateFiles(root, "*.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        {
+            var info = new FileInfo(path);
+            Append(hash, Path.GetRelativePath(root, path).Replace('\\', '/'));
             Append(hash, info.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
             Append(hash, info.LastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }

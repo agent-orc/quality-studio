@@ -18,11 +18,11 @@ public static partial class RepositoryHierarchyBuilder
         AttributesToSkip = FileAttributes.ReparsePoint,
     };
 
-    public static IReadOnlyList<HierarchyNode> BuildDotNet(string repositoryPath)
+    public static IReadOnlyList<HierarchyNode> BuildDotNet(string repositoryPath, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
         var root = Path.GetFullPath(repositoryPath);
-        var scope = RepositoryScope.Load(root);
+        var scope = RepositoryScope.Load(root, dataRoot);
         var solutions = Directory.EnumerateFiles(root, "*.sln", SearchOption.TopDirectoryOnly)
             .Concat(Directory.EnumerateFiles(root, "*.slnx", SearchOption.TopDirectoryOnly))
             .Where(path => !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
