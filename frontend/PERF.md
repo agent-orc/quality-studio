@@ -40,6 +40,14 @@ shows the last known per-repository snapshot with an explicit updating notice.
 With no browser snapshot, a skeleton names the Git-state, repository-scan,
 review-metadata, and projection phases.
 
+The frontend rework of 2026-09-07 re-measured the first harness stage on the same procedure in
+Chromium 152.0.4191.66 at 1600 x 1000, across three consecutive runs: tree toggle 3.0-26.2 ms,
+first visible file content 48.4-51.3 ms for the same 333,782-byte fixture, aspect switch
+7.5-9.1 ms, and project dashboard open 81.1-108.3 ms. The large-file mode, the zero highlighted
+tokens above 200 KB, and the two file requests all held. That stage now serves its own hierarchy
+fixture: the shell no longer carries a built-in demonstration tree, so a measurement must bring its
+own nodes rather than depend on preview data appearing under a real path.
+
 ## Repeat the automated measurement
 
 1. Run `npm start` (the harness defaults to `http://127.0.0.1:4200`; set `QS_URL` to use another URL).
@@ -65,4 +73,5 @@ The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-cont
 - Finding ranges are indexed once per loaded review/aspect; only markers belonging to the visible 80-line window enter the DOM.
 - Aspect switching selects an already-loaded `metaDocuments` entry and does not fetch file content again.
 - The first-content path displays plain escaped text. Supported files up to 200 KB are tokenized only after that paint in a cancellable single-concurrency worker and delivered in 200-line chunks; whole-file main-thread highlighting is prohibited.
-- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 10/12 KB per component stylesheet. The attack matrix is a deferred 17 KB lazy chunk and is not paid on the editor's first-content path.
+- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 12/16 KB per component stylesheet. The initial bundle is 334.57 kB raw / 92.39 kB transfer.
+- Everything that is not part of opening a repository is a deferred chunk and is not paid on the first-content path: the review panel and its run history, the review launcher, the project dashboard, the attack matrix, the container overview, the repository, guideline, import, usage, and API-access dialogs, the syntax tokenizer, and the offline preview fixtures. The explorer is deferred on immediate, so its chunk is fetched at bootstrap instead of parsed before the first paint.
