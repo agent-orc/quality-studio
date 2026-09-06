@@ -17,6 +17,38 @@ files are present and that hierarchy derivation completes within 5 seconds on
 the test host. Warm API requests reuse the snapshot while the Git state is
 unchanged.
 
+### Re-measurement after the derivation rework (2026-09-06)
+
+The .NET adapter now parses MSBuild project items and C# syntax instead of
+matching regular expressions (see `docs/hierarchy-derivation.md`). Measured on
+Windows 11, .NET 10.0.301, calling `RepositoryHierarchyBuilder.Build` in process
+— no process start, no Git state, no review-meta discovery — five consecutive
+runs per process, alternating the pre-change and post-change build so both see
+the same machine state. The fixture was measured in two alternating passes, ten
+samples per build.
+
+| Corpus | Before | After |
+| --- | --- | --- |
+| This repository (2 project roots, 7 modules, 161 File units) | 5,932 ms min / 6,682 ms median | 1,942 ms min / 2,860 ms median |
+| Generic 5,000-file fixture | 10,992 ms min / 15,109 ms median | 5,204 ms min / 12,380 ms median |
+
+The .NET path got faster because build output is no longer walked, opened, or
+parsed: the previous adapter enumerated every `.cs` file below a project
+directory including `bin` and `obj`, and read each source twice. Function units
+rose from 1,479 to 1,931 for the same 161 files, which is the accuracy change,
+not a cost: the regex de-duplicated distinct members by name and missed others.
+The generic fixture path is unchanged code, and its numbers confirm that.
+
+These absolute values are not comparable with the 165 ms Linux figure above.
+This host ran at 100% CPU from unrelated workloads throughout the session, and
+5,000 file opens under Windows real-time scanning dominate the fixture run;
+individual runs of identical code varied by a factor of ten. The
+`RepositoryHierarchyBuilderTests.GenericFiveThousandFileScanStaysWithinBudget`
+regression test passed three of four attempts here and failed once while the
+host was saturated. The 5-second budget therefore holds for the derivation
+itself but is not robust against an unrelated load on a Windows developer
+machine; a saturated host, not the adapter, is what breaks it.
+
 ## QS-54 real repository switching
 
 Measured 2026-08-08 on Linux 6.8, .NET 10.0.301, Intel Core i7-8700
