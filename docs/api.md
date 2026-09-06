@@ -36,6 +36,45 @@ budget, enabled review kinds, sensor enablement/configuration, and archive state
 there are no environment-specific registry copies. Repository roots must be existing
 directories with a `.git` directory or worktree `.git` file.
 
+## Authentication
+
+`QualityStudio:Security:Mode` decides who may call the API. Deployment recipes, the full environment
+variable table and how Agent Studio gets a token are in [`deployment.md`](deployment.md).
+
+**Local** (default) authenticates nobody: every request is treated as a registrar with wildcard
+repository access, and `Authorization` and `X-Client-Id` are ignored. Because of that the host refuses
+to start when it is bound anywhere but loopback, unless
+`QualityStudio:Security:AllowNonLoopbackLocalMode` is set deliberately.
+
+**Hosted** requires a bearer token per request and, on `POST`, `PUT`, `PATCH` and `DELETE`, an
+`X-Client-Id` header matching the client that token belongs to:
+
+```shell
+curl "https://quality.example/api/repos" \
+  -H "Authorization: Bearer $QUALITY_STUDIO_TOKEN"
+
+curl -X POST "https://quality.example/api/repos/payments/review" \
+  -H "Authorization: Bearer $QUALITY_STUDIO_TOKEN" \
+  -H "X-Client-Id: agent-studio" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"src/Payments.cs","kind":"code"}'
+```
+
+Clients are configured on the host, never in a repository. Each carries an id, the SHA-256 of its
+token, the repository ids it may reach (or `*`), and whether it may register repositories. Mint one
+with `node scripts/new-api-token.mjs <client-id>`; the token is printed once and only its hash reaches
+the configuration.
+
+| Failure | Response |
+| --- | --- |
+| No or unknown bearer token | `401 Authentication required`, `WWW-Authenticate: Bearer` |
+| Mutation without a matching `X-Client-Id` | `401 A matching X-Client-Id is required for mutations` |
+| Repository the client may not reach | `404 Repository not found` — existence is not disclosed |
+| Registration or repository mutation without registrar privilege | `403 Repository registration is not permitted` |
+| Plain HTTP while `RequireHttps` is on | `400 HTTPS is required` |
+| More than `MaxConcurrentRequests` in flight, or `SpendRequestsPerMinute` exceeded on a spending route | `429` |
+| Body larger than `MaxRequestBodyBytes` | `413 Request body is too large` |
+
 ## Repository registry
 
 ```shell
@@ -84,6 +123,73 @@ Archived Agent Studio projects are not considered candidates and never appear in
 
 ## Endpoint samples
 
+### Large files
+
+`GET /api/file` returns at most `QualityStudio:Limits:MaxFileBytes` (2 MB by default). A larger file is
+answered with a capped prefix of `LargeFilePreviewBytes` (64 KiB by default), cut back to the last
+complete UTF-8 sequence so the preview never ends inside a character, plus a `largeFile` envelope:
+
+```jsonc
+{
+  "path": "frontend/dist/main.js",
+  "content": "…",          // the prefix, not the file
+  "sizeBytes": 5242880,     // always the true size on disk
+  "largeFile": {
+    "sizeBytes": 5242880,   // the file
+    "limitBytes": 2097152,  // above this the response is a preview
+    "returnedBytes": 65536  // how much of it "content" carries
+  }
+}
+```
+
+`largeFile` is `null` whenever the whole file was returned. The browser already renders files above
+200 KB as a "large file" placeholder, so this is a server-side lid on the response, not on the UI.
+
+### Git state
+
+`GET /api/tree` carries a `gitState` object when the hierarchy could not follow the working tree —
+git is missing, or `git status` failed in that repository:
+
+```json
+{ "path": ".", "nodes": [], "gitState": { "status": "unavailable", "detail": "git status failed in this repository, …" } }
+```
+
+The field is absent when git answered. The nodes are then the last state git could report; the API does
+not fall back to walking the filesystem.
+
+### Sensor configuration
+
+`GET /api/sensors` reports each sensor's availability, cached per host for
+`QualityStudio:Limits:SensorAvailabilityCacheSeconds` (5 minutes by default) because every probe starts
+a real tool process.
+
+A repository's sensor configuration is checked against a per-sensor allowlist on `POST /api/repos` and
+`PUT /api/repos/{repoId}`:
+
+| Sensor | Accepted keys |
+| --- | --- |
+| `sarif`, `roslyn`, `eslint` | `profile`, `reportPath`, `workingDirectory` |
+| `tsc` | `profile`, `reportPath`, `workingDirectory`, `producerVersion` |
+| `coverage` | `reportPaths` |
+| `dependencies` | `ecosystems` |
+| `dotnet-build` | `target` |
+| `gitleaks` | `mode`, `range`, `configPath`, `baselinePath` |
+
+`command` is not in any of them. A registration carrying one is `400 Analyzer commands are host-owned`
+for every identity, registrars included, unless the host sets
+`QualityStudio:AnalyzerProfiles:AllowInlineCommands`. An unknown key is
+`400 Unsupported sensor configuration key`, and a `profile` the host does not offer is
+`400 Unknown analyzer profile`. The host-owned profiles are described in
+[`deployment.md`](deployment.md#analyzer-profiles).
+
+### Unavailable repositories
+
+`GET /api/repos` carries an `unavailable` array next to `repositories`, listing registrations this host
+loaded but cannot serve — a directory that disappeared (`status: "unavailable"`) or a path outside the
+allowed roots (`status: "quarantined"`) — each with its `reason` and `rootPath`. Their own routes answer
+`503 Repository unavailable`; every other repository is unaffected. Only registrations the calling
+client may reach are listed.
+
 The following commands were exercised against the live host at
 `http://127.0.0.1:5127` on 2026-07-11:
 
@@ -100,7 +206,7 @@ curl "http://127.0.0.1:5127/api/project"
 #      "hotspots":[...]}
 
 curl "http://127.0.0.1:5127/api/file?path=src/QualityStudio.Api/appsettings.json"
-# 200 {"path":"src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[]}
+# 200 {"path":"src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[],"largeFile":null}
 
 curl "http://127.0.0.1:5127/api/scan"
 # 200 {"files":[...],"freshCount":0,"staleCount":0,"policyDriftCount":0,"missingCount":20}

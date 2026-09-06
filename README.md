@@ -112,6 +112,23 @@ and want to see the quality characteristics of what was built.
   drive the CLI runner). Review execution runs through Runner;
   finding handover uses Agent Studio's normal task mutation path.
 
+## Prerequisites
+
+Either run the container image, which carries all of this, or install it on the host:
+
+| What | Why |
+| --- | --- |
+| **A pre-authenticated agent CLI on `PATH`** — `codex` or `claude` | Reviews are performed by coding agents. Sign in once with the CLI itself; Quality Studio never handles agent credentials and cannot prompt for a login. |
+| **.NET 10 SDK** | Builds and runs the API, the core library and the `quality` CLI. |
+| **Node 22** | Builds the Angular browser and runs the ESLint/TypeScript analyzer profiles. |
+| **git** | The hierarchy, churn and change-set paths start git processes; every registered repository must be a Git working copy. |
+| **Gitleaks** (optional) | Provisioned on demand and verified against a tracked digest. Set `QUALITY_GITLEAKS_PATH` to an existing pinned binary to skip the download entirely — see [`docs/security-gitleaks.md`](docs/security-gitleaks.md). |
+
+The container image is the same product on one port: `docker build -t quality-studio:local .`. It hosts
+the API and the built browser together, runs as a non-root user and ships git and the pinned Gitleaks
+binary. [`docs/deployment.md`](docs/deployment.md) has the run command, the environment variables, and
+how Agent Studio gets a token.
+
 ## Status
 
 - [x] Repository founded, concept anchored (this README)
@@ -242,12 +259,14 @@ criteria.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - [`docs/operations/style-guide/`](docs/operations/style-guide/index.html) is the living visual standard for Quality Studio controls and applied admin surfaces.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
+- `Dockerfile`, `.dockerignore` and `docker-compose.yml` build and run the single-container host.
 
 ## Minimal API
 
 The ASP.NET Core host provides repository tree, file/meta overlay, staleness scan,
 and optional review-trigger endpoints. See [`docs/api.md`](docs/api.md) for
-configuration and live curl examples.
+configuration and live curl examples, and [`docs/deployment.md`](docs/deployment.md)
+for running it as one container that also serves the browser.
 
 ## One-click dev stack
 
