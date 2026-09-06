@@ -106,10 +106,32 @@ public sealed class RepositoryRegistry
             .ToArray();
     }
 
-    /// <summary>The registrations this host loaded but cannot serve, with the reason and the path.</summary>
-    public IReadOnlyList<RepositoryUnavailability> Unavailable => quarantine.Values
-        .OrderBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
-        .ToArray();
+    /// <summary>
+    /// The active registrations this host loaded but cannot serve, with the reason and the path. An
+    /// archived registration is left out: nothing is expected to reach it, so its broken path is not news.
+    /// </summary>
+    public IReadOnlyList<RepositoryUnavailability> Unavailable
+    {
+        get
+        {
+            var archived = entries.Where(entry => entry.Archived)
+                .Select(entry => entry.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return quarantine.Values
+                .Where(entry => !archived.Contains(entry.Id))
+                .OrderBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Every persisted repository root, servable or not. The Agent Studio import needs this rather than
+    /// <see cref="List"/>: a quarantined registration still occupies its path and its id, so importing
+    /// it a second time would only collide.
+    /// </summary>
+    public IReadOnlySet<string> RegisteredRootPaths => entries
+        .Select(entry => entry.RootPath)
+        .ToHashSet(PathComparer);
 
     public RepositoryRegistration Get(string? id, bool includeArchived = false)
     {

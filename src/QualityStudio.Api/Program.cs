@@ -1423,9 +1423,9 @@ static async Task<IResult> ImportFromAgentStudio(
     // Fetch the full project list before touching the registry: if Agent Studio is offline or
     // unconfigured, this throws and the exception middleware returns a clear error with zero writes.
     var projects = await client.GetProjectsAsync(cancellationToken);
-    var knownPaths = registry.List(includeArchived: true)
-        .Select(repository => repository.RootPath)
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    // Mutable: a path imported in this pass must count as known for the rest of it.
+    var knownPaths = registry.RegisteredRootPaths.ToHashSet(
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     var results = new List<AgentStudioImportResultResponse>();
     foreach (var project in projects)
