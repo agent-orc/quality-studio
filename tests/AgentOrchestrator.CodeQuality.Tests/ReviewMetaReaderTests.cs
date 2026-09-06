@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -55,7 +56,7 @@ public sealed class ReviewMetaReaderTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 

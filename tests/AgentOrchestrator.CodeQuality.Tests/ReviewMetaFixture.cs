@@ -21,26 +21,26 @@ internal static class ReviewMetaFixture
         DateTimeOffset? reviewedAt = null,
         IReadOnlyList<ReviewFinding>? findings = null,
         IReadOnlyList<ReviewThread>? threads = null) => new()
-    {
-        Unit = new ReviewUnit(unitId, adapter, level, relativePath, Path.GetFileName(relativePath)),
-        ReviewedAt = reviewedAt ?? new DateTimeOffset(2026, 7, 25, 9, 0, 0, TimeSpan.Zero),
-        Kind = kind,
-        Reviewer = new ReviewerIdentity("fixture-agent", model),
-        ReviewedHash = ManifestHash.Subject(reviewedHash),
-        SubjectInputs = subjectInputs,
-        ReviewInputs = new ReviewInputs(
+        {
+            Unit = new ReviewUnit(unitId, adapter, level, relativePath, Path.GetFileName(relativePath)),
+            ReviewedAt = reviewedAt ?? new DateTimeOffset(2026, 7, 25, 9, 0, 0, TimeSpan.Zero),
+            Kind = kind,
+            Reviewer = new ReviewerIdentity("fixture-agent", model),
+            ReviewedHash = ManifestHash.Subject(reviewedHash),
+            SubjectInputs = subjectInputs,
+            ReviewInputs = new ReviewInputs(
             ManifestHash.ReviewInput(effectiveHash ?? new string('a', 64)),
             true,
             [],
             [],
             new PromptReference($"file-{kind.ToString().ToLowerInvariant()}-review", "1.0.0",
                 "sha256:" + new string('b', 64))),
-        Grade = new ReviewGrade(score, Band(score), rationale),
-        Summary = "A fixture review.",
-        Aspects = [new ReviewAspect("correctness", "Correctness", new ReviewGrade(score, Band(score), rationale))],
-        Findings = findings ?? [],
-        Threads = threads ?? [],
-    };
+            Grade = new ReviewGrade(score, Band(score), rationale),
+            Summary = "A fixture review.",
+            Aspects = [new ReviewAspect("correctness", "Correctness", new ReviewGrade(score, Band(score), rationale))],
+            Findings = findings ?? [],
+            Threads = threads ?? [],
+        };
 
     public static ReviewFinding Finding(
         string fingerprint,

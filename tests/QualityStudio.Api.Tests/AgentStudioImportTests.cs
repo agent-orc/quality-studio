@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -98,8 +99,7 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
     {
         foreach (var directory in new[] { repositoryRoot, hostRoot, secondProjectRoot })
         {
-            try { Directory.Delete(directory, true); }
-            catch (IOException) { }
+            TemporaryDirectory.Delete(directory);
         }
 
         return ValueTask.CompletedTask;

@@ -536,7 +536,7 @@ public sealed class CoverageSensor : IReviewSensor
             }
             var regex = Glob(normalized);
             foreach (var file in Directory.EnumerateFiles(root, "*", new EnumerationOptions
-                     { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
+            { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
             {
                 var relative = System.IO.Path.GetRelativePath(root, file).Replace('\\', '/');
                 if (regex.IsMatch(relative)) results.Add(System.IO.Path.GetFullPath(file));

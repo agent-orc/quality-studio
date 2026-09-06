@@ -1,3 +1,5 @@
+using QualityStudio.Testing;
+
 namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class QualityAnalysisRunnerTests
@@ -32,7 +34,7 @@ public sealed class QualityAnalysisRunnerTests
         }
         finally
         {
-            TestDirectory.Delete(directory);
+            TemporaryDirectory.Delete(directory);
         }
     }
 
@@ -56,7 +58,7 @@ public sealed class QualityAnalysisRunnerTests
         }
         finally
         {
-            TestDirectory.Delete(directory);
+            TemporaryDirectory.Delete(directory);
         }
     }
 

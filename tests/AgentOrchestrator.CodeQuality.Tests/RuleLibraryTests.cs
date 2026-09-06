@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Json.Schema;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -162,6 +163,6 @@ public sealed class RuleLibraryTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(root, true); } catch (IOException) { }
+        try { TemporaryDirectory.Delete(root); } catch (IOException) { }
     }
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -272,7 +273,7 @@ public sealed class QualityReportTests
 
         public void Dispose()
         {
-            TestDirectory.Delete(Root);
+            TemporaryDirectory.Delete(Root);
         }
     }
 }

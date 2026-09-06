@@ -1,4 +1,5 @@
 using System.Text.Json;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -60,6 +61,6 @@ public sealed class RepositoryScopeConfigurationStoreTests
         }
 
         public string Path { get; }
-        public void Dispose() => TestDirectory.Delete(Path);
+        public void Dispose() => TemporaryDirectory.Delete(Path);
     }
 }

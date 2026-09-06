@@ -1,3 +1,5 @@
+using QualityStudio.Testing;
+
 namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class HierarchyUnitResolverTests : IDisposable
@@ -37,5 +39,5 @@ public sealed class HierarchyUnitResolverTests : IDisposable
         Assert.DoesNotContain("src/absent.cs", resolver.FileUnitsByPath(root));
     }
 
-    public void Dispose() => TestDirectory.Delete(root);
+    public void Dispose() => TemporaryDirectory.Delete(root);
 }

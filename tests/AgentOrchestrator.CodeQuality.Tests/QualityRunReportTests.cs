@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -109,7 +110,7 @@ public sealed class QualityRunReportTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -136,7 +137,7 @@ public sealed class QualityRunReportTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 

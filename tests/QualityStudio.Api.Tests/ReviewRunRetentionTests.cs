@@ -3,6 +3,7 @@ using AgentOrchestrator.CodeQuality;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -34,7 +35,7 @@ public sealed class ReviewRunRetentionTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -63,7 +64,7 @@ public sealed class ReviewRunRetentionTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -114,7 +115,7 @@ public sealed class ReviewRunRetentionTests
         }
         finally
         {
-            try { Directory.Delete(testRoot, true); }
+            try { TemporaryDirectory.Delete(testRoot); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
@@ -194,16 +195,6 @@ public sealed class ReviewRunRetentionTests
             })!;
         await process.WaitForExitAsync();
         Assert.Equal(0, process.ExitCode);
-    }
-
-    private static class TestDirectory
-    {
-        public static void Delete(string root)
-        {
-            try { Directory.Delete(root, true); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
     }
 
     private sealed class RetentionApplication(string root, string contentRoot) : WebApplicationFactory<Program>

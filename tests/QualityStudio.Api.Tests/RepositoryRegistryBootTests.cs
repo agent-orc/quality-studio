@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -92,7 +93,10 @@ public sealed class RepositoryRegistryBootTests : IAsyncLifetime
     public async Task Listing_stays_consistent_while_registrations_are_mutated()
     {
         using var client = application!.CreateClient();
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        // A hang guard, not a performance budget: twelve registrations each persist the
+        // registry and queue a prewarm, and on a loaded host that crossed the old ten
+        // seconds and cancelled a correct run.
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         var mutations = Task.Run(async () =>
         {
@@ -150,7 +154,7 @@ public sealed class RepositoryRegistryBootTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         if (application is not null) await application.DisposeAsync();
-        try { Directory.Delete(testRoot, true); }
+        try { TemporaryDirectory.Delete(testRoot); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
     }

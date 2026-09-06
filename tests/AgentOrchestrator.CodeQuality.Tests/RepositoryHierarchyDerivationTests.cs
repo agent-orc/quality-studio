@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -374,7 +375,7 @@ public sealed class RepositoryHierarchyDerivationTests : IDisposable
 
     public void Dispose()
     {
-        TestDirectory.Delete(root);
+        TemporaryDirectory.Delete(root);
         GC.SuppressFinalize(this);
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -78,7 +79,7 @@ public sealed class AngularCompilerSensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -104,7 +105,7 @@ public sealed class AngularCompilerSensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -138,7 +139,7 @@ public sealed class AngularCompilerSensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 

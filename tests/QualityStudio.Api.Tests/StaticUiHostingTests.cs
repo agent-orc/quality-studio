@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -126,7 +127,7 @@ public sealed class StaticUiHostingTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         if (application is not null) await application.DisposeAsync();
-        try { Directory.Delete(testRoot, true); }
+        try { TemporaryDirectory.Delete(testRoot); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
     }

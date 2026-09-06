@@ -7,7 +7,7 @@ namespace QualityStudio.Api;
 /// <summary>Indexes review sidecars once per repository and keeps the index current from filesystem events.</summary>
 public sealed class ReviewMetaIndex : IDisposable
 {
-    private readonly ConcurrentDictionary<string, RepositoryIndex> repositories =
+    private readonly ConcurrentDictionary<string, Lazy<RepositoryIndex>> repositories =
         new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     public IReadOnlyList<JsonElement> Read(string root, string relativePath) =>
@@ -22,16 +22,23 @@ public sealed class ReviewMetaIndex : IDisposable
     /// </summary>
     public void Release(string root)
     {
-        if (repositories.TryRemove(Path.GetFullPath(root), out var index)) index.Dispose();
+        if (repositories.TryRemove(Path.GetFullPath(root), out var index)) index.Value.Dispose();
     }
 
     public void Dispose()
     {
-        foreach (var index in repositories.Values) index.Dispose();
-        repositories.Clear();
+        foreach (var key in repositories.Keys) Release(key);
     }
 
-    private RepositoryIndex Get(string root) => repositories.GetOrAdd(Path.GetFullPath(root), static path => new(path));
+    // ConcurrentDictionary.GetOrAdd may run its value factory more than once for the same
+    // key and keeps only one result. Each run constructed and enabled a FileSystemWatcher,
+    // so every discarded instance leaked a live directory handle that went on receiving
+    // events for the rest of the process. Lazy with ExecutionAndPublication builds exactly
+    // one watcher per root, and makes Release deterministic against a concurrent first read.
+    private RepositoryIndex Get(string root) => repositories.GetOrAdd(
+        Path.GetFullPath(root),
+        static path => new Lazy<RepositoryIndex>(
+            () => new RepositoryIndex(path), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
 
     private sealed class RepositoryIndex : IDisposable
     {
@@ -124,7 +131,11 @@ public sealed class ReviewMetaIndex : IDisposable
             }
         }
 
-        public void Dispose() => watcher.Dispose();
+        public void Dispose()
+        {
+            watcher.EnableRaisingEvents = false;
+            watcher.Dispose();
+        }
 
         private void Update(string path)
         {
@@ -156,6 +167,12 @@ public sealed class ReviewMetaIndex : IDisposable
 
         private void Remove(string path)
         {
+            // Sidecars are replaced with File.Move(overwrite: true). Windows reports that as a
+            // delete of the destination followed by a rename onto it, while the file itself never
+            // leaves the disk. Dropping the document on that delete opened a window in which a
+            // read found no review metadata for a file that was there the whole time - a request
+            // arriving in it failed with "no metadata exists". Only forget a path that is gone.
+            if (File.Exists(path)) return;
             lock (gate) documents.Remove(path);
         }
 

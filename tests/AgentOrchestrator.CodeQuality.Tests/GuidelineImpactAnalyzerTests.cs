@@ -1,4 +1,5 @@
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -27,7 +28,7 @@ public sealed class GuidelineImpactAnalyzerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 

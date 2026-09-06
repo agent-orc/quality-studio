@@ -1,4 +1,5 @@
 using System.Text.Json;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -242,7 +243,7 @@ public sealed class AggregateReviewTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -278,7 +279,7 @@ public sealed class AggregateReviewTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 

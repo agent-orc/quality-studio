@@ -1,17 +1,18 @@
-using System.Net.Http.Json;
 using System.Collections.Concurrent;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
-using CodingAgentRunner.Quota;
 using CodingAgentRunner.Events;
+using CodingAgentRunner.Quota;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -829,13 +830,7 @@ public sealed class ReviewRunStoreTests
 
         public void Dispose()
         {
-            try
-            {
-                Directory.Delete(Path.GetDirectoryName(RepositoryRoot)!, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            TemporaryDirectory.Delete(Path.GetDirectoryName(RepositoryRoot)!);
         }
     }
 
@@ -864,9 +859,14 @@ public sealed class ReviewRunStoreTests
                     services.RemoveAll<IReviewExecutorFactory>();
                     services.AddSingleton(executorFactory);
                 }
+                // These tests are about the run state machine, not about sensors. The real
+                // registry runs every deterministic sensor before each attempt - including a
+                // `dotnet build` of the fixture project - which dominated their runtime while
+                // nothing here asserts on it. Sensor behaviour has its own tests, two of which
+                // inject the one sensor they measure.
+                services.RemoveAll<IReviewSensor>();
                 if (deterministicSensor is not null)
                 {
-                    services.RemoveAll<IReviewSensor>();
                     services.AddSingleton(deterministicSensor);
                 }
                 if (cancelReclaimGraceSeconds.HasValue)

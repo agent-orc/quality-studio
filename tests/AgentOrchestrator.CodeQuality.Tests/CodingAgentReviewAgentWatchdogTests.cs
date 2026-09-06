@@ -16,7 +16,16 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 /// </summary>
 public sealed class CodingAgentReviewAgentWatchdogTests
 {
+    /// <summary>Short enough to prove the watchdog fires without hanging the suite.</summary>
     private static readonly TimeSpan AttachTimeout = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// Tests that assert on stream outcomes rather than on the watchdog must not race it.
+    /// With the 200 ms budget a loaded agent (this project runs 300+ tests in parallel) could
+    /// let the attach timeout fire before the first yielded event landed, so the assertion
+    /// saw ReviewAgentAttachTimeoutException instead of the outcome under test.
+    /// </summary>
+    private static readonly TimeSpan UnracedAttachTimeout = TimeSpan.FromSeconds(30);
 
     [Fact]
     public async Task RunAsync_FailsFastWithTypedException_WhenDriverNeverAttaches()
@@ -44,7 +53,7 @@ public sealed class CodingAgentReviewAgentWatchdogTests
         var driver = new FakeCliDriver(runId => StreamAsync(runId,
             new CliRunEvent.OutputDelta("partial output") { RunId = runId },
             new CliRunEvent.RunEnded(RunOutcome.Failed, "self-crash", 1, 0.5) { RunId = runId }));
-        var agent = new CodingAgentReviewAgent("codex", driver, attachTimeout: AttachTimeout);
+        var agent = new CodingAgentReviewAgent("codex", driver, attachTimeout: UnracedAttachTimeout);
 
         var exception = await Assert.ThrowsAsync<ReviewAgentRunException>(
             () => agent.RunAsync("review this", Directory.GetCurrentDirectory(), cancellationToken));
@@ -62,7 +71,7 @@ public sealed class CodingAgentReviewAgentWatchdogTests
             new CliRunEvent.OutputDelta("hello ") { RunId = runId },
             new CliRunEvent.OutputDelta("world") { RunId = runId },
             new CliRunEvent.RunEnded(RunOutcome.Completed, null, 0, 0.2) { RunId = runId }));
-        var agent = new CodingAgentReviewAgent("codex", driver, attachTimeout: AttachTimeout);
+        var agent = new CodingAgentReviewAgent("codex", driver, attachTimeout: UnracedAttachTimeout);
 
         var result = await agent.RunAsync("review this", Directory.GetCurrentDirectory(), cancellationToken);
 

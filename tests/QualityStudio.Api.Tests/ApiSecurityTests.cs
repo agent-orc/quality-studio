@@ -7,6 +7,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
@@ -278,7 +279,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         using var alice = CreateClient(rateApplication, "alice", AliceToken);
         using var firstReview = await alice.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "code", cliType = "adapter-that-does-not-exist",
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "adapter-that-does-not-exist",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Accepted, firstReview.StatusCode);
         using var secondReview = await alice.PostAsJsonAsync("/api/review",
@@ -314,7 +317,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         using var mutation = await client.PostAsJsonAsync("/api/review", new
         {
-            path = "Sample.cs", kind = "code", model = "not-in-catalogue",
+            path = "Sample.cs",
+            kind = "code",
+            model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
     }
@@ -337,8 +342,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         if (application is not null) await application.DisposeAsync();
-        try { Directory.Delete(testRoot, true); }
-        catch (IOException) { }
+        TemporaryDirectory.Delete(testRoot);
     }
 
     private HttpClient CreateClient(string? clientId = null, string? token = null, bool includeClientId = true) =>

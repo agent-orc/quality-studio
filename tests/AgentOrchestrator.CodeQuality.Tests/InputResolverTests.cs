@@ -1,4 +1,5 @@
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -161,6 +162,6 @@ public sealed class InputResolverTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(root, true); } catch (IOException) { }
+        TemporaryDirectory.Delete(root);
     }
 }

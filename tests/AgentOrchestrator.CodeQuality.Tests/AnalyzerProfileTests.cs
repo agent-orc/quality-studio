@@ -1,4 +1,5 @@
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
@@ -112,7 +113,7 @@ public sealed class AnalyzerProfileTests
         }
         finally
         {
-            Directory.Delete(directory, true);
+            TemporaryDirectory.Delete(directory);
         }
     }
 
@@ -131,7 +132,7 @@ public sealed class AnalyzerProfileTests
         }
         finally
         {
-            Directory.Delete(directory, true);
+            TemporaryDirectory.Delete(directory);
         }
     }
 
