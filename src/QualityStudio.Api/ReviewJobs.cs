@@ -97,13 +97,17 @@ public interface IReviewExecutorFactory
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
     StalenessEvaluator stalenessEvaluator,
+    RepositoryHierarchyCache hierarchyCache,
     ILogger<ReviewExecutorFactory> logger) : IReviewExecutorFactory
 {
+    private readonly HierarchyUnitResolver unitResolver = new(hierarchyCache);
+
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
                 cliType, model, thinkingLevel, eventObserver: eventObserver, logger: logger),
-            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
+            unitResolver: unitResolver));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -291,7 +295,7 @@ public sealed class ReviewJobService : BackgroundService
     private async Task<ReviewRunEstimate> EstimateAsync(
         PreparedPlan plan, string kind, string cliType, string? model, bool force, CancellationToken cancellationToken)
     {
-        var promptRunner = new ReviewRunner();
+        var promptRunner = new ReviewRunner(unitResolver: new HierarchyUnitResolver(hierarchyCache));
         var measurements = new List<ReviewPromptMeasurement>(plan.Files.Length + 1);
         foreach (var file in plan.Files)
         {
@@ -353,7 +357,8 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : plan.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: AggregateControls(plan.Node),
-            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions);
+            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions,
+            SubjectGroups: level == ReviewLevel.File ? null : SubjectGroups(plan.Node));
 
     private static (long? TokenCap, decimal? CostCap) ResolveCap(
         RepositoryRegistration registration, long? requestedTokens, decimal? requestedCost)
@@ -435,6 +440,18 @@ public sealed class ReviewJobService : BackgroundService
         foreach (var registration in repositories.List())
         {
             var store = new ReviewRunStore(registration.RootPath);
+            var pinned = new QualityRunReportPinStore(registration.RootPath).Load();
+            var pruned = store.Prune(QualityRunReportStore.DefaultRetentionKeep, pinned,
+                (directory, exception) => logger.LogWarning(new EventId(1513, "ReviewRunPruneFailed"), exception,
+                    "Could not prune durable review run journal {ReviewRunDirectory}", directory));
+            if (pruned.Removed > 0)
+                logger.LogInformation(new EventId(1514, "ReviewRunJournalsPruned"),
+                    "Pruned {PrunedCount} terminal review journals in repository {RepositoryId}; {RemainingCount} remain",
+                    pruned.Removed, registration.Id, pruned.Remaining);
+            // Below this finish time retention already removed the report on purpose, so recovery must
+            // not write it again and hand the next prune the same work.
+            var retentionFloor = new QualityRunReportStore(registration.RootPath)
+                .RetentionFloor(QualityRunReportStore.DefaultRetentionKeep, pinned);
             foreach (var stored in store.LoadAll((directory, exception) =>
                          logger.LogError(new EventId(1511, "ReviewRunRecoveryFailed"), exception,
                              "Could not load durable review run from {ReviewRunDirectory}", directory)))
@@ -450,7 +467,7 @@ public sealed class ReviewJobService : BackgroundService
                 {
                     var item = ReviewWorkItem.Restore(stored, registration, store);
                     if (!runs.TryAdd(item.Id, item)) continue;
-                    item.EnsureTerminalReport();
+                    item.EnsureTerminalReport(retentionFloor);
                     if (!ReviewRunStore.IsTerminal(item.State))
                     {
                         item.PrepareForRecovery();
@@ -682,6 +699,7 @@ public sealed class ReviewJobService : BackgroundService
             AggregateControls: item.AggregateControls,
             AggregateExclusions: item.AggregateExclusions,
             ModelSource: item.ModelSource,
+            SubjectGroups: level == ReviewLevel.File ? null : SubjectGroups(LiveNode(item, node)),
             ReviewRunId: item.Id,
             Sensors: item.Kind == "security"
                 ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
@@ -692,6 +710,30 @@ public sealed class ReviewJobService : BackgroundService
                 : null,
             DeterministicEvidence: item.DeterministicEvidence);
     }
+
+    /// <summary>
+    /// The derived units below an aggregate, so the review runner can describe the module and
+    /// namespace structure of its subject without deriving the hierarchy a second time.
+    /// </summary>
+    private static IReadOnlyList<ReviewSubjectGroup> SubjectGroups(HierarchyNode node) =>
+        Flatten([node])
+            .Where(candidate => candidate.Level is not (ReviewLevel.File or ReviewLevel.Function))
+            .Select(candidate => new ReviewSubjectGroup(candidate.Level, candidate.Name, candidate.Path,
+                candidate.Children.Where(child => child.Level == ReviewLevel.File)
+                    .Select(child => child.Path).Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal).ToArray()))
+            .ToArray();
+
+    /// <summary>
+    /// A run restored from its durable manifest carries the selected node without its children, so
+    /// the structure is taken from the current cached hierarchy when that node still derives.
+    /// </summary>
+    private HierarchyNode LiveNode(ReviewWorkItem item, HierarchyNode node) =>
+        node.Children.Count > 0
+            ? node
+            : Flatten(hierarchyCache.Get(item.Repository.RootPath).Roots).FirstOrDefault(candidate =>
+                  candidate.Level == node.Level &&
+                  string.Equals(candidate.Path, node.Path, StringComparison.Ordinal)) ?? node;
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {
@@ -1152,11 +1194,17 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate) return DurableStatusCore();
         }
 
-        public void EnsureTerminalReport()
+        /// <summary>
+        /// Publishes the terminal report for a recovered run, unless snapshot retention already removed
+        /// it: a run that finished before <paramref name="retentionFloor"/> lost its report on purpose,
+        /// and republishing it here is what made pruned reports reappear on every restart.
+        /// </summary>
+        public void EnsureTerminalReport(DateTimeOffset? retentionFloor = null)
         {
             lock (gate)
             {
                 if (!ReviewRunStore.IsTerminal(state) || reportStore.TryLoad(Id, out _)) return;
+                if (retentionFloor is not null && (FinishedAt ?? CreatedAt) < retentionFloor) return;
                 PublishReport();
             }
         }

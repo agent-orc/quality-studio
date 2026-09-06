@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -24,7 +25,12 @@ public sealed class FindingStateStore
 {
     public const string RelativePath = ".quality/findings/state.json";
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
+    // One parsed document per state file, keyed by the exact bytes it was parsed from. Every
+    // operation still reads the file, so another process's write is always seen; only the parse,
+    // the validation, and the fingerprint lookup are reused when the bytes are unchanged.
+    private static readonly ConcurrentDictionary<string, ParsedState> Parsed = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = CreateOptions();
+    private static readonly FindingStateDocument EmptyDocument = new(1, 0, []);
     private readonly string statePath;
     private readonly Func<DateTimeOffset> clock;
 
@@ -43,7 +49,7 @@ public sealed class FindingStateStore
             var document = await LoadAsync(cancellationToken).ConfigureAwait(false);
             var (effective, changed) = ReopenExpired(document, clock().ToUniversalTime());
             if (changed) await SaveAsync(effective, cancellationToken).ConfigureAwait(false);
-            return ToLookup(effective);
+            return Lookup(effective);
         }, cancellationToken).ConfigureAwait(false);
 
     public async Task<IReadOnlyDictionary<string, FindingStateRecord>> MergeReviewAsync(
@@ -81,10 +87,11 @@ public sealed class FindingStateStore
 
             if (changed)
             {
-                document = new(1, document.Revision + 1, records.Values.OrderBy(record => record.Fingerprint, StringComparer.Ordinal).ToArray());
-                await SaveAsync(document, cancellationToken).ConfigureAwait(false);
+                await SaveAsync(
+                    new(1, document.Revision + 1, Ordered(records)), cancellationToken).ConfigureAwait(false);
             }
-            return ToLookup(document);
+            // `records` is already keyed by fingerprint, so the caller's lookup needs no second pass.
+            return records;
         }, cancellationToken).ConfigureAwait(false);
 
     public async Task<FindingStateRecord> SetAsync(
@@ -120,8 +127,7 @@ public sealed class FindingStateStore
                 ExpiresAt = expiresAt?.ToUniversalTime(),
             };
             records[fingerprint] = updated;
-            await SaveAsync(new(1, document.Revision + 1,
-                records.Values.OrderBy(record => record.Fingerprint, StringComparer.Ordinal).ToArray()), cancellationToken).ConfigureAwait(false);
+            await SaveAsync(new(1, document.Revision + 1, Ordered(records)), cancellationToken).ConfigureAwait(false);
             return updated;
         }, cancellationToken).ConfigureAwait(false);
 
@@ -130,56 +136,79 @@ public sealed class FindingStateStore
 
     private async Task<FindingStateDocument> LoadAsync(CancellationToken cancellationToken)
     {
-        if (!File.Exists(statePath)) return new(1, 0, []);
-        await using var stream = new FileStream(statePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-        var document = await JsonSerializer.DeserializeAsync<FindingStateDocument>(stream, JsonOptions, cancellationToken).ConfigureAwait(false)
-            ?? throw new JsonException("Finding state must be a JSON object.");
+        if (!File.Exists(statePath)) return EmptyDocument;
+        var bytes = await File.ReadAllBytesAsync(statePath, cancellationToken).ConfigureAwait(false);
+        var contentHash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        if (Parsed.TryGetValue(statePath, out var cached) &&
+            string.Equals(cached.ContentHash, contentHash, StringComparison.Ordinal))
+        {
+            return cached.Document;
+        }
+
+        var document = Validate(JsonSerializer.Deserialize<FindingStateDocument>(bytes, JsonOptions)
+            ?? throw new JsonException("Finding state must be a JSON object."));
+        Parsed[statePath] = new ParsedState(contentHash, document);
+        return document;
+    }
+
+    private static FindingStateDocument Validate(FindingStateDocument document)
+    {
         if (document.SchemaVersion != 1) throw new JsonException($"Unsupported finding state schemaVersion '{document.SchemaVersion}'.");
         if (document.Revision < 0 || document.Findings is null) throw new JsonException("Finding state revision or findings is invalid.");
-        if (document.Findings.GroupBy(record => record.Fingerprint, StringComparer.Ordinal).Any(group => group.Count() > 1))
-            throw new JsonException("Finding state contains duplicate fingerprints.");
-        if (document.Findings.Any(record => !IsFingerprint(record.Fingerprint) ||
-            string.IsNullOrWhiteSpace(record.FindingId) || string.IsNullOrWhiteSpace(record.Path) ||
-            string.IsNullOrWhiteSpace(record.RuleId) || string.IsNullOrWhiteSpace(record.Author) ||
-            string.IsNullOrWhiteSpace(record.Reason)))
-            throw new JsonException("Finding state contains an invalid record.");
+        var seen = new HashSet<string>(document.Findings.Count, StringComparer.Ordinal);
+        foreach (var record in document.Findings)
+        {
+            if (!IsFingerprint(record.Fingerprint) ||
+                string.IsNullOrWhiteSpace(record.FindingId) || string.IsNullOrWhiteSpace(record.Path) ||
+                string.IsNullOrWhiteSpace(record.RuleId) || string.IsNullOrWhiteSpace(record.Author) ||
+                string.IsNullOrWhiteSpace(record.Reason))
+                throw new JsonException("Finding state contains an invalid record.");
+            if (!seen.Add(record.Fingerprint))
+                throw new JsonException("Finding state contains duplicate fingerprints.");
+        }
+
         return document;
     }
 
     private async Task SaveAsync(FindingStateDocument document, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(statePath)!);
-        var temporary = statePath + ".tmp-" + Guid.NewGuid().ToString("N");
-        try
-        {
-            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine,
-                new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-            File.Move(temporary, statePath, true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        var content = JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine;
+        await AtomicFile.WriteAllTextAsync(statePath, content, cancellationToken).ConfigureAwait(false);
+        // The bytes on disk are now known, so the next operation reuses this document instead of
+        // parsing back what this process just serialized.
+        Parsed[statePath] = new ParsedState(
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content))), document);
     }
+
+    private IReadOnlyDictionary<string, FindingStateRecord> Lookup(FindingStateDocument document) =>
+        Parsed.TryGetValue(statePath, out var cached) && ReferenceEquals(cached.Document, document)
+            ? cached.Lookup
+            : ToLookup(document);
+
+    private static FindingStateRecord[] Ordered(Dictionary<string, FindingStateRecord> records) =>
+        records.Values.OrderBy(record => record.Fingerprint, StringComparer.Ordinal).ToArray();
 
     private static (FindingStateDocument Document, bool Changed) ReopenExpired(FindingStateDocument document, DateTimeOffset now)
     {
-        var changed = false;
-        var records = document.Findings.Select(record =>
-        {
-            if (record.ExpiresAt is null || record.ExpiresAt > now || record.State is FindingState.Open or FindingState.Resolved) return record;
-            changed = true;
-            return record with
-            {
-                State = FindingState.Open,
-                Author = "quality-studio",
-                Reason = $"{StateName(record.State)} state expired.",
-                Timestamp = now,
-                ExpiresAt = null,
-            };
-        }).ToArray();
-        return (changed ? new(1, document.Revision + 1, records) : document, changed);
+        if (!document.Findings.Any(record => IsExpired(record, now))) return (document, false);
+        var records = document.Findings
+            .Select(record => IsExpired(record, now)
+                ? record with
+                {
+                    State = FindingState.Open,
+                    Author = "quality-studio",
+                    Reason = $"{StateName(record.State)} state expired.",
+                    Timestamp = now,
+                    ExpiresAt = null,
+                }
+                : record)
+            .ToArray();
+        return (new(1, document.Revision + 1, records), true);
     }
+
+    private static bool IsExpired(FindingStateRecord record, DateTimeOffset now) =>
+        record.ExpiresAt is not null && record.ExpiresAt <= now &&
+        record.State is not (FindingState.Open or FindingState.Resolved);
 
     private async Task<T> ExecuteLockedAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken)
     {
@@ -219,6 +248,15 @@ public sealed class FindingStateStore
 
     private static IReadOnlyDictionary<string, FindingStateRecord> ToLookup(FindingStateDocument document) =>
         document.Findings.ToDictionary(record => record.Fingerprint, StringComparer.Ordinal);
+
+    private sealed class ParsedState(string contentHash, FindingStateDocument document)
+    {
+        public string ContentHash { get; } = contentHash;
+
+        public FindingStateDocument Document { get; } = document;
+
+        public IReadOnlyDictionary<string, FindingStateRecord> Lookup { get; } = ToLookup(document);
+    }
 
     private static JsonSerializerOptions CreateOptions()
     {

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
 
@@ -16,25 +17,24 @@ public sealed class ReviewMetaIndex : IDisposable
         Get(root).Find(relativePath, kind);
 
     /// <summary>
-    /// Closes the watcher of a repository that is no longer served and drops its index.
-    /// A later read rebuilds both from disk. Without this a root stayed watched forever,
-    /// which on Windows keeps an open directory handle on a repository nobody serves.
+    /// Drops the index and its filesystem watcher for one repository. Archiving a registration means
+    /// nothing will read its sidecars again, and an OS watch handle per archived repository is a leak.
     /// </summary>
-    public void Forget(string root)
+    public void Release(string root)
     {
         if (repositories.TryRemove(Path.GetFullPath(root), out var index)) index.Value.Dispose();
     }
 
     public void Dispose()
     {
-        foreach (var key in repositories.Keys) Forget(key);
+        foreach (var key in repositories.Keys) Release(key);
     }
 
     // ConcurrentDictionary.GetOrAdd may run its value factory more than once for the same
     // key and keeps only one result. Each run constructed and enabled a FileSystemWatcher,
     // so every discarded instance leaked a live directory handle that went on receiving
     // events for the rest of the process. Lazy with ExecutionAndPublication builds exactly
-    // one watcher per root, and makes Forget deterministic against a concurrent first read.
+    // one watcher per root, and makes Release deterministic against a concurrent first read.
     private RepositoryIndex Get(string root) => repositories.GetOrAdd(
         Path.GetFullPath(root),
         static path => new Lazy<RepositoryIndex>(
@@ -64,6 +64,9 @@ public sealed class ReviewMetaIndex : IDisposable
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+                // A review sweep rewrites many sidecars at once. The default 8 KiB kernel buffer
+                // overflows under that burst and the notifications in it are lost silently.
+                InternalBufferSize = 64 * 1024,
                 EnableRaisingEvents = true,
             };
             watcher.Created += (_, args) => Update(args.FullPath);
@@ -74,6 +77,35 @@ public sealed class ReviewMetaIndex : IDisposable
                 Remove(args.OldFullPath);
                 Update(args.FullPath);
             };
+            // Buffer overflow or a lost watch handle: rebuild rather than serve an index that silently
+            // stopped following the repository.
+            watcher.Error += (_, _) => Reindex();
+        }
+
+        /// <summary>Rebuilds the whole index from disk after the watcher lost events.</summary>
+        private void Reindex()
+        {
+            try
+            {
+                var rebuilt = Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
+                    .Where(IsReviewMetaPath).ToArray();
+                lock (gate) documents.Clear();
+                foreach (var path in rebuilt) Update(path);
+                try
+                {
+                    watcher.EnableRaisingEvents = true;
+                }
+                catch (Exception exception) when (
+                    exception is ObjectDisposedException or InvalidOperationException or IOException)
+                {
+                    // The index stays correct as of this rebuild; a disposed watcher has nothing to re-arm.
+                }
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                // The repository directory went away underneath the watcher; the registry reports that.
+            }
         }
 
         public IReadOnlyList<JsonElement> Read(string relativePath)
@@ -112,30 +144,19 @@ public sealed class ReviewMetaIndex : IDisposable
             {
                 if (!PathConfinement.IsWithin(root, path)) return;
                 PathConfinement.RejectReparseTraversal(root, path);
-                // Share the file with writers and deleters: sidecars are replaced with
-                // File.Move(overwrite: true), and a plain read holds a handle that denies the
-                // replace, so indexing a sidecar could make the write of the next one fail.
-                using var stream = new FileStream(path, new FileStreamOptions
-                {
-                    Mode = FileMode.Open,
-                    Access = FileAccess.Read,
-                    Share = FileShare.ReadWrite | FileShare.Delete,
-                    Options = FileOptions.SequentialScan,
-                });
-                using var parsed = JsonDocument.Parse(stream);
-                var payload = parsed.RootElement;
-                if (!payload.TryGetProperty("unit", out var unit) ||
-                    !unit.TryGetProperty("path", out var unitPathElement) ||
-                    !payload.TryGetProperty("kind", out var kindElement)) return;
-                var storedPath = unitPathElement.GetString()?.Replace('\\', '/').TrimStart('/');
-                if (string.IsNullOrWhiteSpace(storedPath) || string.IsNullOrWhiteSpace(kindElement.GetString())) return;
+                // The one reader decides what a sidecar says and reports what it cannot read; the
+                // raw payload is kept because callers still project over the whole document.
+                if (!ReviewMetaReader.TryLoad(path, out var sidecar, out _)) return;
+                var storedPath = sidecar.Document.Unit.Path.Replace('\\', '/').TrimStart('/');
                 var absoluteSubject = Path.GetFullPath(Path.Combine(root,
                     storedPath.Replace('/', Path.DirectorySeparatorChar)));
                 if (!PathConfinement.IsWithin(root, absoluteSubject)) return;
                 PathConfinement.RejectReparseTraversal(root, absoluteSubject);
+                using var parsed = JsonDocument.Parse(sidecar.Json);
                 var normalized = Path.GetRelativePath(root, absoluteSubject).Replace('\\', '/');
                 lock (gate)
-                    documents[path] = new IndexedDocument(path, normalized, kindElement.GetString()!, payload.Clone());
+                    documents[path] = new IndexedDocument(path, normalized,
+                        sidecar.Document.Kind.ToString().ToLowerInvariant(), parsed.RootElement.Clone());
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
             {

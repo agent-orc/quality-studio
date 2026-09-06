@@ -1,0 +1,32 @@
+# The image build needs Directory.Build.props, src/ and frontend/ sources only.
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/TestResults
+**/.vs
+**/*.user
+**/*.suo
+
+.git
+.github
+.orchestrator
+.quality
+.quality-studio
+.dev-stack.log
+
+docs
+results
+rules
+samples
+schemas
+spikes
+tests
+website
+PERF.md
+
+# Never bake host state or credentials into a layer.
+**/.env
+**/*.pfx
+**/*.pem
+**/appsettings.*.Local.json

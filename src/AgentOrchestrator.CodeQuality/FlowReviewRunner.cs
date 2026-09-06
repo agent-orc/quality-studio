@@ -18,6 +18,7 @@ public sealed class FlowReviewRunner
 
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private readonly IReviewAgent agent;
+    private readonly ReviewExecutionPipeline pipeline;
     private readonly FlowReviewResponseParser responseParser;
     private readonly ModelPriceCatalog prices;
     private readonly Func<DateTimeOffset> clock;
@@ -28,6 +29,7 @@ public sealed class FlowReviewRunner
         Func<DateTimeOffset>? clock = null)
     {
         this.agent = agent ?? CodingAgentReviewAgent.CreateDefault(kind: "security");
+        pipeline = new ReviewExecutionPipeline(this.agent);
         responseParser = new FlowReviewResponseParser();
         this.prices = prices ?? ReviewPriceCatalog.Default;
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -39,71 +41,60 @@ public sealed class FlowReviewRunner
     {
         var prepared = await PrepareAsync(request, cancellationToken).ConfigureAwait(false);
         var startedAt = clock().ToUniversalTime();
-        ReviewAgentResult agentResult;
-        try
-        {
-            agentResult = await agent.RunAsync(prepared.Prompt, prepared.Root, cancellationToken).ConfigureAwait(false);
-        }
-        catch (ReviewAgentRunCanceledException exception)
-        {
-            await RecordUsageAsync(prepared.Root, request.Flow.Id, exception.RunId, exception.Usage,
-                exception.EffectiveModel, startedAt).ConfigureAwait(false);
-            throw;
-        }
-        catch (ReviewAgentRunException exception)
-        {
-            await RecordUsageAsync(prepared.Root, request.Flow.Id, exception.RunId, exception.Usage,
-                exception.EffectiveModel, startedAt).ConfigureAwait(false);
-            throw;
-        }
+        JsonObject response = null!;
+        return await pipeline.ExecuteAsync(new ReviewExecution<FlowReviewResult>(
+            prepared.Prompt,
+            prepared.Root,
+            () => new TokenUsage(null, null, null, null, 0),
+            reported => RecordUsageAsync(prepared.Root, request.Flow.Id, reported.RunId, reported.Usage,
+                reported.EffectiveModel, startedAt),
+            outcome => response = responseParser.Parse(outcome.Response),
+            // A source or catalogue change during an expensive review invalidates the conclusion.
+            async token => string.Equals(
+                    prepared.InputHash,
+                    (await PrepareAsync(request, token).ConfigureAwait(false)).InputHash,
+                    StringComparison.Ordinal)
+                ? null
+                : "The flow evidence changed while it was being reviewed; no flow report was written.",
+            async (outcome, token) =>
+            {
+                var model = EffectiveModel(outcome.EffectiveModel);
+                var findings = CreateFindings(response, prepared.SubjectContents);
+                var reportPath = GetReportPath(prepared.Root, request.Flow.Id);
+                var previous = await LoadPreviousFindingsAsync(reportPath, token).ConfigureAwait(false);
+                var identities = findings.Select(finding =>
+                    new FindingIdentityRecord(finding.Fingerprint, finding.Id,
+                        finding.FlowPath[finding.WeakestPointIndex].Path, finding.RuleId)).ToArray();
+                var states = await new FindingStateStore(prepared.Root).MergeReviewAsync(
+                    identities, previous, agent.AgentName, token).ConfigureAwait(false);
+                findings = findings.Select(finding => finding with { State = states[finding.Fingerprint].State }).ToArray();
 
-        var usage = agentResult.Usage ?? new TokenUsage(null, null, null, null, 0);
-        var model = EffectiveModel(agentResult.EffectiveModel);
-        await RecordUsageAsync(prepared.Root, request.Flow.Id, agentResult.RunId, usage, model, startedAt)
-            .ConfigureAwait(false);
-        var response = responseParser.Parse(agentResult.Response);
+                var report = new FlowReviewReport(
+                    ReportSchema,
+                    1,
+                    request.Flow,
+                    ParseVerdict(response["verdict"]!.GetValue<string>()),
+                    response["summary"]!.GetValue<string>().Trim(),
+                    response["undeterminedReason"]?.GetValue<string>()?.Trim(),
+                    findings,
+                    Count(findings),
+                    new FlowReviewProvenance(
+                        agent.AgentName,
+                        model,
+                        outcome.RunId,
+                        PromptId,
+                        PromptVersion,
+                        TemplateHash(),
+                        prepared.InputHash,
+                        prepared.BoundaryCatalogueHash,
+                        clock().ToUniversalTime(),
+                        outcome.Usage,
+                        ComputeCost(model, outcome.Usage, startedAt)));
 
-        // A source or catalogue change during an expensive review invalidates the conclusion.
-        var finalPrepared = await PrepareAsync(request, cancellationToken).ConfigureAwait(false);
-        if (!string.Equals(prepared.InputHash, finalPrepared.InputHash, StringComparison.Ordinal))
-            throw new ReviewRunException("The flow evidence changed while it was being reviewed; no flow report was written.");
-
-        var findings = CreateFindings(response, prepared.SubjectContents);
-        var reportPath = GetReportPath(prepared.Root, request.Flow.Id);
-        var previous = await LoadPreviousFindingsAsync(reportPath, cancellationToken).ConfigureAwait(false);
-        var identities = findings.Select(finding =>
-            new FindingIdentityRecord(finding.Fingerprint, finding.Id,
-                finding.FlowPath[finding.WeakestPointIndex].Path, finding.RuleId)).ToArray();
-        var states = await new FindingStateStore(prepared.Root).MergeReviewAsync(
-            identities, previous, agent.AgentName, cancellationToken).ConfigureAwait(false);
-        findings = findings.Select(finding => finding with { State = states[finding.Fingerprint].State }).ToArray();
-
-        var reviewedAt = clock().ToUniversalTime();
-        var report = new FlowReviewReport(
-            ReportSchema,
-            1,
-            request.Flow,
-            ParseVerdict(response["verdict"]!.GetValue<string>()),
-            response["summary"]!.GetValue<string>().Trim(),
-            response["undeterminedReason"]?.GetValue<string>()?.Trim(),
-            findings,
-            Count(findings),
-            new FlowReviewProvenance(
-                agent.AgentName,
-                model,
-                agentResult.RunId,
-                PromptId,
-                PromptVersion,
-                TemplateHash(),
-                prepared.InputHash,
-                prepared.BoundaryCatalogueHash,
-                reviewedAt,
-                usage,
-                ComputeCost(model, usage, startedAt)));
-
-        if (!request.PersistMetadata) return new FlowReviewResult(null, report);
-        await SaveAsync(reportPath, report, cancellationToken).ConfigureAwait(false);
-        return new FlowReviewResult(reportPath, report);
+                if (!request.PersistMetadata) return new FlowReviewResult(null, report);
+                await SaveAsync(reportPath, report, token).ConfigureAwait(false);
+                return new FlowReviewResult(reportPath, report);
+            }), cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<int> MeasurePromptAsync(
@@ -253,6 +244,7 @@ public sealed class FlowReviewRunner
         string? effectiveModel,
         DateTimeOffset timestamp)
     {
+        // The agent has already consumed the tokens; persist that fact even when the run failed.
         await UsageLedger.AppendAsync(root, new ReviewUsageEntry(
             runId,
             timestamp,
@@ -304,22 +296,11 @@ public sealed class FlowReviewRunner
     private static async Task SaveAsync(
         string path,
         FlowReviewReport report,
-        CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
-        try
-        {
-            await File.WriteAllTextAsync(temporary,
-                JsonSerializer.Serialize(report, JsonOptions) + Environment.NewLine,
-                new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-            File.Move(temporary, path, true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
-    }
+        CancellationToken cancellationToken) =>
+        await AtomicFile.WriteAllTextAsync(
+            path,
+            JsonSerializer.Serialize(report, JsonOptions) + Environment.NewLine,
+            cancellationToken).ConfigureAwait(false);
 
     private static FlowFindingCounts Count(IReadOnlyList<FlowFinding> findings) =>
         new(

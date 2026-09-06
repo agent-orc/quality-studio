@@ -59,6 +59,35 @@ public sealed class QualityRunReportRetentionTests
     }
 
     [Fact]
+    public void RetentionFloor_marks_the_boundary_below_which_a_report_was_removed_on_purpose()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-run-report-floor-").FullName;
+        try
+        {
+            var store = new QualityRunReportStore(root);
+            var origin = new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
+            var empty = new HashSet<string>(StringComparer.Ordinal);
+
+            // Below the limit nothing was ever pruned, so recovery must still publish missing reports.
+            Assert.Null(store.RetentionFloor(keep: 3, pinnedRunIds: empty));
+
+            for (var index = 0; index < 5; index++)
+            {
+                var report = CreateReport($"run-{index:00}");
+                store.Save(report with { Run = report.Run with { FinishedAt = origin.AddHours(index) } });
+            }
+
+            Assert.Equal(origin.AddHours(2), store.RetentionFloor(keep: 3, pinnedRunIds: empty));
+            Assert.Null(store.RetentionFloor(keep: 9, pinnedRunIds: empty));
+            Assert.Equal(DateTimeOffset.MaxValue, store.RetentionFloor(keep: 0, pinnedRunIds: empty));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
     public void MeasureSize_reports_count_total_and_average_bytes()
     {
         var root = Directory.CreateTempSubdirectory("quality-run-report-size-").FullName;

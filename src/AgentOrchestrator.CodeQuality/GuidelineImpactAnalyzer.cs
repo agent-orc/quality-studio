@@ -88,7 +88,9 @@ public class GuidelineImpactAnalyzer
         ResolvedInputs inputs, CancellationToken cancellationToken)
     {
         var prompt = promptBuilder.Build(path, kind, inputs.Guidelines("global"), inputs.Guidelines("project"), content);
-        var response = parser.Parse((await agent.RunAsync(prompt, root, cancellationToken).ConfigureAwait(false)).Response);
+        var response = parser.Parse(
+            (await agent.RunAsync(prompt, root, cancellationToken).ConfigureAwait(false)).Response,
+            new RuleIdPolicy(inputs.Inputs.Select(input => input.Id), kind));
         return response["findings"]!.AsArray().Select(node => Map(node!.AsObject())).ToArray();
     }
 
@@ -115,7 +117,10 @@ public class GuidelineImpactAnalyzer
             raw.Add(new ReviewInput(draft.Id, $"draft:{draft.Id}", "project", draft.Priority,
                 draft.Kinds, draft.Levels, true, draft.Content.Trim(), string.Empty, false));
         }
-        var ordered = raw.OrderBy(value => value.Scope == "global" ? 0 : 1)
+        // Built-in rules resolve with the global layer, so the draft prompt has to order them the
+        // same way the current one does; otherwise the comparison reports differences the draft did
+        // not cause.
+        var ordered = raw.OrderBy(value => value.Scope == "project" ? 1 : 0)
             .ThenByDescending(value => value.Priority).ThenBy(value => value.Id, StringComparer.Ordinal).ToArray();
         var remaining = current.BudgetCharacters;
         var included = new List<ReviewInput>();

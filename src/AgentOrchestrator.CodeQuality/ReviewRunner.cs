@@ -25,7 +25,8 @@ public sealed record ReviewRequest(
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
     IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
-    string? ModelSource = null);
+    string? ModelSource = null,
+    IReadOnlyList<ReviewSubjectGroup>? SubjectGroups = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -58,7 +59,6 @@ public sealed record ReviewPromptMeasurement(int Characters, string Path, string
 
 public sealed class ReviewRunner
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly IReviewAgent _agent;
     private readonly ReviewPromptBuilder _promptBuilder;
     private readonly ReviewResponseParser _responseParser;
@@ -66,6 +66,8 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly HierarchyUnitResolver _unitResolver;
+    private readonly ReviewExecutionPipeline _pipeline;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -74,7 +76,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        HierarchyUnitResolver? unitResolver = null)
     {
         _agent = agent ?? CodingAgentReviewAgent.CreateDefault();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -83,6 +86,8 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _unitResolver = unitResolver ?? HierarchyUnitResolver.Shared;
+        _pipeline = new ReviewExecutionPipeline(_agent);
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -98,13 +103,13 @@ public sealed class ReviewRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
-            sensorEvidence, deterministicEvidence) = prepared;
+        var (root, relativePath, subjectPaths, files, fileContent, memberFindings, inputs, prompt, unitId,
+            metaPath, threads, sensorEvidence, deterministicEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
-        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
+        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Level, request.Kind));
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
@@ -121,111 +126,111 @@ public sealed class ReviewRunner
         QualityStudioEventSource.Log.ReviewStarted(relativePath, request.Kind, _agent.AgentName);
         try
         {
-            ReviewAgentResult agentResult;
-            try
-            {
-                agentResult = await _agent.RunAsync(prompt, root, cancellationToken).ConfigureAwait(false);
-            }
-            catch (ReviewAgentRunCanceledException exception)
-            {
-                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
-                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
-                throw;
-            }
-            catch (ReviewAgentRunException exception)
-            {
-                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
-                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
-                throw;
-            }
+            ReviewUsageEntry usage = null!;
+            JsonObject response = null!;
+            // Every resolved input id is citable, whether or not the budget included its body: the
+            // agent can only have seen the included ones, and accepting the rest costs nothing.
+            var rulePolicy = new RuleIdPolicy(inputs.Inputs.Select(input => input.Id), request.Kind);
+            return await _pipeline.ExecuteAsync(new ReviewExecution<ReviewExecutionResult>(
+                prompt,
+                root,
+                () => new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
+                async reported =>
+                {
+                    usage = CreateUsage(reported.RunId, reported.Usage, reported.EffectiveModel,
+                        startedAt, request, relativePath);
+                    await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
+                },
+                outcome =>
+                {
+                    response = _responseParser.Parse(outcome.Response, rulePolicy);
+                    RequireArchitectureAspect(response, request);
+                },
+                async token =>
+                {
+                    var finalSubject = await PrepareSubjectAsync(
+                        root, relativePath, unitId, request, subjectPaths, files, token).ConfigureAwait(false);
+                    return initialSubject.Inputs.SequenceEqual(finalSubject.Inputs)
+                        ? null
+                        : "The review target changed while the agent was reviewing it; no metadata was written.";
+                },
+                async (outcome, token) =>
+                {
+                    var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, token).ConfigureAwait(false);
+                    if (request.Kind == "security")
+                    {
+                        SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
+                    }
+                    var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+                    AggregateFindingRollup.Apply(response, request.Level, subjectContents, memberFindings);
+                    if (request.Kind == "security")
+                    {
+                        findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
+                    }
 
-            var usage = CreateUsage(agentResult.RunId,
-                agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
-                agentResult.EffectiveModel, startedAt, request, relativePath);
-            await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
-            var response = _responseParser.Parse(agentResult.Response);
-            if (request.Level == ReviewLevel.Project &&
-                string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
-                request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
-                !response["aspects"]!.AsArray().OfType<JsonObject>().Any(aspect =>
-                    string.Equals(aspect["id"]?.GetValue<string>(), "architecture", StringComparison.Ordinal)))
-            {
-                throw new ReviewResponseException(
-                    "A project-level code review must include the required 'architecture' aspect.");
-            }
-            var finalSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
-            if (!initialSubject.Inputs.SequenceEqual(finalSubject.Inputs))
-            {
-                throw new ReviewRunException("The review target changed while the agent was reviewing it; no metadata was written.");
-            }
-
-            var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, cancellationToken).ConfigureAwait(false);
-            if (request.Kind == "security")
-            {
-                SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
-            }
-            var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
-            if (request.Kind == "security")
-            {
-                findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
-            }
-
-            var adapter = AdapterFromUnitId(unitId);
-            ReviewObservationSnapshot observation;
-            var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
-            await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                var previousFindings = LoadFindingIdentities(metaPath);
-                var findingStates = await new FindingStateStore(root).MergeReviewAsync(
-                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
-                threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
-                ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
-                ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
-                var meta = CreateMeta(
-                    response,
-                    relativePath,
-                    request.Kind,
-                    adapter,
-                    unitId,
-                    initialSubject.Inputs,
-                    initialSubject.Members,
-                    initialSubject.Exclusions,
-                    reviewedHash,
-                    agentResult.RunId,
-                    inputs,
-                    request.Level,
-                    request.DisplayName,
-                    usage,
-                    threads,
-                    sensorEvidence,
-                    deterministicEvidence,
-                    ResolveSourceRevision(root));
-                Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
-                var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-                var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
-                await File.WriteAllTextAsync(
-                    temporaryPath,
-                    metadataJson,
-                    new UTF8Encoding(false),
-                    cancellationToken).ConfigureAwait(false);
-                File.Move(temporaryPath, metaPath, true);
-                observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);
-            }
-            finally
-            {
-                writeLock.Release();
-            }
-            QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
-            return new ReviewExecutionResult(
-                false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
-                observation);
+                    var adapter = AdapterFromUnitId(unitId);
+                    ReviewObservationSnapshot observation;
+                    var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
+                    await writeLock.WaitAsync(token).ConfigureAwait(false);
+                    try
+                    {
+                        var previousFindings = LoadFindingIdentities(metaPath);
+                        var findingStates = await new FindingStateStore(root).MergeReviewAsync(
+                            findingIdentities, previousFindings, _agent.AgentName, token).ConfigureAwait(false);
+                        threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
+                        ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
+                        ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
+                        var meta = CreateMeta(
+                            response,
+                            relativePath,
+                            request.Kind,
+                            adapter,
+                            unitId,
+                            initialSubject.Inputs,
+                            initialSubject.Members,
+                            initialSubject.Exclusions,
+                            reviewedHash,
+                            outcome.RunId,
+                            inputs,
+                            request.Level,
+                            request.DisplayName,
+                            usage,
+                            threads,
+                            sensorEvidence,
+                            deterministicEvidence,
+                            ResolveSourceRevision(root));
+                        var metadataJson = ReviewMetaJson.Serialize(meta) + Environment.NewLine;
+                        await AtomicFile.WriteAllTextAsync(metaPath, metadataJson, token).ConfigureAwait(false);
+                        observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);
+                    }
+                    finally
+                    {
+                        writeLock.Release();
+                    }
+                    QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, outcome.RunId, stopwatch.ElapsedMilliseconds);
+                    return new ReviewExecutionResult(
+                        false,
+                        new ReviewResult(metaPath, reviewedHash, outcome.RunId, inputs, usage, observation),
+                        observation);
+                }), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
+        }
+    }
+
+    private static void RequireArchitectureAspect(JsonObject response, ReviewRequest request)
+    {
+        if (request.Level == ReviewLevel.Project &&
+            string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
+            request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
+            !response["aspects"]!.AsArray().OfType<JsonObject>().Any(aspect =>
+                string.Equals(aspect["id"]?.GetValue<string>(), "architecture", StringComparison.Ordinal)))
+        {
+            throw new ReviewResponseException(
+                "A project-level code review must include the required 'architecture' aspect.");
         }
     }
 
@@ -303,14 +308,18 @@ public sealed class ReviewRunner
                     $"Review target '{subjectPaths[index]}' is excluded: {decision.Reason}", nameof(request));
         }
 
-        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
+        var subject = await BuildSubjectContentAsync(
+            root, relativePath, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
+        var fileContent = subject.Text;
+        // The unit identifies the technology, and the technology selects the named rules that
+        // reach this review, so it is resolved before the inputs rather than with the metadata.
+        var unitId = request.UnitId ?? _unitResolver.ResolveUnitId(root, relativePath, request.Level)
+            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
         var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
+            request.GlobalInputsDirectory, request.InputBudgetCharacters, AdapterFromUnitId(unitId));
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
-        var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
-            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
-        var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
+        var metaPath = ReviewMetaPath.For(root, files[0], relativePath, request.Level, request.Kind);
         var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
             .Where(thread => thread["status"]?.GetValue<string>() == "open")
@@ -331,8 +340,8 @@ public sealed class ReviewRunner
             request.Level,
             coverageEvidence,
             DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
-        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
-            prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
+        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, subject.MemberFindings,
+            inputs, prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
 
     private async Task<SecurityEvidenceBundle> CollectSensorEvidenceAsync(
@@ -389,7 +398,7 @@ public sealed class ReviewRunner
         _usageRecorded?.Invoke(usage);
     }
 
-    private JsonObject CreateMeta(
+    private ReviewMetaDocument CreateMeta(
         JsonObject response,
         string relativePath,
         string kind,
@@ -409,153 +418,135 @@ public sealed class ReviewRunner
         IReadOnlyList<SensorScanResult> deterministicEvidence,
         string? sourceRevision)
     {
-        var promptHash = ReviewPromptBuilder.TemplateHash(kind);
-        var effectiveHash = inputs.EffectiveHash(promptHash);
-        var reviewer = new JsonObject
+        var promptHash = ReviewPromptBuilder.TemplateHash(level, kind);
+        var withSensors = kind == "security" && sensorEvidence.Sensors.Count > 0;
+        return new ReviewMetaDocument
         {
-            ["agent"] = _agent.AgentName,
-            ["model"] = usage.Model,
-            ["runId"] = runId,
-            ["usage"] = new JsonObject
-            {
-                ["cliType"] = usage.CliType,
-                ["inputTokens"] = usage.Tokens.InputTokens,
-                ["outputTokens"] = usage.Tokens.OutputTokens,
-                ["cachedInputTokens"] = usage.Tokens.CachedInputTokens,
-                ["reasoningOutputTokens"] = usage.Tokens.ReasoningOutputTokens,
-                ["durationMs"] = usage.Tokens.DurationMs,
-            },
+            Unit = new ReviewUnit(unitId, ParseAdapter(adapter), level, relativePath,
+                displayName ?? Path.GetFileName(relativePath)),
+            ReviewedAt = DateTimeOffset.UtcNow,
+            Kind = ParseKind(kind),
+            Reviewer = new ReviewerIdentity(
+                _agent.AgentName,
+                usage.Model,
+                RunId: runId,
+                Usage: new ReviewerUsage(usage.CliType, usage.Tokens.InputTokens, usage.Tokens.OutputTokens,
+                    usage.Tokens.CachedInputTokens, usage.Tokens.ReasoningOutputTokens, usage.Tokens.DurationMs),
+                Sensors: withSensors
+                    ? sensorEvidence.Sensors.Select(sensor => new ReviewerSensorReference(
+                        sensor.SensorId, sensor.SensorVersion, sensor.ResultHash)).ToArray()
+                    : null,
+                // Requested route, as distinct from the CLI-resolved model above — the model the
+                // review agent was asked to use may differ from what actually served the run.
+                RequestedModel: Trimmed(_agent.Model),
+                RequestedThinkingLevel: Trimmed(_agent.ThinkingLevel)),
+            ReviewedHash = ManifestHash.Subject(reviewedHash),
+            SubjectInputs = subjectInputs,
+            ReviewInputs = new ReviewInputs(
+                ManifestHash.ReviewInput(inputs.EffectiveHash(promptHash)),
+                inputs.Complete,
+                inputs.Inputs.Where(input => input.IncludedContent.Length > 0)
+                    .Select(input => new StandardReference(
+                        input.Id, ParseScope(input.Scope), input.Version, "sha256:" + Sha256(input.Content)))
+                    .ToArray(),
+                inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).ToArray(),
+                new PromptReference(ReviewPromptBuilder.TemplateId(level, kind), "1.0.0", promptHash)),
+            Grade = Read<ReviewGrade>(response, "grade"),
+            Summary = response["summary"]!.GetValue<string>(),
+            Aspects = Read<ReviewAspect[]>(response, "aspects"),
+            Findings = Read<ReviewFinding[]>(response, "findings"),
+            Threads = threads.Deserialize<ReviewThread[]>(ReviewMetaJson.Options) ?? [],
+            Aggregate = aggregateMembers is null
+                ? null
+                : new ReviewAggregate(
+                    aggregateMembers.OrderBy(member => member.UnitId, StringComparer.Ordinal)
+                        .Select(member => new AggregateMember(member.UnitId, member.Path, member.SubjectHash))
+                        .ToArray(),
+                    (aggregateExclusions ?? []).Distinct()
+                        .OrderBy(item => item.Path, StringComparer.Ordinal)
+                        .ThenBy(item => item.Reason, StringComparer.Ordinal)
+                        .Select(item => new AggregateExclusion(item.Path, item.Reason))
+                        .ToArray()),
+            Security = withSensors ? SecurityReviewCombiner.Metadata(sensorEvidence) : null,
+            DeterministicEvidence = deterministicEvidence,
+            SourceRevision = string.IsNullOrWhiteSpace(sourceRevision) ? null : sourceRevision,
         };
-        // Requested route, as distinct from the CLI-resolved `model` above — the model the review
-        // agent was asked to use may differ from what actually served the run.
-        if (!string.IsNullOrWhiteSpace(_agent.Model)) reviewer["requestedModel"] = _agent.Model;
-        if (!string.IsNullOrWhiteSpace(_agent.ThinkingLevel)) reviewer["requestedThinkingLevel"] = _agent.ThinkingLevel;
-
-        var meta = new JsonObject
-        {
-            ["$schema"] = ReviewMetaDocument.SchemaId,
-            ["schemaVersion"] = ReviewMetaDocument.CurrentSchemaVersion,
-            ["unit"] = new JsonObject
-            {
-                ["id"] = unitId,
-                ["adapter"] = adapter,
-                ["level"] = level.ToString().ToLowerInvariant(),
-                ["path"] = relativePath,
-                ["displayName"] = displayName ?? Path.GetFileName(relativePath),
-            },
-            ["reviewedAt"] = DateTime.UtcNow.ToString("O"),
-            ["kind"] = kind,
-            ["reviewer"] = reviewer,
-            ["reviewedHash"] = new JsonObject
-            {
-                ["algorithm"] = "sha256",
-                ["canonicalization"] = "quality-studio-subject-manifest-v1",
-                ["value"] = reviewedHash,
-            },
-            ["subjectInputs"] = new JsonArray(subjectInputs.Select(input => (JsonNode)new JsonObject
-            {
-                ["path"] = input.Path,
-                ["selector"] = input.Selector,
-                ["contentHash"] = input.ContentHash,
-            }).ToArray()),
-            ["reviewInputs"] = new JsonObject
-            {
-                ["effectiveHash"] = new JsonObject
-                {
-                    ["algorithm"] = "sha256",
-                    ["canonicalization"] = "quality-studio-review-inputs-v1",
-                    ["value"] = effectiveHash,
-                },
-                ["complete"] = inputs.Complete,
-                ["standards"] = new JsonArray(inputs.Inputs.Where(input => input.IncludedContent.Length > 0).Select(input => (JsonNode)new JsonObject
-                {
-                    ["id"] = input.Id,
-                    ["scope"] = input.Scope,
-                    ["version"] = "unversioned",
-                    ["contentHash"] = "sha256:" + Sha256(input.Content),
-                }).ToArray()),
-                ["omitted"] = new JsonArray(inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).Select(id => (JsonNode)id).ToArray()),
-                ["prompt"] = new JsonObject
-                {
-                    ["id"] = $"file-{kind}-review",
-                    ["version"] = "1.0.0",
-                    ["contentHash"] = promptHash,
-                },
-            },
-            ["grade"] = response["grade"]!.DeepClone(),
-            ["summary"] = response["summary"]!.DeepClone(),
-            ["aspects"] = response["aspects"]!.DeepClone(),
-            ["findings"] = response["findings"]!.DeepClone(),
-            ["threads"] = threads.DeepClone(),
-            ["deterministicEvidence"] = JsonSerializer.SerializeToNode(
-                deterministicEvidence, ReviewMetaJson.Options),
-        };
-        if (!string.IsNullOrWhiteSpace(sourceRevision)) meta["sourceRevision"] = sourceRevision;
-        if (kind == "security" && sensorEvidence.Sensors.Count > 0)
-        {
-            reviewer["sensors"] = new JsonArray(sensorEvidence.Sensors.Select(sensor => (JsonNode)new JsonObject
-            {
-                ["id"] = sensor.SensorId,
-                ["version"] = sensor.SensorVersion,
-                ["resultHash"] = sensor.ResultHash,
-            }).ToArray());
-            meta["security"] = SecurityReviewCombiner.Metadata(sensorEvidence);
-        }
-        if (aggregateMembers is not null)
-        {
-            meta["aggregate"] = new JsonObject
-            {
-                ["members"] = new JsonArray(aggregateMembers.OrderBy(member => member.UnitId, StringComparer.Ordinal).Select(member => (JsonNode)new JsonObject
-                {
-                    ["unitId"] = member.UnitId,
-                    ["path"] = member.Path,
-                    ["subjectHash"] = member.SubjectHash,
-                }).ToArray()),
-                ["excluded"] = new JsonArray((aggregateExclusions ?? []).Distinct()
-                    .OrderBy(item => item.Path, StringComparer.Ordinal)
-                    .ThenBy(item => item.Reason, StringComparer.Ordinal)
-                    .Select(item => (JsonNode)new JsonObject
-                    {
-                        ["path"] = item.Path,
-                        ["reason"] = item.Reason,
-                    }).ToArray()),
-            };
-        }
-        return meta;
     }
 
-    private static string GetMetaPath(string root, string firstFile, string kind, string relativePath, ReviewLevel level)
+    // The parser has already validated the agent's response against the review response schema, so
+    // a shape the contract cannot bind is a defect in this build rather than agent output.
+    private static T Read<T>(JsonObject response, string property) =>
+        response[property].Deserialize<T>(ReviewMetaJson.Options)
+        ?? throw new ReviewResponseException($"The review response has no usable '{property}'.");
+
+    private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static string AdapterFromUnitId(string unitId)
     {
-        var key = Sha256(relativePath);
-        var directory = level switch
-        {
-            ReviewLevel.Project => root,
-            ReviewLevel.Module when File.Exists(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))
-                => Path.GetDirectoryName(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))!,
-            _ => Path.GetDirectoryName(firstFile)!,
-        };
-        var lane = level switch
-        {
-            ReviewLevel.File => "files",
-            ReviewLevel.Namespace => "namespaces",
-            _ => string.Empty,
-        };
-        var prefix = level.ToString().ToLowerInvariant();
-        return Path.Combine(directory, ".quality", "reviews", lane, $"{prefix}.{key}.review-meta.{kind}.json");
+        var segments = unitId.Split('/');
+        return segments.Length == 4 && segments[0] == "qs-v1" &&
+               segments[1] is "angular" or "dotnet" or "generic"
+            ? segments[1]
+            : throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter.");
     }
 
-    private static async Task<string> BuildSubjectContentAsync(
-        IReadOnlyList<string> paths, IReadOnlyList<string> files, ReviewLevel level, CancellationToken cancellationToken)
+    private static ReviewAdapter ParseAdapter(string adapter) => adapter switch
     {
-        if (level == ReviewLevel.File) return await File.ReadAllTextAsync(files[0], cancellationToken).ConfigureAwait(false);
-        var builder = new StringBuilder();
-        for (var index = 0; index < files.Count; index++)
+        "angular" => ReviewAdapter.Angular,
+        "dotnet" => ReviewAdapter.Dotnet,
+        "generic" => ReviewAdapter.Generic,
+        _ => throw new ArgumentException($"Adapter '{adapter}' is not part of the metadata contract.", nameof(adapter)),
+    };
+
+    private static ReviewKind ParseKind(string kind) =>
+        Enum.TryParse<ReviewKind>(kind, true, out var parsed)
+            ? parsed
+            : throw new ArgumentException($"Review kind '{kind}' is not part of the metadata contract.", nameof(kind));
+
+    private static StandardScope ParseScope(string scope) => scope switch
+    {
+        "built-in" => StandardScope.BuiltIn,
+        "global" => StandardScope.Global,
+        "project" => StandardScope.Project,
+        _ => throw new ArgumentException($"Review input scope '{scope}' is not part of the metadata contract.", nameof(scope)),
+    };
+
+    /// <summary>
+    /// A file review sees its file. An aggregate review sees a digest of its members - their sizes,
+    /// their own review state and findings, the derived structure, the boundary inventory for a
+    /// security pass, and a budgeted sample of real source - because concatenating every member
+    /// asks the file question N times over and does not fit. The subject hash is unaffected: it
+    /// stays the manifest of member hashes, and only the prompt content changes.
+    /// </summary>
+    private static async Task<SubjectContent> BuildSubjectContentAsync(
+        string root,
+        string relativePath,
+        ReviewRequest request,
+        IReadOnlyList<string> paths,
+        IReadOnlyList<string> files,
+        CancellationToken cancellationToken)
+    {
+        if (request.Level == ReviewLevel.File)
         {
-            builder.AppendLine($"\n--- {paths[index]} ---");
-            builder.AppendLine(await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false));
+            return new SubjectContent(
+                await File.ReadAllTextAsync(files[0], cancellationToken).ConfigureAwait(false),
+                EmptyMemberFindings);
         }
-        return builder.ToString();
+
+        var digest = await AggregateSubjectDigest.BuildAsync(new AggregateDigestRequest(
+            root,
+            relativePath,
+            request.DisplayName ?? Path.GetFileName(relativePath),
+            request.Level,
+            request.Kind,
+            paths,
+            request.AggregateExclusions ?? [],
+            request.SubjectGroups ?? []), cancellationToken).ConfigureAwait(false);
+        return new SubjectContent(digest.Text, digest.MemberFindings);
     }
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyMemberFindings =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 
     private static async Task<IReadOnlyDictionary<string, string>> ReadSubjectContentsAsync(
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
@@ -566,17 +557,19 @@ public sealed class ReviewRunner
         return result;
     }
 
-    private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(string metaPath)
-    {
-        if (!File.Exists(metaPath)) return [];
-        var root = JsonNode.Parse(File.ReadAllText(metaPath))?.AsObject();
-        return root?["findings"]?.AsArray().OfType<JsonObject>().Select(finding => new FindingIdentityRecord(
-            finding["fingerprint"]?.GetValue<string>() ?? string.Empty,
-            finding["id"]?.GetValue<string>() ?? string.Empty,
-            finding["locations"]?.AsArray().OfType<JsonObject>().FirstOrDefault()?["path"]?.GetValue<string>() ?? string.Empty,
-            finding["ruleId"]?.GetValue<string>() ?? string.Empty))
-            .Where(finding => !string.IsNullOrWhiteSpace(finding.Fingerprint)).ToArray() ?? [];
-    }
+    /// <summary>
+    /// The findings the previous review recorded, which the lifecycle compares against this run.
+    /// A sidecar that cannot be read yields none: the reader has reported the fault, and claiming
+    /// no previous findings resolves nothing, where a guessed list would resolve the wrong ones.
+    /// </summary>
+    private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(string metaPath) =>
+        ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)
+            ? sidecar.Document.Findings.Select(finding => new FindingIdentityRecord(
+                finding.Fingerprint,
+                finding.Id,
+                finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
+                finding.RuleId)).ToArray()
+            : [];
 
     private static async Task<IReadOnlyList<SubjectInputHash>> HashInputsAsync(
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
@@ -631,30 +624,6 @@ public sealed class ReviewRunner
     private static string GetAdapter(string file) =>
         Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "generic";
 
-    private static string AdapterFromUnitId(string unitId)
-    {
-        var segments = unitId.Split('/');
-        return segments.Length == 4 && segments[0] == "qs-v1" &&
-               segments[1] is "angular" or "dotnet" or "generic"
-            ? segments[1]
-            : throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter.");
-    }
-
-    private static string? ResolveUnitId(string root, string relativePath, ReviewLevel level) =>
-        FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
-            .Where(node => node.Level == level && StringComparer.Ordinal.Equals(node.Path, relativePath))
-            .OrderBy(node => node.Id, StringComparer.Ordinal)
-            .Select(node => node.Id)
-            .FirstOrDefault();
-
-    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
-    {
-        foreach (var node in roots)
-        {
-            yield return node;
-            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
-        }
-    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -698,12 +667,15 @@ public sealed class ReviewRunner
         IReadOnlyList<AggregateMemberHash>? Members,
         IReadOnlyList<ScopeExclusion>? Exclusions);
 
+    private sealed record SubjectContent(string Text, IReadOnlyDictionary<string, string> MemberFindings);
+
     private sealed record PreparedPrompt(
         string Root,
         string RelativePath,
         string[] SubjectPaths,
         string[] Files,
         string FileContent,
+        IReadOnlyDictionary<string, string> MemberFindings,
         ResolvedInputs Inputs,
         string Prompt,
         string UnitId,

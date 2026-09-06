@@ -154,6 +154,22 @@
   <p><b>Approval effect:</b> one backend-owned storage contract, one deterministic diff contract, five implementation slices, and no Quality Studio CLI Git ownership.</p>
 </div>
 
+<div class="box warn" id="build-state">
+  <h4>Build state, 6 September 2026: the archive was never built</h4>
+  <p>The tracked archive at <code>.quality/run-history/</code> recommended above does not exist. A
+  427-line <code>ReviewRunArchive</code> class was written for it and never wired to a caller, so no run
+  ever produced an archive row. That class has now been deleted rather than kept as a promise the
+  product does not keep; slices RP-1 to RP-5 remain unimplemented and the recommendation above stands
+  as a proposal, not as a description of the code.</p>
+  <p>What was built in its place is the retention half of the problem. Journals under
+  <code>.quality/runs/</code> used to be kept forever while their reports were pruned to the newest 50,
+  so start-up recovery rebuilt exactly the reports the last prune had deleted, on every restart. The
+  same retention now applies to the journals (terminal, unpinned runs only; a resumable run is never
+  removed), and recovery no longer republishes a report that retention removed on purpose. Terminal
+  history therefore lives in <code>.quality/reports/runs/</code> alone, bounded by that retention, and
+  history older than it is gone rather than silently resurrected.</p>
+</div>
+
 <ul class="toc">
   <li><a href="#decision">Decision and boundary</a></li>
   <li><a href="#evidence">Repository evidence</a></li>
@@ -479,6 +495,7 @@
     <tr><td>Stable finding/grade diff precedent</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs">ChangeSetReviewService.cs</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetModels.cs">ChangeSetModels.cs</a></td></tr>
     <tr><td>Git-backed trend requires committed sidecars</td><td><a href="../../../docs/quality-reports.md">docs/quality-reports.md</a>, Git-backed trend section</td></tr>
     <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
+    <tr><td>Journal retention and non-resurrecting recovery (2026-09-06)</td><td><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.Prune</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/QualityRunReport.cs">QualityRunReportStore.RetentionFloor</a>, <a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.RecoverRuns</a>; <a href="../../../tests/QualityStudio.Api.Tests/ReviewRunRetentionTests.cs">ReviewRunRetentionTests</a></td></tr>
   </tbody>
 </table>
 

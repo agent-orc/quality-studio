@@ -12,11 +12,16 @@ public class GitleaksSecurityScanner : IReviewSensor
 {
     private readonly GitleaksBinaryResolver _resolver;
     private readonly HttpClient _httpClient;
+    private readonly HierarchyUnitResolver _unitResolver;
 
-    public GitleaksSecurityScanner(GitleaksBinaryResolver? resolver = null, HttpClient? httpClient = null)
+    public GitleaksSecurityScanner(
+        GitleaksBinaryResolver? resolver = null,
+        HttpClient? httpClient = null,
+        HierarchyUnitResolver? unitResolver = null)
     {
         _httpClient = httpClient ?? new HttpClient();
         _resolver = resolver ?? new GitleaksBinaryResolver(_httpClient);
+        _unitResolver = unitResolver ?? HierarchyUnitResolver.Shared;
     }
 
     public string Id => "gitleaks";
@@ -257,11 +262,7 @@ public class GitleaksSecurityScanner : IReviewSensor
         string? baselinePath,
         CancellationToken cancellationToken)
     {
-        var hierarchyFiles = FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
-            .Where(node => node.Level == ReviewLevel.File)
-            .GroupBy(node => node.Path, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.OrderBy(node => node.Id, StringComparer.Ordinal).First(),
-                StringComparer.Ordinal);
+        var hierarchyFiles = _unitResolver.FileUnitsByPath(root);
         var groups = grouped.ToArray();
         var observedPaths = groups.Select(group => NormalizeRelativePath(group.Key)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var fileGroup in groups)
@@ -322,7 +323,7 @@ public class GitleaksSecurityScanner : IReviewSensor
                 Findings = allFindings.Select(ToReviewFinding).ToArray(),
             };
 
-            var metaPath = Path.Combine(Path.GetDirectoryName(absolutePath)!, ".quality", "reviews", "files", $"file.{Sha256(relativePath)}.review-meta.security.json");
+            var metaPath = ReviewMetaPath.For(root, absolutePath, relativePath, ReviewLevel.File, "security");
             var previous = LoadPersistedFindingIdentities(metaPath);
             var current = allFindings.Select(finding => new FindingIdentityRecord(
                 finding.Fingerprint, finding.Id, finding.Path, finding.RuleId)).ToArray();
@@ -336,22 +337,17 @@ public class GitleaksSecurityScanner : IReviewSensor
                     "Matched the repository Gitleaks baseline.", expectedTimestamp: state.Timestamp,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
-            var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-            await File.WriteAllTextAsync(temporaryPath, ReviewMetaJson.Serialize(doc) + Environment.NewLine, new UTF8Encoding(false), cancellationToken)
-                .ConfigureAwait(false);
-            File.Move(temporaryPath, metaPath, true);
+            await AtomicFile.WriteAllTextAsync(
+                metaPath, ReviewMetaJson.Serialize(doc) + Environment.NewLine, cancellationToken).ConfigureAwait(false);
         }
 
         if (request.Mode == SecurityScanMode.Repository)
         {
             foreach (var metaPath in Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories))
             {
-                using var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken).ConfigureAwait(false));
-                var document = metadata.RootElement;
-                if (document.GetProperty("reviewer").GetProperty("agent").GetString() != "gitleaks") continue;
-                var path = document.GetProperty("unit").GetProperty("path").GetString()!;
-                if (observedPaths.Contains(path)) continue;
+                if (!ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)) continue;
+                if (sidecar.Document.Reviewer.Agent != "gitleaks") continue;
+                if (observedPaths.Contains(sidecar.Document.Unit.Path)) continue;
                 await new FindingStateStore(root).MergeReviewAsync(
                     [], LoadPersistedFindingIdentities(metaPath), "gitleaks", cancellationToken).ConfigureAwait(false);
             }
@@ -371,16 +367,14 @@ public class GitleaksSecurityScanner : IReviewSensor
             finding.RuleId,
             finding.Evidence);
 
-    private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath)
-    {
-        if (!File.Exists(metaPath)) return [];
-        using var document = JsonDocument.Parse(File.ReadAllText(metaPath));
-        return document.RootElement.GetProperty("findings").EnumerateArray().Select(finding => new FindingIdentityRecord(
-            finding.GetProperty("fingerprint").GetString()!,
-            finding.GetProperty("id").GetString()!,
-            finding.GetProperty("locations")[0].GetProperty("path").GetString()!,
-            finding.GetProperty("ruleId").GetString()!)).ToArray();
-    }
+    private static IReadOnlyList<FindingIdentityRecord> LoadPersistedFindingIdentities(string metaPath) =>
+        ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)
+            ? sidecar.Document.Findings.Select(finding => new FindingIdentityRecord(
+                finding.Fingerprint,
+                finding.Id,
+                finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
+                finding.RuleId)).ToArray()
+            : [];
 
     private static ReviewGrade BuildGrade(IReadOnlyCollection<SecurityFindingRecord> findings)
     {
@@ -855,15 +849,6 @@ public class GitleaksSecurityScanner : IReviewSensor
         "generic" => ReviewAdapter.Generic,
         _ => throw new ArgumentException($"Unsupported hierarchy adapter '{adapter}'."),
     };
-
-    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
-    {
-        foreach (var node in roots)
-        {
-            yield return node;
-            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
-        }
-    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

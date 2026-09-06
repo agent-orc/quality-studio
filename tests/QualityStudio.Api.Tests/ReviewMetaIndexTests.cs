@@ -30,14 +30,14 @@ public sealed class ReviewMetaIndexTests
     }
 
     [Fact]
-    public void Forget_releases_the_repository_and_a_later_read_rebuilds_it_from_disk()
+    public void Release_drops_the_repository_and_a_later_read_rebuilds_it_from_disk()
     {
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
         WriteSidecar(fixture, "Sample.cs", "code");
         using var index = new ReviewMetaIndex();
         Assert.Single(index.Read(fixture.Path, "Sample.cs"));
 
-        index.Forget(fixture.Path);
+        index.Release(fixture.Path);
         WriteSidecar(fixture, "Second.cs", "code");
 
         // No watcher is left to observe the new sidecar, so the rebuild has to come from
@@ -90,15 +90,15 @@ public sealed class ReviewMetaIndexTests
     }
 
     [Fact]
-    public void Forget_and_Dispose_are_idempotent()
+    public void Release_and_Dispose_are_idempotent()
     {
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
         WriteSidecar(fixture, "Sample.cs", "code");
         var index = new ReviewMetaIndex();
         Assert.Single(index.Read(fixture.Path, "Sample.cs"));
 
-        index.Forget(fixture.Path);
-        index.Forget(fixture.Path);
+        index.Release(fixture.Path);
+        index.Release(fixture.Path);
         index.Dispose();
         index.Dispose();
     }

@@ -1,8 +1,9 @@
 ---
 id: QS-NG-003
-version: 1.0.0
+version: 1.1.0
 title: One focused standalone component per feature folder
 technology: angular
+kinds: [code]
 category: component-structure
 severity: low
 defaultOn: true
@@ -28,6 +29,10 @@ concerns into a component that already has a name and a job (or splintering one 
 several loosely related components) erodes that mapping and makes change detection, testing,
 and template hygiene reviews harder because no single file is "the" source of truth anymore.
 
+## Detection
+
+Check whether the file sits in a folder named after its component and whether that folder holds the matching `.ts`, `.html`, `.css`, and `.spec.ts`. Flag a component that owns state or markup for a feature it is not named after, and a feature split across sibling components with no declared inputs/outputs boundary between them.
+
 ## Good example
 
 ```
@@ -50,6 +55,7 @@ frontend/src/app/review-panel/
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the existing `frontend/src/app/*` feature-folder
   layout (`review-panel`, `explorer`, `attack-coverage`, `usage-history`, `editor`,
   `project-dashboard`, `review-actions`).

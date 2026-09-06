@@ -13,7 +13,12 @@ public sealed record ReviewInput(
     bool Enabled,
     string Content,
     string IncludedContent,
-    bool Truncated);
+    bool Truncated,
+    string Version = ReviewInput.Unversioned)
+{
+    /// <summary>File-authored guidelines carry no version of their own; named rules do.</summary>
+    public const string Unversioned = "unversioned";
+}
 
 public sealed record InputOmission(string Id, string Source, string Reason, int OmittedCharacters);
 
@@ -27,9 +32,16 @@ public sealed record ResolvedInputs(
 {
     public bool Complete => Omissions.All(omission => omission.Reason == "overridden-by-project");
 
+    /// <summary>
+    /// The prompt has two guideline insertion points, so the three resolution scopes render into
+    /// two groups: built-in named rules are not project-authored and travel with the global scope.
+    /// </summary>
     public string Guidelines(string scope)
     {
-        var selected = Inputs.Where(input => input.Scope == scope && input.IncludedContent.Length > 0).ToArray();
+        var selected = Inputs
+            .Where(input => (input.Scope == scope || (scope == "global" && input.Scope == "built-in")) &&
+                            input.IncludedContent.Length > 0)
+            .ToArray();
         return selected.Length == 0
             ? "(none supplied)"
             : string.Join("\n\n", selected.Select(input => $"## {input.Id}\n{input.IncludedContent}"));
@@ -58,12 +70,22 @@ public sealed class InputResolver
 {
     public const int DefaultBudgetCharacters = 12_000;
 
+    private readonly RuleCatalogueResolver rules = new();
+
+    /// <param name="adapter">
+    /// The reviewed unit's hierarchy adapter (<c>dotnet</c>, <c>angular</c>, <c>generic</c>), which
+    /// selects the named rules that apply to it. Null resolves every technology's rules and is for
+    /// inspection paths that describe the whole policy rather than one unit. Callers that compare
+    /// <see cref="ResolvedInputs.EffectiveHash"/> against a stored one must pass the same value the
+    /// review passed, or every review reads as policy drift.
+    /// </param>
     public ResolvedInputs Resolve(
         string repositoryRoot,
         string kind,
         ReviewLevel level,
         string? globalInputsDirectory = null,
-        int budgetCharacters = DefaultBudgetCharacters)
+        int budgetCharacters = DefaultBudgetCharacters,
+        string? adapter = null)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) throw new ArgumentException("A repository root is required.", nameof(repositoryRoot));
         if (!Enum.TryParse<ReviewKind>(kind, true, out _)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
@@ -71,8 +93,17 @@ public sealed class InputResolver
 
         var normalizedKind = kind.ToLowerInvariant();
         var normalizedLevel = level.ToString().ToLowerInvariant();
-        var global = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
+        var builtIn = RuleCatalogueResolver.RenderAsReviewInputs(
+            rules.Resolve(repositoryRoot, globalInputsDirectory), normalizedKind, adapter);
+        var files = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
             globalInputsDirectory);
+        // Named rules are global policy, so they compete with global guidelines on priority; project
+        // inputs stay last and still win by id, over a rule as over a global file.
+        var global = builtIn.Concat(files)
+            .OrderByDescending(input => input.Priority)
+            .ThenBy(input => input.Id, StringComparer.Ordinal)
+            .ThenBy(input => input.Source, StringComparer.Ordinal)
+            .ToArray();
         var projectRoot = Path.GetFullPath(repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
         var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);

@@ -152,8 +152,14 @@ jobs:
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
+      - name: Verify generated rule catalogue
+        run: npm run rules:check
+
       - name: Test coverage report validator
         run: python3 .github/scripts/test_validate_coverage.py
+
+      - name: Rule catalogue tests
+        run: npm run test:rule-catalogue
 
       - name: Dev stack launcher tests
         run: npm run test:dev-stack

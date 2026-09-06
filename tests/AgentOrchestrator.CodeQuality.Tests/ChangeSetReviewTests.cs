@@ -334,28 +334,20 @@ public sealed class ChangeSetReviewTests
                          await File.ReadAllTextAsync(Absolute("src/Api.cs"), TestContext.Current.CancellationToken);
             var contentHash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
                 Encoding.UTF8.GetBytes(source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n'))));
-            var meta = new
-            {
-                schemaVersion = 2,
-                unit = new { id = UnitId, adapter = "generic", level = "file", path = "src/Api.cs", displayName = "Api.cs" },
-                kind = "code",
-                grade = new
-                {
-                    score,
-                    band = score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F",
-                    rationale = "Test grade",
-                },
-                subjectInputs = new[] { new { path = "src/Api.cs", selector = "file", contentHash } },
-                findings = findings.Select(finding => new
-                {
-                    id = "finding-" + finding.Fingerprint[7..],
-                    fingerprint = finding.Fingerprint,
-                    ruleId = finding.RuleId,
-                    severity = finding.Severity,
-                    title = finding.Title,
-                }),
-            };
-            await WriteAsync(MetaPath, JsonSerializer.Serialize(meta));
+            var meta = ReviewMetaFixture.Document(
+                UnitId,
+                "src/Api.cs",
+                "sha256:" + new string('d', 64),
+                [new SubjectInputHash("src/Api.cs", "file", contentHash)],
+                score: score,
+                rationale: "Test grade",
+                findings: findings.Select(finding => ReviewMetaFixture.Finding(
+                    finding.Fingerprint,
+                    finding.RuleId,
+                    Enum.Parse<FindingSeverity>(finding.Severity, true),
+                    finding.Title,
+                    "src/Api.cs")).ToArray());
+            await WriteAsync(MetaPath, ReviewMetaJson.Serialize(meta));
         }
 
         public async Task<string> CommitAsync(string message)

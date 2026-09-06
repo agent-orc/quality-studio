@@ -1,9 +1,12 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO.Compression;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -11,16 +14,41 @@ public sealed class GitleaksBinaryResolver
 {
     public const string PinnedVersion = "8.24.2";
 
+    /// <summary>The tracked digest of each pinned release archive; see gitleaks-binaries.json.</summary>
+    private const string DigestResourceName = "AgentOrchestrator.CodeQuality.gitleaks-binaries.json";
+
+    /// <summary>
+    /// One client for every resolver. A per-instance HttpClient holds its own connection pool and its
+    /// sockets outlive it, so a resolver created per scan used to leak them.
+    /// </summary>
+    private static readonly HttpClient SharedHttpClient = new();
+
+    /// <summary>
+    /// One provisioning at a time per cache path. Two scans starting together used to download and
+    /// extract into the same file, so one could read a half-written binary.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> ProvisioningGates =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
+    private static readonly Lazy<IReadOnlyDictionary<string, string>> PinnedArchiveDigests =
+        new(LoadPinnedArchiveDigests, LazyThreadSafetyMode.ExecutionAndPublication);
+
     private readonly HttpClient _httpClient;
     private readonly string _cacheDirectory;
     private readonly string _downloadRoot;
 
     public GitleaksBinaryResolver(HttpClient? httpClient = null, string? cacheDirectory = null)
     {
-        _httpClient = httpClient ?? new HttpClient();
+        _httpClient = httpClient ?? SharedHttpClient;
         _cacheDirectory = cacheDirectory ?? GetDefaultCacheDirectory();
         _downloadRoot = $"https://github.com/gitleaks/gitleaks/releases/download/v{PinnedVersion}";
     }
+
+    /// <summary>
+    /// The reviewed SHA-256 of each pinned release archive, keyed by <c>platform_architecture</c>. A
+    /// download is checked against this table, so a tampered release checksum file is not enough.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> PinnedArchiveDigestTable => PinnedArchiveDigests.Value;
 
     public async Task<string> ResolveAsync(string? explicitPath = null, CancellationToken cancellationToken = default)
     {
@@ -43,9 +71,24 @@ public sealed class GitleaksBinaryResolver
             return cached;
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(cached)!);
-        await DownloadPinnedBinaryAsync(cached, cancellationToken).ConfigureAwait(false);
-        return cached;
+        var gate = ProvisioningGates.GetOrAdd(cached, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // A scan that queued behind another one takes its result instead of downloading again.
+            if (File.Exists(cached) && await IsPinnedVersionAsync(cached, cancellationToken).ConfigureAwait(false))
+            {
+                return cached;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(cached)!);
+            await DownloadPinnedBinaryAsync(cached, cancellationToken).ConfigureAwait(false);
+            return cached;
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     private async Task<string> VerifyBinaryAsync(string path, CancellationToken cancellationToken)
@@ -119,9 +162,18 @@ public sealed class GitleaksBinaryResolver
     private async Task DownloadPinnedBinaryAsync(string destination, CancellationToken cancellationToken)
     {
         var archiveName = GetArchiveName();
+        // The repository digest is the authority. Without one there is nothing to check the download
+        // against, and a checksum file served from the same release proves only self-consistency.
+        var expectedDigest = TrackedDigest();
         var checksums = await DownloadTextAsync($"{_downloadRoot}/{PinnedVersionAssetChecksumsName()}", cancellationToken)
             .ConfigureAwait(false);
-        var expectedDigest = ParseChecksum(checksums, archiveName);
+        var publishedDigest = ParseChecksum(checksums, archiveName);
+        if (!string.Equals(publishedDigest, expectedDigest, StringComparison.Ordinal))
+        {
+            throw new SecurityScannerUnavailableException(
+                $"The published checksum for '{archiveName}' does not match the digest tracked in " +
+                "gitleaks-binaries.json. Refusing to install it.");
+        }
 
         var archivePath = Path.Combine(Path.GetTempPath(), $"gitleaks-{PinnedVersion}-{Guid.NewGuid():N}{GetArchiveExtension()}");
         await DownloadFileAsync($"{_downloadRoot}/{archiveName}", archivePath, cancellationToken).ConfigureAwait(false);
@@ -134,6 +186,42 @@ public sealed class GitleaksBinaryResolver
         {
             TryDelete(archivePath);
         }
+    }
+
+    /// <summary>The reviewed digest for this platform, or a refusal naming the offline escape hatch.</summary>
+    private static string TrackedDigest()
+    {
+        var (platform, architecture, _) = GetArchiveCoordinates();
+        var key = $"{platform}_{architecture}";
+        if (PinnedArchiveDigests.Value.TryGetValue(key, out var digest)) return digest;
+        throw new SecurityScannerUnavailableException(
+            $"No tracked Gitleaks digest for '{key}'. Install Gitleaks {PinnedVersion} yourself and point " +
+            "QUALITY_GITLEAKS_PATH at it, or add the digest to gitleaks-binaries.json.");
+    }
+
+    private static IReadOnlyDictionary<string, string> LoadPinnedArchiveDigests()
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(DigestResourceName)
+            ?? throw new InvalidOperationException($"Embedded resource '{DigestResourceName}' is missing.");
+        using var document = JsonDocument.Parse(stream);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("version", out var version) ||
+            !string.Equals(version.GetString(), PinnedVersion, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"gitleaks-binaries.json tracks version '{version.GetString()}' but PinnedVersion is '{PinnedVersion}'.");
+        }
+
+        var digests = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var archive in root.GetProperty("archives").EnumerateObject())
+        {
+            var digest = archive.Value.GetString();
+            if (digest is not { Length: 64 } || !digest.All(char.IsAsciiHexDigit))
+                throw new InvalidOperationException(
+                    $"gitleaks-binaries.json has an invalid SHA-256 for '{archive.Name}'.");
+            digests[archive.Name] = digest.ToLowerInvariant();
+        }
+        return digests;
     }
 
     private static string PinnedVersionAssetChecksumsName() => $"gitleaks_{PinnedVersion}_checksums.txt";
@@ -255,52 +343,53 @@ public sealed class GitleaksBinaryResolver
         }
     }
 
+    /// <summary>
+    /// Unpacks into a scratch directory and moves the executable into place in one step, so a reader
+    /// never sees a partially extracted binary and the cache directory never collects archive debris.
+    /// </summary>
     private static void ExtractArchive(string archivePath, string destination)
     {
         var directory = Path.GetDirectoryName(destination)!;
         Directory.CreateDirectory(directory);
-
-        if (archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        var executableName = OperatingSystem.IsWindows() ? "gitleaks.exe" : "gitleaks";
+        var tempDirectory = Path.Combine(Path.GetTempPath(), $"gitleaks-extract-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDirectory);
+        try
         {
-            var tempDirectory = Path.Combine(Path.GetTempPath(), $"gitleaks-unzip-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tempDirectory);
-            try
+            if (archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
                 ZipFile.ExtractToDirectory(archivePath, tempDirectory, true);
-                var extracted = Directory.EnumerateFiles(tempDirectory, OperatingSystem.IsWindows() ? "gitleaks.exe" : "gitleaks", SearchOption.AllDirectories)
-                    .FirstOrDefault() ?? throw new SecurityScannerUnavailableException("Gitleaks archive did not contain an executable.");
-                File.Copy(extracted, destination, true);
             }
-            finally
+            else
             {
-                TryDelete(tempDirectory);
-            }
-        }
-        else
-        {
-            var tarPath = Path.Combine(Path.GetTempPath(), $"gitleaks-{Guid.NewGuid():N}.tar");
-            try
-            {
-                using var archive = File.OpenRead(archivePath);
-                using var gzip = new GZipStream(archive, CompressionMode.Decompress);
-                using var tar = File.Create(tarPath);
-                gzip.CopyTo(tar);
-                tar.Close();
-
-                TarFile.ExtractToDirectory(tarPath, directory, overwriteFiles: true);
-                var extracted = Directory.EnumerateFiles(directory, "gitleaks", SearchOption.AllDirectories)
-                    .FirstOrDefault() ?? throw new SecurityScannerUnavailableException("Gitleaks archive did not contain an executable.");
-                if (!string.Equals(extracted, destination, StringComparison.Ordinal))
+                var tarPath = Path.Combine(tempDirectory, "gitleaks.tar");
+                using (var archive = File.OpenRead(archivePath))
+                using (var gzip = new GZipStream(archive, CompressionMode.Decompress))
+                using (var tar = File.Create(tarPath))
                 {
-                    File.Copy(extracted, destination, true);
+                    gzip.CopyTo(tar);
                 }
+                TarFile.ExtractToDirectory(tarPath, tempDirectory, overwriteFiles: true);
             }
-            finally
-            {
-                TryDelete(tarPath);
-            }
+
+            var extracted = Directory.EnumerateFiles(tempDirectory, executableName, SearchOption.AllDirectories)
+                .FirstOrDefault()
+                ?? throw new SecurityScannerUnavailableException("Gitleaks archive did not contain an executable.");
+            var staged = Path.Combine(directory, $".{executableName}.{Guid.NewGuid():N}");
+            File.Copy(extracted, staged, true);
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(staged, ExecutableMode);
+            File.Move(staged, destination, overwrite: true);
+        }
+        finally
+        {
+            TryDelete(tempDirectory);
         }
     }
+
+    private static UnixFileMode ExecutableMode =>
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+        UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+        UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
 
     private static void TryDelete(string path)
     {

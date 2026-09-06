@@ -1,0 +1,838 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json",
+  "schemaVersion": 1,
+  "catalogueVersion": "1.2.0",
+  "entries": [
+    {
+      "id": "QS-CS-001",
+      "version": "1.1.0",
+      "title": "Shape minimal-API endpoints as typed static handlers",
+      "technology": "dotnet",
+      "category": "api-shape",
+      "kinds": [
+        "code"
+      ],
+      "statement": "A minimal-API endpoint is a `static` (or local) handler function that takes its dependencies as parameters (`HttpContext`, registered services, route/body values) via ASP.NET Core's parameter binding, and returns a typed `IResult` (`Results.Ok`, `Results.Created`, `Results.NoContent`, ...). Route registration (`app.MapGet`/`MapPost`/...) stays a one-line pointer to that handler.",
+      "rationale": "`src/QualityStudio.Api/Program.cs` already establishes this shape consistently (`Guidelines`, `InstallGuideline`, `CreateGuideline`, ...): the handler is independently testable without spinning up the HTTP pipeline, dependencies are explicit in the signature instead of pulled from an ambient service locator, and every route returns the same small set of typed results the framework can serialize predictably.",
+      "detection": "Look at the `app.Map*` registrations for inline lambdas with bodies longer than one expression, and at handlers for `IServiceProvider`/`GetRequiredService` use, `HttpContext.Response` written by hand, or a return type that is not `IResult`/`Task<IResult>`. A one-line lambda that forwards to a named handler is the intended shape.",
+      "goodExample": "static IResult InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry, GuidelineStore store)\n{\n    var (_, repository) = ResolveRepository(context, registry);\n    var installed = store.Install(repository.Root, catalogueId);\n    return Results.Created($\"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}\", installed);\n}",
+      "badExample": "app.MapPost(\"/api/widgets\", async (HttpContext context) =>\n{\n    var store = context.RequestServices.GetRequiredService<WidgetStore>(); // service-locator pull\n    var body = await JsonSerializer.DeserializeAsync<WidgetRequest>(context.Request.Body);\n    await store.SaveAsync(body!);\n    context.Response.StatusCode = 201; // untyped result, no IResult\n});",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the handler-function convention used throughout `src/QualityStudio.Api/Program.cs`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-002",
+      "version": "1.1.0",
+      "title": "Register the narrowest correct DI lifetime; inject via constructor",
+      "technology": "dotnet",
+      "category": "dependency-injection",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Register a service as `Singleton` only when it is stateless or its internal state is safe to share across all requests; register per-operation or short-lived collaborators as `Transient` (or `Scoped` where request-scoped state is genuinely needed). Consume dependencies through constructor (or primary-constructor) parameters — never resolve them ad hoc via `IServiceProvider.GetService`/`GetRequiredService` inside a class that could take them as constructor parameters instead.",
+      "rationale": "`src/QualityStudio.Api/Program.cs` registers `GuidelineStore` as `Singleton` (stateless, delegates to the filesystem per call) but `GuidelineImpactAnalyzer` as `Transient` (does per-analysis work); mismatching this — e.g. making a per-request analyzer a singleton — risks leaking state across unrelated requests. Constructor injection keeps a class's true dependencies visible in its signature and keeps it trivially constructible in unit tests without a DI container.",
+      "detection": "Read the `builder.Services.Add*` registration next to the type's actual state. Flag `AddSingleton` on a type holding per-operation mutable fields, and any `GetService`/`GetRequiredService` call inside a class that already has a constructor able to take the dependency. `IServiceProvider` use inside composition-root code is not a violation.",
+      "goodExample": "// Program.cs\nbuilder.Services.AddSingleton<GuidelineStore>();\nbuilder.Services.AddTransient<GuidelineImpactAnalyzer>();\n\n// ReviewJobs.cs — dependencies arrive as primary-constructor parameters\npublic sealed class ReviewExecutorFactory(\n    SensorRegistry sensors,\n    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory",
+      "badExample": "public sealed class ReviewExecutorFactory : IReviewExecutorFactory\n{\n    public IReviewExecutor Create(IServiceProvider provider, ...) =>\n        new ReviewExecutor(new ReviewRunner(sensorRegistry: provider.GetRequiredService<SensorRegistry>()));\n        // hides the real dependency behind a service-locator pull instead of a constructor parameter\n}",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the `Singleton`/`Transient` split for `GuidelineStore`/`GuidelineImpactAnalyzer` and the primary-constructor DI pattern used by `ReviewExecutorFactory` in `src/QualityStudio.Api/Program.cs` and `ReviewJobs.cs`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-003",
+      "version": "1.1.0",
+      "title": "Propagate CancellationToken; never write async void",
+      "technology": "dotnet",
+      "category": "async-hygiene",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Every `async` method that does I/O accepts a `CancellationToken` and passes it to every awaited call that accepts one. `async` methods return `Task`/`Task<T>` (or `ValueTask`/`ValueTask<T>`) — never `async void`, except for a framework-mandated event handler. Do not block on async work with `.Result`, `.Wait()`, or `GetAwaiter().GetResult()`.",
+      "rationale": "`GuidelineImpactAnalyzer.AnalyzeAsync(string, GuidelineImpactRequest, CancellationToken, ...)` and `ReviewRunner`'s `Async` methods thread a `CancellationToken` through every awaited call so a caller can actually cancel a long-running review. `async void` swallows exceptions instead of surfacing them on the returned task, and sync-over-async blocking can deadlock a request thread under load — both defeat the cancellation and error-propagation guarantees the rest of the codebase already relies on.",
+      "detection": "Search for `async void`, `.Result`, `.Wait()`, `GetAwaiter().GetResult()`, and for awaited calls that have a `CancellationToken` overload but are called without one while a token is in scope. Also flag an `async` method doing I/O whose signature takes no `CancellationToken`.",
+      "goodExample": "public virtual async Task<GuidelineImpactResult> AnalyzeAsync(\n    string repositoryRoot, GuidelineImpactRequest request, CancellationToken cancellationToken)\n{\n    var content = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);\n    // ...\n}",
+      "badExample": "public async void Refresh() // async void: exceptions never surface to the caller\n{\n    var content = File.ReadAllText(path); // blocking I/O on an async method\n    var result = LoadAsync().Result;      // sync-over-async: can deadlock\n}",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the `CancellationToken`-propagating signatures of `GuidelineImpactAnalyzer.AnalyzeAsync` and `ReviewRunner`'s async methods."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-004",
+      "version": "1.1.0",
+      "title": "Structure tests as isolated Arrange-Act-Assert with behavior-focused names",
+      "technology": "dotnet",
+      "category": "test-structure",
+      "kinds": [
+        "code"
+      ],
+      "statement": "A test method name describes the observable behavior being verified (e.g. `Project_input_overrides_global_by_id`), not the method under test. Each test arranges its own isolated fixture (a fresh temp directory, in-memory store, etc.), performs one action, and asserts on outcomes — it does not depend on state left behind by another test or on execution order. Dispose owned resources (implement `IDisposable` when a fixture creates files/directories).",
+      "rationale": "`InputResolverTests` creates a unique temp directory per test instance and implements `IDisposable` to clean it up, and every test method name states the behavior under test rather than just naming the method it calls. This is what makes the suite safe to run in parallel and lets a failing test name alone tell a reader what broke, without opening the test body first.",
+      "detection": "Check that the test class owns its fixture (a per-instance temp path, its own store) and disposes it, that the method name states a behavior rather than a member name, and that no test reads or writes state another test created. Shared immutable fixture data is not a violation.",
+      "goodExample": "public sealed class InputResolverTests : IDisposable\n{\n    private readonly string root = Path.Combine(Path.GetTempPath(), \"quality-input-tests\", Guid.NewGuid().ToString(\"N\"));\n\n    [Fact]\n    public void Project_input_overrides_global_by_id()\n    {\n        Write(global, \"rules.md\", \"rules\", \"all\", \"all\", 10, \"global body\");\n        Write(Project, \"rules.md\", \"rules\", \"code\", \"file\", 1, \"project body\");\n\n        var result = new InputResolver().Resolve(root, \"code\", ReviewLevel.File, global);\n\n        Assert.Equal(\"project body\", Assert.Single(result.Inputs).Content);\n    }\n}",
+      "badExample": "[Fact]\npublic void Test1() // name describes nothing; shares a hard-coded path with other tests\n{\n    Directory.CreateDirectory(\"/tmp/shared-fixture\");\n    var resolver = new InputResolver();\n    // ... asserts three unrelated behaviors in one test, no cleanup\n}",
+      "severity": "low",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "testing-confidence",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the fixture-isolation and naming conventions already used in `tests/AgentOrchestrator.CodeQuality.Tests/InputResolverTests.cs`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-005",
+      "version": "1.0.0",
+      "title": "Confine every repository path through the shared confinement helper",
+      "technology": "dotnet",
+      "category": "path-confinement",
+      "kinds": [
+        "security"
+      ],
+      "statement": "A path that reaches the filesystem from a request, a configuration file, or a stored document is canonicalised with `Path.GetFullPath`, checked to sit under its configured root, and walked segment by segment to reject symbolic links and junctions — through `PathConfinement`, not through a second implementation. Reject rooted paths and `..` segments instead of normalising them away silently.",
+      "rationale": "`RepositoryAccess.NormalizeRelativePath` and `RepositoryAccess.ResolveFile` funnel every Studio file read through `PathConfinement.IsWithin` and `PathConfinement.RejectReparseTraversal`, which is why `GET /api/file?path=../other-repo/Second.cs` answers 400 instead of serving another repository's source. A prefix comparison on its own is not enough on Windows, where case differs and a junction inside the root points anywhere; a second, slightly different copy of the check is how one call site ends up with the weaker half.",
+      "detection": "Look for `Path.Combine` or `Path.GetFullPath` on a value that arrived from outside the process followed by a file or directory operation with no containment check, for `StartsWith` comparisons that skip the trailing separator or use the wrong `StringComparison`, and for a private `IsWithin`/`ContainedPath` helper duplicating `PathConfinement`. A path built entirely from constants is not a violation.",
+      "goodExample": "// src/QualityStudio.Api/PathConfinement.cs\npublic static void RejectReparseTraversal(string root, string candidate)\n{\n    if (!IsWithin(root, candidate)) throw new ArgumentException(\"Path escapes its configured root.\");\n    var current = Path.GetFullPath(root);\n    foreach (var segment in Path.GetRelativePath(root, candidate).Split(\n                 [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))\n    {\n        current = Path.Combine(current, segment);\n        if (File.GetAttributes(current).HasFlag(FileAttributes.ReparsePoint))\n            throw new ArgumentException(\"Paths cannot traverse symbolic links or junctions.\");\n    }\n}",
+      "badExample": "var absolute = Path.Combine(repositoryRoot, request.Path);   // \"..\" is still in there\nif (absolute.StartsWith(repositoryRoot))                     // no separator, no case rule, no link check\n{\n    return await File.ReadAllTextAsync(absolute, cancellationToken);\n}",
+      "severity": "critical",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in `PathConfinement` and the `RepositoryAccess` call sites that route every repository read through it."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-006",
+      "version": "1.0.0",
+      "title": "Start external processes from a fixed executable with an argument list",
+      "technology": "dotnet",
+      "category": "process-execution",
+      "kinds": [
+        "security"
+      ],
+      "statement": "The executable of a spawned process comes from code or a host-owned allowlist, never from repository or request data. Arguments go into `ProcessStartInfo.ArgumentList` one at a time — never a concatenated `Arguments` string — with `UseShellExecute = false`, `CreateNoWindow = true`, redirected streams, and a `CancellationToken` on the wait.",
+      "rationale": "`ProcessSensorCommandRunner.RunAsync`, `GitleaksSecurityScanner.RunScanAsync`, and `GitleaksBinaryResolver.RunVersionAsync` all use `ArgumentList`, so a repository path containing a space or a quote is an argument and not a new command. The executable is the part that argument escaping cannot protect: a configured command string lets a repository name a shell, and that process reads beyond its working directory, inherits the host's credentials, reaches the network, and writes host-visible files — the whole confinement story above it is then decoration.",
+      "detection": "Look for `ProcessStartInfo.Arguments` assigned from an interpolated string, for the executable being read from configuration, a request, or a repository file, and for `WaitForExit()` without a token or a timeout. `ArgumentList.Add` on values that only reach the child as data is the intended shape; the file name is what must be fixed.",
+      "goodExample": "// src/AgentOrchestrator.CodeQuality/DependencyVulnerabilitySensor.cs\nStartInfo = new ProcessStartInfo(executable)\n{\n    WorkingDirectory = workingDirectory,\n    RedirectStandardOutput = true, RedirectStandardError = true,\n    UseShellExecute = false, CreateNoWindow = true,\n},\n...\nforeach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);\nawait process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);",
+      "badExample": "var command = configuration.AnalyzerCommand;              // free-form, repository-owned\nvar parts = command.Split(' ');\nusing var process = Process.Start(new ProcessStartInfo(parts[0])\n{\n    Arguments = string.Join(' ', parts.Skip(1)) + \" \" + target,   // one quote away from a new command\n});\nprocess!.WaitForExit();                                   // no token, no timeout",
+      "severity": "critical",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the `ArgumentList` launchers in `DependencyVulnerabilitySensor` and `GitleaksSecurityScanner` and in the configured-command finding recorded in `docs/operations/security/`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-007",
+      "version": "1.0.0",
+      "title": "Keep secrets and host detail out of logs, findings, and responses",
+      "technology": "dotnet",
+      "category": "secret-handling",
+      "kinds": [
+        "security"
+      ],
+      "statement": "A secret a scanner found is never read into a model that can be written, logged, or returned. An exception message, a filesystem path, and a child process's output stay in the log; a caller gets a stable title and a status code. Delete a temporary report that held sensitive output in a `finally`.",
+      "rationale": "`GitleaksSecurityScanner.ParseJsonFinding` reads the rule id, the location, the description, and the fingerprint and never touches gitleaks' `Secret` or `Match` fields, and `BuildFinding` passes `null` for the finding's evidence, so the secret is structurally absent from anything Quality Studio persists — redaction that cannot be forgotten later. The API mirrors it: only `ReviewModelSelectionException.Message` is echoed to a caller so a path or an internal detail is never handed back.",
+      "detection": "Look for a scanner's secret-bearing field being mapped into a record, for `exception.Message`, `exception.ToString()`, a full path, or a child process's stdout or stderr flowing into an HTTP response or a persisted document, and for a temporary file holding scanner output that is not deleted on every path. Logging the same detail through the logger is the intended shape.",
+      "goodExample": "// src/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs\nprocess.StartInfo.ArgumentList.Add(\"--redact=100\");\n// ParseJsonFinding reads RuleID, File, the range, Description and Fingerprint —\n// never the Secret or Match fields the report also carries.\nreturn new SecurityFindingRecord(ruleId, severity, description, location, Evidence: null, path, accepted);",
+      "badExample": "catch (IOException exception)\n{\n    // Hands the caller the host path and the scanner's raw output, secret included.\n    return Results.Problem(detail: exception.ToString() + \"\\n\" + process.StandardOutput.ReadToEnd());\n}",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the structural redaction in `GitleaksSecurityScanner` and the single-message exception policy in `QualityStudio.Api`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-008",
+      "version": "1.0.0",
+      "title": "Gate and bound every deserialization of data you did not write",
+      "technology": "dotnet",
+      "category": "deserialization",
+      "kinds": [
+        "security"
+      ],
+      "statement": "Deserializing a document that came from a repository, a request, or another process checks its schema id and version before its content is used, rejects members the contract does not declare (`JsonUnmappedMemberHandling.Disallow`), and bounds what it will read — a size limit before the bytes are loaded, an explicit `MaxDepth`, and no `AllowTrailingCommas` shortcut.",
+      "rationale": "`QualityRunReport` sets `UnmappedMemberHandling.Disallow` and refuses a document whose `schemaVersion` or `$schema` is not the one it understands, so an old or foreign document fails loudly instead of binding half its fields; `ReviewMetaContract`, `QualityFindingContract`, and `FindingStateStore` follow the same shape. The missing half is size: reading a repository file into a string with no cap lets one caller exhaust process memory by repeating the request, and nothing in this codebase sets `MaxDepth`, so the 64-level default is the only depth bound there is.",
+      "detection": "Look for `JsonSerializer.Deserialize`, `JsonDocument.Parse`, or `File.ReadAllText`/`ReadAllBytes` on a path or stream the process does not own, and check for three things before the result is used: a schema and version gate, unmapped-member rejection, and a byte or length limit. A round-trip of a document this process just wrote is not a violation.",
+      "goodExample": "// src/AgentOrchestrator.CodeQuality/QualityRunReport.cs\nprivate static JsonSerializerOptions CreateOptions() => new(JsonSerializerDefaults.Web)\n{\n    WriteIndented = true,\n    Encoder = JavaScriptEncoder.Default,\n    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,\n};\n\nif (report.SchemaVersion != 1 || !string.Equals(report.Schema, SchemaId, StringComparison.Ordinal))\n    throw new JsonException(\"Unsupported quality run report schema.\");",
+      "badExample": "// No size check, no depth bound, no version gate: the file decides how much memory this costs.\nvar text = await File.ReadAllTextAsync(sidecarPath, cancellationToken);\nvar meta = JsonSerializer.Deserialize<ReviewMeta>(text)!;\nreturn meta.Findings;",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the version-gated, unmapped-member-rejecting options in `QualityRunReport` and the unbounded read recorded as a finding against `QualityStudio.Api`'s file endpoint."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-009",
+      "version": "1.0.0",
+      "title": "Keep blocking I/O and process waits off request paths and out of locks",
+      "technology": "dotnet",
+      "category": "request-path",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "Code that runs while a request is open uses the asynchronous file, stream, and process APIs and awaits them with a `CancellationToken`. No `File.ReadAllText`, `StandardOutput.ReadToEnd`, `WaitForExit()`, or `.Result` on a request path — and none of them inside a `lock`, which converts one slow call into a queue for every other caller of the same gate.",
+      "rationale": "Quality Studio's browser contract is under 100 ms to a visible transition and under 500 ms to a usable dashboard, and `PERF.md` measures a cold hierarchy scan at 85% of a repository switch, so a request path has no room for a thread parked on a disk or a child process. Blocking inside a held lock is the worse half: `RepositoryHierarchyCache` reads every changed file while holding the slot gate, which makes a multi-second scan a multi-second wait for every concurrent switch of that repository, not just the one that paid for it.",
+      "detection": "Look for the synchronous `File`, `Directory`, `Stream`, and `Process` members in anything an endpoint, a handler, or a background reader can reach, for `.Result`, `.Wait()`, and `GetAwaiter().GetResult()`, and for any of them lexically inside a `lock` block or between a `Semaphore.Wait` and its release. Synchronous I/O in start-up code, a CLI command, or a test fixture is not a violation.",
+      "goodExample": "// src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs\nprotected override async Task ExecuteAsync(CancellationToken stoppingToken)\n{\n    // Keep host startup non-blocking: the API becomes reachable while snapshots warm in the background.\n    await Task.Yield();\n    await foreach (var registration in queue.Reader.ReadAllAsync(stoppingToken))\n    {\n        var hierarchy = await Task.Run(() => hierarchyCache.GetMeasured(registration.Root), stoppingToken);\n    }\n}",
+      "badExample": "lock (slot.Gate)                                  // every other caller of this slot now waits too\n{\n    var head = process.StandardOutput.ReadToEnd();     // blocking read of a child process\n    process.WaitForExit();                             // no token, no timeout\n    foreach (var path in changed) hash.Append(File.ReadAllText(path));\n}",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the `PERF.md` switch budget and the blocking git and file reads `RepositoryHierarchyCache` performs while holding its slot gate."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-010",
+      "version": "1.0.0",
+      "title": "Key caches on derived state and give every cache a bound",
+      "technology": "dotnet",
+      "category": "caching",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "A cache key is derived from the content it stands for, so a stale entry is impossible rather than unlikely — not a timestamp, not a time-to-live. Every cache also declares its bound: a size cap with eviction, or a key space that provably cannot grow (one entry per registered repository, not one per observed commit).",
+      "rationale": "`RepositoryHierarchyCache.GetMeasured` keys a slot on the Git state — HEAD, the staged index, and the hashed contents of every dirty or untracked path — which is why a warm switch is 17.60 ms against a 9,781.93 ms cold scan without a freshness window to guess at. The bound is the part that is easy to forget: `ProjectDashboardService` uses the same derived key but keeps one full dashboard per `(root, gitState)` pair, so every commit and every dirty state ever observed stays in memory for the life of the process.",
+      "detection": "Look at each `ConcurrentDictionary`, `Dictionary`, or `MemoryCache` field for two things: what the key is derived from, and what removes an entry. A key containing a timestamp, a run id, or a monotonically growing value with no eviction is a violation; a key space bounded by a registration list is not.",
+      "goodExample": "// src/QualityStudio.Api/ProjectDashboard.cs\nvar key = root + \"\\0\" + snapshot.GitState;   // derived from content, so a stale hit cannot happen\nif (cache.TryGetValue(key, out var cached)) return cached;",
+      "badExample": "// One retained entry per commit and per dirty state, for the life of the process.\nprivate readonly ConcurrentDictionary<string, Dashboard> cache = new();\npublic Dashboard Get(string root, string gitState) =>\n    cache.GetOrAdd(root + \"\\0\" + gitState, _ => Build(root));",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the Git-state keys of `RepositoryHierarchyCache` and `ProjectDashboardService` and the unbounded growth of the latter's key space."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-011",
+      "version": "1.0.0",
+      "title": "Run one command per scope, not one per project or file",
+      "technology": "dotnet",
+      "category": "n-plus-one",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "When a tool can answer for a whole solution or repository, invoke it once and project its result onto the units that need it. Do not launch a process, open a connection, or repeat a repository-wide scan inside a loop over projects, files, or findings.",
+      "rationale": "`DependencyVulnerabilitySensor` runs `dotnet list <project> package --vulnerable` once per discovered project where one solution-wide command would answer the same question, and the review runner invokes repository-wide security sensors inside each file operation and then filters the result down to that one file — a 92-file sweep repeats the whole repository scan 92 times. Process start-up and repository traversal dominate these costs, so the loop, not the tool, is what makes the sweep slow.",
+      "detection": "Look for a process start, an HTTP call, a database round trip, or a full-repository traversal inside a `foreach` over projects, files, or findings, and for a call whose result is immediately filtered to a single subject. Batch APIs that genuinely take one subject per call are not a violation; repeating a call that already accepts the whole scope is.",
+      "goodExample": "// One repository-wide scan, projected onto the subjects that need it.\nvar evidence = request.DeterministicEvidence\n    ?? await CollectDeterministicEvidenceAsync(request, root, cancellationToken).ConfigureAwait(false);\nvar forThisUnit = DeterministicEvidenceProjection.ForSubjects(evidence, subjectPaths);",
+      "badExample": "foreach (var project in discoveredProjects)   // one process per project\n{\n    var result = await runner.RunAsync(\"dotnet\",\n        [\"list\", project, \"package\", \"--vulnerable\", \"--format\", \"json\"], root, cancellationToken);\n    findings.AddRange(Parse(result));\n}",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the per-project `dotnet list` invocations in `DependencyVulnerabilitySensor` and the per-file repository scans recorded in `docs/operations/static-analysis/`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-CS-012",
+      "version": "1.0.0",
+      "title": "Give every external operation a timeout and keep it off the shared reader",
+      "technology": "dotnet",
+      "category": "bounded-execution",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "An operation that waits on a process, a network call, or an agent runs under an explicit wall-clock timeout as well as its `CancellationToken`. A queue's reader starts such work and supervises it; it does not await it to completion, so one operation that never returns cannot stop every operation behind it.",
+      "rationale": "`ReviewJobService.ExecuteAsync` is a single-reader channel that awaits each run, so an operation that never returns parks the reader for good, and cancelling it makes the durable state terminal without freeing the reader — the queue is then permanently stopped while looking healthy. The boundary sensor is the demonstration: 1.4 s on 144 files, and no return at all within a 300-second client timeout on a 1,269-file frontend.",
+      "detection": "Look for `await`s on a process, HTTP, or agent call with no linked timeout token, and for a channel or queue reader whose loop body awaits the whole operation. A timeout that only exists on the client is not one; the bound has to be on the side that holds the resource.",
+      "goodExample": "using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);\ntimeout.CancelAfter(OperationTimeout);\nvar run = Task.Run(() => sensor.ScanAsync(root, timeout.Token), timeout.Token);\n_supervisor.Track(operationId, run);   // the reader keeps draining the queue",
+      "badExample": "await foreach (var job in reader.ReadAllAsync(stoppingToken))\n{\n    // One non-returning operation parks the only reader; nothing behind it is ever picked up.\n    await runner.RunAsync(job, stoppingToken);\n}",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the single-reader review job channel and the boundary-sensor timeout recorded in `docs/operations/security-concept/`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-001",
+      "version": "1.0.0",
+      "title": "Treat content you did not author as data, never as instruction",
+      "technology": "generic",
+      "category": "trust-boundary",
+      "kinds": [
+        "code",
+        "security"
+      ],
+      "statement": "Repository source, model output, sensor output, and anything a caller supplies is data. When it is embedded in a prompt, a command, a template, a query, or a document, mark or escape its boundary so the content cannot end that boundary itself, and validate what comes back rather than trusting what it claims about itself.",
+      "rationale": "`ReviewPromptBuilder` generates a fresh 128-bit boundary marker per prompt precisely so file content cannot guess and forge the closing marker, and the prompts state that everything between the markers is untrusted no matter what it claims to be. The output side is the other half: `ReviewResponseParser` rejects a finding that claims deterministic provenance and `FindingIdentity` computes the excerpt hashes itself, because a value the model supplied about its own trustworthiness is not evidence. Prompt wording alone is not a boundary — the marker, the validation, and the host-computed anchors are.",
+      "detection": "Look for untrusted content concatenated into a prompt, a shell command, an SQL statement, a path, or markup with a fixed or predictable delimiter, and for a field the producer controls being used to decide how much that producer is trusted — a claimed source, a claimed hash, a claimed severity. Content passed as a bound parameter, an argument-list entry, or an escaped value is not a violation.",
+      "goodExample": "// src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs\n// Fresh per prompt so repository content cannot pre-guess and forge a closing marker.\nprivate static string GenerateContentBoundary() =>\n    \"QS-CONTENT-\" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));",
+      "badExample": "var prompt = \"Review this file:\\n---\\n\" + fileContent + \"\\n---\\n\" + instructions;\n// and, on the way back, believing what the response says about itself:\nif (response[\"source\"]?.GetValue<string>() == \"analyzer\") finding.Trusted = true;",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": null,
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the per-prompt content boundary in `ReviewPromptBuilder` and the provenance and evidence checks in `ReviewResponseParser` and `FindingIdentity`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-002",
+      "version": "1.0.0",
+      "title": "Give every resource an explicit bound",
+      "technology": "generic",
+      "category": "resource-limits",
+      "kinds": [
+        "code",
+        "security",
+        "performance"
+      ],
+      "statement": "Anything whose size someone else decides carries a stated limit: request and document bytes, nesting depth, collection and result counts, retained cache entries, concurrent operations, and wall-clock duration. The limit is validated where it is configured and enforced where the resource is consumed, and exceeding it is a clear refusal rather than a slow failure.",
+      "rationale": "`ApiSecurity` validates its limits at start-up — request bodies between 1 KiB and 10 MiB, 1 to 1024 concurrent requests, 1 to 1000 spend requests per minute — so a misconfiguration fails the host instead of quietly removing a bound. The gaps show what happens without that discipline: reading a repository file with no size check lets one caller exhaust process memory by repeating a request, and the sidecar index retains a parsed document per file with no byte cap, so cost grows with a number the repository chooses rather than one this process agreed to.",
+      "detection": "For each resource crossing a boundary, ask what its limit is and where it is enforced: a read with no length check, a parse with no depth bound, a collection accumulated in a loop with no cap, a cache with no eviction, a wait with no timeout, a retry with no ceiling. A limit only present in documentation or in the client is not a bound.",
+      "goodExample": "// src/QualityStudio.Api/ApiSecurity.cs\nif (MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)\n    throw new InvalidOperationException(\"MaxRequestBodyBytes must be between 1 KiB and 10 MiB.\");\nif (MaxConcurrentRequests is < 1 or > 1024)\n    throw new InvalidOperationException(\"MaxConcurrentRequests must be between 1 and 1024.\");",
+      "badExample": "// Size chosen by the repository, retained for the life of the process, parsed at default depth.\nvar payload = JsonDocument.Parse(File.ReadAllText(sidecarPath));\nindex[relativePath] = payload.RootElement.Clone();",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": null,
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the start-up-validated limits in `ApiSecurity` and the unbounded file read and sidecar index recorded in `docs/operations/security/`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-001",
+      "version": "1.1.0",
+      "title": "Use design tokens, not raw values",
+      "technology": "angular",
+      "category": "design-tokens",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Component styles must reference the central design-token custom properties (`--studio-*`, `--space-*`, `--font-*`, `--syntax-*`, etc., defined once in `frontend/src/styles.css`) for color, spacing, radius, and typography. Do not hard-code hex colors, raw pixel values, or one-off font sizes in a component's own `.css` file.",
+      "rationale": "A single token source is what lets the whole app re-theme (light/dark, `data-theme`) and stay visually consistent without hunting through every feature folder. Every raw value a component invents is a value the token system and future theme changes cannot see or move together.",
+      "detection": "Read the component's `.css` for literal colors (`#rrggbb`, `rgb(`, named colors), raw `px`/`rem` lengths on padding, margin, gap, `border-radius`, and `font-size`, and for shadows written out by hand. A value is a violation when an equivalent `--studio-*`, `--space-*`, or `--font-*` token exists in `frontend/src/styles.css`; `0`, `1px` hairlines, and percentage/`fr` layout values are not.",
+      "goodExample": "/* frontend/src/app/review-panel/review-panel.css */\n.severity {\n  padding: var(--studio-space-1) var(--studio-space-2);\n  border-radius: var(--studio-radius-badge);\n  background: var(--studio-bg-elevated);\n  font-size: var(--studio-font-size-label);\n}\n.severity.critical { color: var(--studio-severity-critical); }",
+      "badExample": "/* a new feature invents its own palette and spacing instead of reusing tokens */\n.priority-tag {\n  padding: 4px 8px;\n  border-radius: 4px;\n  background: #eef1f5;\n  font-size: 11px;\n  color: #991b1b;\n}",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the `--studio-*` token scale already defined in `frontend/src/styles.css` and consumed by `review-panel.css`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-002",
+      "version": "1.1.0",
+      "title": "Reuse standard components and shared primitives",
+      "technology": "angular",
+      "category": "component-reuse",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Before adding a new badge, panel, or control markup pattern, check `frontend/src/styles.css` and sibling feature folders for an existing shared primitive (e.g. `.severity`, `.pane`, `.pane-header`) or a reusable standalone component. Extend or reuse it instead of writing a parallel one-off implementation with its own markup and styling.",
+      "rationale": "`frontend/src/styles.css` already documents this as an explicit convention: \"Shared workbench primitives reused across shell panes (Explorer, Editor, ReviewPanel).\" Duplicated one-off primitives drift from each other over time (spacing, states, accessibility), double the maintenance surface, and are exactly the failure mode design tokens alone cannot prevent — a component can use tokens correctly and still reinvent a pattern that already exists.",
+      "detection": "Compare the component's markup and class names against the shared primitives declared in `frontend/src/styles.css` (`.severity`, `.pane`, `.pane-header`) and against sibling feature folders. A new element whose class list and structure duplicate an existing primitive under a different name is a violation; a genuinely new visual pattern is not.",
+      "goodExample": "<!-- frontend/src/app/review-panel/review-panel.html: reuses the shared .severity primitive -->\n<span class=\"severity\" [class]=\"'severity ' + finding.severity\">{{ finding.severity }}</span>",
+      "badExample": "<!-- a new feature reimplements its own severity chip instead of reusing .severity -->\n<span class=\"status-chip\" [ngStyle]=\"{ background: severityColor(finding.severity) }\">\n  {{ finding.severity }}\n</span>",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule. Directly covers the operator-observed defect class (\"ad-hoc styles instead of design tokens / no component reuse\"), paired with QS-NG-001."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-003",
+      "version": "1.1.0",
+      "title": "One focused standalone component per feature folder",
+      "technology": "angular",
+      "category": "component-structure",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Keep each feature as one standalone component with its own folder holding exactly its `.ts`, `.html`, `.css`, and `.spec.ts` (the pattern already used by `review-panel/`, `explorer/`, `attack-coverage/`, etc.). Do not fold unrelated feature concerns into an existing component or split a single feature's template across multiple ad-hoc components without a clear ownership boundary.",
+      "rationale": "The one-feature-one-folder convention is what makes the app navigable: a reviewer can find `review-panel.ts`/`.html`/`.css`/`.spec.ts` together and reason about the whole feature. Mixing concerns into a component that already has a name and a job (or splintering one feature across several loosely related components) erodes that mapping and makes change detection, testing, and template hygiene reviews harder because no single file is \"the\" source of truth anymore.",
+      "detection": "Check whether the file sits in a folder named after its component and whether that folder holds the matching `.ts`, `.html`, `.css`, and `.spec.ts`. Flag a component that owns state or markup for a feature it is not named after, and a feature split across sibling components with no declared inputs/outputs boundary between them.",
+      "goodExample": "frontend/src/app/review-panel/\n  review-panel.ts\n  review-panel.html\n  review-panel.css\n  review-panel.spec.ts",
+      "badExample": "frontend/src/app/review-panel/\n  review-panel.ts        // now also renders the project dashboard's summary cards\n  review-panel.html\n  review-panel.css\n  dashboard-bits.ts       // half of a second, unrelated feature bolted on here",
+      "severity": "low",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the existing `frontend/src/app/*` feature-folder layout (`review-panel`, `explorer`, `attack-coverage`, `usage-history`, `editor`, `project-dashboard`, `review-actions`)."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-004",
+      "version": "1.1.0",
+      "title": "Keep templates declarative; always track list expressions",
+      "technology": "angular",
+      "category": "template-hygiene",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Templates use the built-in control-flow blocks (`@for`, `@if`, `@empty`) with an explicit `track` expression on every `@for`, and call only simple, side-effect-free reads (signals, plain fields) directly in the template. Non-trivial derivation belongs in a `computed()` or a named method on the component, not inlined as a template expression.",
+      "rationale": "`track` is what lets Angular reuse DOM nodes across re-renders instead of tearing down and rebuilding a list on every change; omitting it silently degrades to identity-based tracking and defeats `OnPush`'s benefit. Pushing derivation into the template makes it invisible to unit tests and re-evaluated on every check, whereas a `computed()` is both testable and memoized.",
+      "detection": "Search the template for `@for` blocks without a `track` expression, for `*ngFor` in new code, and for template expressions that call methods with arguments, index into arrays, filter, sort, or build objects inline. Bindings that read a signal, a `computed()`, or a plain field are fine.",
+      "goodExample": "<!-- frontend/src/app/review-panel/review-panel.html -->\n@for (finding of visibleFindings(); track finding.fingerprint ?? finding.id) {\n  <button class=\"finding-card\" (click)=\"selectFindingLocation(finding)\">...</button>\n} @empty {\n  <div class=\"empty-findings\">No findings match these filters.</div>\n}",
+      "badExample": "<!-- missing track, and re-sorting inline on every check -->\n@for (finding of findings().slice().sort((a, b) => a.severity.localeCompare(b.severity))) {\n  <button class=\"finding-card\">...</button>\n}",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the `track finding.fingerprint ?? finding.id` pattern already used throughout `review-panel.html`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-005",
+      "version": "1.1.0",
+      "title": "Default to OnPush with signal-driven state",
+      "technology": "angular",
+      "category": "change-detection",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Every component sets `changeDetection: ChangeDetectionStrategy.OnPush` and drives its template from `signal`/`computed`/`input`/`output`, not from mutated plain fields or manual subscriptions that write to component properties outside Angular's change-detection triggers.",
+      "rationale": "Every feature component in `frontend/src/app` already declares `OnPush` and reads state through signals; this is what keeps `explorer`, `review-panel`, and `usage-history` fast on large trees and result sets. A component that drops to `Default` (or mutates a field from inside a manual `subscribe()`) silently re-introduces full subtree re-checks and can even fail to render at all under `OnPush` siblings if it relies on ambient change detection to pick up its mutations.",
+      "detection": "Check the `@Component` decorator for `changeDetection: ChangeDetectionStrategy.OnPush`. Then look for state written outside signals: plain mutable fields assigned from `subscribe()` callbacks, `setTimeout`/event handlers, or `ChangeDetectorRef.detectChanges()` calls that exist only to make such mutations visible.",
+      "goodExample": "// frontend/src/app/review-panel/review-panel.ts\n@Component({\n  selector: 'app-review-panel',\n  changeDetection: ChangeDetectionStrategy.OnPush,\n  // ...\n})\nexport class ReviewPanel {\n  readonly severityFilter = signal<string>('all');\n  readonly visibleFindings = computed(() => /* derive from signals */ []);\n}",
+      "badExample": "@Component({ selector: 'app-widget' /* no changeDetection: OnPush */ })\nexport class Widget implements OnInit {\n  findings: Finding[] = [];\n  ngOnInit() {\n    this.api.findings$.subscribe(value => { this.findings = value; }); // mutates a plain field\n  }\n}",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-06",
+          "change": "Declared the applicable review kinds and added detection guidance for the generated catalogue."
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-08-27",
+          "change": "Initial rule, grounded in the `ChangeDetectionStrategy.OnPush` declaration already present on every component under `frontend/src/app` (`review-panel.ts`, `explorer.ts`, `usage-history.ts`, `app.ts`, `attack-coverage.ts`)."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-006",
+      "version": "1.0.0",
+      "title": "Address postMessage to a known origin and send only the declared fields",
+      "technology": "angular",
+      "category": "frame-messaging",
+      "kinds": [
+        "security"
+      ],
+      "statement": "`postMessage` names the expected recipient origin, taken from trusted configuration or a validated embedding handshake; `'*'` is not a target origin. The payload carries the fields the contract declares and nothing else — never a whole `location.href`. Every inbound `message` listener checks `event.origin` before it reads `event.data`, and validates the shape of what it reads.",
+      "rationale": "`reportUrlPreviewNavigation` types its target origin as the literal `'*'`, so no caller can supply a real one, and `app.ts` passes it straight to `window.parent.postMessage`: any origin that can embed the preview receives its navigation messages. The payload compounds it — `url.href` carries the origin, the fragment, user information, and every pre-existing query parameter, so a token already in the address bar travels to that unknown parent along with the three fields the contract actually declares.",
+      "detection": "Search for `postMessage` with `'*'` or a variable that is never compared against an allowlist, for payloads built from `location.href`, `document.URL`, or a whole `URL` object, and for `addEventListener('message', ...)` handlers that read `event.data` before checking `event.origin`. A dedicated Web Worker channel has no origin to check, but still needs its message shape validated.",
+      "goodExample": "const parentOrigin = environment.embedOrigin;            // trusted configuration, not the message\nif (parentOrigin) {\n  window.parent.postMessage(\n    { type: 'qs.url-preview.navigate', repo, path, kind },   // only the declared fields\n    parentOrigin);\n}",
+      "badExample": "// frontend/src/app/url-preview-embed.ts: any embedding origin receives this, href and all\npostToParent({ type: 'qs.url-preview.navigate', url: environment.href }, '*');",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the two findings recorded against `frontend/src/app/url-preview-embed.ts` for the literal `'*'` target and the whole-href payload."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-007",
+      "version": "1.0.0",
+      "title": "Render text as text; never bypass Angular's sanitizer",
+      "technology": "angular",
+      "category": "rendering-safety",
+      "kinds": [
+        "security"
+      ],
+      "statement": "Content that did not come from this component's own template — repository source, a model's prose, a finding title, anything fetched — is rendered through interpolation or property binding. No `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, or `DomSanitizer.bypassSecurityTrust*`. If markup is genuinely required, render it from a parsed model into elements, not from a string.",
+      "rationale": "There is no `innerHTML` or sanitizer bypass anywhere under `frontend/src` today: the editor renders every line as `{{ segment.text }}` inside spans and the review panel renders model-authored descriptions as `<p>{{ finding.description }}</p>`, and the HTML report encodes with `WebUtility.HtmlEncode` before writing. That is the property worth keeping, because the strings in question are exactly the untrusted ones — source code a repository controls and prose a model wrote.",
+      "detection": "Search the component and its template for `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `bypassSecurityTrust`, `DomSanitizer`, `document.write`, `eval(`, and `new Function(`. A `[innerText]` or `[textContent]` binding is not a violation, and neither is `[attr.*]` on a value the sanitizer still sees.",
+      "goodExample": "<!-- frontend/src/app/editor/editor.html -->\n<code>@for (segment of segmentedLine(row.number, row.text, row.findings); track $index) {\n  <span [class]=\"segmentClass(segment)\" [attr.aria-label]=\"segmentAriaLabel(segment, row.number)\">{{ segment.text }}</span>\n}</code>",
+      "badExample": "<!-- The description is model-authored prose; this hands it to the HTML parser. -->\n<p [innerHTML]=\"sanitizer.bypassSecurityTrustHtml(finding.description)\"></p>",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, recording the property a repository-wide search already establishes for `frontend/src` so a regression is visible as one."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-008",
+      "version": "1.0.0",
+      "title": "Keep credentials out of client-held state",
+      "technology": "angular",
+      "category": "client-state",
+      "kinds": [
+        "security"
+      ],
+      "statement": "`localStorage`, `sessionStorage`, IndexedDB, cookies written from script, the URL, and component state hold non-secret presentation state only — a theme, a layout, a selected filter. Tokens, credentials, and authorization headers are not constructed, stored, or logged in the browser.",
+      "rationale": "The Angular client stores exactly two things, `'qs-theme'` and the layout key, and builds no `Authorization` header at all: authentication is a bearer token and a client id enforced by `ApiSecurity` on the server, which is why nothing that leaks from the browser — a shared device, a console log, an embedding parent — is a credential. Client-held storage is readable by any script on the origin and survives the session, so a token placed there outlives the reason it was issued.",
+      "detection": "Look at every `localStorage`/`sessionStorage` key and every value assigned to a header, a query parameter, or a logged object for names like token, key, secret, password, or authorization, and for a credential arriving in a route parameter or fragment. A non-secret repository id or view preference in storage is not a violation.",
+      "goodExample": "// frontend/src/app/app.ts\nlocalStorage.setItem('qs-theme', theme);          // presentation state only\nlocalStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(sizes));",
+      "badExample": "localStorage.setItem('qs-api-token', token);      // readable by any script on this origin, forever\nthis.http.get(url, { headers: { Authorization: `Bearer ${token}` } });",
+      "severity": "high",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the two non-secret storage keys the client keeps and the server-side placement of authentication in `ApiSecurity`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-009",
+      "version": "1.0.0",
+      "title": "Build URLs by encoding parts, and never navigate to a URL from data",
+      "technology": "angular",
+      "category": "url-handling",
+      "kinds": [
+        "security"
+      ],
+      "statement": "Path segments go through `encodeURIComponent` and query values through `HttpParams` or `URLSearchParams`; a URL is never assembled by concatenating raw values. A navigation target — a `[href]`, `router.navigateByUrl`, `window.open`, or an assignment to `location` — is a same-origin route this application computed, never a URL that arrived in a response, a query parameter, or a message.",
+      "rationale": "`quality-api.ts` escapes every id it puts in a path and passes every value as a parameter, so a repository or finding id containing a slash or an ampersand stays one segment instead of becoming a new path or a new parameter, and every request stays same-origin and relative. The navigation half is what turns a formatting bug into an open redirect: a link target taken from data sends the user, and the referrer, wherever that data says.",
+      "detection": "Look for template strings that interpolate an id or a user value into a URL without `encodeURIComponent`, for query strings built with `+` or interpolation instead of `HttpParams`, and for `[href]`, `window.open`, `location.href =`, or `navigateByUrl` bound to a value from a response, a route parameter, or a message. A relative URL built from constants is not a violation.",
+      "goodExample": "// frontend/src/app/quality-api.ts\nprivate repositoryApiBase(): string {\n  return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(repositoryId)}`;\n}\nconst file = await firstValueFrom(\n  this.http.get<FileDocument>(`${this.repositoryApiBase()}/file`, { params: { path } }));",
+      "badExample": "// An id with a slash becomes a new path segment; the link target comes from the response.\nthis.http.get(`/api/repos/${repositoryId}/file?path=` + path);\nwindow.open(response.externalUrl, '_blank');",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the escaped path segments and `HttpParams` usage throughout `frontend/src/app/quality-api.ts`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-010",
+      "version": "1.0.0",
+      "title": "Derive template collections in computed signals, not in template calls",
+      "technology": "angular",
+      "category": "change-detection",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "A collection a template iterates or measures is a `computed()` signal. A template expression reads a signal or a plain field; it does not call a method that filters, maps, sorts, slices, reverses, or otherwise allocates — and the same derivation is not written twice in one template.",
+      "rationale": "`review-panel.ts` and `review-actions.ts` already expose `scopeRuns`, `comparableRuns`, `runFindings`, `filteredModels`, and `fileCount` as `computed()`, so each is recomputed when its inputs change and not once per check. Where that slipped, the cost is visible: `review-actions.html` calls `runFiles(run, states)` six times per change-detection cycle — twice per line, once for the length check and once for the loop — and each call returns a fresh array, so `track file.path` reconciles against objects it has never seen and the list rebuilds.",
+      "detection": "Read every `{{ }}`, `@if`, and `@for` expression: a method call with arguments, `.filter(`, `.map(`, `.slice(`, `.sort(`, `.reverse(`, an array or object literal, or the same call appearing twice in one template is a violation. Reading a signal, a `computed()`, or a plain field is not, and a pure formatting call on a scalar is not either.",
+      "goodExample": "// frontend/src/app/review-panel/review-panel.ts\nreadonly scopeRuns = computed(() => this.api.runs().filter(run => run.scope === this.scope()));\nreadonly runFindings = computed(() => this.indexFindings(this.selectedRun()));",
+      "badExample": "<!-- runFiles() allocates a new array on every call, and this calls it twice per line -->\n@if (runFiles(run, states).length) {\n  @for (file of runFiles(run, states); track file.path) { <li>{{ file.path }}</li> }\n}",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the `computed()` derivations in `review-panel.ts` and the repeated `runFiles(...)` template calls in `review-actions.html`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-011",
+      "version": "1.0.0",
+      "title": "Render long lists and long files through a bounded window",
+      "technology": "angular",
+      "category": "virtualization",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "A view over data whose size the repository decides — a file tree, a source file, a findings list, a run history — renders a fixed window of rows plus a small overscan, sized by the viewport and not by the data. Index the data once when it arrives instead of scanning it per rendered row.",
+      "rationale": "`explorer.ts` flattens the tree in a `computed()` and slices a window out of it, and the editor keeps an 80-line overscanned window regardless of file length, which is what holds the under-100 ms transition on a repository with 3,450 tracked files. The alternative is not slower by a constant: DOM nodes, bindings, and per-row work all scale with the data, so the first pathological repository turns a usable pane into an unusable one.",
+      "detection": "For each `@for` over data of repository-determined size, look for a window computed from a scroll offset and a row height, and check whether per-row expressions search or filter a collection rather than reading an index built once. A list bounded by a small constant — review kinds, severities, adapters — is not a violation.",
+      "goodExample": "// frontend/src/app/explorer/explorer.ts\nreadonly treeRows = computed(() => flattenTree(this.api.tree(), this.expanded()));\nreadonly visibleRows = computed(() =>\n  this.filteredRows().slice(start, start + count).map((node, i) => ({ node, top: (start + i) * ROW_HEIGHT })));",
+      "badExample": "<!-- Every row of every file, and a scan of all findings per row -->\n@for (row of allLines(); track row.number) {\n  <span>{{ findings().filter(f => f.line === row.number).length }}</span>\n}",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the windowed tree and editor rendering described in `frontend/PERF.md` and implemented in `explorer.ts`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-012",
+      "version": "1.0.0",
+      "title": "Keep new weight out of the initial bundle",
+      "technology": "angular",
+      "category": "bundle-budget",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "A feature that is not on the first screen loads as a deferred chunk (`@defer`, a lazy route) rather than as an eager import, and a new dependency is weighed against the production budgets in `frontend/angular.json` before it is added. Component stylesheets stay inside the per-stylesheet budget instead of accumulating one-off blocks.",
+      "rationale": "The production build errors, not warns, when the initial bundle passes its limit: a build has already failed at 494.94 kB against the 480 kB error budget, so an eager import of a rarely used feature does not degrade the app gradually — it stops the build for whoever commits next. The attack matrix shows the intended shape, a deferred 17 kB chunk that costs the first screen nothing.",
+      "detection": "Check whether a newly imported component, library, or icon set is reachable from the initial route and whether a heavy feature is declared with `@defer` or a lazy route. Compare added stylesheet weight against the `anyComponentStyle` budget in `frontend/angular.json` — the authoritative numbers are there, not in prose that may have drifted from it.",
+      "goodExample": "<!-- A rarely opened, heavy pane costs the first screen nothing -->\n@defer (on interaction) {\n  <app-attack-coverage />\n} @placeholder {\n  <button class=\"pane-header\">Attack coverage</button>\n}",
+      "badExample": "// Eagerly imported into the shell, so it is in the initial bundle for everyone\nimport { AttackCoverage } from './attack-coverage/attack-coverage';\nimport * as everything from 'some-charting-library';",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the production budgets in `frontend/angular.json` and the build failure at 494.94 kB recorded in `docs/operations/static-analysis/`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-013",
+      "version": "1.0.0",
+      "title": "Move heavy work off the main thread, chunked and cancellable",
+      "technology": "angular",
+      "category": "main-thread",
+      "kinds": [
+        "performance"
+      ],
+      "statement": "Work whose cost scales with repository data — tokenizing a file, diffing, indexing — runs in a worker, starts after the first paint, proceeds in bounded chunks, and is cancelled when its subject changes. At most one such job is in flight per subject; a superseded job is cancelled, not awaited.",
+      "rationale": "Whole-file main-thread highlighting is prohibited in this codebase for a measurable reason: tokenization runs in a cancellable single-concurrency worker in 200-line chunks with a 200 kB cap, which is what keeps opening a large file inside the under-100 ms transition budget. Without chunking and cancellation, scrolling through five files queues five full tokenizations and the pane stops responding to the sixth.",
+      "detection": "Look for parsing, tokenizing, or diffing loops over whole-file content on the main thread, for `await` of such work directly in a component initializer, and for a worker call with no cancellation when its input changes. Work bounded by a small constant, or done once at start-up, is not a violation.",
+      "goodExample": "// One job per subject: the previous one is cancelled rather than awaited.\nthis.pending?.cancel();\nthis.pending = this.highlighter.tokenize(path, text, { chunkLines: 200, maxBytes: 200_000 });",
+      "badExample": "ngOnInit() {\n  // Whole-file tokenization on the main thread, on every open, uncancellable\n  this.tokens = tokenizeEveryLine(this.file.text);\n}",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.2.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-06",
+          "change": "Initial rule, grounded in the chunked, cancellable, single-concurrency syntax worker described in `frontend/PERF.md`."
+        }
+      ],
+      "enabled": true
+    }
+  ]
+}

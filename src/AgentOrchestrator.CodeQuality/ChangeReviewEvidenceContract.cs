@@ -114,19 +114,7 @@ public static class ChangeReviewEvidenceJson
         ChangeReviewEvidenceDocument document,
         CancellationToken cancellationToken = default)
     {
-        var fullPath = Path.GetFullPath(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        var temporary = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            await File.WriteAllTextAsync(
-                temporary, Serialize(document), new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-            File.Move(temporary, fullPath, true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        await AtomicFile.WriteAllTextAsync(path, Serialize(document), cancellationToken).ConfigureAwait(false);
     }
 
     private static ChangeReviewEvidenceEntry CreateEntry(

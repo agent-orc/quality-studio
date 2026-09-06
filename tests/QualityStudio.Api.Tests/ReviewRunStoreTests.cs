@@ -519,7 +519,10 @@ public sealed class ReviewRunStoreTests
             var first = await firstResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
             var firstId = first.GetProperty("id").GetString()!;
             await WaitForStateAsync(client, firstId, "running", cancellationToken);
-            await stuck.StartedFile.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+            // The first file starts only after the host's cold path (hierarchy derivation, catalog
+            // loads, runner creation) has run once; on a loaded Windows host that exceeds ten
+            // seconds, and the assertion under test is the reclaim, not the start latency.
+            await stuck.StartedFile.Task.WaitAsync(TimeSpan.FromSeconds(60), cancellationToken);
 
             using var cancelResponse = await client.DeleteAsync($"/api/review/runs/{firstId}", cancellationToken);
             cancelResponse.EnsureSuccessStatusCode();

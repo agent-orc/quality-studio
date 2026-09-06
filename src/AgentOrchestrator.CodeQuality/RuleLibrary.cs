@@ -11,8 +11,10 @@ public sealed record RuleDefinition(
     string Title,
     string Technology,
     string Category,
+    IReadOnlyList<string> Kinds,
     string Statement,
     string Rationale,
+    string Detection,
     string GoodExample,
     string BadExample,
     FindingSeverity Severity,
@@ -64,7 +66,7 @@ public sealed class RuleCatalogueResolver
     public ResolvedRuleCatalogue Resolve(string repositoryRoot, string? globalInputsDirectory = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        var builtIn = ReadBuiltIn();
+        var builtIn = BuiltIn.Value;
         var sources = new List<string> { "embedded:" + BuiltInResourceSuffix };
         var overridesById = new Dictionary<string, (RuleOverride Override, string Source)>(StringComparer.Ordinal);
 
@@ -96,27 +98,68 @@ public sealed class RuleCatalogueResolver
     }
 
     /// <summary>
-    /// Renders the effective, enabled rules as synthetic "global" review inputs so the existing
+    /// Reads the hierarchy adapter out of a <c>qs-v1/&lt;adapter&gt;/&lt;level&gt;/&lt;hash&gt;</c> unit id.
+    /// Returns null for an id that does not carry one, which resolves the whole library rather than
+    /// failing a staleness scan on a malformed sidecar.
+    /// </summary>
+    public static string? AdapterFromUnitId(string? unitId)
+    {
+        var segments = unitId?.Split('/');
+        return segments is { Length: 4 } && segments[0] == "qs-v1" &&
+               segments[1] is "angular" or "dotnet" or "generic"
+            ? segments[1]
+            : null;
+    }
+
+    /// <summary>
+    /// Decides whether a rule authored for <paramref name="technology"/> reaches a unit reviewed
+    /// through <paramref name="adapter"/>. A rule matches its own technology, and
+    /// <c>generic</c> rules match every adapter. A null adapter means "no technology filter" and is
+    /// for inspection paths (the rules endpoint, <c>--explain-inputs</c>) that describe the whole
+    /// library rather than one unit.
+    /// </summary>
+    public static bool AppliesTo(string technology, string? adapter) =>
+        adapter is null ||
+        string.Equals(technology, adapter, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(technology, "generic", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Renders the effective, enabled rules as synthetic built-in review inputs so the existing
     /// <see cref="InputResolver"/>/prompt-budget machinery carries them into review prompts unchanged,
     /// each under its own stable heading id (e.g. <c>QS-NG-001</c>) for the model to cite as <c>ruleId</c>.
+    /// Worked examples stay out of the prompt: they are for the rule's readers and the rules endpoint,
+    /// and would spend the character budget several times over.
     /// </summary>
-    public static IReadOnlyList<ReviewInput> RenderAsReviewInputs(ResolvedRuleCatalogue catalogue, string kind)
+    public static IReadOnlyList<ReviewInput> RenderAsReviewInputs(
+        ResolvedRuleCatalogue catalogue, string kind, string? adapter = null)
     {
-        if (!string.Equals(kind, "code", StringComparison.OrdinalIgnoreCase)) return [];
+        ArgumentNullException.ThrowIfNull(catalogue);
         return catalogue.Rules
-            .Where(rule => rule.EffectiveEnabled)
+            .Where(rule => rule.EffectiveEnabled &&
+                           rule.Rule.Kinds.Contains(kind, StringComparer.OrdinalIgnoreCase) &&
+                           AppliesTo(rule.Rule.Technology, adapter))
             .Select(rule => new ReviewInput(
-                rule.Rule.Id, "rule-library:" + rule.Rule.Id, "global", PriorityFor(rule.EffectiveSeverity),
-                ["code"], ["all"], true, Content(rule), string.Empty, false))
+                rule.Rule.Id, "rule-library:" + rule.Rule.Id, "built-in", PriorityFor(rule.EffectiveSeverity),
+                rule.Rule.Kinds, ["all"], true, Content(rule), string.Empty, false, rule.Rule.Version))
             .OrderByDescending(input => input.Priority)
             .ThenBy(input => input.Id, StringComparer.Ordinal)
             .ToArray();
     }
 
-    private static string Content(ResolvedRule rule) => rule.SeverityOverridden
-        ? $"{rule.Rule.Statement} {rule.Rule.Rationale} (Project override: findings for this rule are treated as " +
-          $"{rule.EffectiveSeverity.ToString().ToLowerInvariant()} severity — {rule.OverrideReason})"
-        : $"{rule.Rule.Statement} {rule.Rule.Rationale}";
+    // What the reviewer needs to apply the rule: what to do, and what to look at. The rationale and
+    // the worked examples stay in the catalogue and on the rules endpoint, where a reader wants them
+    // and no character budget is at stake.
+    private static string Content(ResolvedRule rule)
+    {
+        var content = $"{rule.Rule.Title} ({rule.Rule.Technology}, {Severity(rule.EffectiveSeverity)} severity). " +
+            $"{rule.Rule.Statement} Detection: {rule.Rule.Detection}";
+        return rule.SeverityOverridden
+            ? $"{content} Project override: report findings for this rule as " +
+              $"{Severity(rule.EffectiveSeverity)} severity — {rule.OverrideReason}"
+            : content;
+    }
+
+    private static string Severity(FindingSeverity severity) => severity.ToString().ToLowerInvariant();
 
     private static int PriorityFor(FindingSeverity severity) => severity switch
     {
@@ -126,6 +169,10 @@ public sealed class RuleCatalogueResolver
         FindingSeverity.Low => 55,
         _ => 40,
     };
+
+    // The embedded catalogue is immutable for the life of the process, and Resolve runs once per
+    // reviewed unit on the tree, dashboard, and staleness paths. Parse it once.
+    private static readonly Lazy<RuleCatalogueDocument> BuiltIn = new(ReadBuiltIn, isThreadSafe: true);
 
     private static RuleCatalogueDocument ReadBuiltIn()
     {

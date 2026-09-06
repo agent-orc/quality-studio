@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -122,8 +121,19 @@ public sealed class ProjectDashboardService
     private static readonly HashSet<string> TextExtensions =
         new(Languages.Keys, StringComparer.OrdinalIgnoreCase);
 
-    private readonly ConcurrentDictionary<string, ProjectDashboardResponse> cache =
-        new(StringComparer.Ordinal);
+    /// <summary>
+    /// Bounded projection cache. Every Git state of every repository produces a new key, so an
+    /// unbounded map grows with the commit history of every repository the host ever served; the least
+    /// recently used projection is dropped once the cache is full.
+    /// </summary>
+    private readonly Dictionary<string, LinkedListNode<CacheEntry>> cache = new(StringComparer.Ordinal);
+    private readonly LinkedList<CacheEntry> recency = new();
+    private readonly Lock cacheGate = new();
+    private readonly int capacity;
+
+    public ProjectDashboardService(Microsoft.Extensions.Options.IOptions<RepositoryOptions>? options = null) =>
+        capacity = options?.Value.Limits.ProjectDashboardCacheEntries
+                   ?? new LimitOptions().ProjectDashboardCacheEntries;
 
     public ProjectDashboardResponse Get(
         string repositoryPath,
@@ -137,7 +147,7 @@ public sealed class ProjectDashboardService
         var started = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
         var key = root + "\0" + snapshot.GitState;
-        if (cache.TryGetValue(key, out var cached))
+        if (TryTouch(key, out var cached))
         {
             return new ProjectDashboardMeasurement(
                 cached,
@@ -146,12 +156,59 @@ public sealed class ProjectDashboardService
         }
 
         var built = Build(root, snapshot.Roots);
-        var dashboard = cache.GetOrAdd(key, built);
+        var dashboard = Store(key, built);
         return new ProjectDashboardMeasurement(
             dashboard,
             false,
             Stopwatch.GetElapsedTime(started).TotalMilliseconds);
     }
+
+    /// <summary>The cached projection for this key, moved to the front of the recency list.</summary>
+    private bool TryTouch(string key, out ProjectDashboardResponse dashboard)
+    {
+        lock (cacheGate)
+        {
+            if (!cache.TryGetValue(key, out var node))
+            {
+                dashboard = null!;
+                return false;
+            }
+
+            recency.Remove(node);
+            recency.AddFirst(node);
+            dashboard = node.Value.Dashboard;
+            return true;
+        }
+    }
+
+    private ProjectDashboardResponse Store(string key, ProjectDashboardResponse dashboard)
+    {
+        lock (cacheGate)
+        {
+            if (cache.TryGetValue(key, out var existing))
+            {
+                recency.Remove(existing);
+                recency.AddFirst(existing);
+                return existing.Value.Dashboard;
+            }
+
+            cache[key] = recency.AddFirst(new CacheEntry(key, dashboard));
+            while (cache.Count > capacity && recency.Last is { } oldest)
+            {
+                recency.RemoveLast();
+                cache.Remove(oldest.Value.Key);
+            }
+            return dashboard;
+        }
+    }
+
+    /// <summary>How many projections the cache currently holds. Exists so the lid is testable.</summary>
+    public int CachedProjections
+    {
+        get { lock (cacheGate) return cache.Count; }
+    }
+
+    private sealed record CacheEntry(string Key, ProjectDashboardResponse Dashboard);
 
     public string ArchitectureReviewContext(
         string repositoryPath,

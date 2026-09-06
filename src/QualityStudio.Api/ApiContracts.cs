@@ -4,7 +4,16 @@ using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
 
-public sealed record TreeResponse(string Path, IReadOnlyList<TreeNodeResponse> Nodes);
+public sealed record TreeResponse(
+    string Path,
+    IReadOnlyList<TreeNodeResponse> Nodes,
+    GitStateResponse? GitState = null);
+
+/// <summary>
+/// Present only when the hierarchy could not follow the working tree. Absent means Git answered and the
+/// snapshot is current; a value means the nodes below reflect the last state Git could report.
+/// </summary>
+public sealed record GitStateResponse(string Status, string? Detail);
 
 public sealed record ScopeExclusionResponse(string Path, string Reason);
 
@@ -159,6 +168,8 @@ public sealed record KindStateResponse(
         return new(Map(aggregation.Direct), Map(aggregation.Descendants), Map(aggregation.Overall), score, band, metaPath);
     }
 
+    // Hierarchy aggregation has no `invalid`: a sidecar the contract rejects attaches to no unit,
+    // so the unit degrades to "missing" here while /api/scan reports it as `invalid` per subject.
     private static string Map(ReviewState state) => state switch
     {
         ReviewState.Current => "fresh",
@@ -175,7 +186,15 @@ public sealed record FileResponse(
     long SizeBytes,
     string LineEnding,
     string Encoding,
-    CoverageAggregate Coverage);
+    CoverageAggregate Coverage,
+    LargeFileResponse? LargeFile = null);
+
+/// <summary>
+/// Present when the file is larger than <c>QualityStudio:Limits:MaxFileBytes</c>. The response then
+/// carries the first <see cref="ReturnedBytes"/> bytes in <c>content</c> instead of the whole file,
+/// cut at a character boundary; <c>sizeBytes</c> stays the true size of the file on disk.
+/// </summary>
+public sealed record LargeFileResponse(long SizeBytes, long LimitBytes, long ReturnedBytes);
 
 public sealed record RiskRowResponse(
     string Path,

@@ -112,6 +112,9 @@ public sealed record StoredReviewRun(
 
 public sealed record StoredReviewObservation(string OperationId, ReviewObservationSnapshot Snapshot);
 
+/// <summary>How many run journals retention removed, and how many remain.</summary>
+public sealed record ReviewRunPruneResult(int Removed, int Remaining);
+
 /// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
 public sealed class ReviewRunStore
 {
@@ -172,25 +175,9 @@ public sealed class ReviewRunStore
     public void WriteStatus(ReviewRunStatus status)
     {
         ArgumentNullException.ThrowIfNull(status);
-        var directory = RunDirectory(status.RunId);
-        Directory.CreateDirectory(directory);
-        var destination = Path.Combine(directory, "status.json");
-        var temporary = Path.Combine(directory, $"status.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(JsonSerializer.Serialize(status, JsonOptions) + Environment.NewLine);
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       bufferSize: 4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, destination, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        AtomicFile.WriteAllText(
+            Path.Combine(RunDirectory(status.RunId), "status.json"),
+            JsonSerializer.Serialize(status, JsonOptions) + Environment.NewLine);
     }
 
     public void WriteResult(ReviewRunManifest manifest, ReviewRunStatus status)
@@ -225,7 +212,7 @@ public sealed class ReviewRunStore
             status.StopReason,
             manifest.Recommendation,
             manifest.RouteOverride);
-        WriteAtomic(Path.Combine(RunDirectory(status.RunId), "result.json"),
+        AtomicFile.WriteAllText(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }
 
@@ -245,7 +232,7 @@ public sealed class ReviewRunStore
         observations[operationId] = snapshot;
         var document = observations.OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => new StoredReviewObservation(pair.Key, pair.Value)).ToArray();
-        WriteAtomic(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
+        AtomicFile.WriteAllText(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
     }
 
     public IReadOnlyList<StoredReviewRun> LoadAll(Action<string, Exception>? loadFailed = null)
@@ -280,6 +267,44 @@ public sealed class ReviewRunStore
             }
         }
         return loaded;
+    }
+
+    /// <summary>
+    /// Applies the report retention to the journals. Journals used to be kept forever while their
+    /// reports were pruned to the newest few, so start-up recovery rebuilt exactly the reports the last
+    /// prune deleted, on every restart. Only terminal, unpinned runs beyond the newest
+    /// <paramref name="keep"/> are removed: a run that can still be resumed is never touched.
+    /// </summary>
+    public ReviewRunPruneResult Prune(
+        int keep,
+        IReadOnlySet<string> pinnedRunIds,
+        Action<string, Exception>? pruneFailed = null)
+    {
+        if (keep < 0) throw new ArgumentOutOfRangeException(nameof(keep), "Retention count cannot be negative.");
+        ArgumentNullException.ThrowIfNull(pinnedRunIds);
+        if (!Directory.Exists(runsPath)) return new ReviewRunPruneResult(0, 0);
+        var loaded = LoadAll();
+        var prunable = loaded
+            .Where(run => IsTerminal(run.Status.State) && !pinnedRunIds.Contains(run.Manifest.RunId))
+            .OrderByDescending(run => run.Status.FinishedAt ?? run.Status.CreatedAt)
+            .ThenByDescending(run => run.Manifest.RunId, StringComparer.Ordinal)
+            .Skip(keep)
+            .ToArray();
+        var removed = 0;
+        foreach (var run in prunable)
+        {
+            var directory = RunDirectory(run.Manifest.RunId);
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+                removed++;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                pruneFailed?.Invoke(directory, exception);
+            }
+        }
+        return new ReviewRunPruneResult(removed, loaded.Count - removed);
     }
 
     public static bool IsTerminal(string state) => state is "done" or "failed" or "cancelled" or "capped";
@@ -344,24 +369,4 @@ public sealed class ReviewRunStore
         stream.Flush(flushToDisk: true);
     }
 
-    private static void WriteAtomic(string destination, string content)
-    {
-        var temporary = Path.Combine(Path.GetDirectoryName(destination)!,
-            $"{Path.GetFileNameWithoutExtension(destination)}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(content);
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       bufferSize: 4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, destination, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
-    }
 }
