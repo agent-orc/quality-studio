@@ -59,6 +59,32 @@ public sealed class QualityReportTests
     }
 
     [Fact]
+    public async Task Report_labels_the_repository_score_as_a_projection_and_keeps_the_old_names()
+    {
+        using var fixture = await ReportRepositoryFixture.CreateAsync(88);
+
+        var report = await new QualityReportBuilder().BuildAsync(
+            [fixture.Request], TestContext.Current.CancellationToken);
+
+        var scorecard = Assert.Single(report.Repositories).Scorecard;
+        Assert.Equal(scorecard.Score, scorecard.AggregateScore);
+        Assert.Equal(scorecard.Grade, scorecard.AggregateBand);
+
+        using var json = JsonDocument.Parse(QualityReportRenderer.Render(report, QualityReportFormat.Json));
+        var serialized = json.RootElement.GetProperty("repositories")[0].GetProperty("scorecard");
+        Assert.Equal(88, serialized.GetProperty("aggregateScore").GetInt32());
+        Assert.Equal("B", serialized.GetProperty("aggregateBand").GetString());
+        Assert.Equal(88, serialized.GetProperty("score").GetInt32());
+        Assert.Equal("B", serialized.GetProperty("grade").GetString());
+
+        var markdown = QualityReportRenderer.Render(report, QualityReportFormat.Markdown);
+        Assert.Contains("**Aggregate score (projection): 88/100 (B)", markdown, StringComparison.Ordinal);
+        Assert.Contains("No unit carries it as its grade", markdown, StringComparison.Ordinal);
+        Assert.Contains("| Kind / level | Aggregate score | Band | Reviews |", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("**Score:", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Report_ShowsAgentAndDeterministicFindingsWithoutChangingGrade()
     {
         using var fixture = await ReportRepositoryFixture.CreateAsync(88);

@@ -42,10 +42,13 @@
         "name": { "type": "string", "minLength": 1 },
         "scorecard": {
           "type": "object",
+          "description": "Descriptive projection over the review sidecars that currently exist. It is never stored or displayed as the grade of a reviewed unit, and it does not replace a project or module review statement.",
           "required": ["score", "grade", "kinds", "findings", "staleness", "coverage", "sensors"],
           "properties": {
-            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-            "grade": { "enum": ["A", "B", "C", "D", "F"] },
+            "aggregateScore": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Rounded mean over the kinds that have review evidence. Written by every current producer." },
+            "aggregateBand": { "enum": ["A", "B", "C", "D", "F"], "description": "Band of aggregateScore. It labels the projection, not a reviewed unit." },
+            "score": { "type": "integer", "minimum": 0, "maximum": 100, "deprecated": true, "description": "Deprecated alias of aggregateScore, kept for existing consumers." },
+            "grade": { "enum": ["A", "B", "C", "D", "F"], "deprecated": true, "description": "Deprecated alias of aggregateBand, kept for existing consumers." },
             "kinds": { "type": "array" },
             "findings": { "type": "object" },
             "staleness": { "type": "object" },

@@ -51,11 +51,13 @@ public static class QualityRunReportRenderer
         text.AppendLine($"Run `{EscapeMarkdown(run.Id)}` revision {run.Revision} · {report.Subject.Targets.Count} targets · {report.Execution.Reviewed} reviewed · {report.Execution.ReusedFresh} reused · {report.Execution.Failed} failed · {report.Execution.Skipped} skipped");
         text.AppendLine();
         text.AppendLine(summary.Score.HasValue
-            ? $"Score {summary.Score}/100 ({summary.Grade}) · {summary.Findings.Total} active findings · {JoinCounts(summary.Findings.BySeverity)}"
-            : $"Score unavailable · {summary.Findings.Total} active findings · {EscapeMarkdown(summary.PartialReason ?? "partial run")}");
+            ? $"Aggregate score (projection) {summary.Score}/100 ({summary.Grade}) · {summary.Findings.Total} active findings · {JoinCounts(summary.Findings.BySeverity)}"
+            : $"Aggregate score (projection) unavailable · {summary.Findings.Total} active findings · {EscapeMarkdown(summary.PartialReason ?? "partial run")}");
         text.AppendLine(report.Delta.Status == "available"
             ? $"Delta from `{EscapeMarkdown(report.Delta.PriorRunId!)}`: {report.Delta.New.Count} new · {report.Delta.Persisting.Count} persisting · {report.Delta.Resolved.Count} resolved · {report.Delta.StateChanged.Count} state-changed"
             : $"Delta: unavailable ({EscapeMarkdown(report.Delta.Reason ?? "no prior comparable run snapshot")})");
+        text.AppendLine();
+        text.AppendLine("The aggregate score is a rounded mean over the unit grades this run observed. No unit carries it as its grade.");
 
         var findings = ActiveFindings(report)
             .OrderBy(finding => SeverityRank.GetValueOrDefault(finding.Severity, int.MaxValue))
@@ -118,7 +120,7 @@ public static class QualityRunReportRenderer
             .Append(H(run.State)).Append(" · ").Append(H(run.Completeness)).Append("</span><p class=\"muted\">Run <code>")
             .Append(H(run.Id)).Append("</code> · revision ").Append(run.Revision).Append("</p></header>");
         html.Append("<section><h2>Outcome summary</h2><div class=\"summary\"><div><b>")
-            .Append(summary.Score?.ToString(CultureInfo.InvariantCulture) ?? "—").Append("</b><span>Score ")
+            .Append(summary.Score?.ToString(CultureInfo.InvariantCulture) ?? "—").Append("</b><span>Aggregate score ")
             .Append(H(summary.Grade ?? "unavailable")).Append("</span></div><div><b>").Append(summary.Findings.Total)
             .Append("</b><span>Active findings</span></div><div><b>").Append(report.Execution.Reviewed)
             .Append("</b><span>Reviewed</span></div><div><b>").Append(report.Execution.ReusedFresh)
@@ -350,8 +352,8 @@ public static class QualityRunReportGate
         var failures = new List<string>();
         if (failUnder.HasValue && (!report.Summary.Score.HasValue || report.Summary.Score.Value < failUnder.Value))
             failures.Add(report.Summary.Score.HasValue
-                ? $"{report.Run.Id}: score {report.Summary.Score} is below {failUnder.Value}"
-                : $"{report.Run.Id}: score is unavailable for a {report.Run.Completeness} run");
+                ? $"{report.Run.Id}: aggregate score {report.Summary.AggregateScore} is below {failUnder.Value}"
+                : $"{report.Run.Id}: aggregate score is unavailable for a {report.Run.Completeness} run");
         if (failOnSeverity is not null)
         {
             var threshold = SeverityRank[failOnSeverity];

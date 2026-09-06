@@ -41,6 +41,11 @@ public sealed record RepositoryQualityReport(
     IReadOnlyList<QualityTrendSeries> Trend,
     IReadOnlyList<QualityFinding> Findings);
 
+/// <summary>
+/// Descriptive projection over the review sidecars that currently exist, not a review statement.
+/// <see cref="Score"/> and <see cref="Grade"/> are the deprecated names of
+/// <see cref="AggregateScore"/> and <see cref="AggregateBand"/> and carry the same values.
+/// </summary>
 public sealed record QualityScorecard(
     int Score,
     string Grade,
@@ -48,7 +53,16 @@ public sealed record QualityScorecard(
     FindingCounts Findings,
     StalenessCounts Staleness,
     CoverageSummary Coverage,
-    IReadOnlyList<QualityReportSensor> Sensors);
+    IReadOnlyList<QualityReportSensor> Sensors)
+{
+    /// <summary>Rounded mean over the kinds that have review evidence. No unit carries this value as its grade.</summary>
+    [JsonPropertyName("aggregateScore")]
+    public int AggregateScore => Score;
+
+    /// <summary>Band of <see cref="AggregateScore"/>. It labels the projection, never a reviewed unit.</summary>
+    [JsonPropertyName("aggregateBand")]
+    public string AggregateBand => Grade;
+}
 
 public sealed record QualityKindScore(
     string Kind,
@@ -564,9 +578,11 @@ public static class QualityReportRenderer
             text.AppendLine();
             text.AppendLine($"## {EscapeMarkdown(repository.Name)}");
             text.AppendLine();
-            text.AppendLine($"**Score: {scorecard.Score}/100 ({scorecard.Grade}) · Coverage: {scorecard.Coverage.Percent:0.##}% ({scorecard.Coverage.ReviewedFiles}/{scorecard.Coverage.TotalFiles} files)**");
+            text.AppendLine($"**Aggregate score (projection): {scorecard.AggregateScore}/100 ({scorecard.AggregateBand}) · Coverage: {scorecard.Coverage.Percent:0.##}% ({scorecard.Coverage.ReviewedFiles}/{scorecard.Coverage.TotalFiles} files)**");
             text.AppendLine();
-            text.AppendLine("| Kind / level | Score | Grade | Reviews |");
+            text.AppendLine("The aggregate score is a rounded mean over the review sidecars that currently exist. No unit carries it as its grade, and it does not stand in for a project or module review.");
+            text.AppendLine();
+            text.AppendLine("| Kind / level | Aggregate score | Band | Reviews |");
             text.AppendLine("| --- | ---: | :---: | ---: |");
             foreach (var kind in scorecard.Kinds)
             {
@@ -617,7 +633,7 @@ public static class QualityReportRenderer
             text.AppendLine();
             text.AppendLine("## Repository comparison");
             text.AppendLine();
-            text.AppendLine("| Rank | Repository | Score | Coverage | Open findings |");
+            text.AppendLine("| Rank | Repository | Aggregate score | Coverage | Open findings |");
             text.AppendLine("| ---: | --- | ---: | ---: | ---: |");
             foreach (var entry in report.Comparison.Repositories)
                 text.AppendLine($"| {entry.Rank} | {EscapeMarkdown(entry.Name)} | {entry.Score} ({entry.Grade}) | {entry.CoveragePercent:0.##}% | {entry.OpenFindings} |");
@@ -803,7 +819,7 @@ public static class QualityReportGate
         foreach (var repository in report.Repositories)
         {
             if (failUnder.HasValue && repository.Scorecard.Score < failUnder.Value)
-                failures.Add($"{repository.Id}: score {repository.Scorecard.Score} is below {failUnder.Value}");
+                failures.Add($"{repository.Id}: aggregate score {repository.Scorecard.AggregateScore} is below {failUnder.Value}");
             if (failOnSeverity is not null)
             {
                 var threshold = SeverityRank[failOnSeverity];
