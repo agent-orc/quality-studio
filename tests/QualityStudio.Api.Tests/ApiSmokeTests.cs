@@ -343,6 +343,85 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Rules_returns_the_resolved_catalogue_with_a_trace_per_rule()
+    {
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/rules", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Matches(@"^\d+\.\d+\.\d+$", json.GetProperty("catalogueVersion").GetString()!);
+        Assert.Equal("built-in", Assert.Single(json.GetProperty("sources").EnumerateArray()).GetString());
+        var rules = json.GetProperty("rules").EnumerateArray().ToArray();
+        var traces = json.GetProperty("traces").EnumerateArray().ToArray();
+        Assert.NotEmpty(rules);
+        Assert.Equal(rules.Length, traces.Length);
+        var rule = Assert.Single(rules, entry => entry.GetProperty("id").GetString() == "QS-CS-003");
+        Assert.Equal("dotnet", rule.GetProperty("technology").GetString());
+        Assert.True(rule.GetProperty("enabled").GetBoolean());
+        Assert.NotEmpty(rule.GetProperty("detection").GetString()!);
+        Assert.NotEmpty(rule.GetProperty("goodExample").GetString()!);
+        var trace = Assert.Single(traces, entry => entry.GetProperty("id").GetString() == "QS-CS-003");
+        Assert.Equal("built-in", trace.GetProperty("source").GetString());
+        Assert.False(trace.GetProperty("severityOverridden").GetBoolean());
+        Assert.Contains(trace.GetProperty("adapters").EnumerateArray(), value => value.GetString() == "dotnet");
+        Assert.DoesNotContain(trace.GetProperty("adapters").EnumerateArray(), value => value.GetString() == "angular");
+    }
+
+    [Fact]
+    public async Task Rules_filters_by_kind_and_adapter_and_rejects_an_unknown_kind()
+    {
+        using var client = application!.CreateClient();
+
+        using var filtered = await client.GetAsync("/api/rules?kind=code&adapter=angular", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, filtered.StatusCode);
+        var json = await filtered.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var rules = json.GetProperty("rules").EnumerateArray().ToArray();
+        Assert.NotEmpty(rules);
+        Assert.All(rules, rule => Assert.DoesNotContain("dotnet", rule.GetProperty("technology").GetString()!, StringComparison.Ordinal));
+        Assert.All(rules, rule => Assert.Contains(rule.GetProperty("kinds").EnumerateArray(),
+            value => value.GetString() == "code"));
+
+        using var rejected = await client.GetAsync("/api/rules?kind=accessibility", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+    }
+
+    [Fact]
+    public async Task Rules_reports_a_repository_override_as_its_scope_without_leaking_the_path()
+    {
+        var overrides = Path.Combine(repositoryRoot, ".quality", "rules");
+        Directory.CreateDirectory(overrides);
+        await File.WriteAllTextAsync(Path.Combine(overrides, "overrides.json"),
+            """
+            {
+              "schemaVersion": 1,
+              "overrides": [
+                { "id": "QS-CS-004", "severity": "critical", "reason": "Test drift caused two regressions." }
+              ]
+            }
+            """, TestContext.Current.CancellationToken);
+        using var client = application!.CreateClient();
+
+        using var response = await client.GetAsync("/api/rules", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(repositoryRoot, body, StringComparison.OrdinalIgnoreCase);
+        var json = JsonDocument.Parse(body).RootElement;
+        Assert.Contains(json.GetProperty("sources").EnumerateArray(), value => value.GetString() == "project");
+        var trace = Assert.Single(json.GetProperty("traces").EnumerateArray(),
+            entry => entry.GetProperty("id").GetString() == "QS-CS-004");
+        Assert.Equal("project", trace.GetProperty("source").GetString());
+        Assert.True(trace.GetProperty("severityOverridden").GetBoolean());
+        Assert.Equal("Test drift caused two regressions.", trace.GetProperty("reason").GetString());
+        var rule = Assert.Single(json.GetProperty("rules").EnumerateArray(),
+            entry => entry.GetProperty("id").GetString() == "QS-CS-004");
+        Assert.Equal("critical", rule.GetProperty("severity").GetString());
+        Assert.Equal("low", rule.GetProperty("authoredSeverity").GetString());
+        File.Delete(Path.Combine(overrides, "overrides.json"));
+    }
+
+    [Fact]
     public async Task Guideline_authoring_endpoint_writes_a_resolver_compatible_repository_file()
     {
         using var client = application!.CreateClient();
