@@ -3,6 +3,16 @@
 Library-level version history. Per-rule history lives in each rule file's own
 `## Change history` section.
 
+## 1.1.0 (2026-09-06)
+
+The rule format gained the two fields the generated catalogue needs to route a rule.
+
+- `kinds` (required): which review kinds a rule is injected into (`code`, `security`,
+  `performance`). All nine seed rules declare `[code]`.
+- `## Detection` (required): what a reviewer looks at, and what does not count as a violation.
+- `technology` accepts `generic` for language-independent rules.
+- Every seed rule moved to 1.1.0; no statement or severity changed.
+
 ## 1.0.0 (2026-08-27)
 
 Initial seed library — QS-90, closing the "empty rule library" gap named in

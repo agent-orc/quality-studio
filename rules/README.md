@@ -14,16 +14,18 @@ Quality Studio API actually loads at runtime — see [Review integration](#revie
 
 ```
 rules/
-  README.md                 this file
+  README.md                  this file
   CHANGELOG.md               library-level version history
-  angular/QS-NG-###-slug.md  Angular / TypeScript seed set
-  dotnet/QS-CS-###-slug.md   C#/.NET seed set
+  angular/QS-NG-###-slug.md  Angular / TypeScript rules
+  dotnet/QS-CS-###-slug.md   C#/.NET rules
+  generic/QS-GN-###-slug.md  language-independent rules
 ```
 
 ## Rule id scheme
 
 Stable, human-readable ids of the form `QS-<TECH>-<NNN>`: `QS-NG-###` for Angular/TypeScript,
-`QS-CS-###` for C#/.NET. Ids never get reused or renumbered — a retired rule is marked
+`QS-CS-###` for C#/.NET, `QS-GN-###` for language-independent rules. The prefix, the directory,
+and the `technology` field must agree, and the file name must start with the id. Ids never get reused or renumbered — a retired rule is marked
 `enabled: false` in its frontmatter and kept in the tree with its full change history, not
 deleted, so historical findings that cite it remain explainable.
 
@@ -34,9 +36,10 @@ Each rule is one Markdown file with YAML-ish frontmatter followed by four requir
 ```markdown
 ---
 id: QS-NG-001                 # stable id, never reused
-version: 1.0.0                # this rule's own semver (see Versioning)
+version: 1.1.0                # this rule's own semver (see Versioning)
 title: Use design tokens, not raw values
-technology: angular            # angular | dotnet
+technology: angular            # angular | dotnet | generic
+kinds: [code]                  # code | security | performance; at least one
 category: design-tokens         # free-form grouping, e.g. component-structure, api-shape
 severity: medium                # critical | high | medium | low | info
 defaultOn: true                 # part of the DEFAULT-ON core (see Defaults and overrides)
@@ -44,6 +47,7 @@ autofixable: false               # true only if a deterministic tool can safely 
 deterministicRuleIds: []         # cross-references into sensor rule ids this rule's autofix/precheck maps to (e.g. NG8102, CS8618)
 relatedGuideline: angular-typescript   # optional: the existing coarse GuidelineStore catalogue bucket this overlaps with
 since: 1.0.0                    # library version this rule was introduced in
+enabled: true                   # optional, defaults to true; false retires the rule without deleting it
 ---
 
 ## Statement
@@ -52,6 +56,9 @@ One clear, imperative sentence or two: what to do.
 ## Rationale
 Why it matters here — the concrete cost of not doing it.
 
+## Detection
+What a reviewer looks at to decide, and what does not count as a violation.
+
 ## Good example
 A real snippet from this repo (or Agent Studio) that already follows the rule.
 
@@ -59,11 +66,16 @@ A real snippet from this repo (or Agent Studio) that already follows the rule.
 A plausible violation, for contrast.
 
 ## Change history
+- 1.1.0 (2026-09-06): Newest entry first.
 - 1.0.0 (2026-08-27): Initial rule.
 ```
 
-`severity` and `autofixable` are read at runtime; `goodExample`/`badExample` are extracted from
-the fenced code blocks under those two headings. See
+All six sections are required. `technology` decides which repository units a rule reaches
+(`angular`, `dotnet`, `generic`; `generic` applies everywhere), and `kinds` decides which review
+kinds it is injected into. `severity` and `autofixable` are read at runtime; `goodExample` and
+`badExample` are the fenced code block under those two headings; `statement`, `rationale`, and
+`detection` are the prose with whitespace collapsed. `## Change history` is newest first, and its
+top entry's version must equal the frontmatter `version`. See
 [`scripts/sync-rule-catalogue.mjs`](../scripts/sync-rule-catalogue.mjs) for the exact parser.
 
 ## Defaults and overrides
