@@ -4,15 +4,23 @@
   "title": "In-process Analysis Core Package",
   "summary": "Implemented the first package slice for Quality Studio analysis: a stable in-process runner, Quality Studio finding envelopes, NuGet metadata and README, a real quality-cli consumer, and removal of the Agent Studio HTTP client from the core. The core is useful without the UI. Repository extraction is explicitly deferred pending operator criteria.",
   "entrypoint": "index.html",
-  "status": "implemented",
-  "phase": "first-slice",
+  "status": "decided",
+  "phase": "decision-ready",
   "updatedAt": "2026-08-27T00:00:00Z",
   "sourceTaskKeys": [
     "QS-91",
     "AGT-2655",
     "QS-90"
   ],
-  "decision": {
+  "artifacts": [
+    "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+    "src/AgentOrchestrator.CodeQuality/QualityAnalysisRunner.cs",
+    "src/AgentOrchestrator.CodeQuality/README.md",
+    "src/quality-cli/Program.cs",
+    "src/QualityStudio.Api/AgentStudioTaskClient.cs"
+  ],
+  "key": "QS-W9",
+  "decisionNote": {
     "outcome": "keep-core-in-quality-studio-repository",
     "state": "operator-decision-required-for-extraction",
     "recommendation": "Do not extract the analysis core repository now. Publish and consume the package from this repository first; reconsider extraction when independent cadence, stable semantic versioning, release ownership, and public-repository policy justify the cross-repository cost.",
@@ -26,13 +34,5 @@
         "answer": "No. Keep the package in this repository for the first slice and wait for an explicit operator decision against the documented extraction criteria."
       }
     ]
-  },
-  "artifacts": [
-    "src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
-    "src/AgentOrchestrator.CodeQuality/QualityAnalysisRunner.cs",
-    "src/AgentOrchestrator.CodeQuality/README.md",
-    "src/quality-cli/Program.cs",
-    "src/QualityStudio.Api/AgentStudioTaskClient.cs"
-  ],
-  "key": "QS-W9"
+  }
 }

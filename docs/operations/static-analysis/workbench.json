@@ -5,7 +5,7 @@
   "summary": "Documented implementation of deterministic analysis before model review. QS-72 prepared the evidence collection and projection plane; QS-86 wires repository-owned .NET compiler/Roslyn and ESLint checks into it with independent per-repository enable flags and live API evidence.",
   "entrypoint": "index.html",
   "status": "documented",
-  "phase": "implementation",
+  "phase": "testing",
   "updatedAt": "2026-08-27T06:45:00Z",
   "sourceTaskKeys": [
     "QS-63",
