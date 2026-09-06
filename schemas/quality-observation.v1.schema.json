@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quality.studio/schemas/quality-observation.v1.schema.json",
+  "title": "Quality Studio observation v1",
+  "description": "One producer's immutable result for one exact subject and input set. Current sidecars and reports are projections selected from a stream of these records; they are not the history store.",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-[a-z0-9][a-z0-9.-]*$": true
+  },
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "observationId",
+    "recordedAt",
+    "taxonomy",
+    "subject",
+    "profile",
+    "producer",
+    "evidenceStatus",
+    "assessment"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://quality.studio/schemas/quality-observation.v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "observationId": {
+      "type": "string",
+      "description": "Deterministic identity of this observation. Replaying the same producer run recomputes the same value.",
+      "pattern": "^observation-sha256:[0-9a-f]{64}$"
+    },
+    "recordedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "taxonomy": {
+      "$ref": "#/$defs/catalogueReference"
+    },
+    "extensionCatalogues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/extensionCatalogueReference"
+      }
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "profile": {
+      "$ref": "#/$defs/profile"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "evidenceStatus": {
+      "$ref": "#/$defs/evidenceStatus"
+    },
+    "assessment": {
+      "$ref": "#/$defs/assessment"
+    },
+    "change": {
+      "$ref": "#/$defs/change"
+    },
+    "grade": {
+      "$ref": "#/$defs/grade"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceItem"
+      }
+    },
+    "aspects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/aspect"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "policyOutcomes": {
+      "type": "array",
+      "description": "Versioned policy dispositions over this observation. A decision is never derived from an assessment.",
+      "items": {
+        "$ref": "#/$defs/policyOutcome"
+      }
+    },
+    "legacy": {
+      "$ref": "#/$defs/legacy"
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "coreTerm": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "extensionTerm": {
+      "type": "string",
+      "description": "A term contributed by an extension catalogue, prefixed with that catalogue's reverse-DNS prefix.",
+      "pattern": "^[a-z0-9][a-z0-9.-]*:[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "aspectId": {
+      "type": "string",
+      "pattern": "^([a-z0-9][a-z0-9.-]*:)?[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Preserved extension data. Keys are prefixed with an installed extension catalogue's prefix; values round-trip unchanged.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9.-]*:[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+      }
+    },
+    "assessment": {
+      "oneOf": [
+        {
+          "enum": ["pass", "concern", "fail", "inconclusive", "not-applicable", "not-assessed"]
+        },
+        { "$ref": "#/$defs/extensionTerm" }
+      ]
+    },
+    "evidenceStatus": {
+      "oneOf": [
+        { "enum": ["available", "partial", "unavailable"] },
+        { "$ref": "#/$defs/extensionTerm" }
+      ]
+    },
+    "change": {
+      "oneOf": [
+        {
+          "enum": ["improved", "regressed", "mixed", "unchanged", "no-observed-delta", "inconclusive"]
+        },
+        { "$ref": "#/$defs/extensionTerm" }
+      ]
+    },
+    "decision": {
+      "oneOf": [
+        { "enum": ["allow", "warn", "block", "defer"] },
+        { "$ref": "#/$defs/extensionTerm" }
+      ]
+    },
+    "severity": {
+      "oneOf": [
+        { "enum": ["critical", "high", "medium", "low", "info"] },
+        { "$ref": "#/$defs/extensionTerm" }
+      ]
+    },
+    "producerKind": {
+      "oneOf": [
+        {
+          "enum": ["agent", "deterministic-sensor", "human", "imported", "unknown"]
+        },
+        { "$ref": "#/$defs/extensionTerm" }
+      ]
+    },
+    "evidenceKind": {
+      "oneOf": [
+        {
+          "enum": [
+            "source-code",
+            "test-result",
+            "runtime-measurement",
+            "tool-result",
+            "artifact",
+            "document",
+            "human-attestation"
+          ]
+        },
+        { "$ref": "#/$defs/extensionTerm" }
+      ]
+    },
+    "catalogueReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*(/[a-z0-9][a-z0-9.-]*)*$"
+        },
+        "version": { "$ref": "#/$defs/semver" },
+        "digest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "extensionCatalogueReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "digest", "prefix"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*(/[a-z0-9][a-z0-9.-]*)*$"
+        },
+        "version": { "$ref": "#/$defs/semver" },
+        "digest": { "$ref": "#/$defs/sha256" },
+        "prefix": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitId", "manifestHash"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "manifestHash": { "$ref": "#/$defs/sha256" },
+        "path": { "type": "string" },
+        "level": {
+          "enum": ["file", "namespace", "module", "project", "repository"]
+        },
+        "scope": {
+          "type": "string",
+          "description": "Which world the subject belongs to, for example project, task, or runtime. Never inferred from a storage path."
+        },
+        "kind": {
+          "type": "string",
+          "description": "The producer workflow's review kind, for example code, security, or performance."
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/semver" },
+        "promptHash": { "$ref": "#/$defs/sha256" },
+        "reviewInputsHash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/producerKind" },
+        "agent": { "type": "string" },
+        "provider": { "type": "string" },
+        "requestedModel": { "type": "string" },
+        "effectiveModel": { "type": "string" },
+        "thinkingLevel": { "type": "string" },
+        "routePolicyVersion": { "type": "string" },
+        "sensorId": { "type": "string" },
+        "sensorVersion": { "type": "string" },
+        "name": { "type": "string" },
+        "runId": { "type": "string" },
+        "reviewRunId": { "type": "string" }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "rationale": { "type": "string" }
+      }
+    },
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/evidenceKind" },
+        "summary": { "type": "string" },
+        "locator": { "$ref": "#/$defs/locator" },
+        "artifactRef": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "content": {
+          "description": "Preserved payload for evidence that has no durable artefact. Never discarded because it is malformed."
+        },
+        "contentHash": { "$ref": "#/$defs/sha256" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "symbolId": { "type": "string" },
+        "range": { "$ref": "#/$defs/range" },
+        "uri": { "type": "string" }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "aspect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectId", "assessment"],
+      "properties": {
+        "aspectId": { "$ref": "#/$defs/aspectId" },
+        "assessment": { "$ref": "#/$defs/assessment" },
+        "title": { "type": "string" },
+        "rationale": { "type": "string" },
+        "grade": { "$ref": "#/$defs/grade" },
+        "evidenceRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationFindingId", "aspectId", "severity", "source"],
+      "properties": {
+        "observationFindingId": { "type": "string", "minLength": 1 },
+        "issueId": { "type": "string", "minLength": 1 },
+        "occurrenceFingerprint": { "type": "string", "minLength": 1 },
+        "fingerprintAlgorithm": { "type": "string", "minLength": 1 },
+        "legacyFingerprints": {
+          "type": "array",
+          "description": "Earlier fingerprint spellings retained as aliases. Correlation never deletes or rewrites them.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "ruleRef": { "type": "string" },
+        "aspectId": { "$ref": "#/$defs/aspectId" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "evidenceRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source": { "$ref": "#/$defs/findingSource" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "dependentRequired": {
+        "occurrenceFingerprint": ["fingerprintAlgorithm"]
+      }
+    },
+    "findingSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/producerKind" },
+        "producerRef": {
+          "type": "string",
+          "description": "'self' when the observation's own producer authored the finding; otherwise the sensor or person identity."
+        },
+        "sensorId": { "type": "string" },
+        "sensorVersion": { "type": "string" }
+      }
+    },
+    "policyOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyRef", "decision"],
+      "properties": {
+        "policyRef": { "type": "string", "minLength": 1 },
+        "decision": { "$ref": "#/$defs/decision" },
+        "rationale": { "type": "string" },
+        "legacyValue": { "type": "string" }
+      }
+    },
+    "legacy": {
+      "type": "object",
+      "description": "Provenance of an observation imported from an earlier contract. The imported file itself is never rewritten.",
+      "additionalProperties": false,
+      "required": ["schema", "sourcePath", "completeness"],
+      "properties": {
+        "schema": { "type": "string", "minLength": 1 },
+        "value": { "type": "string" },
+        "sourcePath": { "type": "string", "minLength": 1 },
+        "completeness": { "enum": ["complete", "partial"] },
+        "importId": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

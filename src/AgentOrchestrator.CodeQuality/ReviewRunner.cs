@@ -25,7 +25,8 @@ public sealed record ReviewRequest(
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
     IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
-    string? ModelSource = null);
+    string? ModelSource = null,
+    IReadOnlyList<ReviewSubjectGroup>? SubjectGroups = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -102,13 +103,13 @@ public sealed class ReviewRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
-        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,
-            sensorEvidence, deterministicEvidence) = prepared;
+        var (root, relativePath, subjectPaths, files, fileContent, memberFindings, inputs, prompt, unitId,
+            metaPath, threads, sensorEvidence, deterministicEvidence) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
         var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
-        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kind));
+        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Level, request.Kind));
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
@@ -127,6 +128,9 @@ public sealed class ReviewRunner
         {
             ReviewUsageEntry usage = null!;
             JsonObject response = null!;
+            // Every resolved input id is citable, whether or not the budget included its body: the
+            // agent can only have seen the included ones, and accepting the rest costs nothing.
+            var rulePolicy = new RuleIdPolicy(inputs.Inputs.Select(input => input.Id), request.Kind);
             return await _pipeline.ExecuteAsync(new ReviewExecution<ReviewExecutionResult>(
                 prompt,
                 root,
@@ -139,7 +143,7 @@ public sealed class ReviewRunner
                 },
                 outcome =>
                 {
-                    response = _responseParser.Parse(outcome.Response);
+                    response = _responseParser.Parse(outcome.Response, rulePolicy);
                     RequireArchitectureAspect(response, request);
                 },
                 async token =>
@@ -158,6 +162,7 @@ public sealed class ReviewRunner
                         SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
                     }
                     var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+                    AggregateFindingRollup.Apply(response, request.Level, subjectContents, memberFindings);
                     if (request.Kind == "security")
                     {
                         findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
@@ -303,13 +308,17 @@ public sealed class ReviewRunner
                     $"Review target '{subjectPaths[index]}' is excluded: {decision.Reason}", nameof(request));
         }
 
-        var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
-        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
-        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
-        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
+        var subject = await BuildSubjectContentAsync(
+            root, relativePath, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
+        var fileContent = subject.Text;
+        // The unit identifies the technology, and the technology selects the named rules that
+        // reach this review, so it is resolved before the inputs rather than with the metadata.
         var unitId = request.UnitId ?? _unitResolver.ResolveUnitId(root, relativePath, request.Level)
             ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
+            request.GlobalInputsDirectory, request.InputBudgetCharacters, AdapterFromUnitId(unitId));
+        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
+        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
         var metaPath = ReviewMetaPath.For(root, files[0], relativePath, request.Level, request.Kind);
         var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
@@ -331,8 +340,8 @@ public sealed class ReviewRunner
             request.Level,
             coverageEvidence,
             DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
-        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, inputs,
-            prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
+        return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, subject.MemberFindings,
+            inputs, prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
     }
 
     private async Task<SecurityEvidenceBundle> CollectSensorEvidenceAsync(
@@ -393,7 +402,7 @@ public sealed class ReviewRunner
         JsonObject response,
         string relativePath,
         string kind,
-        ReviewAdapter adapter,
+        string adapter,
         string unitId,
         IReadOnlyList<SubjectInputHash> subjectInputs,
         IReadOnlyList<AggregateMemberHash>? aggregateMembers,
@@ -409,11 +418,11 @@ public sealed class ReviewRunner
         IReadOnlyList<SensorScanResult> deterministicEvidence,
         string? sourceRevision)
     {
-        var promptHash = ReviewPromptBuilder.TemplateHash(kind);
+        var promptHash = ReviewPromptBuilder.TemplateHash(level, kind);
         var withSensors = kind == "security" && sensorEvidence.Sensors.Count > 0;
         return new ReviewMetaDocument
         {
-            Unit = new ReviewUnit(unitId, adapter, level, relativePath,
+            Unit = new ReviewUnit(unitId, ParseAdapter(adapter), level, relativePath,
                 displayName ?? Path.GetFileName(relativePath)),
             ReviewedAt = DateTimeOffset.UtcNow,
             Kind = ParseKind(kind),
@@ -438,10 +447,10 @@ public sealed class ReviewRunner
                 inputs.Complete,
                 inputs.Inputs.Where(input => input.IncludedContent.Length > 0)
                     .Select(input => new StandardReference(
-                        input.Id, ParseScope(input.Scope), "unversioned", "sha256:" + Sha256(input.Content)))
+                        input.Id, ParseScope(input.Scope), input.Version, "sha256:" + Sha256(input.Content)))
                     .ToArray(),
                 inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).ToArray(),
-                new PromptReference($"file-{kind}-review", "1.0.0", promptHash)),
+                new PromptReference(ReviewPromptBuilder.TemplateId(level, kind), "1.0.0", promptHash)),
             Grade = Read<ReviewGrade>(response, "grade"),
             Summary = response["summary"]!.GetValue<string>(),
             Aspects = Read<ReviewAspect[]>(response, "aspects"),
@@ -472,6 +481,23 @@ public sealed class ReviewRunner
 
     private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
+    private static string AdapterFromUnitId(string unitId)
+    {
+        var segments = unitId.Split('/');
+        return segments.Length == 4 && segments[0] == "qs-v1" &&
+               segments[1] is "angular" or "dotnet" or "generic"
+            ? segments[1]
+            : throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter.");
+    }
+
+    private static ReviewAdapter ParseAdapter(string adapter) => adapter switch
+    {
+        "angular" => ReviewAdapter.Angular,
+        "dotnet" => ReviewAdapter.Dotnet,
+        "generic" => ReviewAdapter.Generic,
+        _ => throw new ArgumentException($"Adapter '{adapter}' is not part of the metadata contract.", nameof(adapter)),
+    };
+
     private static ReviewKind ParseKind(string kind) =>
         Enum.TryParse<ReviewKind>(kind, true, out var parsed)
             ? parsed
@@ -485,18 +511,42 @@ public sealed class ReviewRunner
         _ => throw new ArgumentException($"Review input scope '{scope}' is not part of the metadata contract.", nameof(scope)),
     };
 
-    private static async Task<string> BuildSubjectContentAsync(
-        IReadOnlyList<string> paths, IReadOnlyList<string> files, ReviewLevel level, CancellationToken cancellationToken)
+    /// <summary>
+    /// A file review sees its file. An aggregate review sees a digest of its members - their sizes,
+    /// their own review state and findings, the derived structure, the boundary inventory for a
+    /// security pass, and a budgeted sample of real source - because concatenating every member
+    /// asks the file question N times over and does not fit. The subject hash is unaffected: it
+    /// stays the manifest of member hashes, and only the prompt content changes.
+    /// </summary>
+    private static async Task<SubjectContent> BuildSubjectContentAsync(
+        string root,
+        string relativePath,
+        ReviewRequest request,
+        IReadOnlyList<string> paths,
+        IReadOnlyList<string> files,
+        CancellationToken cancellationToken)
     {
-        if (level == ReviewLevel.File) return await File.ReadAllTextAsync(files[0], cancellationToken).ConfigureAwait(false);
-        var builder = new StringBuilder();
-        for (var index = 0; index < files.Count; index++)
+        if (request.Level == ReviewLevel.File)
         {
-            builder.AppendLine($"\n--- {paths[index]} ---");
-            builder.AppendLine(await File.ReadAllTextAsync(files[index], cancellationToken).ConfigureAwait(false));
+            return new SubjectContent(
+                await File.ReadAllTextAsync(files[0], cancellationToken).ConfigureAwait(false),
+                EmptyMemberFindings);
         }
-        return builder.ToString();
+
+        var digest = await AggregateSubjectDigest.BuildAsync(new AggregateDigestRequest(
+            root,
+            relativePath,
+            request.DisplayName ?? Path.GetFileName(relativePath),
+            request.Level,
+            request.Kind,
+            paths,
+            request.AggregateExclusions ?? [],
+            request.SubjectGroups ?? []), cancellationToken).ConfigureAwait(false);
+        return new SubjectContent(digest.Text, digest.MemberFindings);
     }
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyMemberFindings =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 
     private static async Task<IReadOnlyDictionary<string, string>> ReadSubjectContentsAsync(
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
@@ -574,19 +624,6 @@ public sealed class ReviewRunner
     private static string GetAdapter(string file) =>
         Path.GetExtension(file).ToLowerInvariant() is ".cs" or ".fs" or ".vb" ? "dotnet" : "generic";
 
-    private static ReviewAdapter AdapterFromUnitId(string unitId)
-    {
-        var segments = unitId.Split('/');
-        return segments.Length == 4 && segments[0] == "qs-v1"
-            ? segments[1] switch
-            {
-                "angular" => ReviewAdapter.Angular,
-                "dotnet" => ReviewAdapter.Dotnet,
-                "generic" => ReviewAdapter.Generic,
-                _ => throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter."),
-            }
-            : throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter.");
-    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -630,12 +667,15 @@ public sealed class ReviewRunner
         IReadOnlyList<AggregateMemberHash>? Members,
         IReadOnlyList<ScopeExclusion>? Exclusions);
 
+    private sealed record SubjectContent(string Text, IReadOnlyDictionary<string, string> MemberFindings);
+
     private sealed record PreparedPrompt(
         string Root,
         string RelativePath,
         string[] SubjectPaths,
         string[] Files,
         string FileContent,
+        IReadOnlyDictionary<string, string> MemberFindings,
         ResolvedInputs Inputs,
         string Prompt,
         string UnitId,

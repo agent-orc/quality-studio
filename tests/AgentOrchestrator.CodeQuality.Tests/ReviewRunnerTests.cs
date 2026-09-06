@@ -264,6 +264,64 @@ public sealed class ReviewResponseParserTests
         }
         """;
 
+    [Fact]
+    public void Parse_KeepsARuleIdTheResolvedInputsCarry()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("QS-CS-003") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy(["QS-CS-003"], "code"));
+
+        Assert.Equal("QS-CS-003", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_NormalizesACitationToTheCatalogueSpelling()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("qs-cs-003") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy(["QS-CS-003"], "code"));
+
+        Assert.Equal("QS-CS-003", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_ReplacesAnUnknownRuleIdWithTheBaseCriteriaIdInsteadOfFailing()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("QS-CS-999") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy(["QS-CS-003"], "code"));
+
+        Assert.Equal("built-in:code", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_AcceptsTheBaseCriteriaIdOfTheReviewedKind()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("built-in:security") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response, new RuleIdPolicy([], "security"));
+
+        Assert.Equal("built-in:security", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_LeavesRuleIdsAloneWhenNoPolicyIsSupplied()
+    {
+        var response = ValidResponse.Replace("\"findings\": []",
+            "\"findings\": [" + Finding("some-guideline") + "]", StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response);
+
+        Assert.Equal("some-guideline", parsed["findings"]![0]!["ruleId"]!.GetValue<string>());
+    }
+
+    private static string Finding(string ruleId) =>
+        ValidFinding.Replace("\"ruleId\":\"correctness.risk\"", "\"ruleId\":\"" + ruleId + "\"", StringComparison.Ordinal);
+
     internal const string ValidFinding = """
         {"id":"correctness-1","ruleId":"correctness.risk","aspect":"correctness","severity":"medium","title":"Risk","description":"A risk.","recommendation":"Fix it.","locations":[{"path":"src/Small.cs","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":8}}}]}
         """;
@@ -309,8 +367,70 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
+    }
+
+    [Fact]
+    public async Task ReviewAsync_CarriesTheNamedRulesForThisTechnologyIntoThePromptAndTheSidecar()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            // A project file is what makes this a dotnet unit rather than the generic adapter.
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Small.csproj"),
+                """<Project Sdk="Microsoft.NET.Sdk" />""", cancellationToken);
+            var agent = new FakeAgent();
+
+            var result = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+
+            // A .cs unit reviews through the dotnet adapter, so Angular rules stay out of its prompt.
+            Assert.Contains("## QS-CS-003", agent.Prompt!, StringComparison.Ordinal);
+            Assert.Contains("Detection:", agent.Prompt!, StringComparison.Ordinal);
+            Assert.DoesNotContain("## QS-NG-", agent.Prompt!, StringComparison.Ordinal);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, cancellationToken));
+            Assert.Equal("dotnet", document.RootElement.GetProperty("unit").GetProperty("adapter").GetString());
+            var standards = document.RootElement.GetProperty("reviewInputs").GetProperty("standards")
+                .EnumerateArray().ToArray();
+            var rule = Assert.Single(standards, entry => entry.GetProperty("id").GetString() == "QS-CS-003");
+            Assert.Equal("built-in", rule.GetProperty("scope").GetString());
+            Assert.Matches(@"^\d+\.\d+\.\d+$", rule.GetProperty("version").GetString()!);
+            Assert.StartsWith("sha256:", rule.GetProperty("contentHash").GetString(), StringComparison.Ordinal);
+            Assert.True(result.Inputs.Complete);
+        });
+    }
+
+    [Fact]
+    public async Task ReviewAsync_DropsARuleTheRepositoryDisabledAndSaysSoInTheHash()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Small.csproj"),
+                """<Project Sdk="Microsoft.NET.Sdk" />""", cancellationToken);
+            var before = await new ReviewRunner(new FakeAgent()).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+            var beforeHash = before.Inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash("code"));
+            Directory.CreateDirectory(Path.Combine(root, ".quality", "rules"));
+            await File.WriteAllTextAsync(Path.Combine(root, ".quality", "rules", "overrides.json"),
+                """
+                {
+                  "schemaVersion": 1,
+                  "overrides": [
+                    { "id": "QS-CS-003", "enabled": false, "reason": "This module is synchronous by design." }
+                  ]
+                }
+                """, cancellationToken);
+
+            var agent = new FakeAgent();
+            var after = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+
+            Assert.DoesNotContain("## QS-CS-003", agent.Prompt!, StringComparison.Ordinal);
+            Assert.NotEqual(beforeHash, after.Inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash("code")));
+        });
     }
 
     [Fact]
@@ -348,14 +468,20 @@ public sealed class ReviewRunnerTests
             Assert.Equal("src/Small.cs", ledgerEntry.Path);
             Assert.Equal(120, ledger.InputTokens);
             Assert.StartsWith("finding-", json.GetProperty("findings")[0].GetProperty("id").GetString(), StringComparison.Ordinal);
-            Assert.Equal("correctness.risk", json.GetProperty("findings")[0].GetProperty("ruleId").GetString());
+            // "correctness.risk" is no input this repository resolves, so it is replaced rather than stored.
+            Assert.Equal("built-in:security", json.GetProperty("findings")[0].GetProperty("ruleId").GetString());
             Assert.StartsWith("sha256:", json.GetProperty("findings")[0].GetProperty("fingerprint").GetString(), StringComparison.Ordinal);
             Assert.Contains("Global rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Project rule.", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("Treat external data as untrusted.", agent.Prompt, StringComparison.Ordinal);
-            var standard = Assert.Single(json.GetProperty("reviewInputs").GetProperty("standards").EnumerateArray());
-            Assert.Equal("secure-boundaries", standard.GetProperty("id").GetString());
+            var standards = json.GetProperty("reviewInputs").GetProperty("standards").EnumerateArray().ToArray();
+            var standard = Assert.Single(standards, entry => entry.GetProperty("id").GetString() == "secure-boundaries");
             Assert.Equal("project", standard.GetProperty("scope").GetString());
+            Assert.Equal("unversioned", standard.GetProperty("version").GetString());
+            // This unit has no project file, so it reviews through the generic adapter and only the
+            // language-independent rules reach it.
+            Assert.All(standards.Where(entry => entry.GetProperty("scope").GetString() == "built-in"),
+                entry => Assert.StartsWith("QS-GN-", entry.GetProperty("id").GetString(), StringComparison.Ordinal));
             Assert.Equal(root, agent.WorkingDirectory);
         });
     }
@@ -653,7 +779,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 
@@ -697,7 +823,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 
@@ -778,7 +904,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 
@@ -945,7 +1071,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TestDirectory.Delete(root);
         }
     }
 

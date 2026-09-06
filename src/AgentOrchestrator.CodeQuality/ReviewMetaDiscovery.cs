@@ -20,7 +20,11 @@ public static class ReviewMetaDiscovery
         int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
     {
         var root = Path.GetFullPath(repositoryPath);
-        var nodes = Flatten(projects).ToDictionary(node => node.Id, StringComparer.Ordinal);
+        // A file contributing to several namespaces is aliased below each of them while remaining
+        // one canonical unit, so the same node can be reached more than once during the walk.
+        var nodes = Flatten(projects)
+            .DistinctBy(node => node.Id, StringComparer.Ordinal)
+            .ToDictionary(node => node.Id, StringComparer.Ordinal);
         foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
@@ -78,9 +82,13 @@ public static class ReviewMetaDiscovery
         }
 
         var kind = document.Kind.ToString().ToLowerInvariant();
-        var resolved = inputResolver.Resolve(root, kind, document.Unit.Level, globalInputsDirectory, inputBudgetCharacters);
+        var level = document.Unit.Level;
+        // The sidecar records the adapter the review ran under; resolving with any other value would
+        // select a different rule set and report every unit as policy drift.
+        var adapter = document.Unit.Adapter.ToString().ToLowerInvariant();
+        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, adapter);
         return StringComparer.Ordinal.Equals(
-            document.ReviewInputs.EffectiveHash.Value, resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind)))
+            document.ReviewInputs.EffectiveHash.Value, resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(level, kind)))
             ? ReviewState.Current
             : ReviewState.PolicyDrift;
     }

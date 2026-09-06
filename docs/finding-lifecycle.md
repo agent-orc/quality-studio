@@ -4,6 +4,23 @@ Review agents must return a stable `ruleId` naming the guideline or rule that pr
 
 The fingerprint canonicalization is `quality-studio-finding-v1` followed by NUL, the repository-relative path using `/`, NUL, the primary location's code snippet after line endings are changed to LF, leading/trailing whitespace is removed, and every remaining whitespace run is replaced by one ASCII space, NUL, and the trimmed case-sensitive `ruleId`. The UTF-8 bytes are SHA-256 hashed and formatted as `sha256:<lowercase hex>`. The finding id is `finding-<the same lowercase hex>`.
 
+## Rule ids and fingerprint stability
+
+Because the fingerprint covers `ruleId`, the id an agent cites is part of a finding's identity,
+and a review may only cite ids that actually resolved for the unit under review — a rule from the
+built-in library, a guideline from `.quality/inputs/`, or `built-in:<kind>`. `ReviewResponseParser`
+canonicalizes a cited id against that set, ignoring case, and replaces anything else with
+`built-in:<kind>` while logging `RuleIdRejected`. Without that check, an invented id would give
+the same defect a different identity on every run, and its lifecycle state would be lost each time.
+
+Attributing an existing finding to a named rule does produce a new observation: the old
+fingerprint disappears and is retained as resolved, and the newly attributed one starts open. That
+is a one-time effect per finding, and it is the correct reading — a review that can name the rule
+it violated is a different, better-attributed statement than one that could not. The alternative,
+removing `ruleId` from the fingerprint basis, would require a new canonicalization and would
+invalidate every stored fingerprint at once, so the basis and the
+`quality-studio-finding-v1` canonicalization are unchanged.
+
 ## Immutable interchange envelope
 
 `schemas/quality-finding.v1.schema.json` defines the finding observation shared

@@ -46,6 +46,7 @@ builder.Services.AddSingleton<RoslynAnalyzerSensor>();
 builder.Services.AddSingleton<EslintAnalyzerSensor>();
 builder.Services.AddSingleton<TypeScriptAnalyzerSensor>();
 builder.Services.AddSingleton<DotNetBuildSensor>();
+builder.Services.AddSingleton<AngularCompilerSensor>();
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DependencyVulnerabilitySensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<BoundaryInventorySensor>());
@@ -55,6 +56,7 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<EslintAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<TypeScriptAnalyzerSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DotNetBuildSensor>());
+builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<AngularCompilerSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
@@ -189,7 +191,11 @@ app.Use(async (context, next) =>
     var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport)
+    var isRepositoryItem = context.GetEndpoint() is Microsoft.AspNetCore.Routing.RouteEndpoint routeEndpoint &&
+        string.Equals(routeEndpoint.RoutePattern.RawText, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryMutation = isRepositoryItem &&
+        (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
+    if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryMutation)
     {
         if (!identity.CanRegisterRepositories)
         {
@@ -264,6 +270,8 @@ app.MapGet("/api/file", FileContent);
 app.MapGet("/api/repos/{repoId}/file", FileContent);
 app.MapGet("/api/inputs", Inputs);
 app.MapGet("/api/repos/{repoId}/inputs", Inputs);
+app.MapGet("/api/rules", Rules);
+app.MapGet("/api/repos/{repoId}/rules", Rules);
 app.MapGet("/api/guidelines", Guidelines);
 app.MapGet("/api/repos/{repoId}/guidelines", Guidelines);
 app.MapPost("/api/guidelines", CreateGuideline);
@@ -765,6 +773,83 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
         "Resolved review inputs for {KindCount} kinds in repository {RepositoryId} in {ElapsedMilliseconds} ms",
         kinds.Count, registration.Id, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new { level = "file", kinds });
+}
+
+/// <summary>
+/// The named-rule library as this repository resolves it: every built-in rule with the effect of the
+/// repository's own overrides applied, plus a trace saying where each rule's effective state came
+/// from and which review kind and adapter it reaches. Override file paths stay inside the process;
+/// only their scope is reported.
+/// </summary>
+static IResult Rules(HttpContext context, string? kind, string? adapter, RepositoryRegistry registry)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    if (kind is not null && !Enum.TryParse<ReviewKind>(kind, true, out _))
+    {
+        return Results.BadRequest(new ProblemDetails
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Unsupported review kind",
+            Detail = $"'{kind}' is not a review kind.",
+        });
+    }
+
+    var catalogue = new RuleCatalogueResolver().Resolve(repository.Root, globalDirectory);
+    var projectOverridePath = Path.GetFullPath(Path.Combine(repository.Root,
+        RuleCatalogueResolver.ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+    string ScopeOf(string source) =>
+        source == "built-in" || source.StartsWith("embedded:", StringComparison.Ordinal) ? "built-in"
+        : string.Equals(source, projectOverridePath, StringComparison.OrdinalIgnoreCase) ? "project" : "global";
+    var normalizedKind = kind?.ToLowerInvariant();
+    var selected = catalogue.Rules
+        .Where(rule => normalizedKind is null || rule.Rule.Kinds.Contains(normalizedKind, StringComparer.OrdinalIgnoreCase))
+        .Where(rule => RuleCatalogueResolver.AppliesTo(rule.Rule.Technology, adapter))
+        .ToArray();
+
+    return Results.Ok(new
+    {
+        catalogueVersion = catalogue.CatalogueVersion,
+        filter = new { kind = normalizedKind, adapter },
+        sources = catalogue.Sources.Select(ScopeOf).Distinct(StringComparer.Ordinal).ToArray(),
+        rules = selected.Select(rule => new
+        {
+            rule.Rule.Id,
+            rule.Rule.Version,
+            rule.Rule.Title,
+            rule.Rule.Technology,
+            rule.Rule.Category,
+            rule.Rule.Kinds,
+            rule.Rule.Statement,
+            rule.Rule.Rationale,
+            rule.Rule.Detection,
+            rule.Rule.GoodExample,
+            rule.Rule.BadExample,
+            severity = rule.EffectiveSeverity.ToString().ToLowerInvariant(),
+            authoredSeverity = rule.Rule.Severity.ToString().ToLowerInvariant(),
+            enabled = rule.EffectiveEnabled,
+            rule.Rule.DefaultOn,
+            rule.Rule.Autofixable,
+            rule.Rule.DeterministicRuleIds,
+            rule.Rule.RelatedGuideline,
+            rule.Rule.Since,
+        }).ToArray(),
+        traces = selected.Select(rule => new
+        {
+            rule.Rule.Id,
+            source = ScopeOf(rule.Scope),
+            enabled = rule.EffectiveEnabled,
+            severityOverridden = rule.SeverityOverridden,
+            reason = rule.OverrideReason,
+            kinds = rule.Rule.Kinds,
+            rule.Rule.Technology,
+            adapters = new[] { "angular", "dotnet", "generic" }
+                .Where(candidate => RuleCatalogueResolver.AppliesTo(rule.Rule.Technology, candidate))
+                .ToArray(),
+        }).ToArray(),
+    });
 }
 
 static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)

@@ -59,10 +59,17 @@ internal static class ReviewMetaFixture
         fingerprint,
         ruleId);
 
-    /// <summary>The review-input hash today's standards and prompt produce, so a fixture reads fresh.</summary>
-    public static string EffectiveHash(string repositoryRoot, string kind = "code", ReviewLevel level = ReviewLevel.File) =>
-        new InputResolver().Resolve(repositoryRoot, kind, level)
-            .EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
+    /// <summary>
+    /// The review-input hash today's standards and prompt produce for a unit of this adapter and
+    /// level, so a fixture sidecar reads fresh rather than as policy drift.
+    /// </summary>
+    public static string EffectiveHash(
+        string repositoryRoot,
+        string kind = "code",
+        ReviewLevel level = ReviewLevel.File,
+        string adapter = "generic") =>
+        new InputResolver().Resolve(repositoryRoot, kind, level, adapter: adapter)
+            .EffectiveHash(ReviewPromptBuilder.TemplateHash(level, kind));
 
     public static GradeBand Band(int score) => score switch
     {

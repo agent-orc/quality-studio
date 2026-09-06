@@ -97,14 +97,15 @@ public interface IReviewExecutorFactory
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
     StalenessEvaluator stalenessEvaluator,
-    RepositoryHierarchyCache hierarchyCache) : IReviewExecutorFactory
+    RepositoryHierarchyCache hierarchyCache,
+    ILogger<ReviewExecutorFactory> logger) : IReviewExecutorFactory
 {
     private readonly HierarchyUnitResolver unitResolver = new(hierarchyCache);
 
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
-                cliType, model, thinkingLevel, eventObserver: eventObserver),
+                cliType, model, thinkingLevel, eventObserver: eventObserver, logger: logger),
             usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
             unitResolver: unitResolver));
 
@@ -123,6 +124,14 @@ public sealed class ReviewJobsOptions
     public const string SectionName = "ReviewJobs";
     public int MaxConcurrency { get; set; } = 2;
     public int RecentRunLimit { get; set; } = 30;
+
+    /// <summary>
+    /// How long a cancelled attempt is given to unwind on its own before the queue stops
+    /// waiting on it and advances anyway. Every reviewer CLI operation is already bounded
+    /// (see <see cref="AgentOrchestrator.CodeQuality.CodingAgentReviewAgent"/>), so this is
+    /// a defense-in-depth backstop, not the primary mechanism.
+    /// </summary>
+    public double CancelReclaimGraceSeconds { get; set; } = 45;
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -348,7 +357,8 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : plan.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: AggregateControls(plan.Node),
-            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions);
+            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions,
+            SubjectGroups: level == ReviewLevel.File ? null : SubjectGroups(plan.Node));
 
     private static (long? TokenCap, decimal? CostCap) ResolveCap(
         RepositoryRegistration registration, long? requestedTokens, decimal? requestedCost)
@@ -469,9 +479,62 @@ public sealed class ReviewJobService : BackgroundService
 
     private async Task RunAsync(ReviewWorkItem item, CancellationToken stoppingToken)
     {
-        var stopwatch = Stopwatch.StartNew();
         var attemptToken = item.Start();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, attemptToken);
+        var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, attemptToken);
+        var attempt = RunAttemptWithCleanupAsync(item, linked);
+
+        // Defense in depth: cancelling attemptToken normally makes the attempt above unwind
+        // on its own — every reviewer CLI operation is already bounded (see
+        // AgentOrchestrator.CodeQuality.CodingAgentReviewAgent's attach timeout + watchdog).
+        // But the single-reader queue must never wedge behind one stuck attempt even if that
+        // bound is ever broken (e.g. a hang in the third-party CLI's pre-spawn probe that
+        // ignores cancellation entirely), so a cancelled attempt gets a grace period to
+        // finish; past that, the queue stops waiting on it and advances. ReviewWorkItem's
+        // state guards make a late completion callback from the abandoned attempt a
+        // harmless no-op.
+        var reclaim = new CancellationTokenSource();
+        using var armReclaim = attemptToken.Register(static state =>
+        {
+            var (source, grace) = ((CancellationTokenSource, TimeSpan))state!;
+            // The attempt may have already won the race (and reclaim been disposed)
+            // between this callback firing and now — nothing left to arm in that case.
+            try { source.CancelAfter(grace); }
+            catch (ObjectDisposedException) { }
+        }, (reclaim, TimeSpan.FromSeconds(Math.Max(1, options.CancelReclaimGraceSeconds))));
+
+        var winner = await Task.WhenAny(attempt, Task.Delay(Timeout.InfiniteTimeSpan, reclaim.Token))
+            .ConfigureAwait(false);
+        reclaim.Dispose();
+        if (winner == attempt)
+        {
+            await attempt.ConfigureAwait(false);
+            return;
+        }
+
+        logger.LogWarning(new EventId(1510, "ReviewReclaimTimeout"),
+            "Review {ReviewRunId} did not unwind within {GraceSeconds}s of cancellation; advancing the queue and abandoning the stuck attempt",
+            item.Id, options.CancelReclaimGraceSeconds);
+        _ = attempt.ContinueWith(
+            completed =>
+            {
+                if (completed.Exception is { } exception)
+                    logger.LogError(new EventId(1505, "ReviewFailed"), exception,
+                        "Abandoned review {ReviewRunId} attempt failed after reclaim", item.Id);
+            },
+            CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    private async Task RunAttemptWithCleanupAsync(ReviewWorkItem item, CancellationTokenSource linked)
+    {
+        using (linked)
+        {
+            await RunAttemptAsync(item, linked).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RunAttemptAsync(ReviewWorkItem item, CancellationTokenSource linked)
+    {
+        var stopwatch = Stopwatch.StartNew();
         logger.LogInformation(new EventId(1501, "ReviewStarted"),
             "Started review {ReviewRunId} via {ReviewCli}/{ReviewModel}/{ReviewThinkingLevel}", item.Id,
             item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
@@ -624,6 +687,7 @@ public sealed class ReviewJobService : BackgroundService
             AggregateControls: item.AggregateControls,
             AggregateExclusions: item.AggregateExclusions,
             ModelSource: item.ModelSource,
+            SubjectGroups: level == ReviewLevel.File ? null : SubjectGroups(LiveNode(item, node)),
             ReviewRunId: item.Id,
             Sensors: item.Kind == "security"
                 ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
@@ -634,6 +698,30 @@ public sealed class ReviewJobService : BackgroundService
                 : null,
             DeterministicEvidence: item.DeterministicEvidence);
     }
+
+    /// <summary>
+    /// The derived units below an aggregate, so the review runner can describe the module and
+    /// namespace structure of its subject without deriving the hierarchy a second time.
+    /// </summary>
+    private static IReadOnlyList<ReviewSubjectGroup> SubjectGroups(HierarchyNode node) =>
+        Flatten([node])
+            .Where(candidate => candidate.Level is not (ReviewLevel.File or ReviewLevel.Function))
+            .Select(candidate => new ReviewSubjectGroup(candidate.Level, candidate.Name, candidate.Path,
+                candidate.Children.Where(child => child.Level == ReviewLevel.File)
+                    .Select(child => child.Path).Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal).ToArray()))
+            .ToArray();
+
+    /// <summary>
+    /// A run restored from its durable manifest carries the selected node without its children, so
+    /// the structure is taken from the current cached hierarchy when that node still derives.
+    /// </summary>
+    private HierarchyNode LiveNode(ReviewWorkItem item, HierarchyNode node) =>
+        node.Children.Count > 0
+            ? node
+            : Flatten(hierarchyCache.Get(item.Repository.RootPath).Roots).FirstOrDefault(candidate =>
+                  candidate.Level == node.Level &&
+                  string.Equals(candidate.Path, node.Path, StringComparison.Ordinal)) ?? node;
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {

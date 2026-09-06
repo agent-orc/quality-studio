@@ -1,8 +1,9 @@
 ---
 id: QS-CS-001
-version: 1.0.0
+version: 1.1.0
 title: Shape minimal-API endpoints as typed static handlers
 technology: dotnet
+kinds: [code]
 category: api-shape
 severity: medium
 defaultOn: true
@@ -26,6 +27,10 @@ binding, and returns a typed `IResult` (`Results.Ok`, `Results.Created`, `Result
 spinning up the HTTP pipeline, dependencies are explicit in the signature instead of pulled from
 an ambient service locator, and every route returns the same small set of typed results the
 framework can serialize predictably.
+
+## Detection
+
+Look at the `app.Map*` registrations for inline lambdas with bodies longer than one expression, and at handlers for `IServiceProvider`/`GetRequiredService` use, `HttpContext.Response` written by hand, or a return type that is not `IResult`/`Task<IResult>`. A one-line lambda that forwards to a named handler is the intended shape.
 
 ## Good example
 
@@ -52,5 +57,6 @@ app.MapPost("/api/widgets", async (HttpContext context) =>
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the handler-function convention used throughout
   `src/QualityStudio.Api/Program.cs`.

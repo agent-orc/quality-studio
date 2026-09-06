@@ -1,8 +1,9 @@
 ---
 id: QS-NG-004
-version: 1.0.0
+version: 1.1.0
 title: Keep templates declarative; always track list expressions
 technology: angular
+kinds: [code]
 category: template-hygiene
 severity: medium
 defaultOn: true
@@ -26,6 +27,10 @@ rebuilding a list on every change; omitting it silently degrades to identity-bas
 and defeats `OnPush`'s benefit. Pushing derivation into the template makes it invisible to
 unit tests and re-evaluated on every check, whereas a `computed()` is both testable and memoized.
 
+## Detection
+
+Search the template for `@for` blocks without a `track` expression, for `*ngFor` in new code, and for template expressions that call methods with arguments, index into arrays, filter, sort, or build objects inline. Bindings that read a signal, a `computed()`, or a plain field are fine.
+
 ## Good example
 
 ```html
@@ -48,5 +53,6 @@ unit tests and re-evaluated on every check, whereas a `computed()` is both testa
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `track finding.fingerprint ?? finding.id`
   pattern already used throughout `review-panel.html`.

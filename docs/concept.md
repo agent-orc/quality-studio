@@ -448,7 +448,7 @@ treat an unsupported `schemaVersion` as current.
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
         },
         "scope": {
           "enum": ["built-in", "global", "project"]
@@ -504,7 +504,7 @@ treat an unsupported `schemaVersion` as current.
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
           }
         },
         "prompt": {
@@ -906,6 +906,44 @@ and the body. No line/span offset or compiler pretty-printer output participates
 Function `symbolId` stores the Roslyn documentation ID, or
 `csharp-local-key-v1:<64 lowercase hex>` for a local function.
 
+### Implementation status of the derivation contract (2026-09-06)
+
+The derivation contract above is unchanged and remains the target. This section
+records what the implementation derives today, so a reader can tell a contract
+statement from a shipped guarantee. `docs/hierarchy-derivation.md` holds the
+per-adapter detail, including every MSBuild rule that is and is not honoured.
+
+- **In force.** Unit ID envelopes and identity tuples for Project, Module,
+  Namespace, and File in all three adapters; repository scope precedence and
+  surfaced exclusion reasons; Angular Namespace as a repository directory; the
+  Generic path adapter's synthetic project and root module.
+- **Derived from parsed structure, not from text patterns.** .NET solution
+  membership (`.slnx` as XML, `.sln` by splitting quoted project fields), .NET
+  module membership (default compile glob plus the project body's `Compile`
+  `Include`/`Remove` elements under MSBuild glob semantics, with the nearest
+  project ancestor owning a nested source), and C# namespaces and function
+  members (Roslyn C# parser).
+- **Syntax, not semantics.** C# derivation uses `CSharpSyntaxTree.ParseText`
+  only: no `MSBuildWorkspace`, no `Compilation`, no semantic model. Derivation is
+  therefore deterministic, offline, and independent of SDK or restore state, and
+  in exchange nothing that requires binding is available.
+- **Function identity is an approximation.** The contract requires the Roslyn
+  documentation-comment ID under the literal `roslyn-doc-id-v1`. Today the
+  identity tuple is `(File ID, "csharp-syntax-doc-id-v1", documentation ID)`,
+  where the identifier has documentation-ID shape but keeps the type text written
+  in the source, because no semantic model resolves `using` aliases or imported
+  names. The literal is deliberately distinct so a stored ID never claims more
+  than it is. Local functions have no units yet, so `csharp-local-key-v1` is not
+  issued. No function sidecar exists, so this identity may still move to the
+  contract literal once a semantic sensor lands.
+- **Not yet derived.** Angular Module boundaries beyond the project root module
+  (`@NgModule`, `loadChildren`, `loadComponent`) and the Angular Function level;
+  both need the TypeScript compiler, which is not available in-process from .NET.
+  These levels are reported as empty rather than approximated.
+- **Known deviation.** A .NET Namespace `unit.path` is currently a synthetic
+  `<project>/.namespaces/<name>` path rather than the owning `.csproj` path the
+  contract specifies. The identity tuple is unaffected.
+
 ## Review-meta schema v3
 
 Added 2026-09-06 to describe what writers have emitted since 2026-08-27. v3 is
@@ -943,6 +981,7 @@ read, so a newer document can still be inspected, but an unsupported
 `schemaVersion` is never treated as current. No migration runs: a v1 or v2
 sidecar stays valid and attached to its unchanged canonical unit ID until its
 unit is reviewed again, and that review writes v3.
+
 
 ## Staleness contract
 
@@ -1427,14 +1466,30 @@ QS-11 and the strictly time-boxed QS-12 can proceed in parallel once their input
 are stable. Module/project agent review execution is a later slice after QS-5;
 QS-5 only makes hierarchy and aggregate truth honest.
 
-Status 2026-09-06: no prompt names an `architecture` aspect. The file prompts ask
-for correctness, maintainability, clarity, error handling and testability
-(`code`), security, and performance; the only fixed aspect list is the
-project-level security posture set `secrets`, `dependencies`,
-`authentication-authorization`, `input-validation`, `configuration-iac`. Module
-reviews run through the file prompt today, so the architecture aspect of a
-project/module `code` review appears once module and project code prompts exist,
-not before. No sidecar carries it yet.
+Status 2026-09-06: three of the five levels have an agent pass, and each of the
+three now has its own briefing.
+
+| Level | Pass | Prompt |
+| --- | --- | --- |
+| Project | runs | `project-code-review`, `project-security-review`, file template for `performance` |
+| Module | runs | `module-code-review`, `module-security-review`, file template for `performance` |
+| Namespace | derived and aggregated, no pass | file template if one were requested |
+| File | runs | `file-code-review`, `file-security-review`, `file-performance-review` |
+| Function | derived, review refused | none |
+
+`architecture` is a named aspect of the module and project `code` prompts, next
+to `structure`, `boundaries`, `duplication` and `consistency`; the project-level
+security posture set `secrets`, `dependencies`, `authentication-authorization`,
+`input-validation`, `configuration-iac` is unchanged and is what the module
+security prompt asks for as well. `ReviewPromptBuilder` selects the template by
+(level, kind) and records the one it used in `reviewInputs.prompt.id`, so a
+level that falls back to the file template says so rather than implying a
+briefing it did not receive. A module or project review reads a digest of its
+members, never their concatenated source; see
+[`review-runs.md`](review-runs.md#module-and-project-passes). Sidecars written
+before this date name `file-<kind>-review` at every level, which is what ran.
+Namespace and Function passes remain open; see decision D-1 of the dossier in
+`docs/operations/product-assessment-2026-09/`.
 
 ## Review-meta operational rules and examples
 

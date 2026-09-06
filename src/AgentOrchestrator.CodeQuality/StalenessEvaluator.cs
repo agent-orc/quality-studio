@@ -140,8 +140,11 @@ public sealed class StalenessEvaluator
         if (!string.Equals(currentHash, metadata.ReviewedHash, StringComparison.Ordinal)) return StalenessState.Stale;
         if (metadata.ReviewInputHash is null) return StalenessState.Fresh;
         var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
-            options.GlobalInputsDirectory, options.InputBudgetCharacters);
-        var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
+            options.GlobalInputsDirectory, options.InputBudgetCharacters,
+            RuleCatalogueResolver.AdapterFromUnitId(metadata.UnitId));
+        // The writer hashes the template of the reviewed level; module and project sidecars would
+        // otherwise read as policy drift forever against the file template.
+        var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Level, metadata.Kind));
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh
             : StalenessState.PolicyDrift;
@@ -380,7 +383,11 @@ internal sealed class QualityStudioEventSource : EventSource
         long cachedInputTokens, long durationMs) =>
         WriteEvent(10, runId, path, kind, inputTokens, outputTokens, cachedInputTokens, durationMs);
 
-    [Event(11, Level = EventLevel.Error)]
+    [Event(11, Level = EventLevel.Warning)]
+    public void RuleIdRejected(string ruleId, string kind, string replacement) =>
+        WriteEvent(11, ruleId, kind, replacement);
+
+    [Event(12, Level = EventLevel.Error)]
     public void ReviewMetaUnreadable(string source, string failure, string reason) =>
-        WriteEvent(11, source, failure, reason);
+        WriteEvent(12, source, failure, reason);
 }
