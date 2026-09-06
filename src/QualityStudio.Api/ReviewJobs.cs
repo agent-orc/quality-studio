@@ -134,7 +134,7 @@ public sealed class ReviewJobService : BackgroundService
     private readonly RepositoryHierarchyCache hierarchyCache;
     private readonly IReviewExecutorFactory executors;
     private readonly SensorRegistry sensorRegistry;
-    private readonly ModelPriceCatalog prices = ModelPriceCatalog.Default;
+    private readonly ModelPriceCatalog prices = ReviewPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
 
@@ -580,7 +580,19 @@ public sealed class ReviewJobService : BackgroundService
 
     private IReviewExecutor CreateRunner(ReviewWorkItem item) => executors.Create(
         item.CliType, item.Model, item.ThinkingLevel,
-        (_, runEvent) => quotas.Observe(item.CliType, runEvent), item.AddUsage);
+        (_, runEvent) => quotas.Observe(item.CliType, runEvent),
+        usage =>
+        {
+            item.AddUsage(usage);
+            // Every operation's spend is visible in the host log next to the run it belongs to, in
+            // the same shape the ledger persists it.
+            logger.LogInformation(new EventId(1505, "ReviewOperationUsage"),
+                "Review operation {OperationRunId} in {ReviewRunId} ({ReviewKind} {ReviewPath}) via {ReviewCli}/{ReviewModel} [{ModelSource}]: {InputTokens} in, {CachedInputTokens} cached, {OutputTokens} out, {DurationMs} ms, estimated cost {EstimatedCost} {Currency} ({PriceStatus})",
+                usage.RunId, item.Id, usage.Kind, usage.Path, usage.CliType, usage.Model,
+                usage.ModelSource ?? "unknown", usage.Tokens.InputTokens, usage.Tokens.CachedInputTokens,
+                usage.Tokens.OutputTokens, usage.Tokens.DurationMs, usage.Cost?.Total,
+                usage.Cost?.Currency ?? "n/a", usage.Cost?.Status ?? "unknown");
+        });
 
     private ReviewRequest CreateRequest(
         ReviewWorkItem item,
@@ -888,7 +900,7 @@ public sealed class ReviewJobService : BackgroundService
                     usage.DurationMs + operationUsage.DurationMs);
                 var input = Math.Max(0, operationUsage.InputTokens ?? 0);
                 var cached = Math.Clamp(operationUsage.CachedInputTokens ?? 0, 0, input);
-                var operationCost = ModelPriceCatalog.Default.ComputeCost(entry.Model,
+                var operationCost = ReviewPriceCatalog.Default.ComputeCost(entry.Model,
                     new PricingTokenUsage(input - cached, Math.Max(0, operationUsage.OutputTokens ?? 0), cached, 0),
                     entry.Timestamp.UtcDateTime);
                 priceStatus = Camel(operationCost.Status.ToString());

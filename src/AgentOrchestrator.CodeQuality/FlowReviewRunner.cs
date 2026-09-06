@@ -29,7 +29,7 @@ public sealed class FlowReviewRunner
     {
         this.agent = agent ?? CodingAgentReviewAgent.CreateDefault(kind: "security");
         responseParser = new FlowReviewResponseParser();
-        this.prices = prices ?? ModelPriceCatalog.Default;
+        this.prices = prices ?? ReviewPriceCatalog.Default;
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 

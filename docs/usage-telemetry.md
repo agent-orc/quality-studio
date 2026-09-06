@@ -41,6 +41,29 @@ model was chosen:
 Ledger lines written before this version keep `runner-default` where the model
 was never named; they are historical evidence and are not rewritten.
 
+## Cost transparency and budgets
+
+Every review operation is priced when it is recorded: the ledger entry carries
+`cost` with `total`, `currency`, and `status` at the catalog price valid at the
+operation timestamp, and the API host logs the same figures per operation
+(event `ReviewOperationUsage`) next to the run id. `total` is `null`, never a
+silent zero, when the model is unknown to the price catalog (`unknownModel`) or
+the catalog has no price for that date (`noPriceForDate`). Entries written
+before costs were recorded are priced at query time, so `GET /api/usage`
+returns `estimatedCost`, `costCurrency`, and `unpricedRuns` over the whole
+history. The synchronized Token Economy price snapshot is the only price source;
+when its validity window ends, operations become unpriced until the catalog is
+synchronized again (`npm run catalog:sync`).
+
+Budgets are cost budgets, not time budgets. A review run can carry a token cap
+and a cost cap (`tokenCap`, `costCap` on the start request; the repository's
+`DefaultReviewTokenCap` applies when none is given), and the run stops with a
+recorded stop reason when either is reached. A cost cap requires a priced model;
+the API refuses a cost cap for an unpriced route instead of pretending to
+enforce it. Subscription-backed CLIs whose provider meters usage in windows
+rather than per token run without a cap by design; their operations are still
+estimated and logged so the ledger stays complete.
+
 `GET /api/usage?since=&kind=` (and its repository-scoped equivalent) reads the
 ledger and returns totals, model/kind/day/review-run aggregates, and at most 50
 recent entries. `byReviewRun` groups v2 entries by `reviewRunId`, making a

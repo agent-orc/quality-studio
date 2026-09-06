@@ -2,8 +2,16 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using PricingTokenUsage = CodingAgentRunner.Pricing.TokenUsage;
 
 namespace AgentOrchestrator.CodeQuality;
+
+/// <summary>
+/// Estimated provider cost of one operation at the catalog price valid at its timestamp.
+/// <see cref="Total"/> is null when no price resolved (unknown model, no price for the date), never a
+/// silent zero; <see cref="Status"/> names the reason in the price catalog's vocabulary.
+/// </summary>
+public sealed record UsageCost(decimal? Total, string? Currency, string Status);
 
 public sealed record TokenUsage(
     long? InputTokens,
@@ -31,7 +39,8 @@ public sealed record ReviewUsageEntry(
     string Path,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReviewRunId = null,
     int SchemaVersion = 1,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ModelSource = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ModelSource = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] UsageCost? Cost = null);
 
 public sealed record UsageAggregate(string Key, int Runs, long InputTokens, long OutputTokens,
     long CachedInputTokens, long ReasoningOutputTokens, long DurationMs);
@@ -48,7 +57,10 @@ public sealed record UsageReport(
     IReadOnlyList<UsageAggregate> ByKind,
     IReadOnlyList<UsageAggregate> ByDay,
     IReadOnlyList<UsageAggregate> ByReviewRun,
-    IReadOnlyList<ReviewUsageEntry> Recent);
+    IReadOnlyList<ReviewUsageEntry> Recent,
+    decimal? EstimatedCost = null,
+    string? CostCurrency = null,
+    int UnpricedRuns = 0);
 
 /// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
@@ -111,6 +123,10 @@ public static class UsageLedger
         }
 
         var ordered = entries.OrderByDescending(entry => entry.Timestamp).ToArray();
+        // Entries written before cost was recorded are priced at query time so the history stays
+        // comparable; an entry whose model or date has no price stays unpriced and is counted.
+        var costs = ordered.Select(entry => entry.Cost ?? EstimateCost(entry.Model, entry.Tokens, entry.Timestamp)).ToArray();
+        var priced = costs.Where(cost => cost.Total.HasValue).ToArray();
         return new UsageReport(DateTimeOffset.UtcNow, ordered.Length,
             Sum(ordered, entry => entry.Tokens.InputTokens), Sum(ordered, entry => entry.Tokens.OutputTokens),
             Sum(ordered, entry => entry.Tokens.CachedInputTokens), Sum(ordered, entry => entry.Tokens.ReasoningOutputTokens),
@@ -118,7 +134,26 @@ public static class UsageLedger
             Aggregate(ordered, entry => entry.Model), Aggregate(ordered, entry => entry.Kind),
             Aggregate(ordered, entry => entry.Timestamp.UtcDateTime.ToString("yyyy-MM-dd")),
             Aggregate(ordered, entry => entry.ReviewRunId ?? entry.RunId),
-            ordered.Take(Math.Clamp(recentLimit, 1, 200)).ToArray());
+            ordered.Take(Math.Clamp(recentLimit, 1, 200)).ToArray(),
+            priced.Length == 0 ? null : priced.Sum(cost => cost.Total!.Value),
+            priced.FirstOrDefault()?.Currency,
+            costs.Length - priced.Length);
+    }
+
+    /// <summary>
+    /// Prices one operation at the catalog price valid at <paramref name="timestamp"/>. The result
+    /// is stored with the ledger entry so every cost the product incurs is visible where the tokens
+    /// are, and recomputed at query time for entries written before costs were recorded.
+    /// </summary>
+    public static UsageCost EstimateCost(string model, TokenUsage tokens, DateTimeOffset timestamp)
+    {
+        var input = Math.Max(0, tokens.InputTokens ?? 0);
+        var cached = Math.Clamp(tokens.CachedInputTokens ?? 0, 0, input);
+        var cost = ReviewPriceCatalog.Default.ComputeCost(model,
+            new PricingTokenUsage(input - cached, Math.Max(0, tokens.OutputTokens ?? 0), cached, 0),
+            timestamp.UtcDateTime);
+        var status = cost.Status.ToString();
+        return new UsageCost(cost.Total, cost.Currency, char.ToLowerInvariant(status[0]) + status[1..]);
     }
 
     private static long Sum(IEnumerable<ReviewUsageEntry> entries, Func<ReviewUsageEntry, long?> selector) =>

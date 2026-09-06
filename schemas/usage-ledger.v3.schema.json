@@ -35,9 +35,21 @@
     "modelSource": {
       "enum": ["explicit", "policy-default", "runner-default"],
       "description": "explicit: the caller named the model. policy-default: no model was named and Quality Studio resolved the synchronized routing policy's route for the CLI and passed it explicitly. runner-default: no model was named and the policy routes nothing for the CLI, so the CLI's own default served the run and is unknown."
-    }
+    },
+    "cost": { "$ref": "#/$defs/cost" }
   },
   "$defs": {
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "currency", "status"],
+      "description": "Estimated provider cost at the catalog price valid at the operation timestamp. total is null when no price resolved; status names the reason (resolved, unknownModel, noPriceForDate).",
+      "properties": {
+        "total": { "type": ["number", "null"], "minimum": 0 },
+        "currency": { "type": ["string", "null"], "minLength": 1, "maxLength": 10 },
+        "status": { "type": "string", "minLength": 1, "maxLength": 50 }
+      }
+    },
     "tokens": {
       "type": "object",
       "additionalProperties": false,

@@ -375,7 +375,7 @@ public sealed class ReviewRunner
             : request.ModelSource ?? _agent.ModelSource ?? ReviewModelSource.Explicit;
         return new ReviewUsageEntry(runId, startedAt, model, _agent.AgentName, tokens, request.Kind,
             request.Level.ToString().ToLowerInvariant(), relativePath, request.ReviewRunId,
-            UsageLedger.CurrentSchemaVersion, modelSource);
+            UsageLedger.CurrentSchemaVersion, modelSource, UsageLedger.EstimateCost(model, tokens, startedAt));
     }
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
