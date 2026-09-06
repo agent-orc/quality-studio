@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Collections.Concurrent;
 
@@ -15,12 +16,14 @@ public static class ReviewThreadManager
 
     public static JsonArray LoadAndHeal(string metaPath, string relativePath, string content)
     {
-        if (!File.Exists(metaPath)) return [];
-        var root = JsonNode.Parse(File.ReadAllText(metaPath))?.AsObject();
-        var stored = root?["threads"] as JsonArray;
-        if (stored is null) return [];
+        // A review may run over an unreadable sidecar — it is what replaces it — but the reader
+        // reports the fault instead of letting lost conversations look like an empty thread list.
+        if (!ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _) || sidecar.Document.Threads.Count == 0)
+        {
+            return [];
+        }
 
-        var threads = (JsonArray)stored.DeepClone();
+        var threads = JsonSerializer.SerializeToNode(sidecar.Document.Threads, ReviewMetaJson.Options)!.AsArray();
         foreach (var node in threads)
         {
             if (node is not JsonObject thread || thread["anchor"] is not JsonObject anchor ||
@@ -55,8 +58,8 @@ public static class ReviewThreadManager
 
     public static JsonArray MergeLatest(JsonArray promptedSnapshot, string metaPath, string relativePath, string content)
     {
-        if (!File.Exists(metaPath)) return promptedSnapshot;
         var latest = LoadAndHeal(metaPath, relativePath, content);
+        if (latest.Count == 0) return promptedSnapshot;
         var result = (JsonArray)promptedSnapshot.DeepClone();
         var byId = result.OfType<JsonObject>().ToDictionary(thread => thread["id"]!.GetValue<string>(), StringComparer.Ordinal);
         foreach (var latestThread in latest.OfType<JsonObject>())

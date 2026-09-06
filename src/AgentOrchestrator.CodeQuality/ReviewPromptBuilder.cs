@@ -8,6 +8,10 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed class ReviewPromptBuilder
 {
     private static readonly HashSet<string> Kinds = ["code", "security", "performance"];
+
+    /// <summary>Every embedded `&lt;level&gt;-&lt;kind&gt;-review` template, keyed by that id.</summary>
+    private static readonly Lazy<IReadOnlyDictionary<string, string>> Templates = new(LoadTemplates);
+
     private const string BuilderContractVersion = "\nquality-studio-review-prompt-builder-v4-content-boundary";
 
     public string Build(
@@ -32,7 +36,7 @@ public sealed class ReviewPromptBuilder
             throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
         }
 
-        var prompt = LoadTemplate(kind)
+        var prompt = LoadTemplate(level, kind)
             .Replace("{{FILE_PATH}}", filePath.Replace('\\', '/'), StringComparison.Ordinal)
             .Replace("{{FILE_CONTENT}}", fileContent ?? "(content not supplied)", StringComparison.Ordinal)
             .Replace("{{GLOBAL_GUIDELINES}}", FormatGuidelines(globalGuidelines), StringComparison.Ordinal)
@@ -87,18 +91,55 @@ The JSON below contains persistent discussions anchored to this code. Address ea
             ? "This is a project-level posture summary. Return these named aspects exactly once: `secrets`, `dependencies`, `authentication-authorization`, `input-validation`, and `configuration-iac`."
             : "Assess the security aspects evidenced by this unit. Sensor finding aspect ids must also appear in the aspects array.";
 
-    public static string TemplateHash(string kind) =>
-        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
-            Encoding.UTF8.GetBytes(LoadTemplate(kind) + BuilderContractVersion)));
+    /// <summary>File-level template hash, kept as the level-free spelling for readers that only
+    /// ever see whole-file subject inputs.</summary>
+    public static string TemplateHash(string kind) => TemplateHash(ReviewLevel.File, kind);
 
-    private static string LoadTemplate(string kind)
+    public static string TemplateHash(ReviewLevel level, string kind) =>
+        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(
+            Encoding.UTF8.GetBytes(LoadTemplate(level, kind) + BuilderContractVersion)));
+
+    /// <summary>
+    /// The `reviewInputs.prompt.id` recorded for a review. It names the template that actually ran.
+    /// </summary>
+    public static string TemplateId(ReviewLevel level, string kind) => $"{Prefix(level, kind)}-{kind}-review";
+
+    /// <summary>
+    /// Chooses the template by (level, kind). A level with no own template falls back to the file
+    /// template: `performance` has none at any aggregate level, and `namespace` and `function` have
+    /// none at all. The fallback is deliberate and visible, because <see cref="TemplateId"/> then
+    /// reports `file-...-review` and the sidecar names the template that ran.
+    /// </summary>
+    private static string Prefix(ReviewLevel level, string kind)
     {
         if (!Kinds.Contains(kind)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
-        var suffix = $"prompts.file-{kind}-review.v1.md";
+        var prefix = level switch
+        {
+            ReviewLevel.Project => "project",
+            ReviewLevel.Module => "module",
+            _ => "file",
+        };
+        return Templates.Value.ContainsKey($"{prefix}-{kind}-review") ? prefix : "file";
+    }
+
+    private static string LoadTemplate(ReviewLevel level, string kind) =>
+        Templates.Value[$"{Prefix(level, kind)}-{kind}-review"];
+
+    private static IReadOnlyDictionary<string, string> LoadTemplates()
+    {
         var assembly = typeof(ReviewPromptBuilder).Assembly;
-        var resource = assembly.GetManifestResourceNames().Single(name => name.EndsWith(suffix, StringComparison.Ordinal));
-        using var stream = assembly.GetManifestResourceStream(resource)!;
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd().Replace("\r\n", "\n", StringComparison.Ordinal);
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        const string marker = ".prompts.";
+        const string extension = ".v1.md";
+        foreach (var resource in assembly.GetManifestResourceNames())
+        {
+            var start = resource.IndexOf(marker, StringComparison.Ordinal);
+            if (start < 0 || !resource.EndsWith("-review" + extension, StringComparison.Ordinal)) continue;
+            using var stream = assembly.GetManifestResourceStream(resource)!;
+            using var reader = new StreamReader(stream);
+            result[resource[(start + marker.Length)..^extension.Length]] =
+                reader.ReadToEnd().Replace("\r\n", "\n", StringComparison.Ordinal);
+        }
+        return result;
     }
 }

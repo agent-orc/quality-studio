@@ -1,8 +1,9 @@
 ---
 id: QS-NG-005
-version: 1.0.0
+version: 1.1.0
 title: Default to OnPush with signal-driven state
 technology: angular
+kinds: [code]
 category: change-detection
 severity: medium
 defaultOn: true
@@ -25,6 +26,10 @@ signals; this is what keeps `explorer`, `review-panel`, and `usage-history` fast
 and result sets. A component that drops to `Default` (or mutates a field from inside a manual
 `subscribe()`) silently re-introduces full subtree re-checks and can even fail to render at all
 under `OnPush` siblings if it relies on ambient change detection to pick up its mutations.
+
+## Detection
+
+Check the `@Component` decorator for `changeDetection: ChangeDetectionStrategy.OnPush`. Then look for state written outside signals: plain mutable fields assigned from `subscribe()` callbacks, `setTimeout`/event handlers, or `ChangeDetectorRef.detectChanges()` calls that exist only to make such mutations visible.
 
 ## Good example
 
@@ -55,6 +60,7 @@ export class Widget implements OnInit {
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `ChangeDetectionStrategy.OnPush` declaration
   already present on every component under `frontend/src/app` (`review-panel.ts`, `explorer.ts`,
   `usage-history.ts`, `app.ts`, `attack-coverage.ts`).

@@ -1,8 +1,9 @@
 ---
 id: QS-CS-004
-version: 1.0.0
+version: 1.1.0
 title: Structure tests as isolated Arrange-Act-Assert with behavior-focused names
 technology: dotnet
+kinds: [code]
 category: test-structure
 severity: low
 defaultOn: true
@@ -26,6 +27,10 @@ order. Dispose owned resources (implement `IDisposable` when a fixture creates f
 `IDisposable` to clean it up, and every test method name states the behavior under test rather
 than just naming the method it calls. This is what makes the suite safe to run in parallel and
 lets a failing test name alone tell a reader what broke, without opening the test body first.
+
+## Detection
+
+Check that the test class owns its fixture (a per-instance temp path, its own store) and disposes it, that the method name states a behavior rather than a member name, and that no test reads or writes state another test created. Shared immutable fixture data is not a violation.
 
 ## Good example
 
@@ -61,5 +66,6 @@ public void Test1() // name describes nothing; shares a hard-coded path with oth
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the fixture-isolation and naming conventions
   already used in `tests/AgentOrchestrator.CodeQuality.Tests/InputResolverTests.cs`.

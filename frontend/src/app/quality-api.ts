@@ -48,7 +48,7 @@ export class QualityApi {
    */
   readonly allNodes = computed(() => flattenTree(this.tree(), NO_EXPANSION, true));
   readonly nodesByPath = computed(() => new Map(this.allNodes().map(node => [node.path, node])));
-  readonly scan = signal<ScanReport>({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
+  readonly scan = signal<ScanReport>({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0, invalidCount: 0 });
   readonly security = signal<SecurityScanResponse | null>(null);
   readonly attackCoverage = signal<AttackCoverageMatrix | null>(null);
   readonly attackCoverageLoading = signal(false);

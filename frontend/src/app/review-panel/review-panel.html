@@ -93,7 +93,7 @@
       @if ((activeInputs()?.omissions?.length ?? 0) > 0) { <div class="input-warning">{{ activeInputs()?.omissions?.length }} override or budget notice(s). Nothing was silently dropped.</div> }
     </section>
     <div class="section-title"><span>Repository scan</span><small>Now</small></div>
-    <div class="scan-grid"><div><i class="status fresh"></i><b>{{ api.scan().freshCount }}</b><span>Fresh</span></div><div><i class="status stale"></i><b>{{ api.scan().staleCount }}</b><span>Code</span></div><div><i class="status policy-drift"></i><b>{{ api.scan().policyDriftCount }}</b><span>Policy</span></div><div><i class="status missing"></i><b>{{ api.scan().missingCount }}</b><span>Missing</span></div></div>
+    <div class="scan-grid"><div><i class="status fresh"></i><b>{{ api.scan().freshCount }}</b><span>Fresh</span></div><div><i class="status stale"></i><b>{{ api.scan().staleCount }}</b><span>Code</span></div><div><i class="status policy-drift"></i><b>{{ api.scan().policyDriftCount }}</b><span>Policy</span></div><div><i class="status missing"></i><b>{{ api.scan().missingCount }}</b><span>Missing</span></div><div title="Unreadable sidecar"><i class="status invalid"></i><b>{{ api.scan().invalidCount }}</b><span>Invalid</span></div></div>
   </div>
 </aside>
 

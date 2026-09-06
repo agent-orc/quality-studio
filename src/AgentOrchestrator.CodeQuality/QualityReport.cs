@@ -77,9 +77,9 @@ public sealed record FindingCounts(
     IReadOnlyDictionary<string, int> BySeverity,
     IReadOnlyDictionary<string, int> ByState);
 
-public sealed record StalenessCounts(int Fresh, int Stale, int PolicyDrift, int Missing)
+public sealed record StalenessCounts(int Fresh, int Stale, int PolicyDrift, int Missing, int Invalid = 0)
 {
-    public int Total => Fresh + Stale + PolicyDrift + Missing;
+    public int Total => Fresh + Stale + PolicyDrift + Missing + Invalid;
 }
 
 public sealed record CoverageSummary(int ReviewedFiles, int TotalFiles, double Percent);
@@ -206,9 +206,12 @@ public sealed class QualityReportBuilder
                 files.Count(file => file.State == StalenessState.Fresh),
                 files.Count(file => file.State == StalenessState.Stale),
                 files.Count(file => file.State == StalenessState.PolicyDrift),
-                files.Count(file => file.State == StalenessState.Missing));
+                files.Count(file => file.State == StalenessState.Missing),
+                files.Count(file => file.State == StalenessState.Invalid));
             var paths = files.Select(file => file.RelativePath).Distinct(StringComparer.Ordinal).ToArray();
-            var reviewedPaths = files.Where(file => file.State != StalenessState.Missing)
+            // A subject whose sidecar cannot be read is not covered by a review.
+            var reviewedPaths = files
+                .Where(file => file.State is not (StalenessState.Missing or StalenessState.Invalid))
                 .Select(file => file.RelativePath).Distinct(StringComparer.Ordinal).Count();
             var coverage = new CoverageSummary(
                 reviewedPaths,
@@ -240,19 +243,10 @@ public sealed class QualityReportBuilder
         var result = new List<Observation>();
         foreach (var path in EnumerateSidecars(root))
         {
-            JsonObject metadata;
-            try
-            {
-                metadata = JsonNode.Parse(File.ReadAllText(path))?.AsObject()
-                    ?? throw new JsonException("Review metadata must be an object.");
-            }
-            catch (JsonException exception)
-            {
-                throw new QualityReportException(
-                    $"Cannot read review metadata '{Path.GetRelativePath(root, path)}'.", exception);
-            }
-
-            var projected = FindingStateProjection.Apply(metadata, states);
+            // A sidecar the contract rejects contributes no grade and no finding. The reader has
+            // reported it, and the staleness scan counts the affected subjects as invalid.
+            if (!ReviewMetaReader.TryLoad(path, out var sidecar, out _)) continue;
+            var projected = FindingStateProjection.Apply(JsonNode.Parse(sidecar.Json)!.AsObject(), states);
             if (ParseObservation(projected, repositoryId) is { } observation) result.Add(observation);
         }
         return result;

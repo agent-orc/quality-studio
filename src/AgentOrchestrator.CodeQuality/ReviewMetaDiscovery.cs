@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -29,48 +28,32 @@ public static class ReviewMetaDiscovery
         foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
-            using var json = JsonDocument.Parse(File.ReadAllText(path));
-            var document = json.RootElement;
-            if (!document.TryGetProperty("unit", out var unit) ||
-                !unit.TryGetProperty("id", out var idProperty) ||
-                !document.TryGetProperty("kind", out var kindProperty))
-            {
-                continue;
-            }
-
-            var unitId = idProperty.GetString();
-            if (unitId is null || !nodes.TryGetValue(unitId, out var node) ||
-                !Enum.TryParse<ReviewKind>(kindProperty.GetString(), true, out var kind))
-            {
-                continue;
-            }
+            // A sidecar that cannot be trusted attaches to no unit; the reader reports it, and the
+            // unit stays "not reviewed" instead of inheriting a grade from an unvalidated file.
+            if (!ReviewMetaReader.TryLoad(path, out var sidecar, out _)) continue;
+            var document = sidecar.Document;
+            if (!nodes.TryGetValue(document.Unit.Id, out var node)) continue;
 
             node.Attach(new AttachedReviewMetaDocument(
-                unitId,
-                kind,
+                document.Unit.Id,
+                document.Kind,
                 DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
                 Path.GetRelativePath(root, path).Replace('\\', '/'),
-                document.GetRawText()));
+                sidecar.Json));
         }
     }
 
     private static ReviewState DetermineState(
         string root,
         HierarchyNode node,
-        JsonElement document,
+        ReviewMetaDocument document,
         InputResolver inputResolver,
         string? globalInputsDirectory,
         int inputBudgetCharacters)
     {
-        if (!document.TryGetProperty("subjectInputs", out var inputs))
+        foreach (var input in document.SubjectInputs)
         {
-            return ReviewState.Current;
-        }
-
-        foreach (var input in inputs.EnumerateArray())
-        {
-            var selector = input.GetProperty("selector").GetString();
-            if (selector == "aggregate-members")
+            if (input.Selector == "aggregate-members")
             {
                 var members = Flatten([node]).Where(candidate => candidate.Level == ReviewLevel.File)
                     .DistinctBy(candidate => candidate.Id, StringComparer.Ordinal)
@@ -81,37 +64,31 @@ public static class ReviewMetaDiscovery
                             [new SubjectInputHash(candidate.Path, "file", contentHash)]);
                         return new AggregateMemberHash(candidate.Id, candidate.Path, subjectHash);
                     }).ToArray();
-                if (!StringComparer.Ordinal.Equals(input.GetProperty("contentHash").GetString(),
+                if (!StringComparer.Ordinal.Equals(input.ContentHash,
                         ReviewSubjectHasher.ComputeAggregateMembersHash(members, node.Exclusions))) return ReviewState.Stale;
                 continue;
             }
-            if (selector is not ("file" or "aggregate-control"))
+            if (input.Selector is not ("file" or "aggregate-control"))
             {
                 continue;
             }
 
-            var path = Path.GetFullPath(input.GetProperty("path").GetString()!, root);
-            if (!IsConfinedFile(root, path))
-            {
-                return ReviewState.Stale;
-            }
-
-            var expected = input.GetProperty("contentHash").GetString();
-            if (!StringComparer.Ordinal.Equals(expected, HashNormalizedText(path)))
+            var path = Path.GetFullPath(input.Path, root);
+            if (!IsConfinedFile(root, path) ||
+                !StringComparer.Ordinal.Equals(input.ContentHash, HashNormalizedText(path)))
             {
                 return ReviewState.Stale;
             }
         }
 
-        if (!document.TryGetProperty("reviewInputs", out var reviewInputs) ||
-            !reviewInputs.TryGetProperty("effectiveHash", out var effectiveHash) ||
-            !effectiveHash.TryGetProperty("value", out var expectedHash)) return ReviewState.Current;
-        var kind = document.GetProperty("kind").GetString()!;
-        var levelText = document.GetProperty("unit").GetProperty("level").GetString()!;
-        if (!Enum.TryParse<ReviewLevel>(levelText, true, out var level)) return ReviewState.Current;
-        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters);
-        var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
-        return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
+        var kind = document.Kind.ToString().ToLowerInvariant();
+        var level = document.Unit.Level;
+        // The sidecar records the adapter the review ran under; resolving with any other value would
+        // select a different rule set and report every unit as policy drift.
+        var adapter = document.Unit.Adapter.ToString().ToLowerInvariant();
+        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, adapter);
+        return StringComparer.Ordinal.Equals(
+            document.ReviewInputs.EffectiveHash.Value, resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(level, kind)))
             ? ReviewState.Current
             : ReviewState.PolicyDrift;
     }

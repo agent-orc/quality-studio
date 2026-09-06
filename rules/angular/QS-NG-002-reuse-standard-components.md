@@ -1,8 +1,9 @@
 ---
 id: QS-NG-002
-version: 1.0.0
+version: 1.1.0
 title: Reuse standard components and shared primitives
 technology: angular
+kinds: [code]
 category: component-reuse
 severity: medium
 defaultOn: true
@@ -27,6 +28,10 @@ primitives drift from each other over time (spacing, states, accessibility), dou
 maintenance surface, and are exactly the failure mode design tokens alone cannot prevent — a
 component can use tokens correctly and still reinvent a pattern that already exists.
 
+## Detection
+
+Compare the component's markup and class names against the shared primitives declared in `frontend/src/styles.css` (`.severity`, `.pane`, `.pane-header`) and against sibling feature folders. A new element whose class list and structure duplicate an existing primitive under a different name is a violation; a genuinely new visual pattern is not.
+
 ## Good example
 
 ```html
@@ -45,5 +50,6 @@ component can use tokens correctly and still reinvent a pattern that already exi
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule. Directly covers the operator-observed defect class
   ("ad-hoc styles instead of design tokens / no component reuse"), paired with QS-NG-001.

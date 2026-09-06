@@ -2,7 +2,7 @@
  * Wire contracts shared by the Quality Studio API services and the components that render them.
  * The file holds types only: it emits no runtime code, so importing it never pulls a service in.
  */
-export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing';
+export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing' | 'invalid';
 export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
 export interface ScopeExclusion { path: string; reason: string; }
 export interface ScopeRuleView { index: number; action: 'include' | 'exclude'; pattern: string; reason: string | null; matchedFiles: string[]; widerPattern: boolean; }
@@ -141,7 +141,7 @@ export interface RiskRow { path: string; name: string; gradeScore: number | null
 export interface RiskMatrixCell { grade: string; coverage: string; files: number; changes: number; }
 export interface RiskReport { days: number; currentCommit: string | null; rows: RiskRow[]; matrix: RiskMatrixCell[]; }
 export interface ScanFile { relativePath: string; state: ReviewState; reviewKind: string; metaRelativePath?: string | null; }
-export interface ScanReport { files: ScanFile[]; freshCount: number; staleCount: number; policyDriftCount: number; missingCount: number; }
+export interface ScanReport { files: ScanFile[]; freshCount: number; staleCount: number; policyDriftCount: number; missingCount: number; invalidCount: number; }
 export interface HandoverRequest { findingSummary: string; filePath: string; findingText: string; reviewKind: string; metaReference: string; }
 export interface HandoverResult { dryRun: boolean; taskId: string | null; card: { title: string }; }
 export interface ResolvedInput { id: string; source: string; scope: 'global' | 'project'; priority: number; includedContent: string; content: string; truncated: boolean; }

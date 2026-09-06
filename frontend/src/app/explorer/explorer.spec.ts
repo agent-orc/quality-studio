@@ -81,4 +81,18 @@ describe('Explorer container activation', () => {
     expect(component.queryInput()).toBe('');
     expect(component.query()).toBe('');
   });
+
+  it('names an unreadable sidecar on the tree chip rather than showing it as not reviewed', () => {
+    TestBed.inject(QualityApi).tree.set([{
+      id: 'root', name: 'Root', level: 'repository', path: '.',
+      kinds: { code: { direct: 'invalid', descendants: 'invalid', overall: 'invalid', score: null, band: null, metaPath: null } },
+      children: [],
+    }]);
+    fixture.detectChanges();
+
+    const chip = fixture.nativeElement.querySelector('[data-node-id="root"] .status') as HTMLElement;
+    expect(chip.classList).toContain('invalid');
+    expect(chip.getAttribute('title')).toBe('code: invalid (unreadable sidecar)');
+    expect(fixture.nativeElement.querySelector('.legend')?.textContent).toContain('Invalid');
+  });
 });

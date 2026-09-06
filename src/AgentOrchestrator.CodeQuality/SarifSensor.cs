@@ -10,16 +10,19 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
 {
     public const string SensorVersion = "1.0.0";
     private readonly ISensorCommandRunner commandRunner;
+    private readonly AnalyzerProfileCatalog profiles;
     private readonly string id;
 
-    public SarifSensor(ISensorCommandRunner? commandRunner = null) : this("sarif", commandRunner)
+    public SarifSensor(ISensorCommandRunner? commandRunner = null, AnalyzerProfileCatalog? profiles = null)
+        : this("sarif", commandRunner, profiles)
     {
     }
 
-    internal SarifSensor(string id, ISensorCommandRunner? commandRunner)
+    internal SarifSensor(string id, ISensorCommandRunner? commandRunner, AnalyzerProfileCatalog? profiles = null)
     {
         this.id = id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
+        this.profiles = profiles ?? AnalyzerProfileCatalog.BuiltIn;
     }
 
     public string Id => id;
@@ -40,8 +43,13 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
         var root = Path.GetFullPath(request.RepositoryRoot);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var configuration = request.Configuration ?? new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!configuration.TryGetValue("reportPath", out var configuredReport) ||
-            string.IsNullOrWhiteSpace(configuredReport))
+        if (!AnalyzerInvocation.TryResolve(Id, configuration, profiles, out var invocation, out var refusal))
+        {
+            return Unavailable(request, refusal);
+        }
+
+        var configuredReport = invocation.ReportPath;
+        if (string.IsNullOrWhiteSpace(configuredReport))
         {
             return Unavailable(request, "SARIF analyzer configuration requires reportPath.");
         }
@@ -55,9 +63,8 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
                 ? AnalyzerCommand.ContainedPath(root, request.Path)
                 : root;
             reportPath = AnalyzerCommand.ContainedPath(root, configuredReport);
-            workingDirectory = configuration.TryGetValue("workingDirectory", out var configuredWorkingDirectory) &&
-                               !string.IsNullOrWhiteSpace(configuredWorkingDirectory)
-                ? AnalyzerCommand.ContainedPath(root, configuredWorkingDirectory)
+            workingDirectory = !string.IsNullOrWhiteSpace(invocation.WorkingDirectory)
+                ? AnalyzerCommand.ContainedPath(root, invocation.WorkingDirectory)
                 : Directory.Exists(target) ? target : Path.GetDirectoryName(target)!;
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "Analyzer workingDirectory must be an existing repository directory.");
@@ -67,9 +74,9 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             return Unavailable(request, exception.Message);
         }
 
-        if (configuration.TryGetValue("command", out var configuredCommand) &&
-            !string.IsNullOrWhiteSpace(configuredCommand))
+        if (!string.IsNullOrWhiteSpace(invocation.Command))
         {
+            var configuredCommand = invocation.Command;
             IReadOnlyList<string> command;
             try
             {

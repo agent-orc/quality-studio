@@ -1,8 +1,9 @@
 ---
 id: QS-NG-001
-version: 1.0.0
+version: 1.1.0
 title: Use design tokens, not raw values
 technology: angular
+kinds: [code]
 category: design-tokens
 severity: medium
 defaultOn: true
@@ -24,6 +25,10 @@ one-off font sizes in a component's own `.css` file.
 A single token source is what lets the whole app re-theme (light/dark, `data-theme`) and stay
 visually consistent without hunting through every feature folder. Every raw value a component
 invents is a value the token system and future theme changes cannot see or move together.
+
+## Detection
+
+Read the component's `.css` for literal colors (`#rrggbb`, `rgb(`, named colors), raw `px`/`rem` lengths on padding, margin, gap, `border-radius`, and `font-size`, and for shadows written out by hand. A value is a violation when an equivalent `--studio-*`, `--space-*`, or `--font-*` token exists in `frontend/src/styles.css`; `0`, `1px` hairlines, and percentage/`fr` layout values are not.
 
 ## Good example
 
@@ -53,5 +58,6 @@ invents is a value the token system and future theme changes cannot see or move 
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `--studio-*` token scale already defined in
   `frontend/src/styles.css` and consumed by `review-panel.css`.
