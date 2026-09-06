@@ -33,9 +33,13 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal("missing", code.GetProperty("overall").GetString());
         var module = Assert.Single(project.GetProperty("children").EnumerateArray());
         Assert.Equal("Sample", module.GetProperty("name").GetString());
+        // Build output is not an MSBuild compile item, so it is never a scope candidate and never
+        // reaches the exclusion list. A gitignored source outside build output still is one.
         var excluded = Assert.Single(module.GetProperty("excluded").EnumerateArray());
-        Assert.Equal("bin/Generated.cs", excluded.GetProperty("path").GetString());
-        Assert.Contains(".gitignore:1", excluded.GetProperty("reason").GetString(), StringComparison.Ordinal);
+        Assert.Equal("generated/Generated.cs", excluded.GetProperty("path").GetString());
+        Assert.Contains(".gitignore:2", excluded.GetProperty("reason").GetString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(FlattenTree(json.RootElement.GetProperty("nodes")),
+            node => node.GetProperty("path").GetString() == "bin/Generated.cs");
     }
 
     [Fact]
@@ -878,7 +882,9 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.cs"), "namespace Sample; public static class Greeter { public static string Hello() => \"hello\"; }");
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "bin"));
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "bin", "Generated.cs"), "namespace Generated; internal sealed class Output { }");
-        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, ".gitignore"), "bin/\n");
+        Directory.CreateDirectory(Path.Combine(repositoryRoot, "generated"));
+        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "generated", "Generated.cs"), "namespace Generated; internal sealed class Local { }");
+        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, ".gitignore"), "bin/\ngenerated/\n");
         Directory.CreateDirectory(Path.Combine(repositoryRoot, ".quality", "inputs"));
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, ".quality", "inputs", "sample.md"),
             "---\nid: sample-rules\nkinds: [code]\nlevels: [file]\npriority: 10\n---\nPrefer explicit names.\n");
