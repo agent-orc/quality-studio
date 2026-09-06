@@ -1420,6 +1420,15 @@ QS-11 and the strictly time-boxed QS-12 can proceed in parallel once their input
 are stable. Module/project agent review execution is a later slice after QS-5;
 QS-5 only makes hierarchy and aggregate truth honest.
 
+Status 2026-09-06: no prompt names an `architecture` aspect. The file prompts ask
+for correctness, maintainability, clarity, error handling and testability
+(`code`), security, and performance; the only fixed aspect list is the
+project-level security posture set `secrets`, `dependencies`,
+`authentication-authorization`, `input-validation`, `configuration-iac`. Module
+reviews run through the file prompt today, so the architecture aspect of a
+project/module `code` review appears once module and project code prompts exist,
+not before. No sidecar carries it yet.
+
 ## Review-meta operational rules and examples
 
 ### Semantic invariants and grade scale
@@ -1430,7 +1439,12 @@ enforce all of the following:
 - `unit.adapter`, `unit.level`, `unit.path`, and `unit.symbolId` agree with the
   derived `unit.id`; Function units always have `symbolId`. Finding IDs and aspect
   IDs are unique within the document; every `finding.aspect` names an entry in
-  `aspects`.
+  `aspects`. An aspect ID has one spelling: the writer trims it, turns camelCase
+  and PascalCase boundaries, underscores, and whitespace into single hyphens,
+  lowercases the result, and rejects the response when what remains does not match
+  the schema pattern. `errorHandling` and `error_handling` are therefore stored as
+  `error-handling`, and a finding's `aspect` is matched after the same
+  normalization.
 - File documents use only whole-file selectors and include `unit.path` exactly
   once; companion files are additional inputs. Function documents have exactly
   one selector at `unit.path` equal to `symbol:` plus the RFC 3986 percent-encoding
