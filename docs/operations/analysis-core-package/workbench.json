@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "decided",
   "phase": "decision-ready",
-  "updatedAt": "2026-08-27T00:00:00Z",
+  "updatedAt": "2026-09-07T00:00:00Z",
   "sourceTaskKeys": [
     "QS-91",
     "AGT-2655",
