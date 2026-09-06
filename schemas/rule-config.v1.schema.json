@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rule-config.v1.schema.json",
+  "title": "Quality Studio rule overrides",
+  "description": "A repository's adjustments to the built-in rule catalogue, read from .quality/rules/overrides.json (project scope) or rule-overrides.json in the global inputs directory (global scope). Project wins by rule id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "overrides"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "overrides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/override" }
+    }
+  },
+  "$defs": {
+    "override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "reason"],
+      "anyOf": [{ "required": ["enabled"] }, { "required": ["severity"] }],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^QS-[A-Z]{2,4}-[0-9]{3}$",
+          "description": "A rule id present in the built-in catalogue. An unknown id is an error, not a no-op."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether the rule is injected into reviews of this repository."
+        },
+        "severity": {
+          "enum": ["critical", "high", "medium", "low", "info"],
+          "description": "The severity findings for this rule are reported at, replacing the authored one."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Why this repository departs from the default. Required, and carried into the prompt when the severity changes."
+        }
+      }
+    }
+  }
+}
