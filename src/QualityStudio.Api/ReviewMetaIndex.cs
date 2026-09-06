@@ -6,7 +6,7 @@ namespace QualityStudio.Api;
 /// <summary>Indexes review sidecars once per repository and keeps the index current from filesystem events.</summary>
 public sealed class ReviewMetaIndex : IDisposable
 {
-    private readonly ConcurrentDictionary<string, RepositoryIndex> repositories =
+    private readonly ConcurrentDictionary<string, Lazy<RepositoryIndex>> repositories =
         new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     public IReadOnlyList<JsonElement> Read(string root, string relativePath) =>
@@ -15,13 +15,30 @@ public sealed class ReviewMetaIndex : IDisposable
     public string Find(string root, string relativePath, string kind) =>
         Get(root).Find(relativePath, kind);
 
-    public void Dispose()
+    /// <summary>
+    /// Closes the watcher of a repository that is no longer served and drops its index.
+    /// A later read rebuilds both from disk. Without this a root stayed watched forever,
+    /// which on Windows keeps an open directory handle on a repository nobody serves.
+    /// </summary>
+    public void Forget(string root)
     {
-        foreach (var index in repositories.Values) index.Dispose();
-        repositories.Clear();
+        if (repositories.TryRemove(Path.GetFullPath(root), out var index)) index.Value.Dispose();
     }
 
-    private RepositoryIndex Get(string root) => repositories.GetOrAdd(Path.GetFullPath(root), static path => new(path));
+    public void Dispose()
+    {
+        foreach (var key in repositories.Keys) Forget(key);
+    }
+
+    // ConcurrentDictionary.GetOrAdd may run its value factory more than once for the same
+    // key and keeps only one result. Each run constructed and enabled a FileSystemWatcher,
+    // so every discarded instance leaked a live directory handle that went on receiving
+    // events for the rest of the process. Lazy with ExecutionAndPublication builds exactly
+    // one watcher per root, and makes Forget deterministic against a concurrent first read.
+    private RepositoryIndex Get(string root) => repositories.GetOrAdd(
+        Path.GetFullPath(root),
+        static path => new Lazy<RepositoryIndex>(
+            () => new RepositoryIndex(path), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
 
     private sealed class RepositoryIndex : IDisposable
     {
@@ -82,7 +99,11 @@ public sealed class ReviewMetaIndex : IDisposable
             }
         }
 
-        public void Dispose() => watcher.Dispose();
+        public void Dispose()
+        {
+            watcher.EnableRaisingEvents = false;
+            watcher.Dispose();
+        }
 
         private void Update(string path)
         {

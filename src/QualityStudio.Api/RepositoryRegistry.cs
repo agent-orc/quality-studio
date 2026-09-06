@@ -163,6 +163,7 @@ public sealed class RepositoryRegistry
             var archived = existing with { Archived = true };
             entries[entries.IndexOf(existing)] = archived;
             await PersistAsync(cancellationToken);
+            metaIndex.Forget(existing.RootPath);
             logger.LogInformation(new EventId(1402, "RepositoryArchived"), "Archived repository {RepositoryId}", id);
             return archived;
         }
