@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
@@ -359,6 +361,7 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
     [InlineData("file?path=Sample.cs")]
     [InlineData("inputs?path=Sample.cs&level=file")]
     [InlineData("guidelines")]
+    [InlineData("rules")]
     [InlineData("scan")]
     [InlineData("sensors")]
     [InlineData("usage")]
@@ -515,19 +518,29 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
                 $"namespace Sample; public static class {name} {{ public static string Hello() => \"marker\"; }}");
             var directory = Path.Combine(RepositoryRoot, ".quality", "reviews", "files");
             Directory.CreateDirectory(directory);
-            var metadata = new JsonObject
+            var grade = new ReviewGrade(80, GradeBand.B, "Fixture grade.");
+            var metadata = new ReviewMetaDocument
             {
-                ["unit"] = new JsonObject { ["path"] = relativePath },
-                ["reviewedAt"] = "2026-07-22T09:00:00.000Z",
-                ["kind"] = "code",
-                ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
-                ["grade"] = new JsonObject { ["score"] = 80, ["band"] = "B", ["rationale"] = "Fixture." },
-                ["summary"] = "Fixture review.",
-                ["findings"] = new JsonArray(),
+                Unit = new ReviewUnit(
+                    "qs-v1/generic/file/" + Convert.ToHexStringLower(
+                        SHA256.HashData(Encoding.UTF8.GetBytes(relativePath))),
+                    ReviewAdapter.Generic, ReviewLevel.File, relativePath, relativePath),
+                ReviewedAt = new DateTimeOffset(2026, 7, 22, 9, 0, 0, TimeSpan.Zero),
+                Kind = ReviewKind.Code,
+                Reviewer = new ReviewerIdentity("test", "test"),
+                ReviewedHash = ManifestHash.Subject(new string('b', 64)),
+                SubjectInputs = [new SubjectInputHash(relativePath, "file", "sha256:" + new string('c', 64))],
+                ReviewInputs = new ReviewInputs(
+                    ManifestHash.ReviewInput(new string('e', 64)), true, [], [],
+                    new PromptReference("file-code-review", "1.0.0", "sha256:" + new string('f', 64))),
+                Grade = grade,
+                Summary = "Fixture review.",
+                Aspects = [new ReviewAspect("correctness", "Correctness", grade)],
+                Findings = [],
             };
             await File.WriteAllTextAsync(
                 Path.Combine(directory, $"{name.ToLowerInvariant()}.review-meta.code.json"),
-                metadata.ToJsonString());
+                ReviewMetaJson.Serialize(metadata));
         }
 
         private async Task RunGitAsync(params string[] arguments)

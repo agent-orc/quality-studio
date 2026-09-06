@@ -235,7 +235,7 @@ jobs:
     timeout-minutes: 30
     env:
       CHROME_NO_SANDBOX: "1"
-      CANARY_RESULTS: ${{ github.workspace }}/.perf-results
+      PERF_RESULTS: ${{ github.workspace }}/.perf-results
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -264,14 +264,14 @@ jobs:
         id: stack
         run: |
           set -euo pipefail
-          mkdir -p "$CANARY_RESULTS"
-          JOB_RESULTS_DIR="$CANARY_RESULTS/stack" node scripts/dev-stack.mjs > "$CANARY_RESULTS/stack.log" 2>&1 &
-          echo $! > "$CANARY_RESULTS/stack.pid"
+          mkdir -p "$PERF_RESULTS"
+          JOB_RESULTS_DIR="$PERF_RESULTS/stack" node scripts/dev-stack.mjs > "$PERF_RESULTS/stack.log" 2>&1 &
+          echo $! > "$PERF_RESULTS/stack.pid"
           for attempt in $(seq 1 120); do
             if curl --fail --silent http://127.0.0.1:4200/ > /dev/null; then exit 0; fi
             sleep 1
           done
-          cat "$CANARY_RESULTS/stack.log"
+          cat "$PERF_RESULTS/stack.log"
           exit 1
 
       - name: Run browser performance budgets
@@ -284,7 +284,7 @@ jobs:
       - name: Stop the product stack
         if: always()
         run: |
-          if test -f "$CANARY_RESULTS/stack.pid"; then kill -TERM "$(cat "$CANARY_RESULTS/stack.pid")" || true; fi
+          if test -f "$PERF_RESULTS/stack.pid"; then kill -TERM "$(cat "$PERF_RESULTS/stack.pid")" || true; fi
 
       - name: Publish performance evidence
         if: always()

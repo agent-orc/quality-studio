@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentOrchestrator.CodeQuality;
 using QualityStudio.Testing;
 using Xunit;
 
@@ -10,7 +11,7 @@ public sealed class ReviewMetaIndexTests
     public void Read_returns_the_sidecars_of_a_unit()
     {
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
-        WriteSidecar(fixture, "Sample.cs", "code");
+        WriteSidecar(fixture, "Sample.cs", ReviewKind.Code);
 
         using var index = new ReviewMetaIndex();
 
@@ -22,7 +23,7 @@ public sealed class ReviewMetaIndexTests
     public void Find_returns_the_sidecar_path_of_a_kind()
     {
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
-        var expected = WriteSidecar(fixture, "Sample.cs", "security");
+        var expected = WriteSidecar(fixture, "Sample.cs", ReviewKind.Security);
 
         using var index = new ReviewMetaIndex();
 
@@ -33,12 +34,12 @@ public sealed class ReviewMetaIndexTests
     public void Release_drops_the_repository_and_a_later_read_rebuilds_it_from_disk()
     {
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
-        WriteSidecar(fixture, "Sample.cs", "code");
+        WriteSidecar(fixture, "Sample.cs", ReviewKind.Code);
         using var index = new ReviewMetaIndex();
         Assert.Single(index.Read(fixture.Path, "Sample.cs"));
 
         index.Release(fixture.Path);
-        WriteSidecar(fixture, "Second.cs", "code");
+        WriteSidecar(fixture, "Second.cs", ReviewKind.Code);
 
         // No watcher is left to observe the new sidecar, so the rebuild has to come from
         // the rescan the next read triggers.
@@ -52,7 +53,7 @@ public sealed class ReviewMetaIndexTests
         // of the destination followed by a rename onto it, and dropping the document on the
         // delete used to make a read in that window fail for a file that never left the disk.
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
-        var path = WriteSidecar(fixture, "Sample.cs", "code");
+        var path = WriteSidecar(fixture, "Sample.cs", ReviewKind.Code);
         using var index = new ReviewMetaIndex();
         Assert.Equal(path, index.Find(fixture.Path, "Sample.cs", "code"));
 
@@ -93,7 +94,7 @@ public sealed class ReviewMetaIndexTests
     public void Release_and_Dispose_are_idempotent()
     {
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
-        WriteSidecar(fixture, "Sample.cs", "code");
+        WriteSidecar(fixture, "Sample.cs", ReviewKind.Code);
         var index = new ReviewMetaIndex();
         Assert.Single(index.Read(fixture.Path, "Sample.cs"));
 
@@ -103,15 +104,30 @@ public sealed class ReviewMetaIndexTests
         index.Dispose();
     }
 
-    private static string WriteSidecar(TemporaryDirectory fixture, string unitPath, string kind)
+    private static string WriteSidecar(TemporaryDirectory fixture, string unitPath, ReviewKind kind)
     {
         var directory = fixture.CreateSubdirectory(".quality", "reviews", "files");
-        var path = Path.Combine(directory, $"{Path.GetFileNameWithoutExtension(unitPath)}.review-meta.{kind}.json");
-        File.WriteAllText(path, JsonSerializer.Serialize(new
+        var name = Path.GetFileNameWithoutExtension(unitPath).ToLowerInvariant();
+        var path = Path.Combine(directory,
+            $"{name}.review-meta.{kind.ToString().ToLowerInvariant()}.json");
+        var grade = new ReviewGrade(80, GradeBand.B, "Fixture grade.");
+        File.WriteAllText(path, ReviewMetaJson.Serialize(new ReviewMetaDocument
         {
-            unit = new { path = unitPath },
-            kind,
-            summary = "Fixture sidecar.",
+            Unit = new ReviewUnit("qs-v1/generic/file/" + new string('a', 64), ReviewAdapter.Generic,
+                ReviewLevel.File, unitPath, unitPath),
+            ReviewedAt = new DateTimeOffset(2026, 7, 22, 9, 0, 0, TimeSpan.Zero),
+            Kind = kind,
+            Reviewer = new ReviewerIdentity("test", "test"),
+            ReviewedHash = ManifestHash.Subject(new string('b', 64)),
+            SubjectInputs = [new SubjectInputHash(unitPath, "file", "sha256:" + new string('c', 64))],
+            ReviewInputs = new ReviewInputs(
+                ManifestHash.ReviewInput(new string('e', 64)), true, [], [],
+                new PromptReference($"file-{kind.ToString().ToLowerInvariant()}-review", "1.0.0",
+                    "sha256:" + new string('f', 64))),
+            Grade = grade,
+            Summary = "Fixture review.",
+            Aspects = [new ReviewAspect("correctness", "Correctness", grade)],
+            Findings = [],
         }));
         return path;
     }
