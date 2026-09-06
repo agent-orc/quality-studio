@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using AgentOrchestrator.CodeQuality;
 
 namespace QualityStudio.Api;
 
@@ -91,20 +92,19 @@ public sealed class ReviewMetaIndex : IDisposable
             {
                 if (!PathConfinement.IsWithin(root, path)) return;
                 PathConfinement.RejectReparseTraversal(root, path);
-                using var parsed = JsonDocument.Parse(File.ReadAllText(path));
-                var payload = parsed.RootElement;
-                if (!payload.TryGetProperty("unit", out var unit) ||
-                    !unit.TryGetProperty("path", out var unitPathElement) ||
-                    !payload.TryGetProperty("kind", out var kindElement)) return;
-                var storedPath = unitPathElement.GetString()?.Replace('\\', '/').TrimStart('/');
-                if (string.IsNullOrWhiteSpace(storedPath) || string.IsNullOrWhiteSpace(kindElement.GetString())) return;
+                // The one reader decides what a sidecar says and reports what it cannot read; the
+                // raw payload is kept because callers still project over the whole document.
+                if (!ReviewMetaReader.TryLoad(path, out var sidecar, out _)) return;
+                var storedPath = sidecar.Document.Unit.Path.Replace('\\', '/').TrimStart('/');
                 var absoluteSubject = Path.GetFullPath(Path.Combine(root,
                     storedPath.Replace('/', Path.DirectorySeparatorChar)));
                 if (!PathConfinement.IsWithin(root, absoluteSubject)) return;
                 PathConfinement.RejectReparseTraversal(root, absoluteSubject);
+                using var parsed = JsonDocument.Parse(sidecar.Json);
                 var normalized = Path.GetRelativePath(root, absoluteSubject).Replace('\\', '/');
                 lock (gate)
-                    documents[path] = new IndexedDocument(path, normalized, kindElement.GetString()!, payload.Clone());
+                    documents[path] = new IndexedDocument(path, normalized,
+                        sidecar.Document.Kind.ToString().ToLowerInvariant(), parsed.RootElement.Clone());
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
             {
