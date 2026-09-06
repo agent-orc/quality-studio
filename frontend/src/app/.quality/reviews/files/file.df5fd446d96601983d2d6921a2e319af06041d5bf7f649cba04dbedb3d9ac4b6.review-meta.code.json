@@ -1,0 +1,200 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/fed0d41ff774f15625b95c64d67da7ad340ed0f7bef4277a8b97049402be83f3",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/language.ts",
+    "displayName": "language.ts"
+  },
+  "reviewedAt": "2026-09-01T09:49:55.8654636Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-c81b83a3fb724cb4844d132bf233a48e",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17111,
+      "outputTokens": 1785,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 1239,
+      "durationMs": 57663
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "00985d15d0fa0b2760367acb6b8cb1d353553ab49b4cd5535ccb99e80822a8f4"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/language.ts",
+      "selector": "file",
+      "contentHash": "sha256:541f88abc59abf7ccae47cf9459f595f04ae8af90aad56f09d6d86b06b20f680"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 87,
+    "band": "B",
+    "rationale": "The implementation is concise, readable, and safely handles nullish input, but its fallback extraction treats extensionless filenames as extensions, causing incorrect classifications for filenames such as \u0060js\u0060 or \u0060json\u0060."
+  },
+  "summary": "A small, mostly maintainable utility with one confirmed classification edge case. No coverage conclusions were drawn because coverage data is unavailable, and the unavailable ESLint analyzer produced no applicable finding.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Normal extensions and recognized dotfiles are handled correctly, but extensionless filenames matching a mapping key are misclassified."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 92,
+        "band": "A",
+        "rationale": "The lookup table and pure function are compact and straightforward to extend."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 87,
+        "band": "B",
+        "rationale": "Naming is generally clear, although the extension calculation obscures the unintended treatment of extensionless filenames."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 92,
+        "band": "A",
+        "rationale": "Null, undefined, empty, and unknown inputs fall back safely without throwing."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 90,
+        "band": "A",
+        "rationale": "The function is deterministic and side-effect free, making boundary cases easy to unit test; actual coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-cdb98c8c7ddaef3a04c897e2454f86e09599762e4ab0390062493c6d65d5fa89",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Extensionless filenames can be mistaken for language extensions",
+      "description": "When no dot is present, the code uses the entire lowercase filename as the lookup key. Consequently, paths such as \u0060/tmp/js\u0060, \u0060/tmp/json\u0060, or \u0060/tmp/py\u0060 are classified as JavaScript, JSON, or Python even though those files have no extension. The special handling for single-dot files already extracts names such as \u0060gitignore\u0060, so using the full filename for every extensionless file is unnecessary.",
+      "recommendation": "Use an empty or undefined lookup key when there is no extension, while retaining explicit handling for recognized dotfiles. Add tests covering ordinary extensions, recognized dotfiles, extensionless filenames that match mapping keys, empty input, and trailing separators.",
+      "locations": [
+        {
+          "path": "frontend/src/app/language.ts",
+          "range": {
+            "start": {
+              "line": 34,
+              "column": 21
+            },
+            "end": {
+              "line": 34,
+              "column": 94
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:cdb98c8c7ddaef3a04c897e2454f86e09599762e4ab0390062493c6d65d5fa89",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/language.ts",
+          "range": {
+            "start": {
+              "line": 34,
+              "column": 21
+            },
+            "end": {
+              "line": 34,
+              "column": 94
+            }
+          },
+          "capturedExcerpt": {
+            "text": "hasExtension ? fileName.slice(dotIndex \u002B 1).toLowerCase() : fileName.toLow",
+            "contentHash": "sha256:541f88abc59abf7ccae47cf9459f595f04ae8af90aad56f09d6d86b06b20f680",
+            "excerptHash": "sha256:bfe8dfdd59af925300cf29b811a3e83c76b9a1f3a51ad219e7faa65149bd0151"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

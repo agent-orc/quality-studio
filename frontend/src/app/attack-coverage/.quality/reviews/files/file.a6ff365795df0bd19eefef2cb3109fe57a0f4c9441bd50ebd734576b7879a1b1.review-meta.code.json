@@ -1,0 +1,387 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/57ad60535d887669ee05b47f017df24d2e4245643da51b88a0caccddd366f16e",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+    "displayName": "attack-coverage.css"
+  },
+  "reviewedAt": "2026-09-01T09:54:29.2096202Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-4d1a2e06915b48259823464f9b9ea48c",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18765,
+      "outputTokens": 3821,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 2727,
+      "durationMs": 122501
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "4903bea6827ed184afb58934c29a36d67b709bc0136734ff08a6c01a1d9bbc92"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+      "selector": "file",
+      "contentHash": "sha256:beca02279940627be0b84bb05d5eccbabb183077f900b8a6a6af06673bcba251"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 78,
+    "band": "C",
+    "rationale": "The stylesheet is functionally coherent, but its fixed-width detail layout can make the coverage table unusable on narrow screens, and several extremely small text sizes undermine readability. Minor maintainability and interaction-state issues also remain."
+  },
+  "summary": "The modal and sticky coverage table are generally structured correctly. The main risks are the non-responsive 350px detail pane, typography as small as 6\u20138px, incomplete keyboard-focus styling, and repeated hard-coded semantic colors.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The fixed 350px detail column can consume essentially the entire content area on narrow viewports, collapsing the primary table."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Selectors are reasonably organized, but repeated literal status colors make theme changes and visual consistency harder to manage."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "Consistent naming helps navigation, but densely packed rules and unusually small typography reduce readability for both maintainers and users."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 90,
+        "band": "A",
+        "rationale": "Loading and error states have explicit styling, and no CSS-specific error-handling defect is evident from the supplied content."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 80,
+        "band": "B",
+        "rationale": "The state-oriented class names are suitable for visual testing, although responsive and keyboard-state behavior needs explicit verification. Test coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-11bc7a6b998add1273e5a1b612e79ec57ab1a6e27383b7d86c947d3e1ceabe8b",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Fixed detail column can collapse the table on narrow viewports",
+      "description": "When \u0060.has-detail\u0060 is active, the grid always reserves 350px for the detail pane. On a phone-sized viewport, the remaining \u0060minmax(0,1fr)\u0060 track can shrink to nearly zero, leaving the primary coverage table effectively unusable. The fixed 240px sticky boundary column further increases the minimum useful table width.",
+      "recommendation": "Add a responsive breakpoint that stacks the detail pane, turns it into an overlay, or replaces the fixed width with a bounded responsive track such as \u0060minmax(260px, 35vw)\u0060. Verify both table and detail interactions at narrow viewport widths.",
+      "locations": [
+        {
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 7,
+              "column": 95
+            },
+            "end": {
+              "line": 7,
+              "column": 163
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:11bc7a6b998add1273e5a1b612e79ec57ab1a6e27383b7d86c947d3e1ceabe8b",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 7,
+              "column": 95
+            },
+            "end": {
+              "line": 7,
+              "column": 163
+            }
+          },
+          "capturedExcerpt": {
+            "text": "solid var(--studio-border-soft);color:var(--studio-fg-muted);font-siz",
+            "contentHash": "sha256:beca02279940627be0b84bb05d5eccbabb183077f900b8a6a6af06673bcba251",
+            "excerptHash": "sha256:b86082e99608bb9a2605eba06e752698b55598906858f85efef248d847e6692b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b6e46fd68b1708fef77a4474eacd38cba5173f200aa9722061dbff76e18c2202",
+      "ruleId": "built-in:code",
+      "aspect": "clarity",
+      "severity": "medium",
+      "title": "Interface labels use extremely small font sizes",
+      "description": "The stylesheet repeatedly uses 6\u20139px text; the cell flag is only 6px. At normal zoom this is difficult to read, particularly on high-density or small displays, and can impair users with reduced vision.",
+      "recommendation": "Raise informational labels to a practical minimum size, preferably using shared typography tokens and relative units. Preserve visual hierarchy through weight, color, and spacing rather than shrinking essential labels below readable sizes.",
+      "locations": [
+        {
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 480
+            },
+            "end": {
+              "line": 9,
+              "column": 493
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b6e46fd68b1708fef77a4474eacd38cba5173f200aa9722061dbff76e18c2202",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 480
+            },
+            "end": {
+              "line": 9,
+              "column": 493
+            }
+          },
+          "capturedExcerpt": {
+            "text": "-overflow:elli",
+            "contentHash": "sha256:beca02279940627be0b84bb05d5eccbabb183077f900b8a6a6af06673bcba251",
+            "excerptHash": "sha256:c050e4947bcc4ed224bb69454d8ce647175f8ef3cf13079403b6637b15ae0bab"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-112a8ec51de55ba512494b59418ccf54b3c849fa27cb2661ca84cc3c073feb3f",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Interactive coverage cells define hover feedback but no explicit focus feedback",
+      "description": "Coverage cells are pointer-interactive and receive a custom hover outline, but this stylesheet provides no corresponding \u0060:focus-visible\u0060 state. Keyboard users therefore receive weaker or globally dependent feedback for the same interaction.",
+      "recommendation": "Add a clearly visible \u0060.coverage-cell:focus-visible\u0060 style, ideally sharing the hover outline while retaining an accessible focus indicator. Apply the same interaction-state policy consistently to the other custom buttons.",
+      "locations": [
+        {
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 131
+            },
+            "end": {
+              "line": 9,
+              "column": 211
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:112a8ec51de55ba512494b59418ccf54b3c849fa27cb2661ca84cc3c073feb3f",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 131
+            },
+            "end": {
+              "line": 9,
+              "column": 211
+            }
+          },
+          "capturedExcerpt": {
+            "text": "t:54px;padding:0;border-right:1px solid var(--studio-border-soft);border-bottom:1",
+            "contentHash": "sha256:beca02279940627be0b84bb05d5eccbabb183077f900b8a6a6af06673bcba251",
+            "excerptHash": "sha256:86e5efead8999089c56879b841c51fd2cb653e9c74dfedafeef806d56bf0f200"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-86c8547d9043f951451793f7ab92a6a1d3d5991729fe0393f5c1cd5e6bf44e7c",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "low",
+      "title": "Semantic status colors are repeated as literals",
+      "description": "Finding and disagreement colors are embedded directly in multiple rules while other statuses use theme variables. This makes theme adaptation and coordinated contrast changes error-prone.",
+      "recommendation": "Define semantic variables such as \u0060--status-finding\u0060, \u0060--status-finding-fg\u0060, and \u0060--status-disagreement\u0060, then use them consistently in cells, flags, summaries, errors, and history borders.",
+      "locations": [
+        {
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 10,
+              "column": 111
+            },
+            "end": {
+              "line": 10,
+              "column": 213
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 494
+            },
+            "end": {
+              "line": 9,
+              "column": 563
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:86c8547d9043f951451793f7ab92a6a1d3d5991729fe0393f5c1cd5e6bf44e7c",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/attack-coverage/attack-coverage.css",
+          "range": {
+            "start": {
+              "line": 10,
+              "column": 111
+            },
+            "end": {
+              "line": 10,
+              "column": 213
+            }
+          },
+          "capturedExcerpt": {
+            "text": ":8px 10px;background:var(--studio-bg-surface);text-align:left}.coverage-table tbody .coverage-boundary-",
+            "contentHash": "sha256:beca02279940627be0b84bb05d5eccbabb183077f900b8a6a6af06673bcba251",
+            "excerptHash": "sha256:8d031872c2350369b40c34439d1e958efdfb707cbe4f6f5b74680cac2ed5d929"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

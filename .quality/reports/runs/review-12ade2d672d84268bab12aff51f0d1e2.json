@@ -1,0 +1,1975 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-12ade2d672d84268bab12aff51f0d1e2",
+    "revision": 1,
+    "repositoryId": "default",
+    "repositoryName": "quality-studio",
+    "kind": "security",
+    "scopeUnitId": "qs-v1/dotnet/module/28eef59717f710ae0291774a9c197d33f1ed9ecfae63cb6678173ab0b592bf3e",
+    "level": "module",
+    "path": "src/QualityStudio.Api/QualityStudio.Api.csproj",
+    "state": "done",
+    "completeness": "partial",
+    "createdAt": "2026-09-01T08:11:53.9330355+00:00",
+    "startedAt": "2026-09-01T10:17:19.832837+00:00",
+    "finishedAt": "2026-09-01T10:32:25.7786844+00:00",
+    "model": "runner-default",
+    "thinkingLevel": "model-default",
+    "cliType": "codex",
+    "force": false
+  },
+  "subject": {
+    "manifestHash": "sha256:5d53dd0307a711bd93dec4383a87b289b28c3f35a70b41a6fdf9a41accdb04a7",
+    "targets": [
+      {
+        "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+        "name": "Program.cs",
+        "path": "src/QualityStudio.Api/Program.cs",
+        "subjectHash": "sha256:303ac198e0df4c6075acede9a743a7afb96b89f57912fd137e5899844416a77f"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/3b9e371fe73ea32938cdd5b3a5d66a242afe76014f80f8c8b7f4082072f9b864",
+        "name": "AgentStudioTaskClient.cs",
+        "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+        "subjectHash": "sha256:b6025f6aca29e2b33ad9029211b33f939b2f441fce130426c18f7d6a1fe5a693"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/fcea4117f4e7139e23c820d698adde431dc9fcbf6dfc70cbab870086279af4f6",
+        "name": "ApiContracts.cs",
+        "path": "src/QualityStudio.Api/ApiContracts.cs",
+        "subjectHash": "sha256:31e7f6c44041e10bb1fe0cabf46cccff760c0158ef873fbee20a32eeda77e4f2"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/2d3b72398af462cb2e36e35bfa6979e07f570ebaa6e4c9dba9811d3e9c678c0d",
+        "name": "ApiSecurity.cs",
+        "path": "src/QualityStudio.Api/ApiSecurity.cs",
+        "subjectHash": "sha256:eaef3d89e4e1dd860de2ce7b7bce9f10d2b5cedaad50e6448e28642b4c197713"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+        "name": "PathConfinement.cs",
+        "path": "src/QualityStudio.Api/PathConfinement.cs",
+        "subjectHash": "sha256:f211614773562894f8bceebdaa73ce324cb4d31f817e4c5a133aa9d4f942c071"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/eaa25906d47751af2c3e9465966f98b4d5d951a32e9cc8fed98f739b92d8c62c",
+        "name": "ProjectDashboard.cs",
+        "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+        "subjectHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/8eace245049eb836deab9c4f33b41c967b25c0e3cae38e6eafd8496773d906af",
+        "name": "QualityRunReportFactory.cs",
+        "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+        "subjectHash": "sha256:ccbbf32f78caf488e6988f49dd6d0e79be8c5103d5c91514cda6132369a51f38"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/411f55303622d51885ee5458ef135ed03b78e9d2fee4136109f55a21239c4252",
+        "name": "RepositoryAccess.cs",
+        "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+        "subjectHash": "sha256:c6b998156600b6a9908c96461c3e5b463da3f284c61cd8fe3bf29bfd6d101b1f"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/a9fcf78b11fdaa212a458c901d7bf57633ee5a392dcd9b5c7ee283943418196c",
+        "name": "RepositoryOptions.cs",
+        "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+        "subjectHash": "sha256:a232822466dafa94c69e82510ebb08461073a6481639db9f69e6f279dcc9d77c"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+        "name": "RepositoryRegistry.cs",
+        "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+        "subjectHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/8f46899dfcc9c8d0bba234596712d317b7f35eba1d895979aafd31374517ab52",
+        "name": "RepositorySnapshotPrewarmer.cs",
+        "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+        "subjectHash": "sha256:6e8ecd7cdd0376a9d16c22291fe957b895e149daa9397f8079ebf3fceaefa7e6"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/789c84668907f0d85c5d08e2d23e73b09fa7fdd709c0a354e8b33aad1377e941",
+        "name": "ReviewJobs.cs",
+        "path": "src/QualityStudio.Api/ReviewJobs.cs",
+        "subjectHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/45493d86cea731bb0d9ee3f95a7e17a120ab4b9b232c29deec6112f18a5e1203",
+        "name": "ReviewMetaIndex.cs",
+        "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+        "subjectHash": "sha256:b55a023601c0eb97430317a4e2e3a1b845005ade94fc3e96ac3f519bd7c63fee"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/362fa00588dd89ccf39617809efc280d868d6fc215351eb49f8dad20b8618931",
+        "name": "ReviewRunArchive.cs",
+        "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+        "subjectHash": "sha256:ad02ffdcc0fec1f77cd2c84ce54c73be19ef013270d139693f5c444281a057c9"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/2851f3761a56d9405c0f4eb443f0df9661b75bd5661b0beccf40c8ffebf7cd83",
+        "name": "ReviewRunStore.cs",
+        "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+        "subjectHash": "sha256:a25206e39cfba2dda051bfdca2952cd13e0c3906f4341c278599b254d13b6c20"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/0b38d4b5976e6e45b08f39272f89b7f6e652347358366ea9cbb6ed5fa4726bb0",
+        "name": "ScopeRules.cs",
+        "path": "src/QualityStudio.Api/ScopeRules.cs",
+        "subjectHash": "sha256:b89f85ae459e1d1a1985e767856c934538017112673fecc790318e1633798a9a"
+      }
+    ]
+  },
+  "execution": {
+    "reviewed": 16,
+    "reusedFresh": 0,
+    "failed": 1,
+    "skipped": 0,
+    "cancelled": 0,
+    "aggregateOutcome": "done",
+    "errors": [
+      "src/QualityStudio.Api/AgentStudioTaskClient.cs: The agent returned invalid JSON."
+    ],
+    "usage": {
+      "operations": 17,
+      "inputTokens": 429897,
+      "outputTokens": 54973,
+      "cachedInputTokens": 201472,
+      "reasoningOutputTokens": 43140,
+      "durationMs": 1394719,
+      "cost": null,
+      "currency": null,
+      "priceStatus": "unknownModel",
+      "inputEstimateDeviationPercent": 189.12,
+      "outputEstimateDeviationPercent": 84.80,
+      "costEstimateDeviationPercent": null
+    },
+    "cap": {
+      "tokenLimit": null,
+      "costLimit": null,
+      "outcome": "not-configured",
+      "reason": null
+    },
+    "estimate": {
+      "files": 16,
+      "operations": 17,
+      "inputTokens": 148694,
+      "outputTokens": 29747,
+      "cost": null,
+      "currency": null,
+      "historySamples": 0,
+      "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
+    }
+  },
+  "observations": [
+    {
+      "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+      "level": "file",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9.review-meta.security.json",
+      "sidecarSha256": "sha256:f406a122194d6fda86c08972d4a44828548c0cba91f16d1c837ad0f55aa66275",
+      "capturedAt": "2026-09-01T10:20:21.9754762+00:00",
+      "reviewedHash": "05ebc16a4e260812c03ab94ec130699ea78336dcac4446ad6852045e52e06d9d",
+      "providerRunId": "quality-13fb8dd803994ed3bb8077c42a212bee",
+      "grade": {
+        "score": 38,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The unit has a blocking security posture: machine evidence reports fourteen high-severity request-to-filesystem boundary flows and an unauthenticated health boundary, while manual review additionally confirms missing privilege separation for destructive operations, forgeable audit identities, and an unbounded file read. Loopback-only hosting, authentication, repository scoping, request-size limits, and successful secret scanning reduce exposure but do not offset these defects. Dependency analysis was unavailable, and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Authentication and repository-level access checks are consistently applied to /api routes, mutations require a matching client identifier, CORS uses configured origins, exception responses generally suppress internal details, and gitleaks reported no findings. However, the boundary sensor blocked the unit with fourteen high-severity request-to-filesystem flows plus the public /health boundary. Independently, repository access is used as sufficient authority for administrative and state-changing operations, audit authorship is accepted from request data, and file content is loaded into memory without an output-size bound. Dependency assessment and ESLint analysis were unavailable; no test-coverage data was supplied.",
+      "findings": [
+        {
+          "id": "finding-7d62f19348787c53ee1f3e4af191b6f0f6a8cbda3e270bf86af316ce79d0d515",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "high",
+          "state": "open",
+          "title": "Repository read access grants administrative and mutation authority",
+          "description": "The authorization middleware uses the same identity.CanAccess(repositoryId) predicate for all repository operations, regardless of HTTP method or effect. Consequently, an identity permitted to view a repository is also permitted to update or archive its registration and to invoke the numerous metadata, review-job, and third-party mutations mapped below. Only repository creation/import receives a separate CanRegisterRepositories check, demonstrating that no corresponding write or administrative permission is required for existing repositories.",
+          "recommendation": "Define explicit operation-level policies such as repository read, metadata write, review execution, handover, and repository administration. Enforce the appropriate policy on each endpoint, and reserve registration updates and archival for identities with repository-administration authority.",
+          "evidence": null,
+          "fingerprint": "sha256:7d62f19348787c53ee1f3e4af191b6f0f6a8cbda3e270bf86af316ce79d0d515",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 190,
+              "startColumn": 1,
+              "endLine": 209,
+              "endColumn": 1
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 246,
+              "startColumn": 1,
+              "endLine": 255,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-2c936823e08e36168438c388f48b126e4c3191a7e798955ed436918cbbe6d8fc",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Authenticated callers can forge reviewer attribution",
+          "description": "Finding-state changes persist request.Author as the actor, and thread entries persist request.HumanName as a human author. Neither value is bound to the authenticated identity established by ApiSecurity. Any caller with repository access can therefore impersonate another reviewer in durable review metadata and audit logs.",
+          "recommendation": "Derive the authoritative actor identifier and display name from ApiSecurity.Identity(context). If a caller-supplied display label is needed, store it separately as untrusted presentation data and retain the authenticated subject identifier for audit purposes.",
+          "evidence": null,
+          "fingerprint": "sha256:2c936823e08e36168438c388f48b126e4c3191a7e798955ed436918cbbe6d8fc",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 633,
+              "startColumn": 1,
+              "endLine": 638,
+              "endColumn": 1
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 702,
+              "startColumn": 1,
+              "endLine": 702,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-19c2e6315c228da341212756e9ea7129e2c482006e2488fa55b7ee53aa4b391e",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "File endpoint buffers repository files without a size limit",
+          "description": "FileContent calls File.ReadAllBytesAsync on the selected file and then decodes the complete byte array into a string. The configured request-body limit does not constrain response-side file reads. A sufficiently large file in an accessible repository can therefore cause large simultaneous byte-array and string allocations, allowing an authenticated caller to exhaust process memory through repeated requests.",
+          "recommendation": "Check file length against a configured response/read limit before allocation, reject oversized files with 413 or 422, and consider bounded streaming or paginated line retrieval. Apply a per-client request-rate policy to this resource-intensive endpoint as defense in depth.",
+          "evidence": null,
+          "fingerprint": "sha256:19c2e6315c228da341212756e9ea7129e2c482006e2488fa55b7ee53aa4b391e",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 526,
+              "startColumn": 1,
+              "endLine": 526,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-079e9339f805",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/security/attack-coverage combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:security:attack-coverage\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:079e9339f80574b58fcb79d3547b1b9051bafa5bf1b4a520ffa20adbc6b4718b",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 283,
+              "startColumn": 1,
+              "endLine": 283,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-0894aa6003b6",
+          "ruleId": "boundary/missing-authorization",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Inbound boundary has no derived authorization",
+          "description": "GET /health is externally callable, but the inventory could not derive an authentication and authorization requirement.",
+          "recommendation": "Apply an explicit authentication and authorization policy, or document and mechanically encode the narrow public exception.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::health\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022loopback-only\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022All derived repository host bindings use loopback addresses\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022none\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs:218 has no applicable authorization requirement\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022none\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs contains no applicable authorization check\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: []\r\n  }\r\n}",
+          "fingerprint": "sha256:0894aa6003b66a98e4c7b7a3f513724298cb77ceff90bc9975d02328dfa84f14",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 218,
+              "startColumn": 1,
+              "endLine": 218,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-0bed611945e1",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/security/attack-coverage/judgements combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:security:attack-coverage:judgements\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:0bed611945e1d15753c56942cf19bdf46c25c4687902b6922e5e43d8aa74e475",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 285,
+              "startColumn": 1,
+              "endLine": 285,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-2a722b5e2bc2",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/threads combines request input with filesystem-read, filesystem-write.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:threads\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022filesystem-write\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:2a722b5e2bc2f17e692ce4e50eaa7cb170664e73ff428c75e9d0e6ecf3d809fe",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 343,
+              "startColumn": 1,
+              "endLine": 343,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-38d591886be2",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/tree combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:tree\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:38d591886be2d8151c1df59f47623f818c678225bf9683430c2cd2615fbea168",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 257,
+              "startColumn": 1,
+              "endLine": 257,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-3da1fc951952",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/threads combines request input with filesystem-read, filesystem-write.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:threads\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022filesystem-write\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:3da1fc951952c5376b18d08229c6ab5b2b637a364ff0f7e4289e3aafd9c7041b",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 342,
+              "startColumn": 1,
+              "endLine": 342,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-3f5fb10760ed",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/repos/{repoId}/security/attack-coverage combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:security:attack-coverage\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:3f5fb10760ed42c4aec65d74c6cf5efb945c9e9eff22b8c88b517fd2761af286",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 284,
+              "startColumn": 1,
+              "endLine": 284,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-7657c524831d",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/findings/state combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:findings:state\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:7657c524831d67756e7c35b2a62edab5bc4a18f77a9cc2ec96b1a729e91a2209",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 344,
+              "startColumn": 1,
+              "endLine": 344,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-7ccf2ad2c7f7",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/repos/{repoId}/file combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:file\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:7ccf2ad2c7f7b0c9a7e62ff743405ba780170ec80aaf44b6961a35b44360db79",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 264,
+              "startColumn": 1,
+              "endLine": 264,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-87c653ceb911",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/repos/{repoId}/tree combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:tree\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:87c653ceb911a4f0a706c84a6f98716c8110e02bc9beeaf17479fa994bee1269",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 258,
+              "startColumn": 1,
+              "endLine": 258,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-992a6f24e8eb",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/handover combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:handover\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022third-party-call\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:992a6f24e8eb3f52a9d25545f7eb9fdb87c392cfe39ddfcabde20028c5d7e5a4",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 341,
+              "startColumn": 1,
+              "endLine": 341,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-bcddf7de26ae",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/file combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:file\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:bcddf7de26ae0715152e3e061095e505c0c61c6a48becda447a22435a8c71f79",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 263,
+              "startColumn": 1,
+              "endLine": 263,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-cd23e66e1509",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/security/attack-coverage/judgements combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:security:attack-coverage:judgements\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:cd23e66e1509538c1b5bfc49a766b83c31c016962d6a131004f5ad26e8e29a95",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 286,
+              "startColumn": 1,
+              "endLine": 286,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-e2b38ded0835",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/findings/state combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:findings:state\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:e2b38ded08355c4e75121c45590973dc7bbddd0ff5bcd5036534c8417e69c066",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 345,
+              "startColumn": 1,
+              "endLine": 345,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-f2bfd75d9312",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/handover combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:handover\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022third-party-call\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:f2bfd75d9312b0d16e17ce6d9dcdf53a0c9e22681fe98347a59bb54b74d722a7",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 340,
+              "startColumn": 1,
+              "endLine": 340,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/3b9e371fe73ea32938cdd5b3a5d66a242afe76014f80f8c8b7f4082072f9b864",
+      "level": "file",
+      "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+      "outcome": "failed",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/fcea4117f4e7139e23c820d698adde431dc9fcbf6dfc70cbab870086279af4f6",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ApiContracts.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.78b846524d07404cd680c20952509aa3760adc0c3bfd3e19e5b58e6f2ab7609e.review-meta.security.json",
+      "sidecarSha256": "sha256:a97bb29d8680c403e891d1b1387194118a2023219f5e1089681412bec3496bbc",
+      "capturedAt": "2026-09-01T10:19:14.7039655+00:00",
+      "reviewedHash": "17a45eef115d982b6bd31132c18bbda4a964552b7bc8f4866e57a369c5bbc30a",
+      "providerRunId": "quality-91b6887f13c94f84932c07af428ec243",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: No exploitable security defect is evidenced in this contracts-and-projection unit. Boundary, coverage, and secret-scanning sensors passed, and the deterministic .NET build analyzer reported no findings. Confidence is reduced because dependency analysis and ESLint were unavailable and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The reviewed unit primarily defines API DTOs and projects internal review data. It contains no evidenced authorization decisions, credential material, dangerous execution, or dependency use. Potential sensitivity of response fields such as file content, paths, scanner evidence, and errors must be controlled by the endpoints that return them, but those controls cannot be assessed from this file alone. No additional agent-discovered findings are reported.",
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/2d3b72398af462cb2e36e35bfa6979e07f570ebaa6e4c9dba9811d3e9c678c0d",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ApiSecurity.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.5275298c0386c5dbf76b50f2293cd513453826b6fefbdd4ba77b16ae66bac17b.review-meta.security.json",
+      "sidecarSha256": "sha256:5ad5344ae361ab001512917e27c1a58effd858b2df6b625848f0c69633cc01ee",
+      "capturedAt": "2026-09-01T10:20:18.6988553+00:00",
+      "reviewedHash": "96a2db2c3d5702921fe3e45c2aedcdd8baf9c6e1fa3742ae7aa00aef0d91a19f",
+      "providerRunId": "quality-0e835544e8c248e18d0f3c0a63fc9e0d",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The reviewed unit uses fixed-time credential comparison, validates hosted-client configuration, constrains security-related limits, and exposes explicit repository authorization data without revealing credentials. No additional concrete exploitable defect was established from the supplied content. Assurance is reduced because dependency analysis was unavailable and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Security posture is generally sound for this unit. Boundary analysis, review coverage, secret scanning, and the repository .NET build reported no findings. Dependency analysis was unavailable because npm could not be launched; ESLint was also unavailable due to missing frontend dependencies, although that does not directly assess this C# file. No additional agent-discovered findings are reported.",
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+      "level": "file",
+      "path": "src/QualityStudio.Api/PathConfinement.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.cb28dde737cc8be7ed310419bcc57f7e71e9b025e831debfed4204057fa9977d.review-meta.security.json",
+      "sidecarSha256": "sha256:3ac96e2557b8343b4eaa5e60827d1475bf7804db85af6d7b04534b8a0e34e4da",
+      "capturedAt": "2026-09-01T10:21:25.5389991+00:00",
+      "reviewedHash": "53914f7ab5f9575f14448fd68fc1df103fe9214b0310a2a7e700e099e39a0b60",
+      "providerRunId": "quality-651f9caf32f04a71b0ae03282c3a0220",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The lexical containment check is sound, and the boundary, coverage, secret-scanning, and build analyzers reported no findings. However, the reparse-point defense can miss dangling links and is inherently vulnerable to check/use races, so it cannot safely enforce confinement when an attacker can modify path components. Dependency analysis and ESLint were unavailable, and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The file performs reliable lexical prefix confinement but does not provide a complete filesystem-level security boundary. Reparse-point validation skips non-resolving links and returns only a validation result rather than an atomically secured handle, allowing filesystem changes to invalidate the check. No embedded secrets or authorization logic are present in this unit. Dependency posture is not fully established because the dependency sensor was unavailable.",
+      "findings": [
+        {
+          "id": "finding-1807192e6de9d3b029e85ae8e7c4f2fe1febec933d9ac67e881227df1c29b456",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Dangling symbolic links bypass reparse-point rejection",
+          "description": "A component is inspected for FileAttributes.ReparsePoint only when Directory.Exists or File.Exists returns true. Both existence checks can return false for a dangling symbolic link, causing that component to be skipped. If its external target subsequently exists, or is created before the validated candidate is used, access through the candidate can leave the configured root despite successful validation.",
+          "recommendation": "Inspect every path component using link-aware metadata that does not follow the link and can identify dangling symbolic links or Windows reparse points. For operations that create missing paths, reject unresolved intermediate components unless their ancestry has been securely established.",
+          "evidence": null,
+          "fingerprint": "sha256:1807192e6de9d3b029e85ae8e7c4f2fe1febec933d9ac67e881227df1c29b456",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/PathConfinement.cs",
+              "startLine": 22,
+              "startColumn": 13,
+              "endLine": 24,
+              "endColumn": 90
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-c494c7e9e788735809a407fa3b970cc186ddb4754e7020536cc0829425cee72c",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Reparse-point validation is vulnerable to a check-to-use race",
+          "description": "The method checks path components by name and then returns without retaining filesystem handles or performing the protected operation. An attacker able to modify an inspected directory can replace it with a symbolic link or junction after its attributes are checked but before the caller opens the candidate, redirecting the eventual operation outside the root.",
+          "recommendation": "Combine traversal and the protected filesystem operation using securely opened directory handles and no-follow/beneath-root semantics appropriate to the platform. If that is not possible, keep every ancestor pinned by handle, verify identities after opening, and operate relative to those handles rather than treating this method as an authorization boundary.",
+          "evidence": null,
+          "fingerprint": "sha256:c494c7e9e788735809a407fa3b970cc186ddb4754e7020536cc0829425cee72c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/PathConfinement.cs",
+              "startLine": 18,
+              "startColumn": 9,
+              "endLine": 25,
+              "endColumn": 9
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/eaa25906d47751af2c3e9465966f98b4d5d951a32e9cc8fed98f739b92d8c62c",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.b63784dbfaea41d950c64eb33898592a7fbca0162386f4ffe65da5192af4e87e.review-meta.security.json",
+      "sidecarSha256": "sha256:6e132ef4a7f6f45c4514019b45bec2ccbb06797f22d0125f7e7439817dd1ec32",
+      "capturedAt": "2026-09-01T10:22:49.0582968+00:00",
+      "reviewedHash": "36dd03b99f5d70df449ee293391dd3f87cba5cf921022d18ecc1eede0353c2bf",
+      "providerRunId": "quality-b16b08e361bf49be8966ef4c50aebc49",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: Two exploitable trust-boundary defects are present: repository-controlled symbolic links can cause reads outside the repository and potentially unbounded resource consumption, while repository-derived module names are interpolated into an AI instruction context without neutralization. Boundary, coverage, and secret-scanning sensors reported no findings, but dependency analysis was unavailable and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The unit does not expose embedded secrets and uses argument-list process invocation rather than shell command construction. However, repository file enumeration does not prevent symbolic-link escapes before reading files, and architecture metadata is inserted directly into model-facing instructions, permitting prompt injection. Dependency posture could not be verified because its sensor was unavailable; no test-coverage conclusion can be drawn.",
+      "findings": [
+        {
+          "id": "finding-a7798bcfc7121a893bf8276f4b587511204052feab9623542b5db8eb61ef6174",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "high",
+          "state": "open",
+          "title": "Repository symlinks can trigger out-of-root and unbounded file reads",
+          "description": "Enumerated repository paths are combined lexically with the repository root and then opened without resolving symbolic links or verifying that the resolved target remains inside the repository. Git repositories can contain symbolic links, and File.Exists does not enforce containment. An attacker controlling repository contents can therefore make a text-extension path reference a host file outside the repository. The service reads that target and derives its size, line count, and normalized SHA-256 fingerprint; two links to the same target can cause the fingerprint to appear as a duplication candidate. A link to a zero-length-reported stream such as a device or procfs entry can also bypass the 4 MiB metadata check and make ReadAllText consume unbounded data, enabling denial of service.",
+          "recommendation": "Reject symbolic links and reparse points during enumeration, or resolve each target and verify its canonical path is contained beneath the canonical repository root immediately before opening it. Open files through a bounded stream and stop after the permitted byte limit instead of relying on FileInfo.Length. Apply the same resolved-target validation to coverage reports and project files.",
+          "evidence": null,
+          "fingerprint": "sha256:a7798bcfc7121a893bf8276f4b587511204052feab9623542b5db8eb61ef6174",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 489,
+              "startColumn": 6,
+              "endLine": 489,
+              "endColumn": 6
+            },
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 498,
+              "startColumn": 14,
+              "endLine": 498,
+              "endColumn": 14
+            },
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 519,
+              "startColumn": 24,
+              "endLine": 519,
+              "endColumn": 57
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-398c0243cdd4808a9f93148fc468fc7c31aab41264355205a6b9971e3195bad5",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Repository-derived module names are injected into AI instructions",
+          "description": "ArchitectureReviewContext interpolates module names from the repository hierarchy directly into an instruction-bearing prompt. A repository-controlled module name can contain instruction-like text or control characters, causing the downstream model to treat data as directives and potentially suppress, fabricate, or redirect review findings. The surrounding statement that the edges are deterministic does not establish a machine-enforced data boundary.",
+          "recommendation": "Serialize dependency edges as structured data with strict field and length validation, remove or escape control characters, and place them in a clearly delimited untrusted-data section. The higher-priority model instruction should explicitly require treating every edge field as data and ignoring directives contained within it.",
+          "evidence": null,
+          "fingerprint": "sha256:398c0243cdd4808a9f93148fc468fc7c31aab41264355205a6b9971e3195bad5",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 151,
+              "startColumn": 17,
+              "endLine": 151,
+              "endColumn": 86
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/8eace245049eb836deab9c4f33b41c967b25c0e3cae38e6eafd8496773d906af",
+      "level": "file",
+      "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.3b56ab1ab84070960f1c00474f5ba5dc98ea7f62c1debdabc227703ce13f513b.review-meta.security.json",
+      "sidecarSha256": "sha256:7bb0b69c3becc7f0a1b091fc677d69b0aa45a773ef5eec646194c896b5fa3e9f",
+      "capturedAt": "2026-09-01T10:23:28.4347541+00:00",
+      "reviewedHash": "cc921697f1bf5f5a8fdcecdd4e90c33cc8fa3fc5775d1be9165bca853a59122a",
+      "providerRunId": "quality-668e9a39178c4b46ba00fe1ea6b6f63e",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The factory avoids obvious path traversal and repository-root disclosure, and the boundary, configured coverage, gitleaks, and .NET build sensors reported no findings. However, manually reviewed metadata can forge deterministic provenance and malformed metadata can abort report generation. Dependency analysis and ESLint were unavailable, and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Two security-relevant weaknesses were identified: deterministic evidence is trusted based only on its position in caller-supplied JSON, and incompletely validated JSON shapes can cause unhandled exceptions. No embedded secrets or direct authorization bypasses were found in this unit. Dependency security remains unassessed because the dependency sensor was unavailable.",
+      "findings": [
+        {
+          "id": "finding-3db64e8a98cc18dd53e446514771512279af4c061f33a13f6c91950c5273a582",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Captured metadata can forge deterministic sensor provenance",
+          "description": "The factory treats every finding nested under \u0060deterministicEvidence\u0060 as deterministic and copies the supplied sensor and producer identifiers into the canonical report. It does not verify that the evidence originated from the configured sensor registry or a separate trusted record. Consequently, any party able to influence \u0060ReviewMetaJson\u0060 can make arbitrary findings appear machine-produced, undermining the report\u0027s provenance and integrity.",
+          "recommendation": "Obtain deterministic evidence from a separately trusted data structure keyed to the configured sensor registry, or authenticate and validate the captured evidence before projection. Reject unknown sensor identities and do not infer trusted provenance solely from JSON nesting.",
+          "evidence": null,
+          "fingerprint": "sha256:3db64e8a98cc18dd53e446514771512279af4c061f33a13f6c91950c5273a582",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 245,
+              "startColumn": 21,
+              "endLine": 245,
+              "endColumn": 102
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-c53aac58bb04d13071d77360fb24fad2e97bd55bf25700ff9b062552da4e36f3",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Malformed metadata can abort canonical report generation",
+          "description": "Only root parsing is guarded. Subsequent \u0060AsArray\u0060, \u0060AsObject\u0060, and \u0060GetValue\u003Cstring\u003E\u0060 calls assume exact JSON types and can throw when fields have unexpected shapes. A single malformed captured snapshot can therefore prevent construction of the entire terminal report rather than being rejected or represented as an invalid observation.",
+          "recommendation": "Validate the complete metadata schema before projection, or replace throwing conversions with type checks and \u0060TryGetValue\u0060 logic. Handle invalid individual observations deterministically without terminating generation of the whole report.",
+          "evidence": null,
+          "fingerprint": "sha256:c53aac58bb04d13071d77360fb24fad2e97bd55bf25700ff9b062552da4e36f3",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 236,
+              "startColumn": 33,
+              "endLine": 236,
+              "endColumn": 84
+            },
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 239,
+              "startColumn": 34,
+              "endLine": 239,
+              "endColumn": 98
+            },
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 242,
+              "startColumn": 37,
+              "endLine": 242,
+              "endColumn": 88
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/411f55303622d51885ee5458ef135ed03b78e9d2fee4136109f55a21239c4252",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.11729bfb746d33c4ca09d340fea7faed93902edb64150ad66ad16c2d24f85869.review-meta.security.json",
+      "sidecarSha256": "sha256:b9a4d33d521414bd7e4c6f3b843e2949828cbce2d657aa8639787135f675bbaf",
+      "capturedAt": "2026-09-01T10:23:37.5443137+00:00",
+      "reviewedHash": "59fbd9dd4cd47c991850843b790a33caff1e33234c02d72665fc0163fb9f0126",
+      "providerRunId": "quality-e4a921dc61904e9fbaefc39c96b361f6",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: Repository-relative paths receive lexical confinement and reparse-point checks, and no embedded secrets or direct authorization bypasses are evident. However, confinement is vulnerable to a check-to-use race because filesystem objects are validated and then accessed later by pathname. Secret scanning, boundary analysis, coverage analysis, and the .NET build reported no findings; dependency and ESLint analysis were unavailable, and test coverage remains unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The implementation generally constrains paths to the configured repository root, but its reparse-point defense is not atomic with filesystem access. An attacker able to modify repository entries concurrently could replace a checked component with a symbolic link or junction and redirect a subsequent operation outside the repository. No other concrete security defects were established from this unit. Dependency analysis was unavailable because npm could not be launched, ESLint was unavailable because its installed module was missing, and no coverage data was supplied.",
+      "findings": [
+        {
+          "id": "finding-4a1896449f9cb636ca0c5cf2c90cbed5b2ad28eee4a8fd2da3762c937f372b9b",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Reparse-point confinement can be bypassed through a check-to-use race",
+          "description": "NormalizeRelativePath checks the current path with RejectReparseTraversal and returns a relative string. ResolveFile then reconstructs and checks that pathname, ultimately returning it for still-later use; metadata methods likewise pass the pathname to another component after validation. A party able to modify repository entries concurrently can replace a checked file or directory with a symbolic link or junction between validation and access, causing the subsequent operation to traverse outside the configured repository root. The explicit reparse-point rejection demonstrates that untrusted links are in scope, but the pathname-based check does not preserve that guarantee through use.",
+          "recommendation": "Perform validation and access as one safe operation using directory/file handles and no-follow semantics, walking each component relative to an already-open repository-root handle. Return or consume the opened handle rather than a re-resolvable pathname. Where the platform cannot provide an atomic primitive, isolate repositories from concurrent untrusted mutation and revalidate the opened object\u0027s resolved identity before reading it.",
+          "evidence": null,
+          "fingerprint": "sha256:4a1896449f9cb636ca0c5cf2c90cbed5b2ad28eee4a8fd2da3762c937f372b9b",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+              "startLine": 36,
+              "startColumn": 1,
+              "endLine": 49,
+              "endColumn": 6
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/a9fcf78b11fdaa212a458c901d7bf57633ee5a392dcd9b5c7ee283943418196c",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.8527f236bac4a209b85d46d21166f63f1f616d1be9ce7d8bd73326f43194b656.review-meta.security.json",
+      "sidecarSha256": "sha256:361a4ee701f737d96e88625453e6c6b3bea1ba519df1bfe1f251ffde4de072ec",
+      "capturedAt": "2026-09-01T10:23:54.483682+00:00",
+      "reviewedHash": "c02abf5060b8de3b91b1157353315e50603d07ca98aa6b8d06f64850de9e5af1",
+      "providerRunId": "quality-acabe08919f34e2898690d6802063aee",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: No concrete exploitable security defect is evidenced in this configuration-model unit. Secure defaults include HTTPS enforcement, bounded request size and concurrency, spend-rate limiting, and no embedded credentials. Boundary, coverage, and secret-scanning sensors passed; dependency assessment was unavailable, and test coverage remains unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The reviewed unit defines configuration values without performing security-sensitive operations itself. No additional agent-discovered findings were confirmed. Repository paths, client permissions, credential hashes, and security modes require validation and enforcement by consuming code, which is outside this review unit. Dependency posture could not be fully assessed because the dependency sensor was unavailable; ESLint was also unavailable, while the .NET build analyzer reported no findings.",
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.9c7e726502fb0be694c08f2ada009af6a7244ae9e6135ec411b4ac2d837c2ff4.review-meta.security.json",
+      "sidecarSha256": "sha256:43a1c1747134c6933b2718fe6b85632e813677986ff69dc9ed7bdd04f3441c0e",
+      "capturedAt": "2026-09-01T10:25:48.9442625+00:00",
+      "reviewedHash": "1182470f90c57b4dc90555b6e9a31a2e9c5ddbcaa142d6e3398759b4e37a6894",
+      "providerRunId": "quality-d39cfc8062c14d9ea01a873edf5af8e6",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: Path confinement and identifier checks are substantial, and the boundary, coverage, secret-scanning, and build evidence reported no findings. However, repository requests can persist unvalidated sensor configuration, including the executable command setting demonstrated in this unit, and path confinement is checked only during registration or startup rather than when access is granted. Unbounded persisted configuration also permits resource exhaustion. Dependency analysis and ESLint analysis were unavailable, so dependency and frontend posture remain unverified; test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The registry has useful allowlisted-root, reparse-point, repository-kind, sensor-ID, and budget controls, and gitleaks reported no exposed secrets. The principal risk is that sensor IDs are allowlisted while their configuration is copied without a per-sensor schema; the built-in ESLint configuration establishes that this channel can contain a command. Filesystem confinement can also become stale between validation and RepositoryAccess creation. Automated dependency inspection was unavailable because npm could not be launched, ESLint could not run because its module was missing, and no test coverage evidence is available.",
+      "findings": [
+        {
+          "id": "finding-5bab6bb47cf147d9e7144cc1cfac35917a2cb62206affe13bc636297197ccbc2",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "high",
+          "state": "open",
+          "title": "Repository requests can supply executable sensor commands",
+          "description": "Validation allowlists each sensor ID but copies its entire Configuration dictionary without validating permitted keys or values. This unit demonstrates that \u0060command\u0060 is an executable sensor configuration setting for ESLint. Consequently, a repository-registration request can replace that server-generated command with attacker-controlled text, crossing from configuration data into an execution-bearing channel. Any sensor runner that honors the stored command will execute authority supplied by the request rather than by trusted server configuration.",
+          "recommendation": "Define a strict, typed schema for every sensor and reject unknown keys. Do not accept command lines, executable paths, arguments, report paths, or working directories directly from repository-registration requests; construct them from trusted server-side definitions. If customization is required, allowlist individual safe options and validate paths under the registered repository before execution.",
+          "evidence": null,
+          "fingerprint": "sha256:5bab6bb47cf147d9e7144cc1cfac35917a2cb62206affe13bc636297197ccbc2",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 272,
+              "startColumn": 1,
+              "endLine": 280,
+              "endColumn": 15
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 429,
+              "startColumn": 2,
+              "endLine": 432,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-ae367e86f4fa96b80c62545b949c4147f2881437c5e977e896cea98dd020ca47",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Validated repository paths can be replaced before use",
+          "description": "Root paths are checked for allowed-root containment and reparse traversal only when loaded or registered. \u0060Access\u0060 later passes the stored path directly to \u0060RepositoryAccess\u0060 without revalidating it. A filesystem actor able to rename the validated directory or one of its ancestors and replace it with a symbolic link or junction after validation can redirect subsequent access outside the configured roots.",
+          "recommendation": "Revalidate containment and reparse traversal immediately before creating each RepositoryAccess, and ensure RepositoryAccess applies equivalent checks to every resolved target. For stronger protection against rename races, anchor operations to directory handles or otherwise verify the canonical target at the actual filesystem operation rather than relying only on a previously validated path string.",
+          "evidence": null,
+          "fingerprint": "sha256:ae367e86f4fa96b80c62545b949c4147f2881437c5e977e896cea98dd020ca47",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 89,
+              "startColumn": 5,
+              "endLine": 89,
+              "endColumn": 84
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 348,
+              "startColumn": 5,
+              "endLine": 362,
+              "endColumn": 5
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-9f76f057af984ccbbd9b8b874e59558c6a84248d48d392bdcda4f46a09d93fae",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Unbounded registration data can exhaust memory and registry storage",
+          "description": "DisplayName and every sensor configuration key and value are accepted and persisted without length or aggregate-size limits. A caller able to create or update registrations can submit very large strings or dictionaries, forcing allocation during copying and serialization and permanently enlarging the registry read at startup. The sensor count is bounded indirectly, but each sensor\u0027s dictionary is not.",
+          "recommendation": "Apply explicit limits to display-name length, configuration entry count, key length, value length, and the aggregate serialized registration size. Also enforce an appropriately small request-body limit at the API boundary and reject oversized data before copying or persistence.",
+          "evidence": null,
+          "fingerprint": "sha256:9f76f057af984ccbbd9b8b874e59558c6a84248d48d392bdcda4f46a09d93fae",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 221,
+              "startColumn": 9,
+              "endLine": 224,
+              "endColumn": 9
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 272,
+              "startColumn": 1,
+              "endLine": 280,
+              "endColumn": 15
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/8f46899dfcc9c8d0bba234596712d317b7f35eba1d895979aafd31374517ab52",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.a69af1fd25f7a417cbb0cbb92fa6bfbd33661b83b30f0a2e84bf20f3239c1d3b.review-meta.security.json",
+      "sidecarSha256": "sha256:145a499b99ef792f1128cd6688d5d5b540274605c4f6b4a3e512672e04e19828",
+      "capturedAt": "2026-09-01T10:24:37.1718762+00:00",
+      "reviewedHash": "94c1042618cc784727b5904a824c9847686fdd3f171bae2a5b3877a2dc929a1d",
+      "providerRunId": "quality-9f6a3a2e5f8448ffb8afa1a82c7a0f5d",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: No concrete exploitable security defect is evidenced in the supplied unit. Structured logging avoids direct log-format injection, cancellation is preserved, and no credentials or authorization decisions appear here. Confidence is reduced slightly because dependency analysis was unavailable and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The reviewed background worker contains no additional agent-confirmed security findings. Boundary analysis, review coverage sensing, secret scanning, and the available deterministic build analysis passed without findings. Dependency analysis was unavailable because npm could not be launched; ESLint was also unavailable due to a missing local module. These availability gaps limit assurance but do not establish a defect in this C# file. The unbounded work queue could merit operational hardening, but the supplied evidence does not establish attacker control or an exploitable call path, so it is not reported as a finding.",
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/789c84668907f0d85c5d08e2d23e73b09fa7fdd709c0a354e8b33aad1377e941",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewJobs.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.13a72d97525ff664ccf9081867e06fd426c977bba1423eec5c868ac1ee736058.review-meta.security.json",
+      "sidecarSha256": "sha256:176fc992183607f0298cbc76625068935b616b99f305baaeee42c0dc60e11f2e",
+      "capturedAt": "2026-09-01T10:26:07.7290987+00:00",
+      "reviewedHash": "340f95a6dd3d8c106d8dde1689300a70036f16b653c871be4e2aae8c66439d18",
+      "providerRunId": "quality-a2aad10c33604a5e966d162c586effb9",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The unit has a concrete denial-of-service risk because accepted jobs enter an unbounded queue and remain indefinitely in an unbounded in-memory registry. Boundary, coverage, and secret-scanning sensors passed, but dependency analysis was unavailable and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. No additional authorization bypass, path traversal, or secret exposure was established from the supplied unit. The principal security defect is unrestricted accumulation of queued and completed review jobs, allowing sustained memory and storage exhaustion. Deterministic boundary, coverage, and gitleaks checks passed; dependency and ESLint checks were unavailable.",
+      "findings": [
+        {
+          "id": "finding-5ce758f33f7ef03a2fd2bf5de4ad8cd9c79223dedb6af17797f08a7d188230c2",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "high",
+          "state": "open",
+          "title": "Unbounded job admission and retention permit resource exhaustion",
+          "description": "The service uses an unbounded channel and an unbounded dictionary for review jobs. Every accepted job is retained in \u0060runs\u0060, including terminal jobs, while \u0060RecentRunLimit\u0060 only limits query results and does not remove entries. A caller able to submit many otherwise valid reviews can continually increase queued work, retained manifests, progress and observation state, and durable run data, eventually exhausting process memory or repository storage. Expensive estimation and file hashing occur before admission, so queue consumer concurrency does not bound request-side resource consumption.",
+          "recommendation": "Use a bounded channel with explicit backpressure or rejection, enforce per-repository and per-caller limits on queued and active reviews, and rate-limit preflight/enqueue operations. Evict terminal work items from \u0060runs\u0060 after a defined retention period and retrieve historical results from a bounded or paginated durable store. Apply admission checks before expensive estimation and hashing.",
+          "evidence": null,
+          "fingerprint": "sha256:5ce758f33f7ef03a2fd2bf5de4ad8cd9c79223dedb6af17797f08a7d188230c2",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 125,
+              "startColumn": 5,
+              "endLine": 127,
+              "endColumn": 101
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 208,
+              "startColumn": 9,
+              "endLine": 208,
+              "endColumn": 29
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/45493d86cea731bb0d9ee3f95a7e17a120ab4b9b232c29deec6112f18a5e1203",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.aac1b371ac3463eb8ed47f65bae3df125f256e9df0f876ab143e0bbbdd29582b.review-meta.security.json",
+      "sidecarSha256": "sha256:0d754592480ecf74bb85ebe46ab17c14954eb57b47800e9c99ba2a1fa2522605",
+      "capturedAt": "2026-09-01T10:27:22.6027689+00:00",
+      "reviewedHash": "0725c8438ec53ba798de0dffaf497ecb001d18cbeba66ee99b15b0be86013054",
+      "providerRunId": "quality-cdd85e2807f448bfa3e7df7cd93b8e10",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The implementation applies path-confinement and reparse-traversal checks, and the boundary and secret-scanning sensors passed. However, unbounded parsing of repository-controlled JSON permits resource exhaustion, while failed updates leave previously indexed metadata active and create a persistent integrity mismatch. Dependency analysis was unavailable, and test coverage remains unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Path confinement, reparse-point avoidance during initial enumeration, and payload cloning provide useful safeguards, with no machine-detected boundary or secret-exposure findings. Two additional security issues remain: sidecars are read and parsed without size limits, and invalid replacements do not invalidate cached metadata. The dependency sensor was unavailable because npm could not be launched; ESLint was also unavailable because its module was missing. The .NET build analyzer reported no findings.",
+      "findings": [
+        {
+          "id": "finding-517724c8c9a201fb89d529c93ba43da1cb70c0e76a22c1d32975f924d107edcd",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Unbounded sidecar parsing permits resource exhaustion",
+          "description": "Every matching repository file is loaded completely into a string and then parsed into a JSON DOM without any file-size, nesting-depth, or aggregate-index limit. A repository containing one very large sidecar, or many large sidecars, can force excessive allocation and parsing work synchronously during index construction and again on filesystem events, potentially exhausting memory or making the service unavailable.",
+          "recommendation": "Reject sidecars above a conservative byte limit before reading them, configure an appropriate JSON maximum depth, and cap aggregate indexed payload size or document count. Prefer bounded streaming or byte-based parsing so the file is not simultaneously retained as both a string and a JSON DOM.",
+          "evidence": null,
+          "fingerprint": "sha256:517724c8c9a201fb89d529c93ba43da1cb70c0e76a22c1d32975f924d107edcd",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 94,
+              "startColumn": 17,
+              "endLine": 94,
+              "endColumn": 75
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-8547af628aa7e57a47cb021f0c49f3ccc9da571652d100a217ed098f5cb9e6b9",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Invalid file updates leave previously trusted metadata indexed",
+          "description": "When an already indexed sidecar is replaced with malformed JSON or loses required fields, Update exits or catches the parsing error without removing the existing dictionary entry. The old payload can therefore continue to be returned by Read indefinitely, while Find may return the path of the now-invalid replacement. This allows stale review evidence to remain authoritative after its backing data has been revoked or changed.",
+          "recommendation": "Invalidate the existing entry when a definitive update cannot be validated. To tolerate transient atomic-write states, debounce and retry updates for a bounded period, then remove the old entry if the file remains invalid or unreadable.",
+          "evidence": null,
+          "fingerprint": "sha256:8547af628aa7e57a47cb021f0c49f3ccc9da571652d100a217ed098f5cb9e6b9",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 94,
+              "startColumn": 17,
+              "endLine": 100,
+              "endColumn": 120
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/362fa00588dd89ccf39617809efc280d868d6fc215351eb49f8dad20b8618931",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.55491c93f3cb0137fe7cc39152ce5ba005b59b7e78e16c7ddda2a6d4a0cff296.review-meta.security.json",
+      "sidecarSha256": "sha256:52ad2369a64f3773713a0380dae31cd6bbfffb628dccb25dc93f1f2e948dec2e",
+      "capturedAt": "2026-09-01T10:28:38.252238+00:00",
+      "reviewedHash": "5ac7b10836bdb156b0f5d4c2748c9c36afa1e527236dad8e523eb5885a1578f1",
+      "providerRunId": "quality-f9c4bc758307478cb43212d4702776c2",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The implementation avoids obvious traversal through run IDs, uses create-only writes for immutable records, and has no detected embedded secrets. However, archive confinement relies only on lexical path construction and follows symbolic links or reparse points, while archive readers impose no size or record-count limits. These defects permit filesystem-boundary violations and denial of service when repository contents are attacker-influenced. Boundary, coverage, secret, and .NET build sensors reported no findings, but dependency analysis was unavailable because npm could not be launched, so dependency assurance is incomplete."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Two additional security defects were identified: repository-controlled links can redirect archive I/O outside the intended archive root, and unbounded archive loading can exhaust process resources. No authorization decisions or hard-coded secrets appear in this unit. Machine checks passed for boundaries, coverage, secret scanning, and .NET build findings; dependency and ESLint checks were unavailable, and test coverage remains unknown.",
+      "findings": [
+        {
+          "id": "finding-ea3fbbe8f9d40f7fa24ee76db27b885fd8cce34310feb75bf2119a1565a4bd93",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "high",
+          "state": "open",
+          "title": "Filesystem links can redirect archive access outside the repository",
+          "description": "The archive root and run directories are constructed lexically and then passed directly to filesystem APIs. No component is resolved and checked for containment, and symbolic links, junctions, or other reparse points are not rejected. An attacker able to control repository filesystem contents can place a link at the archive root, month, run, or archive-file level and cause create, append, or read operations to follow it outside the intended \u0060.quality/run-history\u0060 boundary. Create-only mode prevents replacement of an existing destination file but does not prevent creation in a redirected directory; append and read operations also follow redirected paths.",
+          "recommendation": "Resolve and validate the real filesystem target beneath a trusted canonical archive root before every operation, reject symbolic links and reparse points in all path components, and use no-follow or handle-relative filesystem operations where supported. Consider storing security-sensitive archive data outside repository-controlled paths.",
+          "evidence": null,
+          "fingerprint": "sha256:ea3fbbe8f9d40f7fa24ee76db27b885fd8cce34310feb75bf2119a1565a4bd93",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 299,
+              "startColumn": 9,
+              "endLine": 299,
+              "endColumn": 132
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 307,
+              "startColumn": 9,
+              "endLine": 309,
+              "endColumn": 98
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 390,
+              "startColumn": 13,
+              "endLine": 391,
+              "endColumn": 62
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-d875a2efc353310608cd638e6633a2acc1c406915aff1b2d546d8fcf15650e6c",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Unbounded archive loading permits resource-exhaustion denial of service",
+          "description": "Archive files and collections are read and deserialized without limits on file size, line length, record count, or aggregate allocation. \u0060LoadRun\u0060 reads an entire file into memory, \u0060LoadAttempts\u0060 materializes every matching file and its contents, and line-based loaders accumulate every record into a list. A repository contributor or compromised process can create oversized or numerous archive records that consume excessive memory and CPU whenever these public loading methods are invoked.",
+          "recommendation": "Set explicit maximum file sizes, JSON-line lengths, record counts, and aggregate bytes before deserialization. Stream records where possible, reject oversized files before reading them, and apply cancellation or processing budgets to archive enumeration.",
+          "evidence": null,
+          "fingerprint": "sha256:d875a2efc353310608cd638e6633a2acc1c406915aff1b2d546d8fcf15650e6c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 337,
+              "startColumn": 5,
+              "endLine": 339,
+              "endColumn": 84
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 352,
+              "startColumn": 9,
+              "endLine": 355,
+              "endColumn": 23
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 369,
+              "startColumn": 9,
+              "endLine": 374,
+              "endColumn": 21
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/2851f3761a56d9405c0f4eb443f0df9661b75bd5661b0beccf40c8ffebf7cd83",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.b28e3e6049c451c6257b010900fece08e78563ae47d22dc4964b0b015072b11c.review-meta.security.json",
+      "sidecarSha256": "sha256:f32539371c4ce1f21f839e59aa2b1fb6c2d310ede5bc9af9ba28d4d12ef552c9",
+      "capturedAt": "2026-09-01T10:29:04.6822266+00:00",
+      "reviewedHash": "405e7ea0049dab40b2a9ebf34983523b3bc3214c8b6a5d105e04a3633448e2c7",
+      "providerRunId": "quality-3887a924e67e4bacb244ec750f88b30e",
+      "grade": {
+        "score": 58,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The store permits repository-controlled symbolic links or junctions to redirect run-state writes outside the repository, creating a potentially exploitable file-integrity boundary violation. Unbounded whole-file deserialization also permits memory-exhaustion denial of service. The boundary, coverage, and secret-scanning sensors passed, and the build analyzer reported no findings; however, dependency analysis was unavailable, ESLint was unavailable, and test coverage remains unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Two additional security defects were identified: run directories are not protected against link-based path redirection, and persisted JSON is loaded without size limits. No embedded secrets were detected by the supplied sensor, and the automated boundary sensor reported a pass, but it did not report the filesystem link issue identified here. Dependency risk could not be assessed because the dependency sensor was unavailable.",
+      "findings": [
+        {
+          "id": "finding-3daf50ab8ba93f186d71f094b863a0d203f55fea48e0ff1587437ef42d85e017",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "high",
+          "state": "open",
+          "title": "Repository-controlled links can redirect run-state writes outside the repository",
+          "description": "RunDirectory validates only the textual run ID and then combines it with runsPath. It does not verify that \u0060.quality\u0060, \u0060runs\u0060, or the selected run directory is free of symbolic links, junctions, or other reparse points, nor that the resolved destination remains beneath the repository root. If repository contents are attacker-controlled, a pre-existing link can cause Create, AppendProgress, WriteStatus, WriteResult, or WriteObservation to create or overwrite files outside the repository using the service account\u0027s privileges.",
+          "recommendation": "Prefer storing orchestration state outside repositories that may contain untrusted content. Otherwise, resolve and validate every existing path component, reject symbolic links/junctions/reparse points, verify the final resolved path remains under a trusted canonical root, and use platform-supported no-follow or directory-handle-relative file operations to avoid check-to-use races.",
+          "evidence": null,
+          "fingerprint": "sha256:3daf50ab8ba93f186d71f094b863a0d203f55fea48e0ff1587437ef42d85e017",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+              "startLine": 324,
+              "startColumn": 5,
+              "endLine": 330,
+              "endColumn": 45
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-6bd99a10af7975240e2d91b6b2f057d0a76bc6dd34b99e76349fe85cbd7715d3",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Unbounded persisted JSON can exhaust process memory",
+          "description": "Required run artifacts are read completely into a string and deserialized without enforcing a file-size limit. An attacker able to supply or modify repository contents can place an oversized manifest or status file under \u0060.quality/runs\u0060, causing LoadAll to allocate memory proportional to attacker-controlled input and potentially terminate or severely degrade the API process. The surrounding exception handling does not mitigate memory exhaustion.",
+          "recommendation": "Enforce conservative maximum sizes before reading run artifacts, deserialize from a bounded stream, cap collection and string lengths where practical, and reject oversized files with a controlled load failure.",
+          "evidence": null,
+          "fingerprint": "sha256:6bd99a10af7975240e2d91b6b2f057d0a76bc6dd34b99e76349fe85cbd7715d3",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+              "startLine": 333,
+              "startColumn": 5,
+              "endLine": 335,
+              "endColumn": 76
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/0b38d4b5976e6e45b08f39272f89b7f6e652347358366ea9cbb6ed5fa4726bb0",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ScopeRules.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.756cda275f1ad2694894ca7ab6b3abe23f253f953f8347630ee0eea8d2a4a320.review-meta.security.json",
+      "sidecarSha256": "sha256:1ea2cc24d4007a311acfaaae11d21c3cabe53f27669099fe92eddda087f55e5a",
+      "capturedAt": "2026-09-01T10:28:59.4198865+00:00",
+      "reviewedHash": "a2c9415aa1b6b125bf1b2a23ff39867790a4cce32c9f5b14912256c179d3038e",
+      "providerRunId": "quality-0922b2c00ec5428ebcd6a49ba55c9609",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: No exploitable security defect is evidenced in this unit. It contains only immutable request/response record declarations, with no authorization decisions, secret material, dependency use, or data-processing behavior. Boundary, coverage, and secret-scanning sensors reported no findings; dependency analysis and ESLint were unavailable, and test coverage remains unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The reviewed file defines passive API data contracts. No additional security findings were identified. Validation and authorization must occur where these models are consumed, but this unit alone provides no concrete evidence that those controls are absent or bypassable.",
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/module/28eef59717f710ae0291774a9c197d33f1ed9ecfae63cb6678173ab0b592bf3e",
+      "level": "module",
+      "path": "src/QualityStudio.Api/QualityStudio.Api.csproj",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/module.718593aa9714c9dd540eb8a64b6a5e6c0f2f2dcf63aabb1f27e52b8d47f940db.review-meta.security.json",
+      "sidecarSha256": "sha256:10e7516d3c40db144ca0f3fb27b35b870403d45b2c9341962e530f315136bcde",
+      "capturedAt": "2026-09-01T10:32:25.7391354+00:00",
+      "reviewedHash": "c996500f3f32f1b67f036c88027eafa266c2fcf05bb0fa6c13625d2e1b883855",
+      "providerRunId": "quality-a0e8f2784a1742dcaf0423645638a90e",
+      "grade": {
+        "score": 38,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The boundary sensor blocks the unit due to numerous request-to-filesystem flows and an unauthenticated health boundary. Independent review also found a repository-scope authorization bypass, disclosure of host-wide quota information, unencrypted downstream transport support, unbounded file loading, and insufficient throttling of expensive scans. Secret scanning passed, but dependency and ESLint analysis were unavailable, and test coverage is unknown."
+      },
+      "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The security posture is blocking. Existing path-confinement, constant-time credential comparison, request-size limits, exception sanitization, repository filtering, and rate limiting provide useful defenses, but they do not offset the sensor-reported boundary failures or the additional authorization and resource-exhaustion defects. Most importantly, a repository-scoped client can repoint an authorized repository ID to another allowed root, defeating repository isolation. Dependency assurance remains incomplete because the dependency sensor was unavailable.",
+      "findings": [
+        {
+          "id": "finding-74b6d7c884e4c61e49ad49940ce8c02d633624029f56cbe236165e5809f33a9c",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "high",
+          "state": "open",
+          "title": "Repository-scoped clients can repoint an authorized repository ID",
+          "description": "The middleware requires CanRegisterRepositories only when creating a repository or importing from Agent Studio. PUT /api/repos/{repoId} instead requires only access to the existing repoId, then passes an attacker-controlled RootPath to UpdateAsync. Consequently, a client scoped to one repository can change that registration to any other configured allowed root and subsequently access the new root through the still-authorized ID. This defeats repository-level isolation. The same authorization gap also permits repository-scoped clients to archive registrations.",
+          "recommendation": "Require a distinct repository-administration capability, such as CanRegisterRepositories, for updating or archiving registrations. When changing RootPath or GlobalInputsDirectory, additionally authorize the caller for the destination or prohibit those fields from repository-scoped updates.",
+          "evidence": null,
+          "fingerprint": "sha256:74b6d7c884e4c61e49ad49940ce8c02d633624029f56cbe236165e5809f33a9c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 245,
+              "startColumn": 1,
+              "endLine": 251,
+              "endColumn": 3
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 253,
+              "startColumn": 1,
+              "endLine": 254,
+              "endColumn": 70
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-593e50bff70225035bee19cd2ada3844a3682586dc4a6e538421537a75c1ca81",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Any authenticated client can read host-wide provider quota data",
+          "description": "The authorization middleware explicitly exempts /api/quotas from repository-access checks. The endpoint exposes global Claude OAuth and Codex session quota details, including plan, usage, limits, errors, sources, and reset times. A client authorized for an unrelated repository can therefore inspect host-wide account and operational information.",
+          "recommendation": "Protect quota data with an explicit host-operator capability. If repository clients need quota information, return only a repository-scoped or minimally aggregated view that does not expose provider account details.",
+          "evidence": null,
+          "fingerprint": "sha256:593e50bff70225035bee19cd2ada3844a3682586dc4a6e538421537a75c1ca81",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 207,
+              "startColumn": 14,
+              "endLine": 207,
+              "endColumn": 88
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 295,
+              "startColumn": 1,
+              "endLine": 295,
+              "endColumn": 35
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-8c5546e69c933c849d4f8bda9c0de030be99d0b8654327233540d50b2393eafd",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Agent Studio integration permits unencrypted HTTP destinations",
+          "description": "Target validation accepts every absolute URI rather than requiring HTTPS. CreateTaskAsync then transmits finding summaries, finding text, repository paths, metadata references, project identity, and the configured client identifier to that URI. An http:// configuration exposes this material to interception or modification in transit.",
+          "recommendation": "Require an https URI for non-loopback Agent Studio targets. If cleartext loopback communication is required for local development, encode that as a narrow explicit exception and reject other schemes and hosts.",
+          "evidence": null,
+          "fingerprint": "sha256:8c5546e69c933c849d4f8bda9c0de030be99d0b8654327233540d50b2393eafd",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 21,
+              "startColumn": 5,
+              "endLine": 24,
+              "endColumn": 45
+            },
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 105,
+              "startColumn": 9,
+              "endLine": 113,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-48fe9faf629cde78a2c485bf8e3c3e4b4ad536d55f2b280167e00b73b7e1f1f6",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "File endpoint loads and serializes repository files without a size limit",
+          "description": "FileContent reads the complete selected file into a byte array, decodes it into a second full-size string, and returns it through JSON without checking its size. The configured MaxRequestBodyBytes limits inbound bodies only. An authenticated caller can repeatedly select a very large repository file and cause substantial memory allocation and response amplification.",
+          "recommendation": "Enforce a conservative maximum readable file size before allocating content, return 413 or 422 when exceeded, and consider bounded streaming for supported file types. Apply a response-size and per-client throughput policy to the endpoint.",
+          "evidence": null,
+          "fingerprint": "sha256:48fe9faf629cde78a2c485bf8e3c3e4b4ad536d55f2b280167e00b73b7e1f1f6",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 520,
+              "startColumn": 2,
+              "endLine": 524,
+              "endColumn": 53
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-46feea37a9be59c6a347ec08b4de7ff2b2b3e3494a85bb947f6040ac1ab67d1c",
+          "ruleId": "built-in:security",
+          "aspect": "security",
+          "severity": "medium",
+          "state": "open",
+          "title": "Expensive scan endpoints lack the spend rate-limit policy",
+          "description": "Repository scans, secret scans, and arbitrary enabled sensor scans can recursively inspect repositories or launch external tools, but their routes do not apply the spend policy used by reviews and handovers. The global limiter only caps concurrent requests and has no replenishment window, so an authenticated client can continuously occupy available slots and repeatedly launch expensive work.",
+          "recommendation": "Apply a per-identity fixed-window or token-bucket policy to all scan endpoints, including GET endpoints that initiate computation. Limit concurrent scans per repository and coalesce or reject duplicate in-flight scans.",
+          "evidence": null,
+          "fingerprint": "sha256:46feea37a9be59c6a347ec08b4de7ff2b2b3e3494a85bb947f6040ac1ab67d1c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 279,
+              "startColumn": 1,
+              "endLine": 282,
+              "endColumn": 63
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 289,
+              "startColumn": 1,
+              "endLine": 290,
+              "endColumn": 66
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-079e9339f805",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/security/attack-coverage combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:security:attack-coverage\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:079e9339f80574b58fcb79d3547b1b9051bafa5bf1b4a520ffa20adbc6b4718b",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 283,
+              "startColumn": 1,
+              "endLine": 283,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-0894aa6003b6",
+          "ruleId": "boundary/missing-authorization",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Inbound boundary has no derived authorization",
+          "description": "GET /health is externally callable, but the inventory could not derive an authentication and authorization requirement.",
+          "recommendation": "Apply an explicit authentication and authorization policy, or document and mechanically encode the narrow public exception.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::health\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022loopback-only\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022All derived repository host bindings use loopback addresses\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022none\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs:218 has no applicable authorization requirement\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022none\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs contains no applicable authorization check\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: []\r\n  }\r\n}",
+          "fingerprint": "sha256:0894aa6003b66a98e4c7b7a3f513724298cb77ceff90bc9975d02328dfa84f14",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 218,
+              "startColumn": 1,
+              "endLine": 218,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-0bed611945e1",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/security/attack-coverage/judgements combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:security:attack-coverage:judgements\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:0bed611945e1d15753c56942cf19bdf46c25c4687902b6922e5e43d8aa74e475",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 285,
+              "startColumn": 1,
+              "endLine": 285,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-2a722b5e2bc2",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/threads combines request input with filesystem-read, filesystem-write.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:threads\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022filesystem-write\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:2a722b5e2bc2f17e692ce4e50eaa7cb170664e73ff428c75e9d0e6ecf3d809fe",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 343,
+              "startColumn": 1,
+              "endLine": 343,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-38d591886be2",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/tree combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:tree\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:38d591886be2d8151c1df59f47623f818c678225bf9683430c2cd2615fbea168",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 257,
+              "startColumn": 1,
+              "endLine": 257,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-3da1fc951952",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/threads combines request input with filesystem-read, filesystem-write.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:threads\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022filesystem-write\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:3da1fc951952c5376b18d08229c6ab5b2b637a364ff0f7e4289e3aafd9c7041b",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 342,
+              "startColumn": 1,
+              "endLine": 342,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-3f5fb10760ed",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/repos/{repoId}/security/attack-coverage combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:security:attack-coverage\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:3f5fb10760ed42c4aec65d74c6cf5efb945c9e9eff22b8c88b517fd2761af286",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 284,
+              "startColumn": 1,
+              "endLine": 284,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-7657c524831d",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/findings/state combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:findings:state\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:7657c524831d67756e7c35b2a62edab5bc4a18f77a9cc2ec96b1a729e91a2209",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 344,
+              "startColumn": 1,
+              "endLine": 344,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-7ccf2ad2c7f7",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/repos/{repoId}/file combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:file\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:7ccf2ad2c7f7b0c9a7e62ff743405ba780170ec80aaf44b6961a35b44360db79",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 264,
+              "startColumn": 1,
+              "endLine": 264,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-87c653ceb911",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/repos/{repoId}/tree combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:tree\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:87c653ceb911a4f0a706c84a6f98716c8110e02bc9beeaf17479fa994bee1269",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 258,
+              "startColumn": 1,
+              "endLine": 258,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-992a6f24e8eb",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/handover combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:handover\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022third-party-call\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:992a6f24e8eb3f52a9d25545f7eb9fdb87c392cfe39ddfcabde20028c5d7e5a4",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 341,
+              "startColumn": 1,
+              "endLine": 341,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-bcddf7de26ae",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "GET /api/file combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:get::api:file\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:bcddf7de26ae0715152e3e061095e505c0c61c6a48becda447a22435a8c71f79",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 263,
+              "startColumn": 1,
+              "endLine": 263,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-cd23e66e1509",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/security/attack-coverage/judgements combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:security:attack-coverage:judgements\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:cd23e66e1509538c1b5bfc49a766b83c31c016962d6a131004f5ad26e8e29a95",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 286,
+              "startColumn": 1,
+              "endLine": 286,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-e2b38ded0835",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/repos/{repoId}/findings/state combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:findings:state\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022state-mutation\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:e2b38ded08355c4e75121c45590973dc7bbddd0ff5bcd5036534c8417e69c066",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 345,
+              "startColumn": 1,
+              "endLine": 345,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "boundary-f2bfd75d9312",
+          "ruleId": "boundary/request-to-system-sink",
+          "aspect": "boundaries",
+          "severity": "high",
+          "state": "open",
+          "title": "Request-bound value reaches a filesystem or process surface",
+          "description": "POST /api/handover combines request input with filesystem-read.",
+          "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+          "evidence": "{\r\n  \u0022source\u0022: \u0022machine-sensor\u0022,\r\n  \u0022sensorId\u0022: \u0022boundaries\u0022,\r\n  \u0022sensorVersion\u0022: \u00221.0.0\u0022,\r\n  \u0022resultHash\u0022: \u0022sha256:e90d4800f04c1fe61537ce37b20020ac2e08861551576d507620430baabdb430\u0022,\r\n  \u0022fact\u0022: {\r\n    \u0022boundaryId\u0022: \u0022http:post::api:handover\u0022,\r\n    \u0022reachability\u0022: {\r\n      \u0022value\u0022: \u0022authenticated\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authentication\u0022: {\r\n      \u0022value\u0022: \u0022required\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n      ]\r\n    },\r\n    \u0022authorization\u0022: {\r\n      \u0022value\u0022: \u0022repository-scoped\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n      ]\r\n    },\r\n    \u0022rateLimit\u0022: {\r\n      \u0022value\u0022: \u0022policy\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n      ]\r\n    },\r\n    \u0022sizeLimit\u0022: {\r\n      \u0022value\u0022: \u0022global\u0022,\r\n      \u0022derivedFrom\u0022: [\r\n        \u0022src/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n      ]\r\n    },\r\n    \u0022sideEffects\u0022: [\r\n      \u0022filesystem-read\u0022,\r\n      \u0022spends-money-or-quota\u0022,\r\n      \u0022third-party-call\u0022\r\n    ]\r\n  }\r\n}",
+          "fingerprint": "sha256:f2bfd75d9312b0d16e17ce6d9dcdf53a0c9e22681fe98347a59bb54b74d722a7",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 340,
+              "startColumn": 1,
+              "endLine": 340,
+              "endColumn": 1
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    }
+  ],
+  "delta": {
+    "status": "unavailable",
+    "priorRunId": null,
+    "reason": "Partial runs are not comparable.",
+    "new": [],
+    "persisting": [],
+    "resolved": [],
+    "stateChanged": []
+  },
+  "summary": {
+    "score": null,
+    "grade": null,
+    "findings": {
+      "total": 40,
+      "bySeverity": {
+        "critical": 0,
+        "high": 22,
+        "medium": 18,
+        "low": 0,
+        "info": 0
+      },
+      "byState": {
+        "open": 40,
+        "accepted": 0,
+        "waived": 0,
+        "false-positive": 0,
+        "resolved": 0
+      }
+    },
+    "highestSeverity": "high",
+    "partialReason": "1 unit(s) failed."
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-5c5e0d78a4364fae8568b46a9b27a00c",
+    "revision": 1,
+    "repositoryId": "default",
+    "repositoryName": "quality-studio",
+    "kind": "code",
+    "scopeUnitId": "qs-v1/dotnet/file/62474755604a56cccd528fadebe08b04193e9470b6a320cb4f9cd3641b97e9a8",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+    "state": "done",
+    "completeness": "complete",
+    "createdAt": "2026-09-01T07:35:52.1975073+00:00",
+    "startedAt": "2026-09-01T07:35:52.2247296+00:00",
+    "finishedAt": "2026-09-01T07:36:23.9530034+00:00",
+    "model": "runner-default",
+    "thinkingLevel": "model-default",
+    "cliType": "codex",
+    "force": true
+  },
+  "subject": {
+    "manifestHash": "sha256:dd2c7909903bca0a4ffed56be161c187b973176f7be474836bd05110e209a639",
+    "targets": [
+      {
+        "unitId": "qs-v1/dotnet/file/62474755604a56cccd528fadebe08b04193e9470b6a320cb4f9cd3641b97e9a8",
+        "name": "ReviewLevel.cs",
+        "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+        "subjectHash": "sha256:dcecb285fa48f542a2aecddb7707829e5df6f599dd11326518a3db8b12b875a4"
+      }
+    ]
+  },
+  "execution": {
+    "reviewed": 1,
+    "reusedFresh": 0,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "aggregateOutcome": null,
+    "errors": [],
+    "usage": {
+      "operations": 1,
+      "inputTokens": 17026,
+      "outputTokens": 432,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 96,
+      "durationMs": 19965,
+      "cost": null,
+      "currency": null,
+      "priceStatus": "unknownModel",
+      "inputEstimateDeviationPercent": 1740.65,
+      "outputEstimateDeviationPercent": -88.32,
+      "costEstimateDeviationPercent": null
+    },
+    "cap": {
+      "tokenLimit": 40000,
+      "costLimit": null,
+      "outcome": "within-cap",
+      "reason": null
+    },
+    "estimate": {
+      "files": 1,
+      "operations": 1,
+      "inputTokens": 925,
+      "outputTokens": 3700,
+      "cost": null,
+      "currency": null,
+      "historySamples": 1,
+      "method": "Input is actual rendered prompt characters / 4; output uses 1 recorded .quality/usage operation(s)."
+    }
+  },
+  "observations": [
+    {
+      "unitId": "qs-v1/dotnet/file/62474755604a56cccd528fadebe08b04193e9470b6a320cb4f9cd3641b97e9a8",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/AgentOrchestrator.CodeQuality/.quality/reviews/files/file.6c0a7551a5f3790fd89ce90cfc1b2a21d754d0de5132fe8425d67ff1dfccaf78.review-meta.code.json",
+      "sidecarSha256": "sha256:15d81ac4f2e69529c7a9481e5c7a3e1bb22602e8576d1c99eed211bffa3741ab",
+      "capturedAt": "2026-09-01T07:36:23.915796+00:00",
+      "reviewedHash": "f75b6d070f1ebf26e8c32e650960da9858ef0ae83e88d44b9b9d7ef5192b2de3",
+      "providerRunId": "quality-f6e7317541204effb16051d5a6a74452",
+      "grade": {
+        "score": 98,
+        "band": "A",
+        "rationale": "The enum is concise, valid C#, clearly named, and appropriately documented. No correctness, maintainability, clarity, error-handling, or testability defects are evident in the supplied content."
+      },
+      "summary": "No actionable issues found. The enum cleanly represents the documented review hierarchy, and the deterministic build evidence reports no findings. Test coverage is unknown and was not scored as absent.",
+      "findings": []
+    }
+  ],
+  "delta": {
+    "status": "unavailable",
+    "priorRunId": null,
+    "reason": "No prior comparable run snapshot exists.",
+    "new": [],
+    "persisting": [],
+    "resolved": [],
+    "stateChanged": []
+  },
+  "summary": {
+    "score": 98,
+    "grade": "A",
+    "findings": {
+      "total": 0,
+      "bySeverity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0
+      },
+      "byState": {
+        "open": 0,
+        "accepted": 0,
+        "waived": 0,
+        "false-positive": 0,
+        "resolved": 0
+      }
+    },
+    "highestSeverity": null,
+    "partialReason": null
+  }
+}

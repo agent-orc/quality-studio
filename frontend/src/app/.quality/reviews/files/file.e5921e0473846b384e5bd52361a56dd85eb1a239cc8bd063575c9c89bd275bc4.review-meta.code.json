@@ -1,0 +1,374 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/02481f0c9ce93ed211dd60c4b7b68466da9f716e2c9cea1a88290db996318bf7",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/format.ts",
+    "displayName": "format.ts"
+  },
+  "reviewedAt": "2026-09-01T09:48:55.0601349Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-a18844928989420d9f643e41ebae697c",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17430,
+      "outputTokens": 2084,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 1034,
+      "durationMs": 55902
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "2c2a63c87819817b014766b6d72657611eb046baa24c177eb570a997cd64ec2a"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/format.ts",
+      "selector": "file",
+      "contentHash": "sha256:fc5ec99060e62ca8f826d659a00aab071539e6be8c1a72f13c16827c1bbe26fd"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 74,
+    "band": "C",
+    "rationale": "The utilities are concise and generally readable, but several edge cases produce misleading output or uncaught exceptions. In particular, positive infinity is rendered as a byte quantity, invalid dates throw, and token formatting accepts values that its corresponding parser rejects."
+  },
+  "summary": "The ordinary input paths are straightforward, but boundary validation is inconsistent. Tightening the accepted domains and defining explicit invalid-input behavior would materially improve correctness and testability.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Normal finite byte values and positive token counts are formatted sensibly, but non-finite bytes and non-positive token counts can produce invalid or inconsistent representations."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "The functions are small and self-contained, though validation rules are duplicated implicitly rather than expressed as shared invariants between token formatting and parsing."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "Names and comments communicate intent well. Some edge-case policies, including invalid dates, negative quantities, and accepted separator syntax, remain undocumented."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 61,
+        "band": "D",
+        "rationale": "Invalid date strings can throw a RangeError, while positive infinity is converted to the misleading string \u0022Infinity B\u0022 instead of being rejected or normalized."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 73,
+        "band": "C",
+        "rationale": "The pure byte and token functions are easy to exercise, but date formatting depends on the runtime locale and timezone and has no injectable formatting context for deterministic tests."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1f2aa611db08ae5a626d40dbb306c523f9c7989ad50526b8de32f54cbf59f77c",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Invalid date input throws during formatting",
+      "description": "\u0060new Date(value)\u0060 can produce an invalid Date, and \u0060Intl.DateTimeFormat.prototype.format\u0060 then throws a RangeError. Because the function accepts an arbitrary string and provides no validation or documented throwing contract, malformed or missing timestamp data can disrupt rendering rather than yielding a safe fallback.",
+      "recommendation": "Parse the value, check \u0060Number.isNaN(date.getTime())\u0060, and return a defined fallback such as an empty string or placeholder; alternatively, expose an explicit throwing contract and handle it at every caller.",
+      "locations": [
+        {
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 2,
+              "column": 10
+            },
+            "end": {
+              "line": 2,
+              "column": 105
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:1f2aa611db08ae5a626d40dbb306c523f9c7989ad50526b8de32f54cbf59f77c",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 2,
+              "column": 10
+            },
+            "end": {
+              "line": 2,
+              "column": 105
+            }
+          },
+          "capturedExcerpt": {
+            "text": "new Intl.DateTimeFormat(undefined, { dateStyle: \u0027medium\u0027, timeStyle: \u0027short\u0027 }).format(new Date(",
+            "contentHash": "sha256:fc5ec99060e62ca8f826d659a00aab071539e6be8c1a72f13c16827c1bbe26fd",
+            "excerptHash": "sha256:61e45511341137663c2c1437c8074ea8950508dd24114fb7fb88138293a0e4b5"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-262dbc27894588ed4c447b8c68c9a30243370b1f24bbfe9022fa5381494092f5",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Positive infinity is rendered as a valid byte quantity",
+      "description": "The non-finite guard enters this branch for \u0060Infinity\u0060, but \u0060bytes || 0\u0060 remains \u0060Infinity\u0060 and \u0060Math.max\u0060 preserves it, producing \u0060\u0022Infinity B\u0022\u0060. This contradicts the apparent intent to sanitize invalid byte counts and can expose misleading UI output.",
+      "recommendation": "Handle non-finite values separately, for example by returning \u0060\u00220 B\u0022\u0060 or an explicit unavailable-value placeholder before applying the finite-number formatting logic.",
+      "locations": [
+        {
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 6,
+              "column": 3
+            },
+            "end": {
+              "line": 6,
+              "column": 86
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:262dbc27894588ed4c447b8c68c9a30243370b1f24bbfe9022fa5381494092f5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 6,
+              "column": 3
+            },
+            "end": {
+              "line": 6,
+              "column": 86
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (!Number.isFinite(bytes) || bytes \u003C 1024) return \u0060${Math.max(0, bytes || 0)} B\u0060;",
+            "contentHash": "sha256:fc5ec99060e62ca8f826d659a00aab071539e6be8c1a72f13c16827c1bbe26fd",
+            "excerptHash": "sha256:8f0c88ca35b432a5b57f145dbccdd3acee78b767bf71c8533b515c31e2f21b1f"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-085911b07437dce71a488ef3bc18606f9b5237539362d660aaf7de8126a4a6b5",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Formatter and parser disagree on valid token quantities",
+      "description": "\u0060formatTokenCount\u0060 renders zero and negative finite values, while \u0060parseTokenCount\u0060 explicitly rejects every value that is not greater than zero. This prevents consistent round trips and permits nonsensical negative token quantities to appear in operator controls.",
+      "recommendation": "Define one shared domain policy. If token quantities must be positive integers, return an empty string for non-positive or non-integral formatter inputs; otherwise update the parser and documentation to support the same values.",
+      "locations": [
+        {
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 16,
+              "column": 3
+            },
+            "end": {
+              "line": 17,
+              "column": 55
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:085911b07437dce71a488ef3bc18606f9b5237539362d660aaf7de8126a4a6b5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 16,
+              "column": 3
+            },
+            "end": {
+              "line": 17,
+              "column": 55
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (value === null || value === undefined || !Number.isFinite(value)) return \u0027\u0027;\n  if (value \u003C 1_000) return String(Math.round(value));",
+            "contentHash": "sha256:fc5ec99060e62ca8f826d659a00aab071539e6be8c1a72f13c16827c1bbe26fd",
+            "excerptHash": "sha256:f1f1b6191ea901a2f10ed27ae6e2579d19bfea900ff0b593a8431a018b23120f"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-3647fc121b1d6f865eba11173d548e67af3a735e41ad536fccf18d8d8ed2ae4e",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Separator removal silently accepts malformed numeric input",
+      "description": "Removing every comma and underscore before validation means strings such as \u0060\u00221,,__0\u0022\u0060, \u0060\u0022_100\u0022\u0060, or \u0060\u002210_\u0022\u0060 are accepted as valid quantities. This can conceal user typos rather than reporting invalid input.",
+      "recommendation": "Validate separators in their original positions before normalization, using an explicit accepted grammar such as consistently grouped thousands separators, then remove them only after validation.",
+      "locations": [
+        {
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 29,
+              "column": 4
+            },
+            "end": {
+              "line": 30,
+              "column": 64
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3647fc121b1d6f865eba11173d548e67af3a735e41ad536fccf18d8d8ed2ae4e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/format.ts",
+          "range": {
+            "start": {
+              "line": 29,
+              "column": 4
+            },
+            "end": {
+              "line": 30,
+              "column": 64
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n  const normalized = String(value ?? \u0027\u0027).trim().replaceAll(\u0027,\u0027, ",
+            "contentHash": "sha256:fc5ec99060e62ca8f826d659a00aab071539e6be8c1a72f13c16827c1bbe26fd",
+            "excerptHash": "sha256:688ab99c6b2e6989f08b27de6ab23d2af79a4c0b867d8f86aa55aec8a2bd5df2"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

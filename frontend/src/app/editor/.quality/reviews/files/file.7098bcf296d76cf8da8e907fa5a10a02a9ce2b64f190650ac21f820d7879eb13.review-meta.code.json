@@ -1,0 +1,200 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/fcaba38effb885a21dfa256e33af0e2e70061715456a02fee1cfa893902748cb",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/editor/syntax.worker.ts",
+    "displayName": "syntax.worker.ts"
+  },
+  "reviewedAt": "2026-09-01T10:01:30.9516419Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-44ee898e55ad454aa4f378244f7f730f",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17279,
+      "outputTokens": 1449,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 825,
+      "durationMs": 49449
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "37a7ce2b0ace5b4d457c409f15c780d4758601b9ab9e5271b241363e79abc378"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/editor/syntax.worker.ts",
+      "selector": "file",
+      "contentHash": "sha256:ab9418a954d5b653cd258b9de71955118f9d3db027beda1af3f81e77f2df7d31"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 88,
+    "band": "B",
+    "rationale": "The worker is concise, preserves multiline tokenizer state, chunks responses predictably, correlates them with request IDs, and reports tokenizer failures. Its main weakness is trusting an erased TypeScript message type at the worker boundary, allowing malformed messages to cause an uncaught exception before error handling begins."
+  },
+  "summary": "The implementation is clear and largely correct. One low-severity robustness issue exists: incoming worker messages are dereferenced before runtime validation and outside the try/catch block. Test coverage is unknown because no coverage data was supplied, and ESLint evidence was unavailable due to missing dependencies.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 87,
+        "band": "B",
+        "rationale": "Valid tokenize requests are processed correctly, preserve whole-document grammar state, and produce correlated chunk and completion messages. Malformed runtime messages can bypass the intended failure protocol."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 92,
+        "band": "A",
+        "rationale": "The implementation is compact, uses shared protocol types and chunk constants, and clearly documents the Prism initialization constraint."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 95,
+        "band": "A",
+        "rationale": "Control flow, naming, and comments make the worker\u0027s initialization and tokenization behavior easy to understand."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Tokenizer, import, slicing, and posting failures inside the try block are converted into error responses, but message inspection occurs before that protection and assumes a valid object."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "The request/response protocol and deterministic chunking are straightforward to exercise through worker integration tests, although module-level global setup and listener registration make isolated unit testing less convenient. Actual coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-962eb9f8d89cf617927d3de1e3cf890c1107147c7fa6c8b112bbd71a53f94466",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Malformed worker messages can escape the error handler",
+      "description": "The MessageEvent generic provides compile-time typing only. At runtime, data may be null, undefined, or another unexpected value; reading data.kind then throws before entering the try block. This produces an uncaught worker error and no protocol-level error response. The risk is limited because worker messages normally originate from the owning application, but the worker boundary should still be defensive.",
+      "recommendation": "Validate that data is a non-null object before accessing kind, and validate the required fields for tokenize requests. Place request dispatch inside protected control flow; safely ignore messages that cannot be correlated, or return an error response when a valid requestId is available.",
+      "locations": [
+        {
+          "path": "frontend/src/app/editor/syntax.worker.ts",
+          "range": {
+            "start": {
+              "line": 17,
+              "column": 7
+            },
+            "end": {
+              "line": 17,
+              "column": 15
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:962eb9f8d89cf617927d3de1e3cf890c1107147c7fa6c8b112bbd71a53f94466",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/editor/syntax.worker.ts",
+          "range": {
+            "start": {
+              "line": 17,
+              "column": 7
+            },
+            "end": {
+              "line": 17,
+              "column": 15
+            }
+          },
+          "capturedExcerpt": {
+            "text": "data.kind",
+            "contentHash": "sha256:ab9418a954d5b653cd258b9de71955118f9d3db027beda1af3f81e77f2df7d31",
+            "excerptHash": "sha256:f8785d42a838ebbbfc9de5a7d2ce50fe1f7c16c3e51c50a1421cf45e4ea388c9"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

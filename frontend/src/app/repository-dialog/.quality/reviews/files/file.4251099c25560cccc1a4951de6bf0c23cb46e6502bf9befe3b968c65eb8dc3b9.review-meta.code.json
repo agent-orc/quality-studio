@@ -1,0 +1,141 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/262725111528b84f42f453d19ba314664dc47365f30468f390a0456133bce939",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/repository-dialog/repository-dialog.ts",
+    "displayName": "repository-dialog.ts"
+  },
+  "reviewedAt": "2026-09-01T10:08:27.5975913Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-8e455b45e3b144d48c848d276e0df4af",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17254,
+      "outputTokens": 1055,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 666,
+      "durationMs": 37021
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "a7a3422f73fe1c6fe7a9426a17be1dcf3238f6d2b1a122450f8b5cf144a3dd5d"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/repository-dialog/repository-dialog.ts",
+      "selector": "file",
+      "contentHash": "sha256:5d97a6aa87b243df3bc6ebfe77c4674cd81d554ea62cfe68f13aee889c39450c"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 94,
+    "band": "A",
+    "rationale": "This is a concise, strongly typed presentational component API with no evident correctness defects in the supplied TypeScript. Inputs and outputs clearly separate state from user intents, and error and saving states are exposed explicitly."
+  },
+  "summary": "No actionable issues were identified in the reviewed file. The class contains only declarative Angular bindings, uses specific domain types, and delegates behavior to its parent. Template behavior and automated coverage cannot be assessed from the supplied evidence.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 95,
+        "band": "A",
+        "rationale": "Required state is identified, nullable values are represented explicitly, and output payloads are appropriately typed. No incorrect behavior is evident in the supplied class."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 93,
+        "band": "A",
+        "rationale": "The component has a narrow presentational role and straightforward bindings. Its number of inputs and outputs is manageable, although future growth could warrant grouping related state."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 95,
+        "band": "A",
+        "rationale": "Names consistently distinguish state inputs from intent outputs, and the domain-specific types make the public contract easy to understand."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 93,
+        "band": "A",
+        "rationale": "The component exposes general and token-cap-specific error states along with a saving state. It contains no operations requiring local exception handling."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 94,
+        "band": "A",
+        "rationale": "Behavior is expressed through typed inputs and observable outputs, making the component contract straightforward to exercise in unit tests. Coverage remains unknown because no coverage data was supplied."
+      }
+    }
+  ],
+  "findings": [],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

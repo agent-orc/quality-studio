@@ -1,0 +1,2356 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-34083c2c5eac41838f059d0ed8216a30",
+    "revision": 1,
+    "repositoryId": "default",
+    "repositoryName": "quality-studio",
+    "kind": "code",
+    "scopeUnitId": "qs-v1/dotnet/module/28eef59717f710ae0291774a9c197d33f1ed9ecfae63cb6678173ab0b592bf3e",
+    "level": "module",
+    "path": "src/QualityStudio.Api/QualityStudio.Api.csproj",
+    "state": "failed",
+    "completeness": "partial",
+    "createdAt": "2026-09-01T07:55:43.5680866+00:00",
+    "startedAt": "2026-09-01T07:55:43.6712803+00:00",
+    "finishedAt": "2026-09-01T08:17:47.5923157+00:00",
+    "model": "runner-default",
+    "thinkingLevel": "model-default",
+    "cliType": "codex",
+    "force": true
+  },
+  "subject": {
+    "manifestHash": "sha256:5d53dd0307a711bd93dec4383a87b289b28c3f35a70b41a6fdf9a41accdb04a7",
+    "targets": [
+      {
+        "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+        "name": "Program.cs",
+        "path": "src/QualityStudio.Api/Program.cs",
+        "subjectHash": "sha256:303ac198e0df4c6075acede9a743a7afb96b89f57912fd137e5899844416a77f"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/3b9e371fe73ea32938cdd5b3a5d66a242afe76014f80f8c8b7f4082072f9b864",
+        "name": "AgentStudioTaskClient.cs",
+        "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+        "subjectHash": "sha256:b6025f6aca29e2b33ad9029211b33f939b2f441fce130426c18f7d6a1fe5a693"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/fcea4117f4e7139e23c820d698adde431dc9fcbf6dfc70cbab870086279af4f6",
+        "name": "ApiContracts.cs",
+        "path": "src/QualityStudio.Api/ApiContracts.cs",
+        "subjectHash": "sha256:31e7f6c44041e10bb1fe0cabf46cccff760c0158ef873fbee20a32eeda77e4f2"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/2d3b72398af462cb2e36e35bfa6979e07f570ebaa6e4c9dba9811d3e9c678c0d",
+        "name": "ApiSecurity.cs",
+        "path": "src/QualityStudio.Api/ApiSecurity.cs",
+        "subjectHash": "sha256:eaef3d89e4e1dd860de2ce7b7bce9f10d2b5cedaad50e6448e28642b4c197713"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+        "name": "PathConfinement.cs",
+        "path": "src/QualityStudio.Api/PathConfinement.cs",
+        "subjectHash": "sha256:f211614773562894f8bceebdaa73ce324cb4d31f817e4c5a133aa9d4f942c071"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/eaa25906d47751af2c3e9465966f98b4d5d951a32e9cc8fed98f739b92d8c62c",
+        "name": "ProjectDashboard.cs",
+        "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+        "subjectHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/8eace245049eb836deab9c4f33b41c967b25c0e3cae38e6eafd8496773d906af",
+        "name": "QualityRunReportFactory.cs",
+        "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+        "subjectHash": "sha256:ccbbf32f78caf488e6988f49dd6d0e79be8c5103d5c91514cda6132369a51f38"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/411f55303622d51885ee5458ef135ed03b78e9d2fee4136109f55a21239c4252",
+        "name": "RepositoryAccess.cs",
+        "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+        "subjectHash": "sha256:c6b998156600b6a9908c96461c3e5b463da3f284c61cd8fe3bf29bfd6d101b1f"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/a9fcf78b11fdaa212a458c901d7bf57633ee5a392dcd9b5c7ee283943418196c",
+        "name": "RepositoryOptions.cs",
+        "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+        "subjectHash": "sha256:a232822466dafa94c69e82510ebb08461073a6481639db9f69e6f279dcc9d77c"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+        "name": "RepositoryRegistry.cs",
+        "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+        "subjectHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/8f46899dfcc9c8d0bba234596712d317b7f35eba1d895979aafd31374517ab52",
+        "name": "RepositorySnapshotPrewarmer.cs",
+        "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+        "subjectHash": "sha256:6e8ecd7cdd0376a9d16c22291fe957b895e149daa9397f8079ebf3fceaefa7e6"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/789c84668907f0d85c5d08e2d23e73b09fa7fdd709c0a354e8b33aad1377e941",
+        "name": "ReviewJobs.cs",
+        "path": "src/QualityStudio.Api/ReviewJobs.cs",
+        "subjectHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/45493d86cea731bb0d9ee3f95a7e17a120ab4b9b232c29deec6112f18a5e1203",
+        "name": "ReviewMetaIndex.cs",
+        "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+        "subjectHash": "sha256:b55a023601c0eb97430317a4e2e3a1b845005ade94fc3e96ac3f519bd7c63fee"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/362fa00588dd89ccf39617809efc280d868d6fc215351eb49f8dad20b8618931",
+        "name": "ReviewRunArchive.cs",
+        "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+        "subjectHash": "sha256:ad02ffdcc0fec1f77cd2c84ce54c73be19ef013270d139693f5c444281a057c9"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/2851f3761a56d9405c0f4eb443f0df9661b75bd5661b0beccf40c8ffebf7cd83",
+        "name": "ReviewRunStore.cs",
+        "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+        "subjectHash": "sha256:a25206e39cfba2dda051bfdca2952cd13e0c3906f4341c278599b254d13b6c20"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/0b38d4b5976e6e45b08f39272f89b7f6e652347358366ea9cbb6ed5fa4726bb0",
+        "name": "ScopeRules.cs",
+        "path": "src/QualityStudio.Api/ScopeRules.cs",
+        "subjectHash": "sha256:b89f85ae459e1d1a1985e767856c934538017112673fecc790318e1633798a9a"
+      }
+    ]
+  },
+  "execution": {
+    "reviewed": 16,
+    "reusedFresh": 0,
+    "failed": 1,
+    "skipped": 0,
+    "cancelled": 0,
+    "aggregateOutcome": "failed",
+    "errors": [
+      "Finding location \u0027src/QualityStudio.Api/QualityStudio.Api.csproj\u0027 is not part of the reviewed subject."
+    ],
+    "usage": {
+      "operations": 17,
+      "inputTokens": 397529,
+      "outputTokens": 67404,
+      "cachedInputTokens": 196352,
+      "reasoningOutputTokens": 46004,
+      "durationMs": 2260735,
+      "cost": null,
+      "currency": null,
+      "priceStatus": "unknownModel",
+      "inputEstimateDeviationPercent": null,
+      "outputEstimateDeviationPercent": null,
+      "costEstimateDeviationPercent": null
+    },
+    "cap": {
+      "tokenLimit": null,
+      "costLimit": null,
+      "outcome": "not-configured",
+      "reason": null
+    },
+    "estimate": {
+      "files": 16,
+      "operations": 17,
+      "inputTokens": 145478,
+      "outputTokens": 27092,
+      "cost": null,
+      "currency": null,
+      "historySamples": 8,
+      "method": "Input is actual rendered prompt characters / 4; output uses 8 recorded .quality/usage operation(s)."
+    }
+  },
+  "observations": [
+    {
+      "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+      "level": "file",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.d1e8bb7a5d1b86848018de173b6c3d99727ea906e8427535b13c2d69b25976a9.review-meta.code.json",
+      "sidecarSha256": "sha256:928b0024ba69d2a43bf02caa7191494cb6afedeb0d666cbdedfb483468a1d784",
+      "capturedAt": "2026-09-01T07:59:09.1807422+00:00",
+      "reviewedHash": "05ebc16a4e260812c03ab94ec130699ea78336dcac4446ad6852045e52e06d9d",
+      "providerRunId": "quality-783a3a4401fc4f8cbcc6f657bf7603a0",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "The API is broadly structured and has centralized security and error handling, but a route-shape-dependent authorization bypass and incorrect cache validators materially affect correctness. Resource limits and exception classification also need strengthening. Test coverage is unknown."
+      },
+      "summary": "The principal risk is authorization based on raw path equality: ASP.NET Core can match collection endpoints with a trailing slash while these checks do not, allowing repository registration permissions to be bypassed. Tree and dashboard ETags omit mutable state represented in their responses, and the file endpoint reads files into unbounded memory. Centralized exception handling is useful but classifies broad framework exceptions as specific domain failures.",
+      "findings": [
+        {
+          "id": "finding-880fb51051d1cc715bf04149380042865cc3370f3fa4bf21957411b5b5af9dc1",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Trailing slashes bypass repository-registration authorization",
+          "description": "Authorization identifies collection and import endpoints using exact raw-path comparisons. ASP.NET Core route matching normally accepts a trailing slash, so POST /api/repos/ or /api/repos/import-from-agent-studio/ can reach the mapped endpoint without entering the CanRegisterRepositories check. A caller lacking registration permission can therefore proceed whenever the later default-repository access check permits them.",
+          "recommendation": "Attach authorization requirements to the mapped endpoints using endpoint metadata or dedicated policies instead of reconstructing routing decisions from Request.Path. Add integration tests for canonical, trailing-slash, and case-varied forms with identities that can access the default repository but cannot register repositories.",
+          "evidence": null,
+          "fingerprint": "sha256:880fb51051d1cc715bf04149380042865cc3370f3fa4bf21957411b5b5af9dc1",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 189,
+              "startColumn": 5,
+              "endLine": 212,
+              "endColumn": 5
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-93fe836ef9142445c69f04067c1628d5794e58a4c14d545368434f8c35457c28",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "ETags omit mutable data included in cached responses",
+          "description": "The tree validator includes Git state, path, and coverage time but not finding-state data read immediately afterward. The dashboard validator uses only Git state even though its projection can depend on review metadata. Mutating finding or review metadata without changing Git state can consequently make these endpoints return 304 while the current representation differs from the client\u0027s cached response.",
+          "recommendation": "Build each ETag from a version or digest covering every mutable input represented by that endpoint, including finding-state and review-metadata revisions. Alternatively, disable conditional responses until those stores expose reliable revision tokens. Test mutations followed by requests carrying the previous ETag.",
+          "evidence": null,
+          "fingerprint": "sha256:93fe836ef9142445c69f04067c1628d5794e58a4c14d545368434f8c35457c28",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 431,
+              "startColumn": 5,
+              "endLine": 432,
+              "endColumn": 82
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 477,
+              "startColumn": 5,
+              "endLine": 477,
+              "endColumn": 39
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-ab418864fadc6809c930bd0b20415b18d986f1e5024f62e84b77fd6967807d3c",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "File endpoint allocates the entire requested file without a size limit",
+          "description": "File.ReadAllBytesAsync allocates an array for the complete repository file before decoding it into another large string. The configured request-body limit does not constrain response-side reads, so an authenticated request for a very large file can cause excessive memory consumption or process termination.",
+          "recommendation": "Inspect file length before reading and reject files above a configured response limit with 413 or 422. If large files must be supported, stream bounded ranges and avoid simultaneously retaining both the byte array and decoded string.",
+          "evidence": null,
+          "fingerprint": "sha256:ab418864fadc6809c930bd0b20415b18d986f1e5024f62e84b77fd6967807d3c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 525,
+              "startColumn": 5,
+              "endLine": 525,
+              "endColumn": 73
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-5beccd79ea6332a5c8318cdf780269ec538f068b0a1485e138b135e0a3beb1dd",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Broad exception types are reported as unrelated domain failures",
+          "description": "Every ArgumentException is presented as an invalid repository path even when handlers use it for invalid states, dates, thread fields, and query parameters. Likewise, every InvalidOperationException is labeled as an unavailable Agent Studio target, including exceptions from unrelated services or programming defects. This produces misleading status codes and diagnostics and can conceal server bugs as expected availability failures.",
+          "recommendation": "Introduce specific exception types for request validation, repository paths, and Agent Studio availability, and map only those types to their corresponding public responses. Let unexpected ArgumentException and InvalidOperationException cases become generic server errors while retaining detailed logs.",
+          "evidence": null,
+          "fingerprint": "sha256:5beccd79ea6332a5c8318cdf780269ec538f068b0a1485e138b135e0a3beb1dd",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 112,
+              "startColumn": 9,
+              "endLine": 112,
+              "endColumn": 25
+            },
+            {
+              "path": "src/QualityStudio.Api/Program.cs",
+              "startLine": 125,
+              "startColumn": 9,
+              "endLine": 125,
+              "endColumn": 33
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/3b9e371fe73ea32938cdd5b3a5d66a242afe76014f80f8c8b7f4082072f9b864",
+      "level": "file",
+      "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.636d1d999b0de35e1174ea7e7dcc7ee9c12907cd9d38f50f9e4fb3c0022634eb.review-meta.code.json",
+      "sidecarSha256": "sha256:33453f4d0aca6b68090b9c3a46a7146d478779f6a6fd778cb725c09245a9e56b",
+      "capturedAt": "2026-09-01T07:57:43.4109297+00:00",
+      "reviewedHash": "921cd0ec3868e17af7b95a20070cffb474c1e6ba45725aefe0f228d23fb91aea",
+      "providerRunId": "quality-dd886af570524041be28821774528a0b",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The client is compact and generally readable, and deterministic evidence reports a successful .NET build. However, it accepts unsupported URI schemes, embeds potentially untrusted finding content directly into an agent prompt, masks a null projects response as a valid empty registry, and has limited cancellation and HTTP-error diagnostics. Test coverage is unknown."
+      },
+      "summary": "The implementation has a clear API and sensible DTOs, but its boundary validation and downstream-agent safety need strengthening. The most important issue is that review-derived text is interpolated directly into executable task instructions without a trust boundary. Configuration validation also accepts absolute non-HTTP URIs that HttpClient cannot send. Smaller issues concern silent handling of invalid project responses, discarded error bodies, and cancellation behavior during dry runs.",
+      "findings": [
+        {
+          "id": "finding-ff6591e1ebeb1d28d0f067dc6bc919805c10f81a40c522a8e01b7c4bfefe0016",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Configuration validation accepts URI schemes unsupported by HttpClient",
+          "description": "IsTargetConfigured and GetProjectsAsync only require an absolute URI. Values such as file:// or ftp:// therefore pass validation, after which HttpClient fails at send time because its request URI must use HTTP or HTTPS. This turns an invalid configuration into a misleading runtime transport failure.",
+          "recommendation": "Parse BaseUrl once and require its scheme to be Uri.UriSchemeHttp or Uri.UriSchemeHttps. Reuse that validated URI for endpoint construction and emit a configuration-specific exception for unsupported schemes.",
+          "evidence": null,
+          "fingerprint": "sha256:ff6591e1ebeb1d28d0f067dc6bc919805c10f81a40c522a8e01b7c4bfefe0016",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 21,
+              "startColumn": 5,
+              "endLine": 24,
+              "endColumn": 45
+            },
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 117,
+              "startColumn": 9,
+              "endLine": 117,
+              "endColumn": 70
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-f65d39eefe7779252d652a9fe7c9f3a64f9c92b4860084410e7db32275510d4a",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Review-derived content is inserted directly into downstream agent instructions",
+          "description": "FindingText and other review-controlled fields are interpolated into the task prompt alongside trusted instructions. A finding containing instruction-like text can alter the meaning of the generated task, add conflicting acceptance criteria, or induce the downstream agent to act on content copied from an untrusted reviewed file.",
+          "recommendation": "Treat every finding field as untrusted data. Prefer a task API that separates trusted instructions from structured finding data; otherwise clearly delimit and encode the fields, explicitly instruct the receiving agent that delimited content is evidence rather than instructions, and apply length and character limits before submission.",
+          "evidence": null,
+          "fingerprint": "sha256:f65d39eefe7779252d652a9fe7c9f3a64f9c92b4860084410e7db32275510d4a",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 142,
+              "startColumn": 13,
+              "endLine": 150,
+              "endColumn": 67
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-c72116f661e5d05f135c20e988d57ecd77d5dd08911dc997686875b9f50e283c",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "low",
+          "state": "open",
+          "title": "A null projects payload is silently treated as an empty registry",
+          "description": "If the server returns a successful response whose JSON value is null, the method returns an empty list. That hides an invalid or incompatible server response and can make repository discovery appear legitimately empty.",
+          "recommendation": "Require a non-null list and throw an HttpRequestException or protocol-specific exception when the successful response does not contain the expected collection.",
+          "evidence": null,
+          "fingerprint": "sha256:c72116f661e5d05f135c20e988d57ecd77d5dd08911dc997686875b9f50e283c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 125,
+              "startColumn": 9,
+              "endLine": 127,
+              "endColumn": 30
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-8c4a614460aaa47bab3e835745149671f20b0da34eea6ad19bb732a5dc118596",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "low",
+          "state": "open",
+          "title": "HTTP failure responses lose useful server diagnostics",
+          "description": "EnsureSuccessStatusCode throws based on status alone, without reading any Agent Studio error payload. Callers consequently receive little context for configuration errors, validation failures, or server-side rejection of a card.",
+          "recommendation": "On non-success responses, read a bounded response body and throw an exception containing the endpoint, status code, and sanitized server message. Centralize this behavior so both endpoints report failures consistently.",
+          "evidence": null,
+          "fingerprint": "sha256:8c4a614460aaa47bab3e835745149671f20b0da34eea6ad19bb732a5dc118596",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 102,
+              "startColumn": 9,
+              "endLine": 103,
+              "endColumn": 43
+            },
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 123,
+              "startColumn": 9,
+              "endLine": 124,
+              "endColumn": 43
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-7f08ce72a76512a2aa7b2a3ccef285828dc4c01920226806b278f7a210f438e2",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "low",
+          "state": "open",
+          "title": "Dry-run output does not honor the operation\u0027s cancellation token",
+          "description": "The network path passes cancellationToken through, but the dry-run path uses the string WriteLineAsync overload without cancellation support. A canceled operation can therefore still write the full payload and return success.",
+          "recommendation": "Build the output string and use WriteLineAsync(output.AsMemory(), cancellationToken), or explicitly call ThrowIfCancellationRequested before and after writing if the target framework lacks the cancellable overload.",
+          "evidence": null,
+          "fingerprint": "sha256:7f08ce72a76512a2aa7b2a3ccef285828dc4c01920226806b278f7a210f438e2",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/AgentStudioTaskClient.cs",
+              "startLine": 89,
+              "startColumn": 13,
+              "endLine": 91,
+              "endColumn": 62
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/fcea4117f4e7139e23c820d698adde431dc9fcbf6dfc70cbab870086279af4f6",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ApiContracts.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.78b846524d07404cd680c20952509aa3760adc0c3bfd3e19e5b58e6f2ab7609e.review-meta.code.json",
+      "sidecarSha256": "sha256:53b65849d2a25d486cd3115a05245fe5c557de200960050e8d1ed83d2ddaeeee",
+      "capturedAt": "2026-09-01T08:01:34.7749769+00:00",
+      "reviewedHash": "17a45eef115d982b6bd31132c18bbda4a964552b7bc8f4866e57a369c5bbc30a",
+      "providerRunId": "quality-7afba501a49b4d4e9004bfc714021757",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "The contracts are generally readable and strongly typed, but projection can fail on malformed metadata, performs redundant subtree and state scans, and permits internally contradictory security responses."
+      },
+      "summary": "The primary risks are unchecked JSON parsing during response construction and poor scaling from repeatedly traversing the same hierarchy and finding-state collection. Test coverage is unknown. The security response also duplicates data without enforcing consistency.",
+      "findings": [
+        {
+          "id": "finding-99b557f22ccef2f05380cc5161569251ad89bbae143b54301eb0fbfb1025bb52",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Invalid metadata can abort the entire response projection",
+          "description": "Document payloads are parsed without a controlled failure path, and the code assumes each payload is a JSON object with correctly typed grade properties. Invalid JSON, a non-object root such as \u0060null\u0060 or an array, an out-of-range score, or a non-string band can throw during tree construction and turn one bad metadata document into a failure for the complete API response. The payload is also parsed twice in \u0060DirectReviewSummary.From\u0060, creating two independent failure points.",
+          "recommendation": "Parse each payload once, validate that its root and relevant properties have the expected shapes, and use non-throwing extraction. Define a deliberate policy for invalid metadata, such as returning a structured validation error or omitting the invalid document while recording diagnostics.",
+          "evidence": null,
+          "fingerprint": "sha256:99b557f22ccef2f05380cc5161569251ad89bbae143b54301eb0fbfb1025bb52",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 106,
+              "startColumn": 34,
+              "endLine": 106,
+              "endColumn": 69
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 112,
+              "startColumn": 32,
+              "endLine": 112,
+              "endColumn": 75
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 149,
+              "startColumn": 32,
+              "endLine": 154,
+              "endColumn": 61
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-6f93dde71384e21289899c7a340e9c47afbf3faa8b3efb312461ae4b53a69ed8",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "medium",
+          "state": "open",
+          "title": "Tree projection repeatedly recomputes subtree summaries and scans all states",
+          "description": "Every \u0060TreeNodeResponse.From\u0060 call traverses its entire subtree for both the review summary and descendant paths, then recursively projects each child, causing descendants to be revisited for every ancestor. File summaries additionally scan every finding state to count resolved entries for one path. Runtime therefore grows with hierarchy depth and can approach quadratic behavior; the state lookup can add a files-by-states multiplier for large repositories.",
+          "recommendation": "Perform one post-order traversal that computes each node\u0027s summary, descendant file paths, and response together. Pre-index resolved states by normalized path (and kind if relevant) so each file uses an O(1) lookup rather than scanning the complete collection.",
+          "evidence": null,
+          "fingerprint": "sha256:6f93dde71384e21289899c7a340e9c47afbf3faa8b3efb312461ae4b53a69ed8",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 32,
+              "startColumn": 29,
+              "endLine": 32,
+              "endColumn": 71
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 33,
+              "startColumn": 31,
+              "endLine": 34,
+              "endColumn": 92
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 53,
+              "startColumn": 13,
+              "endLine": 53,
+              "endColumn": 99
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 86,
+              "startColumn": 39,
+              "endLine": 87,
+              "endColumn": 84
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-47e7c2794670688c20ea2c3fb47646aacd277e141c662ddfcad0610e6405c85f",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "low",
+          "state": "open",
+          "title": "Security scan contract permits contradictory duplicated values",
+          "description": "Scanner provenance and count values appear both as top-level \u0060SecurityScanResponse\u0060 properties and inside \u0060Provenance\u0060 and \u0060Counts\u0060. The public constructor accepts these independently, so callers can produce responses whose two representations disagree, while consumers have no documented source of truth.",
+          "recommendation": "Expose each value in only one place in the next compatible API version. If the duplication must remain for compatibility, centralize construction in a validated factory and document which representation is authoritative.",
+          "evidence": null,
+          "fingerprint": "sha256:47e7c2794670688c20ea2c3fb47646aacd277e141c662ddfcad0610e6405c85f",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 221,
+              "startColumn": 5,
+              "endLine": 233,
+              "endColumn": 19
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 240,
+              "startColumn": 5,
+              "endLine": 246,
+              "endColumn": 22
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiContracts.cs",
+              "startLine": 249,
+              "startColumn": 5,
+              "endLine": 254,
+              "endColumn": 20
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/2d3b72398af462cb2e36e35bfa6979e07f570ebaa6e4c9dba9811d3e9c678c0d",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ApiSecurity.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.5275298c0386c5dbf76b50f2293cd513453826b6fefbdd4ba77b16ae66bac17b.review-meta.code.json",
+      "sidecarSha256": "sha256:81abf789e93f2d9a7d1e4378d7b055ec9f11f6489faae8160e7560cddb58b405",
+      "capturedAt": "2026-09-01T08:00:04.0059198+00:00",
+      "reviewedHash": "96a2db2c3d5702921fe3e45c2aedcdd8baf9c6e1fa3742ae7aa00aef0d91a19f",
+      "providerRunId": "quality-bf275d2620f1420680b61958dcbb7c6a",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "The authentication and authorization logic is generally clear, validates important configuration constraints, and uses constant-time credential comparison. The main weakness is that security-critical configuration and repository permissions remain backed by mutable objects after validation, allowing later mutation to invalidate constructor-established guarantees."
+      },
+      "summary": "The implementation is compact and largely correct, with sensible hosted-mode validation and careful credential comparison. It should defensively snapshot immutable security state and use a collision-resistant HttpContext.Items key. Test coverage is unknown because no coverage evidence was supplied.",
+      "findings": [
+        {
+          "id": "finding-2c1095149d6ecbe766b81c95f336476e4ff8a988f6126c5e771ee4c00deca7a7",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Validated security configuration remains mutable after construction",
+          "description": "The constructor stores the mutable Security options object by reference, validates it once, and derives the clients list from its initial state. Later property reads still consult that object. If it is subsequently mutated, the class can enter an inconsistent or insecure state; for example, changing Mode to Local after hosted clients were initialized bypasses authentication, while changing it from Local to Hosted leaves an empty client list.",
+          "recommendation": "Copy all validated scalar settings into readonly fields and derive IsLocal once during construction. Do not retain the mutable options object as the authoritative runtime security state.",
+          "evidence": null,
+          "fingerprint": "sha256:2c1095149d6ecbe766b81c95f336476e4ff8a988f6126c5e771ee4c00deca7a7",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ApiSecurity.cs",
+              "startLine": 21,
+              "startColumn": 6,
+              "endLine": 21,
+              "endColumn": 6
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiSecurity.cs",
+              "startLine": 66,
+              "startColumn": 1,
+              "endLine": 70,
+              "endColumn": 71
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-e0fdacc2c5b4c0d6ec7993001f5b0c04fb05e74d2ace167de1b06c4394ba84fd",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "low",
+          "state": "open",
+          "title": "Read-only repository permissions expose a mutable HashSet",
+          "description": "Repositories is typed as IReadOnlySet\u003Cstring\u003E, but the constructor supplies a HashSet\u003Cstring\u003E. Consumers receiving an ApiClientIdentity can cast the set back to HashSet\u003Cstring\u003E and alter authorization decisions, undermining the apparent immutability of the record and potentially creating test-order or concurrency problems.",
+          "recommendation": "Store repository permissions in an immutable or frozen set, such as ImmutableHashSet\u003Cstring\u003E or FrozenSet\u003Cstring\u003E, before constructing ApiClientIdentity.",
+          "evidence": null,
+          "fingerprint": "sha256:e0fdacc2c5b4c0d6ec7993001f5b0c04fb05e74d2ace167de1b06c4394ba84fd",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ApiSecurity.cs",
+              "startLine": 49,
+              "startColumn": 13,
+              "endLine": 53,
+              "endColumn": 51
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-fbd704bf0cf2fc6baa1c2936cb8b135752f0f68467f986c114a4dcb5194d7f7f",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "low",
+          "state": "open",
+          "title": "String key can collide with another HttpContext.Items entry",
+          "description": "Identity storage uses a string key. Another middleware or component using the same string can overwrite or impersonate this entry, causing Identity to return the wrong identity or fail unexpectedly. Object keys are conventionally used for private HttpContext.Items entries to guarantee key uniqueness.",
+          "recommendation": "Replace the string constant with a private static readonly object and use that object for both storing and retrieving the identity.",
+          "evidence": null,
+          "fingerprint": "sha256:fbd704bf0cf2fc6baa1c2936cb8b135752f0f68467f986c114a4dcb5194d7f7f",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ApiSecurity.cs",
+              "startLine": 17,
+              "startColumn": 5,
+              "endLine": 17,
+              "endColumn": 49
+            },
+            {
+              "path": "src/QualityStudio.Api/ApiSecurity.cs",
+              "startLine": 91,
+              "startColumn": 5,
+              "endLine": 97,
+              "endColumn": 23
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+      "level": "file",
+      "path": "src/QualityStudio.Api/PathConfinement.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.cb28dde737cc8be7ed310419bcc57f7e71e9b025e831debfed4204057fa9977d.review-meta.code.json",
+      "sidecarSha256": "sha256:572b236b41de09baf975b6b0168ba4f0d11d77ee8b76737a757ea62fa16fa210",
+      "capturedAt": "2026-09-01T08:01:27.9199549+00:00",
+      "reviewedHash": "53914f7ab5f9575f14448fd68fc1df103fe9214b0310a2a7e700e099e39a0b60",
+      "providerRunId": "quality-5c014f4a78304a8eb85762438c91ef90",
+      "grade": {
+        "score": 67,
+        "band": "D",
+        "rationale": "The implementation provides reasonable lexical boundary checking, but it cannot reliably enforce security-sensitive confinement because filesystem links can change after validation. Windows case-sensitive directories also invalidate the global case-insensitive comparison assumption."
+      },
+      "summary": "The code is compact and readable, but it should not be relied upon as a complete security boundary. The reparse-point inspection has a time-of-check/time-of-use race, and Windows path comparison does not account for per-directory case sensitivity. Coverage is unknown, so no coverage conclusions were drawn.",
+      "findings": [
+        {
+          "id": "finding-ddde26e6c614116f2bb1dea33b54805835165890df95eaecb5a10e13422e3641",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Reparse-point validation is vulnerable to replacement races",
+          "description": "The method checks each existing component\u0027s attributes and then returns without retaining filesystem handles or otherwise binding later access to the checked objects. An attacker able to modify a checked directory can replace it with a symbolic link or junction after this loop but before the caller opens the candidate. A nonexistent component can likewise be created as a reparse point after validation. Consequently, a successful return does not guarantee that subsequent access remains within the root.",
+          "recommendation": "Perform the protected filesystem operation through handles opened with no-follow semantics and verify each resolved component while retaining its parent handle, or use an equivalent platform-specific safe-open traversal. If this method remains only a best-effort preflight check, rename and document it accordingly and ensure callers do not treat it as a security boundary.",
+          "evidence": null,
+          "fingerprint": "sha256:ddde26e6c614116f2bb1dea33b54805835165890df95eaecb5a10e13422e3641",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/PathConfinement.cs",
+              "startLine": 18,
+              "startColumn": 9,
+              "endLine": 25,
+              "endColumn": 10
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-356df475f1d6d17abbd36e309c541ba6b881060ddbcbf45427cfaa8731a94e71",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "OS-wide case-insensitive comparison is incorrect for case-sensitive Windows directories",
+          "description": "Windows supports directories with case sensitivity enabled. In such a directory, differently cased names can identify distinct entries, but OrdinalIgnoreCase treats them as identical. For example, a configured root and a distinct sibling whose spelling differs only by case can be classified as the same path or as a descendant.",
+          "recommendation": "Base containment on filesystem identity or on canonical paths resolved with the actual filesystem semantics. If case-sensitive Windows directories are explicitly unsupported, validate that assumption and document it rather than deriving comparison behavior solely from the operating system.",
+          "evidence": null,
+          "fingerprint": "sha256:356df475f1d6d17abbd36e309c541ba6b881060ddbcbf45427cfaa8731a94e71",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/PathConfinement.cs",
+              "startLine": 29,
+              "startColumn": 5,
+              "endLine": 30,
+              "endColumn": 2
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/eaa25906d47751af2c3e9465966f98b4d5d951a32e9cc8fed98f739b92d8c62c",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.b63784dbfaea41d950c64eb33898592a7fbca0162386f4ffe65da5192af4e87e.review-meta.code.json",
+      "sidecarSha256": "sha256:24f9b5f5f9d29b295ecc00b51bf4386ddd188bbb3e64babc45249995cb840ce3",
+      "capturedAt": "2026-09-01T08:05:29.332736+00:00",
+      "reviewedHash": "36dd03b99f5d70df449ee293391dd3f87cba5cf921022d18ecc1eede0353c2bf",
+      "providerRunId": "quality-e872c3926a70473fb6c0d5e3f9898a10",
+      "grade": {
+        "score": 57,
+        "band": "F",
+        "rationale": "The implementation has a clear read-model structure and deterministic ordering, but several reliability defects can return stale data, crash on malformed or concurrently changing repository inputs, or indefinitely block a request. Hotspot churn can also be inaccurate for renamed files, and the architecture prompt does not safely delimit repository-controlled values."
+      },
+      "summary": "The service is generally readable and decomposed into focused calculations, but its cache does not fully represent the method inputs, persisted JSON is trusted without error handling, Git execution can hang, filesystem races are not tolerated, and some report and churn formats are handled incorrectly. Coverage is unknown because no coverage evidence was supplied.",
+      "findings": [
+        {
+          "id": "finding-7140275bc2d8703ce9de93b3453348d74568a54f1012e2ca44d3e60d76442128",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Cache key does not identify the hierarchy snapshot",
+          "description": "The result depends on snapshot.Roots, including review documents, states, findings, paths, and line counts, but the cache key contains only the repository root and snapshot.GitState. Two snapshots with the same GitState but different hierarchy or review data therefore share an entry, causing GetMeasured to return a dashboard built from the earlier snapshot.",
+          "recommendation": "Include a stable snapshot revision or content fingerprint covering Roots and review-document state in the key, or move caching behind RepositoryHierarchySnapshot so cache validity follows the snapshot\u0027s actual identity.",
+          "evidence": null,
+          "fingerprint": "sha256:7140275bc2d8703ce9de93b3453348d74568a54f1012e2ca44d3e60d76442128",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 118,
+              "startColumn": 19,
+              "endLine": 118,
+              "endColumn": 49
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-f03b7c3039deda139381300cc7a21ab2e66dd430a345b97538dfc1ce11c2836f",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "high",
+          "state": "open",
+          "title": "Malformed persisted review JSON aborts dashboard construction",
+          "description": "Review payloads are parsed without catching JsonException. A single truncated or otherwise malformed document can therefore make grade, finding, or hotspot projection fail instead of producing a partial dashboard or marking the affected review invalid.",
+          "recommendation": "Parse review payloads through one defensive helper that catches JsonException, validates the expected shape, and returns an explicit invalid/missing result. Reuse it across grades, findings, and hotspots so the behavior is consistent.",
+          "evidence": null,
+          "fingerprint": "sha256:f03b7c3039deda139381300cc7a21ab2e66dd430a345b97538dfc1ce11c2836f",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 234,
+              "startColumn": 34,
+              "endLine": 234,
+              "endColumn": 56
+            },
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 404,
+              "startColumn": 34,
+              "endLine": 404,
+              "endColumn": 56
+            },
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 533,
+              "startColumn": 26,
+              "endLine": 533,
+              "endColumn": 50
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-6fb27360e1fbc1b6dbeb87db0084c349fd7dc96ca110791732a773db3e413faa",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "high",
+          "state": "open",
+          "title": "Git subprocess can deadlock or run indefinitely",
+          "description": "Standard error is redirected but never consumed, while standard output is read synchronously before an unbounded WaitForExit. A Git process that fills the stderr pipe can block while the parent waits for stdout to close, and an interactive or hung Git invocation has no timeout or cancellation path.",
+          "recommendation": "Drain stdout and stderr concurrently, disable interactive prompting through the process environment, and enforce a bounded timeout or cancellation token. Kill the process tree on timeout and return the existing unavailable fallback.",
+          "evidence": null,
+          "fingerprint": "sha256:6fb27360e1fbc1b6dbeb87db0084c349fd7dc96ca110791732a773db3e413faa",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 579,
+              "startColumn": 13,
+              "endLine": 580,
+              "endColumn": 35
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-01a942adc10152516a2f2ebac7e79560e0ed8db07293d5e9d59f1c68764f95a6",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Repository-controlled module names are embedded in review instructions",
+          "description": "Source, target, and kind values are interpolated directly into text that is subsequently used as an LLM review context. A crafted project or module name containing newlines or instruction-like text can alter the meaning or structure of that prompt.",
+          "recommendation": "Treat dependency values as untrusted data: reject or escape control characters, serialize the edges in a structured format such as JSON, and explicitly delimit the data from the surrounding instructions.",
+          "evidence": null,
+          "fingerprint": "sha256:01a942adc10152516a2f2ebac7e79560e0ed8db07293d5e9d59f1c68764f95a6",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 150,
+              "startColumn": 17,
+              "endLine": 150,
+              "endColumn": 40
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-167159e52afc183c0cd3f3137ce71480ead78f3a97b9d53059f86d7b2dc2fe70",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Normal filesystem races can abort the entire dashboard",
+          "description": "Files are enumerated and then inspected later, but FileInfo.Length is accessed outside the IOException handler. A file deleted, replaced, or made inaccessible during projection can throw FileNotFoundException, DirectoryNotFoundException, or UnauthorizedAccessException and fail the complete dashboard instead of omitting that file.",
+          "recommendation": "Wrap metadata and content access for each file in a common exception boundary, handle IOException and UnauthorizedAccessException, and skip or explicitly record files that disappear during the snapshot. Use enumeration options that tolerate inaccessible entries in the non-Git fallback.",
+          "evidence": null,
+          "fingerprint": "sha256:167159e52afc183c0cd3f3137ce71480ead78f3a97b9d53059f86d7b2dc2fe70",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 494,
+              "startColumn": 45,
+              "endLine": 494,
+              "endColumn": 45
+            },
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 510,
+              "startColumn": 10,
+              "endLine": 510,
+              "endColumn": 10
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-7cc191a372fdeaf0d2856736a18131227379b6aafbf9b789457301323803c7d4",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Overflowing LCOV counters bypass the invalid-report result",
+          "description": "LCOV counters are parsed with int.Parse, which can throw OverflowException for an oversized numeric field. The catch filter handles FormatException but not OverflowException, so such a malformed report crashes dashboard construction despite the method\u0027s stated policy of returning status \u0022invalid\u0022.",
+          "recommendation": "Use invariant int.TryParse with explicit non-negative and overflow validation, preferably accumulating into long before checking response-model bounds, or include OverflowException in the malformed-report handling.",
+          "evidence": null,
+          "fingerprint": "sha256:7cc191a372fdeaf0d2856736a18131227379b6aafbf9b789457301323803c7d4",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 458,
+              "startColumn": 22,
+              "endLine": 459,
+              "endColumn": 126
+            },
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 475,
+              "startColumn": 13,
+              "endLine": 475,
+              "endColumn": 14
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-3bc7adc2c24edd2f2588e4a2c31dc37b23d790b8631f7ab7c3a6ae67d9e4ba05",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Git rename records do not map to current file paths",
+          "description": "Human-readable git --numstat output represents detected renames using brace or old/new path notation. Treating the last tab-separated field as a literal repository path stores churn under that notation, which does not match the current hierarchy path and consequently understates hotspot risk for renamed files.",
+          "recommendation": "Request NUL-delimited machine-readable numstat output and correctly parse its rename records, attributing churn to the destination path. Alternatively disable rename detection if the resulting add/delete semantics are acceptable.",
+          "evidence": null,
+          "fingerprint": "sha256:3bc7adc2c24edd2f2588e4a2c31dc37b23d790b8631f7ab7c3a6ae67d9e4ba05",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 430,
+              "startColumn": 10,
+              "endLine": 434,
+              "endColumn": 54
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-2f6104e79dbcfffa4907e2270a6c82bff75de40827d29cacba1ecbf4c6194b0e",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "medium",
+          "state": "open",
+          "title": "Dashboard cache grows without eviction",
+          "description": "Every distinct repository root and Git state is retained for the lifetime of the service. A long-running instance serving active repositories accumulates complete dashboard graphs for every observed revision, and differently cased Windows paths can create further duplicate entries.",
+          "recommendation": "Use a bounded memory cache with size and expiration policies, remove superseded states per normalized repository identity, or keep only the latest entry for each repository.",
+          "evidence": null,
+          "fingerprint": "sha256:2f6104e79dbcfffa4907e2270a6c82bff75de40827d29cacba1ecbf4c6194b0e",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+              "startLine": 105,
+              "startColumn": 5,
+              "endLine": 106,
+              "endColumn": 37
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/8eace245049eb836deab9c4f33b41c967b25c0e3cae38e6eafd8496773d906af",
+      "level": "file",
+      "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.3b56ab1ab84070960f1c00474f5ba5dc98ea7f62c1debdabc227703ce13f513b.review-meta.code.json",
+      "sidecarSha256": "sha256:dbcf767d833bacab1d2cbcfe2a36c4868f28e419f7cade5f388d2927b51085c8",
+      "capturedAt": "2026-09-01T08:05:10.6586446+00:00",
+      "reviewedHash": "cc921697f1bf5f5a8fdcecdd4e90c33cc8fa3fc5775d1be9165bca853a59122a",
+      "providerRunId": "quality-f8cd69a8ccf5445c8e93f72f4f659187",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "The factory is generally well structured and produces deterministic projections, but several boundary-validation issues can produce internally inconsistent or incorrect reports. In particular, resolved findings are omitted from state counts, captured grade bands can disagree with normalized scores, and malformed or noncanonical metadata is not handled consistently."
+      },
+      "summary": "The implementation is readable and mostly decomposed into focused helpers. Correctness is weakened by inaccurate resolved-state reporting and insufficient normalization of snapshot-derived values. Error handling provides useful context for invalid root JSON but does not cover malformed nested metadata. Test coverage is unknown; focused tests should cover resolved findings, inconsistent grades, invalid enum values, and structurally malformed metadata.",
+      "findings": [
+        {
+          "id": "finding-f28018e6e73e574af978d7124f6b0120079b4b2a31671c654a41ee557a7efc93",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Resolved finding count is always zero",
+          "description": "The \u0060current\u0060 collection removes every finding whose state is \u0060resolved\u0060, but \u0060byState\u0060 is subsequently calculated exclusively from that filtered collection. Consequently, the emitted \u0060resolved\u0060 entry is always zero even when observations contain resolved findings, making the report summary inaccurate.",
+          "recommendation": "Keep a deduplicated collection of all findings for \u0060byState\u0060, and derive the non-resolved and active collections separately. Define the duplicate-fingerprint precedence explicitly if observations can contain different states for the same fingerprint.",
+          "evidence": null,
+          "fingerprint": "sha256:f28018e6e73e574af978d7124f6b0120079b4b2a31671c654a41ee557a7efc93",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 152,
+              "startColumn": 13,
+              "endLine": 152,
+              "endColumn": 58
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-c1ea9a9a9806e6b3149b1def0ec3ce4743268ff257905083e6943be8389bcf1d",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Grade score and band can be inconsistent",
+          "description": "The numeric score is clamped to 0\u2013100, while a captured \u0060band\u0060 is accepted without validation and the fallback band is calculated from the original, unclamped value. Malformed or stale metadata can therefore produce a grade whose band does not correspond to its reported score.",
+          "recommendation": "Clamp the score once, derive the canonical band from that normalized score, and either ignore the captured band or validate that it matches before accepting the snapshot.",
+          "evidence": null,
+          "fingerprint": "sha256:c1ea9a9a9806e6b3149b1def0ec3ce4743268ff257905083e6943be8389bcf1d",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 256,
+              "startColumn": 17,
+              "endLine": 257,
+              "endColumn": 20
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-ecea21b876e80a1383a033b0afc512f3d6f2c7f74d3feb95c7f5e2fa22892a17",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "low",
+          "state": "open",
+          "title": "Nested metadata shape errors bypass contextual error handling",
+          "description": "Only parsing and conversion of the root node are inside the contextual exception handler. Calls such as \u0060AsArray\u0060, \u0060AsObject\u0060, and \u0060GetValue\u003CT\u003E\u0060 made afterward can throw for valid JSON with unexpected field types, exposing low-level exceptions without identifying the affected captured snapshot or path.",
+          "recommendation": "Deserialize into a typed DTO with validation, or include all metadata traversal in a narrow exception boundary that converts JSON shape/type failures into an \u0060InvalidDataException\u0060 containing the observation path.",
+          "evidence": null,
+          "fingerprint": "sha256:ecea21b876e80a1383a033b0afc512f3d6f2c7f74d3feb95c7f5e2fa22892a17",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 240,
+              "startColumn": 10,
+              "endLine": 240,
+              "endColumn": 10
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-8d2350a03e1729c14896022cf6ee05b18a0b2720a64cb29916d823efad93f877",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Noncanonical finding states and severities silently corrupt aggregates",
+          "description": "Snapshot-derived severity and state strings are placed in the report without validating them against the supported values. Unknown severities, differently cased states, or other unexpected values remain on findings but are omitted from active, severity, and state counts, so detail records and summary totals can disagree.",
+          "recommendation": "Normalize both fields and validate them against the canonical severity and state sets. Reject invalid metadata with context or map it to an explicitly documented fallback before constructing the finding.",
+          "evidence": null,
+          "fingerprint": "sha256:8d2350a03e1729c14896022cf6ee05b18a0b2720a64cb29916d823efad93f877",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+              "startLine": 301,
+              "startColumn": 13,
+              "endLine": 302,
+              "endColumn": 28
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/411f55303622d51885ee5458ef135ed03b78e9d2fee4136109f55a21239c4252",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.11729bfb746d33c4ca09d340fea7faed93902edb64150ad66ad16c2d24f85869.review-meta.code.json",
+      "sidecarSha256": "sha256:6a3bee36a05729fff38f5a1b2bbbf063ff6845b79d72de9fdddb17e6190b5002",
+      "capturedAt": "2026-09-01T08:07:19.0578179+00:00",
+      "reviewedHash": "59fbd9dd4cd47c991850843b790a33caff1e33234c02d72665fc0163fb9f0126",
+      "providerRunId": "quality-05e9dc5d8693490c8767eb0f067b8d39",
+      "grade": {
+        "score": 80,
+        "band": "B",
+        "rationale": "The class is compact and generally enforces lexical path confinement, but it has a cross-platform path-normalization defect, weak diagnostics for invalid metadata, and tight filesystem dependencies that hinder isolated testing."
+      },
+      "summary": "Repository access is clearly organized and uses explicit confinement checks. The main correctness concern is that valid backslashes in Unix filenames are silently converted into path separators. Metadata projection also surfaces opaque exceptions for null or non-object JSON, while direct dependencies on the physical filesystem and a concrete metadata index limit unit-test isolation. The supplied build analyzer reported no findings; test coverage remains unknown.",
+      "findings": [
+        {
+          "id": "finding-eff45baec9ef1d58aa8c0f8684d45b311d6e6e20717483fe68242f5df813fda1",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Normalization corrupts valid Unix filenames containing backslashes",
+          "description": "On Unix-like systems, a backslash is a valid filename character rather than a directory separator. \u0060GetRelativePath\u0060 can therefore return a path such as \u0060a\\b\u0060, but the unconditional replacement converts it to \u0060a/b\u0060, changing its meaning to a nested path. Passing the normalized value back to \u0060ResolveFile\u0060 can consequently address a different file or fail to find the original one.",
+          "recommendation": "Define an explicit repository-path syntax and handle it consistently. If API paths always use \u0060/\u0060, reject platform-native filenames containing backslashes on Unix or encode them unambiguously; otherwise only replace \u0060Path.DirectorySeparatorChar\u0060 when it is actually a separator on the current platform.",
+          "evidence": null,
+          "fingerprint": "sha256:eff45baec9ef1d58aa8c0f8684d45b311d6e6e20717483fe68242f5df813fda1",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+              "startLine": 45,
+              "startColumn": 16,
+              "endLine": 45,
+              "endColumn": 70
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-9c1ad9ab3598b7732a006067f039e0dee6d6f6cb06c2dc03ce4abac65e68d218",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "low",
+          "state": "open",
+          "title": "Invalid metadata shapes produce opaque exceptions",
+          "description": "\u0060JsonNode.Parse\u0060 may return null for JSON \u0060null\u0060, and \u0060AsObject\u0060 throws when the document root is not an object. The null-forgiving operator hides the former possibility from static analysis, while neither failure identifies the requested path or affected document, making corrupted metadata difficult to diagnose.",
+          "recommendation": "Validate that parsing produced a \u0060JsonObject\u0060 and throw a contextual \u0060InvalidDataException\u0060 that includes the normalized metadata path and document index. Preserve the original exception as the inner exception where applicable.",
+          "evidence": null,
+          "fingerprint": "sha256:9c1ad9ab3598b7732a006067f039e0dee6d6f6cb06c2dc03ce4abac65e68d218",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+              "startLine": 79,
+              "startColumn": 13,
+              "endLine": 81,
+              "endColumn": 49
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-42d628b0979679c00c3e3373dee2c06e9a20927e8746f129f80accfb50fbbe22",
+          "ruleId": "built-in:code",
+          "aspect": "testability",
+          "severity": "low",
+          "state": "open",
+          "title": "Physical filesystem and concrete index dependencies impede isolated testing",
+          "description": "The constructor immediately resolves and probes the physical filesystem, while metadata behavior depends on the concrete \u0060ReviewMetaIndex\u0060 type. Tests must therefore create real directories and use the concrete index even when exercising normalization or projection logic.",
+          "recommendation": "Inject narrow abstractions for filesystem operations and metadata lookup, or separate pure path-normalization and projection logic from the filesystem-backed adapter. Keep production implementations as constructor defaults or composition-root dependencies.",
+          "evidence": null,
+          "fingerprint": "sha256:42d628b0979679c00c3e3373dee2c06e9a20927e8746f129f80accfb50fbbe22",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+              "startLine": 10,
+              "startColumn": 5,
+              "endLine": 20,
+              "endColumn": 10
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/a9fcf78b11fdaa212a458c901d7bf57633ee5a392dcd9b5c7ee283943418196c",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.8527f236bac4a209b85d46d21166f63f1f616d1be9ce7d8bd73326f43194b656.review-meta.code.json",
+      "sidecarSha256": "sha256:ff9e16d138b3a389a39702e094f2a8e20480658828ba40b4ee382a606e6a7ae3",
+      "capturedAt": "2026-09-01T08:07:07.2570843+00:00",
+      "reviewedHash": "c02abf5060b8de3b91b1157353315e50603d07ca98aa6b8d06f64850de9e5af1",
+      "providerRunId": "quality-534de583f5524a858390311fca70e208",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The options are concise and use sensible type defaults, but several operationally important values are accepted without local validation. The working-directory-dependent repository root and permissive security-mode default also make behavior sensitive to deployment configuration."
+      },
+      "summary": "The file is readable and straightforward, and the available .NET build analyzer reported no findings. Its main weaknesses are ambiguous path resolution, fail-open security configuration, and the lack of validation for bounded or structured settings. Test coverage is unknown.",
+      "findings": [
+        {
+          "id": "finding-4bab26dd221ef21757c2c3d517730ce7b50fa4bdec2a584faf2fa55d06872ad9",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Repository root depends on the process working directory",
+          "description": "Defaulting RepositoryRoot to \u0022.\u0022 makes the selected repository depend on the host process\u0027s current working directory. That directory can differ between local execution, tests, services, containers, and deployment tooling, so omitted configuration can silently target the wrong location.",
+          "recommendation": "Resolve a configured path against an explicit, stable base directory during startup, or require RepositoryRoot to be configured and validate that its normalized path exists and is permitted.",
+          "evidence": null,
+          "fingerprint": "sha256:4bab26dd221ef21757c2c3d517730ce7b50fa4bdec2a584faf2fa55d06872ad9",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+              "startLine": 7,
+              "startColumn": 36,
+              "endLine": 7,
+              "endColumn": 38
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-c0c006eacc415beac0cdd3736941f8b3b61185898a2e42ded92f8d21be62fac0",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Security mode defaults to the permissive local mode",
+          "description": "Mode defaults to LocalMode, so a missing or misspelled deployment setting can leave the application in local behavior. If local mode relaxes authentication or authorization, this is a fail-open production default. The unrestricted string property also permits unsupported values without making the valid states exhaustive.",
+          "recommendation": "Use an enum or another closed representation, validate the configured value at startup, and prefer a fail-closed hosted mode when the environment does not explicitly opt into local operation.",
+          "evidence": null,
+          "fingerprint": "sha256:c0c006eacc415beac0cdd3736941f8b3b61185898a2e42ded92f8d21be62fac0",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+              "startLine": 27,
+              "startColumn": 31,
+              "endLine": 27,
+              "endColumn": 39
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-7d8f024ca6b4132ee4eef572b2340cd7d9836b716e80acb9297a0d3e055a304a",
+          "ruleId": "built-in:code",
+          "aspect": "error_handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Operational and security limits accept invalid values",
+          "description": "The model allows zero or negative request sizes, concurrency limits, rate limits, input budgets, and token caps. It also permits incomplete clients, malformed credential hashes, duplicate client IDs, and null collection values through ordinary assignment. Invalid configuration may therefore fail later, disable controls accidentally, or cause inconsistent consumer behavior.",
+          "recommendation": "Add startup validation with IValidateOptions\u003CRepositoryOptions\u003E or equivalent. Enforce positive numeric limits, a positive token cap when present, recognized security modes, normalized paths, non-null collections, unique non-empty client IDs, valid SHA-256 encoding, and repository authorization entries with defined syntax.",
+          "evidence": null,
+          "fingerprint": "sha256:7d8f024ca6b4132ee4eef572b2340cd7d9836b716e80acb9297a0d3e055a304a",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+              "startLine": 15,
+              "startColumn": 16,
+              "endLine": 17,
+              "endColumn": 59
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+              "startLine": 27,
+              "startColumn": 5,
+              "endLine": 32,
+              "endColumn": 60
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+              "startLine": 37,
+              "startColumn": 5,
+              "endLine": 39,
+              "endColumn": 51
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-02f59b0d2c51dcd42fe4c233619c482b48f63ef6a73c6e294dfeb4b05d2c70ab",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "low",
+          "state": "open",
+          "title": "Configuration default is coupled to an orchestrator implementation type",
+          "description": "InputBudgetCharacters obtains its default through AgentOrchestrator.CodeQuality.InputResolver. This makes the API option contract depend on another component\u0027s implementation location and causes its effective default to change implicitly when that component changes.",
+          "recommendation": "Define the shared default in a neutral configuration-contract constant, or place an explicit API-owned default here and test that any orchestrator integration handles it consistently.",
+          "evidence": null,
+          "fingerprint": "sha256:02f59b0d2c51dcd42fe4c233619c482b48f63ef6a73c6e294dfeb4b05d2c70ab",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+              "startLine": 15,
+              "startColumn": 56,
+              "endLine": 15,
+              "endColumn": 116
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.9c7e726502fb0be694c08f2ada009af6a7244ae9e6135ec411b4ac2d837c2ff4.review-meta.code.json",
+      "sidecarSha256": "sha256:778f0d2dec9882513b0d141de8ed477c5b8413c9743d6bf763db40249a5b8513",
+      "capturedAt": "2026-09-01T08:10:15.2931474+00:00",
+      "reviewedHash": "1182470f90c57b4dc90555b6e9a31a2e9c5ddbcaa142d6e3398759b4e37a6894",
+      "providerRunId": "quality-152bdebd8c3044429912461d6d3b30ce",
+      "grade": {
+        "score": 73,
+        "band": "C",
+        "rationale": "The registry has clear domain modeling and path-confinement checks, but concurrent access, failed-persistence behavior, and incomplete validation of stored configuration can violate its core invariants."
+      },
+      "summary": "The main risks are unsynchronized reads of a mutable List, in-memory changes that survive failed persistence, and startup paths that bypass the comprehensive request validation. Filesystem work embedded in construction also makes failure handling and isolated testing harder.",
+      "findings": [
+        {
+          "id": "finding-ce34cc65b153372b3862f00b05a5e7058c460d31ef9292639f49b1633b3d5d1d",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Reads race with mutations of the repository list",
+          "description": "The semaphore protects writers only. List and Get enumerate the mutable List while CreateAsync, UpdateAsync, and ArchiveAsync can modify it concurrently. RepositoryRegistry is likely shared between requests, so readers can observe inconsistent state or receive InvalidOperationException while the list is being changed.",
+          "recommendation": "Publish an immutable snapshot after every successful update, or protect both reads and writes with an appropriate synchronization mechanism. Prefer replacing the complete snapshot atomically instead of mutating a shared List in place.",
+          "evidence": null,
+          "fingerprint": "sha256:ce34cc65b153372b3862f00b05a5e7058c460d31ef9292639f49b1633b3d5d1d",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 74,
+              "startColumn": 5,
+              "endLine": 78,
+              "endColumn": 19
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 80,
+              "startColumn": 5,
+              "endLine": 87,
+              "endColumn": 6
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 102,
+              "startColumn": 13,
+              "endLine": 103,
+              "endColumn": 49
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-2a61d9d69a36c4438e2457c2601c45e7fdfe7bf27b74f301978c1fd756bff075",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "high",
+          "state": "open",
+          "title": "Failed persistence leaves uncommitted state active in memory",
+          "description": "Each operation mutates entries before awaiting PersistAsync. If serialization, writing, cancellation, or the final move fails, the caller receives an error but the mutation remains visible in memory. A failed create can consequently block retries as a duplicate, and updates or archives can take effect until the process restarts even though they were never committed.",
+          "recommendation": "Build a candidate snapshot, persist that snapshot first, and publish it to entries only after persistence succeeds. Alternatively, restore the previous snapshot in a catch block, although immutable snapshot replacement is simpler and safer.",
+          "evidence": null,
+          "fingerprint": "sha256:2a61d9d69a36c4438e2457c2601c45e7fdfe7bf27b74f301978c1fd756bff075",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 102,
+              "startColumn": 13,
+              "endLine": 103,
+              "endColumn": 49
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 130,
+              "startColumn": 13,
+              "endLine": 131,
+              "endColumn": 49
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 163,
+              "startColumn": 13,
+              "endLine": 165,
+              "endColumn": 49
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-c3eaed0fabd8dfc9905b3601f8326f5eb2a40d3fd6a4f1ade49a6d687f3f2b51",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Seeded and persisted registrations bypass normal validation",
+          "description": "Request validation enforces IDs, Git repository presence, budgets, review kinds, sensors, and mutually exclusive caps, but startup validation checks only directory availability and confinement. Legacy values and hand-edited or older JSON can therefore introduce registrations that normal API requests cannot create, including duplicate IDs, invalid caps, unsupported kinds, or malformed sensor selections. Duplicate persisted sensor IDs can also fail earlier in ToDictionary with an uncontextualized ArgumentException.",
+          "recommendation": "Define one invariant-validation routine for RepositoryRegistration and apply it to API-created, seeded, migrated, and deserialized entries. Validate collection-wide ID uniqueness as well, and wrap malformed registry data in the contextual registry-read exception.",
+          "evidence": null,
+          "fingerprint": "sha256:c3eaed0fabd8dfc9905b3601f8326f5eb2a40d3fd6a4f1ade49a6d687f3f2b51",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 184,
+              "startColumn": 21,
+              "endLine": 189,
+              "endColumn": 36
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 201,
+              "startColumn": 9,
+              "endLine": 210,
+              "endColumn": 49
+            },
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 330,
+              "startColumn": 5,
+              "endLine": 342,
+              "endColumn": 6
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-7bd63ff3f1a5d8ecaf7c8605b70cf2105104ac22ccbe43e46b06b9f8044943db",
+          "ruleId": "built-in:code",
+          "aspect": "testability",
+          "severity": "low",
+          "state": "open",
+          "title": "Construction performs extensive concrete filesystem I/O",
+          "description": "Creating the registry resolves and probes directories, checks reparse traversal, reads or seeds the registry, creates directories, and may write a file. These constructor side effects make unit tests depend on a carefully constructed real filesystem and make read, write, and move failures difficult to inject deterministically.",
+          "recommendation": "Inject a registry persistence or filesystem abstraction and move loading/seeding into an explicit initialization operation or factory. This allows focused tests for validation, migration, atomic persistence, and failure recovery without relying on platform-specific filesystem behavior.",
+          "evidence": null,
+          "fingerprint": "sha256:7bd63ff3f1a5d8ecaf7c8605b70cf2105104ac22ccbe43e46b06b9f8044943db",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+              "startLine": 50,
+              "startColumn": 5,
+              "endLine": 69,
+              "endColumn": 32
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/8f46899dfcc9c8d0bba234596712d317b7f35eba1d895979aafd31374517ab52",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.a69af1fd25f7a417cbb0cbb92fa6bfbd33661b83b30f0a2e84bf20f3239c1d3b.review-meta.code.json",
+      "sidecarSha256": "sha256:717922b3f393dc92aafce92590f0729d19a5ca8eee55e3553c818e0591c99c04",
+      "capturedAt": "2026-09-01T08:09:49.4251039+00:00",
+      "reviewedHash": "94c1042618cc784727b5904a824c9847686fdd3f171bae2a5b3877a2dc929a1d",
+      "providerRunId": "quality-2603d5c7e47a42d881e85d13cbb1389d",
+      "grade": {
+        "score": 77,
+        "band": "C",
+        "rationale": "The implementation is compact and generally sound, but cancellation and exception handling can impair shutdown or terminate the background worker. The unbounded queue also lacks backpressure, and the asynchronous API is difficult to verify deterministically."
+      },
+      "summary": "The prewarmer correctly deduplicates queued registrations, keeps startup non-blocking, records timing information, and isolates ordinary per-repository failures. Its main weaknesses are incomplete cancellation propagation, overly broad treatment of OperationCanceledException, an unbounded backlog, and limited observability for callers and tests. The supplied .NET analyzer reported no findings; no coverage evidence was available.",
+      "findings": [
+        {
+          "id": "finding-5fdcaaa753ff735f1d575e671821a447bde2b03b2174274cfd3cac88b7372206",
+          "ruleId": "built-in:code",
+          "aspect": "error_handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Unrelated cancellation exceptions terminate the background worker",
+          "description": "The catch filter excludes every OperationCanceledException, not only cancellation caused by stoppingToken. If a dependency throws OperationCanceledException for any other reason, it escapes ExecuteAsync and permanently terminates the service; under the default BackgroundService exception behavior this may also stop the host.",
+          "recommendation": "Handle OperationCanceledException as expected shutdown only when stoppingToken.IsCancellationRequested. Log and isolate other cancellation exceptions in the same way as other per-registration failures.",
+          "evidence": null,
+          "fingerprint": "sha256:5fdcaaa753ff735f1d575e671821a447bde2b03b2174274cfd3cac88b7372206",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+              "startLine": 88,
+              "startColumn": 13,
+              "endLine": 88,
+              "endColumn": 14
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-b301f22c525b419aa8fc56756c3fe789598847a84ff6b3a68ccc72d80e29e3e9",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Stopping token cannot cancel a scan once it has started",
+          "description": "Passing stoppingToken to Task.Run only prevents the delegate from starting when cancellation has already occurred; it cannot interrupt GetMeasured after execution begins. A slow or blocked repository scan can therefore continue through shutdown and delay or outlive service termination.",
+          "recommendation": "Add cancellation support to GetMeasured and pass stoppingToken through the scanning operations. If that API cannot be changed, explicitly document and bound shutdown behavior rather than implying that Task.Run provides cooperative cancellation.",
+          "evidence": null,
+          "fingerprint": "sha256:b301f22c525b419aa8fc56756c3fe789598847a84ff6b3a68ccc72d80e29e3e9",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+              "startLine": 65,
+              "startColumn": 33,
+              "endLine": 69,
+              "endColumn": 70
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-f137749ca512e0d86a05292bce7bb101c5d87ebc4b05bbb5da3c07371054e8c9",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "low",
+          "state": "open",
+          "title": "Unbounded queue provides no backlog limit or backpressure",
+          "description": "Every distinct registration configuration can remain in both the channel and pending dictionary while the single consumer performs potentially expensive scans. A sustained producer or unusually large registry can cause unchecked memory growth and an increasingly stale backlog.",
+          "recommendation": "Use a bounded channel with an explicit full-queue policy, or otherwise impose a maximum backlog and expose/log rejected or coalesced requests.",
+          "evidence": null,
+          "fingerprint": "sha256:f137749ca512e0d86a05292bce7bb101c5d87ebc4b05bbb5da3c07371054e8c9",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+              "startLine": 12,
+              "startColumn": 62,
+              "endLine": 13,
+              "endColumn": 84
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-4e61080715e4a273ffe8220dd3ce531db51dbc28d0c4f3c07e10abaec9fec8c4",
+          "ruleId": "built-in:code",
+          "aspect": "testability",
+          "severity": "low",
+          "state": "open",
+          "title": "Queue callers cannot observe completion or failure",
+          "description": "Queue and QueueAll return immediately without a task, result, or idle signal. Callers and tests cannot deterministically know when a requested prewarm has completed or whether it failed, leaving them dependent on polling cache state or intercepting logs.",
+          "recommendation": "Provide an internal or public awaitable enqueue operation, completion handle, or drain/idle hook while retaining the fire-and-forget methods where appropriate.",
+          "evidence": null,
+          "fingerprint": "sha256:4e61080715e4a273ffe8220dd3ce531db51dbc28d0c4f3c07e10abaec9fec8c4",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+              "startLine": 36,
+              "startColumn": 5,
+              "endLine": 47,
+              "endColumn": 6
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/789c84668907f0d85c5d08e2d23e73b09fa7fdd709c0a354e8b33aad1377e941",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewJobs.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.13a72d97525ff664ccf9081867e06fd426c977bba1423eec5c868ac1ee736058.review-meta.code.json",
+      "sidecarSha256": "sha256:4346e60d34313be493fdc4e2ac172886d2f6b3789a1acf4c5e276053c9e2bd38",
+      "capturedAt": "2026-09-01T08:14:45.4360148+00:00",
+      "reviewedHash": "340f95a6dd3d8c106d8dde1689300a70036f16b653c871be4e2aae8c66439d18",
+      "providerRunId": "quality-2b11c607137a4423a6f0e88d5ac0c614",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "The service has a thoughtful durable-state model and useful executor abstraction, but concurrency races can fault the background worker or defeat pause semantics. Cap updates, unbounded resource retention, and hard-coded infrastructure also reduce reliability and testability."
+      },
+      "summary": "The principal risks are races between queue dispatch, cancellation, pause, and resume. A cancellation can make Start throw outside the worker\u0027s exception boundary, while concurrent Pause and Resume can dispose a cancellation source immediately before it is cancelled. Paused runs also ignore replacement caps. Run admission and retained history are unbounded, and several directly constructed/static dependencies make deterministic unit testing difficult. Test coverage is unknown because no coverage evidence was supplied.",
+      "findings": [
+        {
+          "id": "finding-d1552e907906457f431543b97f0da6fd867d754fa78d710ccbb69bedf083ea92",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "high",
+          "state": "open",
+          "title": "A cancellation race can permanently fault the queue worker",
+          "description": "ExecuteAsync checks that an item is queued and then calls RunAsync without reserving that state atomically. Cancel or Pause can change the state after the check but before item.Start(). Start then throws InvalidOperationException. Because Start is executed before RunAsync\u0027s try block, the exception escapes ExecuteAsync and faults the BackgroundService; depending on host policy, subsequent reviews will stop processing or the host may terminate.",
+          "recommendation": "Move Start into the protected execution block and make dequeue-to-running an atomic, non-throwing transition such as TryStart. Treat a failed transition as a skipped stale queue entry so concurrent control requests cannot terminate the worker.",
+          "evidence": null,
+          "fingerprint": "sha256:d1552e907906457f431543b97f0da6fd867d754fa78d710ccbb69bedf083ea92",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 392,
+              "startColumn": 14,
+              "endLine": 393,
+              "endColumn": 54
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 448,
+              "startColumn": 9,
+              "endLine": 448,
+              "endColumn": 40
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-3f48c7ebb3fa3c66f2f6a426204a71311d194c43baf3a866f49c4377833880c9",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Concurrent Pause and Resume can dispose the token source before Pause cancels it",
+          "description": "Pause captures attemptCancellation under the lock but invokes Cancel after releasing the lock. Resume can acquire the lock in between, dispose that same source, and replace it. Pause then calls Cancel on the disposed source, producing ObjectDisposedException and potentially leaving the active attempt uncancelled even though its state was changed to paused or queued.",
+          "recommendation": "Do not dispose a cancellation source while another operation may still use it. Cancel the captured source before exposing the paused state for resume, or introduce an attempt object with explicit ownership whose source is disposed only after EndAttempt confirms that the attempt has finished.",
+          "evidence": null,
+          "fingerprint": "sha256:3f48c7ebb3fa3c66f2f6a426204a71311d194c43baf3a866f49c4377833880c9",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 973,
+              "startColumn": 13,
+              "endLine": 975,
+              "endColumn": 14
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 999,
+              "startColumn": 17,
+              "endLine": 999,
+              "endColumn": 18
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-9e4bc34021d460f8b4d22363fa7e4920f07d3664d56572789a7c8300c99e80b4",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Replacement caps are silently ignored when resuming a paused run",
+          "description": "Resume accepts newTokenCap and newCostCap for both paused and capped states, but validation and assignment occur only inside the state == \u0022capped\u0022 branch. A client resuming a paused run with a replacement cap receives a successful response while the old cap remains in effect.",
+          "recommendation": "Either apply and validate supplied caps for paused runs as well, or reject cap fields for paused runs and reflect that restriction in the request/API contract. Share cap validation with ResolveCap to avoid divergent rules.",
+          "evidence": null,
+          "fingerprint": "sha256:9e4bc34021d460f8b4d22363fa7e4920f07d3664d56572789a7c8300c99e80b4",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 984,
+              "startColumn": 17,
+              "endLine": 998,
+              "endColumn": 17
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-247889b4c7b14e5434994a05a6496a44f2a8b519cac1985ed2c263d5eefe8958",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "medium",
+          "state": "open",
+          "title": "Queued and retained run counts are unbounded",
+          "description": "The work channel is unbounded, and every newly created or recovered run\u2014including terminal runs\u2014is retained indefinitely in the runs dictionary. RecentRunLimit only limits the result returned by List; it does not evict entries. Sustained submissions and long-lived repositories can therefore grow queue and process memory without limit, while the unbounded channel provides no admission backpressure.",
+          "recommendation": "Use a bounded channel with an explicit overload response, and evict terminal runs from the in-memory dictionary according to a documented retention policy. Historical Get/List operations can fall back to the durable store when an entry is no longer resident.",
+          "evidence": null,
+          "fingerprint": "sha256:247889b4c7b14e5434994a05a6496a44f2a8b519cac1985ed2c263d5eefe8958",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 124,
+              "startColumn": 5,
+              "endLine": 126,
+              "endColumn": 84
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 348,
+              "startColumn": 1,
+              "endLine": 350,
+              "endColumn": 106
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-5e20f245a33d30aaa5810c83d8c3997c4b0bd4a48b92bc142a166b1d62a016f1",
+          "ruleId": "built-in:code",
+          "aspect": "testability",
+          "severity": "low",
+          "state": "open",
+          "title": "Core orchestration paths bypass injectable dependencies",
+          "description": "The service directly creates ReviewRunStore, ReviewRunner, and DeterministicEvidenceCollector and calls the static UsageLedger and default price catalog. Tests of estimates, recovery, evidence failures, pricing, persistence failures, and time-sensitive state transitions therefore require real infrastructure or difficult global setup despite the existing executor abstraction.",
+          "recommendation": "Introduce focused abstractions for run storage, prompt estimation and usage history, evidence collection, pricing, and time. Inject them into ReviewJobService so state-machine tests can deterministically simulate persistence failures, cancellation timing, and pricing outcomes.",
+          "evidence": null,
+          "fingerprint": "sha256:5e20f245a33d30aaa5810c83d8c3997c4b0bd4a48b92bc142a166b1d62a016f1",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 205,
+              "startColumn": 9,
+              "endLine": 205,
+              "endColumn": 71
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 264,
+              "startColumn": 6,
+              "endLine": 264,
+              "endColumn": 6
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 279,
+              "startColumn": 1,
+              "endLine": 280,
+              "endColumn": 76
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewJobs.cs",
+              "startLine": 455,
+              "startColumn": 10,
+              "endLine": 463,
+              "endColumn": 34
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/45493d86cea731bb0d9ee3f95a7e17a120ab4b9b232c29deec6112f18a5e1203",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.aac1b371ac3463eb8ed47f65bae3df125f256e9df0f876ab143e0bbbdd29582b.review-meta.code.json",
+      "sidecarSha256": "sha256:8fc92aedf9e8bf74e46dbaa7d2b7792ece9c99ad0500d25d5b23662a162a33b0",
+      "capturedAt": "2026-09-01T08:11:35.5918937+00:00",
+      "reviewedHash": "0725c8438ec53ba798de0dffaf497ecb001d18cbeba66ee99b15b0be86013054",
+      "providerRunId": "quality-d63dc92b04cd477384f4becacd61f807",
+      "grade": {
+        "score": 64,
+        "band": "D",
+        "rationale": "The implementation is compact and uses confinement checks and locking appropriately, but several lifecycle and filesystem-event edge cases can leave the index stale, miss files, leak watchers, or propagate exceptions from structurally invalid JSON."
+      },
+      "summary": "The primary risks are unsafe handling of valid JSON with unexpected shapes, retention of obsolete entries after failed updates, races during initialization and concurrent cache creation, and lack of recovery after watcher event loss. Build analysis reported no findings; test coverage is unknown.",
+      "findings": [
+        {
+          "id": "finding-2841248c5e03c8b477b166a19fca2bc69d54506772bc094a4517146b8b18d609",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "high",
+          "state": "open",
+          "title": "Valid JSON with an unexpected shape can escape update handling",
+          "description": "JsonElement.TryGetProperty throws InvalidOperationException when invoked on a non-object value. A sidecar whose root is an array or whose \u0060unit\u0060 value is not an object therefore escapes the current catch filter. During initial enumeration this aborts construction; from a watcher callback it becomes an unhandled event-handler exception instead of merely leaving the sidecar unindexed.",
+          "recommendation": "Check \u0060ValueKind == JsonValueKind.Object\u0060 before each property lookup and treat shape mismatches as invalid metadata. As a defensive boundary, ensure watcher callbacks cannot propagate parsing or validation exceptions.",
+          "evidence": null,
+          "fingerprint": "sha256:2841248c5e03c8b477b166a19fca2bc69d54506772bc094a4517146b8b18d609",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 96,
+              "startColumn": 21,
+              "endLine": 98,
+              "endColumn": 75
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 109,
+              "startColumn": 13,
+              "endLine": 109,
+              "endColumn": 126
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-91d30c565f8d4912f7aa96ba07a8d79f61e20245eeec2370d25288ec8f75407e",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Invalid replacements leave previously indexed metadata active",
+          "description": "Every validation failure and every caught read or parse failure returns without changing \u0060documents\u0060. If an existing valid sidecar is overwritten with permanently malformed or invalid content, its old payload remains returned by \u0060Read\u0060; \u0060Find\u0060 also returns it because the file still exists. This contradicts the comment that malformed sidecars stay unindexed.",
+          "recommendation": "Distinguish transient read failures from successfully read but invalid content. Remove the existing entry when validation conclusively fails, and use a bounded retry or debounce strategy for transient filesystem races so a failed notification cannot leave stale data indefinitely.",
+          "evidence": null,
+          "fingerprint": "sha256:91d30c565f8d4912f7aa96ba07a8d79f61e20245eeec2370d25288ec8f75407e",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 96,
+              "startColumn": 17,
+              "endLine": 100,
+              "endColumn": 112
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 109,
+              "startColumn": 13,
+              "endLine": 113,
+              "endColumn": 13
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-154f7b3aef79e25ac4a988a2d7238c221875b8e5a9761b3f50170f6d867d4806",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Files can be missed between the initial scan and watcher activation",
+          "description": "The repository is fully enumerated before the FileSystemWatcher is constructed and enabled. A qualifying file created after enumeration passes its directory but before events are enabled is neither indexed by the scan nor reported by the watcher, and can remain absent until another filesystem change occurs.",
+          "recommendation": "Establish the watcher before scanning and reconcile with a second scan after event capture begins, or otherwise buffer events and perform an atomic scan-and-subscribe sequence with deduplication.",
+          "evidence": null,
+          "fingerprint": "sha256:154f7b3aef79e25ac4a988a2d7238c221875b8e5a9761b3f50170f6d867d4806",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 42,
+              "startColumn": 13,
+              "endLine": 50,
+              "endColumn": 43
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-440c96ca4908c85b27e11bd05301d180ba80e126553abd9e6107645033114c2a",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "medium",
+          "state": "open",
+          "title": "Concurrent first access can create undisposed repository indexes",
+          "description": "ConcurrentDictionary.GetOrAdd may invoke its value factory more than once for the same key. Each factory invocation constructs and enables a FileSystemWatcher, but only one RepositoryIndex is stored; discarded instances are never disposed and can continue receiving events until collected.",
+          "recommendation": "Store \u0060Lazy\u003CRepositoryIndex\u003E\u0060 values with execution-and-publication semantics, or serialize repository creation and explicitly dispose any candidate that loses the insertion race.",
+          "evidence": null,
+          "fingerprint": "sha256:440c96ca4908c85b27e11bd05301d180ba80e126553abd9e6107645033114c2a",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 24,
+              "startColumn": 49,
+              "endLine": 24,
+              "endColumn": 117
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-dcb6377d5e79b2ce837e1afe3218e25f455b4a63cef75ed1efa569d242325a2a",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Watcher event loss is not detected or reconciled",
+          "description": "FileSystemWatcher can report errors, including internal buffer overflow, after which one or more changes may have been lost. No \u0060Error\u0060 handler or periodic reconciliation exists, so the in-memory index can silently diverge from disk for the remainder of its lifetime.",
+          "recommendation": "Handle the watcher\u0027s \u0060Error\u0060 event and rebuild or reconcile the repository index. Keep rebuilding synchronized with normal event processing, and consider exposing diagnostics when recovery fails.",
+          "evidence": null,
+          "fingerprint": "sha256:dcb6377d5e79b2ce837e1afe3218e25f455b4a63cef75ed1efa569d242325a2a",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 46,
+              "startColumn": 13,
+              "endLine": 59,
+              "endColumn": 14
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-d5e347a7105e292364120906a2a580059aa52999b4588bf5a5f1b8e145208f6c",
+          "ruleId": "built-in:code",
+          "aspect": "testability",
+          "severity": "low",
+          "state": "open",
+          "title": "Filesystem monitoring behavior cannot be tested deterministically",
+          "description": "RepositoryIndex directly enumerates files, reads content, checks existence, and constructs a live FileSystemWatcher in its constructor. Tests must depend on timing-sensitive real filesystem events, making missed-event, retry, overflow, and disposal scenarios difficult to reproduce reliably.",
+          "recommendation": "Separate synchronous scanning and document parsing from event monitoring, and inject small filesystem and watcher abstractions or factories. This permits deterministic tests for event ordering, failures, overflow recovery, and disposal without changing production behavior.",
+          "evidence": null,
+          "fingerprint": "sha256:d5e347a7105e292364120906a2a580059aa52999b4588bf5a5f1b8e145208f6c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+              "startLine": 39,
+              "startColumn": 9,
+              "endLine": 60,
+              "endColumn": 9
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/362fa00588dd89ccf39617809efc280d868d6fc215351eb49f8dad20b8618931",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.55491c93f3cb0137fe7cc39152ce5ba005b59b7e78e16c7ddda2a6d4a0cff296.review-meta.code.json",
+      "sidecarSha256": "sha256:b90de5875af5ffca62620dfedaf2460867e85315eddf69065c6265f365f50224",
+      "capturedAt": "2026-09-01T08:14:58.6806546+00:00",
+      "reviewedHash": "5ac7b10836bdb156b0f5d4c2748c9c36afa1e527236dad8e523eb5885a1578f1",
+      "providerRunId": "quality-76eb4171748e47eca0935c9423503947",
+      "grade": {
+        "score": 67,
+        "band": "D",
+        "rationale": "The implementation is readable and uses create-only files and durable flushes thoughtfully, but archive correctness is undermined by globally duplicate run IDs, unsafe dot-segment IDs, failure under concurrent appends, and brittle recovery from interrupted writes. The available .NET build analyzer reported no findings; test coverage is unknown."
+      },
+      "summary": "The archive model and serialization layout are clear, but the store does not fully enforce its identity and append-only guarantees. Duplicate run IDs can be created in different month directories, special run IDs can escape the intended per-run layout, concurrent writers receive sharing violations, and one interrupted append can make an entire JSONL stream unreadable. Schema versions are emitted but not validated when loading, and attempt ordering fails beyond four digits.",
+      "findings": [
+        {
+          "id": "finding-46d5718bcc7e9365454ac4ff44f1a089e02f8e5d1940cbeb49814bebb0ce04ae",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "A run ID can be created more than once in different months",
+          "description": "CreateRun derives the destination solely from CreatedAt and never checks whether the same RunId already exists elsewhere in the archive. Creating an existing ID with a different month therefore succeeds. Later lookups select the first matching month in ordinal order, so operations and attempts may be written to a different run than the newly created record.",
+          "recommendation": "Before creating a run, perform a global ID lookup and reject any existing match. For race-safe cross-process behavior, maintain an atomic ID index or otherwise reserve the run ID independently of its month partition.",
+          "evidence": null,
+          "fingerprint": "sha256:46d5718bcc7e9365454ac4ff44f1a089e02f8e5d1940cbeb49814bebb0ce04ae",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 307,
+              "startColumn": 25,
+              "endLine": 307,
+              "endColumn": 66
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-6ac9c741c1e497427582ed13be627d6bc0b87f2108f066cebdefd41642ba9a13",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Dot-segment run IDs bypass the per-run directory boundary",
+          "description": "The basename and separator checks accept values such as \u0022.\u0022 and \u0022..\u0022. Path.Combine then resolves those values to the month directory or archive root rather than a dedicated run directory, allowing files for such a run to pollute archive structural directories and causing misleading lookup results.",
+          "recommendation": "Reject \u0022.\u0022 and \u0022..\u0022 explicitly, reject invalid or reserved filename forms for the supported platforms, and verify that the normalized candidate remains an immediate child of the intended month directory.",
+          "evidence": null,
+          "fingerprint": "sha256:6ac9c741c1e497427582ed13be627d6bc0b87f2108f066cebdefd41642ba9a13",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 403,
+              "startColumn": 35,
+              "endLine": 403,
+              "endColumn": 57
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-840da2fef4de579a6fbd1ec20ff91167e3fc8317fa5b5d2a32563f374e89b4f0",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Concurrent append operations fail with sharing violations",
+          "description": "AppendLine opens the JSONL file for read/write while granting only FileShare.Read. A second operation or finding append that overlaps the first cannot open the file for writing and will throw IOException. This is especially problematic for a review runner that may complete operations in parallel, because observations are not reliably appendable under normal concurrency.",
+          "recommendation": "Serialize appends per archive file and add an appropriate cross-process locking strategy if multiple processes are supported. Keep each record append inside the lock and define bounded retry behavior for transient sharing violations.",
+          "evidence": null,
+          "fingerprint": "sha256:840da2fef4de579a6fbd1ec20ff91167e3fc8317fa5b5d2a32563f374e89b4f0",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 421,
+              "startColumn": 94,
+              "endLine": 421,
+              "endColumn": 107
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-f51de1205b657ec36a717f1c5b7f91d08464af25bcda6a1e87f64f02ea9eea31",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "An interrupted final append makes the complete JSONL stream unreadable",
+          "description": "WriteThrough and Flush improve durability but do not make a record append indivisible. A crash or disk failure can leave a truncated final line. LoadLines then attempts to deserialize that line and throws, preventing callers from retrieving all earlier valid observations.",
+          "recommendation": "Detect an unterminated or malformed trailing record and recover the valid prefix while reporting the damaged tail. Consider length framing or checksums if stronger corruption detection is required, and include the file path and record number in reported errors.",
+          "evidence": null,
+          "fingerprint": "sha256:f51de1205b657ec36a717f1c5b7f91d08464af25bcda6a1e87f64f02ea9eea31",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 424,
+              "startColumn": 9,
+              "endLine": 424,
+              "endColumn": 27
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-82191c4d54562ff2399a8e23e32e2de3b49a217fdc7439a4a1ddb03b41d66b58",
+          "ruleId": "built-in:code",
+          "aspect": "maintainability",
+          "severity": "medium",
+          "state": "open",
+          "title": "Archive schema identifiers and versions are not validated when reading",
+          "description": "Deserialize accepts records with any $schema or SchemaVersion value. Consequently, a future or unrelated schema can be materialized as the current type and interpreted with current semantics, defeating the compatibility boundary implied by the versioned archive records.",
+          "recommendation": "After deserialization, validate the expected schema ID and supported version for each record type and throw a contextual compatibility exception for unknown versions. Add explicit migration handling if older versions must remain readable.",
+          "evidence": null,
+          "fingerprint": "sha256:82191c4d54562ff2399a8e23e32e2de3b49a217fdc7439a4a1ddb03b41d66b58",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 275,
+              "startColumn": 9,
+              "endLine": 275,
+              "endColumn": 52
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-56cdbe09210e631818b874d166d693a166450fd7f4fa100fd13d839f1fb460f1",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "low",
+          "state": "open",
+          "title": "Lexical filename sorting misorders attempts after 9999",
+          "description": "Attempt filenames use a minimum width of four digits, but LoadAttempts sorts them lexically. Attempt 10000 therefore sorts before portions of the four-digit sequence rather than after attempt 9999.",
+          "recommendation": "Sort loaded records by their numeric Attempt property, parse the numeric filename for ordering, or enforce a documented maximum that cannot exceed the filename width.",
+          "evidence": null,
+          "fingerprint": "sha256:56cdbe09210e631818b874d166d693a166450fd7f4fa100fd13d839f1fb460f1",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunArchive.cs",
+              "startLine": 353,
+              "startColumn": 13,
+              "endLine": 353,
+              "endColumn": 58
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/2851f3761a56d9405c0f4eb443f0df9661b75bd5661b0beccf40c8ffebf7cd83",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.b28e3e6049c451c6257b010900fece08e78563ae47d22dc4964b0b015072b11c.review-meta.code.json",
+      "sidecarSha256": "sha256:51714f87074c7b40bba00566fbb7a245196315b1c13d6d9b0190d8915e8b3f51",
+      "capturedAt": "2026-09-01T08:16:41.844524+00:00",
+      "reviewedHash": "405e7ea0049dab40b2a9ebf34983523b3bc3214c8b6a5d105e04a3633448e2c7",
+      "providerRunId": "quality-8b777ce774414aee880d2df2ca0df235",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "The implementation is readable and uses atomic replacement for individual snapshot files, but it has a path-containment flaw, unsafe concurrent persistence, and failure modes that can silently lose or strand run data."
+      },
+      "summary": "Four substantive issues were identified: dot-segment run IDs can escape the intended run directory, concurrent operation writes can fail or lose observations, creation is not recoverable after partial failure, and malformed progress records are silently discarded regardless of position. Build analysis reported no findings; test coverage is unknown.",
+      "findings": [
+        {
+          "id": "finding-7e1505246e08cb2f7a38f1a5e12afc44d1763d39f7398792ca56c854ff21437c",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Dot-segment run IDs escape the runs directory",
+          "description": "The validation rejects directory separators but permits \u0060.\u0060 and \u0060..\u0060 because each can equal its own \u0060Path.GetFileName\u0060 result. \u0060Path.Combine(runsPath, \u0022..\u0022)\u0060 resolves operations into the parent \u0060.quality\u0060 directory, while \u0060.\u0060 targets the runs root itself. Consequently, status and result writes can overwrite fixed-name files outside the intended per-run directory.",
+          "recommendation": "Resolve the candidate directory with \u0060Path.GetFullPath\u0060, verify that it is a strict child of the canonical runs path using the platform-appropriate comparison, and explicitly reject \u0060.\u0060 and \u0060..\u0060. Prefer additionally restricting run IDs to a documented safe character set.",
+          "evidence": null,
+          "fingerprint": "sha256:7e1505246e08cb2f7a38f1a5e12afc44d1763d39f7398792ca56c854ff21437c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+              "startLine": 327,
+              "startColumn": 9,
+              "endLine": 330,
+              "endColumn": 45
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-79ca85b2737e38af0057dd40e09135c1298b4d157ac3316b632dd7138072631c",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "high",
+          "state": "open",
+          "title": "Concurrent operation writes can fail or lose persisted state",
+          "description": "\u0060AppendProgress\u0060 opens the shared JSONL file without write sharing, so simultaneous callers can receive sharing violations. \u0060WriteObservation\u0060 performs an unsynchronized read-modify-replace sequence; two writers can read the same snapshot and each replace it, causing the later replacement to discard the other operation\u0027s observation. Atomic replacement prevents torn files but does not prevent lost updates.",
+          "recommendation": "Serialize all writes for a run using a per-run lock or a single writer. Alternatively, store each observation in its own create-or-replace file and use an append strategy with explicit interprocess synchronization for progress. Document whether synchronization must work across both threads and processes, then test that contract.",
+          "evidence": null,
+          "fingerprint": "sha256:79ca85b2737e38af0057dd40e09135c1298b4d157ac3316b632dd7138072631c",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+              "startLine": 155,
+              "startColumn": 9,
+              "endLine": 168,
+              "endColumn": 40
+            },
+            {
+              "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+              "startLine": 242,
+              "startColumn": 9,
+              "endLine": 247,
+              "endColumn": 103
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-d23bac84d62b90687adec03bed8c55b11886220be1ac514076283e1fa993aa46",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Interrupted creation leaves a run that cannot be retried",
+          "description": "Creation exposes the run directory and writes the manifest, queued transitions, status, and result as separate operations. A crash or I/O failure after the create-only manifest write can leave an incomplete run that \u0060LoadAll\u0060 skips. Retrying \u0060Create\u0060 with the same run ID then fails because \u0060manifest.json\u0060 already exists, so the API provides no way to complete or cleanly recover that run.",
+          "recommendation": "Stage the complete initial run in a uniquely named sibling directory and atomically rename it into place after all required files are durable. If that is not feasible, implement an explicit idempotent recovery protocol that validates and completes an existing partial run.",
+          "evidence": null,
+          "fingerprint": "sha256:d23bac84d62b90687adec03bed8c55b11886220be1ac514076283e1fa993aa46",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+              "startLine": 138,
+              "startColumn": 9,
+              "endLine": 146,
+              "endColumn": 39
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        },
+        {
+          "id": "finding-46f42d612fed82a0cf1cb0e8ef769bbf410acf2baa67a6b9294dee4b4365c6db",
+          "ruleId": "built-in:code",
+          "aspect": "error-handling",
+          "severity": "medium",
+          "state": "open",
+          "title": "Malformed progress records are silently discarded anywhere in the log",
+          "description": "Every \u0060JsonException\u0060 is ignored, although the comment describes recovery only for an incomplete final record. Corruption or incompatible data in the middle of the file is therefore treated as an absent transition, potentially producing an inaccurate reconstructed run without invoking the supplied failure callback.",
+          "recommendation": "Determine the last non-empty record and tolerate malformed JSON only there when it is plausibly truncated. Treat malformed earlier records as invalid data, or return/report a structured warning so callers know the reconstructed progress is incomplete.",
+          "evidence": null,
+          "fingerprint": "sha256:46f42d612fed82a0cf1cb0e8ef769bbf410acf2baa67a6b9294dee4b4365c6db",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+              "startLine": 291,
+              "startColumn": 9,
+              "endLine": 305,
+              "endColumn": 10
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/0b38d4b5976e6e45b08f39272f89b7f6e652347358366ea9cbb6ed5fa4726bb0",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ScopeRules.cs",
+      "outcome": "done",
+      "producedByRun": true,
+      "sidecarPath": "src/QualityStudio.Api/.quality/reviews/files/file.756cda275f1ad2694894ca7ab6b3abe23f253f953f8347630ee0eea8d2a4a320.review-meta.code.json",
+      "sidecarSha256": "sha256:3f584f48a746c896fc0e134adc6a6641b00edbec0d178ff03bb1045c1dac6435",
+      "capturedAt": "2026-09-01T08:15:43.7747782+00:00",
+      "reviewedHash": "a2c9415aa1b6b125bf1b2a23ff39867790a4cce32c9f5b14912256c179d3038e",
+      "providerRunId": "quality-8c52a516b67c42a5a28802670cdb0e22",
+      "grade": {
+        "score": 87,
+        "band": "B",
+        "rationale": "The file defines concise, immutable API contracts with clear nullability and no evident compilation issues. Its main weakness is that the mutation request represents constrained domain input as unrestricted strings, allowing invalid states unless every entry point performs separate validation."
+      },
+      "summary": "The response models are straightforward and maintainable. Strengthen the mutation boundary by validating or constraining Action and Pattern; test coverage remains unknown because no coverage evidence was supplied.",
+      "findings": [
+        {
+          "id": "finding-0e04253323fd3d06316db26f8c819d5eeec977b956ca5dbfd2b4997ae02acdc1",
+          "ruleId": "built-in:code",
+          "aspect": "correctness",
+          "severity": "medium",
+          "state": "open",
+          "title": "Mutation requests admit invalid action and pattern values",
+          "description": "Action and Pattern are unrestricted strings, so callers can construct requests containing an unsupported or misspelled action, an empty action, or a blank pattern. Nullable annotations do not enforce non-null or non-blank values at runtime, particularly at an HTTP deserialization boundary. Unless identical validation is applied at every consumer, invalid states can reach rule-processing logic and produce inconsistent failures.",
+          "recommendation": "Define the supported action vocabulary with a validated enum or domain value type, and enforce non-null, non-whitespace pattern validation at the request boundary. If wire compatibility requires strings, add explicit request validation that returns a clear client error and centralize it so all mutation paths use the same rules.",
+          "evidence": null,
+          "fingerprint": "sha256:0e04253323fd3d06316db26f8c819d5eeec977b956ca5dbfd2b4997ae02acdc1",
+          "locations": [
+            {
+              "path": "src/QualityStudio.Api/ScopeRules.cs",
+              "startLine": 4,
+              "startColumn": 5,
+              "endLine": 5,
+              "endColumn": 19
+            }
+          ],
+          "source": "agent",
+          "sensorId": null,
+          "producer": null
+        }
+      ]
+    },
+    {
+      "unitId": "qs-v1/dotnet/module/28eef59717f710ae0291774a9c197d33f1ed9ecfae63cb6678173ab0b592bf3e",
+      "level": "module",
+      "path": "src/QualityStudio.Api/QualityStudio.Api.csproj",
+      "outcome": "failed",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    }
+  ],
+  "delta": {
+    "status": "unavailable",
+    "priorRunId": null,
+    "reason": "Partial runs are not comparable.",
+    "new": [],
+    "persisting": [],
+    "resolved": [],
+    "stateChanged": []
+  },
+  "summary": {
+    "score": null,
+    "grade": null,
+    "findings": {
+      "total": 66,
+      "bySeverity": {
+        "critical": 0,
+        "high": 16,
+        "medium": 34,
+        "low": 16,
+        "info": 0
+      },
+      "byState": {
+        "open": 66,
+        "accepted": 0,
+        "waived": 0,
+        "false-positive": 0,
+        "resolved": 0
+      }
+    },
+    "highestSeverity": "high",
+    "partialReason": "Run ended in state failed."
+  }
+}

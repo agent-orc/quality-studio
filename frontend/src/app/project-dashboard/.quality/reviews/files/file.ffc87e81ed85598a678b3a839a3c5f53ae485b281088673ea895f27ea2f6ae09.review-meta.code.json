@@ -1,0 +1,284 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/5a3b09b98afb00797c5de51026bdebb396d0e56a5357eb223a699d1ed1f73c53",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+    "displayName": "project-dashboard.html"
+  },
+  "reviewedAt": "2026-09-01T10:06:52.4572970Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-0a5796a3284443dc8adb14f727d79822",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 19215,
+      "outputTokens": 4567,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 3624,
+      "durationMs": 140044
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "56ba4f11d11185a93e91b4140358066e33149e949ee82e3dac5523de69802623"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+      "selector": "file",
+      "contentHash": "sha256:df509a5cd85380e65e6965f563a0a0f4acdbc1c69dac647146dd3243acfd81ee"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 85,
+    "band": "B",
+    "rationale": "The template presents comprehensive loading, stale-data, empty, and failure states and uses clear repository-focused sections. Its main weaknesses are an ambiguous tracking key that can break list reconciliation and incomplete ARIA table semantics that obscure hotspot navigation for assistive technologies."
+  },
+  "summary": "A solid dashboard template with two substantive correctness issues. The repository dependency loop can generate duplicate Angular tracking keys, while the hotspots table combines table and button semantics in a way that does not expose valid cells or actionable rows to assistive technology. The supplied build analyzer reported no findings; ESLint evidence was unavailable because its dependency was missing, so it provides no additional assurance. Test coverage remains unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Most bindings and conditional states are coherent, but dependency-edge identity is not guaranteed to be unique and the hotspot table has invalid/incomplete accessibility semantics."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "The sections and view states are logically organized, though dense inline markup and an ad hoc composite tracking expression make future changes more fragile."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 87,
+        "band": "B",
+        "rationale": "Labels, headings, status messages, and empty-state copy are generally clear. Hotspot rows are visually understandable but their action semantics are unclear to assistive technologies."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 90,
+        "band": "A",
+        "rationale": "The template distinguishes initial loading, background refresh, retained stale data, empty results, and terminal failure, and it exposes a retry action."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Explicit state branches and deterministic list rendering are readily testable, but collision behavior and accessibility semantics require focused template tests. No coverage evidence was supplied, so coverage is treated as unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-d2d8d8a6643e14106c2e566c234cb8da36b83de2580633f26f551967450900e7",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Concatenated dependency paths are not a unique tracking key",
+      "description": "The loop tracks each edge using \u0060edge.sourcePath \u002B edge.targetPath\u0060. Distinct pairs can produce the same string\u2014for example, \u0060ab\u0060\u2192\u0060c\u0060 and \u0060a\u0060\u2192\u0060bc\u0060\u2014causing duplicate Angular tracking keys and potentially incorrect DOM reuse or a runtime duplicate-key diagnostic.",
+      "recommendation": "Track a guaranteed unique edge identifier. If none exists, add one to the view model or track a collision-safe composite representation rather than undelimited concatenation.",
+      "locations": [
+        {
+          "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+          "range": {
+            "start": {
+              "line": 103,
+              "column": 76
+            },
+            "end": {
+              "line": 103,
+              "column": 99
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:d2d8d8a6643e14106c2e566c234cb8da36b83de2580633f26f551967450900e7",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+          "range": {
+            "start": {
+              "line": 103,
+              "column": 76
+            },
+            "end": {
+              "line": 103,
+              "column": 99
+            }
+          },
+          "capturedExcerpt": {
+            "text": ".length }}\u003C/small\u003E\u003C/h3\u003E",
+            "contentHash": "sha256:df509a5cd85380e65e6965f563a0a0f4acdbc1c69dac647146dd3243acfd81ee",
+            "excerptHash": "sha256:1cd812430c7c8b668db2528908f16e9d8dfe8631327f5d5ad6de30c8bccc6408"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-c14e59312083f985c69fd1df8565182e1ddc23113b66db5c3d61ed466bd9d3c8",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Hotspot table rows are neither valid table cells nor exposed actions",
+      "description": "The container declares \u0060role=\u0022table\u0022\u0060 and its children declare \u0060role=\u0022row\u0022\u0060, but the descendant spans have no \u0060columnheader\u0060 or \u0060cell\u0060 roles. Assigning \u0060role=\u0022row\u0022\u0060 to each button also replaces its exposed button role, so assistive technology may neither understand the columns nor announce that a row is actionable. The empty paragraph is likewise placed directly inside the ARIA table without valid row/cell structure.",
+      "recommendation": "Prefer a native \u0060\u003Ctable\u003E\u0060 with \u0060\u003Cth\u003E\u0060 and \u0060\u003Ctd\u003E\u0060 elements and place a clearly labelled button or link inside a cell for navigation. If custom ARIA table markup is necessary, provide \u0060rowgroup\u0060, \u0060columnheader\u0060, and \u0060cell\u0060 roles and expose row navigation through a separately identifiable keyboard-accessible control; render the empty state outside the table or in a valid row and cell.",
+      "locations": [
+        {
+          "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+          "range": {
+            "start": {
+              "line": 113,
+              "column": 9
+            },
+            "end": {
+              "line": 113,
+              "column": 45
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+          "range": {
+            "start": {
+              "line": 115,
+              "column": 11
+            },
+            "end": {
+              "line": 116,
+              "column": 60
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+          "range": {
+            "start": {
+              "line": 119,
+              "column": 20
+            },
+            "end": {
+              "line": 119,
+              "column": 20
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c14e59312083f985c69fd1df8565182e1ddc23113b66db5c3d61ed466bd9d3c8",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/project-dashboard/project-dashboard.html",
+          "range": {
+            "start": {
+              "line": 113,
+              "column": 9
+            },
+            "end": {
+              "line": 113,
+              "column": 45
+            }
+          },
+          "capturedExcerpt": {
+            "text": "iv class=\u0022hotspot-table\u0022 role=\u0022table\u0022",
+            "contentHash": "sha256:df509a5cd85380e65e6965f563a0a0f4acdbc1c69dac647146dd3243acfd81ee",
+            "excerptHash": "sha256:683f2549f53fb8bd5203e0c0b051c92a25b61902c4fbb86827d7ef2c24d748d6"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

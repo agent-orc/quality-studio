@@ -1,0 +1,258 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/761de2a67722c5fd07ffa6aae95fa3ca6228cb78e52fc22463e1329daf82c44e",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/explorer/explorer.html",
+    "displayName": "explorer.html"
+  },
+  "reviewedAt": "2026-09-01T10:03:08.6594636Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-e8bf9b52684345c0b6832d5c845c4ce4",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17633,
+      "outputTokens": 2905,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 2035,
+      "durationMs": 91031
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "49d5eb1a07a7e406db6ef3f2ce0eb7daa876b448538212872e45b3f29b58925d"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/explorer/explorer.html",
+      "selector": "file",
+      "contentHash": "sha256:0075f24c9b12754f3c24c3f0b0032bf1f969e45d75322363075fba54a223058d"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 85,
+    "band": "B",
+    "rationale": "The template is concise and uses appropriate Angular control flow, semantic buttons, ARIA tree roles, and stable tracking. Its main weaknesses are incomplete accessibility metadata for the virtualized tree and two small robustness/accessibility omissions on the refresh control."
+  },
+  "summary": "The explorer template is generally clear and maintainable. Three issues were found: virtualized tree items do not expose their position and set size to assistive technology, the refresh button lacks a reliable accessible name, and it can unintentionally submit an enclosing form because its type is unspecified. Test coverage is unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Core bindings and interactions appear coherent, but the refresh button\u0027s implicit submit behavior and incomplete semantics for virtualized tree items can produce incorrect behavior for some users."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 90,
+        "band": "A",
+        "rationale": "The template is compact, consistently named, and uses stable tracking expressions. Some dense single-line markup could be reformatted, but no material maintainability defect is evident."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "Visible labels and status decorations are generally understandable, although the symbol-only refresh action is not reliably identifiable to assistive technology."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The supplied template shows no loading, failure, or retry state for tree refreshes, but the component implementation may provide those elsewhere, so no definite error-handling finding is raised."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 88,
+        "band": "B",
+        "rationale": "State-dependent classes, attributes, and event bindings are straightforward to exercise in component tests. No coverage evidence was supplied, so coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-a418b33b190316a3b32040eeae5f91545a04c969ab4e87b08b95a8fe207f0201",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Virtualized tree items omit set-size and position metadata",
+      "description": "Only visible rows are rendered, so assistive technology cannot infer each item\u0027s position or the number of siblings from the DOM. The tree items expose aria-level but not aria-posinset or aria-setsize, which can make navigation context incomplete or misleading as the rendered window changes.",
+      "recommendation": "Compute each node\u0027s one-based position and sibling count and bind them through aria-posinset and aria-setsize on every treeitem. Verify the resulting tree with keyboard navigation and a screen reader while scrolling and filtering.",
+      "locations": [
+        {
+          "path": "frontend/src/app/explorer/explorer.html",
+          "range": {
+            "start": {
+              "line": 8,
+              "column": 9
+            },
+            "end": {
+              "line": 8,
+              "column": 57
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:a418b33b190316a3b32040eeae5f91545a04c969ab4e87b08b95a8fe207f0201",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/explorer/explorer.html",
+          "range": {
+            "start": {
+              "line": 8,
+              "column": 9
+            },
+            "end": {
+              "line": 8,
+              "column": 57
+            }
+          },
+          "capturedExcerpt": {
+            "text": "or (item of visibleRows(); track item.node.id) {",
+            "contentHash": "sha256:0075f24c9b12754f3c24c3f0b0032bf1f969e45d75322363075fba54a223058d",
+            "excerptHash": "sha256:8de5950e2cd8f93078de189def66fc9fb689d050af55bf1b64ac2b72b22e67f5"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-5eb8c459c7379a58358c196465506b3e1613b810c761b439521b91d692fa69b6",
+      "ruleId": "built-in:code",
+      "aspect": "clarity",
+      "severity": "low",
+      "title": "Refresh button has no reliable accessible name",
+      "description": "The control is labelled only by the \u21BB glyph. Symbol pronunciation varies between screen readers and may not communicate that the button reloads the repository tree.",
+      "recommendation": "Add a descriptive accessible name such as aria-label=\u0022Refresh repository tree\u0022. A tooltip may also help sighted pointer users but should not replace the accessible name.",
+      "locations": [
+        {
+          "path": "frontend/src/app/explorer/explorer.html",
+          "range": {
+            "start": {
+              "line": 2,
+              "column": 103
+            },
+            "end": {
+              "line": 2,
+              "column": 159
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5eb8c459c7379a58358c196465506b3e1613b810c761b439521b91d692fa69b6",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/explorer/explorer.html",
+          "range": {
+            "start": {
+              "line": 2,
+              "column": 103
+            },
+            "end": {
+              "line": 2,
+              "column": 159
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\u003Cbutton class=\u0022quiet\u0022 (click)=\u0022api.loadTree()\u0022\u003E\u21BB\u003C/button\u003E",
+            "contentHash": "sha256:0075f24c9b12754f3c24c3f0b0032bf1f969e45d75322363075fba54a223058d",
+            "excerptHash": "sha256:76856cc25da9de745e28641269d0bd9411092555dc8122052c5e607fb2fe50ff"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-d97c466937044850a01b7c51827090c2",
+    "revision": 1,
+    "repositoryId": "default",
+    "repositoryName": "quality-studio",
+    "kind": "code",
+    "scopeUnitId": "qs-v1/dotnet/file/62474755604a56cccd528fadebe08b04193e9470b6a320cb4f9cd3641b97e9a8",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+    "state": "done",
+    "completeness": "partial",
+    "createdAt": "2026-09-01T07:34:05.4899458+00:00",
+    "startedAt": "2026-09-01T07:34:05.5706107+00:00",
+    "finishedAt": "2026-09-01T07:35:18.276501+00:00",
+    "model": "claude-sonnet-5",
+    "thinkingLevel": "model-default",
+    "cliType": "claude",
+    "force": true
+  },
+  "subject": {
+    "manifestHash": "sha256:dd2c7909903bca0a4ffed56be161c187b973176f7be474836bd05110e209a639",
+    "targets": [
+      {
+        "unitId": "qs-v1/dotnet/file/62474755604a56cccd528fadebe08b04193e9470b6a320cb4f9cd3641b97e9a8",
+        "name": "ReviewLevel.cs",
+        "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+        "subjectHash": "sha256:dcecb285fa48f542a2aecddb7707829e5df6f599dd11326518a3db8b12b875a4"
+      }
+    ]
+  },
+  "execution": {
+    "reviewed": 0,
+    "reusedFresh": 0,
+    "failed": 1,
+    "skipped": 0,
+    "cancelled": 0,
+    "aggregateOutcome": null,
+    "errors": [
+      "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs: Review response property \u0027id\u0027 is missing or invalid."
+    ],
+    "usage": {
+      "operations": 1,
+      "inputTokens": 2,
+      "outputTokens": 4513,
+      "cachedInputTokens": 33865,
+      "reasoningOutputTokens": 0,
+      "durationMs": 53513,
+      "cost": 0.0676956000,
+      "currency": "USD",
+      "priceStatus": "resolved",
+      "inputEstimateDeviationPercent": -99.78,
+      "outputEstimateDeviationPercent": 2339.46,
+      "costEstimateDeviationPercent": 1119.74
+    },
+    "cap": {
+      "tokenLimit": 40000,
+      "costLimit": null,
+      "outcome": "within-cap",
+      "reason": null
+    },
+    "estimate": {
+      "files": 1,
+      "operations": 1,
+      "inputTokens": 925,
+      "outputTokens": 185,
+      "cost": 0.00555000,
+      "currency": "USD",
+      "historySamples": 0,
+      "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
+    }
+  },
+  "observations": [
+    {
+      "unitId": "qs-v1/dotnet/file/62474755604a56cccd528fadebe08b04193e9470b6a320cb4f9cd3641b97e9a8",
+      "level": "file",
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+      "outcome": "failed",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    }
+  ],
+  "delta": {
+    "status": "unavailable",
+    "priorRunId": null,
+    "reason": "Partial runs are not comparable.",
+    "new": [],
+    "persisting": [],
+    "resolved": [],
+    "stateChanged": []
+  },
+  "summary": {
+    "score": null,
+    "grade": null,
+    "findings": {
+      "total": 0,
+      "bySeverity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0
+      },
+      "byState": {
+        "open": 0,
+        "accepted": 0,
+        "waived": 0,
+        "false-positive": 0,
+        "resolved": 0
+      }
+    },
+    "highestSeverity": null,
+    "partialReason": "1 unit(s) failed."
+  }
+}

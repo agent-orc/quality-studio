@@ -1,0 +1,140 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-0499aba412a343189ac00ab246a0a444",
+    "revision": 1,
+    "repositoryId": "default",
+    "repositoryName": "quality-studio",
+    "kind": "code",
+    "scopeUnitId": "qs-v1/dotnet/module/95e1ec2c3d096de2fed0ac7e543e9cbb4b0e221a3d0017e7c0eba63fec10c110",
+    "level": "module",
+    "path": "src/quality-cli/quality-cli.csproj",
+    "state": "failed",
+    "completeness": "partial",
+    "createdAt": "2026-09-01T07:37:14.8571274+00:00",
+    "startedAt": "2026-09-01T07:37:14.9362813+00:00",
+    "finishedAt": "2026-09-01T07:40:25.5469758+00:00",
+    "model": "runner-default",
+    "thinkingLevel": "model-default",
+    "cliType": "codex",
+    "force": false
+  },
+  "subject": {
+    "manifestHash": "sha256:295ed60717be4af4109056eedc01a00953f8926dea78e5aa237728a1274f64fc",
+    "targets": [
+      {
+        "unitId": "qs-v1/dotnet/file/76e3ed1b178325c4c212e739fc1b1043ee95ef450b66f694b13fdcd0abfe51e4",
+        "name": "Program.cs",
+        "path": "src/quality-cli/Program.cs",
+        "subjectHash": "sha256:e7edcac812ea9d988bfdf41ba434a3c111d14d4646ea2fd6a250431ee7646441"
+      }
+    ]
+  },
+  "execution": {
+    "reviewed": 0,
+    "reusedFresh": 0,
+    "failed": 2,
+    "skipped": 0,
+    "cancelled": 0,
+    "aggregateOutcome": "failed",
+    "errors": [
+      "src/quality-cli/Program.cs: Finding range is outside reviewed file \u0027src/quality-cli/Program.cs\u0027.",
+      "Finding location \u0027src/quality-cli/quality-cli.csproj\u0027 is not part of the reviewed subject."
+    ],
+    "usage": {
+      "operations": 2,
+      "inputTokens": 44589,
+      "outputTokens": 6627,
+      "cachedInputTokens": 22016,
+      "reasoningOutputTokens": 4950,
+      "durationMs": 176728,
+      "cost": null,
+      "currency": null,
+      "priceStatus": "unknownModel",
+      "inputEstimateDeviationPercent": null,
+      "outputEstimateDeviationPercent": null,
+      "costEstimateDeviationPercent": null
+    },
+    "cap": {
+      "tokenLimit": null,
+      "costLimit": null,
+      "outcome": "not-configured",
+      "reason": null
+    },
+    "estimate": {
+      "files": 1,
+      "operations": 2,
+      "inputTokens": 14988,
+      "outputTokens": 381,
+      "cost": null,
+      "currency": null,
+      "historySamples": 1,
+      "method": "Input is actual rendered prompt characters / 4; output uses 1 recorded .quality/usage operation(s)."
+    }
+  },
+  "observations": [
+    {
+      "unitId": "qs-v1/dotnet/file/76e3ed1b178325c4c212e739fc1b1043ee95ef450b66f694b13fdcd0abfe51e4",
+      "level": "file",
+      "path": "src/quality-cli/Program.cs",
+      "outcome": "failed",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/module/95e1ec2c3d096de2fed0ac7e543e9cbb4b0e221a3d0017e7c0eba63fec10c110",
+      "level": "module",
+      "path": "src/quality-cli/quality-cli.csproj",
+      "outcome": "failed",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    }
+  ],
+  "delta": {
+    "status": "unavailable",
+    "priorRunId": null,
+    "reason": "Partial runs are not comparable.",
+    "new": [],
+    "persisting": [],
+    "resolved": [],
+    "stateChanged": []
+  },
+  "summary": {
+    "score": null,
+    "grade": null,
+    "findings": {
+      "total": 0,
+      "bySeverity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0
+      },
+      "byState": {
+        "open": 0,
+        "accepted": 0,
+        "waived": 0,
+        "false-positive": 0,
+        "resolved": 0
+      }
+    },
+    "highestSeverity": null,
+    "partialReason": "Run ended in state failed."
+  }
+}

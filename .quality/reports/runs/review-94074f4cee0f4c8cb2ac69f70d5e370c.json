@@ -1,0 +1,410 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-run-report.v1.schema.json",
+  "schemaVersion": 1,
+  "run": {
+    "id": "review-94074f4cee0f4c8cb2ac69f70d5e370c",
+    "revision": 1,
+    "repositoryId": "default",
+    "repositoryName": "quality-studio",
+    "kind": "security",
+    "scopeUnitId": "qs-v1/dotnet/module/28eef59717f710ae0291774a9c197d33f1ed9ecfae63cb6678173ab0b592bf3e",
+    "level": "module",
+    "path": "src/QualityStudio.Api/QualityStudio.Api.csproj",
+    "state": "cancelled",
+    "completeness": "partial",
+    "createdAt": "2026-08-18T10:35:21.0819361+00:00",
+    "startedAt": null,
+    "finishedAt": "2026-08-18T10:51:32.8804801+00:00",
+    "model": "claude-sonnet-5",
+    "thinkingLevel": "xhigh",
+    "cliType": "claude",
+    "force": false
+  },
+  "subject": {
+    "manifestHash": "sha256:a4d25324c2adb4dd6d90286c9e68a088add202245aff653300a3abf499044c59",
+    "targets": [
+      {
+        "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+        "name": "Program.cs",
+        "path": "src/QualityStudio.Api/Program.cs",
+        "subjectHash": "sha256:ed9fab6b7ff01133fe150437271ffc8d4634794caa47e65ce99d7756b8cf31c9"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/fcea4117f4e7139e23c820d698adde431dc9fcbf6dfc70cbab870086279af4f6",
+        "name": "ApiContracts.cs",
+        "path": "src/QualityStudio.Api/ApiContracts.cs",
+        "subjectHash": "sha256:815f81fc874d911b77d81adb81ace8c43af21ae05bd3d9de91c22f175ad3eccf"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/2d3b72398af462cb2e36e35bfa6979e07f570ebaa6e4c9dba9811d3e9c678c0d",
+        "name": "ApiSecurity.cs",
+        "path": "src/QualityStudio.Api/ApiSecurity.cs",
+        "subjectHash": "sha256:eaef3d89e4e1dd860de2ce7b7bce9f10d2b5cedaad50e6448e28642b4c197713"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+        "name": "PathConfinement.cs",
+        "path": "src/QualityStudio.Api/PathConfinement.cs",
+        "subjectHash": "sha256:f211614773562894f8bceebdaa73ce324cb4d31f817e4c5a133aa9d4f942c071"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/eaa25906d47751af2c3e9465966f98b4d5d951a32e9cc8fed98f739b92d8c62c",
+        "name": "ProjectDashboard.cs",
+        "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+        "subjectHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/8eace245049eb836deab9c4f33b41c967b25c0e3cae38e6eafd8496773d906af",
+        "name": "QualityRunReportFactory.cs",
+        "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+        "subjectHash": "sha256:ccbbf32f78caf488e6988f49dd6d0e79be8c5103d5c91514cda6132369a51f38"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/411f55303622d51885ee5458ef135ed03b78e9d2fee4136109f55a21239c4252",
+        "name": "RepositoryAccess.cs",
+        "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+        "subjectHash": "sha256:c6b998156600b6a9908c96461c3e5b463da3f284c61cd8fe3bf29bfd6d101b1f"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/a9fcf78b11fdaa212a458c901d7bf57633ee5a392dcd9b5c7ee283943418196c",
+        "name": "RepositoryOptions.cs",
+        "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+        "subjectHash": "sha256:a232822466dafa94c69e82510ebb08461073a6481639db9f69e6f279dcc9d77c"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+        "name": "RepositoryRegistry.cs",
+        "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+        "subjectHash": "sha256:48313f5ece68ddbacda9f464a71b46922a5066184637f98f8a8bfb2bbe107d66"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/8f46899dfcc9c8d0bba234596712d317b7f35eba1d895979aafd31374517ab52",
+        "name": "RepositorySnapshotPrewarmer.cs",
+        "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+        "subjectHash": "sha256:6e8ecd7cdd0376a9d16c22291fe957b895e149daa9397f8079ebf3fceaefa7e6"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/789c84668907f0d85c5d08e2d23e73b09fa7fdd709c0a354e8b33aad1377e941",
+        "name": "ReviewJobs.cs",
+        "path": "src/QualityStudio.Api/ReviewJobs.cs",
+        "subjectHash": "sha256:d8d2275dcff5261ddc77dd9fb7243dfae1a8b2dfb32bcda699cca9168b3fdf2b"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/45493d86cea731bb0d9ee3f95a7e17a120ab4b9b232c29deec6112f18a5e1203",
+        "name": "ReviewMetaIndex.cs",
+        "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+        "subjectHash": "sha256:b55a023601c0eb97430317a4e2e3a1b845005ade94fc3e96ac3f519bd7c63fee"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/2851f3761a56d9405c0f4eb443f0df9661b75bd5661b0beccf40c8ffebf7cd83",
+        "name": "ReviewRunStore.cs",
+        "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+        "subjectHash": "sha256:de1c7d6a774cefc40303656e833de44cce53967dc5fa750bd6ac8bae4a9468c2"
+      },
+      {
+        "unitId": "qs-v1/dotnet/file/0b38d4b5976e6e45b08f39272f89b7f6e652347358366ea9cbb6ed5fa4726bb0",
+        "name": "ScopeRules.cs",
+        "path": "src/QualityStudio.Api/ScopeRules.cs",
+        "subjectHash": "sha256:b89f85ae459e1d1a1985e767856c934538017112673fecc790318e1633798a9a"
+      }
+    ]
+  },
+  "execution": {
+    "reviewed": 0,
+    "reusedFresh": 0,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 15,
+    "aggregateOutcome": "cancelled",
+    "errors": [],
+    "usage": {
+      "operations": 0,
+      "inputTokens": null,
+      "outputTokens": null,
+      "cachedInputTokens": null,
+      "reasoningOutputTokens": null,
+      "durationMs": 0,
+      "cost": 0,
+      "currency": "USD",
+      "priceStatus": "resolved",
+      "inputEstimateDeviationPercent": null,
+      "outputEstimateDeviationPercent": null,
+      "costEstimateDeviationPercent": null
+    },
+    "cap": {
+      "tokenLimit": null,
+      "costLimit": null,
+      "outcome": "not-configured",
+      "reason": null
+    },
+    "estimate": {
+      "files": 14,
+      "operations": 15,
+      "inputTokens": 129832,
+      "outputTokens": 25970,
+      "cost": 0.51936400,
+      "currency": "USD",
+      "historySamples": 0,
+      "method": "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
+    }
+  },
+  "observations": [
+    {
+      "unitId": "qs-v1/dotnet/file/2a73c6bf4fefcd9a4b4f2bb09436d8590b51f60b53b4a7b40b6cb3ad493ca527",
+      "level": "file",
+      "path": "src/QualityStudio.Api/Program.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/fcea4117f4e7139e23c820d698adde431dc9fcbf6dfc70cbab870086279af4f6",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ApiContracts.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/2d3b72398af462cb2e36e35bfa6979e07f570ebaa6e4c9dba9811d3e9c678c0d",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ApiSecurity.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/54b0f2547fa43cff06d4315f43b973a826ef334334d0ea2565fca084685c7405",
+      "level": "file",
+      "path": "src/QualityStudio.Api/PathConfinement.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/eaa25906d47751af2c3e9465966f98b4d5d951a32e9cc8fed98f739b92d8c62c",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/8eace245049eb836deab9c4f33b41c967b25c0e3cae38e6eafd8496773d906af",
+      "level": "file",
+      "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/411f55303622d51885ee5458ef135ed03b78e9d2fee4136109f55a21239c4252",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryAccess.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/a9fcf78b11fdaa212a458c901d7bf57633ee5a392dcd9b5c7ee283943418196c",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryOptions.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/8f46899dfcc9c8d0bba234596712d317b7f35eba1d895979aafd31374517ab52",
+      "level": "file",
+      "path": "src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/789c84668907f0d85c5d08e2d23e73b09fa7fdd709c0a354e8b33aad1377e941",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewJobs.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/45493d86cea731bb0d9ee3f95a7e17a120ab4b9b232c29deec6112f18a5e1203",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewMetaIndex.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/2851f3761a56d9405c0f4eb443f0df9661b75bd5661b0beccf40c8ffebf7cd83",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/file/0b38d4b5976e6e45b08f39272f89b7f6e652347358366ea9cbb6ed5fa4726bb0",
+      "level": "file",
+      "path": "src/QualityStudio.Api/ScopeRules.cs",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    },
+    {
+      "unitId": "qs-v1/dotnet/module/28eef59717f710ae0291774a9c197d33f1ed9ecfae63cb6678173ab0b592bf3e",
+      "level": "module",
+      "path": "src/QualityStudio.Api/QualityStudio.Api.csproj",
+      "outcome": "cancelled",
+      "producedByRun": false,
+      "sidecarPath": null,
+      "sidecarSha256": null,
+      "capturedAt": null,
+      "reviewedHash": null,
+      "providerRunId": null,
+      "grade": null,
+      "summary": null,
+      "findings": []
+    }
+  ],
+  "delta": {
+    "status": "unavailable",
+    "priorRunId": null,
+    "reason": "Partial runs are not comparable.",
+    "new": [],
+    "persisting": [],
+    "resolved": [],
+    "stateChanged": []
+  },
+  "summary": {
+    "score": null,
+    "grade": null,
+    "findings": {
+      "total": 0,
+      "bySeverity": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0
+      },
+      "byState": {
+        "open": 0,
+        "accepted": 0,
+        "waived": 0,
+        "false-positive": 0,
+        "resolved": 0
+      }
+    },
+    "highestSeverity": null,
+    "partialReason": "Run ended in state cancelled."
+  }
+}

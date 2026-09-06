@@ -1,0 +1,484 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/2c51eaba905a9b862b34bf1de6d65f2a9e729129413c4dbae72bde611df41034",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/app.ts",
+    "displayName": "app.ts"
+  },
+  "reviewedAt": "2026-09-01T09:49:25.2579158Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-865ddf2617854e529d5b07be31935eeb",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 23098,
+      "outputTokens": 5944,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 4453,
+      "durationMs": 159737
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "b4f8e23bbe66b1eb9ff5c990a978b5c005b1516bbab47173a18da5aabeba86f6"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/app.ts",
+      "selector": "file",
+      "contentHash": "sha256:4e8afd74cb10f2a76f02ff83189a11cee09c3f8a49ea0dae2bdf35dbbc7c39bb"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 68,
+    "band": "D",
+    "rationale": "The component is generally readable and uses Angular signals coherently, but core initialization and file-navigation promises are not handled safely, navigation can race, invalid repository limits can be saved with altered semantics, and browser storage failures can abort component behavior. Test coverage is unknown, and ESLint evidence was unavailable."
+  },
+  "summary": "The main risks are asynchronous: initialization failures become unhandled rejections, overlapping file requests can publish stale results, and several background operations lack lifecycle-aware error handling. Repository validation and global keyboard handling also have correctness gaps.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 65,
+        "band": "D",
+        "rationale": "Overlapping file loads can leave the selected path and loaded file inconsistent, and an invalid token-cap string can be submitted as an intentional null cap."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "Naming and helper extraction are mostly good, but the root component coordinates navigation, persistence, repository administration, guidelines, telemetry, dialogs, and resizing, increasing coupling and the likelihood of state-transition defects."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The code is consistently named and logically grouped, although compressed multi-statement methods and implicit asynchronous state transitions make important behavior harder to audit."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 52,
+        "band": "F",
+        "rationale": "Startup, dashboard, file-loading, retry, and periodic quota promises can reject without a catch or user-visible failure state, while storage writes can throw outside protective handling."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 63,
+        "band": "D",
+        "rationale": "Direct use of location, history, document, localStorage, timers, animation frames, confirm, and performance inside a large component requires extensive global mocking. No coverage evidence was supplied."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-c27184f8007fd6373b99e269b4267a257f2ea10be58fe81c4483f968961073fb",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "Initialization and background refresh failures are left unhandled",
+      "description": "The constructor discards the promise returned by initialize(), initialize() deliberately discards the dashboard promise, and timer callbacks discard loadQuotas() promises. A rejection from any awaited startup call can therefore become an unhandled rejection and leave the application partially initialized without a visible error. The dashboard request can also reject independently after initialize() has continued.",
+      "recommendation": "Catch initialization failures at the constructor boundary and expose a startup error/loading state. Preserve dashboard concurrency by awaiting it later or attaching an explicit rejection handler. Wrap retry and interval callbacks in a shared error-handling method, prevent overlapping refreshes, and cancel the retry timeout during destruction.",
+      "locations": [
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 157,
+              "column": 4
+            },
+            "end": {
+              "line": 158,
+              "column": 1
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 165,
+              "column": 5
+            },
+            "end": {
+              "line": 170,
+              "column": 82
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c27184f8007fd6373b99e269b4267a257f2ea10be58fe81c4483f968961073fb",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 157,
+              "column": 4
+            },
+            "end": {
+              "line": 158,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n",
+            "contentHash": "sha256:4e8afd74cb10f2a76f02ff83189a11cee09c3f8a49ea0dae2bdf35dbbc7c39bb",
+            "excerptHash": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f199526f3d7f9cbfee4b0806260e4fb7ee4f298802b6bd243ba04e21fa3fc429",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Overlapping file loads can apply stale navigation results",
+      "description": "open() starts loadFile(path) without correlating its completion with the current selection. If the user opens file A and then file B while A is still loading, A\u0027s later completion can update shared file state and this continuation can change the active review kind, finding selection, and telemetry even though B remains selected. The promise also has no rejection handler.",
+      "recommendation": "Give each navigation a request token or use an abortable/switch-latest loading mechanism. Before applying completion logic, verify that the completed request still matches selected(). Prefer returning file data from the API rather than rereading shared mutable state, and handle load failures with a visible error state.",
+      "locations": [
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 207,
+              "column": 5
+            },
+            "end": {
+              "line": 212,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f199526f3d7f9cbfee4b0806260e4fb7ee4f298802b6bd243ba04e21fa3fc429",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 207,
+              "column": 5
+            },
+            "end": {
+              "line": 212,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "  if (!kinds.includes(this.activeKind())) this.activeKind.set(kinds[0] ?? \u0027code\u0027);\n      if (!preserveFinding) this.clearFindingSelection();\n      if (track) requestAnimationFrame(() =\u003E this.measure(\u0027qs.file.first-content\u0027, start, 150));\n    });\n  }\n",
+            "contentHash": "sha256:4e8afd74cb10f2a76f02ff83189a11cee09c3f8a49ea0dae2bdf35dbbc7c39bb",
+            "excerptHash": "sha256:b9385b64440140e8d2d7d50473ad99f700f3f13737f4e145459bd5cf928b06b2"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-15d1d4e26e23defa245e10a4158cc51a5f1e04d65c302fe50e057a9431d2b73c",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Invalid token-cap input is silently converted into no cap when saved",
+      "description": "When parsing fails, setDefaultTokenCap() sets defaultReviewTokenCap to null while retaining only a separate error signal. saveRepository() does not check that signal, so submission can proceed and persist null, changing an invalid value into an uncapped/default configuration rather than rejecting the form.",
+      "recommendation": "Do not mutate the persisted cap to null on parse failure, or maintain a separate validated draft value. Disable or reject saveRepository() while repositoryTokenCapError is non-empty, and validate all repository fields again immediately before calling the API.",
+      "locations": [
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 407,
+              "column": 5
+            },
+            "end": {
+              "line": 411,
+              "column": 1
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 434,
+              "column": 3
+            },
+            "end": {
+              "line": 441,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:15d1d4e26e23defa245e10a4158cc51a5f1e04d65c302fe50e057a9431d2b73c",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 407,
+              "column": 5
+            },
+            "end": {
+              "line": 411,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "this.repositoryForm.defaultReviewTokenCap = parsed;\n    this.repositoryTokenCapError.set(\u0027\u0027);\n    this.repositoryForm.defaultReviewCostCap = null;\n  }\n",
+            "contentHash": "sha256:4e8afd74cb10f2a76f02ff83189a11cee09c3f8a49ea0dae2bdf35dbbc7c39bb",
+            "excerptHash": "sha256:7f62e7d982f5e9364346e1a61e221fec2fca4afff83a051f501898f2266b41f4"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f3928f3829c49232f8035700121339c5b9f34a61fbc59a3f68df40a2df0dbba7",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Unguarded localStorage access can prevent startup or break reactive effects",
+      "description": "The theme field reads localStorage during instance initialization, and layout/theme persistence writes to it without protection. localStorage can throw, including when storage is disabled or access is denied. loadLayout() already anticipates this behavior, but the other access paths do not, so component construction or a reactive update can fail.",
+      "recommendation": "Centralize storage access behind safe get/set helpers that catch storage exceptions and degrade to in-memory defaults. Inject that abstraction so storage failure paths are straightforward to test.",
+      "locations": [
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 55,
+              "column": 3
+            },
+            "end": {
+              "line": 55,
+              "column": 186
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 155,
+              "column": 5
+            },
+            "end": {
+              "line": 155,
+              "column": 28
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 473,
+              "column": 4
+            },
+            "end": {
+              "line": 473,
+              "column": 4
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f3928f3829c49232f8035700121339c5b9f34a61fbc59a3f68df40a2df0dbba7",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 55,
+              "column": 3
+            },
+            "end": {
+              "line": 55,
+              "column": 186
+            }
+          },
+          "capturedExcerpt": {
+            "text": "readonly theme = signal\u003C\u0027dark\u0027 | \u0027light\u0027\u003E((new URLSearchParams(location.search).get(\u0027theme\u0027) as \u0027dark\u0027 | \u0027light\u0027) || (localStorage.getItem(\u0027qs-theme\u0027) as \u0027dark\u0027 | \u0027light\u0027) || \u0027dark\u0027);",
+            "contentHash": "sha256:4e8afd74cb10f2a76f02ff83189a11cee09c3f8a49ea0dae2bdf35dbbc7c39bb",
+            "excerptHash": "sha256:b0e5d4d609c94c65df7dfa63842627938e31c0dfc1358da8f394545ddf7df178"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-20e8fcbeb71db487b1c5f361e7f00df5a2a53ab947d14c4c25969984a22a710a",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "The global Ctrl\u002BB shortcut overrides editing behavior in form controls",
+      "description": "The window-level key handler always prevents Ctrl\u002BB, including when focus is in a text input, textarea, or contenteditable region. This can suppress expected bold formatting or browser/editor behavior while users edit guideline or repository content.",
+      "recommendation": "Ignore the shortcut when the event target is an input, textarea, select, or contenteditable element, unless that specific control explicitly opts into the workspace shortcut. Add keyboard tests covering modifier combinations and editable targets.",
+      "locations": [
+        {
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 495,
+              "column": 3
+            },
+            "end": {
+              "line": 498,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:20e8fcbeb71db487b1c5f361e7f00df5a2a53ab947d14c4c25969984a22a710a",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/app.ts",
+          "range": {
+            "start": {
+              "line": 495,
+              "column": 3
+            },
+            "end": {
+              "line": 498,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "startExplorerDrag(event: PointerEvent): void { this.beginDrag(\u0027explorer\u0027, event); }\n\n  startReviewDrag(event: PointerEvent): void { this.beginDrag(\u0027review\u0027, event); }\n",
+            "contentHash": "sha256:4e8afd74cb10f2a76f02ff83189a11cee09c3f8a49ea0dae2bdf35dbbc7c39bb",
+            "excerptHash": "sha256:2f22926eb43c7cc606872ecce5228a6abab26db5b6b20d244fc183021fdcf6d9"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

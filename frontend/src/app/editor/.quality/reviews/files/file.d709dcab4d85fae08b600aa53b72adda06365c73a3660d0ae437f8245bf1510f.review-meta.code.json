@@ -1,0 +1,355 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/a54b2382f2f912b8f903a6577d106ca2416045f633716158bbd41be1ce374867",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/editor/syntax-highlighting.ts",
+    "displayName": "syntax-highlighting.ts"
+  },
+  "reviewedAt": "2026-09-01T09:59:57.4139597Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-b2eb7c41cb4e4e8ab723f885a1e37e91",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17691,
+      "outputTokens": 3014,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 1991,
+      "durationMs": 97760
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "6b6325eb23effa198e348f88c58b19d75d1f3d32d5d39ce079154a320978ddf5"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/editor/syntax-highlighting.ts",
+      "selector": "file",
+      "contentHash": "sha256:ff65972e89364484c4c606e264b524fa950743a88df90108de2034b1011c5b26"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 82,
+    "band": "B",
+    "rationale": "The implementation is concise and generally handles cancellation and stale responses correctly, but an edge case defeats the cache bound, worker startup failures bypass the callback contract, and hard-coded browser dependencies make isolated testing unnecessarily difficult."
+  },
+  "summary": "The main correctness concern is potentially unbounded cache growth when an empty path is cached. Error handling covers asynchronous worker errors but not synchronous construction or messaging failures. The structure is otherwise clear and easy to follow.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Request identity checks and cancellation are sound, but the cache eviction condition fails for the valid string key \u0022\u0022, allowing the nominally bounded cache to grow without limit."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "The service is compact and responsibilities are reasonably separated, though lifecycle and cache-limit behavior rely on subtle mutable state and truthiness."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 91,
+        "band": "A",
+        "rationale": "Names, control flow, and callback behavior are mostly clear, with little unnecessary complexity."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "Asynchronous worker errors are reported, but synchronous Worker construction and postMessage exceptions escape directly instead of using the declared error callback."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "Behavior can be tested by replacing browser globals and controlling fake timers, but direct construction of Worker and direct timer usage make focused deterministic tests more cumbersome than necessary."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-4808ce6bdb634cd27dbdcf76a81e2bb3a2c7621c37bbb01a93de11256616a81b",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "An empty path disables cache eviction",
+      "description": "The eviction guard tests \u0060oldest\u0060 by truthiness. If the oldest cache key is the empty string\u2014which is allowed by the \u0060string\u0060 API and can represent an untitled document\u2014the condition remains false whenever eviction is attempted. That entry stays oldest and the cache can then grow beyond its intended four-entry bound indefinitely.",
+      "recommendation": "Check whether the iterator is done or compare the key explicitly with \u0060undefined\u0060, rather than testing the string\u0027s truthiness. For example, retain the iterator result and delete its value when \u0060!result.done\u0060.",
+      "locations": [
+        {
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 81,
+              "column": 5
+            },
+            "end": {
+              "line": 81,
+              "column": 65
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:4808ce6bdb634cd27dbdcf76a81e2bb3a2c7621c37bbb01a93de11256616a81b",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 81,
+              "column": 5
+            },
+            "end": {
+              "line": 81,
+              "column": 65
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (this.cache.size \u003E 4 \u0026\u0026 oldest) this.cache.delete(oldest);",
+            "contentHash": "sha256:ff65972e89364484c4c606e264b524fa950743a88df90108de2034b1011c5b26",
+            "excerptHash": "sha256:98737238ab54fa9dfd8c76efb75f9f84853d3aaeff9d255af6d135d0b6a7ff10"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f8bf7c26d8eb693c5473a123265a2eb0616ff65c3c60f337c5fe347a4c94f7b0",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Synchronous worker failures bypass the error callback",
+      "description": "The callback interface presents \u0060error\u0060 as the failure channel, but both the Worker constructor and \u0060postMessage\u0060 may throw synchronously, such as when worker creation is blocked or initialization data cannot be posted. In those cases \u0060highlight\u0060 throws, may leave partially initialized state, and never invokes \u0060callbacks.error\u0060.",
+      "recommendation": "Wrap worker creation and initial \u0060postMessage\u0060 in a try/catch. Clean up any worker that was created, clear the stored reference only if it still refers to that worker, and report a normalized message through \u0060callbacks.error\u0060.",
+      "locations": [
+        {
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 33,
+              "column": 20
+            },
+            "end": {
+              "line": 33,
+              "column": 127
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 59,
+              "column": 5
+            },
+            "end": {
+              "line": 59,
+              "column": 32
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f8bf7c26d8eb693c5473a123265a2eb0616ff65c3c60f337c5fe347a4c94f7b0",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 33,
+              "column": 20
+            },
+            "end": {
+              "line": 33,
+              "column": 127
+            }
+          },
+          "capturedExcerpt": {
+            "text": "new Worker(new URL(\u0027./syntax.worker\u0027, import.meta.url), { type: \u0027module\u0027, name: \u0027quality-studio-syntax\u0027 });",
+            "contentHash": "sha256:ff65972e89364484c4c606e264b524fa950743a88df90108de2034b1011c5b26",
+            "excerptHash": "sha256:7ff81b2a8a81b89034a4d81b5100a315daa6c333e169ef659a7b513d5379297d"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-86feaba32a91a24faa285274fb4350b13a8ed34134494527fb43d43a3d69e878",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "low",
+      "title": "Worker creation and scheduling are hard-coded",
+      "description": "The service constructs the browser Worker directly and schedules cached delivery through the global timer API. Unit tests must patch global APIs and coordinate timer behavior, making worker failures, cancellation races, and chunk delivery harder to exercise deterministically.",
+      "recommendation": "Inject or encapsulate a worker factory and scheduling function, with production defaults using \u0060Worker\u0060 and \u0060setTimeout\u0060. Tests can then provide deterministic fakes without modifying global state.",
+      "locations": [
+        {
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 21,
+              "column": 3
+            },
+            "end": {
+              "line": 21,
+              "column": 76
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 33,
+              "column": 20
+            },
+            "end": {
+              "line": 33,
+              "column": 127
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 64,
+              "column": 32
+            },
+            "end": {
+              "line": 64,
+              "column": 47
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:86feaba32a91a24faa285274fb4350b13a8ed34134494527fb43d43a3d69e878",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/editor/syntax-highlighting.ts",
+          "range": {
+            "start": {
+              "line": 21,
+              "column": 3
+            },
+            "end": {
+              "line": 21,
+              "column": 76
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private cachedDeliveryTimer: ReturnType\u003Ctypeof setTimeout\u003E | null = null;",
+            "contentHash": "sha256:ff65972e89364484c4c606e264b524fa950743a88df90108de2034b1011c5b26",
+            "excerptHash": "sha256:947b609f48177900048e65ec6381b434a4cad48da777410046a7c9e79d2679d7"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}
