@@ -46,6 +46,50 @@ public sealed class ReviewMetaIndexTests
     }
 
     [Fact]
+    public void Replacing_a_sidecar_atomically_never_leaves_the_unit_without_metadata()
+    {
+        // Sidecars are written with File.Move(overwrite: true). Windows reports that as a delete
+        // of the destination followed by a rename onto it, and dropping the document on the
+        // delete used to make a read in that window fail for a file that never left the disk.
+        using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");
+        var path = WriteSidecar(fixture, "Sample.cs", "code");
+        using var index = new ReviewMetaIndex();
+        Assert.Equal(path, index.Find(fixture.Path, "Sample.cs", "code"));
+
+        var payload = File.ReadAllText(path);
+        for (var revision = 0; revision < 8; revision++)
+        {
+            var temporary = path + ".tmp-" + revision;
+            File.WriteAllText(temporary, payload);
+            ReplaceAtomically(temporary, path);
+
+            Assert.Equal(path, index.Find(fixture.Path, "Sample.cs", "code"));
+        }
+    }
+
+    /// <summary>
+    /// File.Move(overwrite: true) is what the product uses, but on Windows a virus scanner can
+    /// hold a moment's handle on a freshly written file and make the replace fail. That is host
+    /// noise, not the behaviour under test, so retry briefly before giving up.
+    /// </summary>
+    private static void ReplaceAtomically(string temporary, string destination)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temporary, destination, overwrite: true);
+                return;
+            }
+            catch (Exception exception) when (
+                attempt < 20 && exception is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(25);
+            }
+        }
+    }
+
+    [Fact]
     public void Forget_and_Dispose_are_idempotent()
     {
         using var fixture = TemporaryDirectory.Create("quality-studio-meta-index");

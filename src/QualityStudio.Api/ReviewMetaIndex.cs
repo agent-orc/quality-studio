@@ -112,7 +112,17 @@ public sealed class ReviewMetaIndex : IDisposable
             {
                 if (!PathConfinement.IsWithin(root, path)) return;
                 PathConfinement.RejectReparseTraversal(root, path);
-                using var parsed = JsonDocument.Parse(File.ReadAllText(path));
+                // Share the file with writers and deleters: sidecars are replaced with
+                // File.Move(overwrite: true), and a plain read holds a handle that denies the
+                // replace, so indexing a sidecar could make the write of the next one fail.
+                using var stream = new FileStream(path, new FileStreamOptions
+                {
+                    Mode = FileMode.Open,
+                    Access = FileAccess.Read,
+                    Share = FileShare.ReadWrite | FileShare.Delete,
+                    Options = FileOptions.SequentialScan,
+                });
+                using var parsed = JsonDocument.Parse(stream);
                 var payload = parsed.RootElement;
                 if (!payload.TryGetProperty("unit", out var unit) ||
                     !unit.TryGetProperty("path", out var unitPathElement) ||
@@ -136,6 +146,12 @@ public sealed class ReviewMetaIndex : IDisposable
 
         private void Remove(string path)
         {
+            // Sidecars are replaced with File.Move(overwrite: true). Windows reports that as a
+            // delete of the destination followed by a rename onto it, while the file itself never
+            // leaves the disk. Dropping the document on that delete opened a window in which a
+            // read found no review metadata for a file that was there the whole time - a request
+            // arriving in it failed with "no metadata exists". Only forget a path that is gone.
+            if (File.Exists(path)) return;
             lock (gate) documents.Remove(path);
         }
 
