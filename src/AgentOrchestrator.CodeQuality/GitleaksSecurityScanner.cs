@@ -12,11 +12,16 @@ public class GitleaksSecurityScanner : IReviewSensor
 {
     private readonly GitleaksBinaryResolver _resolver;
     private readonly HttpClient _httpClient;
+    private readonly HierarchyUnitResolver _unitResolver;
 
-    public GitleaksSecurityScanner(GitleaksBinaryResolver? resolver = null, HttpClient? httpClient = null)
+    public GitleaksSecurityScanner(
+        GitleaksBinaryResolver? resolver = null,
+        HttpClient? httpClient = null,
+        HierarchyUnitResolver? unitResolver = null)
     {
         _httpClient = httpClient ?? new HttpClient();
         _resolver = resolver ?? new GitleaksBinaryResolver(_httpClient);
+        _unitResolver = unitResolver ?? HierarchyUnitResolver.Shared;
     }
 
     public string Id => "gitleaks";
@@ -257,11 +262,7 @@ public class GitleaksSecurityScanner : IReviewSensor
         string? baselinePath,
         CancellationToken cancellationToken)
     {
-        var hierarchyFiles = FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
-            .Where(node => node.Level == ReviewLevel.File)
-            .GroupBy(node => node.Path, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.OrderBy(node => node.Id, StringComparer.Ordinal).First(),
-                StringComparer.Ordinal);
+        var hierarchyFiles = _unitResolver.FileUnitsByPath(root);
         var groups = grouped.ToArray();
         var observedPaths = groups.Select(group => NormalizeRelativePath(group.Key)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var fileGroup in groups)
@@ -852,15 +853,6 @@ public class GitleaksSecurityScanner : IReviewSensor
         "generic" => ReviewAdapter.Generic,
         _ => throw new ArgumentException($"Unsupported hierarchy adapter '{adapter}'."),
     };
-
-    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
-    {
-        foreach (var node in roots)
-        {
-            yield return node;
-            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
-        }
-    }
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

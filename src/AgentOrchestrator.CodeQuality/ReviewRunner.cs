@@ -66,6 +66,7 @@ public sealed class ReviewRunner
     private readonly Action<ReviewUsageEntry>? _usageRecorded;
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
+    private readonly HierarchyUnitResolver _unitResolver;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -74,7 +75,8 @@ public sealed class ReviewRunner
         InputResolver? inputResolver = null,
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
-        StalenessEvaluator? stalenessEvaluator = null)
+        StalenessEvaluator? stalenessEvaluator = null,
+        HierarchyUnitResolver? unitResolver = null)
     {
         _agent = agent ?? CodingAgentReviewAgent.CreateDefault();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
@@ -83,6 +85,7 @@ public sealed class ReviewRunner
         _usageRecorded = usageRecorded;
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
+        _unitResolver = unitResolver ?? HierarchyUnitResolver.Shared;
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -301,7 +304,7 @@ public sealed class ReviewRunner
             request.GlobalInputsDirectory, request.InputBudgetCharacters);
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
-        var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
+        var unitId = request.UnitId ?? _unitResolver.ResolveUnitId(root, relativePath, request.Level)
             ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
         var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
         var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
@@ -631,22 +634,6 @@ public sealed class ReviewRunner
                segments[1] is "angular" or "dotnet" or "generic"
             ? segments[1]
             : throw new ArgumentException($"Unit ID '{unitId}' has no supported adapter.");
-    }
-
-    private static string? ResolveUnitId(string root, string relativePath, ReviewLevel level) =>
-        FlattenHierarchy(RepositoryHierarchyBuilder.Build(root))
-            .Where(node => node.Level == level && StringComparer.Ordinal.Equals(node.Path, relativePath))
-            .OrderBy(node => node.Id, StringComparer.Ordinal)
-            .Select(node => node.Id)
-            .FirstOrDefault();
-
-    private static IEnumerable<HierarchyNode> FlattenHierarchy(IEnumerable<HierarchyNode> roots)
-    {
-        foreach (var node in roots)
-        {
-            yield return node;
-            foreach (var child in FlattenHierarchy(node.Children)) yield return child;
-        }
     }
 
     private static string Sha256(string value) =>
