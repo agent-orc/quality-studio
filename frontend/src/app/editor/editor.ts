@@ -234,6 +234,9 @@ export class Editor {
 
   selectKind(kind: ReviewKind): void { this.kindSelect.emit(kind); }
 
+  /** Repeats the failed file request from the rendered error state. */
+  retryFile(): void { void this.api.loadFile(this.selectedPath()); }
+
   tokensForLine(line: number, text: string): TokenLine {
     const file = this.api.file();
     const cache = this.syntaxCache();

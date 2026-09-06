@@ -2,12 +2,16 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { describeFileError } from './api-errors';
+import type { PreviewFixtures } from './preview-fixtures';
+
 import {
   AgentStudioImportResponse,
   ApiConnectionState,
   AttackCoverageMatrix,
   CoverageFact,
   FileDocument,
+  FileError,
   FindingStateMutationRequest,
   Guideline,
   GuidelineCatalogueEntry,
@@ -52,107 +56,15 @@ import {
 const emptyUsageReport = (): UsageReport => ({ generatedAt: '', runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
 const unknownCoverage = (): CoverageFact => ({ state: 'unknown', coveredLines: 0, totalLines: 0, coveredBranches: 0, totalBranches: 0, linePercent: null, branchPercent: null, commit: null, measuredAt: null, filesWithData: 0 });
 
-const demoFile = `using System.Diagnostics;
-using AgentOrchestrator.CodeQuality;
-
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddProblemDetails();
-builder.Services.AddSingleton<RepositoryAccess>();
-
-var app = builder.Build();
-app.UseExceptionHandler();
-
-app.MapGet("/api/tree", (RepositoryAccess repository) =>
-{
-    var stopwatch = Stopwatch.StartNew();
-    var projects = RepositoryHierarchyBuilder.BuildDotNet(repository.Root);
-    return Results.Ok(projects);
-});
-
-app.MapGet("/api/file", async (string path) =>
-{
-    var content = await File.ReadAllTextAsync(path);
-    return Results.Ok(content);
-});
-
-app.Run();`;
-const demoFileSizeBytes = new TextEncoder().encode(demoFile).length;
-
-const state = (overall: ReviewState, score: number | null, band: string | null): KindState => ({ direct: overall, descendants: overall, overall, score, band, metaPath: score === null ? null : 'preview.review-meta.json' });
-const kind = (code: ReviewState): Record<string, KindState> => ({
-  code: state(code, code === 'fresh' ? 91 : code === 'stale' ? 72 : null, code === 'fresh' ? 'A' : code === 'stale' ? 'C' : null),
-  security: state(code === 'fresh' ? 'fresh' : 'missing', code === 'fresh' ? 86 : null, code === 'fresh' ? 'B' : null),
-  performance: state(code === 'missing' ? 'missing' : 'stale', code === 'missing' ? null : 72, code === 'missing' ? null : 'C'),
-});
-const demoTree: TreeNode[] = [{ id: 'quality-studio', name: 'Quality Studio', level: 'repository', path: '.', kinds: kind('stale'), children: [
-  { id: 'src', name: 'src', level: 'folder', path: 'src', kinds: kind('stale'), children: [
-    { id: 'api', name: 'QualityStudio.Api', level: 'project', path: 'src/QualityStudio.Api', kinds: kind('fresh'), children: [
-      { id: 'program', name: 'Program.cs', level: 'file', path: 'src/QualityStudio.Api/Program.cs', kinds: kind('fresh'), children: [] },
-      { id: 'contracts', name: 'ApiContracts.cs', level: 'file', path: 'src/QualityStudio.Api/ApiContracts.cs', kinds: kind('stale'), children: [] },
-      { id: 'settings', name: 'appsettings.json', level: 'file', path: 'src/QualityStudio.Api/appsettings.json', kinds: kind('missing'), children: [] },
-    ]},
-    { id: 'core', name: 'AgentOrchestrator.CodeQuality', level: 'project', path: 'src/AgentOrchestrator.CodeQuality', kinds: kind('stale'), children: [
-      { id: 'runner', name: 'ReviewRunner.cs', level: 'file', path: 'src/AgentOrchestrator.CodeQuality/ReviewRunner.cs', kinds: kind('stale'), children: [] },
-      { id: 'state', name: 'ReviewState.cs', level: 'file', path: 'src/AgentOrchestrator.CodeQuality/ReviewState.cs', kinds: kind('fresh'), children: [] },
-    ]},
-  ]},
-  { id: 'tests', name: 'tests', level: 'folder', path: 'tests', kinds: kind('missing'), children: [] },
-  { id: 'docs', name: 'docs', level: 'folder', path: 'docs', kinds: kind('fresh'), children: [] },
-]}];
-
-const demoMeta: ReviewMetaDocument[] = [
-  { reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Clear request boundaries and consistent error handling.' }, summary: 'The API entry point is compact and readable. One low-risk diagnostic gap remains.', findings: [{ id: 'route-timing', ruleId: 'dotnet-api-safety', aspect: 'observability', severity: 'low', title: 'File route has no timing event', description: 'The user-visible file read is not timed, making slow repository access difficult to diagnose.', recommendation: 'Record a structured duration for the file-read path.', evidence: 'The route awaits File.ReadAllTextAsync and returns without a timing log.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 17, column: 1 }, end: { line: 21, column: 3 } } }] }] },
-  { reviewedAt: '2026-07-09T10:05:00.000Z', kind: 'performance', reviewer: { agent: 'perf-reviewer', model: 'gpt-5' }, grade: { score: 72, band: 'C', rationale: 'Repository hierarchy work is repeated on the request path.' }, summary: 'The endpoint is correct, but the stored review predates the current file and should be rerun.', findings: [{ id: 'rebuild-tree', ruleId: 'built-in:performance', aspect: 'request-path', severity: 'high', title: 'Hierarchy rebuilt for every request', description: 'A full project hierarchy build runs synchronously whenever the tree endpoint is requested.', recommendation: 'Cache the derived hierarchy and invalidate it from repository scan events.', locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 10, column: 1 }, end: { line: 15, column: 3 } } }] }] },
-  {
-    reviewedAt: '2026-07-25T13:40:00.000Z',
-    kind: 'security',
-    reviewer: {
-      agent: 'security-reviewer',
-      model: 'gpt-5',
-      sensors: [{ id: 'gitleaks', version: '8.24.2', resultHash: `sha256:${'a'.repeat(64)}` }],
-    },
-    grade: { score: 59, band: 'F', rationale: 'Machine sensors reported blocking security evidence. Agent judgement: request boundaries are otherwise constrained.' },
-    summary: 'Machine sensors reported blocking security evidence. One planted credential must be removed and rotated.',
-    aspects: [
-      { id: 'secrets', title: 'Secrets', grade: { score: 59, band: 'F', rationale: 'A high-confidence secret was detected.' } },
-      { id: 'authentication-authorization', title: 'Authentication / authorization', grade: { score: 86, band: 'B', rationale: 'Repository access is constrained.' } },
-    ],
-    security: {
-      verdict: 'block',
-      combinationRule: 'security-sensor-agent-v1',
-      sensors: [{
-        id: 'gitleaks',
-        version: '8.24.2',
-        resultHash: `sha256:${'a'.repeat(64)}`,
-        available: true,
-        unavailableReason: null,
-        verdict: 'block',
-        toolVersions: { gitleaks: '8.24.2' },
-      }],
-    },
-    findingCounts: { open: 1, accepted: 0, waived: 0, falsePositive: 0, resolved: 0 },
-    findings: [{
-      id: 'gitleaks-secret-demo',
-      ruleId: 'generic-api-key',
-      aspect: 'secrets',
-      severity: 'high',
-      title: 'Hard-coded API token',
-      description: 'Gitleaks detected a high-confidence credential in the reviewed unit.',
-      recommendation: 'Revoke the credential, remove it from history, and load the replacement from a secret store.',
-      fingerprint: `sha256:${'b'.repeat(64)}`,
-      evidence: JSON.stringify({ source: 'machine-sensor', sensorId: 'gitleaks', sensorVersion: '8.24.2', resultHash: `sha256:${'a'.repeat(64)}`, fact: null }, null, 2),
-      locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 6, column: 1 }, end: { line: 6, column: 38 } } }],
-    }],
-  },
-];
 
 @Injectable({ providedIn: 'root' })
 export class QualityApi {
   private readonly http = inject(HttpClient);
   private legacyApi = false;
-  readonly tree = signal<TreeNode[]>(demoTree);
+  readonly tree = signal<TreeNode[]>([]);
   readonly file = signal<FileDocument | null>(null);
-  readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, policyDriftCount: 0, missingCount: 3 });
+  readonly fileError = signal<FileError | null>(null);
+  readonly scan = signal<ScanReport>({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
   readonly security = signal<SecurityScanResponse | null>(null);
   readonly attackCoverage = signal<AttackCoverageMatrix | null>(null);
   readonly attackCoverageLoading = signal(false);
@@ -163,7 +75,10 @@ export class QualityApi {
   readonly projectError = signal('');
   readonly repositoryTransition = signal<RepositoryTransition | null>(null);
   readonly connectionState = signal<ApiConnectionState>('connecting');
+  readonly connectionError = signal('');
   readonly connected = computed(() => this.connectionState() === 'live');
+  /** True while the shell shows labelled demonstration data because the API is unreachable. */
+  readonly preview = computed(() => this.connectionState() === 'preview');
   readonly connectionLabel = computed(() => {
     const state = this.connectionState();
     return state === 'live'
@@ -195,6 +110,7 @@ export class QualityApi {
   private readonly projectSnapshots = new Map<string, [ProjectDashboard, string | null]>();
   private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private loadedPreviewFixtures: PreviewFixtures | null = null;
 
   async loadRepositories(preferredId?: string | null): Promise<void> {
     try {
@@ -281,12 +197,26 @@ export class QualityApi {
       const nodes = response.body!.nodes;
       this.treeSnapshots.set(snapshotKey, [nodes, response.headers.get('ETag')]);
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.tree.set(nodes); this.connectionState.set('live');
+      this.tree.set(nodes); this.connectionState.set('live'); this.connectionError.set('');
       console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: nodes.length, source: 'api' }));
     } catch (error) {
       if (!this.reuseSnapshot(error, repositoryId, retained) && repositoryId === this.selectedRepositoryId()) {
-        this.connectionState.set('preview');
-        console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
+        // Only a request that never reached the API earns preview data; a reachable API that
+        // answered with an error keeps the tree empty and states the reason.
+        if (this.unreachable(error)) {
+          this.connectionState.set('preview');
+          const fixtures = await this.previewFixtures();
+          if (fixtures && repositoryId === this.selectedRepositoryId()) this.tree.set(fixtures.tree);
+        } else {
+          this.connectionState.set('offline');
+        }
+        this.connectionError.set(this.errorMessage(error));
+        console.warn(JSON.stringify({
+          event: 'qs.data.tree-unavailable',
+          repositoryId,
+          preview: this.connectionState() === 'preview',
+          reason: this.errorMessage(error),
+        }));
       }
     }
     if (detailsLoading) await detailsLoading;
@@ -493,15 +423,65 @@ export class QualityApi {
     this.loading.set(true);
     try {
       const file = await firstValueFrom(this.http.get<FileDocument>(`${this.repositoryApiBase()}/file`, { params: { path } }));
-      this.file.set(file); this.connectionState.set('live');
+      this.file.set(file);
+      this.fileError.set(null);
+      this.connectionState.set('live');
     } catch (error) {
-      this.file.set({ path, content: demoFile, metaDocuments: demoMeta, sizeBytes: demoFileSizeBytes, lineEnding: 'lf', encoding: 'utf-8', coverage: unknownCoverage() });
-      if (this.connectionState() !== 'live') this.connectionState.set('preview');
-      console.warn(JSON.stringify({ event: 'qs.data.file-demo-fallback', path, reason: error instanceof Error ? error.message : 'API unavailable' }));
+      // A failed lookup never becomes someone else's source. The editor renders the reason.
+      // Preview fixtures are reserved for the genuinely unreachable API and carry their own banner.
+      if (this.unreachable(error)) {
+        this.connectionState.set('preview');
+        await this.showPreviewFile(path);
+      } else {
+        this.file.set(null);
+        this.fileError.set(describeFileError(path, error));
+        if (this.connectionState() === 'connecting') this.connectionState.set('offline');
+      }
+      console.warn(JSON.stringify({
+        event: 'qs.data.file-unavailable',
+        path,
+        status: error instanceof HttpErrorResponse ? error.status : null,
+        preview: this.connectionState() === 'preview',
+      }));
     } finally { this.loading.set(false); }
   }
 
-  clearFile(): void { this.file.set(null); }
+  clearFile(): void { this.file.set(null); this.fileError.set(null); }
+
+  /** Serves the labelled preview document; the editor pairs it with a banner and hides mutations. */
+  private async showPreviewFile(path: string): Promise<void> {
+    const fixtures = await this.previewFixtures();
+    if (!fixtures) {
+      this.file.set(null);
+      this.fileError.set(describeFileError(path, null));
+      return;
+    }
+    this.fileError.set(null);
+    this.file.set({
+      path,
+      content: fixtures.content,
+      metaDocuments: fixtures.metaDocuments,
+      sizeBytes: fixtures.sizeBytes,
+      lineEnding: 'lf',
+      encoding: 'utf-8',
+      coverage: unknownCoverage(),
+    });
+  }
+
+  /** Loads the demonstration fixtures on demand so they stay out of the production entry bundle. */
+  private async previewFixtures(): Promise<PreviewFixtures | null> {
+    try {
+      this.loadedPreviewFixtures ??= (await import('./preview-fixtures')).previewFixtures;
+      return this.loadedPreviewFixtures;
+    } catch {
+      return null;
+    }
+  }
+
+  /** True when the request never reached the API, so no server-side judgement exists. */
+  private unreachable(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 0;
+  }
 
   async loadProjectDashboard(repositoryId = this.selectedRepositoryId()): Promise<void> {
     if (repositoryId === this.selectedRepositoryId()) {

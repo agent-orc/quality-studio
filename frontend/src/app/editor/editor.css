@@ -77,3 +77,11 @@
 .statusbar-review{display:flex;align-items:center;gap:5px;text-transform:capitalize}
 .statusbar-coverage{color:var(--status-fresh);font-family:var(--font-mono)}
 .statusbar-empty{color:var(--studio-fg-dim)}
+.preview-banner{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid color-mix(in srgb,var(--status-stale) 45%,var(--studio-border));background:color-mix(in srgb,var(--status-stale) 16%,var(--studio-bg-editor));color:var(--status-stale);font-size:9px}
+.preview-banner b{text-transform:uppercase;letter-spacing:.08em}
+.preview-banner span{color:var(--studio-fg-muted)}
+.file-error{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:32px;text-align:center}
+.file-error b{color:var(--studio-fg);font-size:13px}
+.file-error p{max-width:480px;margin:0;color:var(--studio-fg-muted);font-size:11px;line-height:1.5}
+.file-error code{color:var(--studio-fg-dim);font:9px var(--font-mono)}
+.file-error .secondary-button{height:32px;margin-top:4px;padding:0 12px;border:1px solid var(--studio-border);border-radius:5px;background:var(--studio-bg-elevated);color:inherit;font-size:11px;cursor:pointer}

@@ -28,7 +28,7 @@
     </div>
     <div class="health" [attr.data-connection-state]="api.connectionState()">
       <span class="status" [class.fresh]="api.connectionState() === 'live'" [class.stale]="api.connectionState() === 'preview'" [class.missing]="api.connectionState() !== 'live' && api.connectionState() !== 'preview'"></span>
-      <span>{{ api.connectionLabel() }}</span>
+      <span [title]="api.connectionError()">{{ api.connectionLabel() }}</span>
       @if (embedded()) { <span class="embedded-badge">Embedded</span> }
     </div>
     <div class="quota-strip" aria-label="Provider quotas">

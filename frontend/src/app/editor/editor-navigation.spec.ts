@@ -20,6 +20,7 @@ describe('Editor finding navigation', () => {
         grade: { score: 80, band: 'B', rationale: 'Test.' }, summary: 'Test.', findings: [finding] }],
       sizeBytes: 240, lineEnding: 'lf' as const, encoding: 'utf-8' as const,
     }),
+    fileError: signal(null), preview: signal(false),
     loading: signal(false), risk: signal({ rows: [], matrix: [] }), focusedThreadId: signal(null),
     mutateThread: jasmine.createSpy('mutateThread'),
   };

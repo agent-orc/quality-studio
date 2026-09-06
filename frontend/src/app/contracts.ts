@@ -308,3 +308,17 @@ export interface RepositoryTransition {
   repositoryId: string;
   hasSnapshot: boolean;
 }
+
+/**
+ * Why the file endpoint could not deliver the requested document. The editor renders this instead
+ * of substituting foreign content, so a failed lookup can never be mistaken for repository data.
+ */
+export type FileErrorKind = 'unauthorized' | 'forbidden' | 'out-of-scope' | 'too-large' | 'unavailable';
+export interface FileError {
+  path: string;
+  kind: FileErrorKind;
+  status: number | null;
+  title: string;
+  detail: string;
+  retryable: boolean;
+}

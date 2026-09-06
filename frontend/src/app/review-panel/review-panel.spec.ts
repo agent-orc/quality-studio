@@ -33,6 +33,7 @@ describe('ReviewPanel session flow', () => {
   ];
   const api = {
     file,
+    fileError: signal(null), preview: signal(false),
     reviewRuns: signal(initialRuns),
     reviewError: signal(''),
     usage: signal({ runs: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, byModel: [] }),

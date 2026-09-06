@@ -2,7 +2,18 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { QualityApi } from '../quality-api';
+import { TreeNode } from '../contracts';
 import { Explorer } from './explorer';
+
+const kinds = { code: { direct: 'fresh', descendants: 'fresh', overall: 'fresh', score: 90, band: 'A', metaPath: null } } as TreeNode['kinds'];
+const tree: TreeNode[] = [{
+  id: 'quality-studio', name: 'Quality Studio', level: 'repository', path: '.', kinds, children: [{
+    id: 'api', name: 'QualityStudio.Api', level: 'project', path: 'src/QualityStudio.Api', kinds, children: [
+      { id: 'program', name: 'Program.cs', level: 'file', path: 'src/QualityStudio.Api/Program.cs', kinds, children: [] },
+    ],
+  }],
+}];
 
 describe('Explorer container activation', () => {
   let fixture: ComponentFixture<Explorer>;
@@ -14,6 +25,7 @@ describe('Explorer container activation', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
 
+    TestBed.inject(QualityApi).tree.set(tree);
     fixture = TestBed.createComponent(Explorer);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('selectedPath', 'src/QualityStudio.Api/Program.cs');
