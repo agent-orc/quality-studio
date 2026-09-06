@@ -412,7 +412,7 @@ export class QualityApi {
   private legacyApi = false;
   readonly tree = signal<TreeNode[]>(demoTree);
   readonly file = signal<FileDocument | null>(null);
-  readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, policyDriftCount: 0, missingCount: 3 });
+  readonly scan = signal<ScanReport>({ files: [], freshCount: 8, staleCount: 4, policyDriftCount: 0, missingCount: 3, invalidCount: 0 });
   readonly security = signal<SecurityScanResponse | null>(null);
   readonly attackCoverage = signal<AttackCoverageMatrix | null>(null);
   readonly attackCoverageLoading = signal(false);
