@@ -212,6 +212,8 @@ public sealed class RepositoryRegistry
             var archived = existing with { Archived = true };
             entries = Replace(existing, archived);
             Release(existing.Id);
+            // Nothing reads an archived repository's sidecars again; release its filesystem watcher.
+            metaIndex.Release(existing.RootPath);
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1402, "RepositoryArchived"), "Archived repository {RepositoryId}", id);
             return archived;

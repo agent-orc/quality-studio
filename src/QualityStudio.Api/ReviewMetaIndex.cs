@@ -15,6 +15,15 @@ public sealed class ReviewMetaIndex : IDisposable
     public string Find(string root, string relativePath, string kind) =>
         Get(root).Find(relativePath, kind);
 
+    /// <summary>
+    /// Drops the index and its filesystem watcher for one repository. Archiving a registration means
+    /// nothing will read its sidecars again, and an OS watch handle per archived repository is a leak.
+    /// </summary>
+    public void Release(string root)
+    {
+        if (repositories.TryRemove(Path.GetFullPath(root), out var index)) index.Dispose();
+    }
+
     public void Dispose()
     {
         foreach (var index in repositories.Values) index.Dispose();
@@ -47,6 +56,9 @@ public sealed class ReviewMetaIndex : IDisposable
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+                // A review sweep rewrites many sidecars at once. The default 8 KiB kernel buffer
+                // overflows under that burst and the notifications in it are lost silently.
+                InternalBufferSize = 64 * 1024,
                 EnableRaisingEvents = true,
             };
             watcher.Created += (_, args) => Update(args.FullPath);
@@ -57,6 +69,35 @@ public sealed class ReviewMetaIndex : IDisposable
                 Remove(args.OldFullPath);
                 Update(args.FullPath);
             };
+            // Buffer overflow or a lost watch handle: rebuild rather than serve an index that silently
+            // stopped following the repository.
+            watcher.Error += (_, _) => Reindex();
+        }
+
+        /// <summary>Rebuilds the whole index from disk after the watcher lost events.</summary>
+        private void Reindex()
+        {
+            try
+            {
+                var rebuilt = Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
+                    .Where(IsReviewMetaPath).ToArray();
+                lock (gate) documents.Clear();
+                foreach (var path in rebuilt) Update(path);
+                try
+                {
+                    watcher.EnableRaisingEvents = true;
+                }
+                catch (Exception exception) when (
+                    exception is ObjectDisposedException or InvalidOperationException or IOException)
+                {
+                    // The index stays correct as of this rebuild; a disposed watcher has nothing to re-arm.
+                }
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                // The repository directory went away underneath the watcher; the registry reports that.
+            }
         }
 
         public IReadOnlyList<JsonElement> Read(string relativePath)

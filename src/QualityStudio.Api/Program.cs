@@ -61,6 +61,7 @@ builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<DotNetBuildSensor>());
 builder.Services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<AngularCompilerSensor>());
 builder.Services.AddSingleton<SensorRegistry>();
+builder.Services.AddSingleton<SensorAvailabilityCache>();
 builder.Services.Configure<AgentStudioTaskOptions>(
     builder.Configuration.GetSection(AgentStudioTaskOptions.SectionName));
 builder.Services.AddSingleton(serviceProvider =>
@@ -474,7 +475,10 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
         "Loaded {NodeCount} tree roots for repository {RepositoryId} at {RepositoryPath} in {ElapsedMilliseconds} ms",
         selected.Count, registration.Id, requested, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new TreeResponse(requested,
-        selected.Select(node => TreeNodeResponse.From(node, findingStates, coverage, currentCommit)).ToArray()));
+        selected.Select(node => TreeNodeResponse.From(node, findingStates, coverage, currentCommit)).ToArray(),
+        snapshot.GitStateStatus == RepositoryGitState.OkStatus
+            ? null
+            : new GitStateResponse(snapshot.GitStateStatus, snapshot.GitStateDetail)));
 }
 
 static IResult ProjectDashboard(
@@ -534,13 +538,20 @@ static IResult ProjectDashboard(
 }
 
 static async Task<IResult> FileContent(HttpContext context, string? path, RepositoryRegistry registry,
-    ILogger<Program> logger, CancellationToken cancellationToken)
+    Microsoft.Extensions.Options.IOptions<RepositoryOptions> options, ILogger<Program> logger,
+    CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var relative = repository.NormalizeRelativePath(path);
     var absolute = repository.ResolveFile(relative);
-    var bytes = await File.ReadAllBytesAsync(absolute, cancellationToken);
+    var limits = options.Value.Limits;
+    var sizeBytes = new FileInfo(absolute).Length;
+    // A generated bundle or a checked-in binary must not become one multi-megabyte JSON response.
+    var oversized = sizeBytes > limits.MaxFileBytes;
+    var bytes = oversized
+        ? await ReadPrefixAsync(absolute, limits.LargeFilePreviewBytes, cancellationToken)
+        : await File.ReadAllBytesAsync(absolute, cancellationToken);
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
     var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
@@ -550,10 +561,42 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
         relative,
         file: true);
     logger.LogInformation(new EventId(1101, "FileLoaded"),
-        "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}) in {ElapsedMilliseconds} ms",
-        relative, registration.Id, bytes.LongLength, encoding, lineEnding, stopwatch.ElapsedMilliseconds);
+        "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}, Truncated={Truncated}) in {ElapsedMilliseconds} ms",
+        relative, registration.Id, sizeBytes, encoding, lineEnding, oversized, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates),
-        bytes.LongLength, lineEnding, encoding, coverage));
+        sizeBytes, lineEnding, encoding, coverage,
+        oversized ? new LargeFileResponse(sizeBytes, limits.MaxFileBytes, bytes.LongLength) : null));
+}
+
+/// <summary>
+/// Reads at most <paramref name="maximumBytes"/> from the file and cuts the result back to the last
+/// complete UTF-8 sequence, so the preview never ends in half a character.
+/// </summary>
+static async Task<byte[]> ReadPrefixAsync(string absolute, long maximumBytes, CancellationToken cancellationToken)
+{
+    var buffer = new byte[maximumBytes];
+    await using var stream = File.OpenRead(absolute);
+    var read = await stream.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false, cancellationToken);
+    return buffer.AsSpan(0, TrimToCharacterBoundary(buffer.AsSpan(0, read))).ToArray();
+}
+
+static int TrimToCharacterBoundary(ReadOnlySpan<byte> bytes)
+{
+    var end = bytes.Length;
+    // Walk back over continuation bytes (10xxxxxx) to the sequence they belong to.
+    while (end > 0 && (bytes[end - 1] & 0b1100_0000) == 0b1000_0000) end--;
+    if (end == 0) return bytes.Length;
+    var lead = bytes[end - 1];
+    var expected = lead switch
+    {
+        < 0x80 => 1,
+        >= 0xF0 => 4,
+        >= 0xE0 => 3,
+        >= 0xC0 => 2,
+        _ => 1,
+    };
+    // Keep the sequence only when all of its bytes made it into the buffer.
+    return end - 1 + expected <= bytes.Length ? end - 1 + expected : end - 1;
 }
 
 static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegistry registry,
@@ -965,7 +1008,7 @@ static async Task<IResult> RecordAttackJudgement(
 }
 
 static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repositories, SensorRegistry sensors,
-    CancellationToken cancellationToken)
+    SensorAvailabilityCache availabilityCache, CancellationToken cancellationToken)
 {
     var registration = repositories.Get(RouteRepositoryId(context));
     var configured = (registration.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
@@ -973,7 +1016,7 @@ static async Task<IResult> Sensors(HttpContext context, RepositoryRegistry repos
     var descriptors = new List<object>();
     foreach (var sensor in sensors.List())
     {
-        var availability = await sensor.ProbeAvailabilityAsync(cancellationToken);
+        var availability = await availabilityCache.ProbeAsync(sensor, cancellationToken);
         configured.TryGetValue(sensor.Id, out var repositoryConfiguration);
         descriptors.Add(new
         {

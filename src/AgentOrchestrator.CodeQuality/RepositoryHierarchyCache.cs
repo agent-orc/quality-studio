@@ -8,7 +8,20 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed record RepositoryHierarchySnapshot(
     IReadOnlyList<HierarchyNode> Roots,
     string GitState,
-    string ETag);
+    string ETag,
+    string GitStateStatus = RepositoryGitState.OkStatus,
+    string? GitStateDetail = null);
+
+/// <summary>
+/// The Git fingerprint a hierarchy snapshot is keyed on, and whether Git produced it. When Git is
+/// missing or fails, the fingerprint is an explicit error marker rather than a filesystem walk of the
+/// whole repository, so a broken Git never turns into a silent full scan through node_modules.
+/// </summary>
+public sealed record RepositoryGitState(string State, string Status, string? Detail)
+{
+    public const string OkStatus = "ok";
+    public const string UnavailableStatus = "unavailable";
+}
 
 public sealed record RepositoryHierarchyMeasurement(
     RepositoryHierarchySnapshot Snapshot,
@@ -22,7 +35,19 @@ public sealed record RepositoryHierarchyMeasurement(
 /// <summary>Caches one immutable hierarchy snapshot per repository and Git state.</summary>
 public sealed class RepositoryHierarchyCache
 {
+    /// <summary>
+    /// How long one Git fingerprint is reused before Git is asked again. Hashing the index and every
+    /// dirty file is the dominant cost of a request, and a burst of requests describes the same commit;
+    /// the price is that a change made inside this window is seen one beat late.
+    /// </summary>
+    public static readonly TimeSpan DefaultGitStateTtl = TimeSpan.FromSeconds(1);
+
     private readonly ConcurrentDictionary<string, CacheSlot> slots = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, GitStateEntry> gitStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly TimeSpan gitStateTtl;
+
+    public RepositoryHierarchyCache(TimeSpan? gitStateTtl = null) =>
+        this.gitStateTtl = gitStateTtl ?? DefaultGitStateTtl;
 
     public RepositoryHierarchySnapshot Get(
         string repositoryPath,
@@ -41,7 +66,8 @@ public sealed class RepositoryHierarchyCache
         var totalStarted = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
         var gitStatusStarted = Stopwatch.GetTimestamp();
-        var state = ComputeGitState(root) + "\0" +
+        var git = GitState(root);
+        var state = git.State + "\0" +
                     ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
         var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
         var slot = slots.GetOrAdd(root, _ => new CacheSlot());
@@ -69,7 +95,8 @@ public sealed class RepositoryHierarchyCache
                 root, hierarchy, inputResolver, globalInputsDirectory, inputBudgetCharacters);
             var reviewMetaDiscoveryMilliseconds = Stopwatch.GetElapsedTime(discoveryStarted).TotalMilliseconds;
             var etagHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
-            slot.Snapshot = new RepositoryHierarchySnapshot(hierarchy, state, $"\"{etagHash}\"");
+            slot.Snapshot = new RepositoryHierarchySnapshot(
+                hierarchy, state, $"\"{etagHash}\"", git.Status, git.Detail);
             return new RepositoryHierarchyMeasurement(
                 slot.Snapshot,
                 false,
@@ -81,14 +108,35 @@ public sealed class RepositoryHierarchyCache
         }
     }
 
-    private static string ComputeGitState(string root)
+    /// <summary>The current Git fingerprint, reused for <see cref="gitStateTtl"/> before Git runs again.</summary>
+    private RepositoryGitState GitState(string root)
+    {
+        if (gitStateTtl > TimeSpan.Zero &&
+            gitStates.TryGetValue(root, out var cached) &&
+            Stopwatch.GetElapsedTime(cached.Timestamp) < gitStateTtl)
+        {
+            return cached.State;
+        }
+
+        var computed = ComputeGitState(root);
+        gitStates[root] = new GitStateEntry(computed, Stopwatch.GetTimestamp());
+        return computed;
+    }
+
+    private static RepositoryGitState ComputeGitState(string root)
     {
         var head = RunGit(root, "rev-parse", "--verify", "HEAD") ?? "unborn";
         var index = RunGit(root, "ls-files", "--stage", "-z") ?? "no-index";
         var status = RunGit(root, "status", "--porcelain=v1", "-z", "--untracked-files=all");
         if (status is null)
         {
-            return ComputeFilesystemState(root);
+            // Never fall back to walking the tree: that scan reads node_modules and every build output,
+            // takes minutes on a real repository, and hides the actual failure.
+            return new RepositoryGitState(
+                "git-unavailable",
+                RepositoryGitState.UnavailableStatus,
+                "git status failed in this repository, so the hierarchy cannot follow the working tree. " +
+                "Check that git is on PATH and that the directory is a readable Git repository.");
         }
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -110,7 +158,8 @@ public sealed class RepositoryHierarchyCache
             int read;
             while ((read = stream.Read(buffer)) > 0) hash.AppendData(buffer, 0, read);
         }
-        return Convert.ToHexStringLower(hash.GetHashAndReset());
+        return new RepositoryGitState(
+            Convert.ToHexStringLower(hash.GetHashAndReset()), RepositoryGitState.OkStatus, null);
     }
 
     private static string ComputeGlobalInputsState(string? directory, int budgetCharacters)
@@ -159,21 +208,6 @@ public sealed class RepositoryHierarchyCache
         }
     }
 
-    private static string ComputeFilesystemState(string root)
-    {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-                     .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part == ".git"))
-                     .Order(StringComparer.Ordinal))
-        {
-            Append(hash, Path.GetRelativePath(root, path).Replace('\\', '/'));
-            var info = new FileInfo(path);
-            Append(hash, info.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            Append(hash, info.LastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        }
-        return Convert.ToHexStringLower(hash.GetHashAndReset());
-    }
-
     private static string? RunGit(string root, params string[] arguments)
     {
         using var process = new Process
@@ -211,4 +245,6 @@ public sealed class RepositoryHierarchyCache
         public object Gate { get; } = new();
         public RepositoryHierarchySnapshot? Snapshot { get; set; }
     }
+
+    private sealed record GitStateEntry(RepositoryGitState State, long Timestamp);
 }
