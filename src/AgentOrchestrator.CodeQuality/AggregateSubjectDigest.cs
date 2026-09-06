@@ -52,6 +52,7 @@ public static partial class AggregateSubjectDigest
     private const int BoundaryPercent = 18;
     private const int MinimumOutlinePercent = 25;
     private const int MinimumOutlinePerMember = 320;
+    private const int MinimumHeaderCharacters = 160;
     private const int MaximumSourceLineLength = 400;
     private const int MaximumMemberRows = 400;
 
@@ -316,19 +317,27 @@ public static partial class AggregateSubjectDigest
             .OrderByDescending(member => member.Text.Length)
             .ThenBy(member => member.Path, StringComparer.Ordinal)
             .ToArray();
+        // Every member keeps a reserve before size decides the rest, so the tail of small members
+        // is not silently spent by the head of large ones. The reserve shrinks with the budget
+        // rather than dropping members, and only a budget too small for a header omits source.
+        var reserve = Math.Clamp(budget / Math.Max(1, ordered.Length), 0, MinimumOutlinePerMember);
         var remainingBudget = budget;
         var remainingSize = ordered.Sum(member => (long)member.Text.Length);
+        var remainingMembers = ordered.Length;
         foreach (var member in ordered)
         {
+            remainingMembers--;
+            var available = Math.Max(reserve, remainingBudget - remainingMembers * reserve);
             var proportional = remainingSize <= 0
-                ? remainingBudget
-                : (int)Math.Min(remainingBudget, remainingBudget * (long)member.Text.Length / remainingSize);
-            var allocation = Math.Clamp(Math.Max(proportional, MinimumOutlinePerMember), 0, remainingBudget);
+                ? available
+                : (int)Math.Min(available, remainingBudget * (long)member.Text.Length / remainingSize);
+            var allocation = Math.Clamp(Math.Max(proportional, reserve), 0, Math.Max(0, remainingBudget));
             remainingSize -= member.Text.Length;
-            if (allocation < MinimumOutlinePerMember / 2)
+            if (allocation < MinimumHeaderCharacters)
             {
                 builder.AppendLine();
-                builder.Append("### ").Append(member.Path).AppendLine(" (omitted: the digest budget is exhausted)");
+                builder.Append("### ").Append(member.Path)
+                    .AppendLine(" (source omitted: the digest budget is too small to show every member)");
                 continue;
             }
 
