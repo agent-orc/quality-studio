@@ -73,6 +73,8 @@ builder.Services.AddSingleton(_ => new QuotaService(
     store: FileQuotaCacheStore.Global()));
 var corsOptions = builder.Configuration.GetSection(RepositoryOptions.SectionName).Get<RepositoryOptions>()
     ?? new RepositoryOptions();
+LocalModeBindingGuard.ValidateConfiguredAddresses(builder.Configuration, corsOptions.Security);
+builder.Services.AddHostedService<LocalModeBindingGuard>();
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = corsOptions.Security.MaxRequestBodyBytes;

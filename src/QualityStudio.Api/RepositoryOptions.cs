@@ -25,6 +25,13 @@ public sealed class ApiSecurityOptions
     public const string HostedMode = "Hosted";
 
     public string Mode { get; set; } = LocalMode;
+
+    /// <summary>
+    /// Deliberate override for a Local-mode host that binds beyond loopback. Local mode authenticates
+    /// nobody, so this publishes an unauthenticated registrar API; see docs/deployment.md.
+    /// </summary>
+    public bool AllowNonLoopbackLocalMode { get; set; }
+
     public bool RequireHttps { get; set; } = true;
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;
     public int MaxConcurrentRequests { get; set; } = 32;
