@@ -1,5 +1,5 @@
 <div class="dialog-backdrop" role="presentation" (click)="closed.emit()">
-  <section class="repository-dialog api-access-dialog" role="dialog" aria-modal="true" aria-labelledby="api-access-title" (click)="$event.stopPropagation()">
+  <section class="repository-dialog api-access-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="api-access-title" (click)="$event.stopPropagation()">
     <header>
       <div>
         <span class="eyebrow">Connection</span>
@@ -16,7 +16,7 @@
         <span class="field-label">API token</span>
         <input name="apiToken" [type]="revealed() ? 'text' : 'password'" autocomplete="off" spellcheck="false"
           placeholder="Paste the token issued for this deployment" aria-describedby="api-token-helper"
-          [value]="draft()" (input)="setDraft($any($event.target).value)">
+          data-modal-autofocus [value]="draft()" (input)="setDraft($any($event.target).value)">
         <small id="api-token-helper" class="field-helper">{{ configured() ? 'A token is configured for this browser.' : 'No token configured: requests are sent anonymously.' }}</small>
       </label>
       <label class="reveal-field">

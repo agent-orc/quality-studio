@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-import { formatDateTime, formatTokenCount, parseTokenCount } from '../format';
+import { ResumeCap, ResumeCapDialog } from '../dialog/resume-cap-dialog';
+import { formatDateTime, formatTokenCount } from '../format';
 import { QualityApi } from '../quality-api';
 import { FindingSeverity, FindingState, HandoverRequest, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewRunCompareResult, ReviewThread, RunReportFormat, ScopeRuleView } from '../contracts';
 import { FlatNode } from '../tree-utils';
@@ -15,7 +16,7 @@ interface LastFindingMutation {
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [],
+  imports: [ResumeCapDialog],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +32,7 @@ export class ReviewPanel {
   readonly kindSelect = output<ReviewKind>();
 
   readonly handoverStatus = signal<Record<string, string>>({});
+  readonly resumingRun = signal<ReviewRun | null>(null);
   readonly stateAuthor = signal('Reviewer');
   readonly stateReason = signal('');
   readonly stateExpiry = signal('');
@@ -458,14 +460,10 @@ export class ReviewPanel {
 
   trendScoreWidth(point: QualityRunTrendPoint): number { return point.score ?? 0; }
 
-  async resumeCapped(run: ReviewRun): Promise<void> {
-    const current = run.tokenCap ?? run.costCap;
-    const tokenCap = run.tokenCap !== null;
-    const entered = prompt(`Raise the ${tokenCap ? 'token' : 'cost'} cap to resume ${run.skippedFiles} skipped file(s)${tokenCap ? ' (tokens; k/M accepted)' : ''}:`, current === null ? '' : tokenCap ? formatTokenCount(current * 2) : String(current * 2));
-    if (entered === null) return;
-    const cap = tokenCap ? parseTokenCount(entered) : Number(entered);
-    if (cap === null || !Number.isFinite(cap) || cap <= 0) return;
-    await this.api.resumeReview(run.id, tokenCap ? { tokenCap: cap } : { costCap: cap });
+  async applyResumeCap(cap: ResumeCap): Promise<void> {
+    const run = this.resumingRun();
+    this.resumingRun.set(null);
+    if (run) await this.api.resumeReview(run.id, cap);
   }
 
   private formatCost(value: number | null, currency: string | null): string {

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, ef
 import { FormsModule } from '@angular/forms';
 import { ApiAccess } from './api-access';
 import { ApiAccessDialog } from './api-access-dialog/api-access-dialog';
+import { ConfirmDialog } from './dialog/confirm-dialog';
 import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
@@ -43,10 +44,18 @@ interface ShellPosition {
   locationIndex: number;
 }
 interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds: string; levels: string; content: string; }
+interface PendingConfirmation {
+  eyebrow: string;
+  heading: string;
+  message: string;
+  confirmLabel: string;
+  danger: boolean;
+  confirm: () => void | Promise<void>;
+}
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog, ApiAccessDialog],
+  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog, ApiAccessDialog, ConfirmDialog],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -93,6 +102,7 @@ export class App implements OnDestroy {
   readonly usageHistoryOpen = signal(false);
   readonly apiAccessDialogOpen = signal(false);
   readonly apiAccessRejected = signal(false);
+  readonly confirmation = signal<PendingConfirmation | null>(null);
   readonly viewportHeight = signal(typeof window === 'undefined' ? 1000 : window.innerHeight);
   readonly selectedNode = computed(() => this.api.nodeAt(this.selected())
     ?? (this.selected() === '.' ? this.api.allNodes().find(node => node.level === 'project') : undefined));
@@ -347,11 +357,27 @@ export class App implements OnDestroy {
     finally { this.guidelineSaving.set(false); }
   }
 
-  async deleteGuideline(): Promise<void> {
+  deleteGuideline(): void {
     const id = this.editingGuidelineId();
-    if (!id || !confirm(`Delete guideline ${id}? The repository file will be removed.`)) return;
-    try { await this.api.deleteGuideline(id); this.api.guidelines().length ? this.editGuideline(this.api.guidelines()[0]) : this.newGuideline(); }
-    catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
+    if (!id) return;
+    this.confirmation.set({
+      eyebrow: 'Repository policy',
+      heading: `Delete guideline ${id}?`,
+      message: 'The guideline file is removed from the repository. Reviews started afterwards no longer apply it.',
+      confirmLabel: 'Delete file',
+      danger: true,
+      confirm: () => this.confirmDeleteGuideline(id),
+    });
+  }
+
+  private async confirmDeleteGuideline(id: string): Promise<void> {
+    try {
+      await this.api.deleteGuideline(id);
+      if (this.api.guidelines().length) this.editGuideline(this.api.guidelines()[0]);
+      else this.newGuideline();
+    } catch (error) {
+      this.guidelineError.set(this.api.errorMessage(error));
+    }
   }
 
   async installGuideline(id: string): Promise<void> {
@@ -509,8 +535,25 @@ export class App implements OnDestroy {
     }
   }
 
-  async archiveRepository(repository: RepositoryRegistration): Promise<void> {
-    if (!confirm(`Archive ${repository.displayName}? Its files will not be changed.`)) return;
+  archiveRepository(repository: RepositoryRegistration): void {
+    this.confirmation.set({
+      eyebrow: 'Repository registry',
+      heading: `Archive ${repository.displayName}?`,
+      message: 'The repository leaves the switcher and its reviews stop being tracked here. No file in the repository is changed.',
+      confirmLabel: 'Archive',
+      danger: true,
+      confirm: () => this.confirmArchiveRepository(repository),
+    });
+  }
+
+  /** Runs the pending confirmation, then closes it whatever the outcome. */
+  async runConfirmation(): Promise<void> {
+    const pending = this.confirmation();
+    this.confirmation.set(null);
+    await pending?.confirm();
+  }
+
+  private async confirmArchiveRepository(repository: RepositoryRegistration): Promise<void> {
     const wasSelected = repository.id === this.api.selectedRepositoryId();
     try {
       await this.api.archiveRepository(repository.id);

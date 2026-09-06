@@ -79,14 +79,14 @@
 
 @defer (when attackCoverageDialogOpen()) {
   @if (attackCoverageDialogOpen()) {
-    <qs-attack-coverage (close)="attackCoverageDialogOpen.set(false)" />
+    <qs-attack-coverage (closed)="attackCoverageDialogOpen.set(false)" />
   }
 }
 
 @if (guidelineDialogOpen()) {
-  <div class="dialog-backdrop" (click)="guidelineDialogOpen.set(false)">
-    <section class="repository-dialog guideline-dialog" role="dialog" aria-modal="true" aria-labelledby="guideline-dialog-title" (click)="$event.stopPropagation()">
-      <header><div><span class="eyebrow">Repository policy</span><h2 id="guideline-dialog-title">Guidelines</h2></div><button class="icon-button" type="button" aria-label="Close guidelines" (click)="guidelineDialogOpen.set(false)">×</button></header>
+  <div class="dialog-backdrop" role="presentation" (click)="guidelineDialogOpen.set(false)">
+    <section class="repository-dialog guideline-dialog" qsModal (dismiss)="guidelineDialogOpen.set(false)" role="dialog" aria-modal="true" aria-labelledby="guideline-dialog-title" (click)="$event.stopPropagation()">
+      <header><div><span class="eyebrow">Repository policy</span><h2 id="guideline-dialog-title">Guidelines</h2></div><button class="icon-button" type="button" aria-label="Close guidelines" data-modal-autofocus (click)="guidelineDialogOpen.set(false)">×</button></header>
       <div class="dialog-body guideline-body">
         <nav class="repository-list guideline-list" aria-label="Repository guidelines">
           <button class="add-repository" type="button" (click)="newGuideline()">+ New guideline</button>
@@ -159,14 +159,14 @@
 }
 
 @if (agentStudioImportDialogOpen()) {
-  <div class="dialog-backdrop" (click)="closeAgentStudioImportDialog()">
-    <section class="repository-dialog agent-studio-dialog" role="dialog" aria-modal="true" aria-labelledby="agent-studio-import-title" (click)="$event.stopPropagation()">
+  <div class="dialog-backdrop" role="presentation" (click)="closeAgentStudioImportDialog()">
+    <section class="repository-dialog agent-studio-dialog" qsModal (dismiss)="closeAgentStudioImportDialog()" role="dialog" aria-modal="true" aria-labelledby="agent-studio-import-title" (click)="$event.stopPropagation()">
       <header>
         <div>
           <span class="eyebrow">Agent Studio</span>
           <h2 id="agent-studio-import-title">Import repositories</h2>
         </div>
-        <button class="icon-button" type="button" aria-label="Close import dialog" (click)="closeAgentStudioImportDialog()">×</button>
+        <button class="icon-button" type="button" aria-label="Close import dialog" data-modal-autofocus (click)="closeAgentStudioImportDialog()">×</button>
       </header>
       <div class="dialog-body agent-studio-body">
         @if (agentStudioImporting()) {
@@ -206,4 +206,15 @@
   @if (apiAccessDialogOpen()) {
     <qs-api-access-dialog [rejected]="apiAccessRejected()" (closed)="closeApiAccess()" />
   }
+}
+
+@if (confirmation(); as pending) {
+  <qs-confirm-dialog
+    [eyebrow]="pending.eyebrow"
+    [heading]="pending.heading"
+    [message]="pending.message"
+    [confirmLabel]="pending.confirmLabel"
+    [danger]="pending.danger"
+    (confirmed)="runConfirmation()"
+    (cancelled)="confirmation.set(null)" />
 }

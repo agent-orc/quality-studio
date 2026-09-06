@@ -63,8 +63,9 @@ describe('UsageHistory', () => {
   it('closes with Escape for keyboard access', () => {
     let closed = false;
     fixture.componentInstance.closed.subscribe(() => closed = true);
+    const dialog = fixture.nativeElement.querySelector('.usage-dialog') as HTMLElement;
 
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
     expect(closed).toBeTrue();
   });
@@ -75,11 +76,11 @@ describe('UsageHistory', () => {
     const entry = dialog.querySelector('.entry-summary') as HTMLButtonElement;
     entry.focus();
 
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    entry.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
     expect(document.activeElement).toBe(close);
 
     close.focus();
-    document.dispatchEvent(new KeyboardEvent('keydown', {
+    close.dispatchEvent(new KeyboardEvent('keydown', {
       key: 'Tab',
       shiftKey: true,
       bubbles: true,

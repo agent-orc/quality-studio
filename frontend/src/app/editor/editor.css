@@ -18,7 +18,8 @@
 .stale-banner b{text-transform:uppercase;letter-spacing:.08em}
 .stale-banner span{color:var(--studio-fg-muted)}
 .policy-drift-banner{border-bottom-color:color-mix(in srgb,var(--status-policy) 45%,var(--studio-border));background:color-mix(in srgb,var(--status-policy) 16%,var(--studio-bg-editor));color:var(--status-policy)}
-.code-viewport{position:relative;flex:1;min-height:0;overflow:auto;font:11px/22px var(--font-mono)}
+.code-viewport{position:relative;flex:1;min-height:0;overflow:auto;font:11px/22px var(--font-mono);tab-size:4;-moz-tab-size:4}
+.code-viewport:focus-visible{outline:2px solid var(--studio-accent);outline-offset:-2px}
 .code-space{position:relative}
 .code-line{position:absolute;left:0;min-width:100%;height:22px;display:flex;white-space:pre}
 .code-line:hover{background:color-mix(in srgb,var(--studio-accent) 5%,transparent)}

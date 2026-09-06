@@ -1,18 +1,18 @@
-<div class="usage-backdrop" (click)="closed.emit()">
+<div class="usage-backdrop" role="presentation" (click)="closed.emit()">
   <section
-    #dialog
     class="usage-dialog"
+    qsModal
+    (dismiss)="closed.emit()"
     role="dialog"
     aria-modal="true"
     aria-labelledby="usage-history-title"
-    tabindex="-1"
     (click)="$event.stopPropagation()">
     <header>
       <div>
         <span class="eyebrow">Repository ledger</span>
         <h2 id="usage-history-title">Usage history</h2>
       </div>
-      <button class="icon-button" type="button" aria-label="Close usage history" (click)="closed.emit()">×</button>
+      <button class="icon-button" type="button" aria-label="Close usage history" data-modal-autofocus (click)="closed.emit()">×</button>
     </header>
 
     <div class="usage-content">

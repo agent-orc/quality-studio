@@ -22,6 +22,9 @@
                   <button type="button" [class.pinned]="isPinned(run.id)" (click)="togglePin(run.id)">{{ isPinned(run.id) ? '★ Pinned baseline' : '☆ Pin as baseline' }}</button>
                 </div>
               }
+              @if (run.state === 'capped') {
+                <div class="run-compare-actions"><button type="button" (click)="resumingRun.set(run)">Raise cap and resume</button></div>
+              }
               @if (run.stopReason) { <small class="run-stop">{{ run.stopReason }}</small> }
               @if (run.deviation; as deviation) { <small class="run-deviation">Estimate deviation: input {{ deviation.inputTokensPercent }}% · output {{ deviation.outputTokensPercent }}%@if (deviation.costPercent !== null) { · cost {{ deviation.costPercent }}% }</small> }
               @if (run.errors[0]; as error) { <small class="run-error">{{ error }}</small> }
@@ -209,3 +212,7 @@
     <div class="scan-grid"><div><i class="status fresh"></i><b>{{ api.scan().freshCount }}</b><span>Fresh</span></div><div><i class="status stale"></i><b>{{ api.scan().staleCount }}</b><span>Code</span></div><div><i class="status policy-drift"></i><b>{{ api.scan().policyDriftCount }}</b><span>Policy</span></div><div><i class="status missing"></i><b>{{ api.scan().missingCount }}</b><span>Missing</span></div></div>
   </div>
 </aside>
+
+@if (resumingRun(); as capped) {
+  <qs-resume-cap-dialog [run]="capped" (submitted)="applyResumeCap($event)" (cancelled)="resumingRun.set(null)" />
+}

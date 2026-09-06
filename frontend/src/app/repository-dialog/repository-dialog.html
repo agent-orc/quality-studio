@@ -1,5 +1,5 @@
-<div class="dialog-backdrop" (click)="closed.emit()">
-  <section class="repository-dialog" role="dialog" aria-modal="true" aria-labelledby="repository-dialog-title" (click)="$event.stopPropagation()">
+<div class="dialog-backdrop" role="presentation" (click)="closed.emit()">
+  <section class="repository-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="repository-dialog-title" (click)="$event.stopPropagation()">
     <header>
       <div>
         <span class="eyebrow">Repository registry</span>
@@ -20,7 +20,7 @@
         <div class="repository-form-fields">
           <label class="form-field">
             <span class="field-label">Display name</span>
-            <input name="displayName" [(ngModel)]="form.displayName" required maxlength="100" placeholder="Payments service">
+            <input name="displayName" data-modal-autofocus [(ngModel)]="form.displayName" required maxlength="100" placeholder="Payments service">
             <small class="field-helper">Shown in the repository switcher.</small>
           </label>
           @if (!editingRepositoryId) {

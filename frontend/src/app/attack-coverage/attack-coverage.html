@@ -1,5 +1,5 @@
-<div class="coverage-backdrop" (click)="close.emit()">
-  <section class="coverage-dialog" role="dialog" aria-modal="true" aria-labelledby="coverage-dialog-title" (click)="$event.stopPropagation()">
+<div class="coverage-backdrop" role="presentation" (click)="closed.emit()">
+  <section class="coverage-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="coverage-dialog-title" (click)="$event.stopPropagation()">
     <header>
       <div>
         <span class="eyebrow">Security landing view</span>
@@ -7,7 +7,7 @@
       </div>
       <div class="coverage-header-actions">
         <button class="secondary-button" type="button" [disabled]="!api.attackCoverage()" (click)="export()">Export JSON</button>
-        <button class="icon-button" type="button" aria-label="Close attack coverage" (click)="close.emit()">×</button>
+        <button class="icon-button" type="button" aria-label="Close attack coverage" data-modal-autofocus (click)="closed.emit()">×</button>
       </div>
     </header>
     @if (api.attackCoverageLoading()) {

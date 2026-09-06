@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, injec
 import { FormsModule } from '@angular/forms';
 import { QualityApi } from '../quality-api';
 import { ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../contracts';
+import { ResumeCap, ResumeCapDialog } from '../dialog/resume-cap-dialog';
 import { formatTokenCount, parseTokenCount } from '../format';
 
 let reviewActionsInstance = 0;
 
 @Component({
   selector: 'qs-review-actions',
-  imports: [FormsModule],
+  imports: [FormsModule, ResumeCapDialog],
   templateUrl: './review-actions.html',
   styleUrl: './review-actions.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,6 +25,7 @@ export class ReviewActions {
   readonly focusRequest = input(0);
   readonly kindSelect = output<ReviewKind>();
   readonly starting = signal(false);
+  readonly resumingRun = signal<ReviewRun | null>(null);
   readonly showLauncher = signal(false);
   readonly preflight = signal<ReviewPreflight | null>(null);
   readonly pendingRequest = signal<StartReviewRequest | null>(null);
@@ -256,14 +258,10 @@ export class ReviewActions {
     return run.files.filter(file => states.includes(file.state));
   }
 
-  async resumeCapped(run: ReviewRun): Promise<void> {
-    const current = run.tokenCap ?? run.costCap;
-    const tokenCap = run.tokenCap !== null;
-    const entered = prompt(`Raise the ${tokenCap ? 'token' : 'cost'} cap to resume${tokenCap ? ' (tokens; k/M accepted)' : ''}:`, current === null ? '' : tokenCap ? formatTokenCount(current * 2) : String(current * 2));
-    if (entered === null) return;
-    const cap = tokenCap ? parseTokenCount(entered) : Number(entered);
-    if (cap === null || !Number.isFinite(cap) || cap <= 0) return;
-    await this.api.resumeReview(run.id, tokenCap ? { tokenCap: cap } : { costCap: cap });
+  async applyResumeCap(cap: ResumeCap): Promise<void> {
+    const run = this.resumingRun();
+    this.resumingRun.set(null);
+    if (run) await this.api.resumeReview(run.id, cap);
   }
 
   private countFiles(node: TreeNode | undefined): number {

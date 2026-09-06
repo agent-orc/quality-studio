@@ -1,16 +1,18 @@
 import { ChangeDetectionStrategy, Component, OnInit, output, inject, signal } from '@angular/core';
 import { QualityApi } from '../quality-api';
 import { AttackCoverageCell, AttackCoverageRow, TreeNode } from '../contracts';
+import { Modal } from '../dialog/modal';
 
 @Component({
   selector: 'qs-attack-coverage',
+  imports: [Modal],
   templateUrl: './attack-coverage.html',
   styleUrl: './attack-coverage.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AttackCoverage implements OnInit {
   readonly api = inject(QualityApi);
-  readonly close = output<void>();
+  readonly closed = output<void>();
   readonly selectedCell = signal<AttackCoverageCell | null>(null);
   readonly scope = signal('.');
 
