@@ -65,10 +65,15 @@ public sealed class SarifSensorTests
         var root = CreateRepository("src/a.ts");
         try
         {
-            var result = await new SarifSensor(new MissingCommandRunner()).RunAsync(
+            var catalog = new AnalyzerProfileCatalog(
+            [
+                new AnalyzerProfile("missing", "sarif", "missing-analyzer --sarif {reportPath}"),
+            ]);
+
+            var result = await new SarifSensor(new MissingCommandRunner(), catalog).RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
-                    ["command"] = "missing-analyzer --sarif {reportPath}",
+                    ["profile"] = "missing",
                     ["reportPath"] = ".quality/analyzers/missing.sarif",
                 }),
                 TestContext.Current.CancellationToken);
@@ -123,9 +128,7 @@ public sealed class SarifSensorTests
             var result = await sensor.RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
-                    ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . " +
-                                  "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
-                                  "--output-file {reportPath}",
+                    ["profile"] = "eslint-frontend-sarif",
                     ["reportPath"] = ".quality/preflight/eslint.sarif",
                 }),
                 TestContext.Current.CancellationToken);
@@ -179,7 +182,7 @@ public sealed class SarifSensorTests
             var result = await sensor.RunAsync(
                 new SensorScanRequest(root, Configuration: new Dictionary<string, string>
                 {
-                    ["command"] = "npx --no-install tsc --noEmit --pretty false",
+                    ["profile"] = "tsc-noemit",
                     ["reportPath"] = ".quality/analyzers/tsc.txt",
                     ["workingDirectory"] = "frontend",
                     ["producerVersion"] = "5.9.2",

@@ -21,6 +21,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
+builder.Services.AddSingleton(serviceProvider => AnalyzerProfileOptions.CreateCatalog(
+    serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryOptions>>().Value.AnalyzerProfiles,
+    serviceProvider.GetRequiredService<IHostEnvironment>().ContentRootPath));
 builder.Services.AddSingleton<ApiSecurity>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
@@ -74,6 +77,7 @@ builder.Services.AddSingleton(_ => new QuotaService(
 var corsOptions = builder.Configuration.GetSection(RepositoryOptions.SectionName).Get<RepositoryOptions>()
     ?? new RepositoryOptions();
 LocalModeBindingGuard.ValidateConfiguredAddresses(builder.Configuration, corsOptions.Security);
+corsOptions.Limits.Validate();
 builder.Services.AddHostedService<LocalModeBindingGuard>();
 builder.WebHost.ConfigureKestrel(options =>
 {

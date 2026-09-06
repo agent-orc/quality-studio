@@ -44,17 +44,20 @@ public sealed class RepositoryRegistry
     private readonly IReadOnlyList<string> supportedSensors;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
+    private readonly AnalyzerProfileCatalog profiles;
     private readonly SemaphoreSlim gate = new(1, 1);
     private List<RepositoryRegistration> entries;
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
-        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex)
+        SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex,
+        AnalyzerProfileCatalog profiles)
     {
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
         this.logger = logger;
         this.metaIndex = metaIndex;
+        this.profiles = profiles;
         if (legacyOptions.AllowedRoots.Length == 0)
             throw new InvalidOperationException("QualityStudio:AllowedRoots must contain at least one directory.");
         allowedRoots = legacyOptions.AllowedRoots.Select(path => ResolvePath(path, contentRoot))
@@ -287,6 +290,8 @@ public sealed class RepositoryRegistry
                 $"Sensors must be a unique selection of: {string.Join(", ", supportedSensors)}.");
         }
 
+        foreach (var sensor in sensors) ValidateSensorConfiguration(sensor);
+
         if (request.DefaultReviewTokenCap.HasValue && request.DefaultReviewCostCap.HasValue)
             throw new RepositoryRegistryValidationException("Choose either a default token cap or a default cost cap, not both.");
         if (request.DefaultReviewTokenCap is <= 0 or > 1_000_000_000)
@@ -381,9 +386,66 @@ public sealed class RepositoryRegistry
             .ToDictionary(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase);
         return supportedSensors
             .Select(id => existing.TryGetValue(id, out var sensor)
-                ? MergeDefaultConfiguration(sensor, DefaultSensor(id, root))
+                ? DropPersistedCommand(MergeDefaultConfiguration(sensor, DefaultSensor(id, root)),
+                    DefaultSensor(id, root))
                 : DefaultSensor(id, root))
             .ToArray();
+    }
+
+    /// <summary>
+    /// A registry written before analyzer profiles existed carries the command the sensor used to run.
+    /// It is dropped on load and replaced by the host profile for that sensor, so an inherited command
+    /// never survives an upgrade of the host that no longer allows one.
+    /// </summary>
+    private RepositorySensorConfiguration DropPersistedCommand(
+        RepositorySensorConfiguration sensor,
+        RepositorySensorConfiguration fallback)
+    {
+        if (profiles.AllowInlineCommands || sensor.Configuration is null ||
+            !sensor.Configuration.ContainsKey(AnalyzerSensorConfiguration.CommandKey))
+            return sensor;
+        var sanitized = sensor.Configuration
+            .Where(pair => !string.Equals(pair.Key, AnalyzerSensorConfiguration.CommandKey,
+                StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        if (!sanitized.ContainsKey(AnalyzerSensorConfiguration.ProfileKey) &&
+            fallback.Configuration?.TryGetValue(AnalyzerSensorConfiguration.ProfileKey, out var profile) == true)
+            sanitized[AnalyzerSensorConfiguration.ProfileKey] = profile;
+        logger.LogWarning(new EventId(1404, "AnalyzerCommandDropped"),
+            "Dropped the persisted analyzer command of sensor {SensorId}; analyzer commands are host-owned",
+            sensor.Id);
+        return sensor with { Configuration = sanitized };
+    }
+
+    /// <summary>
+    /// Refuses sensor configuration a client must not be able to write: an executable command, a key
+    /// the sensor does not understand, or a profile this host does not offer.
+    /// </summary>
+    private void ValidateSensorConfiguration(RepositorySensorConfiguration sensor)
+    {
+        if (sensor.Configuration is null) return;
+        var allowed = AnalyzerSensorConfiguration.AllowedKeys(sensor.Id);
+        foreach (var key in sensor.Configuration.Keys)
+        {
+            if (string.Equals(key, AnalyzerSensorConfiguration.CommandKey, StringComparison.OrdinalIgnoreCase))
+            {
+                if (profiles.AllowInlineCommands) continue;
+                throw new RepositoryRegistryValidationException(
+                    $"Sensor '{sensor.Id}' may not carry an executable command.",
+                    "Analyzer commands are host-owned");
+            }
+
+            if (allowed is not null && !allowed.Contains(key, StringComparer.OrdinalIgnoreCase))
+                throw new RepositoryRegistryValidationException(
+                    $"Sensor '{sensor.Id}' does not accept configuration key '{key}'.",
+                    "Unsupported sensor configuration key");
+        }
+
+        if (sensor.Configuration.TryGetValue(AnalyzerSensorConfiguration.ProfileKey, out var profileId) &&
+            !string.IsNullOrWhiteSpace(profileId) && !profiles.TryResolve(sensor.Id, profileId, out _))
+            throw new RepositoryRegistryValidationException(
+                $"Analyzer profile '{profileId}' is not configured for sensor '{sensor.Id}'.",
+                "Unknown analyzer profile");
     }
 
     private static RepositorySensorConfiguration MergeDefaultConfiguration(
@@ -416,12 +478,7 @@ public sealed class RepositoryRegistry
             id,
             Configuration: new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["workingDirectory"] = ".",
-                ["reportPath"] = ".quality/preflight/eslint.sarif",
-                ["command"] = "node frontend/node_modules/eslint/bin/eslint.js . " +
-                              "--config frontend/eslint.config.mjs " +
-                              "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
-                              "--output-file {reportPath}",
+                [AnalyzerSensorConfiguration.ProfileKey] = "eslint-frontend-sarif",
             });
     }
 }

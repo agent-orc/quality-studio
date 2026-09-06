@@ -141,6 +141,66 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Registrar_cannot_configure_an_analyzer_command_and_must_name_a_host_profile()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+
+        using var withCommand = await admin.PutAsJsonAsync("/api/repos/foreign",
+            Registration(new Dictionary<string, string>
+            {
+                ["command"] = "sh -c compromised",
+                ["reportPath"] = ".quality/preflight/eslint.sarif",
+            }), TestContext.Current.CancellationToken);
+        using var unknownProfile = await admin.PutAsJsonAsync("/api/repos/foreign",
+            Registration(new Dictionary<string, string>
+            {
+                ["profile"] = "profile-this-host-does-not-offer",
+            }), TestContext.Current.CancellationToken);
+        using var unknownKey = await admin.PutAsJsonAsync("/api/repos/foreign",
+            Registration(new Dictionary<string, string>
+            {
+                ["executable"] = "sh",
+            }), TestContext.Current.CancellationToken);
+        using var accepted = await admin.PutAsJsonAsync("/api/repos/foreign",
+            Registration(new Dictionary<string, string>
+            {
+                ["profile"] = "eslint-frontend-sarif",
+            }), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, withCommand.StatusCode);
+        Assert.Equal("Analyzer commands are host-owned", await TitleOf(withCommand));
+        Assert.Equal(HttpStatusCode.BadRequest, unknownProfile.StatusCode);
+        Assert.Equal("Unknown analyzer profile", await TitleOf(unknownProfile));
+        Assert.Equal(HttpStatusCode.BadRequest, unknownKey.StatusCode);
+        Assert.Equal("Unsupported sensor configuration key", await TitleOf(unknownKey));
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+
+        var stored = Assert.Single(ReadRepository("foreign").Sensors!,
+            sensor => sensor.Id == "eslint").Configuration!;
+        Assert.Equal("eslint-frontend-sarif", stored["profile"]);
+        Assert.DoesNotContain("command", stored.Keys, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_persisted_analyzer_command_is_dropped_when_the_registry_is_loaded()
+    {
+        using var admin = CreateClient("admin", AdminToken);
+
+        var repositories = await admin.GetFromJsonAsync<JsonElement>("/api/repos",
+            TestContext.Current.CancellationToken);
+
+        var sensors = repositories.GetProperty("repositories").EnumerateArray()
+            .SelectMany(repository => repository.GetProperty("sensors").EnumerateArray())
+            .ToArray();
+        Assert.NotEmpty(sensors);
+        Assert.DoesNotContain(sensors, sensor =>
+            sensor.TryGetProperty("configuration", out var configuration) &&
+            configuration.ValueKind == JsonValueKind.Object &&
+            configuration.EnumerateObject().Any(property =>
+                string.Equals(property.Name, "command", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [Fact]
     public async Task Repository_scoped_identity_retains_read_and_review_access()
     {
         using var bob = CreateClient("bob", BobToken);
@@ -296,6 +356,27 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         if (includeClientId && clientId is not null) client.DefaultRequestHeaders.Add(ApiSecurity.ClientIdHeader, clientId);
         return client;
     }
+
+    private object Registration(IReadOnlyDictionary<string, string> eslintConfiguration) => new
+    {
+        id = "foreign",
+        displayName = "Foreign",
+        rootPath = ForeignRepositoryRoot,
+        enabledReviewKinds = new[] { "code" },
+        sensors = new[]
+        {
+            new
+            {
+                id = "eslint",
+                enabled = true,
+                configuration = eslintConfiguration,
+            },
+        },
+    };
+
+    private static async Task<string?> TitleOf(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken))
+        .GetProperty("title").GetString();
 
     private RepositoryRegistration ReadRepository(string id)
     {
