@@ -146,10 +146,13 @@ public sealed class RuleCatalogueResolver
             .ToArray();
     }
 
+    // What the reviewer needs to apply the rule: what to do, and what to look at. The rationale and
+    // the worked examples stay in the catalogue and on the rules endpoint, where a reader wants them
+    // and no character budget is at stake.
     private static string Content(ResolvedRule rule)
     {
         var content = $"{rule.Rule.Title} ({rule.Rule.Technology}, {Severity(rule.EffectiveSeverity)} severity). " +
-            $"{rule.Rule.Statement} Why: {rule.Rule.Rationale} Detection: {rule.Rule.Detection}";
+            $"{rule.Rule.Statement} Detection: {rule.Rule.Detection}";
         return rule.SeverityOverridden
             ? $"{content} Project override: report findings for this rule as " +
               $"{Severity(rule.EffectiveSeverity)} severity — {rule.OverrideReason}"

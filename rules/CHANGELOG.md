@@ -3,6 +3,25 @@
 Library-level version history. Per-rule history lives in each rule file's own
 `## Change history` section.
 
+## 1.2.0 (2026-09-06)
+
+The library covers three review kinds and three technologies. Eighteen rules added; no existing
+rule changed.
+
+- .NET security (`QS-CS-005`..`QS-CS-008`): repository path confinement, external process
+  arguments, secrets in logs and responses, bounded deserialization.
+- .NET performance (`QS-CS-009`..`QS-CS-012`): blocking I/O on request paths, cache keys and
+  bounds, one command per scope instead of per project, timeouts and queue supervision.
+- Angular security (`QS-NG-006`..`QS-NG-009`): `postMessage` origin and payload, sanitizer
+  bypasses, credentials in client state, URL construction and navigation targets.
+- Angular performance (`QS-NG-010`..`QS-NG-013`): allocating template expressions, bounded render
+  windows, the production bundle budget, main-thread work.
+- Language-independent (`QS-GN-001`, `QS-GN-002`): untrusted content as data, explicit resource
+  bounds. Both apply to every adapter.
+
+Every new rule is grounded in this repository: its good example is code that already exists here,
+and its rationale names the finding or measurement it comes from.
+
 ## 1.1.0 (2026-09-06)
 
 The rule format gained the two fields the generated catalogue needs to route a rule.
