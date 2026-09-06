@@ -125,21 +125,8 @@ public sealed class ChangeSetReviewService
     private static async Task SaveAsync(
         string path,
         ChangeReviewDocument document,
-        CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            await File.WriteAllTextAsync(temporary, Serialize(document), new UTF8Encoding(false), cancellationToken)
-                .ConfigureAwait(false);
-            File.Move(temporary, path, true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
-    }
+        CancellationToken cancellationToken) =>
+        await AtomicFile.WriteAllTextAsync(path, Serialize(document), cancellationToken).ConfigureAwait(false);
 
     private static async Task<IReadOnlyList<MetaSnapshot>> LoadMetadataAsync(
         string root,

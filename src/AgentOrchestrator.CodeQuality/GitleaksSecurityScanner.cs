@@ -336,11 +336,8 @@ public class GitleaksSecurityScanner : IReviewSensor
                     "Matched the repository Gitleaks baseline.", expectedTimestamp: state.Timestamp,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
-            var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-            await File.WriteAllTextAsync(temporaryPath, ReviewMetaJson.Serialize(doc) + Environment.NewLine, new UTF8Encoding(false), cancellationToken)
-                .ConfigureAwait(false);
-            File.Move(temporaryPath, metaPath, true);
+            await AtomicFile.WriteAllTextAsync(
+                metaPath, ReviewMetaJson.Serialize(doc) + Environment.NewLine, cancellationToken).ConfigureAwait(false);
         }
 
         if (request.Mode == SecurityScanMode.Repository)

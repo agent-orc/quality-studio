@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -146,21 +145,11 @@ public sealed class FindingStateStore
         return document;
     }
 
-    private async Task SaveAsync(FindingStateDocument document, CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(statePath)!);
-        var temporary = statePath + ".tmp-" + Guid.NewGuid().ToString("N");
-        try
-        {
-            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine,
-                new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-            File.Move(temporary, statePath, true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
-    }
+    private async Task SaveAsync(FindingStateDocument document, CancellationToken cancellationToken) =>
+        await AtomicFile.WriteAllTextAsync(
+            statePath,
+            JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine,
+            cancellationToken).ConfigureAwait(false);
 
     private static (FindingStateDocument Document, bool Changed) ReopenExpired(FindingStateDocument document, DateTimeOffset now)
     {

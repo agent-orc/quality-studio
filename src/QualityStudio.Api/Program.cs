@@ -705,10 +705,8 @@ static async Task<IResult> MutateThread(HttpContext context, ThreadMutationReque
         thread["entries"]!.AsArray().Add(entry);
     }
     if (request.Status is not null) thread["status"] = request.Status;
-    var temporary = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
-    await File.WriteAllTextAsync(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine,
-        new UTF8Encoding(false), cancellationToken);
-    File.Move(temporary, metaPath, true);
+    await AtomicFile.WriteAllTextAsync(metaPath,
+        root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine, cancellationToken);
     logger.LogInformation(new EventId(1500, "ReviewThreadMutated"),
         "Mutated review thread {ThreadId} for {FilePath} in repository {RepositoryId}; Status={Status}, HasEntry={HasEntry}, ElapsedMilliseconds={ElapsedMilliseconds}",
         thread["id"]!.GetValue<string>(), relative, registration.Id, thread["status"]!.GetValue<string>(), !string.IsNullOrWhiteSpace(request.Body), stopwatch.ElapsedMilliseconds);

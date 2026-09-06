@@ -172,25 +172,9 @@ public sealed class ReviewRunStore
     public void WriteStatus(ReviewRunStatus status)
     {
         ArgumentNullException.ThrowIfNull(status);
-        var directory = RunDirectory(status.RunId);
-        Directory.CreateDirectory(directory);
-        var destination = Path.Combine(directory, "status.json");
-        var temporary = Path.Combine(directory, $"status.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(JsonSerializer.Serialize(status, JsonOptions) + Environment.NewLine);
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       bufferSize: 4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, destination, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        AtomicFile.WriteAllText(
+            Path.Combine(RunDirectory(status.RunId), "status.json"),
+            JsonSerializer.Serialize(status, JsonOptions) + Environment.NewLine);
     }
 
     public void WriteResult(ReviewRunManifest manifest, ReviewRunStatus status)
@@ -225,7 +209,7 @@ public sealed class ReviewRunStore
             status.StopReason,
             manifest.Recommendation,
             manifest.RouteOverride);
-        WriteAtomic(Path.Combine(RunDirectory(status.RunId), "result.json"),
+        AtomicFile.WriteAllText(Path.Combine(RunDirectory(status.RunId), "result.json"),
             JsonSerializer.Serialize(result, JsonOptions) + Environment.NewLine);
     }
 
@@ -245,7 +229,7 @@ public sealed class ReviewRunStore
         observations[operationId] = snapshot;
         var document = observations.OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => new StoredReviewObservation(pair.Key, pair.Value)).ToArray();
-        WriteAtomic(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
+        AtomicFile.WriteAllText(destination, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
     }
 
     public IReadOnlyList<StoredReviewRun> LoadAll(Action<string, Exception>? loadFailed = null)
@@ -344,24 +328,4 @@ public sealed class ReviewRunStore
         stream.Flush(flushToDisk: true);
     }
 
-    private static void WriteAtomic(string destination, string content)
-    {
-        var temporary = Path.Combine(Path.GetDirectoryName(destination)!,
-            $"{Path.GetFileNameWithoutExtension(destination)}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(content);
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       bufferSize: 4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, destination, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
-    }
 }

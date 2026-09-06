@@ -304,22 +304,11 @@ public sealed class FlowReviewRunner
     private static async Task SaveAsync(
         string path,
         FlowReviewReport report,
-        CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
-        try
-        {
-            await File.WriteAllTextAsync(temporary,
-                JsonSerializer.Serialize(report, JsonOptions) + Environment.NewLine,
-                new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-            File.Move(temporary, path, true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
-    }
+        CancellationToken cancellationToken) =>
+        await AtomicFile.WriteAllTextAsync(
+            path,
+            JsonSerializer.Serialize(report, JsonOptions) + Environment.NewLine,
+            cancellationToken).ConfigureAwait(false);
 
     private static FlowFindingCounts Count(IReadOnlyList<FlowFinding> findings) =>
         new(

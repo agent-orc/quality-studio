@@ -201,15 +201,8 @@ public sealed class ReviewRunner
                     sensorEvidence,
                     deterministicEvidence,
                     ResolveSourceRevision(root));
-                Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);
-                var temporaryPath = metaPath + ".tmp-" + Guid.NewGuid().ToString("N");
                 var metadataJson = meta.ToJsonString(JsonOptions) + Environment.NewLine;
-                await File.WriteAllTextAsync(
-                    temporaryPath,
-                    metadataJson,
-                    new UTF8Encoding(false),
-                    cancellationToken).ConfigureAwait(false);
-                File.Move(temporaryPath, metaPath, true);
+                await AtomicFile.WriteAllTextAsync(metaPath, metadataJson, cancellationToken).ConfigureAwait(false);
                 observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);
             }
             finally
