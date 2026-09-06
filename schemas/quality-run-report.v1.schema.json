@@ -214,10 +214,13 @@
     "summary": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Descriptive projection over the observations of one run. It is never stored or displayed as the grade of a reviewed unit.",
       "required": ["score", "grade", "findings", "highestSeverity", "partialReason"],
       "properties": {
-        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
-        "grade": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null] },
+        "aggregateScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Rounded mean over the unit grades this run observed, null for a partial run. Written by every current producer." },
+        "aggregateBand": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null], "description": "Band of aggregateScore. It labels the projection, not a reviewed unit." },
+        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "deprecated": true, "description": "Deprecated alias of aggregateScore, kept for existing consumers." },
+        "grade": { "type": ["string", "null"], "enum": ["A", "B", "C", "D", "F", null], "deprecated": true, "description": "Deprecated alias of aggregateBand, kept for existing consumers." },
         "findings": { "$ref": "#/$defs/findingCounts" },
         "highestSeverity": { "type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null] },
         "partialReason": { "$ref": "#/$defs/nullableString" }

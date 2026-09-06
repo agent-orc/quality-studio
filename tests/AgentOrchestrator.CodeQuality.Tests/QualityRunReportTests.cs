@@ -6,14 +6,15 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class QualityRunReportTests
 {
+    private static readonly Lazy<JsonSchema> RunReportSchema = new(() => JsonSchema.FromText(File.ReadAllText(
+        Path.Combine(RepositoryTestContext.FindRepositoryRoot(), "schemas", "quality-run-report.v1.schema.json"))));
+
     [Fact]
     public void Canonical_json_validates_and_sarif_and_html_preserve_portable_evidence()
     {
         var report = CreateReport("review-export", findingCount: 21);
         using var canonical = JsonDocument.Parse(QualityRunReportRenderer.Render(report, QualityReportFormat.Json));
-        var reportSchema = JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            RepositoryTestContext.FindRepositoryRoot(), "schemas", "quality-run-report.v1.schema.json")));
-        var reportValidation = reportSchema.Evaluate(canonical.RootElement,
+        var reportValidation = RunReportSchema.Value.Evaluate(canonical.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(reportValidation.IsValid, reportValidation.ToString());
 
@@ -52,6 +53,33 @@ public sealed class QualityRunReportTests
         var markdown = QualityRunReportRenderer.Render(report, QualityReportFormat.Markdown);
         Assert.Contains("1 additional active finding(s) omitted", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("21. [", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Run_summary_labels_its_score_as_a_projection_and_still_round_trips()
+    {
+        var report = CreateReport("review-projection", findingCount: 1);
+
+        var canonical = QualityRunReportRenderer.Render(report, QualityReportFormat.Json);
+        using var json = JsonDocument.Parse(canonical);
+        var summary = json.RootElement.GetProperty("summary");
+        Assert.Equal(85, summary.GetProperty("aggregateScore").GetInt32());
+        Assert.Equal("B", summary.GetProperty("aggregateBand").GetString());
+        Assert.Equal(85, summary.GetProperty("score").GetInt32());
+        Assert.Equal("B", summary.GetProperty("grade").GetString());
+
+        var validation = RunReportSchema.Value.Evaluate(json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        Assert.True(validation.IsValid, validation.ToString());
+
+        var roundTrip = QualityRunReportJson.Deserialize(canonical);
+        Assert.Equal(85, roundTrip.Summary.AggregateScore);
+        Assert.Equal("B", roundTrip.Summary.AggregateBand);
+
+        var markdown = QualityRunReportRenderer.Render(report, QualityReportFormat.Markdown);
+        Assert.Contains("Aggregate score (projection) 85/100 (B)", markdown, StringComparison.Ordinal);
+        Assert.Contains("No unit carries it as its grade", markdown, StringComparison.Ordinal);
+        Assert.Contains("<span>Aggregate score B</span>",
+            QualityRunReportRenderer.Render(report, QualityReportFormat.Html), StringComparison.Ordinal);
     }
 
     [Fact]

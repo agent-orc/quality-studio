@@ -103,6 +103,26 @@ public sealed class QualityFindingContractTests
         Assert.Equal(71, first.Length);
     }
 
+    [Fact]
+    public void Legacy_quality_studio_schema_url_is_still_accepted()
+    {
+        var canonical = File.ReadAllText(Path.Combine(
+            RepositoryTestContext.FindRepositoryRoot(), "samples", "quality-finding.source-located.v1.json"));
+        var legacy = canonical.Replace(
+            QualityFindingEnvelope.SchemaId, QualityFindingEnvelope.LegacySchemaId, StringComparison.Ordinal);
+
+        Assert.Contains(QualityFindingEnvelope.LegacySchemaId, legacy, StringComparison.Ordinal);
+        using var parsed = JsonDocument.Parse(legacy);
+        var evaluation = Schema.Value.Evaluate(parsed.RootElement,
+            new EvaluationOptions { OutputFormat = OutputFormat.List });
+        Assert.True(evaluation.IsValid, evaluation.ToString());
+
+        var finding = QualityFindingJson.Deserialize(legacy);
+        Assert.Equal(QualityFindingEnvelope.LegacySchemaId, finding.Schema);
+        using var rewritten = JsonDocument.Parse(QualityFindingJson.Serialize(finding with { Schema = QualityFindingEnvelope.SchemaId }));
+        Assert.Equal(QualityFindingEnvelope.SchemaId, rewritten.RootElement.GetProperty("$schema").GetString());
+    }
+
     private static void AssertValid(QualityFindingEnvelope finding)
     {
         using var json = JsonDocument.Parse(QualityFindingJson.Serialize(finding));

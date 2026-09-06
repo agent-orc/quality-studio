@@ -11,12 +11,20 @@ Project, Module, Namespace, File, or Function statement is independently
 authored: an aggregate view never turns child grades into a substitute for a
 review at another level.
 
+Amendment 2026-09-06: a scorecard MAY compute a descriptive projection over the
+review sidecars that currently exist — a rounded mean per kind and per hierarchy
+level. Such a value is labelled "projection", is never stored or displayed as
+the grade of a unit, and carries no unit identity. A Project or Module review
+statement stands beside it: neither replaces the other.
+
 ## Decisions at a glance
 
 - The v1 built-in review kinds are `code`, `security`, and `performance`.
   Architecture can be an aspect of a project/module `code` review; adding it as
-  a fourth kind would require a later schema version. Security remains
-  detachable because it has separate files, prompts, runs, grades, and UI state.
+  a fourth kind would require a later schema version. Security is its own review
+  workflow inside the same package and assembly: separate files, prompts,
+  sensors, runs, grades, and UI state. Extracting it into a separate package or
+  repository is neither planned nor required.
 - There is one review-meta document per `(unit, kind)`. Reviewing performance
   never refreshes code or security metadata.
 - Source subjects are normalized text and hashed with SHA-256. Aggregate hashes
@@ -898,6 +906,44 @@ and the body. No line/span offset or compiler pretty-printer output participates
 Function `symbolId` stores the Roslyn documentation ID, or
 `csharp-local-key-v1:<64 lowercase hex>` for a local function.
 
+## Review-meta schema v3
+
+Added 2026-09-06 to describe what writers have emitted since 2026-08-27. v3 is
+additive over v2: it adds no required property and changes no existing one.
+`security` and `deterministicEvidence` already existed in v2.
+
+| Version | `$id` and `schemaVersion` | Date | Trigger |
+| --- | --- | --- | --- |
+| v1 | `review-meta.v1.schema.json`, `1` | 2026-07-11 | QS-3, the founding review-meta contract. |
+| v2 | `review-meta.v2.schema.json`, `2` | 2026-07-22 | The closed `generic` adapter value. Adding it to `unit.adapter` is a contract change, not an additive v1 edit. |
+| v3 | `review-meta.v3.schema.json`, `3` | 2026-08-27 | Runner-captured source-span evidence per finding, the requested routing provenance, and the reviewed source revision. |
+
+### What v3 adds
+
+Every property below is optional.
+
+| Property | Semantics | Producer |
+| --- | --- | --- |
+| `sourceRevision` | String, 1-200 characters. `git:<commit>` for a clean working tree, `git:<commit>-dirty` when it has uncommitted changes. Absent when `HEAD` does not resolve. | `ReviewRunner`, from `git rev-parse --verify HEAD` and `git status --porcelain`. |
+| `reviewer.requestedModel` | String, 1-200 characters. The model the operator asked for, which can differ from the `reviewer.model` the agent reported. Freshness still compares against `reviewer.model`; this field records the request itself. | `ReviewRunner`, from the configured review agent. |
+| `reviewer.requestedThinkingLevel` | String, 1-100 characters. The requested reasoning level, with the same distinction. | `ReviewRunner`, from the configured review agent. |
+| `findings[].anchors` | Array of anchors. Each has `id`, `role` (`primary` or `related`), `path`, `range`, an optional `symbolId`, and a required `capturedExcerpt` of `text`, `contentHash` (SHA-256 of the whole reviewed file) and `excerptHash` (SHA-256 of the excerpt). | `FindingIdentity`, from the range the runner already validated. The agent never supplies the hashes. |
+| `findings[].evidenceItems` | Array of `id`, `class` (`sourceSpan` or `legacyClaim`), `status` (`observed` or `unverified`), optional `anchorId`, optional `summary`. An anchored finding gets one `observed` `sourceSpan` item; a free-text `evidence` string from the agent becomes an additional `legacyClaim` item with status `unverified`. | `FindingIdentity`. |
+| `findings[].reproduction` | Object of `status` (`unknown`, `specified`, `verified`, `notApplicable` or `blocked`) and an optional `reason`. | `FindingIdentity`. Currently always `unknown`: the file prompts forbid tool and command use, so the reviewing agent cannot verify a reproduction. |
+
+The split is deliberate. An anchor is what the runner measured; an evidence item
+says whether a claim rests on that measurement or is only the agent's prose.
+
+### Reading and writing
+
+Writers emit `review-meta.v3` with `schemaVersion` 3. Readers accept the three
+matching schema/version pairs v1, v2, and v3 and reject any other pair, plus a
+v1 document that claims the `generic` adapter. Unknown properties are skipped on
+read, so a newer document can still be inspected, but an unsupported
+`schemaVersion` is never treated as current. No migration runs: a v1 or v2
+sidecar stays valid and attached to its unchanged canonical unit ID until its
+unit is reviewed again, and that review writes v3.
+
 ## Staleness contract
 
 Staleness is a computed view of an immutable review statement. Scanning or
@@ -923,6 +969,15 @@ hierarchy state is a separate roll-up and is not used as the coverage manifest.
 The historical grade remains visible with “last reviewed” wording, but a partial
 or stale grade MUST NOT use fresh colors or be included in a current-grade
 average. No parent grade is recalculated from child grades.
+
+Amendment 2026-09-06: reporting MAY compute a descriptive projection over the
+sidecars that currently exist — the rounded mean per kind and per level, exported
+as `aggregateScore` and `aggregateBand` and rendered as "aggregate score
+(projection)". The projection carries no unit identity, is never written into a
+meta file, and never appears as a unit grade in the browser. Where a Project or
+Module review statement exists, the display shows that statement separately from
+the projection; [`hierarchy-aggregation.md`](hierarchy-aggregation.md) defines the
+`Direct` / `Descendants` / `Overall` separation that keeps the two apart.
 
 For any otherwise valid meta document whose inputs can be resolved,
 `reviewInputs.effectiveHash` is compared separately with today's standards and
@@ -1365,6 +1420,15 @@ QS-11 and the strictly time-boxed QS-12 can proceed in parallel once their input
 are stable. Module/project agent review execution is a later slice after QS-5;
 QS-5 only makes hierarchy and aggregate truth honest.
 
+Status 2026-09-06: no prompt names an `architecture` aspect. The file prompts ask
+for correctness, maintainability, clarity, error handling and testability
+(`code`), security, and performance; the only fixed aspect list is the
+project-level security posture set `secrets`, `dependencies`,
+`authentication-authorization`, `input-validation`, `configuration-iac`. Module
+reviews run through the file prompt today, so the architecture aspect of a
+project/module `code` review appears once module and project code prompts exist,
+not before. No sidecar carries it yet.
+
 ## Review-meta operational rules and examples
 
 ### Semantic invariants and grade scale
@@ -1375,7 +1439,12 @@ enforce all of the following:
 - `unit.adapter`, `unit.level`, `unit.path`, and `unit.symbolId` agree with the
   derived `unit.id`; Function units always have `symbolId`. Finding IDs and aspect
   IDs are unique within the document; every `finding.aspect` names an entry in
-  `aspects`.
+  `aspects`. An aspect ID has one spelling: the writer trims it, turns camelCase
+  and PascalCase boundaries, underscores, and whitespace into single hyphens,
+  lowercases the result, and rejects the response when what remains does not match
+  the schema pattern. `errorHandling` and `error_handling` are therefore stored as
+  `error-handling`, and a finding's `aspect` is matched after the same
+  normalization.
 - File documents use only whole-file selectors and include `unit.path` exactly
   once; companion files are additional inputs. Function documents have exactly
   one selector at `unit.path` equal to `symbol:` plus the RFC 3986 percent-encoding
@@ -1888,3 +1957,11 @@ snapshot to Agent Studio. It does not claim to recover deleted external standard
 bodies, automatically remediate findings, infer dependency-impact staleness, ship
 a production code graph, support real-time multi-user collaboration, or compute a
 universal quality score.
+
+Amendment 2026-09-06: the reports do carry an aggregate score. It is a
+descriptive projection over the sidecars that currently exist, exported as
+`aggregateScore` and `aggregateBand` and labelled "aggregate score (projection)"
+in every rendering. It is not a universal quality score, not the grade of any
+unit, and it does not replace a Project or Module review statement.
+`quality report --fail-under` gates on that projection and on nothing else; see
+[`quality-reports.md`](quality-reports.md).

@@ -129,12 +129,26 @@ public sealed record QualityRunDelta(
     IReadOnlyList<string> Resolved,
     IReadOnlyList<string> StateChanged);
 
+/// <summary>
+/// Descriptive projection over the observations of one run, not a review statement about the run scope.
+/// <see cref="Score"/> and <see cref="Grade"/> are the deprecated names of
+/// <see cref="AggregateScore"/> and <see cref="AggregateBand"/> and carry the same values.
+/// </summary>
 public sealed record QualityRunSummary(
     int? Score,
     string? Grade,
     QualityRunFindingCounts Findings,
     string? HighestSeverity,
-    string? PartialReason);
+    string? PartialReason)
+{
+    /// <summary>Rounded mean over the unit grades this run observed, or null when the run is partial.</summary>
+    [JsonPropertyName("aggregateScore")]
+    public int? AggregateScore => Score;
+
+    /// <summary>Band of <see cref="AggregateScore"/>. It labels the projection, never a reviewed unit.</summary>
+    [JsonPropertyName("aggregateBand")]
+    public string? AggregateBand => Grade;
+}
 
 public sealed record QualityRunFindingCounts(
     int Total,

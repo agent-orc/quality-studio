@@ -120,7 +120,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             .ToArray();
         var findings = MechanicalChecks(ordered);
         var inventory = new BoundaryInventory(
-            "https://quality.studio/schemas/boundary-inventory.v1.schema.json",
+            "https://agent-orchestrator.dev/quality/schemas/boundary-inventory.v1.schema.json",
             1,
             Id,
             Version,

@@ -36,9 +36,10 @@ Project → Module → Namespace → File → Function
 
 A file review, a module review, and a project review are *different statements*.
 Sweeps run over a whole project per **review kind**: `code`, `security`, and
-`performance` (security is designed as a detachable module — it can grow into its
-own thing). Architecture is a project/module code-review aspect in v1, not a
-fourth kind.
+`performance`. Security is a review workflow of its own inside the same package
+and assembly — separate prompts, sensors, runs, grades, and UI state — not a
+separate package or repository. Architecture is a project/module code-review
+aspect in v1, not a fourth kind.
 
 ### 2. Review metadata lives next to the code (the heart)
 
@@ -50,6 +51,11 @@ folder** as the code it describes:
 - `findings[]` — structured findings
 - `grade` — the level's grade
 - `reviewedHash` — hash of the exact content that was reviewed
+
+Writers emit `review-meta.v3`; readers accept v1, v2, and v3. The version table
+and the semantics of every v3 field are in
+[`docs/concept.md`](docs/concept.md#review-meta-schema-v3), the schema artifacts
+in [`schemas/`](schemas/README.md).
 
 The hash makes staleness self-evident: if the code has moved on, the review visibly
 no longer applies. History comes for free via Git. The repository owns its quality

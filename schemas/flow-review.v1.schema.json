@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/flow-review.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/flow-review.v1.schema.json",
   "title": "Quality Studio flow review v1",
   "type": "object",
   "additionalProperties": false,
@@ -15,7 +15,12 @@
     "provenance"
   ],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/flow-review.v1.schema.json" },
+    "$schema": {
+      "enum": [
+        "https://agent-orchestrator.dev/quality/schemas/flow-review.v1.schema.json",
+        "https://quality.studio/schemas/flow-review.v1.schema.json"
+      ]
+    },
     "schemaVersion": { "const": 1 },
     "flow": { "$ref": "#/$defs/flow" },
     "verdict": { "enum": ["pass", "fail", "undetermined"] },

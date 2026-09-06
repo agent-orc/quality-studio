@@ -85,7 +85,7 @@
       }
     },
     {
-      "id": "errorHandling",
+      "id": "error-handling",
       "title": "Error Handling",
       "grade": {
         "score": 61,
@@ -307,7 +307,7 @@
     {
       "id": "finding-868418b3d8d52415da9c0b04e9536f62dabaf96b0ecec13ce09fb52026e020ac",
       "ruleId": "built-in:code",
-      "aspect": "errorHandling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Usage-ledger failure can replace the original agent exception",
       "description": "Both agent exception handlers await RecordUsageAsync before rethrowing. If the ledger append fails, that new exception escapes and the original cancellation or run failure\u2014including its diagnostic context\u2014is lost.",
@@ -365,7 +365,7 @@
     {
       "id": "finding-d34f1a2c44f8613b97037e324a12c412c8ba58a38218467d2ac7745f9902af9b",
       "ruleId": "built-in:code",
-      "aspect": "errorHandling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Response-relative indexes are used without complete validation",
       "description": "weakestPointIndex is used directly to index flowPath, and ValidateLine rejects only lines above the file length. Empty paths, out-of-range weakest-point indexes, and zero or negative line numbers can consequently produce IndexOutOfRangeException or persist invalid external steps instead of yielding a controlled ReviewResponseException.",
@@ -436,7 +436,7 @@
     {
       "id": "finding-2d942571cf23b9a8249859352500cab5d3f3e52a5ef79a95f3f2e64dcb8941c9",
       "ruleId": "built-in:code",
-      "aspect": "errorHandling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Structurally invalid previous reports escape the invalid-report error path",
       "description": "Only JSON deserialization errors are wrapped as ReviewRunException. A syntactically valid report with a null or empty FlowPath or an invalid WeakestPointIndex throws NullReferenceException or IndexOutOfRangeException while projecting findings, giving callers neither the report path nor a useful invalid-report diagnosis.",

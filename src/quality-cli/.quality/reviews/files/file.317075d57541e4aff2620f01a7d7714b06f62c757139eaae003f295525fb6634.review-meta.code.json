@@ -85,7 +85,7 @@
       }
     },
     {
-      "id": "error_handling",
+      "id": "error-handling",
       "title": "Error Handling",
       "grade": {
         "score": 70,
@@ -236,7 +236,7 @@
     {
       "id": "finding-2e8bace00d46f848a8d32f4e06ea056fdb81338e138a3807214438e2a74e163d",
       "ruleId": "built-in:code",
-      "aspect": "error_handling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Report I/O failures escape the command error handler",
       "description": "RunReportAsync reads stored reports and writes optional output files, but its exception filter does not include IOException. Failures such as a full disk, broken output path, or read error therefore bypass the intended \u0022quality report failed\u0022 diagnostic and exit-code-2 behavior.",

@@ -1,12 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/change-review-evidence.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/change-review-evidence.v1.schema.json",
   "title": "Portable Quality Studio change-review evidence v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["$schema", "schemaVersion", "generatedAt", "repository", "policy", "reviews"],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/change-review-evidence.v1.schema.json" },
+    "$schema": {
+      "enum": [
+        "https://agent-orchestrator.dev/quality/schemas/change-review-evidence.v1.schema.json",
+        "https://quality.studio/schemas/change-review-evidence.v1.schema.json"
+      ]
+    },
     "schemaVersion": { "const": 1 },
     "generatedAt": { "type": "string", "format": "date-time" },
     "repository": { "type": "string", "minLength": 1, "maxLength": 2000 },
@@ -94,15 +99,15 @@
     },
     "findingArray": {
       "type": "array",
-      "items": { "$ref": "https://quality.studio/schemas/quality-finding.v1.schema.json" }
+      "items": { "$ref": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json" }
     },
     "reviewEntry": {
       "type": "object",
       "additionalProperties": false,
       "required": ["subject", "review", "agentEvidence", "findings"],
       "properties": {
-        "subject": { "$ref": "https://quality.studio/schemas/quality-finding.v1.schema.json#/$defs/taskChangeSubject" },
-        "review": { "$ref": "https://quality.studio/schemas/change-review.v1.schema.json" },
+        "subject": { "$ref": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json#/$defs/taskChangeSubject" },
+        "review": { "$ref": "https://agent-orchestrator.dev/quality/schemas/change-review.v1.schema.json" },
         "agentEvidence": { "$ref": "#/$defs/agentEvidence" },
         "findings": { "$ref": "#/$defs/findingChanges" }
       }

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/quality-finding.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
   "title": "Quality Studio immutable finding envelope v1",
   "type": "object",
   "additionalProperties": false,
@@ -10,7 +10,12 @@
     "fingerprintCanonicalization", "ruleId", "producer"
   ],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/quality-finding.v1.schema.json" },
+    "$schema": {
+      "enum": [
+        "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+        "https://quality.studio/schemas/quality-finding.v1.schema.json"
+      ]
+    },
     "schemaVersion": { "const": 1 },
     "subject": { "oneOf": [{ "$ref": "#/$defs/standingUnitSubject" }, { "$ref": "#/$defs/taskChangeSubject" }] },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{2,127}$" },

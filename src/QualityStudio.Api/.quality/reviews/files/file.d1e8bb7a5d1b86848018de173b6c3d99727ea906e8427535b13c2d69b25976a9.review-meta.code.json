@@ -77,7 +77,7 @@
       }
     },
     {
-      "id": "error_handling",
+      "id": "error-handling",
       "title": "Error Handling",
       "grade": {
         "score": 68,
@@ -98,7 +98,7 @@
   "findings": [
     {
       "id": "QS-PROGRAM-001",
-      "aspect": "error_handling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Broad exception types are mapped to unrelated domain errors",
       "description": "Every ArgumentException is reported as an invalid repository path and every InvalidOperationException as an unavailable Agent Studio target. These exceptions can originate from serialization, configuration, framework code, or unrelated services, causing misleading 400 or 503 responses and potentially concealing server defects.",
@@ -121,7 +121,7 @@
     },
     {
       "id": "QS-PROGRAM-002",
-      "aspect": "error_handling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Raw exception messages are exposed to API clients",
       "description": "The problem response includes exception.Message for both expected and unexpected failures. Messages from filesystem, HTTP, configuration, and registry operations can reveal local paths, remote targets, or implementation details.",

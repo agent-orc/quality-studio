@@ -9,7 +9,10 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed record QualityFindingEnvelope
 {
     public const int CurrentSchemaVersion = 1;
-    public const string SchemaId = "https://quality.studio/schemas/quality-finding.v1.schema.json";
+    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json";
+
+    /// <summary>Pre-2026-09-06 alias of <see cref="SchemaId"/>. Readers accept it; writers never emit it.</summary>
+    public const string LegacySchemaId = "https://quality.studio/schemas/quality-finding.v1.schema.json";
     public const string TaskTextFingerprintCanonicalization = "quality-studio-task-finding-text-v1";
 
     [JsonPropertyName("$schema"), JsonPropertyOrder(0)]
@@ -227,7 +230,8 @@ public static class QualityFindingJson
     {
         ArgumentNullException.ThrowIfNull(finding);
         if (finding.SchemaVersion != QualityFindingEnvelope.CurrentSchemaVersion ||
-            !string.Equals(finding.Schema, QualityFindingEnvelope.SchemaId, StringComparison.Ordinal))
+            !(string.Equals(finding.Schema, QualityFindingEnvelope.SchemaId, StringComparison.Ordinal) ||
+              string.Equals(finding.Schema, QualityFindingEnvelope.LegacySchemaId, StringComparison.Ordinal)))
             throw new JsonException($"Unsupported quality finding schemaVersion '{finding.SchemaVersion}'.");
         if (finding.Locations is null)
             throw new JsonException("Quality finding locations must be present, including when empty.");

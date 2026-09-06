@@ -1,19 +1,35 @@
 # Quality reports
 
 Quality Studio exports one versioned report model through both the HTTP API and
-the standalone `quality` CLI. The scorecard contains the effective grade per
+the standalone `quality` CLI. The scorecard contains an aggregate score per
 review kind and hierarchy level, finding counts by severity and lifecycle state,
 the fresh/stale/policy-drift/missing distribution, file coverage, and configured
 sensor posture. Report generation does not run or install sensor tools;
 availability is explicitly `null`/not probed. Repository roots are deliberately
 omitted from exported data.
 
-The project score is the rounded mean of kinds that have review evidence. A
-repository with no scored kind has score `0`. A kind score is the rounded mean
-of its current review sidecars; level rows expose the same calculation within
-each hierarchy level. Coverage counts a source file once when it has any review,
-regardless of kind. Staleness counts file-kind pairs, which makes missing review
-coverage visible instead of treating absence as a passing grade.
+## Aggregate score (projection)
+
+The aggregate score is a descriptive projection over the review sidecars that
+currently exist. It is the rounded mean of the kinds that have review evidence; a
+kind value is the rounded mean of that kind's current file sidecars, and level
+rows expose the same calculation within one hierarchy level. A repository with no
+scored kind has aggregate score `0`.
+
+It is not a review. No unit carries it as its grade, it is never written into a
+meta file, and it neither replaces nor is replaced by a Project or Module review
+statement — [`hierarchy-aggregation.md`](hierarchy-aggregation.md) defines how a
+node keeps its own `Direct` statement apart from rolled-up `Descendants`
+evidence. Every rendering names it "aggregate score (projection)".
+
+In JSON the projection is `scorecard.aggregateScore` with the band
+`scorecard.aggregateBand`, and `summary.aggregateScore`/`summary.aggregateBand`
+for a run-scoped report. The older names `score` and `grade` keep the same values
+and are marked deprecated in both schemas, so existing consumers keep working.
+
+Coverage counts a source file once when it has any review, regardless of kind.
+Staleness counts file-kind pairs, which makes missing review coverage visible
+instead of treating absence as a passing grade.
 
 Finding state comes from `.quality/findings/state.json`. Open and accepted
 findings remain active and affect `--fail-on`; waived, false-positive, and
@@ -48,9 +64,12 @@ Exit codes are stable:
 | `1` | Report generated, but `--fail-under` or `--fail-on` failed. |
 | `2` | Invalid arguments or report generation failed. |
 
-`--fail-under` accepts an inclusive score from 0 through 100.
-`--fail-on critical|high|medium|low|info` fails when an active finding exists at
-that severity or higher.
+`--fail-under` accepts an inclusive value from 0 through 100 and compares it to
+the aggregate score projection described above — the repository projection for a
+repository report, the run projection for `--run`. It never compares against the
+grade of a reviewed unit, and a run whose projection is unavailable (a partial
+run) fails the gate. `--fail-on critical|high|medium|low|info` fails when an
+active finding exists at that severity or higher.
 
 ## Run-scoped reports
 
@@ -60,7 +79,7 @@ manifest, routing provenance, usage and cap outcome, one explicit outcome per
 planned unit, the exact sidecar bytes captured by the run, finding lifecycle
 state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
 `capped` runs are all reportable. Incomplete outcomes are visibly marked
-`partial` and do not invent a score or baseline state.
+`partial` and do not invent an aggregate score or baseline state.
 
 A fresh skip is represented as `skipped-fresh` with `producedByRun: false`; it is
 counted as reused evidence, not as a model operation. A capped run writes its
@@ -106,8 +125,8 @@ and trend data in run properties.
 ## Git-backed commit trend
 
 Trend storage is Git itself. Quality Studio finds commits that changed review
-sidecars, reconstructs the complete sidecar set at each such commit, and emits a
-score point only when the per-kind curve changes. Commit IDs and author
+sidecars, reconstructs the complete sidecar set at each such commit, and emits an
+aggregate-score point only when the per-kind curve changes. Commit IDs and author
 timestamps identify every point. No report database or new history file is
 written.
 

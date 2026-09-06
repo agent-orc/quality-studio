@@ -10,7 +10,7 @@ namespace AgentOrchestrator.CodeQuality;
 
 public sealed class ChangeSetReviewService
 {
-    public const string SchemaId = "https://quality.studio/schemas/change-review.v1.schema.json";
+    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/change-review.v1.schema.json";
     public const int SchemaVersion = 1;
 
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();

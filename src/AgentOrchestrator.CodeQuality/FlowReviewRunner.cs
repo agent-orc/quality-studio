@@ -13,7 +13,7 @@ public sealed class FlowReviewRunner
 {
     public const string PromptId = "flow-business-logic-review";
     public const string PromptVersion = "1.0.0";
-    public const string ReportSchema = "https://quality.studio/schemas/flow-review.v1.schema.json";
+    public const string ReportSchema = "https://agent-orchestrator.dev/quality/schemas/flow-review.v1.schema.json";
     public const string UsageKind = "deep-flow-security";
 
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();

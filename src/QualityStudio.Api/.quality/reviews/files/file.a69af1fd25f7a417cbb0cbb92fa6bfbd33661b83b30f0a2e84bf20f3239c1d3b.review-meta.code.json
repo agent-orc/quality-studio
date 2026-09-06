@@ -85,7 +85,7 @@
       }
     },
     {
-      "id": "error_handling",
+      "id": "error-handling",
       "title": "Error Handling",
       "grade": {
         "score": 70,
@@ -107,7 +107,7 @@
     {
       "id": "finding-5fdcaaa753ff735f1d575e671821a447bde2b03b2174274cfd3cac88b7372206",
       "ruleId": "built-in:code",
-      "aspect": "error_handling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Unrelated cancellation exceptions terminate the background worker",
       "description": "The catch filter excludes every OperationCanceledException, not only cancellation caused by stoppingToken. If a dependency throws OperationCanceledException for any other reason, it escapes ExecuteAsync and permanently terminates the service; under the default BackgroundService exception behavior this may also stop the host.",
