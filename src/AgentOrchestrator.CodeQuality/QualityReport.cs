@@ -25,7 +25,8 @@ public sealed record QualityReportRepository(
     IReadOnlyList<string>? EnabledKinds = null,
     IReadOnlyList<QualityReportSensor>? Sensors = null,
     string? GlobalInputsDirectory = null,
-    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters);
+    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+    string? DataRoot = null);
 
 public sealed record QualityReportDocument(
     [property: JsonPropertyName("$schema")] string Schema,
@@ -170,6 +171,7 @@ public sealed class QualityReportBuilder
         CancellationToken cancellationToken)
     {
         var root = Path.GetFullPath(repository.Root);
+        var dataRoot = Path.GetFullPath(repository.DataRoot ?? root);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var kinds = (repository.EnabledKinds is { Count: > 0 } ? repository.EnabledKinds : DefaultKinds)
             .Select(kind => kind.Trim().ToLowerInvariant())
@@ -180,8 +182,8 @@ public sealed class QualityReportBuilder
 
         try
         {
-            var states = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
-            var observations = LoadCurrentObservations(root, repository.Id, states);
+            var states = await new FindingStateStore(dataRoot).ReadAsync(cancellationToken).ConfigureAwait(false);
+            var observations = LoadCurrentObservations(dataRoot, repository.Id, states);
             var kindScores = BuildKindScores(kinds, observations);
             var scoredKinds = kindScores.Where(kind => kind.Score.HasValue).Select(kind => kind.Score!.Value).ToArray();
             var score = scoredKinds.Length == 0
@@ -198,6 +200,7 @@ public sealed class QualityReportBuilder
                     ReviewKind = kind,
                     GlobalInputsDirectory = repository.GlobalInputsDirectory,
                     InputBudgetCharacters = repository.InputBudgetCharacters,
+                    DataRoot = dataRoot,
                 }, cancellationToken).ConfigureAwait(false));
             }
 
@@ -214,7 +217,9 @@ public sealed class QualityReportBuilder
                 reviewedPaths,
                 paths.Length,
                 paths.Length == 0 ? 100 : Math.Round(reviewedPaths * 100d / paths.Length, 2));
-            var trend = await LoadTrendAsync(root, kinds, cancellationToken).ConfigureAwait(false);
+            var trend = repository.DataRoot is null
+                ? await LoadTrendAsync(root, kinds, cancellationToken).ConfigureAwait(false)
+                : Array.Empty<QualityTrendSeries>();
             var scorecard = new QualityScorecard(
                 score,
                 Grade(score),

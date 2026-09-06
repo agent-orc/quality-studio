@@ -23,6 +23,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
 builder.Services.AddSingleton<ApiSecurity>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
+builder.Services.AddSingleton<ProjectDataRoot>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<ProjectDashboardService>();
@@ -357,7 +358,7 @@ app.Run();
 static IResult ScopeRules(HttpContext context, RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var store = new RepositoryScopeConfigurationStore(repository.DataRoot);
     return Results.Ok(ScopeRuleResponse(store.Read(), ScopeCandidateFiles(repository.Root, hierarchyCache), store));
 }
 
@@ -365,7 +366,7 @@ static IResult PreviewScopeRule(HttpContext context, ScopeRuleMutationRequest re
     RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var store = new RepositoryScopeConfigurationStore(repository.DataRoot);
     var preview = store.Preview(new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
         ScopeCandidateFiles(repository.Root, hierarchyCache));
     return Results.Ok(new ScopeRuleView(-1, preview.Rule.Action, preview.Rule.Pattern, preview.Rule.Reason,
@@ -376,7 +377,7 @@ static IResult AddScopeRule(HttpContext context, ScopeRuleMutationRequest reques
     RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var store = new RepositoryScopeConfigurationStore(repository.DataRoot);
     var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
     var configuration = store.Add(new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
         candidates, request.ConfirmExpansion);
@@ -388,7 +389,7 @@ static IResult UpdateScopeRule(HttpContext context, int index, ScopeRuleMutation
     RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var store = new RepositoryScopeConfigurationStore(repository.DataRoot);
     var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
     var configuration = store.Update(index, new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
         candidates, request.ConfirmExpansion);
@@ -399,7 +400,7 @@ static IResult DeleteScopeRule(HttpContext context, int index,
     RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
+    var store = new RepositoryScopeConfigurationStore(repository.DataRoot);
     var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
     return Results.Ok(ScopeRuleResponse(store.Delete(index), candidates, store));
 }
@@ -434,8 +435,8 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
         ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
         : registration.GlobalInputsDirectory;
     var snapshot = hierarchyCache.Get(
-        repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
-    var coverage = CoverageSnapshot.Load(repository.Root);
+        repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters, repository.DataRoot);
+    var coverage = CoverageSnapshot.Load(repository.DataRoot);
     var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
         snapshot.GitState + "\0" + requested + "\0" + coverage?.MeasuredAt)))}\"";
     context.Response.Headers.ETag = etag;
@@ -445,7 +446,7 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
         return Results.StatusCode(StatusCodes.Status304NotModified);
     }
     var projects = snapshot.Roots;
-    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var findingStates = await new FindingStateStore(repository.DataRoot).ReadAsync(cancellationToken);
     var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
     IReadOnlyList<HierarchyNode> selected = requested == "."
         ? projects
@@ -481,7 +482,7 @@ static IResult ProjectDashboard(
         ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
         : registration.GlobalInputsDirectory;
     var hierarchy = hierarchyCache.GetMeasured(
-        repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
+        repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters, repository.DataRoot);
     var snapshot = hierarchy.Snapshot;
     var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot.GitState + "\0project-dashboard-v1")))}\"";
     context.Response.Headers.ETag = etag;
@@ -533,9 +534,9 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
     var bytes = await File.ReadAllBytesAsync(absolute, cancellationToken);
     var (encoding, content) = DecodeFileContent(bytes);
     var lineEnding = DetectLineEnding(content);
-    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var findingStates = await new FindingStateStore(repository.DataRoot).ReadAsync(cancellationToken);
     var coverage = CoverageProjection.ForPath(
-        CoverageSnapshot.Load(repository.Root),
+        CoverageSnapshot.Load(repository.DataRoot),
         CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD"),
         relative,
         file: true);
@@ -556,9 +557,9 @@ static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegist
         ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
         : registration.GlobalInputsDirectory;
     var roots = hierarchyCache.Get(repository.Root, inputResolver, globalDirectory,
-        registration.InputBudgetCharacters).Roots;
-    var states = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
-    var snapshot = CoverageSnapshot.Load(repository.Root);
+        registration.InputBudgetCharacters, repository.DataRoot).Roots;
+    var states = await new FindingStateStore(repository.DataRoot).ReadAsync(cancellationToken);
+    var snapshot = CoverageSnapshot.Load(repository.DataRoot);
     var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
     var churn = new GitChurnAnalyzer().Analyze(repository.Root, window);
     var files = Flatten(roots).Where(node => node.Level == ReviewLevel.File)
@@ -634,7 +635,7 @@ static async Task<IResult> MutateFindingState(HttpContext context, FindingStateM
         "false-positive" => FindingState.FalsePositive,
         _ => throw new ArgumentException("Finding state must be open, accepted, waived, or false-positive."),
     };
-    var store = new FindingStateStore(repository.Root);
+    var store = new FindingStateStore(repository.DataRoot);
     await store.MergeReviewAsync([identity], [], "quality-studio", cancellationToken);
     var updated = await store.SetAsync(
         request.Fingerprint, state, request.Author, request.Reason, request.ExpiresAt,
@@ -769,7 +770,7 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
     var kinds = registration.EnabledReviewKinds.ToDictionary(
         kind => kind,
         kind => resolver.Resolve(repository.Root, kind, ReviewLevel.File,
-            globalDirectory, registration.InputBudgetCharacters),
+            globalDirectory, registration.InputBudgetCharacters, dataRoot: repository.DataRoot),
         StringComparer.Ordinal);
     logger.LogInformation(new EventId(1102, "InputsResolved"),
         "Resolved review inputs for {KindCount} kinds in repository {RepositoryId} in {ElapsedMilliseconds} ms",
@@ -799,8 +800,8 @@ static IResult Rules(HttpContext context, string? kind, string? adapter, Reposit
         });
     }
 
-    var catalogue = new RuleCatalogueResolver().Resolve(repository.Root, globalDirectory);
-    var projectOverridePath = Path.GetFullPath(Path.Combine(repository.Root,
+    var catalogue = new RuleCatalogueResolver().Resolve(repository.DataRoot, globalDirectory);
+    var projectOverridePath = Path.GetFullPath(Path.Combine(repository.DataRoot,
         RuleCatalogueResolver.ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar)));
     string ScopeOf(string source) =>
         source == "built-in" || source.StartsWith("embedded:", StringComparison.Ordinal) ? "built-in"
@@ -857,19 +858,19 @@ static IResult Rules(HttpContext context, string? kind, string? adapter, Reposit
 static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var guidelines = store.List(repository.Root);
+    var guidelines = store.List(repository.DataRoot);
     return Results.Ok(new
     {
         guidelines,
         catalogue = GuidelineStore.Catalogue,
-        traces = BuildGuidelineTraces(repository.Root, guidelines.Select(value => value.Id)),
+        traces = BuildGuidelineTraces(repository.DataRoot, guidelines.Select(value => value.Id)),
     });
 }
 
 static IResult CreateGuideline(HttpContext context, GuidelineDraft request, RepositoryRegistry registry, GuidelineStore store)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var created = store.Create(repository.Root, request);
+    var created = store.Create(repository.DataRoot, request);
     return Results.Created($"{context.Request.Path}/{Uri.EscapeDataString(created.Id)}", created);
 }
 
@@ -877,20 +878,20 @@ static IResult UpdateGuideline(HttpContext context, string guidelineId, Guidelin
     RepositoryRegistry registry, GuidelineStore store)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    return Results.Ok(store.Update(repository.Root, guidelineId, request));
+    return Results.Ok(store.Update(repository.DataRoot, guidelineId, request));
 }
 
 static IResult DeleteGuideline(HttpContext context, string guidelineId, RepositoryRegistry registry, GuidelineStore store)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    store.Delete(repository.Root, guidelineId);
+    store.Delete(repository.DataRoot, guidelineId);
     return Results.NoContent();
 }
 
 static IResult InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry, GuidelineStore store)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var installed = store.Install(repository.Root, catalogueId);
+    var installed = store.Install(repository.DataRoot, catalogueId);
     return Results.Created($"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}", installed);
 }
 
@@ -944,11 +945,12 @@ static async Task<IResult> Scan(HttpContext context, RepositoryRegistry registry
         ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
         : registration.GlobalInputsDirectory;
     _ = hierarchyCache.Get(repository.Root, globalInputsDirectory: globalDirectory,
-        inputBudgetCharacters: registration.InputBudgetCharacters);
+        inputBudgetCharacters: registration.InputBudgetCharacters, dataRoot: repository.DataRoot);
     var report = await evaluator.ScanAsync(repository.Root, new StalenessEvaluatorOptions
     {
         GlobalInputsDirectory = globalDirectory,
         InputBudgetCharacters = registration.InputBudgetCharacters,
+        DataRoot = repository.DataRoot,
     }, cancellationToken);
     logger.LogInformation(new EventId(1200, "ScanCompleted"),
         "Scanned repository {RepositoryId} with {FileCount} files in {ElapsedMilliseconds} ms",
@@ -961,7 +963,8 @@ static async Task<IResult> SecurityScan(HttpContext context, RepositoryRegistry 
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
-    var result = await scanner.ScanAsync(new SecurityScanRequest(repository.Root, PersistMetadata: false), cancellationToken);
+    var result = await scanner.ScanAsync(new SecurityScanRequest(
+        repository.Root, PersistMetadata: false, DataRoot: repository.DataRoot), cancellationToken);
     logger.LogInformation(new EventId(1201, "SecurityScanCompleted"),
         "Scanned repository {RepositoryId} for secrets with verdict {Verdict} in {ElapsedMilliseconds} ms",
         registration.Id, result.Report.Verdict.ToString().ToLowerInvariant(), stopwatch.ElapsedMilliseconds);
@@ -983,15 +986,17 @@ static async Task<IResult> AttackCoverage(
     var (registration, repository) = ResolveRepository(context, registry);
     var scope = string.IsNullOrWhiteSpace(path) ? "." : repository.NormalizeRelativePath(path);
     var request = scope == "."
-        ? new SensorScanRequest(repository.Root, PersistMetadata: false)
-        : new SensorScanRequest(repository.Root, SensorScope.Path, scope, PersistMetadata: false);
+        ? new SensorScanRequest(repository.Root, PersistMetadata: false, DataRoot: repository.DataRoot)
+        : new SensorScanRequest(repository.Root, SensorScope.Path, scope, PersistMetadata: false,
+            DataRoot: repository.DataRoot);
     var inventory = await boundaries.InventoryAsync(request, cancellationToken);
     var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
         ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
         : registration.GlobalInputsDirectory;
-    var catalogue = catalogues.Resolve(repository.Root, globalDirectory);
+    var catalogue = catalogues.Resolve(repository.DataRoot, globalDirectory);
     var matrix = await coverage.BuildAsync(
-        repository.Root, inventory, catalogue, scope, recheckDeterministic: recheck == true, cancellationToken);
+        repository.Root, inventory, catalogue, scope, recheckDeterministic: recheck == true, cancellationToken,
+        repository.DataRoot);
     logger.LogInformation(new EventId(1203, "AttackCoverageLoaded"),
         "Loaded {CellCount} attack coverage cells for repository {RepositoryId} scope {Scope}; Stale={StaleCount}, Deferred={DeferredCount}, Disagreement={DisagreementCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
         matrix.CellCount, registration.Id, scope, matrix.StaleCount, matrix.NotYetCheckedCount,
@@ -1013,15 +1018,16 @@ static async Task<IResult> RecordAttackJudgement(
     var (registration, repository) = ResolveRepository(context, registry);
     var scope = string.IsNullOrWhiteSpace(path) ? "." : repository.NormalizeRelativePath(path);
     var sensorRequest = scope == "."
-        ? new SensorScanRequest(repository.Root, PersistMetadata: false)
-        : new SensorScanRequest(repository.Root, SensorScope.Path, scope, PersistMetadata: false);
+        ? new SensorScanRequest(repository.Root, PersistMetadata: false, DataRoot: repository.DataRoot)
+        : new SensorScanRequest(repository.Root, SensorScope.Path, scope, PersistMetadata: false,
+            DataRoot: repository.DataRoot);
     var inventory = await boundaries.InventoryAsync(sensorRequest, cancellationToken);
     var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
         ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
         : registration.GlobalInputsDirectory;
-    var catalogue = catalogues.Resolve(repository.Root, globalDirectory);
+    var catalogue = catalogues.Resolve(repository.DataRoot, globalDirectory);
     var observation = await coverage.RecordAsync(
-        repository.Root, inventory, catalogue, request, cancellationToken);
+        repository.Root, inventory, catalogue, request, cancellationToken, repository.DataRoot);
     logger.LogInformation(new EventId(1204, "AttackJudgementRecorded"),
         "Recorded {Verdict} judgement for boundary {BoundaryId}, attack {AttackId}, repository {RepositoryId}, assessment {AssessmentId}",
         observation.Verdict, observation.BoundaryId, observation.AttackId, registration.Id,
@@ -1077,7 +1083,8 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
         registration.RootPath,
         scope,
         path,
-        repositoryConfiguration.Configuration), cancellationToken);
+        repositoryConfiguration.Configuration,
+        DataRoot: registration.DataRootPath), cancellationToken);
     logger.LogInformation(new EventId(1202, "SensorScanCompleted"),
         "Ran sensor {SensorId} for repository {RepositoryId}; Available={Available}, Findings={FindingCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
         sensor.Id, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);
@@ -1089,7 +1096,7 @@ static async Task<IResult> Usage(HttpContext context, DateTimeOffset? since, str
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
-    var report = await UsageLedger.QueryAsync(repository.Root, since, kind, cancellationToken: cancellationToken);
+    var report = await UsageLedger.QueryAsync(repository.DataRoot, since, kind, cancellationToken: cancellationToken);
     logger.LogInformation(new EventId(1400, "UsageLoaded"),
         "Loaded {UsageRunCount} usage entries for repository {RepositoryId} in {ElapsedMilliseconds} ms",
         report.Runs, registration.Id, stopwatch.ElapsedMilliseconds);
@@ -1118,7 +1125,8 @@ static async Task<IResult> Report(HttpContext context, string? format,
             return new QualityReportSensor(sensor.Id, sensor.Version, configuration.Enabled);
         }).ToArray(),
         registration.GlobalInputsDirectory,
-        registration.InputBudgetCharacters)).ToArray();
+        registration.InputBudgetCharacters,
+        registration.DataRootPath)).ToArray();
     var report = await builder.BuildAsync(repositories, cancellationToken);
     var selectedFormat = string.IsNullOrWhiteSpace(format)
         ? QualityReportFormat.Json
@@ -1214,7 +1222,7 @@ static IResult ReviewRunReport(
     RepositoryRegistry registry)
 {
     var repository = registry.Get(RouteRepositoryId(context));
-    var report = new QualityRunReportStore(repository.RootPath).Load(id);
+    var report = new QualityRunReportStore(repository.DataRootPath!).Load(id);
     if (!string.Equals(report.Run.RepositoryId, repository.Id, StringComparison.OrdinalIgnoreCase))
         throw new FileNotFoundException($"Review run report '{id}' was not found.");
     var selectedFormat = string.IsNullOrWhiteSpace(format)
@@ -1242,7 +1250,7 @@ static IResult ReviewRunTrend(
         string.IsNullOrWhiteSpace(level))
         throw new ArgumentException("Run trend requires kind, scopeUnitId, and level.");
     var repository = registry.Get(RouteRepositoryId(context));
-    var reports = new QualityRunReportStore(repository.RootPath).LoadAll();
+    var reports = new QualityRunReportStore(repository.DataRootPath!).LoadAll();
     return Results.Ok(QualityRunTrendBuilder.Build(
         reports, kind, scopeUnitId, level, cursor, limit ?? 30));
 }
@@ -1252,7 +1260,7 @@ static IResult ReviewRunCompare(HttpContext context, string baselineId, string c
     if (string.IsNullOrWhiteSpace(baselineId) || string.IsNullOrWhiteSpace(candidateId))
         throw new ArgumentException("Run comparison requires baselineId and candidateId.");
     var repository = registry.Get(RouteRepositoryId(context));
-    var store = new QualityRunReportStore(repository.RootPath);
+    var store = new QualityRunReportStore(repository.DataRootPath!);
     var (baselineResponse, baselineSnapshot) = LoadForComparison(store, repository.Id, baselineId);
     var (candidateResponse, candidateSnapshot) = LoadForComparison(store, repository.Id, candidateId);
     var comparison = baselineSnapshot is not null && candidateSnapshot is not null
@@ -1277,8 +1285,8 @@ static (ReviewRunCompareSnapshotResponse Response, QualityRunReportDocument? Sna
 static IResult ReviewRunRetention(HttpContext context, RepositoryRegistry registry)
 {
     var repository = registry.Get(RouteRepositoryId(context));
-    var size = new QualityRunReportStore(repository.RootPath).MeasureSize();
-    var pinned = new QualityRunReportPinStore(repository.RootPath).Load();
+    var size = new QualityRunReportStore(repository.DataRootPath!).MeasureSize();
+    var pinned = new QualityRunReportPinStore(repository.DataRootPath!).Load();
     return Results.Ok(new ReviewRunRetentionResponse(
         size.Count, size.TotalBytes, size.AverageBytes, pinned.Count, QualityRunReportStore.DefaultRetentionKeep));
 }
@@ -1286,24 +1294,24 @@ static IResult ReviewRunRetention(HttpContext context, RepositoryRegistry regist
 static IResult ReviewRunPins(HttpContext context, RepositoryRegistry registry)
 {
     var repository = registry.Get(RouteRepositoryId(context));
-    var pinned = new QualityRunReportPinStore(repository.RootPath).Load();
+    var pinned = new QualityRunReportPinStore(repository.DataRootPath!).Load();
     return Results.Ok(new ReviewRunPinsResponse(pinned.Order(StringComparer.Ordinal).ToArray()));
 }
 
 static IResult PinReviewRun(HttpContext context, string id, RepositoryRegistry registry)
 {
     var repository = registry.Get(RouteRepositoryId(context));
-    var store = new QualityRunReportStore(repository.RootPath);
+    var store = new QualityRunReportStore(repository.DataRootPath!);
     var (_, snapshot) = LoadForComparison(store, repository.Id, id);
     if (snapshot is null) throw new FileNotFoundException($"Review run report '{id}' was not found.");
-    var pinned = new QualityRunReportPinStore(repository.RootPath).Pin(id);
+    var pinned = new QualityRunReportPinStore(repository.DataRootPath!).Pin(id);
     return Results.Ok(new ReviewRunPinsResponse(pinned.Order(StringComparer.Ordinal).ToArray()));
 }
 
 static IResult UnpinReviewRun(HttpContext context, string id, RepositoryRegistry registry)
 {
     var repository = registry.Get(RouteRepositoryId(context));
-    var pinned = new QualityRunReportPinStore(repository.RootPath).Unpin(id);
+    var pinned = new QualityRunReportPinStore(repository.DataRootPath!).Unpin(id);
     return Results.Ok(new ReviewRunPinsResponse(pinned.Order(StringComparer.Ordinal).ToArray()));
 }
 

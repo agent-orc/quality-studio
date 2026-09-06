@@ -21,7 +21,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     private string ForeignRepositoryRoot => Path.Combine(testRoot, "foreign");
     private string OutsideRoot => Path.Combine(testRoot, "outside");
     private string HostRoot => Path.Combine(testRoot, "host");
-    private string RegistryPath => Path.Combine(HostRoot, ".quality-studio", "repositories.json");
+    private string RegistryPath => Path.Combine(HostRoot, "project-data", "repositories.json");
     private HostedApplication? application;
 
     [Fact]
@@ -306,7 +306,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
 
     private void WriteRegistry(string hostRoot)
     {
-        var path = Path.Combine(hostRoot, ".quality-studio", "repositories.json");
+        var path = Path.Combine(hostRoot, "project-data", "repositories.json");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var entries = new[]
         {
@@ -342,6 +342,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
                     ["QualityStudio:AllowedRoots:1"] = foreignRoot,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "project-data"),
                     ["QualityStudio:Security:Mode"] = "Hosted",
                     ["QualityStudio:Security:RequireHttps"] = "true",
                     ["QualityStudio:Security:SpendRequestsPerMinute"] = spendRequestsPerMinute.ToString(),
@@ -376,6 +377,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = root,
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "project-data"),
                     ["QualityStudio:Security:Mode"] = "Local",
                 }));
         }

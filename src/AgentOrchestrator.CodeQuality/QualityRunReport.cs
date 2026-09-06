@@ -212,7 +212,7 @@ public sealed record QualityRunReportSizeSummary(int Count, long TotalBytes, lon
 
 public sealed record QualityRunReportPruneResult(int Removed, long FreedBytes, int Remaining, int Pinned);
 
-/// <summary>Atomic repository-owned storage for canonical review-run snapshots.</summary>
+/// <summary>Atomic project-data storage for canonical review-run snapshots.</summary>
 public sealed class QualityRunReportStore
 {
     public const string RelativeReportsPath = ".quality/reports/runs";

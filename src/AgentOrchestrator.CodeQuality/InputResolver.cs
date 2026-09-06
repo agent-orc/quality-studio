@@ -85,7 +85,8 @@ public sealed class InputResolver
         ReviewLevel level,
         string? globalInputsDirectory = null,
         int budgetCharacters = DefaultBudgetCharacters,
-        string? adapter = null)
+        string? adapter = null,
+        string? dataRoot = null)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) throw new ArgumentException("A repository root is required.", nameof(repositoryRoot));
         if (!Enum.TryParse<ReviewKind>(kind, true, out _)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
@@ -93,8 +94,9 @@ public sealed class InputResolver
 
         var normalizedKind = kind.ToLowerInvariant();
         var normalizedLevel = level.ToString().ToLowerInvariant();
+        var projectDataRoot = Path.GetFullPath(dataRoot ?? repositoryRoot);
         var builtIn = RuleCatalogueResolver.RenderAsReviewInputs(
-            rules.Resolve(repositoryRoot, globalInputsDirectory), normalizedKind, adapter);
+            rules.Resolve(projectDataRoot, globalInputsDirectory), normalizedKind, adapter);
         var files = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
             globalInputsDirectory);
         // Named rules are global policy, so they compete with global guidelines on priority; project
@@ -104,9 +106,8 @@ public sealed class InputResolver
             .ThenBy(input => input.Id, StringComparer.Ordinal)
             .ThenBy(input => input.Source, StringComparer.Ordinal)
             .ToArray();
-        var projectRoot = Path.GetFullPath(repositoryRoot);
-        var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
-        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
+        var projectDirectory = Path.Combine(projectDataRoot, ".quality", "inputs");
+        var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectDataRoot);
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var omissions = global
             .Where(input => projectIds.Contains(input.Id))

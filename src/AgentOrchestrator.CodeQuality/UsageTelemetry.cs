@@ -62,7 +62,7 @@ public sealed record UsageReport(
     string? CostCurrency = null,
     int UnpricedRuns = 0);
 
-/// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
+/// <summary>Append-only, project-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
 {
     public const int CurrentSchemaVersion = 3;

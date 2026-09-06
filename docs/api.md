@@ -25,12 +25,16 @@ The same repository is the only allowed root by default. Deployments that regist
 repositories below another neutral host root must supply it through configuration,
 for example `QualityStudio__AllowedRoots__0=/srv/source` in the host environment;
 machine-specific paths do not belong in `appsettings.json`.
+`QualityStudio:DataRoot` selects the server-owned storage base. When omitted it is
+the platform local-application-data directory under `QualityStudio/projects`; each
+repository uses its registered id plus an identity hash below that base. The base must not be inside an
+analysed checkout. See [the operations contract](operations/data-root.md).
 On first start it seeds the repository with id `default`; existing single-repository
 deployments therefore need no configuration change. CORS origins are configured with
 the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
 
 Repository registrations are server-owned state persisted at
-`<API content root>/.quality-studio/repositories.json`. Each entry stores its id,
+`<QualityStudio:DataRoot>/repositories.json`. Each entry stores its id,
 display name, normalized root path, optional global inputs directory, input character
 budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
 there are no environment-specific registry copies. Repository roots must be existing

@@ -28,6 +28,7 @@ public sealed record StalenessEvaluatorOptions
     public string ReviewKind { get; init; } = "code";
     public string? GlobalInputsDirectory { get; init; }
     public int InputBudgetCharacters { get; init; } = InputResolver.DefaultBudgetCharacters;
+    public string? DataRoot { get; init; }
 }
 
 public sealed record ReviewFreshness(

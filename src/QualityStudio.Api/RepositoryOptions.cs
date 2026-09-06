@@ -6,6 +6,9 @@ public sealed class RepositoryOptions
 
     public string RepositoryRoot { get; set; } = ".";
 
+    /// <summary>Base directory for per-project mutable data. Defaults to the OS-local application data directory.</summary>
+    public string? DataRoot { get; set; }
+
     public string[] AllowedOrigins { get; set; } = ["http://localhost:4200"];
 
     public string[] AllowedRoots { get; set; } = [];

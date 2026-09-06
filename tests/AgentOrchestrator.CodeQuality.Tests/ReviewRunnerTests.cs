@@ -330,6 +330,37 @@ public sealed class ReviewResponseParserTests
 public sealed class ReviewRunnerTests
 {
     [Fact]
+    public async Task ReviewAsync_WithDataRoot_DoesNotWriteUnderCheckout()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = Path.Combine(Path.GetTempPath(), "quality-review-readonly-tests", Guid.NewGuid().ToString("N"));
+        var checkout = Path.Combine(fixture, "checkout");
+        var dataRoot = Path.Combine(fixture, "data");
+        Directory.CreateDirectory(Path.Combine(checkout, "src"));
+        await File.WriteAllTextAsync(Path.Combine(checkout, "src", "Small.cs"),
+            "internal static class Small { }\n", cancellationToken);
+        try
+        {
+            var before = Directory.EnumerateFiles(checkout, "*", SearchOption.AllDirectories)
+                .Select(path => Path.GetRelativePath(checkout, path)).Order().ToArray();
+
+            var result = await new ReviewRunner(new FakeAgent()).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: checkout, DataRoot: dataRoot), cancellationToken);
+
+            var after = Directory.EnumerateFiles(checkout, "*", SearchOption.AllDirectories)
+                .Select(path => Path.GetRelativePath(checkout, path)).Order().ToArray();
+            Assert.Equal(before, after);
+            Assert.Empty(Directory.EnumerateDirectories(checkout, ".quality", SearchOption.AllDirectories));
+            Assert.StartsWith(dataRoot, result.MetaPath, StringComparison.Ordinal);
+            Assert.Single(Directory.EnumerateFiles(Path.Combine(dataRoot, ".quality", "usage"), "*.jsonl"));
+        }
+        finally
+        {
+            Directory.Delete(fixture, true);
+        }
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesFreshQs3Metadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

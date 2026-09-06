@@ -137,7 +137,9 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             target = request.Scope == SensorScope.Path && !string.IsNullOrWhiteSpace(request.Path)
                 ? AnalyzerCommand.ContainedPath(root, request.Path)
                 : root;
-            reportPath = AnalyzerCommand.ContainedPath(root, configuredReport);
+            var repositoryReportPath = AnalyzerCommand.ContainedPath(root, configuredReport);
+            reportPath = QualityDataPaths.ResolveMutablePath(root, request.DataRoot,
+                Path.GetRelativePath(root, repositoryReportPath));
             workingDirectory = configuration.TryGetValue("workingDirectory", out var configuredWorkingDirectory) &&
                                !string.IsNullOrWhiteSpace(configuredWorkingDirectory)
                 ? AnalyzerCommand.ContainedPath(root, configuredWorkingDirectory)

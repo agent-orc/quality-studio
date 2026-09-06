@@ -15,7 +15,7 @@ public sealed record RepositoryScopeRulePreview(
 
 /// <summary>
 /// Atomically manages the existing ordered <c>.quality/scope.json</c> contract. This is the only
-/// mutation boundary for the operator scope surface; browser callers never write repository files.
+/// mutation boundary for the operator scope surface; browser callers never write checkout files.
 /// </summary>
 public sealed class RepositoryScopeConfigurationStore
 {

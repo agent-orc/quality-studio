@@ -29,7 +29,8 @@ public sealed record QualityAnalysisRequest(
     string RepositoryPath,
     IReadOnlyList<QualityAnalysisDefinition> Analyses,
     string? RepositoryId = null,
-    bool PersistMetadata = false);
+    bool PersistMetadata = false,
+    string? DataRoot = null);
 
 /// <summary>Execution status and provenance for one named analysis.</summary>
 public sealed record QualityAnalysisExecution(
@@ -108,7 +109,8 @@ public sealed class QualityAnalysisRunner
                 item.Definition.Scope,
                 item.Definition.Path,
                 item.Definition.Configuration,
-                request.PersistMetadata), cancellationToken).ConfigureAwait(false);
+                request.PersistMetadata,
+                request.DataRoot), cancellationToken).ConfigureAwait(false);
 
             foreach (var finding in sensorResult.Findings)
             {

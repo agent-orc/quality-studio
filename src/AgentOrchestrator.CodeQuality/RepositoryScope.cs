@@ -42,21 +42,24 @@ internal sealed class RepositoryScope
     ];
 
     private readonly string root;
+    private readonly string configurationRoot;
     private readonly IReadOnlyList<ScopeRule> rules;
 
-    private RepositoryScope(string root, IReadOnlyList<ScopeRule> rules)
+    private RepositoryScope(string root, string configurationRoot, IReadOnlyList<ScopeRule> rules)
     {
         this.root = root;
+        this.configurationRoot = configurationRoot;
         this.rules = rules;
     }
 
-    public string? ConfigurationFile => File.Exists(Path.Combine(root, ConfigurationPath.Replace('/', Path.DirectorySeparatorChar)))
+    public string? ConfigurationFile => File.Exists(Path.Combine(configurationRoot, ConfigurationPath.Replace('/', Path.DirectorySeparatorChar)))
         ? ConfigurationPath
         : null;
 
-    public static RepositoryScope Load(string repositoryRoot)
+    public static RepositoryScope Load(string repositoryRoot, string? dataRoot = null)
     {
         var root = Path.GetFullPath(repositoryRoot);
+        var configurationRoot = Path.GetFullPath(dataRoot ?? root);
         var rules = new List<ScopeRule>();
         foreach (var (pattern, reason) in Defaults)
         {
@@ -64,8 +67,8 @@ internal sealed class RepositoryScope
         }
 
         LoadGitIgnoreRules(root, rules);
-        LoadCuratedRules(root, rules);
-        return new RepositoryScope(root, rules);
+        LoadCuratedRules(configurationRoot, rules);
+        return new RepositoryScope(root, configurationRoot, rules);
     }
 
     public ScopeDecision Evaluate(string repositoryRelativePath, string? absolutePath = null)

@@ -8,8 +8,7 @@ src/QualityStudio.Api/.quality-studio/
 
 # Orchestrator jobs live in the task-server workspace, never in the product repo (operator decision 2026-07-11)
 .orchestrator/
-.quality/runs/
-/.quality/preflight/
+.quality/
 bin/
 obj/
 .vs/
@@ -18,10 +17,6 @@ TestResults/
 # orchestrator task-pipeline artifacts stay out of the repo
 /.orchestrator/
 
-# Review usage and canonical run reports are durable repository history. Monthly
-# ledgers and .quality/reports/runs/*.json are intentionally committed; only the
-# resumable orchestration state under .quality/runs is ignored.
-!/.quality/
-!/.quality/usage/
-!/.quality/usage/*.jsonl
+# Quality Studio runtime state belongs under its configured per-project data root.
+# In-tree .quality directories are legacy input only and are migrated on startup.
 /.dev-stack.log

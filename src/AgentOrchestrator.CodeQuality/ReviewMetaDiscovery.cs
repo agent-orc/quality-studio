@@ -18,15 +18,18 @@ public static class ReviewMetaDiscovery
         IEnumerable<HierarchyNode> projects,
         InputResolver? inputResolver = null,
         string? globalInputsDirectory = null,
-        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+        string? dataRoot = null)
     {
         var root = Path.GetFullPath(repositoryPath);
+        var metadataRoot = Path.GetFullPath(dataRoot ?? root);
         // A file contributing to several namespaces is aliased below each of them while remaining
         // one canonical unit, so the same node can be reached more than once during the walk.
         var nodes = Flatten(projects)
             .DistinctBy(node => node.Id, StringComparer.Ordinal)
             .ToDictionary(node => node.Id, StringComparer.Ordinal);
-        foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
+        if (!Directory.Exists(metadataRoot)) return;
+        foreach (var path in Directory.EnumerateFiles(metadataRoot, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
             using var json = JsonDocument.Parse(File.ReadAllText(path));
@@ -48,14 +51,15 @@ public static class ReviewMetaDiscovery
             node.Attach(new AttachedReviewMetaDocument(
                 unitId,
                 kind,
-                DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
-                Path.GetRelativePath(root, path).Replace('\\', '/'),
+                DetermineState(root, metadataRoot, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
+                Path.GetRelativePath(metadataRoot, path).Replace('\\', '/'),
                 document.GetRawText()));
         }
     }
 
     private static ReviewState DetermineState(
         string root,
+        string dataRoot,
         HierarchyNode node,
         JsonElement document,
         InputResolver inputResolver,
@@ -114,7 +118,7 @@ public static class ReviewMetaDiscovery
         var adapter = document.GetProperty("unit").TryGetProperty("adapter", out var storedAdapter)
             ? storedAdapter.GetString()
             : RuleCatalogueResolver.AdapterFromUnitId(document.GetProperty("unit").GetProperty("id").GetString());
-        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, adapter);
+        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, adapter, dataRoot);
         var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
         return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
             ? ReviewState.Current
