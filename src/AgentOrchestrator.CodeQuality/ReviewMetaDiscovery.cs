@@ -21,7 +21,11 @@ public static class ReviewMetaDiscovery
         int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
     {
         var root = Path.GetFullPath(repositoryPath);
-        var nodes = Flatten(projects).ToDictionary(node => node.Id, StringComparer.Ordinal);
+        // A file contributing to several namespaces is aliased below each of them while remaining
+        // one canonical unit, so the same node can be reached more than once during the walk.
+        var nodes = Flatten(projects)
+            .DistinctBy(node => node.Id, StringComparer.Ordinal)
+            .ToDictionary(node => node.Id, StringComparer.Ordinal);
         foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
                      .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
         {
