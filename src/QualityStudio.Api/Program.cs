@@ -137,6 +137,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 }));
 app.UseStatusCodePages();
 app.UseCors("dev-frontend");
+app.UseStaticUi();
 app.UseRouting();
 
 var apiSecurity = app.Services.GetRequiredService<ApiSecurity>();
