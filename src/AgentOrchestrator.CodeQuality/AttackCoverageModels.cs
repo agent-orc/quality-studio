@@ -217,7 +217,8 @@ public sealed class AttackCatalogueResolver
     public const string GlobalFileName = "attack-catalogue.json";
     private const string BuiltInResourceSuffix = "catalogues.attack-catalogue.v1.json";
 
-    public ResolvedAttackCatalogue Resolve(string repositoryRoot, string? globalInputsDirectory = null)
+    public ResolvedAttackCatalogue Resolve(string repositoryRoot, string? globalInputsDirectory = null,
+        string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         var documents = new List<(AttackCatalogueDocument Document, string Scope, string Source)>
@@ -229,8 +230,7 @@ public sealed class AttackCatalogueResolver
             var globalPath = Path.Combine(Path.GetFullPath(globalInputsDirectory), GlobalFileName);
             if (File.Exists(globalPath)) documents.Add((ReadFile(globalPath), "global", globalPath));
         }
-        var projectPath = Path.Combine(Path.GetFullPath(repositoryRoot),
-            ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var projectPath = QualityDataPaths.Resolve(repositoryRoot, dataRoot, ProjectRelativePath);
         if (File.Exists(projectPath)) documents.Add((ReadFile(projectPath), "project", projectPath));
 
         var effective = new Dictionary<string, ResolvedAttackCatalogueEntry>(StringComparer.OrdinalIgnoreCase);

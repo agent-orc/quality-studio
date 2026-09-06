@@ -16,7 +16,8 @@ public sealed record SensorScanRequest(
     SensorScope Scope = SensorScope.Repository,
     string? Path = null,
     IReadOnlyDictionary<string, string>? Configuration = null,
-    bool PersistMetadata = true);
+    bool PersistMetadata = true,
+    string? DataRoot = null);
 
 public sealed record SensorProvenance(
     string SensorId,

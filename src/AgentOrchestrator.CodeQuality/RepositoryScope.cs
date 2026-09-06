@@ -43,18 +43,20 @@ internal sealed class RepositoryScope
 
     private readonly string root;
     private readonly IReadOnlyList<ScopeRule> rules;
+    private readonly string configurationPath;
 
-    private RepositoryScope(string root, IReadOnlyList<ScopeRule> rules)
+    private RepositoryScope(string root, IReadOnlyList<ScopeRule> rules, string configurationPath)
     {
         this.root = root;
         this.rules = rules;
+        this.configurationPath = configurationPath;
     }
 
-    public string? ConfigurationFile => File.Exists(Path.Combine(root, ConfigurationPath.Replace('/', Path.DirectorySeparatorChar)))
+    public string? ConfigurationFile => File.Exists(configurationPath)
         ? ConfigurationPath
         : null;
 
-    public static RepositoryScope Load(string repositoryRoot)
+    public static RepositoryScope Load(string repositoryRoot, string? dataRoot = null)
     {
         var root = Path.GetFullPath(repositoryRoot);
         var rules = new List<ScopeRule>();
@@ -64,8 +66,9 @@ internal sealed class RepositoryScope
         }
 
         LoadGitIgnoreRules(root, rules);
-        LoadCuratedRules(root, rules);
-        return new RepositoryScope(root, rules);
+        var configurationPath = QualityDataPaths.Resolve(root, dataRoot, ConfigurationPath);
+        LoadCuratedRules(configurationPath, rules);
+        return new RepositoryScope(root, rules, configurationPath);
     }
 
     public ScopeDecision Evaluate(string repositoryRelativePath, string? absolutePath = null)
@@ -164,9 +167,8 @@ internal sealed class RepositoryScope
         return value[..end].Replace("\\ ", " ", StringComparison.Ordinal);
     }
 
-    private static void LoadCuratedRules(string root, List<ScopeRule> rules)
+    private static void LoadCuratedRules(string path, List<ScopeRule> rules)
     {
-        var path = Path.Combine(root, ConfigurationPath.Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(path)) return;
 
         using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions

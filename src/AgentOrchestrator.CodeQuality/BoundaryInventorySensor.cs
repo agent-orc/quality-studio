@@ -129,7 +129,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
         if (request.PersistMetadata && request.Scope == SensorScope.Repository)
         {
-            await PersistAsync(root, inventory, cancellationToken).ConfigureAwait(false);
+            await PersistAsync(root, inventory, cancellationToken, request.DataRoot).ConfigureAwait(false);
         }
 
         return inventory;
@@ -1156,9 +1156,10 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     private static async Task PersistAsync(
         string root,
         BoundaryInventory inventory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? dataRoot)
     {
-        var path = Path.Combine(root, InventoryRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = QualityDataPaths.Resolve(root, dataRoot, InventoryRelativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temporary = path + $".tmp-{Guid.NewGuid():N}";
         try

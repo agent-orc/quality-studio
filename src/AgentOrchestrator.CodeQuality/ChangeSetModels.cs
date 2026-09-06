@@ -232,7 +232,8 @@ public sealed record ChangeReviewResult(
 
 public sealed record ChangeReviewOptions(
     bool Persist = true,
-    IChangeDeltaReviewer? Reviewer = null);
+    IChangeDeltaReviewer? Reviewer = null,
+    string? DataRoot = null);
 
 public sealed class ChangeReviewException(string message, Exception? innerException = null)
     : Exception(message, innerException);

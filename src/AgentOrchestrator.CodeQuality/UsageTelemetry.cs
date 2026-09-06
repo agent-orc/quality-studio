@@ -49,22 +49,24 @@ public sealed record UsageReport(
     IReadOnlyList<UsageAggregate> ByReviewRun,
     IReadOnlyList<ReviewUsageEntry> Recent);
 
-/// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
+/// <summary>Append-only, project-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
 {
     public const int CurrentSchemaVersion = 2;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public static string GetLedgerPath(string repositoryRoot, DateTimeOffset timestamp) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage", timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
+    public static string GetLedgerPath(string repositoryRoot, DateTimeOffset timestamp, string? dataRoot = null) =>
+        Path.Combine(QualityDataPaths.Resolve(repositoryRoot, dataRoot, ".quality/usage"),
+            timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
 
-    public static async Task AppendAsync(string repositoryRoot, ReviewUsageEntry entry, CancellationToken cancellationToken = default)
+    public static async Task AppendAsync(string repositoryRoot, ReviewUsageEntry entry,
+        CancellationToken cancellationToken = default, string? dataRoot = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
         if (!IsSupported(entry))
             throw new ArgumentException("Usage ledger entries must conform to schema version 1 or 2.", nameof(entry));
-        var path = GetLedgerPath(repositoryRoot, entry.Timestamp);
+        var path = GetLedgerPath(repositoryRoot, entry.Timestamp, dataRoot);
         var gate = Locks.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -82,10 +84,11 @@ public static class UsageLedger
     }
 
     public static async Task<UsageReport> QueryAsync(string repositoryRoot, DateTimeOffset? since = null,
-        string? kind = null, int recentLimit = 50, CancellationToken cancellationToken = default)
+        string? kind = null, int recentLimit = 50, CancellationToken cancellationToken = default,
+        string? dataRoot = null)
     {
         var entries = new List<ReviewUsageEntry>();
-        var directory = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage");
+        var directory = QualityDataPaths.Resolve(repositoryRoot, dataRoot, ".quality/usage");
         if (Directory.Exists(directory))
         {
             foreach (var path in Directory.EnumerateFiles(directory, "????-??.jsonl", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))

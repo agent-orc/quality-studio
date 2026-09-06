@@ -83,8 +83,8 @@ public sealed class StalenessEvaluator
         var count = 0;
         try
         {
-            var repositoryFiles = EnumerateGitFilesAsync(root, cancellationToken);
-            var metaBySubject = await LoadMetadataAsync(repositoryFiles, root, options.ReviewKind, cancellationToken)
+            var metadataFiles = MetadataFiles(root, options.DataRoot);
+            var metaBySubject = await LoadMetadataAsync(metadataFiles, root, options.ReviewKind, cancellationToken)
                 .ConfigureAwait(false);
 
             await foreach (var relativePath in EnumerateGitFilesAsync(root, cancellationToken))
@@ -142,7 +142,7 @@ public sealed class StalenessEvaluator
         if (!string.Equals(currentHash, metadata.ReviewedHash, StringComparison.Ordinal)) return StalenessState.Stale;
         if (metadata.ReviewInputHash is null) return StalenessState.Fresh;
         var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
-            options.GlobalInputsDirectory, options.InputBudgetCharacters);
+            options.GlobalInputsDirectory, options.InputBudgetCharacters, options.DataRoot);
         var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh
@@ -150,13 +150,13 @@ public sealed class StalenessEvaluator
     }
 
     private static async Task<Dictionary<string, ReviewMetadata>> LoadMetadataAsync(
-        IAsyncEnumerable<string> repositoryFiles,
+        IEnumerable<(string RelativePath, string AbsolutePath)> metadataFiles,
         string root,
         string reviewKind,
         CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, ReviewMetadata>(StringComparer.Ordinal);
-        await foreach (var relativePath in repositoryFiles)
+        foreach (var (relativePath, absolutePath) in metadataFiles)
         {
             if (!IsMetaPath(relativePath))
             {
@@ -166,7 +166,7 @@ public sealed class StalenessEvaluator
             ReviewMetadata? metadata;
             try
             {
-                await using var stream = File.OpenRead(ResolveWithinRoot(root, relativePath));
+                await using var stream = File.OpenRead(absolutePath);
                 using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 var json = document.RootElement;
@@ -217,6 +217,23 @@ public sealed class StalenessEvaluator
         }
 
         return result;
+    }
+
+    private static IEnumerable<(string RelativePath, string AbsolutePath)> MetadataFiles(
+        string repositoryRoot, string? dataRoot)
+    {
+        var metadataRoot = string.IsNullOrWhiteSpace(dataRoot) ? repositoryRoot : Path.GetFullPath(dataRoot);
+        if (!Directory.Exists(metadataRoot)) return [];
+        return Directory.EnumerateFiles(metadataRoot, "*.json", new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
+            })
+            .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal))
+            .Select(path => (
+                (string.IsNullOrWhiteSpace(dataRoot) ? string.Empty : ".quality/") +
+                Path.GetRelativePath(metadataRoot, path).Replace('\\', '/'),
+                path));
     }
 
     private static async IAsyncEnumerable<string> EnumerateGitFilesAsync(

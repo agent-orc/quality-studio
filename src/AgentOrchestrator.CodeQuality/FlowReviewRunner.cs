@@ -46,20 +46,21 @@ public sealed class FlowReviewRunner
         }
         catch (ReviewAgentRunCanceledException exception)
         {
-            await RecordUsageAsync(prepared.Root, request.Flow.Id, exception.RunId, exception.Usage,
-                exception.EffectiveModel, startedAt).ConfigureAwait(false);
+            await RecordUsageAsync(prepared.Root, request.DataRoot, request.Flow.Id, exception.RunId,
+                exception.Usage, exception.EffectiveModel, startedAt).ConfigureAwait(false);
             throw;
         }
         catch (ReviewAgentRunException exception)
         {
-            await RecordUsageAsync(prepared.Root, request.Flow.Id, exception.RunId, exception.Usage,
-                exception.EffectiveModel, startedAt).ConfigureAwait(false);
+            await RecordUsageAsync(prepared.Root, request.DataRoot, request.Flow.Id, exception.RunId,
+                exception.Usage, exception.EffectiveModel, startedAt).ConfigureAwait(false);
             throw;
         }
 
         var usage = agentResult.Usage ?? new TokenUsage(null, null, null, null, 0);
         var model = EffectiveModel(agentResult.EffectiveModel);
-        await RecordUsageAsync(prepared.Root, request.Flow.Id, agentResult.RunId, usage, model, startedAt)
+        await RecordUsageAsync(prepared.Root, request.DataRoot, request.Flow.Id, agentResult.RunId, usage, model,
+                startedAt)
             .ConfigureAwait(false);
         var response = responseParser.Parse(agentResult.Response);
 
@@ -69,12 +70,12 @@ public sealed class FlowReviewRunner
             throw new ReviewRunException("The flow evidence changed while it was being reviewed; no flow report was written.");
 
         var findings = CreateFindings(response, prepared.SubjectContents);
-        var reportPath = GetReportPath(prepared.Root, request.Flow.Id);
+        var reportPath = GetReportPath(prepared.Root, request.Flow.Id, request.DataRoot);
         var previous = await LoadPreviousFindingsAsync(reportPath, cancellationToken).ConfigureAwait(false);
         var identities = findings.Select(finding =>
             new FindingIdentityRecord(finding.Fingerprint, finding.Id,
                 finding.FlowPath[finding.WeakestPointIndex].Path, finding.RuleId)).ToArray();
-        var states = await new FindingStateStore(prepared.Root).MergeReviewAsync(
+        var states = await new FindingStateStore(prepared.Root, dataRoot: request.DataRoot).MergeReviewAsync(
             identities, previous, agent.AgentName, cancellationToken).ConfigureAwait(false);
         findings = findings.Select(finding => finding with { State = states[finding.Fingerprint].State }).ToArray();
 
@@ -126,11 +127,11 @@ public sealed class FlowReviewRunner
         return new FlowReviewStaleness(reasons.Count > 0, reasons);
     }
 
-    public static string GetReportPath(string repositoryRoot, string flowId)
+    public static string GetReportPath(string repositoryRoot, string flowId, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(flowId);
-        return Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "flows",
+        return Path.Combine(QualityDataPaths.Resolve(repositoryRoot, dataRoot, ".quality/flows"),
             Sha256("quality-studio-flow-report-v1\0" + flowId.Trim()) + ".flow-review.json");
     }
 
@@ -247,6 +248,7 @@ public sealed class FlowReviewRunner
 
     private async Task RecordUsageAsync(
         string root,
+        string? dataRoot,
         string flowId,
         string runId,
         TokenUsage usage,
@@ -261,7 +263,7 @@ public sealed class FlowReviewRunner
             usage,
             UsageKind,
             "flow",
-            flowId), CancellationToken.None).ConfigureAwait(false);
+            flowId), CancellationToken.None, dataRoot).ConfigureAwait(false);
     }
 
     private FlowReviewCost ComputeCost(string model, TokenUsage usage, DateTimeOffset timestamp)

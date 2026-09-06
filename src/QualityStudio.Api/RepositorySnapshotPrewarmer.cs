@@ -65,7 +65,8 @@ public sealed class RepositorySnapshotPrewarmer : BackgroundService
                     registration.RootPath,
                     inputResolver,
                     globalDirectory,
-                    registration.InputBudgetCharacters), stoppingToken);
+                    registration.InputBudgetCharacters,
+                    registration.DataRoot), stoppingToken);
                 var projection = dashboards.GetMeasured(registration.RootPath, hierarchy.Snapshot);
                 var prewarmEvent = JsonSerializer.Serialize(new
                 {

@@ -138,13 +138,15 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
         string repositoryRoot,
         IReadOnlyList<string> subjectPaths,
         IReadOnlyList<ReviewSensorConfiguration> configurations,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? dataRoot = null)
     {
         var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath)
             .ToHashSet(StringComparer.Ordinal);
         var tasks = configurations
             .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(configuration => CollectSensorAsync(repositoryRoot, subjects, configuration, cancellationToken))
+            .Select(configuration => CollectSensorAsync(repositoryRoot, subjects, configuration, cancellationToken,
+                dataRoot))
             .ToArray();
         var evidence = await Task.WhenAll(tasks).ConfigureAwait(false);
         var ordered = evidence.OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
@@ -162,7 +164,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
         string repositoryRoot,
         IReadOnlySet<string> subjectPaths,
         ReviewSensorConfiguration configuration,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? dataRoot)
     {
         IReviewSensor sensor;
         try
@@ -180,7 +183,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
                 repositoryRoot,
                 SensorScope.Repository,
                 Configuration: configuration.Configuration,
-                PersistMetadata: false), cancellationToken).ConfigureAwait(false);
+                PersistMetadata: false,
+                DataRoot: dataRoot), cancellationToken).ConfigureAwait(false);
             var findings = result.Findings
                 .Select(finding => finding with
                 {

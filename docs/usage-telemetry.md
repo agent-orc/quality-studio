@@ -6,7 +6,7 @@ identifiers to two places:
 
 - the review-meta `reviewer.usage` block, alongside `reviewer.model` and
   `reviewer.runId`; and
-- the repository append-only ledger at `.quality/usage/YYYY-MM.jsonl`.
+- the project data-root append-only ledger at `usage/YYYY-MM.jsonl`.
 
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
@@ -30,7 +30,8 @@ recent-entry details containing both run identifiers.
 
 ## Git history policy
 
-`.quality/usage/YYYY-MM.jsonl` is committed repository history. The files are
+`usage/YYYY-MM.jsonl` is private runtime history in the repository's external
+Quality Studio data directory. The files are
 monthly and append-only; do not compact, reorder, rewrite, or discard prior
 lines. `.gitignore` explicitly keeps these files committable and `.gitattributes`
 uses Git's union merge driver so independent appends are retained during merges.

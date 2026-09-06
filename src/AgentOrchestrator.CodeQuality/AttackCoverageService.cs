@@ -151,19 +151,17 @@ public static partial class BoundaryCoverageHasher
     }
 }
 
-/// <summary>Append-only repository ledger. Existing observations are never rewritten.</summary>
+/// <summary>Append-only project ledger. Existing observations are never rewritten.</summary>
 public sealed class AttackCoverageLedger
 {
     public const string RelativePath = ".quality/attacks/coverage-ledger.jsonl";
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private readonly string path;
 
-    public AttackCoverageLedger(string repositoryRoot)
+    public AttackCoverageLedger(string repositoryRoot, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        path = System.IO.Path.Combine(
-            System.IO.Path.GetFullPath(repositoryRoot),
-            RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        path = QualityDataPaths.Resolve(repositoryRoot, dataRoot, RelativePath);
     }
 
     public string Path => path;
@@ -271,12 +269,13 @@ public sealed class AttackCoverageService
         ResolvedAttackCatalogue catalogue,
         string scope = ".",
         bool recheckDeterministic = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? dataRoot = null)
     {
         ArgumentNullException.ThrowIfNull(inventory);
         ArgumentNullException.ThrowIfNull(catalogue);
         var prompt = AttackCoveragePrompt.Reference();
-        var ledger = new AttackCoverageLedger(repositoryRoot);
+        var ledger = new AttackCoverageLedger(repositoryRoot, dataRoot);
         var snapshots = new Dictionary<string, BoundaryCoverageSnapshot>(StringComparer.Ordinal);
         foreach (var boundary in inventory.Entries)
             snapshots[boundary.Id] = await BoundaryCoverageHasher.SnapshotAsync(
@@ -285,7 +284,7 @@ public sealed class AttackCoverageService
         var observations = (await ledger.ReadAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var appended = await RefreshDeterministicAsync(
             repositoryRoot, inventory, catalogue, snapshots, observations, ledger,
-            recheckDeterministic, cancellationToken).ConfigureAwait(false);
+            recheckDeterministic, cancellationToken, dataRoot).ConfigureAwait(false);
         observations.AddRange(appended);
 
         var now = clock().ToUniversalTime();
@@ -331,7 +330,8 @@ public sealed class AttackCoverageService
         BoundaryInventory inventory,
         ResolvedAttackCatalogue catalogue,
         AttackJudgementSubmission submission,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? dataRoot = null)
     {
         ArgumentNullException.ThrowIfNull(submission);
         if (string.IsNullOrWhiteSpace(submission.Reasoning))
@@ -354,7 +354,7 @@ public sealed class AttackCoverageService
         if (!AttackCatalogueResolver.Applies(attack.Entry, boundary))
             throw new ArgumentException("The attack does not apply to the selected boundary.", nameof(submission));
         await EnsureFindingLifecycleLinkAsync(
-            repositoryRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);
+            repositoryRoot, boundary, attack.Entry, submission, cancellationToken, dataRoot).ConfigureAwait(false);
         var snapshot = await BoundaryCoverageHasher.SnapshotAsync(repositoryRoot, boundary, cancellationToken)
             .ConfigureAwait(false);
         var prompt = AttackCoveragePrompt.Reference();
@@ -381,7 +381,8 @@ public sealed class AttackCoverageService
             clock().ToUniversalTime(),
             submission.Commit ?? await GitAsync(repositoryRoot, "rev-parse", "HEAD").ConfigureAwait(false),
             submission.CommitRange);
-        await new AttackCoverageLedger(repositoryRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(false);
+        await new AttackCoverageLedger(repositoryRoot, dataRoot).AppendAsync(observation, cancellationToken)
+            .ConfigureAwait(false);
         return observation;
     }
 
@@ -393,7 +394,8 @@ public sealed class AttackCoverageService
         IReadOnlyList<AttackCoverageObservation> existing,
         AttackCoverageLedger ledger,
         bool recheckChanged,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? dataRoot)
     {
         var appended = new List<AttackCoverageObservation>();
         var commit = await GitAsync(repositoryRoot, "rev-parse", "HEAD").ConfigureAwait(false);
@@ -429,7 +431,7 @@ public sealed class AttackCoverageService
                     .ToArray();
                 if (currentFindings.Length > 0 || previousFindings.Length > 0)
                 {
-                    await new FindingStateStore(repositoryRoot).MergeReviewAsync(
+                    await new FindingStateStore(repositoryRoot, dataRoot: dataRoot).MergeReviewAsync(
                         currentFindings, previousFindings, "boundary-analyzer", cancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -500,11 +502,12 @@ public sealed class AttackCoverageService
         BoundaryEntry boundary,
         AttackCatalogueEntry attack,
         AttackJudgementSubmission submission,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? dataRoot)
     {
-        var store = new FindingStateStore(repositoryRoot);
+        var store = new FindingStateStore(repositoryRoot, dataRoot: dataRoot);
         var states = await store.ReadAsync(cancellationToken).ConfigureAwait(false);
-        var priorObservations = await new AttackCoverageLedger(repositoryRoot).ReadAsync(cancellationToken)
+        var priorObservations = await new AttackCoverageLedger(repositoryRoot, dataRoot).ReadAsync(cancellationToken)
             .ConfigureAwait(false);
         var previous = priorObservations.Where(observation =>
                 observation.BoundaryId == boundary.Id &&

@@ -28,10 +28,10 @@ public sealed class FindingStateStore
     private readonly string statePath;
     private readonly Func<DateTimeOffset> clock;
 
-    public FindingStateStore(string repositoryRoot, Func<DateTimeOffset>? clock = null)
+    public FindingStateStore(string repositoryRoot, Func<DateTimeOffset>? clock = null, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        statePath = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "findings", "state.json");
+        statePath = QualityDataPaths.Resolve(repositoryRoot, dataRoot, RelativePath);
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 

@@ -8,11 +8,18 @@ namespace QualityStudio.Api;
 public sealed class RepositoryAccess
 {
     private readonly string root;
+    private readonly string dataRoot;
     private readonly ReviewMetaIndex? metaIndex;
 
     public RepositoryAccess(string root, ReviewMetaIndex? metaIndex = null)
+        : this(root, Path.Combine(Path.GetFullPath(root), ".quality"), metaIndex)
+    {
+    }
+
+    public RepositoryAccess(string root, string dataRoot, ReviewMetaIndex? metaIndex = null)
     {
         this.root = Path.GetFullPath(root);
+        this.dataRoot = Path.GetFullPath(dataRoot);
         this.metaIndex = metaIndex;
         if (!Directory.Exists(this.root))
         {
@@ -21,6 +28,8 @@ public sealed class RepositoryAccess
     }
 
     public string Root => root;
+
+    public string DataRoot => dataRoot;
 
     public string NormalizeRelativePath(string? path)
     {
@@ -68,7 +77,7 @@ public sealed class RepositoryAccess
     {
         var normalized = NormalizeRelativePath(relativePath);
         var documents = (metaIndex ?? throw new InvalidOperationException("Review metadata indexing is unavailable."))
-            .Read(root, normalized);
+            .Read(root, dataRoot, normalized);
         if (states is null)
         {
             return documents;
@@ -86,6 +95,6 @@ public sealed class RepositoryAccess
     {
         var normalized = NormalizeRelativePath(relativePath);
         return (metaIndex ?? throw new InvalidOperationException("Review metadata indexing is unavailable."))
-            .Find(root, normalized, kind);
+            .Find(root, dataRoot, normalized, kind);
     }
 }

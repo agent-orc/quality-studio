@@ -156,6 +156,7 @@ public sealed class AgentStudioImportTests : IAsyncLifetime
                 {
                     ["QualityStudio:RepositoryRoot"] = root,
                     ["QualityStudio:AllowedRoots:0"] = Path.GetTempPath(),
+                    ["QualityStudio:DataRoot"] = Path.Combine(contentRoot, "runtime-data"),
                     ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
                 }));
             builder.ConfigureServices(services => services.AddSingleton(_ => new HttpClient(handler)));

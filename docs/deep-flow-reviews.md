@@ -27,7 +27,7 @@ ending at `response` (or `external`), plus a `weakestPointIndex`. All
 non-external path locations and the weakest point are validated against the
 reviewed source. Agent-provided finding ids are discarded; Quality Studio
 assigns the normal repository-stable fingerprint at the weakest source line and
-merges it into `.quality/findings/state.json`.
+merges it into `findings/state.json` in the external project data root.
 
 An agent that cannot establish decisive behavior returns `undetermined` with a
 reason. This is a persisted verdict, distinct from `pass`. Independently proven
@@ -37,7 +37,7 @@ findings can remain attached to an undetermined flow.
 
 Reports conform to
 [`schemas/flow-review.v1.schema.json`](../schemas/flow-review.v1.schema.json) and
-are atomically written below `.quality/flows/`. Provenance records:
+are atomically written below `flows/` in the external project data root. Provenance records:
 
 - agent, effective model, run id, UTC review time;
 - prompt id, version, and template hash;
@@ -48,7 +48,7 @@ are atomically written below `.quality/flows/`. Provenance records:
 - resolved cost and currency, or the explicit `usageUnavailable`,
   `unknownModel`, or `noPriceForDate` status.
 
-The same operation is appended to `.quality/usage/` with kind
+The same operation is appended to `usage/` in the external project data root with kind
 `deep-flow-security` and level `flow`. `EvaluateStalenessAsync` compares current
 evidence and catalogue hashes with the recorded provenance. A change during the
 agent run prevents the report from being written.

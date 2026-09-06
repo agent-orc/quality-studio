@@ -25,7 +25,8 @@ public sealed record QualityReportRepository(
     IReadOnlyList<string>? EnabledKinds = null,
     IReadOnlyList<QualityReportSensor>? Sensors = null,
     string? GlobalInputsDirectory = null,
-    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters);
+    int InputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+    string? DataRoot = null);
 
 public sealed record QualityReportDocument(
     [property: JsonPropertyName("$schema")] string Schema,
@@ -166,8 +167,9 @@ public sealed class QualityReportBuilder
 
         try
         {
-            var states = await new FindingStateStore(root).ReadAsync(cancellationToken).ConfigureAwait(false);
-            var observations = LoadCurrentObservations(root, repository.Id, states);
+            var states = await new FindingStateStore(root, dataRoot: repository.DataRoot)
+                .ReadAsync(cancellationToken).ConfigureAwait(false);
+            var observations = LoadCurrentObservations(root, repository.DataRoot, repository.Id, states);
             var kindScores = BuildKindScores(kinds, observations);
             var scoredKinds = kindScores.Where(kind => kind.Score.HasValue).Select(kind => kind.Score!.Value).ToArray();
             var score = scoredKinds.Length == 0
@@ -184,6 +186,7 @@ public sealed class QualityReportBuilder
                     ReviewKind = kind,
                     GlobalInputsDirectory = repository.GlobalInputsDirectory,
                     InputBudgetCharacters = repository.InputBudgetCharacters,
+                    DataRoot = repository.DataRoot,
                 }, cancellationToken).ConfigureAwait(false));
             }
 
@@ -220,11 +223,13 @@ public sealed class QualityReportBuilder
 
     private static IReadOnlyList<Observation> LoadCurrentObservations(
         string root,
+        string? dataRoot,
         string repositoryId,
         IReadOnlyDictionary<string, FindingStateRecord> states)
     {
         var result = new List<Observation>();
-        foreach (var path in EnumerateSidecars(root))
+        var metadataRoot = string.IsNullOrWhiteSpace(dataRoot) ? root : Path.GetFullPath(dataRoot);
+        foreach (var path in EnumerateSidecars(metadataRoot))
         {
             JsonObject metadata;
             try
@@ -257,7 +262,8 @@ public sealed class QualityReportBuilder
     }
 
     private static bool IsSidecar(string path) =>
-        (path.StartsWith(".quality/reviews/", StringComparison.Ordinal) ||
+        (path.StartsWith("reviews/", StringComparison.Ordinal) ||
+         path.StartsWith(".quality/reviews/", StringComparison.Ordinal) ||
          path.Contains("/.quality/reviews/", StringComparison.Ordinal)) &&
         path.Contains(".review-meta.", StringComparison.Ordinal) &&
         path.EndsWith(".json", StringComparison.Ordinal);

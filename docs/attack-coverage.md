@@ -30,7 +30,7 @@ Catalogue precedence mirrors review inputs:
 
 1. the embedded repository-owned catalogue;
 2. `<global-inputs-directory>/attack-catalogue.json`;
-3. `<repository>/.quality/attacks/catalogue.json`.
+3. `<project-data-root>/attacks/catalogue.json`.
 
 A later entry with the same id replaces the earlier entry; new ids extend the
 catalogue. Disabled project entries remove an inherited entry from the
@@ -43,7 +43,7 @@ hash. Consequently, changing one entry marks only cells for that attack stale.
 Judgements append as JSON Lines to:
 
 ```text
-.quality/attacks/coverage-ledger.jsonl
+<project-data-root>/attacks/coverage-ledger.jsonl
 ```
 
 The ledger is never rewritten by a re-check. Each observation records:

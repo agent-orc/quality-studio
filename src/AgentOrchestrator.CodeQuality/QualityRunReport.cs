@@ -198,7 +198,7 @@ public sealed record QualityRunReportSizeSummary(int Count, long TotalBytes, lon
 
 public sealed record QualityRunReportPruneResult(int Removed, long FreedBytes, int Remaining, int Pinned);
 
-/// <summary>Atomic repository-owned storage for canonical review-run snapshots.</summary>
+/// <summary>Atomic project-data storage for canonical review-run snapshots.</summary>
 public sealed class QualityRunReportStore
 {
     public const string RelativeReportsPath = ".quality/reports/runs";
@@ -211,11 +211,10 @@ public sealed class QualityRunReportStore
     private static readonly UTF8Encoding Utf8 = new(false);
     private readonly string reportsPath;
 
-    public QualityRunReportStore(string repositoryRoot)
+    public QualityRunReportStore(string repositoryRoot, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        reportsPath = Path.Combine(Path.GetFullPath(repositoryRoot),
-            RelativeReportsPath.Replace('/', Path.DirectorySeparatorChar));
+        reportsPath = QualityDataPaths.Resolve(repositoryRoot, dataRoot, RelativeReportsPath);
     }
 
     public string ReportsPath => reportsPath;

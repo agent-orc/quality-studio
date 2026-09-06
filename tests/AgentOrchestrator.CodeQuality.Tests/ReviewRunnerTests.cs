@@ -205,6 +205,43 @@ public sealed class ReviewResponseParserTests
 public sealed class ReviewRunnerTests
 {
     [Fact]
+    public async Task ReviewAsync_WithExternalDataRoot_DoesNotWriteUnderCheckout()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixtureRoot = Path.Combine(Path.GetTempPath(), "quality-review-data-root-tests",
+            Guid.NewGuid().ToString("N"));
+        var checkout = Path.Combine(fixtureRoot, "checkout");
+        var dataRoot = Path.Combine(fixtureRoot, "data");
+        Directory.CreateDirectory(Path.Combine(checkout, "src"));
+        await File.WriteAllTextAsync(Path.Combine(checkout, "src", "Small.cs"),
+            "internal static class Small { }\n", cancellationToken);
+        try
+        {
+            var before = Directory.EnumerateFiles(checkout, "*", SearchOption.AllDirectories)
+                .ToDictionary(path => Path.GetRelativePath(checkout, path), File.ReadAllBytes,
+                    StringComparer.Ordinal);
+
+            var result = await new ReviewRunner(new FakeAgent()).ReviewAsync(new ReviewRequest(
+                "src/Small.cs", RepositoryRoot: checkout, DataRoot: dataRoot), cancellationToken);
+
+            var after = Directory.EnumerateFiles(checkout, "*", SearchOption.AllDirectories)
+                .ToDictionary(path => Path.GetRelativePath(checkout, path), File.ReadAllBytes,
+                    StringComparer.Ordinal);
+            Assert.Equal(before.Keys, after.Keys);
+            foreach (var path in before.Keys) Assert.Equal(before[path], after[path]);
+            Assert.StartsWith(dataRoot, result.MetaPath, StringComparison.Ordinal);
+            Assert.StartsWith(".quality/reviews/files/", result.Observation!.SidecarPath,
+                StringComparison.Ordinal);
+            Assert.True(Directory.EnumerateFiles(dataRoot, "*.jsonl", SearchOption.AllDirectories).Any());
+            Assert.Empty(Directory.EnumerateDirectories(checkout, ".quality", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            Directory.Delete(fixtureRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task ReviewAsync_WritesFreshQs3Metadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

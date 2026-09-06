@@ -27,12 +27,12 @@ public sealed class RepositoryScopeConfigurationStore
     private readonly string path;
     private readonly object gate;
 
-    public RepositoryScopeConfigurationStore(string repositoryRoot)
+    public RepositoryScopeConfigurationStore(string repositoryRoot, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         root = Path.GetFullPath(repositoryRoot);
-        path = Path.Combine(root, RepositoryScope.ConfigurationPath.Replace('/', Path.DirectorySeparatorChar));
-        gate = Gates.GetOrAdd(root, _ => new object());
+        path = QualityDataPaths.Resolve(root, dataRoot, RepositoryScope.ConfigurationPath);
+        gate = Gates.GetOrAdd(path, _ => new object());
     }
 
     public RepositoryScopeConfiguration Read()

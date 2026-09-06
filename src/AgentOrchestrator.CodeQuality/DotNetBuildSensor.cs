@@ -78,24 +78,35 @@ public sealed partial class DotNetBuildSensor(ISensorCommandRunner? commandRunne
             foreach (var target in targets)
             {
                 var relativeTarget = Path.GetRelativePath(root, target);
+                var artifactsPath = string.IsNullOrWhiteSpace(request.DataRoot)
+                    ? null
+                    : Path.Combine(Path.GetFullPath(request.DataRoot), "preflight", "dotnet-build",
+                        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+                            Encoding.UTF8.GetBytes(Normalize(relativeTarget))))[..16]);
+                var restoreArguments = new List<string> { "restore", relativeTarget, "--nologo" };
+                if (artifactsPath is not null)
+                {
+                    Directory.CreateDirectory(artifactsPath);
+                    restoreArguments.AddRange(["--artifacts-path", artifactsPath]);
+                }
                 var restore = await runner.RunAsync(
-                    "dotnet", ["restore", relativeTarget, "--nologo"], root, cancellationToken)
+                    "dotnet", restoreArguments, root, cancellationToken)
                     .ConfigureAwait(false);
                 if (restore.ExitCode != 0)
                     return Unavailable(request, versions,
                         $"dotnet restore failed for '{Normalize(relativeTarget)}': {OutputDetail(restore)}");
 
-                var build = await runner.RunAsync(
-                    "dotnet",
-                    [
+                var buildArguments = new List<string>
+                {
                         "build", relativeTarget,
                         "--configuration", "Release",
                         "--no-restore",
                         "--nologo",
                         "-p:GenerateFullPaths=true",
-                    ],
-                    root,
-                    cancellationToken).ConfigureAwait(false);
+                };
+                if (artifactsPath is not null) buildArguments.AddRange(["--artifacts-path", artifactsPath]);
+                var build = await runner.RunAsync(
+                    "dotnet", buildArguments, root, cancellationToken).ConfigureAwait(false);
                 var parsed = Parse(CombinedOutput(build), root);
                 findings.AddRange(parsed);
                 if (build.ExitCode != 0 && !parsed.Any(finding =>

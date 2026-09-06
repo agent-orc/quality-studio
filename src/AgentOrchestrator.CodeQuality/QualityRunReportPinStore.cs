@@ -17,10 +17,10 @@ public sealed class QualityRunReportPinStore
     private readonly string path;
     private readonly object gate = new();
 
-    public QualityRunReportPinStore(string repositoryRoot)
+    public QualityRunReportPinStore(string repositoryRoot, string? dataRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        path = Path.Combine(Path.GetFullPath(repositoryRoot), RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        path = QualityDataPaths.Resolve(repositoryRoot, dataRoot, RelativePath);
     }
 
     public IReadOnlySet<string> Load()

@@ -110,7 +110,7 @@ public sealed class ChangeSetReviewService
             economy,
             verdict,
             summary);
-        var path = GetPath(root, changeSet);
+        var path = GetPath(root, changeSet, options.DataRoot);
         if (options.Persist) await SaveAsync(path, document, cancellationToken).ConfigureAwait(false);
         return new ChangeReviewResult(document, path);
     }
@@ -118,8 +118,8 @@ public sealed class ChangeSetReviewService
     public static string Serialize(ChangeReviewDocument document) =>
         JsonSerializer.Serialize(document, JsonOptions) + "\n";
 
-    public static string GetPath(string repositoryRoot, ChangeSet changeSet) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "changes",
+    public static string GetPath(string repositoryRoot, ChangeSet changeSet, string? dataRoot = null) =>
+        Path.Combine(QualityDataPaths.Resolve(repositoryRoot, dataRoot, ".quality/changes"),
             (changeSet.MergeCommit ?? changeSet.HeadCommit) + ".json");
 
     private static async Task SaveAsync(

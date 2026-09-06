@@ -1,6 +1,0 @@
-[
-  {
-    "Fingerprint": "docs/concept.md:generic-api-key:1536",
-    "Note": "QS-81 dossier F-04: content-derived 64-hex 'unit-key' fixture value in docs/concept.md, not a credential. Accepted narrowly by exact file:rule:line fingerprint, not a blanket rule/path exclusion. See docs/operations/security/index.html#findings F-04."
-  }
-]

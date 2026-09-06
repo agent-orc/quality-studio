@@ -47,7 +47,8 @@ public sealed record FlowReviewRequest(
     string DataModel,
     string CallGraph,
     IReadOnlyList<string> SubjectFiles,
-    bool PersistMetadata = true);
+    bool PersistMetadata = true,
+    string? DataRoot = null);
 
 public sealed record FlowPathStep(
     int Order,

@@ -6,7 +6,7 @@ hand-maintained endpoint list. A repository scan atomically writes the stable,
 diffable result to:
 
 ```text
-.quality/boundaries/inventory.json
+<project-data-root>/boundaries/inventory.json
 ```
 
 Run it directly with:

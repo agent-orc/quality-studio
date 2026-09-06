@@ -45,9 +45,9 @@ public sealed partial class GuidelineStore
             "Validate untrusted input at its boundary, enforce authorization server-side, keep secrets out of source and logs, use parameterized data access, and avoid exposing sensitive values in errors or telemetry."),
     ];
 
-    public IReadOnlyList<GuidelineDefinition> List(string repositoryRoot)
+    public IReadOnlyList<GuidelineDefinition> List(string repositoryRoot, string? dataRoot = null)
     {
-        var directory = DirectoryPath(repositoryRoot);
+        var directory = DirectoryPath(repositoryRoot, dataRoot);
         if (!Directory.Exists(directory)) return [];
         return Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
             .Select(path => InputResolver.ParseFile(path))
@@ -58,38 +58,38 @@ public sealed partial class GuidelineStore
             .ToArray();
     }
 
-    public GuidelineDefinition Create(string repositoryRoot, GuidelineDraft draft)
+    public GuidelineDefinition Create(string repositoryRoot, GuidelineDraft draft, string? dataRoot = null)
     {
         Validate(draft);
-        if (List(repositoryRoot).Any(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, draft.Id)))
+        if (List(repositoryRoot, dataRoot).Any(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, draft.Id)))
             throw new ArgumentException($"A guideline with id '{draft.Id}' already exists.");
-        return Write(repositoryRoot, draft, FileName(draft.Id));
+        return Write(repositoryRoot, draft, FileName(draft.Id), dataRoot);
     }
 
-    public GuidelineDefinition Update(string repositoryRoot, string existingId, GuidelineDraft draft)
+    public GuidelineDefinition Update(string repositoryRoot, string existingId, GuidelineDraft draft, string? dataRoot = null)
     {
         Validate(draft);
-        var existing = List(repositoryRoot).SingleOrDefault(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, existingId))
+        var existing = List(repositoryRoot, dataRoot).SingleOrDefault(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, existingId))
             ?? throw new KeyNotFoundException($"Guideline '{existingId}' was not found.");
         if (!StringComparer.OrdinalIgnoreCase.Equals(existingId, draft.Id) &&
-            List(repositoryRoot).Any(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, draft.Id)))
+            List(repositoryRoot, dataRoot).Any(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, draft.Id)))
             throw new ArgumentException($"A guideline with id '{draft.Id}' already exists.");
-        var result = Write(repositoryRoot, draft, existing.FileName);
+        var result = Write(repositoryRoot, draft, existing.FileName, dataRoot);
         return result;
     }
 
-    public void Delete(string repositoryRoot, string id)
+    public void Delete(string repositoryRoot, string id, string? dataRoot = null)
     {
-        var existing = List(repositoryRoot).SingleOrDefault(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, id))
+        var existing = List(repositoryRoot, dataRoot).SingleOrDefault(value => StringComparer.OrdinalIgnoreCase.Equals(value.Id, id))
             ?? throw new KeyNotFoundException($"Guideline '{id}' was not found.");
-        File.Delete(Path.Combine(DirectoryPath(repositoryRoot), existing.FileName));
+        File.Delete(Path.Combine(DirectoryPath(repositoryRoot, dataRoot), existing.FileName));
     }
 
-    public GuidelineDefinition Install(string repositoryRoot, string catalogueId)
+    public GuidelineDefinition Install(string repositoryRoot, string catalogueId, string? dataRoot = null)
     {
         var entry = Catalogue.SingleOrDefault(value => StringComparer.Ordinal.Equals(value.Id, catalogueId))
             ?? throw new KeyNotFoundException($"Catalogue guideline '{catalogueId}' was not found.");
-        return Create(repositoryRoot, entry.Guideline);
+        return Create(repositoryRoot, entry.Guideline, dataRoot);
     }
 
     public static string Serialize(GuidelineDraft draft)
@@ -99,9 +99,10 @@ public sealed partial class GuidelineStore
         return $"---\nid: {draft.Id}\nenabled: {draft.Enabled.ToString().ToLowerInvariant()}\nkinds: {Values(draft.Kinds)}\nlevels: {Values(draft.Levels)}\npriority: {draft.Priority}\n---\n{draft.Content.Trim()}\n";
     }
 
-    private static GuidelineDefinition Write(string repositoryRoot, GuidelineDraft draft, string fileName)
+    private static GuidelineDefinition Write(string repositoryRoot, GuidelineDraft draft, string fileName,
+        string? dataRoot)
     {
-        var directory = DirectoryPath(repositoryRoot);
+        var directory = DirectoryPath(repositoryRoot, dataRoot);
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, fileName);
         var temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
@@ -112,8 +113,8 @@ public sealed partial class GuidelineStore
             draft.Levels.Select(value => value.ToLowerInvariant()).ToArray(), draft.Content.Trim());
     }
 
-    private static string DirectoryPath(string repositoryRoot) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "inputs");
+    private static string DirectoryPath(string repositoryRoot, string? dataRoot) =>
+        QualityDataPaths.Resolve(repositoryRoot, dataRoot, ".quality/inputs");
 
     private static string FileName(string id) => id + ".md";
 

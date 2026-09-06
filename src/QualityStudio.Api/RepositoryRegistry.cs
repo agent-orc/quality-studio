@@ -14,7 +14,10 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null)
+{
+    public string DataRoot { get; init; } = string.Empty;
+}
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -41,6 +44,7 @@ public sealed class RepositoryRegistry
     private readonly string contentRoot;
     private readonly RepositoryOptions legacyOptions;
     private readonly string[] allowedRoots;
+    private readonly string dataBaseRoot;
     private readonly IReadOnlyList<string> supportedSensors;
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
@@ -52,6 +56,7 @@ public sealed class RepositoryRegistry
     {
         contentRoot = environment.ContentRootPath;
         legacyOptions = options.Value;
+        dataBaseRoot = ProjectDataRootResolver.ResolveBaseRoot(legacyOptions.DataRoot, contentRoot);
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
         this.logger = logger;
         this.metaIndex = metaIndex;
@@ -86,7 +91,11 @@ public sealed class RepositoryRegistry
                ?? throw new KeyNotFoundException($"Repository '{resolvedId}' was not found.");
     }
 
-    public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
+    public RepositoryAccess Access(string? id)
+    {
+        var entry = Get(id);
+        return new RepositoryAccess(entry.RootPath, entry.DataRoot, metaIndex);
+    }
 
     public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
     {
@@ -184,8 +193,13 @@ public sealed class RepositoryRegistry
                     var migrated = loaded.Select(entry => entry with
                     {
                         Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
+                        DataRoot = ProjectDataRootResolver.ResolveProjectRoot(dataBaseRoot, entry.Id),
                     }).ToList();
-                    foreach (var entry in migrated) ValidatePersistedEntry(entry);
+                    foreach (var entry in migrated)
+                    {
+                        ValidatePersistedEntry(entry);
+                        PrepareDataStorage(entry);
+                    }
                     return migrated;
                 }
             }
@@ -206,7 +220,11 @@ public sealed class RepositoryRegistry
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
             DefaultSensors(root),
-            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
+            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap)
+        {
+            DataRoot = ProjectDataRootResolver.ResolveProjectRoot(dataBaseRoot, DefaultRepositoryId),
+        };
+        PrepareDataStorage(seeded);
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
@@ -294,10 +312,15 @@ public sealed class RepositoryRegistry
         if (request.DefaultReviewCostCap is <= 0 or > 1_000_000)
             throw new RepositoryRegistryValidationException("Default review cost cap must be between 0 and 1,000,000.");
 
-        return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
+        var registration = new RepositoryRegistration(id, request.DisplayName.Trim(), root,
             ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors,
             DefaultReviewTokenCap: request.DefaultReviewTokenCap,
-            DefaultReviewCostCap: request.DefaultReviewCostCap);
+            DefaultReviewCostCap: request.DefaultReviewCostCap)
+        {
+            DataRoot = ProjectDataRootResolver.ResolveProjectRoot(dataBaseRoot, id),
+        };
+        PrepareDataStorage(registration);
+        return registration;
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken)
@@ -334,6 +357,26 @@ public sealed class RepositoryRegistry
                 throw new InvalidOperationException("A registered global inputs directory is unavailable.");
             EnsureAllowedDirectory(entry.GlobalInputsDirectory,
                 "A registered global inputs directory is outside the configured allowed roots.");
+        }
+    }
+
+    private void PrepareDataStorage(RepositoryRegistration entry)
+    {
+        if (PathConfinement.IsWithin(entry.RootPath, entry.DataRoot))
+            throw new InvalidOperationException("QualityStudio:DataRoot must be outside every analyzed checkout.");
+        var dirty = ProjectDataMigrator.DirtyQualityPaths(entry.RootPath);
+        if (dirty.Count > 0)
+        {
+            logger.LogWarning(new EventId(1404, "DirtyQualityTree"),
+                "Repository {RepositoryId} has dirty in-tree .quality data: {DirtyPaths}",
+                entry.Id, string.Join(", ", dirty.Take(20)));
+        }
+        var migration = ProjectDataMigrator.Migrate(entry.RootPath, entry.DataRoot);
+        if (migration.Migrated)
+        {
+            logger.LogInformation(new EventId(1405, "ProjectDataMigrated"),
+                "Migrated {FileCount} in-tree .quality files for repository {RepositoryId} to {DataRoot}",
+                migration.FilesMoved, entry.Id, entry.DataRoot);
         }
     }
 
