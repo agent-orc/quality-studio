@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -17,11 +17,10 @@ test('launcher bootstraps a clean checkout, starts both services, and can restar
   const marker = join(sandbox, 'install-count.txt');
   const apiScript = join(sandbox, 'api.mjs');
   const webScript = join(sandbox, 'web.mjs');
-  const npmStub = join(sandbox, 'npm.cmd');
   await mkdir(frontendRoot, { recursive: true });
   await writeFile(apiScript, serviceScript('api-ready'));
   await writeFile(webScript, serviceScript('web-ready'));
-  await writeFile(npmStub, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+  const npmStub = await writeNpmStub(sandbox);
 
   const first = await runLauncher({
     args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51271', '--web-port', '42071'],
@@ -48,12 +47,11 @@ test('launcher reinstalls when node_modules is present but incomplete', async ()
   const marker = join(sandbox, 'install-count.txt');
   const apiScript = join(sandbox, 'api.mjs');
   const webScript = join(sandbox, 'web.mjs');
-  const npmStub = join(sandbox, 'npm.cmd');
   await mkdir(frontendRoot, { recursive: true });
   await mkdir(join(frontendRoot, 'node_modules'), { recursive: true });
   await writeFile(apiScript, serviceScript('api-ready'));
   await writeFile(webScript, serviceScript('web-ready'));
-  await writeFile(npmStub, `@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n`);
+  const npmStub = await writeNpmStub(sandbox);
 
   const result = await runLauncher({
     args: ['--repo-root', repoRoot, '--frontend-root', frontendRoot, '--api-script', apiScript, '--web-script', webScript, '--api-port', '51276', '--web-port', '42076'],
@@ -115,6 +113,23 @@ test('embedded shell loads in an iframe and shows the live connection badge', as
   assert.match(dump, /Embedded/);
   assert.match(started.stdout, /ready: api=http:\/\/127\.0\.0\.1:51275 web=http:\/\/127\.0\.0\.1:42075/);
 });
+
+// The launcher spawns the npm command directly and only uses a shell on Windows,
+// so the stub has to be an executable of the host platform: a batch file on
+// Windows, a shell script with the execute bit everywhere else. The former
+// single .cmd stub made this suite unrunnable on Linux with EACCES.
+async function writeNpmStub(sandbox) {
+  if (process.platform === 'win32') {
+    const stub = join(sandbox, 'npm.cmd');
+    await writeFile(stub, '@echo off\r\necho ci>>"%QUALITY_STUDIO_MARKER_FILE%"\r\nexit /b 0\r\n');
+    return stub;
+  }
+
+  const stub = join(sandbox, 'npm');
+  await writeFile(stub, '#!/bin/sh\necho ci >> "$QUALITY_STUDIO_MARKER_FILE"\nexit 0\n');
+  await chmod(stub, 0o755);
+  return stub;
+}
 
 function serviceScript(label) {
   return `
