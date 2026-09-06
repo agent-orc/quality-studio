@@ -27,6 +27,17 @@ public sealed record RepositoryRegistrationRequest(
     long? DefaultReviewTokenCap = null,
     decimal? DefaultReviewCostCap = null);
 
+/// <summary>
+/// A persisted registration this host cannot serve. It is kept in the registry file and reported, so a
+/// moved or removed working copy is a visible fact instead of a host that refuses to start.
+/// </summary>
+public sealed record RepositoryUnavailability(
+    string Id,
+    string DisplayName,
+    string RootPath,
+    string Status,
+    string Reason);
+
 public sealed record RepositorySensorConfiguration(
     string Id,
     bool Enabled = true,
@@ -46,7 +57,17 @@ public sealed class RepositoryRegistry
     private readonly ReviewMetaIndex metaIndex;
     private readonly AnalyzerProfileCatalog profiles;
     private readonly SemaphoreSlim gate = new(1, 1);
-    private List<RepositoryRegistration> entries;
+
+    /// <summary>
+    /// Every persisted registration, replaced as a whole under <see cref="gate"/>. Readers take the
+    /// reference once and enumerate an immutable array, so a concurrent mutation can never be observed
+    /// half applied.
+    /// </summary>
+    private volatile IReadOnlyList<RepositoryRegistration> entries = [];
+
+    /// <summary>Ids this host cannot serve, by id. Written once at load and whenever a mutation heals one.</summary>
+    private volatile IReadOnlyDictionary<string, RepositoryUnavailability> quarantine =
+        new Dictionary<string, RepositoryUnavailability>(StringComparer.OrdinalIgnoreCase);
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
         SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex,
@@ -74,20 +95,40 @@ public sealed class RepositoryRegistry
 
     public string RegistryPath => registryPath;
 
-    public IReadOnlyList<RepositoryRegistration> List(bool includeArchived = false) => entries
-        .Where(entry => includeArchived || !entry.Archived)
-        .OrderBy(entry => entry.Id == DefaultRepositoryId ? 0 : 1)
-        .ThenBy(entry => entry.DisplayName, StringComparer.OrdinalIgnoreCase)
+    public IReadOnlyList<RepositoryRegistration> List(bool includeArchived = false)
+    {
+        var snapshot = entries;
+        var unavailable = quarantine;
+        return snapshot
+            .Where(entry => (includeArchived || !entry.Archived) && !unavailable.ContainsKey(entry.Id))
+            .OrderBy(entry => entry.Id == DefaultRepositoryId ? 0 : 1)
+            .ThenBy(entry => entry.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>The registrations this host loaded but cannot serve, with the reason and the path.</summary>
+    public IReadOnlyList<RepositoryUnavailability> Unavailable => quarantine.Values
+        .OrderBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
         .ToArray();
 
     public RepositoryRegistration Get(string? id, bool includeArchived = false)
     {
         var resolvedId = string.IsNullOrWhiteSpace(id) ? DefaultRepositoryId : id;
-        return entries.FirstOrDefault(entry =>
-                   string.Equals(entry.Id, resolvedId, StringComparison.OrdinalIgnoreCase) &&
-                   (includeArchived || !entry.Archived))
-               ?? throw new KeyNotFoundException($"Repository '{resolvedId}' was not found.");
+        var entry = Find(resolvedId, includeArchived)
+                    ?? throw new KeyNotFoundException($"Repository '{resolvedId}' was not found.");
+        if (quarantine.TryGetValue(entry.Id, out var unavailable))
+            throw new DirectoryNotFoundException(
+                $"Repository '{entry.Id}' is {unavailable.Status}: {unavailable.Reason}");
+        return entry;
     }
+
+    /// <summary>
+    /// Lookup that still sees quarantined registrations, so an operator can repair one by PUT or
+    /// archive it. Never use it to serve repository content.
+    /// </summary>
+    private RepositoryRegistration? Find(string id, bool includeArchived) => entries.FirstOrDefault(entry =>
+        string.Equals(entry.Id, id, StringComparison.OrdinalIgnoreCase) &&
+        (includeArchived || !entry.Archived));
 
     public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
 
@@ -102,7 +143,7 @@ public sealed class RepositoryRegistry
                 throw new RepositoryRegistryValidationException($"A repository with id '{entry.Id}' already exists.");
             }
 
-            entries.Add(entry);
+            entries = [.. entries, entry];
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1400, "RepositoryOnboarded"),
                 "Onboarded repository {RepositoryId} at {RepositoryRoot}", entry.Id, entry.RootPath);
@@ -119,7 +160,8 @@ public sealed class RepositoryRegistry
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = Get(id, includeArchived: true);
+            var existing = Find(string.IsNullOrWhiteSpace(id) ? DefaultRepositoryId : id, includeArchived: true)
+                           ?? throw new KeyNotFoundException($"Repository '{id}' was not found.");
             if (existing.Archived)
             {
                 throw new RepositoryRegistryValidationException("Archived repositories cannot be edited.");
@@ -130,7 +172,10 @@ public sealed class RepositoryRegistry
                 Id = existing.Id,
                 Sensors = request.Sensors ?? existing.Sensors,
             }, existing.Id);
-            entries[entries.IndexOf(existing)] = updated;
+            entries = Replace(existing, updated);
+            // Validate proved the new root exists inside the allowed roots, so a repaired registration
+            // leaves quarantine here rather than waiting for the next restart.
+            Release(existing.Id);
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1401, "RepositoryUpdated"),
                 "Updated repository {RepositoryId} at {RepositoryRoot}", updated.Id, updated.RootPath);
@@ -147,7 +192,8 @@ public sealed class RepositoryRegistry
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = Get(id, includeArchived: true);
+            var existing = Find(string.IsNullOrWhiteSpace(id) ? DefaultRepositoryId : id, includeArchived: true)
+                           ?? throw new KeyNotFoundException($"Repository '{id}' was not found.");
             if (existing.Archived)
             {
                 return existing;
@@ -164,7 +210,8 @@ public sealed class RepositoryRegistry
             }
 
             var archived = existing with { Archived = true };
-            entries[entries.IndexOf(existing)] = archived;
+            entries = Replace(existing, archived);
+            Release(existing.Id);
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1402, "RepositoryArchived"), "Archived repository {RepositoryId}", id);
             return archived;
@@ -175,7 +222,7 @@ public sealed class RepositoryRegistry
         }
     }
 
-    private List<RepositoryRegistration> LoadOrSeed()
+    private IReadOnlyList<RepositoryRegistration> LoadOrSeed()
     {
         if (File.Exists(registryPath))
         {
@@ -187,8 +234,8 @@ public sealed class RepositoryRegistry
                     var migrated = loaded.Select(entry => entry with
                     {
                         Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
-                    }).ToList();
-                    foreach (var entry in migrated) ValidatePersistedEntry(entry);
+                    }).ToArray();
+                    quarantine = Quarantine(migrated);
                     return migrated;
                 }
             }
@@ -205,18 +252,89 @@ public sealed class RepositoryRegistry
             DefaultRepositoryId,
             string.IsNullOrWhiteSpace(displayName) ? "Default repository" : displayName,
             root,
-            ValidateOptionalDirectory(legacyOptions.GlobalInputsDirectory, root),
+            Directory.Exists(root) ? ValidateOptionalDirectory(legacyOptions.GlobalInputsDirectory, root) : null,
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
             DefaultSensors(root),
             DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
-        var result = new List<RepositoryRegistration> { seeded };
+        RepositoryRegistration[] result = [seeded];
         entries = result;
+        quarantine = Quarantine(result);
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
         File.WriteAllText(registryPath, JsonSerializer.Serialize(result, JsonOptions()));
         logger.LogInformation(new EventId(1403, "RepositoryRegistrySeeded"),
             "Seeded repository registry {RegistryPath} from legacy root {RepositoryRoot}", registryPath, root);
         return result;
+    }
+
+    /// <summary>
+    /// Sorts persisted registrations into servable and not. A registration whose directory disappeared
+    /// or that points outside the allowed roots must not take the whole host down with it: it is loaded,
+    /// reported through <see cref="Unavailable"/> and skipped, while every other registration works.
+    /// </summary>
+    private IReadOnlyDictionary<string, RepositoryUnavailability> Quarantine(
+        IReadOnlyList<RepositoryRegistration> loaded)
+    {
+        var quarantined = new Dictionary<string, RepositoryUnavailability>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in loaded)
+        {
+            var unavailable = Inspect(entry);
+            if (unavailable is null) continue;
+            quarantined[entry.Id] = unavailable;
+            logger.LogError(new EventId(1405, "RepositoryQuarantined"),
+                "Repository {RepositoryId} at {RepositoryRoot} is {RepositoryStatus}: {RepositoryReason}",
+                entry.Id, entry.RootPath, unavailable.Status, unavailable.Reason);
+        }
+        return quarantined;
+    }
+
+    private RepositoryUnavailability? Inspect(RepositoryRegistration entry)
+    {
+        if (!Directory.Exists(entry.RootPath))
+            return new RepositoryUnavailability(entry.Id, entry.DisplayName, entry.RootPath, "unavailable",
+                "The repository directory does not exist.");
+        try
+        {
+            EnsureAllowedDirectory(entry.RootPath, "Repository path is outside the configured allowed roots.");
+        }
+        catch (RepositoryRegistryValidationException exception)
+        {
+            return new RepositoryUnavailability(entry.Id, entry.DisplayName, entry.RootPath, "quarantined",
+                exception.PublicTitle);
+        }
+
+        if (entry.GlobalInputsDirectory is null) return null;
+        if (!Directory.Exists(entry.GlobalInputsDirectory))
+            return new RepositoryUnavailability(entry.Id, entry.DisplayName, entry.GlobalInputsDirectory,
+                "unavailable", "The configured global inputs directory does not exist.");
+        try
+        {
+            EnsureAllowedDirectory(entry.GlobalInputsDirectory,
+                "Global inputs directory is outside the configured allowed roots.");
+        }
+        catch (RepositoryRegistryValidationException exception)
+        {
+            return new RepositoryUnavailability(entry.Id, entry.DisplayName, entry.GlobalInputsDirectory,
+                "quarantined", exception.PublicTitle);
+        }
+
+        return null;
+    }
+
+    private IReadOnlyList<RepositoryRegistration> Replace(
+        RepositoryRegistration existing,
+        RepositoryRegistration replacement) => entries
+        .Select(entry => ReferenceEquals(entry, existing) ? replacement : entry)
+        .ToArray();
+
+    private void Release(string id)
+    {
+        if (!quarantine.ContainsKey(id)) return;
+        quarantine = quarantine
+            .Where(pair => !string.Equals(pair.Key, id, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        logger.LogInformation(new EventId(1406, "RepositoryReleased"),
+            "Repository {RepositoryId} left quarantine", id);
     }
 
     private RepositoryRegistration Validate(RepositoryRegistrationRequest request, string? existingId)
@@ -326,20 +444,6 @@ public sealed class RepositoryRegistry
                 "Global inputs directory does not exist");
         EnsureAllowedDirectory(resolved, "Global inputs directory is outside the configured allowed roots.");
         return resolved;
-    }
-
-    private void ValidatePersistedEntry(RepositoryRegistration entry)
-    {
-        if (!Directory.Exists(entry.RootPath))
-            throw new InvalidOperationException("A registered repository is unavailable.");
-        EnsureAllowedDirectory(entry.RootPath, "A registered repository is outside the configured allowed roots.");
-        if (entry.GlobalInputsDirectory is not null)
-        {
-            if (!Directory.Exists(entry.GlobalInputsDirectory))
-                throw new InvalidOperationException("A registered global inputs directory is unavailable.");
-            EnsureAllowedDirectory(entry.GlobalInputsDirectory,
-                "A registered global inputs directory is outside the configured allowed roots.");
-        }
     }
 
     private void EnsureAllowedDirectory(string path, string internalMessage)

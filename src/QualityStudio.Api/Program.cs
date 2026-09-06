@@ -240,6 +240,11 @@ app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, Repository
     return Results.Ok(new
     {
         repositories,
+        // Registrations this host loaded but cannot serve. They are reported rather than hidden, so a
+        // moved or removed working copy is visible instead of silently absent.
+        unavailable = registry.Unavailable
+            .Where(entry => security.Identity(context).CanAccess(entry.Id))
+            .ToArray(),
         defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
             ? RepositoryRegistry.DefaultRepositoryId
             : null,
