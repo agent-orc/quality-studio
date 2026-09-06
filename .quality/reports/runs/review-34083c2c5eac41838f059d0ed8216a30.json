@@ -1279,7 +1279,7 @@
         {
           "id": "finding-7d8f024ca6b4132ee4eef572b2340cd7d9836b716e80acb9297a0d3e055a304a",
           "ruleId": "built-in:code",
-          "aspect": "error_handling",
+          "aspect": "error-handling",
           "severity": "medium",
           "state": "open",
           "title": "Operational and security limits accept invalid values",
@@ -1519,7 +1519,7 @@
         {
           "id": "finding-5fdcaaa753ff735f1d575e671821a447bde2b03b2174274cfd3cac88b7372206",
           "ruleId": "built-in:code",
-          "aspect": "error_handling",
+          "aspect": "error-handling",
           "severity": "medium",
           "state": "open",
           "title": "Unrelated cancellation exceptions terminate the background worker",

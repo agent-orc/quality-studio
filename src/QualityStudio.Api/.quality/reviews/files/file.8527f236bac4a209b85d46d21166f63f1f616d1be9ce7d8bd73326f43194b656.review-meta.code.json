@@ -85,7 +85,7 @@
       }
     },
     {
-      "id": "error_handling",
+      "id": "error-handling",
       "title": "Error Handling",
       "grade": {
         "score": 68,
@@ -223,7 +223,7 @@
     {
       "id": "finding-7d8f024ca6b4132ee4eef572b2340cd7d9836b716e80acb9297a0d3e055a304a",
       "ruleId": "built-in:code",
-      "aspect": "error_handling",
+      "aspect": "error-handling",
       "severity": "medium",
       "title": "Operational and security limits accept invalid values",
       "description": "The model allows zero or negative request sizes, concurrency limits, rate limits, input budgets, and token caps. It also permits incomplete clients, malformed credential hashes, duplicate client IDs, and null collection values through ordinary assignment. Invalid configuration may therefore fail later, disable controls accidentally, or cause inconsistent consumer behavior.",

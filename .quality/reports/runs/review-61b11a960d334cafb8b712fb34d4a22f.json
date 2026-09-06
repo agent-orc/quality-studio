@@ -149,7 +149,7 @@
         {
           "id": "finding-2e8bace00d46f848a8d32f4e06ea056fdb81338e138a3807214438e2a74e163d",
           "ruleId": "built-in:code",
-          "aspect": "error_handling",
+          "aspect": "error-handling",
           "severity": "medium",
           "state": "open",
           "title": "Report I/O failures escape the command error handler",

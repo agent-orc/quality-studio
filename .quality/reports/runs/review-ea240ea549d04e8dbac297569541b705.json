@@ -2657,7 +2657,7 @@
         {
           "id": "finding-868418b3d8d52415da9c0b04e9536f62dabaf96b0ecec13ce09fb52026e020ac",
           "ruleId": "built-in:code",
-          "aspect": "errorHandling",
+          "aspect": "error-handling",
           "severity": "medium",
           "state": "open",
           "title": "Usage-ledger failure can replace the original agent exception",
@@ -2681,7 +2681,7 @@
         {
           "id": "finding-d34f1a2c44f8613b97037e324a12c412c8ba58a38218467d2ac7745f9902af9b",
           "ruleId": "built-in:code",
-          "aspect": "errorHandling",
+          "aspect": "error-handling",
           "severity": "medium",
           "state": "open",
           "title": "Response-relative indexes are used without complete validation",
@@ -2712,7 +2712,7 @@
         {
           "id": "finding-2d942571cf23b9a8249859352500cab5d3f3e52a5ef79a95f3f2e64dcb8941c9",
           "ruleId": "built-in:code",
-          "aspect": "errorHandling",
+          "aspect": "error-handling",
           "severity": "medium",
           "state": "open",
           "title": "Structurally invalid previous reports escape the invalid-report error path",
