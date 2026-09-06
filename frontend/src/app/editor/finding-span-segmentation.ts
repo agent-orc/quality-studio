@@ -16,8 +16,13 @@ export interface SegmentedSpan extends TokenSpan {
 /**
  * Splits a tokenized line into segments aligned to both syntax-token boundaries and finding-range
  * column boundaries, so a single token can carry a mix of plain/selected/overlap sub-spans without
- * losing its highlight kind. Boundaries never depend on grapheme clustering: columns are zero-based
- * UTF-16 code unit offsets, identical to the server's C# string indexing.
+ * losing its highlight kind.
+ *
+ * Columns are 1-based, as the finding-location contract in docs/concept.md defines them, which is
+ * why `start.column - 1` converts to a UTF-16 offset. `end.column` is used as the exclusive offset
+ * directly, matching the server's own snippet extraction in FindingIdentity.ExtractSnippet, so a
+ * highlighted span and the recorded evidence excerpt always cover the same characters. Boundaries
+ * never depend on grapheme clustering.
  */
 export function segmentLineTokens(
   tokens: TokenLine,

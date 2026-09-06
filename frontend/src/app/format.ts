@@ -11,6 +11,11 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unitIndex]}`;
 }
 
+/** The same byte scale for a value the API may not have measured. */
+export function formatOptionalBytes(bytes: number | null | undefined): string {
+  return bytes === null || bytes === undefined ? '—' : formatBytes(bytes);
+}
+
 /** Formats token quantities for compact operator controls without hiding the unit scale. */
 export function formatTokenCount(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return '';

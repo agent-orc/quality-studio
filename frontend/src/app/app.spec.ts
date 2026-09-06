@@ -134,4 +134,76 @@ describe('App shell URL state', () => {
     app.closeApiAccess();
     expect(app.apiAccessRejected()).toBeFalse();
   });
+
+  it('toggles the explorer with Ctrl+B and the review panel with Ctrl+Alt+B', () => {
+    expect(app.explorerVisible()).toBeTrue();
+    app.onKeydown(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true }));
+    expect(app.explorerVisible()).toBeFalse();
+    expect(app.reviewVisible()).withContext('the review panel is untouched').toBeTrue();
+
+    app.onKeydown(new KeyboardEvent('keydown', { key: 'B', ctrlKey: true, altKey: true }));
+    expect(app.reviewVisible()).toBeFalse();
+    expect(app.explorerVisible()).toBeFalse();
+
+    app.onKeydown(new KeyboardEvent('keydown', { key: 'b' }));
+    expect(app.explorerVisible()).withContext('B alone is not a shortcut').toBeFalse();
+  });
+
+  it('persists the layout under qs-layout and reads it back clamped', () => {
+    app.explorerVisible.set(false);
+    app.explorerWidth.set(420);
+    app.reviewWidth.set(300);
+    fixture.detectChanges();
+
+    const stored = JSON.parse(localStorage.getItem('qs-layout') ?? '{}');
+    expect(stored).toEqual({ explorerVisible: false, reviewVisible: true, explorerWidth: 420, reviewWidth: 300 });
+
+    localStorage.setItem('qs-layout', JSON.stringify({ explorerWidth: 9_000, reviewWidth: -5, explorerVisible: 'yes' }));
+    const restored = TestBed.createComponent(App).componentInstance;
+    expect(restored.explorerWidth()).toBe(560);
+    expect(restored.reviewWidth()).toBe(240);
+    expect(restored.explorerVisible()).withContext('a non-boolean falls back to the default').toBeTrue();
+  });
+
+  it('survives unreadable layout storage', () => {
+    localStorage.setItem('qs-layout', 'not json');
+    const restored = TestBed.createComponent(App).componentInstance;
+    expect(restored.explorerWidth()).toBe(280);
+    expect(restored.reviewWidth()).toBe(320);
+  });
+
+  it('clamps a pane drag to its minimum and maximum width', async () => {
+    const handle = fixture.nativeElement.querySelector('.resize-handle') as HTMLElement;
+    handle.setPointerCapture = () => undefined;
+    const down = new PointerEvent('pointerdown', { button: 0, clientX: 280, bubbles: true });
+    handle.dispatchEvent(down);
+    app.startExplorerDrag(down);
+
+    app.onDragMove(new PointerEvent('pointermove', { clientX: 4_000 }));
+    await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+    expect(app.explorerWidth()).toBe(560);
+
+    app.onDragMove(new PointerEvent('pointermove', { clientX: -4_000 }));
+    await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+    expect(app.explorerWidth()).toBe(180);
+
+    app.onDragEnd();
+    expect(app.dragging()).toBeNull();
+  });
+
+  it('nudges a pane width with the keyboard and resets it with Home', () => {
+    app.explorerWidth.set(300);
+    app.onHandleKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight' }), 'explorer');
+    expect(app.explorerWidth()).toBe(310);
+
+    app.onHandleKeydown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }), 'explorer');
+    expect(app.explorerWidth()).toBe(300);
+
+    app.onHandleKeydown(new KeyboardEvent('keydown', { key: 'Home' }), 'explorer');
+    expect(app.explorerWidth()).toBe(280);
+
+    app.reviewWidth.set(400);
+    app.onHandleKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight' }), 'review');
+    expect(app.reviewWidth()).withContext('the review handle grows to the left').toBe(390);
+  });
 });

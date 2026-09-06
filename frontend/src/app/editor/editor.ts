@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
-import { formatBytes, formatDateTime } from '../format';
+import { formatDateTime, formatOptionalBytes } from '../format';
+import { SortDirection, bySortValue } from '../sorting';
 import { languageForPath } from '../language';
 import { QualityApi } from '../quality-api';
 import { CoverageFact, FindingSeverity, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../contracts';
@@ -13,7 +14,6 @@ const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mix
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
 type FolderSortColumn = 'name' | ReviewKind | 'coverage' | 'state' | 'findings' | 'reviewedAt' | 'size' | 'lines';
 type RiskSortColumn = 'path' | 'grade' | 'coverage' | 'changes' | 'risk';
-type SortDirection = 'asc' | 'desc';
 type CodeLayoutRow =
   | { key: string; kind: 'code'; top: number; height: number; text: string; number: number; findings: ReviewFinding[] }
   | { key: string; kind: 'thread'; top: number; height: number; thread: ReviewThread; line: number; expanded: boolean }
@@ -124,24 +124,16 @@ export class Editor {
     if (!file) return 0;
     return Number.isFinite(file.sizeBytes) ? file.sizeBytes : new TextEncoder().encode(file.content).byteLength;
   });
-  readonly fileSizeLabel = computed(() => formatBytes(this.fileSizeBytes()));
+  readonly fileSizeLabel = computed(() => formatOptionalBytes(this.fileSizeBytes()));
   readonly largeFileMode = computed(() => this.fileSizeBytes() > LARGE_FILE_HIGHLIGHT_LIMIT_BYTES);
   readonly lineEndingLabel = computed(() => LINE_ENDING_LABELS[this.api.file()?.lineEnding ?? 'lf']);
   readonly encodingLabel = computed(() => ENCODING_LABELS[this.api.file()?.encoding ?? 'utf-8']);
   readonly folderRows = computed(() => {
     const { column, direction } = this.folderSort();
-    const factor = direction === 'asc' ? 1 : -1;
-    return [...(this.selectedNode()?.children ?? [])].sort((left, right) => {
-      const leftValue = this.sortValue(left, column);
-      const rightValue = this.sortValue(right, column);
-      if (leftValue == null && rightValue == null) return left.name.localeCompare(right.name);
-      if (leftValue == null) return 1;
-      if (rightValue == null) return -1;
-      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
-        ? leftValue - rightValue
-        : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
-      return (comparison || left.name.localeCompare(right.name)) * factor;
-    });
+    return [...(this.selectedNode()?.children ?? [])].sort(bySortValue(
+      node => this.sortValue(node, column),
+      (left, right) => left.name.localeCompare(right.name),
+      direction));
   });
   readonly visibleFolderRows = computed(() => {
     const start = Math.max(0, Math.floor(this.folderScrollTop() / this.folderRowHeight) - 5);
@@ -153,18 +145,10 @@ export class Editor {
     const prefix = selected === '.' ? '' : selected.replace(/\/+$/, '') + '/';
     const rows = this.api.risk().rows.filter(row => !prefix || row.path === selected || row.path.startsWith(prefix));
     const { column, direction } = this.riskSort();
-    const factor = direction === 'asc' ? 1 : -1;
-    return [...rows].sort((left, right) => {
-      const leftValue = this.riskValue(left, column);
-      const rightValue = this.riskValue(right, column);
-      if (leftValue == null && rightValue == null) return left.path.localeCompare(right.path);
-      if (leftValue == null) return 1;
-      if (rightValue == null) return -1;
-      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
-        ? leftValue - rightValue
-        : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
-      return (comparison || left.path.localeCompare(right.path)) * factor;
-    });
+    return [...rows].sort(bySortValue(
+      row => this.riskValue(row, column),
+      (left, right) => left.path.localeCompare(right.path),
+      direction));
   });
 
   constructor() {
@@ -325,12 +309,7 @@ export class Editor {
     return current.column === column ? (current.direction === 'asc' ? ' ↑' : ' ↓') : '';
   }
 
-  formatBytes(value: number | null | undefined): string {
-    if (value == null) return '—';
-    if (value < 1024) return `${value} B`;
-    if (value < 1024 * 1024) return `${(value / 1024).toFixed(value < 10240 ? 1 : 0)} KB`;
-    return `${(value / 1024 / 1024).toFixed(1)} MB`;
-  }
+  formatBytes(value: number | null | undefined): string { return formatOptionalBytes(value); }
 
   reviewedOrDash(value: string | null | undefined): string { return value ? this.reviewed(value) : '—'; }
 
