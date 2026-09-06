@@ -898,6 +898,44 @@ and the body. No line/span offset or compiler pretty-printer output participates
 Function `symbolId` stores the Roslyn documentation ID, or
 `csharp-local-key-v1:<64 lowercase hex>` for a local function.
 
+## Review-meta schema v3
+
+Added 2026-09-06 to describe what writers have emitted since 2026-08-27. v3 is
+additive over v2: it adds no required property and changes no existing one.
+`security` and `deterministicEvidence` already existed in v2.
+
+| Version | `$id` and `schemaVersion` | Date | Trigger |
+| --- | --- | --- | --- |
+| v1 | `review-meta.v1.schema.json`, `1` | 2026-07-11 | QS-3, the founding review-meta contract. |
+| v2 | `review-meta.v2.schema.json`, `2` | 2026-07-22 | The closed `generic` adapter value. Adding it to `unit.adapter` is a contract change, not an additive v1 edit. |
+| v3 | `review-meta.v3.schema.json`, `3` | 2026-08-27 | Runner-captured source-span evidence per finding, the requested routing provenance, and the reviewed source revision. |
+
+### What v3 adds
+
+Every property below is optional.
+
+| Property | Semantics | Producer |
+| --- | --- | --- |
+| `sourceRevision` | String, 1-200 characters. `git:<commit>` for a clean working tree, `git:<commit>-dirty` when it has uncommitted changes. Absent when `HEAD` does not resolve. | `ReviewRunner`, from `git rev-parse --verify HEAD` and `git status --porcelain`. |
+| `reviewer.requestedModel` | String, 1-200 characters. The model the operator asked for, which can differ from the `reviewer.model` the agent reported. Freshness still compares against `reviewer.model`; this field records the request itself. | `ReviewRunner`, from the configured review agent. |
+| `reviewer.requestedThinkingLevel` | String, 1-100 characters. The requested reasoning level, with the same distinction. | `ReviewRunner`, from the configured review agent. |
+| `findings[].anchors` | Array of anchors. Each has `id`, `role` (`primary` or `related`), `path`, `range`, an optional `symbolId`, and a required `capturedExcerpt` of `text`, `contentHash` (SHA-256 of the whole reviewed file) and `excerptHash` (SHA-256 of the excerpt). | `FindingIdentity`, from the range the runner already validated. The agent never supplies the hashes. |
+| `findings[].evidenceItems` | Array of `id`, `class` (`sourceSpan` or `legacyClaim`), `status` (`observed` or `unverified`), optional `anchorId`, optional `summary`. An anchored finding gets one `observed` `sourceSpan` item; a free-text `evidence` string from the agent becomes an additional `legacyClaim` item with status `unverified`. | `FindingIdentity`. |
+| `findings[].reproduction` | Object of `status` (`unknown`, `specified`, `verified`, `notApplicable` or `blocked`) and an optional `reason`. | `FindingIdentity`. Currently always `unknown`: the file prompts forbid tool and command use, so the reviewing agent cannot verify a reproduction. |
+
+The split is deliberate. An anchor is what the runner measured; an evidence item
+says whether a claim rests on that measurement or is only the agent's prose.
+
+### Reading and writing
+
+Writers emit `review-meta.v3` with `schemaVersion` 3. Readers accept the three
+matching schema/version pairs v1, v2, and v3 and reject any other pair, plus a
+v1 document that claims the `generic` adapter. Unknown properties are skipped on
+read, so a newer document can still be inspected, but an unsupported
+`schemaVersion` is never treated as current. No migration runs: a v1 or v2
+sidecar stays valid and attached to its unchanged canonical unit ID until its
+unit is reviewed again, and that review writes v3.
+
 ## Staleness contract
 
 Staleness is a computed view of an immutable review statement. Scanning or

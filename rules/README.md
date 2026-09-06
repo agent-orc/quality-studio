@@ -82,7 +82,7 @@ disabling one rule and softening another's severity:
 
 ```json
 {
-  "$schema": "https://quality.studio/schemas/rule-config.v1.schema.json",
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-config.v1.schema.json",
   "schemaVersion": 1,
   "overrides": [
     { "id": "QS-NG-003", "enabled": false, "reason": "This repo's admin shell is a single generated component; the one-feature-one-folder split does not apply." },

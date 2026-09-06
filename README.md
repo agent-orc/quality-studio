@@ -48,6 +48,11 @@ folder** as the code it describes:
 - `grade` — the level's grade
 - `reviewedHash` — hash of the exact content that was reviewed
 
+Writers emit `review-meta.v3`; readers accept v1, v2, and v3. The version table
+and the semantics of every v3 field are in
+[`docs/concept.md`](docs/concept.md#review-meta-schema-v3), the schema artifacts
+in [`schemas/`](schemas/README.md).
+
 The hash makes staleness self-evident: if the code has moved on, the review visibly
 no longer applies. History comes for free via Git. The repository owns its quality
 truth — diffable, portable, reviewable like any other artifact.
