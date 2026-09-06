@@ -8,13 +8,13 @@ Every `$id` uses `https://agent-orchestrator.dev/quality/schemas/<name>.schema.j
 That is the product URL in the repository README, and it is the only form current
 writers emit.
 
-Twelve schemas and their C# constants previously used
-`https://quality.studio/schemas/<name>.schema.json`. Both URLs identify the same
-document. The old form is an accepted alias: the affected schemas list both values
-for a document's own `$schema` property, and the two contracts that reject a
-mismatched schema id — the quality finding envelope and change-review evidence —
-accept it explicitly. Artifacts already committed under `.quality/` keep the value
-their producing run wrote; they are not rewritten.
+Until 2026-09-06 the newer schemas here and the C# constants that write their
+documents used `https://quality.studio/schemas/<name>.schema.json`. Both URLs
+identify the same document. The old form is an accepted alias: those schemas list
+both values for a document's own `$schema` property, and the two contracts that
+reject a mismatched schema id — the quality finding envelope and change-review
+evidence — accept it explicitly. Artifacts already committed under `.quality/`
+keep the value their producing run wrote; they are not rewritten.
 
 The schemas are not published under that URL today. They live only in this
 repository, and the copy here is authoritative.
