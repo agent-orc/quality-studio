@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -44,7 +45,8 @@ public sealed partial class ReviewResponseParser
         foreach (var aspectNode in aspects)
         {
             var aspect = aspectNode?.AsObject() ?? throw Invalid("aspect");
-            var id = RequireString(aspect, "id");
+            var id = CanonicalAspectId(RequireString(aspect, "id"));
+            aspect["id"] = id;
             RequireString(aspect, "title");
             ValidateGrade(RequireObject(aspect, "grade"));
             if (!aspectIds.Add(id))
@@ -70,7 +72,8 @@ public sealed partial class ReviewResponseParser
                 throw Invalid("ruleId");
             }
 
-            var aspect = finding["aspect"]!.GetValue<string>();
+            var aspect = CanonicalAspectId(finding["aspect"]!.GetValue<string>());
+            finding["aspect"] = aspect;
             if (!aspectIds.Contains(aspect))
             {
                 throw new ReviewResponseException($"Finding references unknown aspect '{aspect}'.");
@@ -126,6 +129,48 @@ public sealed partial class ReviewResponseParser
         return root;
     }
 
+    /// <summary>
+    /// Maps an agent-supplied aspect id onto the single spelling the review-meta schema allows.
+    /// Trims, converts camelCase and PascalCase boundaries plus underscores and whitespace to
+    /// single hyphens, lowercases, and rejects anything that still fails the schema pattern.
+    /// </summary>
+    internal static string CanonicalAspectId(string raw)
+    {
+        var text = raw.Trim();
+        var builder = new StringBuilder(text.Length + 8);
+        for (var index = 0; index < text.Length; index++)
+        {
+            var character = text[index];
+            if (character is '_' || char.IsWhiteSpace(character))
+            {
+                builder.Append('-');
+                continue;
+            }
+
+            if (char.IsUpper(character))
+            {
+                var previous = index > 0 ? text[index - 1] : '\0';
+                var next = index + 1 < text.Length ? text[index + 1] : '\0';
+                var boundary = char.IsLower(previous) || char.IsDigit(previous) ||
+                               (char.IsUpper(previous) && char.IsLower(next));
+                if (boundary && builder.Length > 0 && builder[^1] != '-') builder.Append('-');
+                builder.Append(char.ToLowerInvariant(character));
+                continue;
+            }
+
+            builder.Append(character);
+        }
+
+        var canonical = HyphenRun().Replace(builder.ToString(), "-").Trim('-', '.');
+        if (!AspectId().IsMatch(canonical))
+        {
+            throw new ReviewResponseException(
+                $"Review aspect id '{raw}' cannot be normalized to the schema pattern '^[a-z][a-z0-9.-]{{1,63}}$'.");
+        }
+
+        return canonical;
+    }
+
     private static void ValidateGrade(JsonObject grade)
     {
         if (grade["score"] is not JsonValue scoreNode || !scoreNode.TryGetValue<int>(out var score) || score is < 0 or > 100)
@@ -179,6 +224,12 @@ public sealed partial class ReviewResponseParser
 
     private static ReviewResponseException Invalid(string property) =>
         new($"Review response property '{property}' is missing or invalid.");
+
+    [GeneratedRegex("^[a-z][a-z0-9.-]{1,63}$", RegexOptions.CultureInvariant)]
+    private static partial Regex AspectId();
+
+    [GeneratedRegex("-{2,}", RegexOptions.CultureInvariant)]
+    private static partial Regex HyphenRun();
 
     [GeneratedRegex(@"```json\s*([\s\S]*?)\s*```", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex JsonFence();

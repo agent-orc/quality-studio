@@ -186,6 +186,73 @@ public sealed class ReviewResponseParserTests
             () => new ReviewResponseParser().Parse(invalidSeverity)).Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("error-handling")]
+    [InlineData("error_handling")]
+    [InlineData("errorHandling")]
+    [InlineData(" Error Handling ")]
+    [InlineData("ERROR_HANDLING")]
+    public void Parse_NormalizesAspectIdSpellingsToOneSchemaValidId(string spelling)
+    {
+        var response = ValidResponse
+            .Replace("\"id\": \"correctness\"", $"\"id\": \"{spelling}\"", StringComparison.Ordinal)
+            .Replace("\"findings\": []",
+                "\"findings\": [" + ValidFinding.Replace(
+                    "\"aspect\":\"correctness\"", $"\"aspect\":\"{spelling}\"", StringComparison.Ordinal) + "]",
+                StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response);
+
+        Assert.Equal("error-handling", parsed["aspects"]!.AsArray()[0]!["id"]!.GetValue<string>());
+        Assert.Equal("error-handling", parsed["findings"]!.AsArray()[0]!["aspect"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_MatchesFindingAspectAgainstTheNormalizedAspectId()
+    {
+        var response = ValidResponse
+            .Replace("\"id\": \"correctness\"", "\"id\": \"error_handling\"", StringComparison.Ordinal)
+            .Replace("\"findings\": []",
+                "\"findings\": [" + ValidFinding.Replace(
+                    "\"aspect\":\"correctness\"", "\"aspect\":\"errorHandling\"", StringComparison.Ordinal) + "]",
+                StringComparison.Ordinal);
+
+        var parsed = new ReviewResponseParser().Parse(response);
+
+        Assert.Equal("error-handling", parsed["findings"]!.AsArray()[0]!["aspect"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_RejectsAspectIdsThatOnlyDifferInSpellingAsDuplicates()
+    {
+        var aspect = "{ \"id\": \"{0}\", \"title\": \"Error handling\", " +
+                     "\"grade\": { \"score\": 95, \"band\": \"A\", \"rationale\": \"No issue found.\" } }";
+        var response = ValidResponse.Replace(
+            "{ \"id\": \"correctness\", \"title\": \"Correctness\", \"grade\": { \"score\": 95, \"band\": \"A\", \"rationale\": \"No issue found.\" } }",
+            aspect.Replace("{0}", "error-handling", StringComparison.Ordinal) + ", " +
+            aspect.Replace("{0}", "errorHandling", StringComparison.Ordinal),
+            StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ReviewResponseException>(() => new ReviewResponseParser().Parse(response));
+
+        Assert.Contains("Duplicate review aspect 'error-handling'", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("error handling!")]
+    [InlineData("1st-pass")]
+    [InlineData("-")]
+    public void Parse_RejectsAspectIdsThatCannotBeNormalized(string spelling)
+    {
+        var response = ValidResponse.Replace(
+            "\"id\": \"correctness\"", $"\"id\": \"{spelling}\"", StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ReviewResponseException>(() => new ReviewResponseParser().Parse(response));
+
+        Assert.Contains("cannot be normalized", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(spelling, exception.Message, StringComparison.Ordinal);
+    }
+
     internal const string ValidResponse = """
         {
           "grade": { "score": 95, "band": "A", "rationale": "Correct and clear." },
