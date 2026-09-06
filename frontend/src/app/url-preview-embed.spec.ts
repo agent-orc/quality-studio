@@ -7,7 +7,7 @@ describe('url-preview-embed sender', () => {
 
     reportUrlPreviewNavigation({
       href: 'https://quality.example.test/?theme=dark',
-      replaceUrl: url => replaced.push(url),
+      applyUrl: url => replaced.push(url),
       postToParent: (message, targetOrigin) => messages.push({ message, targetOrigin }),
     }, {
       path: 'src/Example.cs',
@@ -32,7 +32,7 @@ describe('url-preview-embed sender', () => {
 
     reportUrlPreviewNavigation({
       href: 'https://quality.example.test/',
-      replaceUrl: () => undefined,
+      applyUrl: () => undefined,
       postToParent: message => messages.push(message),
     }, { path: '.', kind: 'code', repository: 'default' }, false);
 

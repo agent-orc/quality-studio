@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RepositoryRegistration, RepositoryRegistrationRequest, ReviewKind } from '../quality-api';
+import { RepositoryRegistration, RepositoryRegistrationRequest, ReviewKind } from '../contracts';
+import { Modal, ModalBackdrop } from '../dialog/modal';
 
 @Component({
   selector: 'qs-repository-dialog',
-  imports: [FormsModule],
+  imports: [FormsModule, Modal, ModalBackdrop],
   templateUrl: './repository-dialog.html',
   styleUrl: './repository-dialog.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

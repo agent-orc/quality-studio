@@ -9,120 +9,27 @@
   <div class="breadcrumbs">quality-studio <b>&rsaquo;</b> {{ selectedPath() || 'No item selected' }}</div>
 
   @if (isContainer()) {
-    <header class="folder-header">
-      <div>
-        <span class="eyebrow">{{ selectedNode()?.level }}</span>
-        <h2>{{ selectedNode()?.name }}</h2>
-        <p>{{ selectedNode()?.children?.length ?? 0 }} direct children</p>
-      </div>
-      <div class="rollups" aria-label="Rolled-up review states">
-        @for (kind of reviewKinds; track kind) {
-          <span>
-            <i class="status" [class]="'status ' + (selectedNode()?.kinds?.[kind]?.descendants ?? 'missing')"></i>
-            <b>{{ kind }}</b>
-            <small>{{ selectedNode()?.kinds?.[kind]?.band ?? '-' }} @if (selectedNode()?.kinds?.[kind]?.score != null) { &middot; {{ selectedNode()?.kinds?.[kind]?.score }} }</small>
-          </span>
-        }
-      </div>
-    </header>
-
-    @if ((selectedNode()?.excluded?.length ?? 0) > 0) {
-      <section class="scope-diagnostics" aria-label="Review scope exclusions">
-        <header><b>Excluded from review scope</b><span>{{ selectedNode()?.excluded?.length }} item(s)</span></header>
-        @for (exclusion of selectedNode()?.excluded ?? []; track exclusion.path + ':' + exclusion.reason) {
-          <div><code>{{ exclusion.path }}</code><span>{{ exclusion.reason }}</span></div>
-        }
-      </section>
+    @defer (when isContainer()) {
+      <qs-container-view [node]="selectedNode()" [viewportHeight]="viewportHeight()" (nodeOpen)="nodeOpen.emit($event)" />
+    } @placeholder {
+      <div class="empty-folder">Opening container view…</div>
     }
-
-    <details class="risk-view">
-      <summary>
-        <span><b>Risk view</b> · grade × coverage × Git churn over {{ api.risk().days }} days</span>
-        <small>{{ riskRows().length }} files</small>
-      </summary>
-      <div class="risk-matrix" aria-label="Compact risk matrix">
-        @for (cell of api.risk().matrix; track cell.grade + ':' + cell.coverage) {
-          <span [class.hot]="cell.changes > 0 && (cell.grade === 'weak' || cell.grade === 'mediocre') && cell.coverage === 'low'"
-            [title]="cell.changes + ' changes'">
-            <small>{{ cell.grade }} · {{ cell.coverage }}</small><b>{{ cell.files }}</b>
-          </span>
-        } @empty {
-          <span class="unknown"><small>grade · coverage</small><b>Unknown</b></span>
-        }
-      </div>
-      <div class="risk-table" role="table" aria-label="Files sorted by combined quality risk">
-        <div class="risk-columns" role="row">
-          <button type="button" role="columnheader" (click)="sortRiskBy('path')">File{{ riskSortIndicator('path') }}</button>
-          <button type="button" role="columnheader" (click)="sortRiskBy('grade')">Grade{{ riskSortIndicator('grade') }}</button>
-          <button type="button" role="columnheader" (click)="sortRiskBy('coverage')">Coverage{{ riskSortIndicator('coverage') }}</button>
-          <button type="button" role="columnheader" (click)="sortRiskBy('changes')">Changes{{ riskSortIndicator('changes') }}</button>
-          <button type="button" role="columnheader" (click)="sortRiskBy('risk')">Risk{{ riskSortIndicator('risk') }}</button>
-        </div>
-        @for (row of riskRows().slice(0, 100); track row.path) {
-          <button class="risk-row" type="button" role="row" (click)="nodeOpen.emit(row.path)">
-            <span role="cell">{{ row.path }}</span>
-            <span role="cell">{{ row.gradeBand ?? 'Unknown' }} @if (row.gradeScore != null) { · {{ row.gradeScore }} }</span>
-            <span role="cell" [class.stale-coverage]="row.coverage.state === 'stale'" [title]="coverageTitle(row.coverage)">{{ coverageLabel(row.coverage) }}</span>
-            <span role="cell">{{ row.changes }}</span>
-            <b role="cell">{{ riskLabel(row) }}</b>
-          </button>
-        } @empty {
-          <div class="empty-folder">No files are available for this risk scope.</div>
-        }
-      </div>
-    </details>
-
-    <div class="folder-table" role="table" aria-label="Direct children of selected container">
-      <div class="folder-columns" role="row">
-        <button type="button" role="columnheader" (click)="sortBy('name')">Name{{ sortIndicator('name') }}</button>
-        @for (kind of reviewKinds; track kind) {
-          <button type="button" role="columnheader" (click)="sortBy(kind)">{{ kind }}{{ sortIndicator(kind) }}</button>
-        }
-        <button type="button" role="columnheader" (click)="sortBy('coverage')">Coverage{{ sortIndicator('coverage') }}</button>
-        <button type="button" role="columnheader" (click)="sortBy('state')">Review{{ sortIndicator('state') }}</button>
-        <button type="button" role="columnheader" (click)="sortBy('findings')">Findings{{ sortIndicator('findings') }}</button>
-        <button type="button" role="columnheader" (click)="sortBy('reviewedAt')">Reviewed{{ sortIndicator('reviewedAt') }}</button>
-        <button type="button" role="columnheader" (click)="sortBy('size')">Size{{ sortIndicator('size') }}</button>
-        <button type="button" role="columnheader" (click)="sortBy('lines')">Lines{{ sortIndicator('lines') }}</button>
-      </div>
-
-      <div class="folder-viewport" (scroll)="folderScrollTop.set($any($event.target).scrollTop)">
-        <div class="folder-space" [style.height.px]="folderRows().length * folderRowHeight">
-          @for (item of visibleFolderRows(); track item.node.id) {
-            <button class="folder-row" type="button" role="row" [style.top.px]="item.top" (click)="nodeOpen.emit(item.node.path)">
-              <span class="name-cell" role="cell">
-                <i>{{ item.node.level === 'file' ? 'F' : 'D' }}</i>
-                <span>
-                  <b>{{ item.node.name }}</b>
-                  <small>{{ item.node.level }}</small>
-                </span>
-              </span>
-              @for (kind of reviewKinds; track kind) {
-                <span class="grade-cell" role="cell">
-                  <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
-                  <b>{{ item.node.kinds[kind]?.band ?? '-' }}</b>
-                  <small>{{ item.node.kinds[kind]?.score ?? '-' }}</small>
-                </span>
-              }
-              <span class="coverage-cell" role="cell" [class.stale-coverage]="item.node.coverage?.state === 'stale'"
-                [title]="coverageTitle(item.node.coverage)">{{ coverageLabel(item.node.coverage) }}</span>
-              <span class="state-cell" role="cell" aria-label="Review states">
-                @for (kind of reviewKinds; track kind) {
-                  <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')" [title]="kind + ': ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
-                }
-              </span>
-              <span role="cell" [title]="'Open · Accepted · Waived · False positive'">{{ findingCountsLabel(item.node) }}</span>
-              <span class="reviewed-cell" role="cell">{{ reviewedOrDash(item.node.reviewedAt) }}</span>
-              <span role="cell">{{ formatBytes(item.node.sizeBytes) }}</span>
-              <span role="cell">{{ item.node.lineCount ?? '-' }}</span>
-            </button>
-          } @empty {
-            <div class="empty-folder">This container has no direct children.</div>
-          }
-        </div>
-      </div>
-    </div>
+  } @else if (api.fileError(); as failure) {
+    <section class="file-error" role="alert" aria-labelledby="file-error-title">
+      <b id="file-error-title">{{ failure.title }}</b>
+      <p>{{ failure.detail }}</p>
+      <code>{{ failure.path }}@if (failure.status) { &middot; HTTP {{ failure.status }} }</code>
+      @if (failure.retryable) {
+        <button class="secondary-button" type="button" (click)="retryFile()">Try again</button>
+      }
+    </section>
   } @else {
+    @if (api.preview()) {
+      <div class="preview-banner" role="status">
+        <b>Preview data</b>
+        <span>The API is not reachable. This document and its findings are a demonstration, not repository content. Review actions stay disabled until the connection returns.</span>
+      </div>
+    }
     @if (activeMeta(); as meta) {
       <header class="review-header">
         <div class="aspect-switcher" role="tablist" aria-label="Review aspect">
@@ -142,7 +49,9 @@
       }
     }
 
-    <div class="code-viewport" #codeViewport [scrollTop]="codeScrollTop()" (scroll)="codeScrollTop.set($any($event.target).scrollTop)">
+    <div class="code-viewport" #codeViewport tabindex="0" role="group"
+      [attr.aria-label]="'Source of ' + (api.file()?.path ?? selectedPath()) + ', scrollable'"
+      [scrollTop]="codeScrollTop()" (scroll)="codeScrollTop.set($any($event.target).scrollTop)">
       @if (api.loading()) { <div class="loading">Opening file...</div> }
       <div class="code-space" [style.height.px]="codeSpaceHeight()">
         @for (row of visibleRows(); track row.key) {
@@ -150,9 +59,11 @@
             <div class="code-line" [class.has-finding]="row.findings.length" [class.selected-range]="isSelectedLine(row.number)" [style.top.px]="row.top">
               <span class="line-number">{{ row.number }}</span>
               @if (row.findings.length) {
-                <button class="finding-marker" [class]="'finding-marker ' + severity(row.findings)" [attr.data-finding-fingerprint]="selectedMarkerFingerprint(row.findings)" [title]="findingTitle(row.findings)" [attr.aria-label]="findingTitle(row.findings)" (mouseenter)="findingSelect.emit(row.findings[0])" (focus)="findingSelect.emit(row.findings[0])" (click)="findingSelect.emit(row.findings[0])"></button>
+                <button class="finding-marker" [class]="'finding-marker ' + severity(row.findings)" [attr.data-finding-fingerprint]="selectedMarkerFingerprint(row.findings)" [title]="findingTitle(row.findings)" [attr.aria-label]="findingTitle(row.findings)" (focus)="findingSelect.emit(row.findings[0])" (click)="findingSelect.emit(row.findings[0])"></button>
               }
-              <button class="comment-add" type="button" title="Add review comment" [attr.aria-label]="'Add comment on line ' + row.number" (click)="composingLine.set(composingLine() === row.number ? null : row.number)">+</button>
+              @if (!api.preview()) {
+                <button class="comment-add" type="button" title="Add review comment" [attr.aria-label]="'Add comment on line ' + row.number" (click)="composingLine.set(composingLine() === row.number ? null : row.number)">+</button>
+              }
               <code>@for (segment of segmentedLine(row.number, row.text, row.findings); track $index) {<span [class]="segmentClass(segment)" [attr.aria-label]="segmentAriaLabel(segment, row.number)">{{ segment.text }}</span>}</code>
             </div>
           } @else if (row.kind === 'thread') {
@@ -166,7 +77,9 @@
               @if (row.expanded) {
                 <div class="thread-body">
                   @for (entry of row.thread.entries; track entry.id) { <div class="thread-entry"><b>{{ threadAuthor(entry) }}</b><time>{{ reviewed(entry.createdAt) }}</time><p>{{ entry.body }}</p></div> }
-                  <div class="thread-reply"><input [value]="drafts()[row.thread.id] ?? ''" (input)="setDraft(row.thread.id, $any($event.target).value)" placeholder="Reply to this thread" (keydown.enter)="reply(row.thread)"><button type="button" (click)="reply(row.thread)">Reply</button><button type="button" class="status-action" (click)="setThreadStatus(row.thread)">{{ row.thread.status === 'open' ? 'Resolve' : 'Reopen' }}</button></div>
+                  @if (!api.preview()) {
+                    <div class="thread-reply"><input [value]="drafts()[row.thread.id] ?? ''" (input)="setDraft(row.thread.id, $any($event.target).value)" placeholder="Reply to this thread" (keydown.enter)="reply(row.thread)"><button type="button" (click)="reply(row.thread)">Reply</button><button type="button" class="status-action" (click)="setThreadStatus(row.thread)">{{ row.thread.status === 'open' ? 'Resolve' : 'Reopen' }}</button></div>
+                  }
                 </div>
               }
             </article>
@@ -204,6 +117,8 @@
             <span class="statusbar-review"><i class="status" [class]="'status ' + activeState()"></i>{{ activeKind() }} no review</span>
           }
         </div>
+      } @else if (api.fileError(); as failure) {
+        <span class="statusbar-empty">{{ failure.title }} &middot; {{ failure.path }}</span>
       } @else {
         <span class="statusbar-empty">No file open</span>
       }

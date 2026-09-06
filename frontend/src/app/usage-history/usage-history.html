@@ -1,18 +1,18 @@
-<div class="usage-backdrop" (click)="closed.emit()">
+<div class="usage-backdrop" qsModalBackdrop (dismiss)="closed.emit()">
   <section
-    #dialog
     class="usage-dialog"
+    qsModal
+    (dismiss)="closed.emit()"
     role="dialog"
     aria-modal="true"
     aria-labelledby="usage-history-title"
-    tabindex="-1"
-    (click)="$event.stopPropagation()">
+   >
     <header>
       <div>
         <span class="eyebrow">Repository ledger</span>
         <h2 id="usage-history-title">Usage history</h2>
       </div>
-      <button class="icon-button" type="button" aria-label="Close usage history" (click)="closed.emit()">×</button>
+      <button class="icon-button" type="button" aria-label="Close usage history" data-modal-autofocus (click)="closed.emit()">×</button>
     </header>
 
     <div class="usage-content">
@@ -36,6 +36,11 @@
           <span>Review runs</span>
           <strong>{{ formatNumber(durableRuns()) }}</strong>
           <small>{{ formatNumber(api.usage().runs) }} ledger operations</small>
+        </article>
+        <article class="cost-total">
+          <span>Estimated cost</span>
+          <strong>{{ totalCost() }}</strong>
+          <small>{{ unpricedRuns() ? unpricedRuns() + ' operation(s) unpriced' : 'every operation priced' }}</small>
         </article>
       </section>
 
@@ -109,6 +114,7 @@
                   <small>{{ formatDate(entry.timestamp) }} · {{ entry.model }}</small>
                 </span>
                 <span class="entry-tokens">{{ formatNumber(tokens(entry)) }}<small>tokens</small></span>
+                <span class="entry-cost" [class.unpriced]="!entry.cost || entry.cost.total === null">{{ entryCost(entry) }}<small>cost</small></span>
                 <span class="chevron" aria-hidden="true">{{ expandedEntry() === index ? '⌃' : '⌄' }}</span>
               </button>
               @if (expandedEntry() === index) {
@@ -120,6 +126,8 @@
                   <div><dt>Cached input</dt><dd>{{ formatNumber(entry.tokens.cachedInputTokens) }}</dd></div>
                   <div><dt>Reasoning output</dt><dd>{{ formatNumber(entry.tokens.reasoningOutputTokens) }}</dd></div>
                   <div><dt>Duration</dt><dd>{{ formatDuration(entry.tokens.durationMs) }}</dd></div>
+                  <div><dt>Cost</dt><dd>{{ entryCostDetail(entry) }}</dd></div>
+                  <div><dt>Model choice</dt><dd>{{ entry.model }} · {{ entryModelSource(entry) }}</dd></div>
                   <div><dt>Source</dt><dd>{{ entry.cliType }} · {{ entry.level }}</dd></div>
                 </dl>
               }

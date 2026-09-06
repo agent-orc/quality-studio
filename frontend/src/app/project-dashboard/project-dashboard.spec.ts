@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ProjectDashboard, QualityApi } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { ProjectDashboard } from '../contracts';
 import { ProjectDashboardView } from './project-dashboard';
 
 describe('ProjectDashboardView', () => {

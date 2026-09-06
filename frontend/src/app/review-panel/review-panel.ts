@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-import { formatDateTime, formatTokenCount, parseTokenCount } from '../format';
-import { FindingSeverity, FindingState, HandoverRequest, QualityApi, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewRunCompareResult, ReviewThread, RunReportFormat, ScopeRuleView } from '../quality-api';
+import { formatDateTime } from '../format';
+import { QualityApi } from '../quality-api';
+import { FindingSeverity, FindingState, HandoverRequest, ReviewFinding, ReviewKind, ReviewThread, ScopeRuleView } from '../contracts';
+import { RunHistory } from '../run-history/run-history';
 import { FlatNode } from '../tree-utils';
 
 interface LastFindingMutation {
@@ -14,7 +16,7 @@ interface LastFindingMutation {
 
 @Component({
   selector: 'qs-review-panel',
-  imports: [],
+  imports: [RunHistory],
   templateUrl: './review-panel.html',
   styleUrl: './review-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,21 +51,6 @@ export class ReviewPanel {
   readonly findingFilter = signal<'active' | FindingState | 'all'>('active');
   readonly severityFilter = signal<FindingSeverity | 'all'>('all');
   readonly findingSort = signal<'severity' | 'location' | 'title'>('severity');
-  readonly runDrawerOpen = signal(false);
-  readonly selectedRunId = signal<string | null>(null);
-  readonly runReport = signal<QualityRunReport | null>(null);
-  readonly runTrend = signal<QualityRunTrendPoint[]>([]);
-  readonly runTrendCursor = signal<string | null>(null);
-  readonly runDetailLoading = signal(false);
-  readonly runDetailError = signal('');
-  readonly pinnedRunIds = signal<string[]>([]);
-  readonly compareOpen = signal(false);
-  readonly compareBaselineId = signal<string | null>(null);
-  readonly compareCandidateId = signal<string | null>(null);
-  readonly compareLoading = signal(false);
-  readonly compareError = signal('');
-  readonly compareResult = signal<ReviewRunCompareResult | null>(null);
-  readonly runFormats: RunReportFormat[] = ['html', 'markdown', 'sarif', 'json'];
   readonly activeMeta = computed(() => this.selectedNode()?.level === 'file'
     ? this.api.file()?.metaDocuments.find(meta => meta.kind === this.activeKind()) ?? null
     : null);
@@ -75,14 +62,6 @@ export class ReviewPanel {
     this.threadFilter() === 'detached' ? thread.anchorState === 'detached' : thread.status === this.threadFilter() && thread.anchorState !== 'detached'));
   readonly deterministicFindingCount = computed(() => (this.activeMeta()?.deterministicEvidence ?? [])
     .reduce((count, result) => count + result.findings.length, 0));
-  readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
-    run.path === this.selectedNode()?.path && run.kind === this.activeKind()));
-  readonly selectedRun = computed(() => this.scopeRuns().find(run => run.id === this.selectedRunId()) ?? null);
-  readonly comparableRuns = computed(() => this.scopeRuns().filter(run =>
-    ['done', 'failed', 'cancelled', 'capped'].includes(run.state)));
-  readonly runFindings = computed(() => (this.runReport()?.observations ?? [])
-    .flatMap(observation => observation.findings)
-    .filter(finding => finding.state !== 'resolved'));
   readonly visibleFindings = computed(() => {
     const stateFilter = this.findingFilter();
     const severity = this.severityFilter();
@@ -334,140 +313,17 @@ export class ReviewPanel {
 
   scannedAt(value: string): string { return formatDateTime(value); }
 
-  runProgress(completed: number, total: number): number { return total ? completed / total * 100 : 0; }
 
-  formatTokens(value: number | null | undefined): string {
-    if (value === null || value === undefined) return 'unavailable';
-    return `${formatTokenCount(value)} tok`;
-  }
 
-  formatDuration(value: number): string { return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`; }
 
-  spendLabel(run: ReviewRun): string {
-    if (run.tokenCap !== null) {
-      const spent = (run.usage.inputTokens ?? 0) + (run.usage.outputTokens ?? 0);
-      return `${this.formatTokens(spent)} / ${this.formatTokens(run.tokenCap)}`;
-    }
-    if (run.costCap !== null) return `${this.formatCost(run.costSpent, run.currency)} / ${this.formatCost(run.costCap, run.currency)}`;
-    return run.costSpent === null ? `cost ${run.priceStatus}` : this.formatCost(run.costSpent, run.currency);
-  }
 
-  async openRun(run: ReviewRun): Promise<void> {
-    this.selectedRunId.set(run.id);
-    this.runReport.set(null);
-    this.runTrend.set([]);
-    this.runTrendCursor.set(null);
-    this.runDetailError.set('');
-    if (!['done', 'failed', 'cancelled', 'capped'].includes(run.state)) return;
-    this.runDetailLoading.set(true);
-    try {
-      const scopeUnitId = this.selectedNode()?.id;
-      const [report, trend] = await Promise.all([
-        this.api.loadRunReport(run.id),
-        scopeUnitId ? this.api.loadRunTrend(run.kind, scopeUnitId, run.level) : Promise.resolve(null),
-      ]);
-      this.runReport.set(report);
-      this.runTrend.set(trend?.points ?? []);
-      this.runTrendCursor.set(trend?.nextCursor ?? null);
-    } catch (error) {
-      this.runDetailError.set(this.api.errorMessage(error));
-    } finally {
-      this.runDetailLoading.set(false);
-    }
-  }
 
-  closeRun(): void {
-    this.selectedRunId.set(null);
-    this.runReport.set(null);
-    this.runTrend.set([]);
-    this.runTrendCursor.set(null);
-    this.runDetailError.set('');
-  }
 
-  async loadOlderTrend(): Promise<void> {
-    const cursor = this.runTrendCursor();
-    const run = this.selectedRun();
-    const scopeUnitId = this.selectedNode()?.id;
-    if (!cursor || !run || !scopeUnitId) return;
-    try {
-      const page = await this.api.loadRunTrend(run.kind, scopeUnitId, run.level, cursor);
-      this.runTrend.update(points => [...points, ...page.points]);
-      this.runTrendCursor.set(page.nextCursor);
-    } catch (error) {
-      this.runDetailError.set(this.api.errorMessage(error));
-    }
-  }
 
-  async toggleRunDrawer(): Promise<void> {
-    const opening = !this.runDrawerOpen();
-    this.runDrawerOpen.set(opening);
-    if (opening) {
-      try {
-        this.pinnedRunIds.set(await this.api.loadPinnedRunIds());
-      } catch {
-        // Pin state is a convenience badge; the drawer stays usable without it.
-      }
-    }
-  }
 
-  isPinned(runId: string): boolean { return this.pinnedRunIds().includes(runId); }
 
-  async togglePin(runId: string): Promise<void> {
-    try {
-      this.pinnedRunIds.set(this.isPinned(runId) ? await this.api.unpinRun(runId) : await this.api.pinRun(runId));
-    } catch (error) {
-      this.runDetailError.set(this.api.errorMessage(error));
-    }
-  }
 
-  openCompare(run: ReviewRun): void {
-    const baseline = this.comparableRuns().find(candidate => candidate.id !== run.id) ?? null;
-    this.compareOpen.set(true);
-    this.compareBaselineId.set(baseline?.id ?? null);
-    this.compareCandidateId.set(run.id);
-    this.compareResult.set(null);
-    this.compareError.set('');
-    if (baseline) void this.runCompare();
-  }
 
-  closeCompare(): void {
-    this.compareOpen.set(false);
-    this.compareResult.set(null);
-    this.compareError.set('');
-  }
 
-  async runCompare(): Promise<void> {
-    const baselineId = this.compareBaselineId();
-    const candidateId = this.compareCandidateId();
-    if (!baselineId || !candidateId) return;
-    this.compareLoading.set(true);
-    this.compareError.set('');
-    try {
-      this.compareResult.set(await this.api.compareRuns(baselineId, candidateId));
-    } catch (error) {
-      this.compareError.set(this.api.errorMessage(error));
-    } finally {
-      this.compareLoading.set(false);
-    }
-  }
 
-  reportUrl(runId: string, format: RunReportFormat): string { return this.api.runReportUrl(runId, format); }
-
-  reportFileName(runId: string, format: RunReportFormat): string { return this.api.runReportFileName(runId, format); }
-
-  trendScoreWidth(point: QualityRunTrendPoint): number { return point.score ?? 0; }
-
-  async resumeCapped(run: ReviewRun): Promise<void> {
-    const current = run.tokenCap ?? run.costCap;
-    const tokenCap = run.tokenCap !== null;
-    const entered = prompt(`Raise the ${tokenCap ? 'token' : 'cost'} cap to resume ${run.skippedFiles} skipped file(s)${tokenCap ? ' (tokens; k/M accepted)' : ''}:`, current === null ? '' : tokenCap ? formatTokenCount(current * 2) : String(current * 2));
-    if (entered === null) return;
-    const cap = tokenCap ? parseTokenCount(entered) : Number(entered);
-    if (cap === null || !Number.isFinite(cap) || cap <= 0) return;
-    await this.api.resumeReview(run.id, tokenCap ? { tokenCap: cap } : { costCap: cap });
-  }
-
-  private formatCost(value: number | null, currency: string | null): string {
-    return value === null ? 'unavailable' : `${value.toFixed(4)} ${currency ?? 'USD'}`;
-  }
 }

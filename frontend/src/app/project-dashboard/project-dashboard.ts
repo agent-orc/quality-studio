@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { formatBytes } from '../format';
-import { FindingSeverity, ProjectDistributionBucket, QualityApi } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { FindingSeverity, ProjectDistributionBucket } from '../contracts';
 
 @Component({
   selector: 'qs-project-dashboard',

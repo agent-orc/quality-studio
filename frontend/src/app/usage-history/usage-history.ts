@@ -1,56 +1,24 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
-import { QualityApi, UsageAggregate, UsageEntry } from '../quality-api';
+import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { UsageAggregate, UsageEntry } from '../contracts';
+import { formatCost, formatModelSource, formatPriceStatus } from '../format';
+import { Modal, ModalBackdrop } from '../dialog/modal';
+import { QualityApi } from '../quality-api';
 
 @Component({
   selector: 'qs-usage-history',
+  imports: [Modal, ModalBackdrop],
   templateUrl: './usage-history.html',
   styleUrl: './usage-history.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '(document:keydown)': 'onDocumentKeydown($event)',
-  },
 })
-export class UsageHistory implements AfterViewInit {
+export class UsageHistory {
   readonly api = inject(QualityApi);
   readonly closed = output<void>();
   readonly expandedEntry = signal<number | null>(null);
-  readonly dialog = viewChild.required<ElementRef<HTMLElement>>('dialog');
   readonly totalTokens = computed(() => this.api.usage().inputTokens + this.api.usage().outputTokens);
   readonly durableRuns = computed(() => this.api.usage().byReviewRun?.length ?? 0);
-
-  ngAfterViewInit(): void {
-    queueMicrotask(() => this.dialog().nativeElement.focus());
-  }
-
-  onDocumentKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      this.closed.emit();
-      return;
-    }
-    if (event.key !== 'Tab') return;
-
-    const dialog = this.dialog().nativeElement;
-    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), ' +
-      'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
-    if (!focusable.length) {
-      event.preventDefault();
-      dialog.focus();
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-    if (event.shiftKey && (active === first || active === dialog || !dialog.contains(active))) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
+  readonly totalCost = computed(() => formatCost(this.api.usage().estimatedCost, this.api.usage().costCurrency));
+  readonly unpricedRuns = computed(() => this.api.usage().unpricedRuns ?? 0);
 
   toggleEntry(index: number): void {
     this.expandedEntry.update(current => current === index ? null : index);
@@ -65,6 +33,21 @@ export class UsageHistory implements AfterViewInit {
     const maximum = Math.max(1, ...items.map(candidate => this.tokens(candidate)));
     return Math.max(2, this.tokens(item) / maximum * 100);
   }
+
+  /** The cost of one ledger entry, or an honest statement that it could not be priced. */
+  entryCost(entry: UsageEntry): string {
+    if (!entry.cost || entry.cost.total === null) return 'unpriced';
+    return formatCost(entry.cost.total, entry.cost.currency);
+  }
+
+  entryCostDetail(entry: UsageEntry): string {
+    if (!entry.cost) return 'No cost was recorded for this entry.';
+    return entry.cost.total === null
+      ? `Unpriced: ${formatPriceStatus(entry.cost.status)}.`
+      : `${formatCost(entry.cost.total, entry.cost.currency)} (${formatPriceStatus(entry.cost.status)})`;
+  }
+
+  entryModelSource(entry: UsageEntry): string { return formatModelSource(entry.modelSource); }
 
   formatNumber(value: number | null): string {
     return value === null ? 'Unavailable' : new Intl.NumberFormat('en-US').format(value);

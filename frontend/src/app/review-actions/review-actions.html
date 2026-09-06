@@ -2,8 +2,8 @@
   <section class="active-run-strip" [attr.data-state]="run.state" aria-live="polite">
     <header><span class="status" [class.fresh]="run.state === 'done'" [class.stale]="['queued', 'running', 'paused', 'capped'].includes(run.state)" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></span><div><strong>{{ run.kind }} review · {{ run.state }}</strong><span>{{ currentRunPath() }}</span></div><b>{{ run.completedFiles }} / {{ run.totalFiles }}</b></header>
     <div class="active-run-progress" role="progressbar" [attr.aria-valuenow]="run.completedFiles" [attr.aria-valuemax]="run.totalFiles"><span [style.width.%]="runProgress(run)"></span></div>
-    <div class="active-run-meta"><span>{{ run.failedFiles }} failed · {{ run.skippedFiles }} skipped</span><span>{{ run.cliType }} · {{ run.model ?? 'Runner default' }} · {{ run.thinkingLevel ?? 'model default' }}</span>@if (run.stopReason) { <span>{{ run.stopReason }}</span> }</div>
-    <div class="active-run-actions">@if (run.state === 'queued' || run.state === 'running') { <button type="button" (click)="api.pauseReview(run.id)">Pause</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'paused') { <button type="button" (click)="api.resumeReview(run.id)">Resume</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'capped') { <button type="button" (click)="resumeCapped(run)">Raise cap and resume</button> } @else { <button type="button" (click)="beginNewReview()">Review again</button> }</div>
+    <div class="active-run-meta"><span>{{ run.failedFiles }} failed · {{ run.skippedFiles }} skipped</span><span>{{ run.cliType }} · {{ run.model ?? 'Runner default' }} <i class="model-source">{{ formatModelSource(run.modelSource) }}</i> · {{ run.thinkingLevel ?? 'model default' }}</span><span class="run-cost" [class.unpriced]="run.costSpent === null">{{ runCostLabel(run) }}</span>@if (run.stopReason) { <span>{{ run.stopReason }}</span> }</div>
+    <div class="active-run-actions">@if (run.state === 'queued' || run.state === 'running') { <button type="button" (click)="api.pauseReview(run.id)">Pause</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'paused') { <button type="button" (click)="api.resumeReview(run.id)">Resume</button><button type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'capped') { <button type="button" (click)="resumingRun.set(run)">Raise cap and resume</button> } @else { <button type="button" (click)="beginNewReview()">Review again</button> }</div>
     @if (runFiles(run, ['done']).length) { <details><summary>{{ runFiles(run, ['done']).length }} completed units</summary>@for (file of runFiles(run, ['done']); track file.path) { <span>{{ file.path }}</span> }</details> }
     @if (runFiles(run, ['failed']).length) { <details><summary>{{ runFiles(run, ['failed']).length }} failed units</summary>@for (file of runFiles(run, ['failed']); track file.path) { <span>{{ file.path }} · {{ file.error }}</span> }</details> }
     @if (runFiles(run, ['skipped', 'skipped-fresh']).length) { <details><summary>{{ runFiles(run, ['skipped', 'skipped-fresh']).length }} skipped units</summary>@for (file of runFiles(run, ['skipped', 'skipped-fresh']); track file.path) { <span>{{ file.path }} · {{ file.state }}</span> }</details> }
@@ -80,7 +80,7 @@
     <dl class="preflight-facts">
       <div><dt>Scope</dt><dd><b>{{ sheet.path }}</b><span>{{ sheet.level }} · {{ sheet.kind }}</span></dd></div>
       <div><dt>Work</dt><dd><b>{{ sheet.estimate.files }} files · {{ sheet.estimate.operations }} operations</b><span>{{ sheet.estimate.expectedFreshSkips }} expected fresh skips</span></dd></div>
-      <div><dt>Route</dt><dd><b>{{ sheet.cliType }} · {{ sheet.model ?? 'Runner default' }} · {{ sheet.thinkingLevel ?? 'model default' }}</b><span>Recommended: {{ sheet.recommendation.recommendedModel }} / {{ sheet.recommendation.recommendedThinkingLevel }} · {{ sheet.recommendation.capabilityTier }}</span></dd></div>
+      <div><dt>Route</dt><dd><b>{{ sheet.cliType }} · {{ sheet.model ?? 'Runner default' }} <i class="model-source">{{ modelSourceLabel(sheet) }}</i> · {{ sheet.thinkingLevel ?? 'model default' }}</b><span>Recommended: {{ sheet.recommendation.recommendedModel }} / {{ sheet.recommendation.recommendedThinkingLevel }} · {{ sheet.recommendation.capabilityTier }}</span></dd></div>
       <div><dt>Estimate</dt><dd><b>{{ formatNumber(sheet.estimate.inputTokens) }} input + {{ formatNumber(sheet.estimate.outputTokens) }} output</b><span>{{ costLabel(sheet) }}</span></dd></div>
       <div><dt>Cap</dt><dd><b>{{ capLabel(sheet) }}</b><span>Applied by the server before work continues</span></dd></div>
       <div><dt>Method</dt><dd><b>{{ sheet.estimate.historySamples }} history samples</b><span>{{ sheet.estimate.method }}</span></dd></div>
@@ -96,4 +96,7 @@
     </footer>
   </section>
 }
+}
+@if (resumingRun(); as capped) {
+  <qs-resume-cap-dialog [run]="capped" (submitted)="applyResumeCap($event)" (cancelled)="resumingRun.set(null)" />
 }

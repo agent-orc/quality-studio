@@ -2,7 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { QualityApi } from './quality-api';
+import { ProjectDashboard, ResolvedInputs, ReviewRun, TreeNode } from './contracts';
 
 describe('QualityApi', () => {
   let api: QualityApi;
@@ -151,29 +152,119 @@ describe('QualityApi', () => {
     expect(api.inputs().code?.inputs[0].id).toBe('code-style');
   });
 
-  it('keeps a live API connection when a file lookup falls back to preview content', async () => {
-    const loading = api.loadTree();
-    http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
-    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
-    http.expectOne('/api/repos/default/inputs').flush({ kinds: {
-      code: { kind: 'code', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
-      security: { kind: 'security', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
-      performance: { kind: 'performance', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] },
-    } });
-    http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
-    http.expectOne('/api/repos/default/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
-    await new Promise(resolve => setTimeout(resolve));
-    http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
-    await loading;
+  it('renders a status-aware error instead of foreign content when a file lookup fails', async () => {
+    await connect(api, http);
 
-    const fileLoading = api.loadFile('missing.cs');
+    const notFound = api.loadFile('missing.cs');
+    http.expectOne('/api/repos/default/file?path=missing.cs')
+      .flush({ detail: 'No review unit for missing.cs.' }, { status: 404, statusText: 'Not Found' });
+    await notFound;
+
+    expect(api.file()).toBeNull();
+    expect(api.fileError()?.kind).toBe('out-of-scope');
+    expect(api.fileError()?.status).toBe(404);
+    expect(api.fileError()?.detail).toBe('No review unit for missing.cs.');
+    expect(api.fileError()?.retryable).toBeFalse();
+    expect(api.connectionState()).toBe('live');
+    expect(api.preview()).toBeFalse();
+  });
+
+  it('separates denied access, oversized documents, and retryable server failures', async () => {
+    await connect(api, http);
+
+    for (const [status, kind, retryable] of [[401, 'unauthorized', false], [403, 'forbidden', false],
+      [413, 'too-large', false], [503, 'unavailable', true]] as const) {
+      const loading = api.loadFile(`case-${status}.cs`);
+      http.expectOne(`/api/repos/default/file?path=case-${status}.cs`)
+        .flush('failed', { status, statusText: 'Failed' });
+      await loading;
+      expect(api.file()).withContext(`status ${status}`).toBeNull();
+      expect(api.fileError()?.kind).withContext(`status ${status}`).toBe(kind);
+      expect(api.fileError()?.retryable).withContext(`status ${status}`).toBe(retryable);
+    }
+  });
+
+  it('clears the error state when a later file request succeeds', async () => {
+    await connect(api, http);
+
+    const failing = api.loadFile('missing.cs');
     http.expectOne('/api/repos/default/file?path=missing.cs').flush('missing', { status: 404, statusText: 'Not Found' });
+    await failing;
+    expect(api.fileError()).not.toBeNull();
+
+    const succeeding = api.loadFile('src/Program.cs');
+    http.expectOne('/api/repos/default/file?path=src/Program.cs').flush({
+      path: 'src/Program.cs', content: 'var app = 1;', metaDocuments: [], sizeBytes: 12, lineEnding: 'lf', encoding: 'utf-8',
+    });
+    await succeeding;
+
+    expect(api.fileError()).toBeNull();
+    expect(api.file()?.content).toBe('var app = 1;');
+  });
+
+  it('serves labelled preview fixtures only when the API cannot be reached at all', async () => {
+    const treeLoading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await treeLoading;
+
+    expect(api.connectionState()).toBe('preview');
+    expect(api.preview()).toBeTrue();
+    expect(api.tree().length).withContext('preview tree fixture').toBeGreaterThan(0);
+
+    const fileLoading = api.loadFile('src/QualityStudio.Api/Program.cs');
+    http.expectOne('/api/repos/default/file?path=src/QualityStudio.Api/Program.cs')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     await fileLoading;
 
-    expect(api.connectionState()).toBe('live');
-    expect(api.connectionLabel()).toBe('Repository connected');
-    expect(api.file()?.path).toBe('missing.cs');
+    expect(api.fileError()).toBeNull();
     expect(api.file()?.content).toContain('WebApplication.CreateBuilder');
+    expect(api.connectionLabel()).toBe('API offline, preview data');
+  });
+
+  it('keeps the tree empty and names the reason when a reachable API rejects it', async () => {
+    const treeLoading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree?path=')
+      .flush({ detail: 'Repository root is not readable.' }, { status: 500, statusText: 'Server Error' });
+    await treeLoading;
+
+    expect(api.tree()).toEqual([]);
+    expect(api.connectionState()).toBe('offline');
+    expect(api.preview()).toBeFalse();
+    expect(api.connectionError()).toBe('Repository root is not readable.');
+  });
+
+  it('keeps polling review runs while the connection is down and resumes when it returns', async () => {
+    api.connectionState.set('preview');
+    api.reviewRuns.set([{ id: 'run-1', state: 'running' } as ReviewRun]);
+
+    const failing = api.loadReviewRuns();
+    http.expectOne('/api/repos/default/review/runs')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await failing;
+
+    expect(api.reviewError()).toBe('The API is not reachable. Check that the Quality Studio API is running.');
+
+    // The poll no longer refuses to run because the connection state is not live.
+    const retrying = api.loadReviewRuns();
+    http.expectOne('/api/repos/default/review/runs').flush({ runs: [{ id: 'run-1', state: 'running', totalFiles: 4, completedFiles: 2 }] });
+    await retrying;
+
+    expect(api.reviewRuns()[0].completedFiles).toBe(2);
+  });
+
+  it('loads usage without waiting for the connection state to be live', async () => {
+    api.connectionState.set('preview');
+
+    const loading = api.loadUsage();
+    http.expectOne(request => request.url === '/api/repos/default/usage').flush({
+      generatedAt: '2026-09-06T10:00:00Z', runs: 1, inputTokens: 7, outputTokens: 3,
+      cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 10,
+      byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [],
+    });
+    await loading;
+
+    expect(api.usage().inputTokens).toBe(7);
   });
 
   it('imports repositories from Agent Studio and refreshes the registry', async () => {
@@ -260,3 +351,16 @@ describe('QualityApi', () => {
     expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
   });
 });
+
+/** Brings the service to a live connection so file-level behaviour can be asserted on its own. */
+async function connect(api: QualityApi, http: HttpTestingController): Promise<void> {
+  const loading = api.loadTree();
+  http.expectOne('/api/repos/default/tree?path=').flush({ nodes: [] satisfies TreeNode[] });
+  http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
+  http.expectOne('/api/repos/default/inputs').flush({ kinds: {} });
+  http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
+  http.expectOne('/api/repos/default/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+  await new Promise(resolve => setTimeout(resolve));
+  http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
+  await loading;
+}

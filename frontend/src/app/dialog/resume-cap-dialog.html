@@ -1,0 +1,28 @@
+<div class="dialog-backdrop confirm-backdrop" qsModalBackdrop (dismiss)="cancelled.emit()">
+  <section class="confirm-dialog resume-cap-dialog" qsModal (dismiss)="cancelled.emit()" role="dialog" aria-modal="true"
+    aria-labelledby="resume-cap-title">
+    <header>
+      <span class="eyebrow">Capped run</span>
+      <h2 id="resume-cap-title">Raise the {{ byTokens() ? 'token' : 'cost' }} cap</h2>
+    </header>
+    <p>
+      {{ run().kind }} review of {{ run().path }} stopped at its cap.
+      @if (run().skippedFiles) { {{ run().skippedFiles }} file(s) were skipped. }
+      Resuming continues the same run under the new cap.
+    </p>
+    <label class="form-field">
+      <span class="field-label">New {{ byTokens() ? 'token cap' : 'cost cap in ' + currency() }}</span>
+      <input data-modal-autofocus type="text" inputmode="decimal" autocomplete="off"
+        [attr.aria-invalid]="error() ? 'true' : null" aria-describedby="resume-cap-helper"
+        [value]="entered()" (input)="setValue($any($event.target).value)" (keydown.enter)="submit()">
+      <small id="resume-cap-helper" class="field-helper" [class.field-error]="error()">
+        {{ error() || (byTokens() ? 'Tokens. Accepts 200000, 200k, or 0.2M.' : currency() + '. Decimal amounts are accepted.') }}
+      </small>
+    </label>
+    <footer>
+      <span class="footer-spacer"></span>
+      <button class="secondary-button" type="button" (click)="cancelled.emit()">Cancel</button>
+      <button class="primary-button" type="button" [disabled]="parsed() === null" (click)="submit()">Raise cap and resume</button>
+    </footer>
+  </section>
+</div>

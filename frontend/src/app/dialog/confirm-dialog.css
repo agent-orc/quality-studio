@@ -1,0 +1,13 @@
+.dialog-backdrop{position:fixed;z-index:60;inset:0;display:grid;place-items:center;padding:30px;background:rgba(8,10,14,.62)}
+.confirm-dialog{display:flex;width:min(440px,calc(100vw - 60px));flex-direction:column;gap:var(--studio-space-3);padding:18px;border:1px solid var(--studio-border);border-radius:10px;background:var(--studio-bg-surface);box-shadow:0 18px 70px rgba(0,0,0,.35)}
+.confirm-dialog:focus{outline:none}
+.confirm-dialog header{display:flex;flex-direction:column;gap:3px}
+.confirm-dialog .eyebrow{color:var(--studio-fg-dim);font-size:9px;text-transform:uppercase;letter-spacing:.08em}
+.confirm-dialog h2{margin:0;font-size:15px}
+.confirm-dialog p{margin:0;color:var(--studio-fg-muted);font-size:11px;line-height:1.55}
+.confirm-dialog footer{display:flex;align-items:center;gap:8px;padding-top:var(--studio-space-2);border-top:1px solid var(--studio-border-soft)}
+.footer-spacer{flex:1}
+.primary-button,.secondary-button,.danger-button{height:32px;padding:0 12px;border:1px solid var(--studio-border);border-radius:5px;cursor:pointer}
+.primary-button{border-color:var(--studio-accent);background:var(--studio-accent);color:var(--studio-bg-surface)}
+.secondary-button{background:var(--studio-bg-elevated);color:inherit}
+.danger-button{border-color:color-mix(in srgb,#e05252 55%,var(--studio-border));background:transparent;color:#e87878}

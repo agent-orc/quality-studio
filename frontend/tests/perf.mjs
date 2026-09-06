@@ -29,6 +29,25 @@ await page.route(/\/api\/(?:repos\/[^/]+\/)?file(?:\?|$)/, route => {
   body: JSON.stringify({ path: 'src/QualityStudio.Api/ApiContracts.cs', content: payload, metaDocuments: [meta('code'), meta('performance')] }),
   });
 });
+// The hierarchy is part of the fixture now: the shell no longer carries a built-in demonstration
+// tree, and the measurement should not depend on one. These are the nodes the harness navigates.
+const kindState = state => ({ direct: state, descendants: state, overall: state, score: state === 'fresh' ? 91 : null, band: state === 'fresh' ? 'A' : null, metaPath: state === 'fresh' ? 'preview.review-meta.json' : null });
+const kinds = state => ({ code: kindState(state), security: kindState(state), performance: kindState(state) });
+const tree = [{
+  id: 'quality-studio', name: 'Quality Studio', level: 'repository', path: '.', kinds: kinds('fresh'), children: [{
+    id: 'src', name: 'src', level: 'folder', path: 'src', kinds: kinds('fresh'), children: [{
+      id: 'api', name: 'QualityStudio.Api', level: 'project', path: 'src/QualityStudio.Api', kinds: kinds('fresh'), children: [
+        { id: 'program', name: 'Program.cs', level: 'file', path: 'src/QualityStudio.Api/Program.cs', kinds: kinds('fresh'), sizeBytes: 333782, lineCount: 6000, children: [] },
+        { id: 'contracts', name: 'ApiContracts.cs', level: 'file', path: 'src/QualityStudio.Api/ApiContracts.cs', kinds: kinds('stale'), sizeBytes: 4200, lineCount: 120, children: [] },
+      ],
+    }],
+  }],
+}];
+await page.route(/\/api\/(?:repos\/[^/]+\/)?tree(?:\?|$)/, route => route.fulfill({
+  contentType: 'application/json',
+  body: JSON.stringify({ nodes: tree }),
+}));
+
 const project = {
   generatedAt: '2026-07-25T10:00:00Z',
   grades: ['code', 'security', 'performance'].map(kind => ({ kind, state: 'fresh', score: 90, band: 'A', path: 'src/QualityStudio.Api/Program.cs' })),
@@ -54,6 +73,9 @@ await initialFileRequested;
 await page.locator('.tree-row').first().click();
 await page.locator('.tree-row').first().click();
 await page.getByRole('textbox', { name: 'Filter files' }).fill('Program.cs');
+// The explorer applies its filter once typing settles, so wait for the filtered list rather than
+// clicking whichever row happened to be first while the keystrokes were still being collected.
+await page.waitForFunction(() => document.querySelectorAll('.tree-row').length === 1);
 // Container clicks now select their list view, so open the filtered file row
 // directly instead of relying on the previous file selection to be retained.
 await page.locator('.tree-row').first().click();
@@ -63,6 +85,7 @@ const highlightedTokenCount = await page.locator('.code-line code span:not(.tok-
 await page.getByRole('tab', { name: /performance/i }).click();
 await page.waitForFunction(() => performance.getEntriesByName('qs.review.aspect-switch').length >= 1);
 await page.getByRole('textbox', { name: 'Filter files' }).fill('');
+await page.waitForFunction(() => document.querySelectorAll('.tree-row').length > 1);
 const dashboardStarted = await page.evaluate(() => performance.now());
 await page.locator('[data-node-id="quality-studio"]').click();
 await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });

@@ -17,9 +17,9 @@
     "evidence:exact-span": "node tests/exact-span-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence",
     "evidence:repository-modal": "node tests/repository-modal-evidence.mjs",
-    "evidence:run-report": "node tests/run-report-evidence.mjs",
     "evidence:run-compare": "node tests/run-compare-evidence.mjs",
-    "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs"
+    "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs",
+    "shots:run-report": "node tests/shots/run-report-evidence.mjs"
   },
   "prettier": {
     "printWidth": 100,
@@ -40,7 +40,6 @@
     "@angular/core": "^20.3.0",
     "@angular/forms": "^20.3.0",
     "@angular/platform-browser": "^20.3.0",
-    "@angular/router": "^20.3.0",
     "prismjs": "^1.30.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

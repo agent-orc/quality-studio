@@ -98,4 +98,26 @@ describe('finding span segmentation', () => {
     const segments = segmentLineTokens(plain(''), 1, '', [range], 'sha256:f');
     expect(segments).toEqual([{ text: '', kind: 'plain', state: 'plain', fingerprints: [] }]);
   });
+
+  it('reads start.column as 1-based, so column 1 selects from the first character', () => {
+    const text = 'return null;';
+    const range: FindingSpanRange = { fingerprint: 'sha256:g', start: { line: 1, column: 1 }, end: { line: 1, column: 6 } };
+    const segments = segmentLineTokens(plain(text), 1, text, [range], 'sha256:g');
+
+    expect(textOf(segments)).toBe(text);
+    expect(segments[0].state).toBe('selected');
+    // A zero-based reading would start one character late and select "eturn ".
+    expect(segments[0].text).toBe('return');
+  });
+
+  it('reads end.column the way the server slices its evidence excerpt', () => {
+    const text = 'var total = 0;';
+    const range: FindingSpanRange = { fingerprint: 'sha256:h', start: { line: 1, column: 5 }, end: { line: 1, column: 9 } };
+    const segments = segmentLineTokens(plain(text), 1, text, [range], 'sha256:h');
+    const selected = segments.find(segment => segment.state === 'selected')!;
+
+    // FindingIdentity.ExtractSnippet takes line[(startColumn - 1)..endColumn] for the same range.
+    expect(selected.text).toBe(text.slice(range.start.column - 1, range.end.column));
+    expect(selected.text).toBe('total');
+  });
 });

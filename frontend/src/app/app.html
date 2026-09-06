@@ -22,13 +22,14 @@
             <button type="button" (click)="onboardRepository()">+ Onboard repository</button>
             <button type="button" (click)="manageRepositories()">Configure repositories</button>
             <button class="menu-actions-wide" type="button" (click)="openAgentStudioImport()">Import from Agent Studio</button>
+            <button class="menu-actions-wide" type="button" (click)="openApiAccess()">API access{{ access.configured() ? ' · token set' : '' }}</button>
           </div>
         </div>
       }
     </div>
     <div class="health" [attr.data-connection-state]="api.connectionState()">
       <span class="status" [class.fresh]="api.connectionState() === 'live'" [class.stale]="api.connectionState() === 'preview'" [class.missing]="api.connectionState() !== 'live' && api.connectionState() !== 'preview'"></span>
-      <span>{{ api.connectionLabel() }}</span>
+      <span [title]="api.connectionError()">{{ api.connectionLabel() }}</span>
       @if (embedded()) { <span class="embedded-badge">Embedded</span> }
     </div>
     <div class="quota-strip" aria-label="Provider quotas">
@@ -51,7 +52,11 @@
   </header>
 
   <main class="workspace" [style.grid-template-columns]="gridTemplateColumns()" [class.dragging]="dragging() !== null">
-    <qs-explorer [selectedPath]="explorerSelectedPath()" [activeKind]="activeKind()" [viewportHeight]="viewportHeight()" (nodeOpen)="open($event)" (kindSelect)="selectKind($event)" (reviewRequest)="focusReviewLauncher()" />
+    @defer (on immediate) {
+      <qs-explorer #explorerPane [selectedPath]="explorerSelectedPath()" [activeKind]="activeKind()" [viewportHeight]="viewportHeight()" (nodeOpen)="open($event)" (kindSelect)="selectKind($event)" (reviewRequest)="focusReviewLauncher()" />
+    } @placeholder {
+      <aside class="pane tree-pane project-view-loading">Opening explorer…</aside>
+    }
     <div class="resize-handle" [class.collapsed]="!explorerVisible()" [class.dragging]="dragging() === 'explorer'" role="separator" aria-orientation="vertical" aria-label="Resize explorer pane" [attr.aria-disabled]="!explorerVisible()" [attr.tabindex]="explorerVisible() ? 0 : -1" (pointerdown)="explorerVisible() && startExplorerDrag($event)" (dblclick)="explorerVisible() && resetExplorerWidth()" (keydown)="explorerVisible() && onHandleKeydown($event, 'explorer')"></div>
     <section class="center-workspace">
       <div class="scope-review-launcher">@defer (on idle) { <qs-review-actions [node]="selectedNode()" [activeKind]="activeKind()" [focusRequest]="reviewFocusRequest()" (kindSelect)="selectKind($event)" /> } @placeholder { <button class="review-controls-loading" type="button" disabled>Loading review controls…</button> }</div>
@@ -78,53 +83,31 @@
 
 @defer (when attackCoverageDialogOpen()) {
   @if (attackCoverageDialogOpen()) {
-    <qs-attack-coverage (close)="attackCoverageDialogOpen.set(false)" />
+    <qs-attack-coverage (closed)="attackCoverageDialogOpen.set(false)" />
   }
 }
 
-@if (guidelineDialogOpen()) {
-  <div class="dialog-backdrop" (click)="guidelineDialogOpen.set(false)">
-    <section class="repository-dialog guideline-dialog" role="dialog" aria-modal="true" aria-labelledby="guideline-dialog-title" (click)="$event.stopPropagation()">
-      <header><div><span class="eyebrow">Repository policy</span><h2 id="guideline-dialog-title">Guidelines</h2></div><button class="icon-button" type="button" aria-label="Close guidelines" (click)="guidelineDialogOpen.set(false)">×</button></header>
-      <div class="dialog-body guideline-body">
-        <nav class="repository-list guideline-list" aria-label="Repository guidelines">
-          <button class="add-repository" type="button" (click)="newGuideline()">+ New guideline</button>
-          @for (guideline of api.guidelines(); track guideline.id) {
-            <button type="button" [class.active]="guideline.id === editingGuidelineId()" (click)="editGuideline(guideline)">
-              <span><strong>{{ guideline.id }}</strong><small>{{ guideline.enabled ? 'enabled' : 'disabled' }} · {{ guidelineTrace(guideline.id)?.findingsCount ?? 0 }} findings</small></span>
-            </button>
-          }
-          <div class="menu-heading">Starter catalogue</div>
-          @for (entry of api.guidelineCatalogue(); track entry.id) {
-            <article class="catalogue-card"><strong>{{ entry.title }}</strong><small>{{ entry.technology }} · {{ entry.description }}</small><button type="button" [disabled]="guidelineInstalled(entry.id)" (click)="installGuideline(entry.id)">{{ guidelineInstalled(entry.id) ? 'Installed' : 'Install editable copy' }}</button></article>
-          }
-        </nav>
-        <form class="repository-form guideline-form" (ngSubmit)="saveGuideline()">
-          <div class="guideline-fields">
-            <label><span>Rule id</span><input name="guidelineId" [(ngModel)]="guidelineForm.id" required pattern="[a-z0-9][a-z0-9._-]+" maxlength="128"></label>
-            <label><span>Priority</span><input name="guidelinePriority" [(ngModel)]="guidelineForm.priority" type="number" min="-100000" max="100000" required></label>
-            <label><span>Review kinds <small>comma-separated</small></span><input name="guidelineKinds" [(ngModel)]="guidelineForm.kinds" required placeholder="code, security"></label>
-            <label><span>Levels <small>comma-separated</small></span><input name="guidelineLevels" [(ngModel)]="guidelineForm.levels" required placeholder="file"></label>
-          </div>
-          <label class="enabled-field"><input name="guidelineEnabled" [(ngModel)]="guidelineForm.enabled" type="checkbox"><span>Enabled for the next review</span></label>
-          <label class="content-field"><span>Guideline content</span><textarea name="guidelineContent" [(ngModel)]="guidelineForm.content" required maxlength="100000" placeholder="Describe a concrete, reviewable engineering rule…"></textarea></label>
-          @if (editingGuidelineId(); as id) {
-            <section class="trace-panel"><span class="eyebrow">Finding trace</span><strong>{{ guidelineTrace(id)?.findingsCount ?? 0 }} findings produced</strong>
-              @for (finding of guidelineTrace(id)?.findings ?? []; track finding.metaPath + ':' + finding.id) { <button type="button" (click)="openTrace(finding.unitPath)"><span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><span><b>{{ finding.title }}</b><small>{{ finding.kind }} · {{ finding.unitPath }}</small></span></button> }
-            </section>
-          }
-          @if (guidelineImpact(); as impact) { <section class="impact-result" [class.changed]="impact.changed"><b>{{ impact.changed ? 'Dry-run found a diff' : 'No finding diff in sample' }}</b><span>{{ impact.addedCount }} added · {{ impact.removedCount }} removed across {{ impact.files.length }} file(s)</span>@for (file of impact.files; track file.path) { @for (finding of file.added; track finding.id) { <small>+ {{ finding.severity }} · {{ finding.title }} · {{ file.path }}</small> } @for (finding of file.removed; track finding.id) { <small>− {{ finding.severity }} · {{ finding.title }} · {{ file.path }}</small> } }</section> }
-          @if (guidelineError()) { <div class="form-error" role="alert">{{ guidelineError() }}</div> }
-          <footer>
-            @if (editingGuidelineId()) { <button class="danger-button" type="button" (click)="deleteGuideline()">Delete file</button> }
-            <span class="footer-spacer"></span>
-            <button class="secondary-button" type="button" (click)="dryRunGuideline()" [disabled]="guidelineDryRunning() || !guidelineForm.id || !guidelineForm.content">{{ guidelineDryRunning() ? 'Running sample…' : 'Dry-run sample' }}</button>
-            <button class="primary-button" type="submit" [disabled]="guidelineSaving() || !guidelineForm.id || !guidelineForm.content">{{ guidelineSaving() ? 'Writing…' : editingGuidelineId() ? 'Save file' : 'Create file' }}</button>
-          </footer>
-        </form>
-      </div>
-    </section>
-  </div>
+@defer (when guidelineDialogOpen()) {
+  @if (guidelineDialogOpen()) {
+    <qs-guideline-dialog
+      [guidelines]="api.guidelines()"
+      [catalogue]="api.guidelineCatalogue()"
+      [traces]="api.guidelineTraces()"
+      [editingGuidelineId]="editingGuidelineId()"
+      [form]="guidelineForm"
+      [error]="guidelineError()"
+      [saving]="guidelineSaving()"
+      [dryRunning]="guidelineDryRunning()"
+      [impact]="guidelineImpact()"
+      (closed)="guidelineDialogOpen.set(false)"
+      (newRequested)="newGuideline()"
+      (editRequested)="editGuideline($event)"
+      (installRequested)="installGuideline($event)"
+      (saveRequested)="saveGuideline()"
+      (deleteRequested)="deleteGuideline()"
+      (dryRunRequested)="dryRunGuideline()"
+      (traceRequested)="openTrace($event)" />
+  }
 }
 
 @defer (when usageHistoryOpen()) {
@@ -157,46 +140,32 @@
   }
 }
 
-@if (agentStudioImportDialogOpen()) {
-  <div class="dialog-backdrop" (click)="closeAgentStudioImportDialog()">
-    <section class="repository-dialog agent-studio-dialog" role="dialog" aria-modal="true" aria-labelledby="agent-studio-import-title" (click)="$event.stopPropagation()">
-      <header>
-        <div>
-          <span class="eyebrow">Agent Studio</span>
-          <h2 id="agent-studio-import-title">Import repositories</h2>
-        </div>
-        <button class="icon-button" type="button" aria-label="Close import dialog" (click)="closeAgentStudioImportDialog()">×</button>
-      </header>
-      <div class="dialog-body agent-studio-body">
-        @if (agentStudioImporting()) {
-          <p class="import-status">Fetching projects from Agent Studio…</p>
-        } @else if (agentStudioImportError()) {
-          <div class="form-error" role="alert">{{ agentStudioImportError() }}</div>
-        } @else if (agentStudioImportResult(); as result) {
-          <p class="import-summary">{{ result.imported }} imported · {{ result.skipped }} already present · {{ result.failed }} failed</p>
-          <ul class="import-results">
-            @for (item of result.results; track item.projectId) {
-              <li>
-                <span class="status" [class.fresh]="item.status === 'imported'" [class.stale]="item.status === 'skipped'" [class.missing]="item.status === 'failed'"></span>
-                <span class="import-name">
-                  <strong>{{ item.displayName }}</strong>
-                  <small>{{ item.repositoryPath }}</small>
-                </span>
-                <span class="import-reason">{{ item.reason ?? (item.status === 'imported' ? 'Onboarded' : 'Already registered') }}</span>
-              </li>
-            } @empty {
-              <li class="import-empty">No Agent Studio projects with a local repository path were found.</li>
-            }
-          </ul>
-        }
-        <footer>
-          <span class="footer-spacer"></span>
-          @if (agentStudioImportError()) {
-            <button class="secondary-button" type="button" (click)="runAgentStudioImport()">Retry</button>
-          }
-          <button class="primary-button" type="button" (click)="closeAgentStudioImportDialog()">Done</button>
-        </footer>
-      </div>
-    </section>
-  </div>
+@defer (when agentStudioImportDialogOpen()) {
+  @if (agentStudioImportDialogOpen()) {
+    <qs-agent-studio-import
+      [importing]="agentStudioImporting()"
+      [error]="agentStudioImportError()"
+      [result]="agentStudioImportResult()"
+      (closed)="closeAgentStudioImportDialog()"
+      (retryRequested)="runAgentStudioImport()" />
+  }
+}
+
+@defer (when apiAccessDialogOpen()) {
+  @if (apiAccessDialogOpen()) {
+    <qs-api-access-dialog [rejected]="apiAccessRejected()" (closed)="closeApiAccess()" />
+  }
+}
+
+@defer (when confirmation() !== null) {
+  @if (confirmation(); as pending) {
+    <qs-confirm-dialog
+      [eyebrow]="pending.eyebrow"
+      [heading]="pending.heading"
+      [message]="pending.message"
+      [confirmLabel]="pending.confirmLabel"
+      [danger]="pending.danger"
+      (confirmed)="runConfirmation()"
+      (cancelled)="confirmation.set(null)" />
+  }
 }

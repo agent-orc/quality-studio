@@ -1,14 +1,16 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { QualityApi, ReviewKind, TreeNode } from '../quality-api';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { QualityApi } from '../quality-api';
+import { ReviewKind, TreeNode } from '../contracts';
 import { FlatNode, ancestorIds, flattenTree } from '../tree-utils';
 
 const ROW_HEIGHT = 30;
 const TYPEAHEAD_RESET_MS = 600;
+/** Filtering re-flattens the whole tree, so keystrokes settle before the filter is applied. */
+const SEARCH_DEBOUNCE_MS = 150;
 
 @Component({
   selector: 'qs-explorer',
-  imports: [FormsModule],
+  imports: [],
   templateUrl: './explorer.html',
   styleUrl: './explorer.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,6 +25,9 @@ export class Explorer {
   readonly reviewRequest = output<void>();
 
   readonly expanded = signal(new Set<string>(['quality-studio', 'src', 'api']));
+  /** What the field shows right now. */
+  readonly queryInput = signal('');
+  /** What the tree is filtered by; trails `queryInput` by one debounce interval. */
   readonly query = signal('');
   readonly scrollTop = signal(0);
   /** Roving-focus target: the one tree row that is a tab stop, tracked by node id so it survives DOM recycling. */
@@ -30,7 +35,7 @@ export class Explorer {
   readonly treeRows = computed(() => flattenTree(this.api.tree(), this.expanded()));
   readonly filteredRows = computed(() => {
     const q = this.query().trim().toLowerCase();
-    return q ? flattenTree(this.api.tree(), this.expanded(), true).filter(n => n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q)) : this.treeRows();
+    return q ? this.api.allNodes().filter(n => n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q)) : this.treeRows();
   });
   readonly visibleRows = computed(() => {
     const start = Math.max(0, Math.floor(this.scrollTop() / ROW_HEIGHT) - 5);
@@ -41,7 +46,7 @@ export class Explorer {
     const id = this.activeId();
     return id === null ? -1 : this.filteredRows().findIndex(row => row.id === id);
   });
-  readonly selectedNode = computed(() => flattenTree(this.api.tree(), new Set(), true).find(node => node.path === this.selectedPath()));
+  readonly selectedNode = computed(() => this.api.nodeAt(this.selectedPath()));
 
   exclusionTitle(node: TreeNode): string {
     return (node.excluded ?? []).map(item => `${item.path}: ${item.reason}`).join('\n');
@@ -57,8 +62,13 @@ export class Explorer {
   private readonly treeContainer = viewChild<ElementRef<HTMLElement>>('treeContainer');
   private typeaheadBuffer = '';
   private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      if (this.searchTimer !== null) clearTimeout(this.searchTimer);
+      if (this.typeaheadTimer !== null) clearTimeout(this.typeaheadTimer);
+    });
     // Keep the selection visible without changing the selected container's own
     // expansion state. The chevron therefore remains a toggle-only target.
     effect(() => {
@@ -91,6 +101,22 @@ export class Explorer {
     });
   }
 
+  setQuery(value: string): void {
+    this.queryInput.set(value);
+    if (this.searchTimer !== null) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.searchTimer = null;
+      this.query.set(value);
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  clearQuery(): void {
+    if (this.searchTimer !== null) clearTimeout(this.searchTimer);
+    this.searchTimer = null;
+    this.queryInput.set('');
+    this.query.set('');
+  }
+
   onTreeFocusIn(): void {
     this.treeHasFocus.set(true);
   }
@@ -119,7 +145,7 @@ export class Explorer {
     const start = performance.now();
     this.expanded.update(current => {
       const next = new Set(current);
-      next.has(node.id) ? next.delete(node.id) : next.add(node.id);
+      if (next.has(node.id)) next.delete(node.id); else next.add(node.id);
       return next;
     });
     requestAnimationFrame(() => this.measure('qs.tree.toggle', start, 50));
@@ -173,9 +199,9 @@ export class Explorer {
         this.activateNode(node);
         break;
       case 'Escape':
-        if (this.query()) {
+        if (this.queryInput()) {
           event.preventDefault();
-          this.query.set('');
+          this.clearQuery();
         }
         break;
       default:
