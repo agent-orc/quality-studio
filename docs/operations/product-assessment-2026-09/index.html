@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio product assessment, September 2026</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8983;
+    --line: #d8d6cf;
+    --develop: #2a78d6;
+    --ok: #008300;
+    --bad: #c93736;
+    --warn: #9a6b00;
+    --accent-soft: #eaf1fb;
+    --bad-soft: #fbecec;
+    --ok-soft: #eaf4ea;
+    --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2c2c2a;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8983;
+      --line: #3d3d3a;
+      --develop: #3987e5;
+      --ok: #4eae4e;
+      --bad: #e66767;
+      --warn: #d9a63f;
+      --accent-soft: #1e2a3a;
+      --bad-soft: #382222;
+      --ok-soft: #1f2f1f;
+      --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 0 80px; background: var(--surface-1); color: var(--ink-1); font: 16px/1.6 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page { border-bottom: 1px solid var(--line); padding: 44px 0 26px; margin-bottom: 8px; }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 24px; margin: 56px 0 6px; scroll-margin-top: 20px; }
+  h2 .no { color: var(--ink-3); font-weight: 600; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 34px 0 4px; }
+  p  { max-width: 76ch; }
+  .box { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 18px 22px; margin: 20px 0; }
+  .box.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.bad    { background: var(--bad-soft);    border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .box.ok     { background: var(--ok-soft);     border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .box.warn   { background: var(--warn-soft);   border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box h4 { margin: 0 0 8px; font-size: 15px; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  td b { font-weight: 600; }
+  code, .mono { font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 10px; vertical-align: 1px; white-space: nowrap; }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.queued { background: var(--accent-soft); color: var(--develop); }
+  .pill.part { background: var(--warn-soft); color: var(--warn); }
+  .pill.open { background: var(--bad-soft); color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; max-width: 76ch; }
+  .toc { columns: 2; gap: 40px; font-size: 14.5px; }
+  .toc a { color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink-1); text-decoration: underline; }
+  .toc li { break-inside: avoid; }
+  .tablewrap { overflow-x: auto; }
+  @media (max-width: 760px) { .toc { columns: 1; } h1 { font-size: 27px; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Quality Studio · product assessment · repository-grounded</p>
+  <h1>Quality Studio product assessment, September 2026</h1>
+  <p class="lede">What the product is good at, where concept and code diverge, how trustworthy its own review output is, and what stands between the current state and operation by anyone other than a single operator on loopback. Findings that were fixed the same day are recorded as closed; findings that a delivered but unmerged card already covers point at that card; everything else is carried as decision-ready slices.</p>
+  <div class="meta">
+    <span><b>Status</b> decision pending</span>
+    <span><b>Phase</b> decision ready</span>
+    <span><b>Assessed</b> 2026-09-06 at <code>main</code> 0827523</span>
+    <span><b>Key</b> QS-W14</span>
+  </div>
+</header>
+
+<div class="box accent">
+  <h4>How to read this dossier</h4>
+  <p>Every finding names its evidence as <code>file:line</code> at the assessed revision and carries one of four states: <span class="pill done">fixed</span> landed on <code>main</code> the same day; <span class="pill queued">delivered</span> exists on a card branch that merges conflict-free and is being integrated; <span class="pill part">card</span> is covered by an open card; <span class="pill open">open</span> is carried by a slice in section 07. Decisions in section 06 need the operator; slices in section 07 need a spawn.</p>
+</div>
+
+<h2><span class="no">00</span>Contents</h2>
+<ol class="toc">
+  <li><a href="#method">01 Scope and method</a></li>
+  <li><a href="#verdict">02 Verdict by area</a></li>
+  <li><a href="#concept">03 Concept against code</a></li>
+  <li><a href="#register">04 Findings register</a></li>
+  <li><a href="#output">05 Review output quality</a></li>
+  <li><a href="#decisions">06 Operator decisions</a></li>
+  <li><a href="#slices">07 Implementation slices</a></li>
+  <li><a href="#evidence">08 Evidence index and limitations</a></li>
+</ol>
+
+<h2 id="method"><span class="no">01</span>Scope and method</h2>
+<p>Six parallel deep reads covered the core library (61 files, 17,318 LOC), the API host (16 files, 5,802 LOC), the Angular frontend (3,663 LOC plus 1,154 LOC of specs), the concept and its documents against the code, the test suite and the three workflows, and the review output the product wrote about its own repository on 2026-09-01 (128 file sidecars, 430 findings, 15 runs, one monthly ledger). Every load-bearing claim was then re-verified in the code. Locally the .NET suite ran with <code>Category!=MachineBound</code> (231 passed, 1 skipped, 1 Windows file-lock failure in test cleanup) and the frontend suite ran headless in Chrome (53 passed). Board state came from the Agent Studio API, CI history from the GitHub API.</p>
+<p>Not exercised: a live review run against the API during the assessment, the remote runner host, Linux behaviour beyond CI logs, and the published website in detail. Token costs are catalog prices, not invoices.</p>
+
+<h2 id="verdict"><span class="no">02</span>Verdict by area</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Area</th><th>Band</th><th>What holds</th><th>What does not</th></tr></thead>
+<tbody>
+<tr><td><b>Concept</b></td><td>B</td><td>Standing statements per unit with hash-based staleness; the hashing contract is exact enough to be reproduced externally (126 of 128 sidecar hashes). Code drift and policy drift are separate. Aggregation never substitutes a review.</td><td>Reviews run on the file level only. Hierarchy derivation is regex-based against a contract that promises compiler structure. The aggregate score contradicts the no-aggregation thesis. Schema v3 and the rule library exist in code but not in the documents.</td></tr>
+<tr><td><b>Core library</b></td><td>C</td><td>Hardened sidecar write path (containment with reparse-point checks, re-hash after the agent run, atomic writes), usage persisted even on failure, prompt boundaries, deterministic hashing across BOM and line endings.</td><td>No process timeouts and no kill anywhere; seven untyped readers of the sidecar; runtime download of gitleaks; package identity split across three names; four clones of the execution sequence; process-local locks only.</td></tr>
+<tr><td><b>API host and operations</b></td><td>D</td><td>Bearer authentication with constant-time hash comparison, repository scoping, rate limits, ProblemDetails, crash-safe run journal, honest unavailable states.</td><td>Authorization ended before command authority (repository update could set an executable sensor command); Local mode grants wildcard registrar rights without a loopback guard; Hosted mode is unusable from the shipped UI; no caps on file size or sensor probing; no deployment artifact.</td></tr>
+<tr><td><b>Frontend</b></td><td>C</td><td>Signals and OnPush throughout, no innerHTML, worker tokenization with a 200 KB bound, span segmentation tested to the UTF-16 boundary, tree ARIA with roving tabindex, all six UX-dossier slices implemented.</td><td>Every file-endpoint error renders demo code with a fabricated security finding under the real path; error UX ignores status codes; lint is warn-only; perf harness not in CI; no tests for the app shell.</td></tr>
+<tr><td><b>Tests and CI</b></td><td>C</td><td>284 green tests; agent CLIs faked behind an interface; real Git fixtures with a fake gitleaks binary; security behaviour tested; flaky tests fixed with documented cause.</td><td>Canary filtered on a trait no test carried (fixed); canary restores in locked mode without lock files; no coverage signal; no .NET lint gate; version pins drift between workflows; no Windows CI.</td></tr>
+<tr><td><b>Review output</b></td><td>D</td><td>16 of 18 sampled findings are correct, precisely located and actionable, with no generic filler.</td><td>The only critical finding is a hallucination that overrides green build evidence; all 15 security grades are F because one sensor was unavailable; grades track file size; 14 of 15 runs partial; 14 percent contract errors; the ledger did not know the model (fixed).</td></tr>
+<tr><td><b>Delivery process</b></td><td>F</td><td>Cards are well specified; dossier-to-card flow works.</td><td>Ten deliveries sat in human review as conflict-skipped although all merge conflict-free; 21 open cards consumed 4.2 billion tokens; 69 of the last 100 CI runs are failures on salvage branches.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="concept"><span class="no">03</span>Concept against code</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Promise</th><th>State in code</th><th>Evidence</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Hierarchy derived from workspace files, compiler structure and paths</td><td>Regex over solution lines, namespaces and functions; every <code>.cs</code> below a project folder is a member</td><td><code>RepositoryHierarchyBuilder.cs:200-207</code></td><td><span class="pill queued">delivered</span> Roslyn syntax, MSBuild-faithful membership, <code>docs/hierarchy-derivation.md</code></td></tr>
+<tr><td>Function-level review units</td><td>Units derived for C#, review refused for the level, no prompt</td><td><code>ReviewJobs.cs:252</code>, <code>:662</code></td><td><span class="pill open">D-1</span></td></tr>
+<tr><td>Namespace-level review units</td><td>Derived, never reviewed; shares the file prompt</td><td>0 namespace sidecars</td><td><span class="pill open">D-1</span></td></tr>
+<tr><td>Module-level aggregate review</td><td>Runs the file prompt over concatenated members</td><td><code>ReviewRunner.cs:537-548</code>, one module sidecar</td><td><span class="pill open">P-2</span></td></tr>
+<tr><td>No universal quality score; no parent grade from child grades</td><td>Project score is the mean of kind means of sidecars and gates <code>--fail-under</code></td><td><code>docs/quality-reports.md:11-16</code></td><td><span class="pill queued">delivered</span> labelled projection, dated concept amendment</td></tr>
+<tr><td>Review-meta contract documented per version</td><td>127 of 130 sidecars are v3; no document describes v3; two schema domains</td><td><code>schemas/</code>, <code>docs/concept.md:855</code></td><td><span class="pill queued">delivered</span> v3 section, canonical domain</td></tr>
+<tr><td>Security as a detachable module</td><td>Same namespace and assembly, inline kind branch in the runner</td><td><code>ReviewRunner.cs:162-169</code></td><td><span class="pill queued">delivered</span> wording: separate workflow, no extraction</td></tr>
+<tr><td>Rule library feeds reviews</td><td>Resolver without catalogue file, without callers, README names a script and an endpoint that do not exist</td><td><code>RuleLibrary.cs:130-141</code>, <code>rules/README.md:8-11,102</code></td><td><span class="pill open">P-5</span></td></tr>
+<tr><td>performance review kind</td><td>Prompt and wiring complete, never executed</td><td>0 performance sidecars, 0 ledger entries</td><td><span class="pill open">P-2</span></td></tr>
+<tr><td>Usage ledger attributes cost to a model</td><td>155 of 156 entries carried <code>runner-default</code></td><td><code>.quality/usage/2026-09.jsonl</code></td><td><span class="pill done">fixed</span> 59d6a8b: policy default route, ledger v3 <code>modelSource</code></td></tr>
+<tr><td>Typed contract reads the product's own sidecars</td><td>Reader accepted millisecond precision only; runner writes round-trip precision</td><td><code>ReviewMetaContract.cs:345-358</code> vs <code>ReviewRunner.cs:436</code></td><td><span class="pill done">fixed</span> 6e60065</td></tr>
+<tr><td>Finding lifecycle and ignore policy</td><td>Fully implemented; never used: all 432 findings open</td><td><code>.quality/findings/state.json</code></td><td><span class="pill open">P-1</span> rollups make triage feasible</td></tr>
+<tr><td>Multi-branch semantics</td><td>Per-unit hashes settle currency on any branch; missing: a merge rule for divergent sidecars and a repository-level manifest hash</td><td><code>docs/concept.md</code> (no branch statement)</td><td><span class="pill open">P-4</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="register"><span class="no">04</span>Findings register</h2>
+<p>Severity follows the product's own vocabulary. Findings already carried by a card name the card.</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Id</th><th>Severity</th><th>Finding</th><th>Evidence</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><b>F-01</b></td><td>critical</td><td>Repository update accepted an arbitrary sensor <code>command</code> from a repository-scoped client; the SARIF sensor executes token 0 as a process.</td><td><code>Program.cs:192-205</code>, <code>SarifSensor.cs:70-89,654</code>, <code>RepositoryRegistry.cs:267-288</code></td><td><span class="pill queued">QS-68</span> registrar privilege for PUT/DELETE; command allowlist <span class="pill open">P-6</span></td></tr>
+<tr><td><b>F-02</b></td><td>critical</td><td>Local mode is the default and grants every request a wildcard registrar identity; no loopback guard; the frontend sends no Authorization header, so Hosted mode is unusable from the UI.</td><td><code>ApiSecurity.cs:73-76</code>, <code>RepositoryOptions.cs:27</code>, <code>app.config.ts:12</code></td><td><span class="pill open">P-6</span></td></tr>
+<tr><td><b>F-03</b></td><td>critical</td><td>No process timeout and no kill anywhere; the review queue is strictly serial, so one wedged CLI blocks every run. <code>dotnet-coverage merge</code> redirects both streams, reads neither, then waits synchronously. Five git-runner copies never drain stderr.</td><td><code>Coverage.cs:263-287,573-597</code>, <code>RepositoryHierarchyCache.cs:179-195</code>, <code>ReviewJobs.cs:391-395</code></td><td><span class="pill queued">QS-93</span> watchdog and queue; <span class="pill part">QS-96</span> sensor runner; rest <span class="pill open">P-3</span></td></tr>
+<tr><td><b>F-04</b></td><td>critical</td><td>Any file-endpoint error replaces the file with demo content and a fabricated security finding under the requested path while the header still reads "Repository connected"; a spec cements it.</td><td><code>quality-api.ts:752-756</code>, <code>quality-api.spec.ts:58-80</code></td><td><span class="pill queued">same day</span> after QS-78 integration</td></tr>
+<tr><td><b>F-05</b></td><td>high</td><td>The only critical finding in the product's own corpus is a hallucination: a valid C# string literal reported as a compile blocker, explicitly overriding green <code>dotnet-build</code> evidence.</td><td>sidecar for <code>ReviewPromptBuilder.cs</code></td><td><span class="pill open">P-1</span></td></tr>
+<tr><td><b>F-06</b></td><td>high</td><td>All 15 security grades are F (13 at 59, 1 at 58, 1 at 38) because <code>FindingStateProjection</code> caps the score at 59 when a required sensor is unavailable; the ESLint sensor failed for lack of <code>node_modules</code>.</td><td><code>FindingStateProjection.cs</code>, <code>SecurityReviewEvidence.cs:368-388</code></td><td><span class="pill open">P-1</span></td></tr>
+<tr><td><b>F-07</b></td><td>high</td><td>Grades track file size: median LOC per band A 15, B 91, C 208, D 381, F 612; a 1,433-line <code>Program.cs</code> scores C/76 with no structural finding because reviews run per file.</td><td>128 sidecars</td><td><span class="pill open">P-1</span>, <span class="pill open">P-2</span></td></tr>
+<tr><td><b>F-08</b></td><td>high</td><td>14 of 35 security findings are one boundary-sensor sentence repeated on route registration lines whose own evidence says authorization is repository-scoped; 72 near-overlapping findings; no class rollups.</td><td>sidecar for <code>Program.cs</code></td><td><span class="pill open">P-1</span></td></tr>
+<tr><td><b>F-09</b></td><td>high</td><td>21 of 154 review attempts (14 percent) failed the output contract: 12 invalid JSON, 6 locations outside the subject, 1 score/band mismatch, 1 missing id. The 28 unreviewed production files are exactly these.</td><td><code>.quality/runs/*</code></td><td><span class="pill part">QS-101</span> line numbers; <span class="pill part">QS-97</span> claude contract; retry-once <span class="pill open">P-1</span></td></tr>
+<tr><td><b>F-10</b></td><td>high</td><td>14 of 15 runs ended partial while reporting <code>done</code>; 0 fresh-skip reuse across runs.</td><td><code>.quality/reports/runs/*.json</code></td><td><span class="pill part">QS-100</span></td></tr>
+<tr><td><b>F-11</b></td><td>high</td><td>Seven untyped readers of the sidecar with no runtime schema enforcement; read failures surface as <code>stale</code>.</td><td><code>StalenessEvaluator.cs:34-50</code>, <code>ReviewRunner.cs:562-568</code>, <code>QualityReport.cs:232-272</code></td><td><span class="pill open">P-8</span></td></tr>
+<tr><td><b>F-12</b></td><td>medium</td><td>The core library downloads gitleaks from GitHub at runtime; the checksum comes from the same release, no digest pinned in the repository, cache without lock. Impact is availability before security: on an offline host or with a blocked download the sensor is unavailable, and the unavailable-sensor cap then turns every security grade into F regardless of the code (the ESLint sensor did exactly that on 2026-09-01). Two parallel scans on a cold cache can overwrite the same binary. <code>QUALITY_GITLEAKS_PATH</code> exists for offline hosts but is documented only in the package README.</td><td><code>GitleaksBinaryResolver.cs:22,119-137,249-256</code></td><td><span class="pill open">P-6</span> digest pinned in the repository, cache lock, documented offline path</td></tr>
+<tr><td><b>F-28</b></td><td>high</td><td>Cost estimates used CodingAgentRunner's seed price catalog, which does not list the policy route models (gpt-5.6-luna, -terra, -sol); every estimate for a policy route was <code>unknownModel</code> even with a correct model id, while the synchronized Token Economy price snapshot embedded in Quality Studio (including the 2026-07-30 price cut) was only used for picker flags.</td><td><code>ReviewJobs.cs:137,903</code>, <code>FlowReviewRunner.cs:32</code>, <code>catalogues/token-economy-model-prices.json</code></td><td><span class="pill done">fixed</span> <code>ReviewPriceCatalog</code> built from the snapshot; ledger entries carry <code>cost</code>; the host logs every operation's spend; <code>GET /api/usage</code> totals it</td></tr>
+<tr><td><b>F-13</b></td><td>high</td><td>Package identity: <code>PackageId</code> QualityStudio.Analysis.Core, <code>RootNamespace</code> AgentOrchestrator.CodeQuality, README promises the latter as package id; 317 public types in one flat namespace; no pack or push step.</td><td><code>AgentOrchestrator.CodeQuality.csproj:3-5</code>, <code>README.md:12-14</code></td><td><span class="pill part">QS-91</span></td></tr>
+<tr><td><b>F-14</b></td><td>high</td><td>No caps, a robustness and latency problem rather than a security one. Opening a large file (a log, a binary, generated code) makes the API read it whole, decode it and serialise it as JSON with no upper bound, while the UI already stops highlighting at 200 KB: seconds of blocking and a memory spike per click. Listing sensors starts about eight probe processes per call and the UI calls it on load: one to two seconds of latency each time. Every tree request computes Git state with three git processes and reads every untracked file in full; if git fails, the code silently walks the whole directory including <code>node_modules</code>, so a git problem becomes a minutes-long hang without an error.</td><td><code>Program.cs:525,956-958</code>, <code>RepositoryHierarchyCache.cs:84-113,162-171</code></td><td><span class="pill open">P-6</span> size limit, cached sensor availability, explicit git failure</td></tr>
+<tr><td><b>F-15</b></td><td>high</td><td>Three stores exist for runs: the journal <code>.quality/runs/&lt;id&gt;/</code> (untracked; manifest, progress, result), the immutable report snapshot <code>.quality/reports/runs/&lt;id&gt;.json</code> (tracked; the basis of run compare and export), and a designed archive <code>.quality/run-history/</code> (<code>ReviewRunArchive</code>, 427 lines) that nothing calls and that therefore never exists. Reports are pruned to the newest 50, journals never. On start the API loads every journal and writes a report for every run that has none, so the reports just pruned are recreated from their journals and pruned again on the next pass, on every restart. No data is lost, but the history in the UI shifts, the tracked report files produce Git noise, and retention never converges.</td><td><code>ReviewJobs.cs:424,1058-1065,1117</code>, <code>ReviewRunArchive.cs</code></td><td><span class="pill open">P-6</span> prune journals with the report retention; wire or delete the archive (QS-85)</td></tr>
+<tr><td><b>F-16</b></td><td>high</td><td>Registry enumerates without the gate lock while mutations edit the same list; a vanished directory makes the API refuse to boot.</td><td><code>RepositoryRegistry.cs:74-164,328</code></td><td><span class="pill queued">QS-77</span> (QS-99 duplicates it)</td></tr>
+<tr><td><b>F-17</b></td><td>high</td><td>Frontend gates are not enforced: ESLint downgrades every rule to warn, the perf harness and evidence scripts are not in <code>build.yml</code>, six evidence scripts carry no assertion.</td><td><code>eslint.config.mjs:6-25</code>, <code>.github/workflows/build.yml</code></td><td><span class="pill open">P-7</span></td></tr>
+<tr><td><b>F-18</b></td><td>high</td><td>Release canary restores with <code>--locked-mode</code>; no <code>packages.lock.json</code> exists; 8 of 10 canary runs failed, last success 2026-08-14.</td><td><code>release-canary.yml</code></td><td><span class="pill queued">same day</span> lock files after branch integration</td></tr>
+<tr><td><b>F-19</b></td><td>medium</td><td>Four clones of the prepare, run, parse, re-check, persist sequence; 13 atomic-write copies without fsync; unit-id resolution bypasses the hierarchy cache with a full repository scan per review; <code>state.json</code> rewritten in full on every merge.</td><td><code>ReviewRunner.cs:633-638</code>, <code>FindingStateStore.cs:82-86,149-163</code></td><td><span class="pill open">P-3</span>, <span class="pill open">P-8</span></td></tr>
+<tr><td><b>F-20</b></td><td>medium</td><td>Locks are process-local only; API, CLI and CI on the same checkout share no protection; the ledger opens with <code>FileShare.Read</code>.</td><td><code>UsageTelemetry.cs:56-74</code>, <code>FindingStateStore.cs:26</code></td><td><span class="pill open">P-4</span></td></tr>
+<tr><td><b>F-21</b></td><td>medium</td><td>Dead code: <code>src/quality</code> (second CLI, same assembly name, no consumer) and <code>RuleLibrary.cs</code>.</td><td><code>quality.csproj</code>, <code>RuleLibrary.cs</code></td><td><span class="pill open">P-8</span>, <span class="pill open">P-5</span></td></tr>
+<tr><td><b>F-22</b></td><td>medium</td><td>Hover selects findings and rewrites the URL; the tree is copied three to four times per click; only one dialog has a focus trap; native <code>confirm()</code> is inert in sandboxed iframes; the app shell has no tests.</td><td><code>editor.html:153</code>, <code>app.ts:83-578</code>, <code>app.html:87</code></td><td><span class="pill open">P-7</span></td></tr>
+<tr><td><b>F-23</b></td><td>medium</td><td>No deployment artifact, no static hosting of the built frontend, 93 routes registered twice in a 1,433-line <code>Program.cs</code>, health without readiness, no prerequisites section in the README (pre-authenticated agent CLI, .NET 10, Node 22).</td><td><code>package.json</code>, <code>Program.cs:218-345</code>, <code>README.md</code></td><td><span class="pill open">P-6</span>, <span class="pill open">P-8</span></td></tr>
+<tr><td><b>F-24</b></td><td>medium</td><td>Two CLI argument-parsing defects consumed an invalid numeric value as the positional path or reported it under the wrong option.</td><td><code>quality-cli/Program.cs:386-390,544-547</code></td><td><span class="pill done">fixed</span> bdae9d8</td></tr>
+<tr><td><b>F-25</b></td><td>medium</td><td>The canary's live review check filtered on <code>Category=ExternalLive</code>, which no test carried.</td><td><code>release-canary.yml:123</code></td><td><span class="pill done">fixed</span> d22fbf6</td></tr>
+<tr><td><b>F-26</b></td><td>low</td><td>ASP.NET request diagnostics logged at Information; one session produced 68,000 log lines.</td><td><code>appsettings.json</code></td><td><span class="pill done">fixed</span> eeac4ff</td></tr>
+<tr><td><b>F-27</b></td><td>low</td><td>Aspect ids persisted in three spellings; 8 findings violate the schema pattern; the website seed names "Code/Architecture/Security" as kinds.</td><td>sidecars, <code>website/index.html:79-80</code></td><td><span class="pill queued">delivered</span> parser canonicalisation, data normalised</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="output"><span class="no">05</span>Review output quality</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Measure</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Sidecars</td><td>128 file (113 code, 15 security, 0 performance), 1 module</td></tr>
+<tr><td>Findings</td><td>430 in sidecars, 432 in <code>state.json</code>, 424 unique fingerprints, all open</td></tr>
+<tr><td>Severity, code kind</td><td>1 critical, 78 high, 219 medium, 97 low</td></tr>
+<tr><td>Severity, security kind</td><td>21 high, 14 medium; 14 of the high ones are one sensor rule</td></tr>
+<tr><td>Sample precision</td><td>16 of 18 correct and precisely located; 1 hallucinated; 1 noise class of 14 instances</td></tr>
+<tr><td>Grades, code kind</td><td>A 10, B 38, C 41, D 21, F 3; median LOC per band A 15, B 91, C 208, D 381, F 612</td></tr>
+<tr><td>Grades, security kind</td><td>F 15 of 15, caused by the unavailable-sensor cap</td></tr>
+<tr><td>Runs</td><td>15: 5 done, 6 failed, 4 cancelled; 14 partial; 130 reviewed, 24 failed, 88 cancelled, 0 fresh reuse</td></tr>
+<tr><td>Contract errors</td><td>21 of 154 attempts (14 percent)</td></tr>
+<tr><td>Coverage</td><td>104 of 132 production files (79 percent); test code never reviewed</td></tr>
+<tr><td>Reproduction</td><td><code>reproduction.status = unknown</code> for 408 of 408 findings</td></tr>
+<tr><td>Tokens and time</td><td>3.39 M input (1.81 M cached), 0.56 M output, 4.79 h CLI time, median 98 s per review</td></tr>
+<tr><td>Cost</td><td>about 0.08 USD and 110 s per file review at the balanced route; about 0.03 to 0.04 USD per usable finding</td></tr>
+</tbody>
+</table>
+</div>
+<div class="box warn">
+  <h4>Reading</h4>
+  <p>The finding layer is trustworthy with a caveat at <code>critical</code> and <code>high</code>; grades, severities, and the completeness claim of a run are not. Structural defects (monoliths, clones, cross-file inconsistency) are invisible by construction because every review runs on the file level. The product can be read as a source of work items; it cannot yet be used as a gate.</p>
+</div>
+
+<h2 id="decisions"><span class="no">06</span>Operator decisions</h2>
+
+<h3>D-1 · Levels: deliver function and namespace reviews, or stop promising them</h3>
+<p>The README, the concept and the website promise five levels. The product reviews one. Function nodes exist in the tree and are refused by the review engine; namespace nodes are derived and never reviewed; module reviews reuse the file prompt over concatenated content.</p>
+<ul>
+  <li><b>Option A</b> Deliver: a function prompt with its own economy (a function review must cost a fraction of a file review), a namespace and module prompt with architecture as an aspect, and reviews at those levels executed at least once on this repository. Effort 6 to 9 days, on top of the compiler-grade derivation now landing.</li>
+  <li><b>Option B</b> Reduce the promise to Project, Module, File; keep Function and Namespace as roadmap in the concept's research box; align README and website. Effort 1 day.</li>
+  <li><b>Recommendation</b> B now, A as a later slice once module and project passes (P-2) have proven their value. The current state, regex-derived ids under a contract that promises compiler ids and a level nothing can review, is the most expensive of the three.</li>
+</ul>
+
+<h3>D-2 · What stays versioned next to the code</h3>
+<p>QS-102 moves every <code>.quality/**</code> output out of the analysed checkout into a data root and leaves open which artefacts stay versioned. Moving everything out solves the dirty-integration problem and removes the product's distinguishing promise.</p>
+<ul>
+  <li><b>Option A</b> Everything in the data root; the checkout is read-only for the studio; explicit exports only.</li>
+  <li><b>Option B</b> Slim sidecars stay tracked (unit, hash, grade, finding fingerprints with titles and locations, review inputs hash); fat artefacts move to the data root (reports, run journals, ledgers, finding bodies, captured excerpts). A merge-driver rule keeps sidecars mergeable: keep the version whose hash matches the merged content, otherwise the newer one, which then shows as stale.</li>
+  <li><b>Option C</b> Everything stays tracked as today.</li>
+  <li><b>Recommendation</b> B. It keeps "the repository owns its review truth" true, removes 34 percent of the tracked tree, removes exploit-grade finding prose from a public repository, and keeps the integration checkout clean. Slice P-4 specifies it.</li>
+</ul>
+
+<h3>D-3 · Security hardening scope before any hosted use</h3>
+<p>The security dossiers (QS-W12, QS-W13) are decision-pending while card QS-68 carries a note that all recommendations were blanket-approved. The two statements contradict each other and should be made unambiguous.</p>
+<div class="box accent">
+  <h4>Operator scope recorded on 2026-09-06</h4>
+  <p>Operation stays 100 percent local for now; a multi-user team deployment is not planned. The target is one container image that hosts the API and the built UI, with Agent Studio as an API client authenticated by an API token. The Hosted mode's bearer client credentials already provide that token; the UI still has to send it, and Local mode still needs a loopback guard. Options A and B below therefore cover the planned scope; C stays the target for any later hosted use.</p>
+</div>
+<ul>
+  <li><b>Option A</b> Authorization half of S0 only (delivered by QS-68). Hosted use with trusted repositories only.</li>
+  <li><b>Option B</b> Full S0 (host-owned analyzer profiles instead of free commands) plus a loopback guard for Local mode, or a usable Hosted mode for the UI. One to two days. Closes the trivially exploitable chain.</li>
+  <li><b>Option C</b> The target architecture: isolated short-lived workers with a read-only snapshot and a result broker (S1), input bounds (S2), end-to-end secret handling (S3), data-only rendering and handover (S4), credential lifecycle (S5), supply-chain gate (S6). Fifteen to twenty-five engineering days. Only then foreign repositories.</li>
+  <li><b>Recommendation</b> B immediately, C confirmed as target and scheduled slice by slice. Until S1 and S2 land, reviews stay limited to repositories the operator controls. Slice P-6 carries B.</li>
+</ul>
+
+<h3>D-4 · Rule library scope</h3>
+<p>The operator wants the rule library expanded for every review kind. Today it is dead code with nine authored rules. The decision is about scope and ownership: a repository-owned library that ships with the product (rules under <code>rules/</code>, generated catalogue embedded, overrides under <code>.quality/inputs/</code>), or an operator-owned library synchronised from an external source of truth. Recommendation: repository-owned, versioned with the product, with per-technology sections for code, security and performance; every finding then carries a real <code>ruleId</code> instead of <code>built-in:code</code>. Slice P-5.</p>
+
+<h2 id="slices"><span class="no">07</span>Implementation slices</h2>
+<p>Each slice is independently reviewable and names its exit evidence. Effort is an engineering estimate.</p>
+
+<h3>P-1 · Evidence gate and calibration · 4 to 6 days</h3>
+<ul>
+  <li>A finding that contradicts deterministic evidence (a compile claim against a green build sensor, a secret claim against a clean gitleaks run) is not persisted unless <code>reproduction.status</code> is <code>reproduced</code>; the rejection is recorded on the run.</li>
+  <li>The boundary sensor fires only when authorization is absent or the data flow demonstrably bypasses <code>PathConfinement</code>; multiple routes with the same defect become one finding with a location list.</li>
+  <li>Sensor unavailability leaves the score alone and sets a <code>completeness</code> field on the grade; the projection and the UI show it as such. Grades are normalised for unit size so that a 6-line file cannot earn an A by being short.</li>
+  <li>Invalid JSON or an out-of-subject location triggers exactly one re-ask with the error text before the file is failed; aspect ids are canonicalised before persistence.</li>
+  <li>Exit evidence: a re-run over this repository with zero persisted findings that contradict sensor evidence, at most one security finding per route class, and 15 security grades that differ from each other.</li>
+</ul>
+
+<h3>P-2 · Module and project passes · 4 to 6 days</h3>
+<ul>
+  <li>Own prompt templates for module and project reviews with <code>architecture</code>, <code>structure</code> and <code>duplication</code> as aspects; the module pass receives the member file summaries and grades, not the concatenated source.</li>
+  <li>Class rollups across files: the same defect class (case-insensitive containment, sequential pipe reads, missing timeouts) becomes one finding with N locations.</li>
+  <li>The performance kind runs once over this repository; test code enters the scope with its own aspect set.</li>
+  <li>Exit evidence: at least one module sidecar per <code>src/</code> project and one project sidecar, each with a structural finding a file review cannot produce (the 1,433-line host, the four execution-sequence clones).</li>
+</ul>
+
+<h3>P-3 · Process runner · 3 to 4 days</h3>
+<ul>
+  <li>One <code>ProcessRunner</code> with a versioned wall-clock timeout, concurrent drain of both streams, and kill of the entire process tree on timeout, cancellation and shutdown; all git, dotnet, npm and gitleaks call sites use it, including the five git-runner copies.</li>
+  <li><code>matchTimeout</code> on every regex that runs over repository content; retry with backoff on provider rate limits instead of failing the file.</li>
+  <li>Builds on QS-93 (operation watchdog) and QS-96 (sensor runner leak).</li>
+  <li>Exit evidence: a fixture process that never exits is killed within the budget; no orphaned child after a cancelled run on Windows and Linux.</li>
+</ul>
+
+<h3>P-4 · Slim sidecars and the repository manifest hash · 3 to 5 days</h3>
+<ul>
+  <li>Implements D-2 Option B on top of QS-102's data root; migration keeps existing sidecars readable.</li>
+  <li>A repository-level manifest hash over all in-scope file units and the review-inputs hash is computed by the scan and written to scan results, run manifests and run reports, so a whole scan is current or stale in one comparison and identical content on two branches yields identical evidence.</li>
+  <li>A <code>.gitattributes</code> merge driver for sidecars with the rule above; cross-process locking for ledger and finding state.</li>
+  <li>Exit evidence: a full studio run leaves <code>git status</code> clean except for changed slim sidecars; two branches with identical content produce the same manifest hash.</li>
+</ul>
+
+<h3>P-5 · Rule library · 5 to 8 days</h3>
+<ul>
+  <li>Generate <code>catalogues/rule-catalogue.v1.json</code> from <code>rules/</code> with the script the README already names; embed it; wire <code>RuleCatalogueResolver.RenderAsReviewInputs</code> into <code>ReviewPromptBuilder</code> behind the existing inputs budget; add <code>GET /api/repos/{id}/rules</code> with traces.</li>
+  <li>Author rules per technology for code, security and performance; each finding carries the matching <code>ruleId</code>.</li>
+  <li>Exit evidence: a review of this repository in which every finding's <code>ruleId</code> resolves to a catalogue entry, and the QS-W11 measurement can name the rule set it ran under.</li>
+</ul>
+
+<h3>P-6 · Operations and S0 · 4 to 6 days</h3>
+<ul>
+  <li>Analyzer commands come from host-owned profiles; client configuration selects a profile id. Local mode refuses to bind a non-loopback address, or Hosted mode becomes usable from the UI with an interceptor and a credential flow.</li>
+  <li>Size limit on <code>GET /api/file</code>, cached sensor availability, bounded dashboard cache, error handler and reindex for the sidecar file watcher, pinned gitleaks digest in the repository.</li>
+  <li>A Dockerfile that publishes the API and serves the built frontend; a documented prerequisites section (pre-authenticated agent CLI, .NET 10, Node 22, git).</li>
+  <li>Exit evidence: the two security tests from QS-68 extended with a profile-only command test; a container that answers <code>/health</code> and serves the shell.</li>
+</ul>
+
+<h3>P-7 · Frontend gates and error path · 3 to 5 days</h3>
+<ul>
+  <li>Status-code-aware errors with retry through an HTTP interceptor; no demo content for a real path (the same-day fix removes the fallback; this slice adds the UX).</li>
+  <li>ESLint at error severity for accessibility and correctness rules; the perf harness in <code>build.yml</code>; assertion-free evidence scripts moved out of <code>tests/</code>.</li>
+  <li>Specs for the app shell, the repository dialog and attack coverage; hover no longer selects; focus trap and Escape for every dialog; the code viewport is keyboard-scrollable.</li>
+  <li>Exit evidence: <code>npm run lint</code> can fail; a perf regression fails CI; every dialog passes the keyboard checklist.</li>
+</ul>
+
+<h3>P-9 · Cost transparency and budgets · 2 to 3 days</h3>
+<ul>
+  <li>Landed the same day: every ledger entry carries its estimated cost at the synchronized snapshot price, the host logs each operation's spend (event <code>ReviewOperationUsage</code>), <code>GET /api/usage</code> totals cost over the history and counts unpriced operations, and the price catalog is the Token Economy snapshot rather than the runner's seed.</li>
+  <li>Remaining: show cost per run and per operation in the usage history and the run panel; a repository-level cost budget next to the existing token cap (<code>DefaultReviewTokenCap</code>) with a recorded stop reason; an explicit subscription mode for CLIs metered in usage windows (no cap by design, costs still estimated and logged); a catalog-staleness signal when the snapshot's newest price entry is older than a configured age.</li>
+  <li>Budgets are cost budgets, not time budgets. Timeouts in P-3 are an availability mechanism for hung processes, not a product feature.</li>
+  <li>Exit evidence: a run started without a model shows its model, model source and running cost in the UI; a run with a cost cap stops with the cap named in its stop reason; the usage view shows the sweep total in the ledger's currency.</li>
+</ul>
+
+<h3>P-8 · Cleanup and honesty · 2 to 3 days</h3>
+<ul>
+  <li>Remove <code>src/quality</code>; one name for package, assembly and namespace; a single typed reader for sidecars with runtime schema validation; one <code>AtomicJsonFile</code> helper with fsync; unit-id resolution through the hierarchy cache.</li>
+  <li>README working state, concept date, and website aligned with what the code does; D-1 applied.</li>
+  <li>Exit evidence: no second <code>quality</code> assembly in the solution; the README's status block names the current card range.</li>
+</ul>
+
+<h2 id="evidence"><span class="no">08</span>Evidence index and limitations</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Evidence</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Same-day fixes</td><td><code>main</code> commits 6e60065, 59d6a8b, aef3be5, bdae9d8, d22fbf6, eeac4ff and the follow-up test commits</td></tr>
+<tr><td>Delivered but unmerged cards</td><td>Salvage branches <code>agent-studio/salvage/agent-runner-01/QS-*</code>; <code>git merge-tree</code> against <code>main</code> reports zero conflict files for QS-59, 68, 72, 75, 76, 77, 78, 82, 89, 93</td></tr>
+<tr><td>Review output measurements</td><td><code>**/.quality/reviews/files/*.json</code>, <code>.quality/findings/state.json</code>, <code>.quality/reports/runs/*.json</code>, <code>.quality/usage/2026-09.jsonl</code> at 0827523</td></tr>
+<tr><td>Local test runs</td><td><code>dotnet test --filter Category!=MachineBound</code>: 231 passed, 1 skipped, 1 Windows file-lock cleanup failure; <code>npm test</code>: 53 passed</td></tr>
+<tr><td>CI history</td><td>GitHub Actions, last 100 runs and the canary workflow runs</td></tr>
+<tr><td>Board</td><td>Agent Studio task API, project PROJ-016, 21 open cards</td></tr>
+</tbody>
+</table>
+</div>
+<p>Limitations: the assessment did not run a live review against the API, did not exercise the remote runner host, and read Linux behaviour only through CI logs. Grades in section 02 are judgements of this assessment, not output of the product.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "product-assessment-2026-09",
+  "title": "Quality Studio product assessment, September 2026",
+  "summary": "Repository-grounded assessment of concept, core library, API host, frontend, tests and CI, review output quality, and delivery process at main 0827523. Records what was fixed the same day, which findings are already covered by delivered but unmerged cards, and carries the remaining findings as eight decision-ready slices P-1 to P-8 plus four operator decisions D-1 to D-4.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-09-06T00:00:00Z",
+  "sourceTaskKeys": [],
+  "relatedTaskKeys": [
+    "QS-68",
+    "QS-72",
+    "QS-75",
+    "QS-77",
+    "QS-78",
+    "QS-84",
+    "QS-85",
+    "QS-91",
+    "QS-93",
+    "QS-95",
+    "QS-96",
+    "QS-97",
+    "QS-98",
+    "QS-99",
+    "QS-100",
+    "QS-101",
+    "QS-102"
+  ],
+  "key": "QS-W14"
+}
