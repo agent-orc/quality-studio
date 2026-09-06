@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/run-record.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
   "title": "Quality Studio archived run record v1",
   "description": "Immutable identity, plan and configuration for one review run, written once at .quality/run-history/YYYY-MM/<runId>/run.json.",
   "type": "object",
@@ -10,7 +10,12 @@
     "nodeId", "nodePath", "level", "kind", "targets", "cliType", "force"
   ],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/run-record.v1.schema.json" },
+    "$schema": {
+      "enum": [
+        "https://agent-orchestrator.dev/quality/schemas/run-record.v1.schema.json",
+        "https://quality.studio/schemas/run-record.v1.schema.json"
+      ]
+    },
     "schemaVersion": { "const": 1 },
     "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
     "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },

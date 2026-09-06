@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/attack-catalogue.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/attack-catalogue.v1.schema.json",
   "title": "Quality Studio attack catalogue",
   "type": "object",
   "additionalProperties": false,

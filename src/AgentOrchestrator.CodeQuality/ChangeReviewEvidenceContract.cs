@@ -8,7 +8,10 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed record ChangeReviewEvidenceDocument
 {
     public const int CurrentSchemaVersion = 1;
-    public const string SchemaId = "https://quality.studio/schemas/change-review-evidence.v1.schema.json";
+    public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/change-review-evidence.v1.schema.json";
+
+    /// <summary>Pre-2026-09-06 alias of <see cref="SchemaId"/>. Readers accept it; writers never emit it.</summary>
+    public const string LegacySchemaId = "https://quality.studio/schemas/change-review-evidence.v1.schema.json";
 
     private const string ProviderPolicyText =
         "quality-studio-change-review-policy-v1\0grades\0findings\0staleness\0boundaries\0coverage\0churn";
@@ -180,7 +183,8 @@ public static class ChangeReviewEvidenceJson
     {
         ArgumentNullException.ThrowIfNull(document);
         if (document.SchemaVersion != ChangeReviewEvidenceDocument.CurrentSchemaVersion ||
-            !string.Equals(document.Schema, ChangeReviewEvidenceDocument.SchemaId, StringComparison.Ordinal))
+            !(string.Equals(document.Schema, ChangeReviewEvidenceDocument.SchemaId, StringComparison.Ordinal) ||
+              string.Equals(document.Schema, ChangeReviewEvidenceDocument.LegacySchemaId, StringComparison.Ordinal)))
             throw new JsonException($"Unsupported change-review evidence schemaVersion '{document.SchemaVersion}'.");
         if (string.IsNullOrWhiteSpace(document.Repository)) throw new JsonException("repository is required.");
         ValidateSha256(document.Policy.ContentHash, "policy.contentHash");

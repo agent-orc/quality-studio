@@ -1,5 +1,5 @@
 {
-  "$schema": "https://quality.studio/schemas/quality-finding.v1.schema.json",
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
   "schemaVersion": 1,
   "subject": {
     "type": "task-change",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/rule-catalogue.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json",
   "title": "Quality Studio named-rule catalogue",
   "description": "Generated from rules/**/*.md by scripts/sync-rule-catalogue.mjs; embedded as the built-in rule library at src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json.",
   "type": "object",

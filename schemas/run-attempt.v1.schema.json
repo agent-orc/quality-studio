@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/run-attempt.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
   "title": "Quality Studio archived run attempt record v1",
   "description": "Create-only capped/failed/cancelled/done snapshot for one stopped attempt, written to attempts/NNNN.json. A capped run that resumes adds another attempt; earlier attempts are never rewritten.",
   "type": "object",
@@ -11,7 +11,12 @@
     "completedOperations", "failedOperations", "skippedOperations", "usage"
   ],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/run-attempt.v1.schema.json" },
+    "$schema": {
+      "enum": [
+        "https://agent-orchestrator.dev/quality/schemas/run-attempt.v1.schema.json",
+        "https://quality.studio/schemas/run-attempt.v1.schema.json"
+      ]
+    },
     "schemaVersion": { "const": 1 },
     "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
     "attempt": { "type": "integer", "minimum": 1 },

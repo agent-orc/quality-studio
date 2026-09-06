@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/run-finding.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
   "title": "Quality Studio archived run finding observation v1",
   "description": "Append-only finding observation record, one line per observation in findings.jsonl. Never becomes the current lifecycle owner; see .quality/findings/state.json for that.",
   "type": "object",
@@ -10,7 +10,12 @@
     "findingId", "ruleId", "severity", "title", "locations", "stateAtObservation"
   ],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/run-finding.v1.schema.json" },
+    "$schema": {
+      "enum": [
+        "https://agent-orchestrator.dev/quality/schemas/run-finding.v1.schema.json",
+        "https://quality.studio/schemas/run-finding.v1.schema.json"
+      ]
+    },
     "schemaVersion": { "const": 1 },
     "runId": { "type": "string", "minLength": 1, "maxLength": 200 },
     "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },

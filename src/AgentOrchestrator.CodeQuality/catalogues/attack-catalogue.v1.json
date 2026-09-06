@@ -1,5 +1,5 @@
 {
-  "$schema": "https://quality.studio/schemas/attack-catalogue.v1.schema.json",
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/attack-catalogue.v1.schema.json",
   "schemaVersion": 1,
   "catalogueVersion": "1.0.0",
   "entries": [

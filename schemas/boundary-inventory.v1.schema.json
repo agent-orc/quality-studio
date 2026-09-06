@@ -1,12 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://quality.studio/schemas/boundary-inventory.v1.schema.json",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/boundary-inventory.v1.schema.json",
   "title": "Quality Studio derived boundary inventory",
   "type": "object",
   "additionalProperties": false,
   "required": [ "$schema", "schemaVersion", "sensor", "sensorVersion", "entries", "findings" ],
   "properties": {
-    "$schema": { "const": "https://quality.studio/schemas/boundary-inventory.v1.schema.json" },
+    "$schema": {
+      "enum": [
+        "https://agent-orchestrator.dev/quality/schemas/boundary-inventory.v1.schema.json",
+        "https://quality.studio/schemas/boundary-inventory.v1.schema.json"
+      ]
+    },
     "schemaVersion": { "const": 1 },
     "sensor": { "const": "boundaries" },
     "sensorVersion": { "type": "string", "minLength": 1 },
