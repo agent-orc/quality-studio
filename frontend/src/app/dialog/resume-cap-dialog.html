@@ -1,6 +1,6 @@
-<div class="dialog-backdrop confirm-backdrop" role="presentation" (click)="cancelled.emit()">
+<div class="dialog-backdrop confirm-backdrop" qsModalBackdrop (dismiss)="cancelled.emit()">
   <section class="confirm-dialog resume-cap-dialog" qsModal (dismiss)="cancelled.emit()" role="dialog" aria-modal="true"
-    aria-labelledby="resume-cap-title" (click)="$event.stopPropagation()">
+    aria-labelledby="resume-cap-title">
     <header>
       <span class="eyebrow">Capped run</span>
       <h2 id="resume-cap-title">Raise the {{ byTokens() ? 'token' : 'cost' }} cap</h2>

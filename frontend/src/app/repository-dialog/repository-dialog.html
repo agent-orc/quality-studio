@@ -1,5 +1,5 @@
-<div class="dialog-backdrop" role="presentation" (click)="closed.emit()">
-  <section class="repository-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="repository-dialog-title" (click)="$event.stopPropagation()">
+<div class="dialog-backdrop" qsModalBackdrop (dismiss)="closed.emit()">
+  <section class="repository-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="repository-dialog-title">
     <header>
       <div>
         <span class="eyebrow">Repository registry</span>

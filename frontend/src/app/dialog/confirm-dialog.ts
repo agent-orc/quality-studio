@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 
-import { Modal } from './modal';
+import { Modal, ModalBackdrop } from './modal';
 
 /**
  * In-app confirmation for a consequential action. Replaces window.confirm, which is unstyled,
@@ -8,7 +8,7 @@ import { Modal } from './modal';
  */
 @Component({
   selector: 'qs-confirm-dialog',
-  imports: [Modal],
+  imports: [Modal, ModalBackdrop],
   templateUrl: './confirm-dialog.html',
   styleUrl: './confirm-dialog.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

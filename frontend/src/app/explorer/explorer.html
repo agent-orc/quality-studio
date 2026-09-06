@@ -3,7 +3,7 @@
   <label class="search"><span>⌕</span><input aria-label="Filter files" placeholder="Filter files…" [value]="queryInput()" (input)="setQuery($any($event.target).value)" /></label>
   <button type="button" class="explorer-review-action" (click)="reviewRequest.emit()">Review this scope →</button>
   <div class="legend"><span><i class="status fresh"></i>Fresh</span><span><i class="status stale"></i>Code</span><span><i class="status policy-drift"></i>Policy</span><span><i class="status missing"></i>Missing</span></div>
-  <div class="virtual-tree" role="tree" aria-label="Repository tree" #treeContainer (scroll)="scrollTop.set($any($event.target).scrollTop)" (keydown)="onTreeKeydown($event)" (focusin)="onTreeFocusIn()" (focusout)="onTreeFocusOut($event)">
+  <div class="virtual-tree" role="tree" aria-label="Repository tree" tabindex="-1" #treeContainer (scroll)="scrollTop.set($any($event.target).scrollTop)" (keydown)="onTreeKeydown($event)" (focusin)="onTreeFocusIn()" (focusout)="onTreeFocusOut($event)">
     <div class="tree-space" [style.height.px]="filteredRows().length * 30">
       @for (item of visibleRows(); track item.node.id) {
         <button type="button" class="tree-row" role="treeitem"
@@ -12,7 +12,7 @@
           [attr.aria-expanded]="item.node.children.length ? expanded().has(item.node.id) : null"
           [attr.aria-selected]="selectedPath() === item.node.path" [attr.tabindex]="activeId() === item.node.id ? 0 : -1"
           [style.top.px]="item.top" [style.padding-left.px]="10 + item.node.depth * 16" (click)="onRowClick(item.node)">
-          <span class="chevron" [class.open]="expanded().has(item.node.id)"
+          <span class="chevron" aria-hidden="true" [class.open]="expanded().has(item.node.id)"
             [title]="item.node.children.length ? 'Toggle container without opening it' : ''"
             (click)="onChevronClick($event, item.node)">{{ item.node.children.length ? '›' : '' }}</span>
           <span class="node-icon">{{ item.node.children.length ? '▰' : '≡' }}</span><span class="node-name">{{ item.node.name }}</span>

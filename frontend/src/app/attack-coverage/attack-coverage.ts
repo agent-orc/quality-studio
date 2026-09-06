@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, output, inject, signal } from '@angular/core';
 import { QualityApi } from '../quality-api';
 import { AttackCoverageCell, AttackCoverageRow, TreeNode } from '../contracts';
-import { Modal } from '../dialog/modal';
+import { Modal, ModalBackdrop } from '../dialog/modal';
 
 @Component({
   selector: 'qs-attack-coverage',
-  imports: [Modal],
+  imports: [Modal, ModalBackdrop],
   templateUrl: './attack-coverage.html',
   styleUrl: './attack-coverage.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

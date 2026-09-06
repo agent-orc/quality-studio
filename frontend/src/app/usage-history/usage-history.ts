@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { UsageAggregate, UsageEntry } from '../contracts';
 import { formatCost, formatModelSource, formatPriceStatus } from '../format';
-import { Modal } from '../dialog/modal';
+import { Modal, ModalBackdrop } from '../dialog/modal';
 import { QualityApi } from '../quality-api';
 
 @Component({
   selector: 'qs-usage-history',
-  imports: [Modal],
+  imports: [Modal, ModalBackdrop],
   templateUrl: './usage-history.html',
   styleUrl: './usage-history.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

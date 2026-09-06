@@ -1,5 +1,5 @@
-<div class="coverage-backdrop" role="presentation" (click)="closed.emit()">
-  <section class="coverage-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="coverage-dialog-title" (click)="$event.stopPropagation()">
+<div class="coverage-backdrop" qsModalBackdrop (dismiss)="closed.emit()">
+  <section class="coverage-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="coverage-dialog-title">
     <header>
       <div>
         <span class="eyebrow">Security landing view</span>

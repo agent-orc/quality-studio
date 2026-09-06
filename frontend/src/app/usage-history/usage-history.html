@@ -1,4 +1,4 @@
-<div class="usage-backdrop" role="presentation" (click)="closed.emit()">
+<div class="usage-backdrop" qsModalBackdrop (dismiss)="closed.emit()">
   <section
     class="usage-dialog"
     qsModal
@@ -6,7 +6,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="usage-history-title"
-    (click)="$event.stopPropagation()">
+   >
     <header>
       <div>
         <span class="eyebrow">Repository ledger</span>

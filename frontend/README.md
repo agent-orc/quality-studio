@@ -18,6 +18,24 @@ clearly labeled preview data so the workspace remains inspectable.
 
 Run `npm run build` for the production bundle and `npm run perf` against a running server for the interaction-budget harness. See [PERF.md](./PERF.md) for the acceptance numbers and Chrome tracing procedure, and [DESIGN-KINSHIP.md](./DESIGN-KINSHIP.md) for the Agent Studio token mapping.
 
+## Checks
+
+| Command | What it does |
+| --- | --- |
+| `npm test` | Unit and component specs in headless Chrome. |
+| `npm run lint` | ESLint at each rule's own severity. A violation fails the command. |
+| `npm run build` | Production bundle, including the size budgets in `angular.json`. |
+| `npm run perf` | Interaction-budget harness against a running server. |
+
+### Screenshot helpers
+
+`tests/shots/` holds Playwright scripts that only navigate and capture PNGs:
+`evidence.mjs`, `qs79-evidence.mjs`, `quota-evidence.mjs`, `run-report-evidence.mjs`, `shot.mjs`,
+and `shot2.mjs`. They assert nothing and prove nothing; they exist to produce pictures of a running
+page for a review or a dossier. The scripts in `tests/` that carry assertions and exit non-zero
+(`perf.mjs`, `project-switch-perf.mjs`, and the `evidence:*` scripts in `package.json`) are the
+ones that can fail a change.
+
 ## API access
 
 A locally started API accepts requests without credentials, and nothing has to be configured. A

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 
 import { ApiAccess } from '../api-access';
-import { Modal } from '../dialog/modal';
+import { Modal, ModalBackdrop } from '../dialog/modal';
 
 /**
  * Settings surface for the hosted API's bearer credential. A local API needs nothing here; the
@@ -10,7 +10,7 @@ import { Modal } from '../dialog/modal';
  */
 @Component({
   selector: 'qs-api-access-dialog',
-  imports: [Modal],
+  imports: [Modal, ModalBackdrop],
   templateUrl: './api-access-dialog.html',
   styleUrl: './api-access-dialog.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

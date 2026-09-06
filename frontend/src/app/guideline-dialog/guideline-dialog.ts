@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { FormsModule } from '@angular/forms';
 
 import { Guideline, GuidelineCatalogueEntry, GuidelineImpact, GuidelineTrace } from '../contracts';
-import { Modal } from '../dialog/modal';
+import { Modal, ModalBackdrop } from '../dialog/modal';
 import { GuidelineForm } from './guideline-form';
 
 /**
@@ -12,7 +12,7 @@ import { GuidelineForm } from './guideline-form';
  */
 @Component({
   selector: 'qs-guideline-dialog',
-  imports: [FormsModule, Modal],
+  imports: [FormsModule, Modal, ModalBackdrop],
   templateUrl: './guideline-dialog.html',
   styleUrls: ['../dialog/dialog-shell.css', './guideline-dialog.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,

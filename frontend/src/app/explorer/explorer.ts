@@ -145,7 +145,7 @@ export class Explorer {
     const start = performance.now();
     this.expanded.update(current => {
       const next = new Set(current);
-      next.has(node.id) ? next.delete(node.id) : next.add(node.id);
+      if (next.has(node.id)) next.delete(node.id); else next.add(node.id);
       return next;
     });
     requestAnimationFrame(() => this.measure('qs.tree.toggle', start, 50));

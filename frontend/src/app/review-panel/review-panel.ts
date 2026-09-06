@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { formatDateTime } from '../format';
 import { QualityApi } from '../quality-api';
-import { FindingSeverity, FindingState, HandoverRequest, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewRunCompareResult, ReviewThread, RunReportFormat, ScopeRuleView } from '../contracts';
+import { FindingSeverity, FindingState, HandoverRequest, ReviewFinding, ReviewKind, ReviewThread, ScopeRuleView } from '../contracts';
 import { RunHistory } from '../run-history/run-history';
 import { FlatNode } from '../tree-utils';
 

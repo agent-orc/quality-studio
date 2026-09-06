@@ -1,6 +1,6 @@
-<div class="dialog-backdrop confirm-backdrop" role="presentation" (click)="cancelled.emit()">
+<div class="dialog-backdrop confirm-backdrop" qsModalBackdrop (dismiss)="cancelled.emit()">
   <section class="confirm-dialog" qsModal (dismiss)="cancelled.emit()" role="dialog" aria-modal="true"
-    aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" (click)="$event.stopPropagation()">
+    aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message">
     <header>
       <span class="eyebrow">{{ eyebrow() }}</span>
       <h2 id="confirm-dialog-title">{{ heading() }}</h2>

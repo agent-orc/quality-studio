@@ -89,3 +89,23 @@ export class Modal implements AfterViewInit, OnDestroy {
     (preferred ?? this.focusable()[0] ?? host).focus();
   }
 }
+
+/**
+ * The click-to-dismiss backdrop behind a modal. It only dismisses when the backdrop itself was
+ * clicked, so the dialog above it needs no stopPropagation handler, and it is presentational: the
+ * accessible ways out are the close button and Escape.
+ */
+@Directive({
+  selector: '[qsModalBackdrop]',
+  host: {
+    role: 'presentation',
+    '(click)': 'onClick($event)',
+  },
+})
+export class ModalBackdrop {
+  readonly dismiss = output<void>();
+
+  onClick(event: MouseEvent): void {
+    if (event.target === event.currentTarget) this.dismiss.emit();
+  }
+}

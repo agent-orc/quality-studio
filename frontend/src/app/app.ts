@@ -640,7 +640,10 @@ export class App implements OnDestroy {
     const step = 10;
     if (event.key === 'ArrowLeft') { this.nudgeWidth(pane, pane === 'explorer' ? -step : step); event.preventDefault(); }
     else if (event.key === 'ArrowRight') { this.nudgeWidth(pane, pane === 'explorer' ? step : -step); event.preventDefault(); }
-    else if (event.key === 'Home' || event.key === 'Enter') { pane === 'explorer' ? this.resetExplorerWidth() : this.resetReviewWidth(); event.preventDefault(); }
+    else if (event.key === 'Home' || event.key === 'Enter') {
+      if (pane === 'explorer') this.resetExplorerWidth(); else this.resetReviewWidth();
+      event.preventDefault();
+    }
   }
 
   private beginDrag(pane: ResizablePane, event: PointerEvent): void {

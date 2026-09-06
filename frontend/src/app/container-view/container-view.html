@@ -9,7 +9,7 @@
       <span>
         <i class="status" [class]="'status ' + (node()?.kinds?.[kind]?.descendants ?? 'missing')"></i>
         <b>{{ kind }}</b>
-        <small>{{ node()?.kinds?.[kind]?.band ?? '-' }} @if (node()?.kinds?.[kind]?.score != null) { &middot; {{ node()?.kinds?.[kind]?.score }} }</small>
+        <small>{{ node()?.kinds?.[kind]?.band ?? '-' }} @if ((node()?.kinds?.[kind]?.score ?? null) !== null) { &middot; {{ node()?.kinds?.[kind]?.score }} }</small>
       </span>
     }
   </div>
@@ -50,7 +50,7 @@
     @for (row of riskRows().slice(0, 100); track row.path) {
       <button class="risk-row" type="button" role="row" (click)="nodeOpen.emit(row.path)">
         <span role="cell">{{ row.path }}</span>
-        <span role="cell">{{ row.gradeBand ?? 'Unknown' }} @if (row.gradeScore != null) { · {{ row.gradeScore }} }</span>
+        <span role="cell">{{ row.gradeBand ?? 'Unknown' }} @if (row.gradeScore !== null) { · {{ row.gradeScore }} }</span>
         <span role="cell" [class.stale-coverage]="row.coverage.state === 'stale'" [title]="coverageTitle(row.coverage)">{{ coverageLabel(row.coverage) }}</span>
         <span role="cell">{{ row.changes }}</span>
         <b role="cell">{{ riskLabel(row) }}</b>

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 
 import { ReviewRun } from '../contracts';
 import { formatTokenCount, parseTokenCount } from '../format';
-import { Modal } from './modal';
+import { Modal, ModalBackdrop } from './modal';
 
 export interface ResumeCap {
   tokenCap?: number | null;
@@ -16,7 +16,7 @@ export interface ResumeCap {
  */
 @Component({
   selector: 'qs-resume-cap-dialog',
-  imports: [Modal],
+  imports: [Modal, ModalBackdrop],
   templateUrl: './resume-cap-dialog.html',
   styleUrl: './resume-cap-dialog.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
