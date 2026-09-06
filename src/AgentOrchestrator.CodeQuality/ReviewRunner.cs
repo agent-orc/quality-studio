@@ -166,6 +166,7 @@ public sealed class ReviewRunner
                 SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
             }
             var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+            AggregateFindingRollup.Apply(response, request.Level, subjectContents, memberFindings);
             if (request.Kind == "security")
             {
                 findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
