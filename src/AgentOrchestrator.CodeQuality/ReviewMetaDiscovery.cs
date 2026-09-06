@@ -105,7 +105,12 @@ public static class ReviewMetaDiscovery
         var kind = document.GetProperty("kind").GetString()!;
         var levelText = document.GetProperty("unit").GetProperty("level").GetString()!;
         if (!Enum.TryParse<ReviewLevel>(levelText, true, out var level)) return ReviewState.Current;
-        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters);
+        // The sidecar records the adapter the review ran under; resolving with any other value would
+        // select a different rule set and report every unit as policy drift.
+        var adapter = document.GetProperty("unit").TryGetProperty("adapter", out var storedAdapter)
+            ? storedAdapter.GetString()
+            : RuleCatalogueResolver.AdapterFromUnitId(document.GetProperty("unit").GetProperty("id").GetString());
+        var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, adapter);
         var currentHash = resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(kind));
         return StringComparer.Ordinal.Equals(expectedHash.GetString(), currentHash)
             ? ReviewState.Current

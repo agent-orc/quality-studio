@@ -304,12 +304,14 @@ public sealed class ReviewRunner
         }
 
         var fileContent = await BuildSubjectContentAsync(subjectPaths, files, request.Level, cancellationToken).ConfigureAwait(false);
-        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
-            request.GlobalInputsDirectory, request.InputBudgetCharacters);
-        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
-        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
+        // The unit identifies the technology, and the technology selects the named rules that
+        // reach this review, so it is resolved before the inputs rather than with the metadata.
         var unitId = request.UnitId ?? ResolveUnitId(root, relativePath, request.Level)
             ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
+            request.GlobalInputsDirectory, request.InputBudgetCharacters, AdapterFromUnitId(unitId));
+        var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
+        var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
         var metaPath = GetMetaPath(root, files[0], request.Kind, relativePath, request.Level);
         var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
@@ -471,7 +473,7 @@ public sealed class ReviewRunner
                 {
                     ["id"] = input.Id,
                     ["scope"] = input.Scope,
-                    ["version"] = "unversioned",
+                    ["version"] = input.Version,
                     ["contentHash"] = "sha256:" + Sha256(input.Content),
                 }).ToArray()),
                 ["omitted"] = new JsonArray(inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).Select(id => (JsonNode)id).ToArray()),

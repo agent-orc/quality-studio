@@ -332,11 +332,14 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        var code = json.GetProperty("kinds").GetProperty("code");
-        var input = Assert.Single(code.GetProperty("inputs").EnumerateArray());
+        var code = json.GetProperty("kinds").GetProperty("code").GetProperty("inputs").EnumerateArray().ToArray();
+        var input = Assert.Single(code, entry => entry.GetProperty("scope").GetString() == "project");
         Assert.Equal("sample-rules", input.GetProperty("id").GetString());
-        Assert.Equal("project", input.GetProperty("scope").GetString());
-        Assert.Empty(json.GetProperty("kinds").GetProperty("security").GetProperty("inputs").EnumerateArray());
+        // The built-in rule library resolves alongside the repository's own guidelines.
+        Assert.Contains(code, entry => entry.GetProperty("scope").GetString() == "built-in" &&
+            entry.GetProperty("id").GetString()!.StartsWith("QS-", StringComparison.Ordinal));
+        var security = json.GetProperty("kinds").GetProperty("security").GetProperty("inputs").EnumerateArray();
+        Assert.DoesNotContain(security, entry => entry.GetProperty("scope").GetString() == "project");
     }
 
     [Fact]

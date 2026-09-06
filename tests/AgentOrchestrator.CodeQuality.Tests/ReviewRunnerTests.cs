@@ -314,6 +314,68 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
+    public async Task ReviewAsync_CarriesTheNamedRulesForThisTechnologyIntoThePromptAndTheSidecar()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            // A project file is what makes this a dotnet unit rather than the generic adapter.
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Small.csproj"),
+                """<Project Sdk="Microsoft.NET.Sdk" />""", cancellationToken);
+            var agent = new FakeAgent();
+
+            var result = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+
+            // A .cs unit reviews through the dotnet adapter, so Angular rules stay out of its prompt.
+            Assert.Contains("## QS-CS-003", agent.Prompt!, StringComparison.Ordinal);
+            Assert.Contains("Detection:", agent.Prompt!, StringComparison.Ordinal);
+            Assert.DoesNotContain("## QS-NG-", agent.Prompt!, StringComparison.Ordinal);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, cancellationToken));
+            Assert.Equal("dotnet", document.RootElement.GetProperty("unit").GetProperty("adapter").GetString());
+            var standards = document.RootElement.GetProperty("reviewInputs").GetProperty("standards")
+                .EnumerateArray().ToArray();
+            var rule = Assert.Single(standards, entry => entry.GetProperty("id").GetString() == "QS-CS-003");
+            Assert.Equal("built-in", rule.GetProperty("scope").GetString());
+            Assert.Matches(@"^\d+\.\d+\.\d+$", rule.GetProperty("version").GetString()!);
+            Assert.StartsWith("sha256:", rule.GetProperty("contentHash").GetString(), StringComparison.Ordinal);
+            Assert.True(result.Inputs.Complete);
+        });
+    }
+
+    [Fact]
+    public async Task ReviewAsync_DropsARuleTheRepositoryDisabledAndSaysSoInTheHash()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Small.csproj"),
+                """<Project Sdk="Microsoft.NET.Sdk" />""", cancellationToken);
+            var before = await new ReviewRunner(new FakeAgent()).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+            var beforeHash = before.Inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash("code"));
+            Directory.CreateDirectory(Path.Combine(root, ".quality", "rules"));
+            await File.WriteAllTextAsync(Path.Combine(root, ".quality", "rules", "overrides.json"),
+                """
+                {
+                  "schemaVersion": 1,
+                  "overrides": [
+                    { "id": "QS-CS-003", "enabled": false, "reason": "This module is synchronous by design." }
+                  ]
+                }
+                """, cancellationToken);
+
+            var agent = new FakeAgent();
+            var after = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+
+            Assert.DoesNotContain("## QS-CS-003", agent.Prompt!, StringComparison.Ordinal);
+            Assert.NotEqual(beforeHash, after.Inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash("code")));
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_PropagatesAgentAndReviewInputsIntoMetadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

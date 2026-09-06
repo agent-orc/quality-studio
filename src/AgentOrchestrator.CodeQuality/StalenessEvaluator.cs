@@ -142,7 +142,8 @@ public sealed class StalenessEvaluator
         if (!string.Equals(currentHash, metadata.ReviewedHash, StringComparison.Ordinal)) return StalenessState.Stale;
         if (metadata.ReviewInputHash is null) return StalenessState.Fresh;
         var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
-            options.GlobalInputsDirectory, options.InputBudgetCharacters);
+            options.GlobalInputsDirectory, options.InputBudgetCharacters,
+            RuleCatalogueResolver.AdapterFromUnitId(metadata.UnitId));
         var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh
