@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { QualityApi, ReviewFinding, ReviewMetaDocument } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { ReviewFinding, ReviewMetaDocument } from '../contracts';
 import { ReviewPanel } from './review-panel';
 
 describe('ReviewPanel session flow', () => {

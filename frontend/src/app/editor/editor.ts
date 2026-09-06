@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { formatBytes, formatDateTime } from '../format';
 import { languageForPath } from '../language';
-import { CoverageFact, FindingSeverity, QualityApi, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { CoverageFact, FindingSeverity, ReviewFinding, ReviewKind, ReviewThread, RiskRow } from '../contracts';
 import { FlatNode } from '../tree-utils';
 import { FindingSpanRange, SegmentedSpan, segmentLineTokens } from './finding-span-segmentation';
 import { SyntaxHighlighting } from './syntax-highlighting';

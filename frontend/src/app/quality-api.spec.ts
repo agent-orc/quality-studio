@@ -2,7 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { ProjectDashboard, QualityApi, ResolvedInputs, TreeNode } from './quality-api';
+import { QualityApi } from './quality-api';
+import { ProjectDashboard, ResolvedInputs, TreeNode } from './contracts';
 
 describe('QualityApi', () => {
   let api: QualityApi;

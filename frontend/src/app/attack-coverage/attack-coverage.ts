@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, output, inject, signal } from '@angular/core';
-import { AttackCoverageCell, AttackCoverageRow, QualityApi, TreeNode } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { AttackCoverageCell, AttackCoverageRow, TreeNode } from '../contracts';
 
 @Component({
   selector: 'qs-attack-coverage',

@@ -1,4 +1,4 @@
-import { ReviewState, TreeNode } from './quality-api';
+import { ReviewState, TreeNode } from './contracts';
 
 export type FlatNode = TreeNode & { depth: number; state: ReviewState; decorations: { kind: string; state: ReviewState; label: string }[] };
 

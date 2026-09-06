@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { QualityApi, ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../contracts';
 import { formatTokenCount, parseTokenCount } from '../format';
 
 let reviewActionsInstance = 0;

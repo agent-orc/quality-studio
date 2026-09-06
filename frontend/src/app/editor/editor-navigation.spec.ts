@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { QualityApi, ReviewFinding } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { ReviewFinding } from '../contracts';
 import { Editor } from './editor';
 import { SyntaxHighlighting } from './syntax-highlighting';
 

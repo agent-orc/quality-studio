@@ -1,5 +1,6 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
-import { QualityApi, UsageAggregate, UsageEntry } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { UsageAggregate, UsageEntry } from '../contracts';
 
 @Component({
   selector: 'qs-usage-history',

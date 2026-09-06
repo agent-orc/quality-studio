@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { computed, signal } from '@angular/core';
-import { QualityApi, ReviewModelCatalog, TreeNode } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { ReviewModelCatalog, TreeNode } from '../contracts';
 import { ReviewActions } from './review-actions';
 
 describe('ReviewActions', () => {

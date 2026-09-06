@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RepositoryRegistration, RepositoryRegistrationRequest, ReviewKind } from '../quality-api';
+import { RepositoryRegistration, RepositoryRegistrationRequest, ReviewKind } from '../contracts';
 
 @Component({
   selector: 'qs-repository-dialog',

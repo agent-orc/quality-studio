@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { QualityApi, UsageReport } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { UsageReport } from '../contracts';
 import { UsageHistory } from './usage-history';
 
 describe('UsageHistory', () => {

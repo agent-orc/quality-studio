@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { QualityApi, ReviewKind, TreeNode } from '../quality-api';
+import { QualityApi } from '../quality-api';
+import { ReviewKind, TreeNode } from '../contracts';
 import { FlatNode, ancestorIds, flattenTree } from '../tree-utils';
 
 const ROW_HEIGHT = 30;
