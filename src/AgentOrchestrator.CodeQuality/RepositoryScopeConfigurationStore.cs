@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text;
 using System.Text.Json;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -21,7 +20,6 @@ public sealed class RepositoryScopeConfigurationStore
 {
     public const string Schema = "https://agent-orchestrator.dev/quality/schemas/scope.v1.schema.json";
     private static readonly ConcurrentDictionary<string, object> Gates = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly UTF8Encoding Utf8 = new(false);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string root;
     private readonly string path;
@@ -120,7 +118,6 @@ public sealed class RepositoryScopeConfigurationStore
 
     private RepositoryScopeConfiguration WriteCore(IReadOnlyList<RepositoryScopeRule> rules)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var payload = new Dictionary<string, object?>
         {
             ["$schema"] = Schema,
@@ -128,22 +125,7 @@ public sealed class RepositoryScopeConfigurationStore
                 ? new Dictionary<string, object?> { ["action"] = rule.Action, ["pattern"] = rule.Pattern, ["reason"] = rule.Reason }
                 : new Dictionary<string, object?> { ["action"] = rule.Action, ["pattern"] = rule.Pattern }).ToArray(),
         };
-        var temporary = Path.Combine(Path.GetDirectoryName(path)!, $"scope.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       bufferSize: 4096, FileOptions.WriteThrough))
-            {
-                var bytes = Utf8.GetBytes(JsonSerializer.Serialize(payload, JsonOptions) + Environment.NewLine);
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, path, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(payload, JsonOptions) + Environment.NewLine);
         return new RepositoryScopeConfiguration(Schema, rules);
     }
 

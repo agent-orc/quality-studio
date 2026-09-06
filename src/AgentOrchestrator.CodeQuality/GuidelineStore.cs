@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -101,12 +100,8 @@ public sealed partial class GuidelineStore
 
     private static GuidelineDefinition Write(string repositoryRoot, GuidelineDraft draft, string fileName)
     {
-        var directory = DirectoryPath(repositoryRoot);
-        Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, fileName);
-        var temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
-        File.WriteAllText(temporary, Serialize(draft), new UTF8Encoding(false));
-        File.Move(temporary, path, true);
+        var path = Path.Combine(DirectoryPath(repositoryRoot), fileName);
+        AtomicFile.WriteAllText(path, Serialize(draft));
         return new GuidelineDefinition(draft.Id, fileName, draft.Enabled, draft.Priority,
             draft.Kinds.Select(value => value.ToLowerInvariant()).ToArray(),
             draft.Levels.Select(value => value.ToLowerInvariant()).ToArray(), draft.Content.Trim());

@@ -618,28 +618,28 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
         Directory.CreateDirectory(metadataDirectory);
         var metadataPath = Path.Combine(metadataDirectory, "file.test.review-meta.code.json");
-        var metadata = new JsonObject
+        var grade = new ReviewGrade(60, GradeBand.D, "One finding.");
+        var metadata = new ReviewMetaDocument
         {
-            ["unit"] = new JsonObject { ["path"] = "Sample.cs" },
-            ["reviewedAt"] = "2026-07-22T09:00:00.000Z",
-            ["kind"] = "code",
-            ["reviewer"] = new JsonObject { ["agent"] = "test", ["model"] = "test" },
-            ["grade"] = new JsonObject { ["score"] = 60, ["band"] = "D", ["rationale"] = "One finding." },
-            ["summary"] = "One finding.",
-            ["findings"] = new JsonArray(new JsonObject
-            {
-                ["id"] = findingId,
-                ["fingerprint"] = fingerprint,
-                ["ruleId"] = "correctness.test",
-                ["aspect"] = "correctness",
-                ["severity"] = "high",
-                ["title"] = "Test finding",
-                ["description"] = "A finding used by the API test.",
-                ["recommendation"] = "Review it.",
-                ["locations"] = new JsonArray(new JsonObject { ["path"] = "Sample.cs" }),
-            }),
+            Unit = new ReviewUnit("qs-v1/generic/file/" + new string('a', 64), ReviewAdapter.Generic,
+                ReviewLevel.File, "Sample.cs", "Sample.cs"),
+            ReviewedAt = new DateTimeOffset(2026, 7, 22, 9, 0, 0, TimeSpan.Zero),
+            Kind = ReviewKind.Code,
+            Reviewer = new ReviewerIdentity("test", "test"),
+            ReviewedHash = ManifestHash.Subject(new string('b', 64)),
+            SubjectInputs = [new SubjectInputHash("Sample.cs", "file", "sha256:" + new string('c', 64))],
+            ReviewInputs = new ReviewInputs(
+                ManifestHash.ReviewInput(new string('e', 64)), true, [], [],
+                new PromptReference("file-code-review", "1.0.0", "sha256:" + new string('f', 64))),
+            Grade = grade,
+            Summary = "One finding.",
+            Aspects = [new ReviewAspect("correctness", "Correctness", grade)],
+            Findings = [new ReviewFinding(findingId, "correctness", FindingSeverity.High, "Test finding",
+                "A finding used by the API test.", "Review it.", [new FindingLocation("Sample.cs")],
+                fingerprint, "correctness.test")],
         };
-        await File.WriteAllTextAsync(metadataPath, metadata.ToJsonString(), TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(
+            metadataPath, ReviewMetaJson.Serialize(metadata), TestContext.Current.CancellationToken);
         var identity = new FindingIdentityRecord(fingerprint, findingId, "Sample.cs", "correctness.test");
         var store = new FindingStateStore(repositoryRoot);
         var state = (await store.MergeReviewAsync([identity], [], "test", TestContext.Current.CancellationToken))[fingerprint];

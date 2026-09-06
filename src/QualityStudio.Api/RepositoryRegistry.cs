@@ -300,13 +300,9 @@ public sealed class RepositoryRegistry
             DefaultReviewCostCap: request.DefaultReviewCostCap);
     }
 
-    private async Task PersistAsync(CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
-        var temporaryPath = registryPath + ".tmp";
-        await File.WriteAllTextAsync(temporaryPath, JsonSerializer.Serialize(entries, JsonOptions()), cancellationToken);
-        File.Move(temporaryPath, registryPath, true);
-    }
+    private async Task PersistAsync(CancellationToken cancellationToken) =>
+        await AtomicFile.WriteAllTextAsync(
+            registryPath, JsonSerializer.Serialize(entries, JsonOptions()), cancellationToken);
 
     private static string ResolvePath(string path, string relativeTo) => Path.GetFullPath(
         Path.IsPathRooted(path) ? path : Path.Combine(relativeTo, path));

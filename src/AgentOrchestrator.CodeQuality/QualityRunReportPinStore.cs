@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 
 namespace AgentOrchestrator.CodeQuality;
@@ -12,7 +11,6 @@ public sealed record QualityRunReportPinDocument(int SchemaVersion, IReadOnlyLis
 public sealed class QualityRunReportPinStore
 {
     public const string RelativePath = ".quality/reports/pins.json";
-    private static readonly UTF8Encoding Utf8 = new(false);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string path;
     private readonly object gate = new();
@@ -59,23 +57,7 @@ public sealed class QualityRunReportPinStore
 
     private void Persist(IReadOnlySet<string> pinned)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var document = new QualityRunReportPinDocument(1, pinned.Order(StringComparer.Ordinal).ToArray());
-        var temporary = Path.Combine(Path.GetDirectoryName(path)!, $".pins.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       bufferSize: 4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, path, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine);
     }
 }

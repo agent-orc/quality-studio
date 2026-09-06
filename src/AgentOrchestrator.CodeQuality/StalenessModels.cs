@@ -12,6 +12,7 @@ public sealed record StalenessReport(IReadOnlyList<FileStaleness> Files)
     public int StaleCount => Files.Count(file => file.State == StalenessState.Stale);
     public int PolicyDriftCount => Files.Count(file => file.State == StalenessState.PolicyDrift);
     public int MissingCount => Files.Count(file => file.State == StalenessState.Missing);
+    public int InvalidCount => Files.Count(file => file.State == StalenessState.Invalid);
 }
 
 public sealed record StalenessEvaluatorOptions

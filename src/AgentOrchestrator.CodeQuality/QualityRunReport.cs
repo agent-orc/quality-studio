@@ -222,7 +222,6 @@ public sealed class QualityRunReportStore
     /// repository plus every pinned baseline. Not yet grounded in real repository volume data.
     /// </summary>
     public const int DefaultRetentionKeep = 50;
-    private static readonly UTF8Encoding Utf8 = new(false);
     private readonly string reportsPath;
 
     public QualityRunReportStore(string repositoryRoot)
@@ -239,24 +238,7 @@ public sealed class QualityRunReportStore
     public void Save(QualityRunReportDocument report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        var destination = PathFor(report.Run.Id);
-        Directory.CreateDirectory(reportsPath);
-        var temporary = Path.Combine(reportsPath, $".{report.Run.Id}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            var bytes = Utf8.GetBytes(QualityRunReportJson.Serialize(report));
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       4096, FileOptions.WriteThrough))
-            {
-                stream.Write(bytes);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, destination, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        AtomicFile.WriteAllText(PathFor(report.Run.Id), QualityRunReportJson.Serialize(report));
     }
 
     public QualityRunReportDocument Load(string runId)

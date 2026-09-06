@@ -355,13 +355,20 @@ public static class SecurityReviewCombiner
         return identities;
     }
 
-    public static JsonObject Metadata(SecurityEvidenceBundle evidence) => new()
-    {
-        ["verdict"] = SecurityEvidenceBundle.VerdictName(evidence.Verdict),
-        ["combinationRule"] = "security-sensor-agent-v1",
-        ["sensors"] = new JsonArray(evidence.Sensors.Select(sensor =>
-            (JsonNode)SecurityEvidenceBundle.SensorJson(sensor, includeFindings: false)).ToArray()),
-    };
+    public const string CombinationRule = "security-sensor-agent-v1";
+
+    public static SecurityReviewMetadata Metadata(SecurityEvidenceBundle evidence) => new(
+        SecurityEvidenceBundle.VerdictName(evidence.Verdict),
+        CombinationRule,
+        evidence.Sensors.Select(sensor => new SecuritySensorMetadata(
+            sensor.SensorId,
+            sensor.SensorVersion,
+            sensor.ResultHash,
+            sensor.Available,
+            sensor.UnavailableReason,
+            SecurityEvidenceBundle.VerdictName(sensor.Verdict),
+            sensor.ToolVersions.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal))).ToArray());
 
     private static void ApplyCombinationGrade(JsonObject response, SecurityEvidenceBundle evidence)
     {

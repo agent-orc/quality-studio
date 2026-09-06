@@ -97,13 +97,17 @@ public interface IReviewExecutorFactory
 public sealed class ReviewExecutorFactory(
     SensorRegistry sensors,
     StalenessEvaluator stalenessEvaluator,
+    RepositoryHierarchyCache hierarchyCache,
     ILogger<ReviewExecutorFactory> logger) : IReviewExecutorFactory
 {
+    private readonly HierarchyUnitResolver unitResolver = new(hierarchyCache);
+
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
                 cliType, model, thinkingLevel, eventObserver: eventObserver, logger: logger),
-            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator));
+            usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
+            unitResolver: unitResolver));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -291,7 +295,7 @@ public sealed class ReviewJobService : BackgroundService
     private async Task<ReviewRunEstimate> EstimateAsync(
         PreparedPlan plan, string kind, string cliType, string? model, bool force, CancellationToken cancellationToken)
     {
-        var promptRunner = new ReviewRunner();
+        var promptRunner = new ReviewRunner(unitResolver: new HierarchyUnitResolver(hierarchyCache));
         var measurements = new List<ReviewPromptMeasurement>(plan.Files.Length + 1);
         foreach (var file in plan.Files)
         {

@@ -47,11 +47,9 @@ public sealed record CoverageSnapshot(
     public async Task SaveAsync(string repositoryRoot, CancellationToken cancellationToken = default)
     {
         var path = System.IO.Path.Combine(repositoryRoot, RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-        var temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
-        await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(this, JsonOptions) + Environment.NewLine,
-            new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-        File.Move(temporary, path, true);
+        await AtomicFile.WriteAllTextAsync(
+            path, JsonSerializer.Serialize(this, JsonOptions) + Environment.NewLine, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)

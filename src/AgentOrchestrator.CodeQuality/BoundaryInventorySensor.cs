@@ -1159,21 +1159,10 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         CancellationToken cancellationToken)
     {
         var path = Path.Combine(root, InventoryRelativePath.Replace('/', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = path + $".tmp-{Guid.NewGuid():N}";
-        try
-        {
-            await File.WriteAllTextAsync(
-                temporary,
-                JsonSerializer.Serialize(inventory, JsonOptions) + Environment.NewLine,
-                new UTF8Encoding(false),
-                cancellationToken).ConfigureAwait(false);
-            File.Move(temporary, path, true);
-        }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
+        await AtomicFile.WriteAllTextAsync(
+            path,
+            JsonSerializer.Serialize(inventory, JsonOptions) + Environment.NewLine,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static string MethodText(string content, string name)

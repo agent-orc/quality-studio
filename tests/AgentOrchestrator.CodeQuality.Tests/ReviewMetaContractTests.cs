@@ -6,12 +6,9 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class ReviewMetaContractTests
 {
-    private static readonly Lazy<JsonSchema> ReviewMetaSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v1.schema.json"))));
-    private static readonly Lazy<JsonSchema> ReviewMetaV2Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v2.schema.json"))));
-    private static readonly Lazy<JsonSchema> ReviewMetaV3Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "review-meta.v3.schema.json"))));
+    private static JsonSchema ReviewMetaSchema => SchemaCatalogue.Get("review-meta.v1.schema.json");
+    private static JsonSchema ReviewMetaV2Schema => SchemaCatalogue.Get("review-meta.v2.schema.json");
+    private static JsonSchema ReviewMetaV3Schema => SchemaCatalogue.Get("review-meta.v3.schema.json");
 
     [Fact]
     public void SerializerRoundTripsAndIgnoresUnknownFields()
@@ -83,7 +80,7 @@ public sealed class ReviewMetaContractTests
         };
 
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var result = ReviewMetaV3Schema.Value.Evaluate(
+        var result = ReviewMetaV3Schema.Evaluate(
             json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
@@ -150,7 +147,7 @@ public sealed class ReviewMetaContractTests
         using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
             repositoryRoot, "samples", "review-meta.v1.sample.json")));
 
-        var result = ReviewMetaSchema.Value.Evaluate(sample.RootElement, new EvaluationOptions
+        var result = ReviewMetaSchema.Evaluate(sample.RootElement, new EvaluationOptions
         {
             OutputFormat = OutputFormat.List,
         });
@@ -176,7 +173,7 @@ public sealed class ReviewMetaContractTests
                 "a.py"),
         };
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var result = ReviewMetaV2Schema.Value.Evaluate(
+        var result = ReviewMetaV2Schema.Evaluate(
             json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
@@ -210,7 +207,7 @@ public sealed class ReviewMetaContractTests
                     new Dictionary<string, string> { ["gitleaks"] = "8.24.2" })]),
         };
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var result = ReviewMetaV2Schema.Value.Evaluate(
+        var result = ReviewMetaV2Schema.Evaluate(
             json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
@@ -262,7 +259,7 @@ public sealed class ReviewMetaContractTests
         };
 
         using var json = JsonDocument.Parse(ReviewMetaJson.Serialize(document));
-        var result = ReviewMetaV2Schema.Value.Evaluate(
+        var result = ReviewMetaV2Schema.Evaluate(
             json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         Assert.True(result.IsValid, result.ToString());
@@ -294,7 +291,7 @@ public sealed class ReviewMetaContractTests
         using var sample = JsonDocument.Parse(File.ReadAllText(Path.Combine(
             repositoryRoot, "samples", "dependency-vulnerability.real-run.review-meta.security.json")));
 
-        var result = ReviewMetaSchema.Value.Evaluate(sample.RootElement, new EvaluationOptions
+        var result = ReviewMetaSchema.Evaluate(sample.RootElement, new EvaluationOptions
         {
             OutputFormat = OutputFormat.List,
         });
@@ -396,17 +393,11 @@ public sealed class ReviewMetaContractTests
         }
     }
 
-    // JsonSchema.Net registers each schema's $id globally and refuses a second registration, so
-    // one parsed schema per file serves every validation.
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonSchema> LedgerSchemas =
-        new(StringComparer.Ordinal);
-
     private static void ValidateUsageLedgerLine(string line, string schemaFile)
     {
-        var schema = LedgerSchemas.GetOrAdd(schemaFile, file => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-            RepositoryTestContext.FindRepositoryRoot(), "schemas", file))));
         using var json = JsonDocument.Parse(line);
-        var validation = schema.Evaluate(json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        var validation = SchemaCatalogue.Get(schemaFile)
+            .Evaluate(json.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());
     }
 

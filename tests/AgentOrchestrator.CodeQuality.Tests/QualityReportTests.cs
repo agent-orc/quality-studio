@@ -238,50 +238,17 @@ public sealed class QualityReportTests
         private async Task WriteSidecarAsync()
         {
             const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-            var metadata = new JsonObject
-            {
-                ["unit"] = new JsonObject
-                {
-                    ["id"] = unitId,
-                    ["level"] = "file",
-                    ["path"] = "src/App.cs",
-                },
-                ["reviewedAt"] = "2026-07-25T09:00:00.000Z",
-                ["kind"] = "code",
-                ["reviewedHash"] = new JsonObject { ["value"] = reviewedHash },
-                ["subjectInputs"] = new JsonArray(new JsonObject
-                {
-                    ["path"] = "src/App.cs",
-                    ["selector"] = "file",
-                    ["contentHash"] = contentHash,
-                }),
-                ["grade"] = new JsonObject
-                {
-                    ["score"] = score,
-                    ["band"] = QualityReportBuilder.Grade(score),
-                    ["rationale"] = "Fixture score.",
-                },
-                ["findings"] = new JsonArray(new JsonObject
-                {
-                    ["id"] = "finding-" + new string('b', 64),
-                    ["ruleId"] = "quality.test",
-                    ["fingerprint"] = Fingerprint,
-                    ["severity"] = "high",
-                    ["title"] = "Fixture finding",
-                    ["description"] = "A deterministic fixture finding.",
-                    ["recommendation"] = "Fix the fixture.",
-                    ["locations"] = new JsonArray(new JsonObject
-                    {
-                        ["path"] = "src/App.cs",
-                        ["range"] = new JsonObject
-                        {
-                            ["start"] = new JsonObject { ["line"] = 1, ["column"] = 1 },
-                            ["end"] = new JsonObject { ["line"] = 1, ["column"] = 10 },
-                        },
-                    }),
-                }),
-            };
-            await File.WriteAllTextAsync(sidecarPath, metadata.ToJsonString(),
+            await ReviewMetaFixture.WriteAsync(sidecarPath, ReviewMetaFixture.Document(
+                unitId,
+                "src/App.cs",
+                reviewedHash,
+                [new SubjectInputHash("src/App.cs", "file", contentHash)],
+                score: score,
+                rationale: "Fixture score.",
+                effectiveHash: ReviewMetaFixture.EffectiveHash(Root),
+                findings: [ReviewMetaFixture.Finding(
+                    Fingerprint,
+                    range: new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 10)))]),
                 TestContext.Current.CancellationToken);
         }
 
