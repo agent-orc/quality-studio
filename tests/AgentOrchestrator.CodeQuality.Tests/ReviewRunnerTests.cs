@@ -979,6 +979,9 @@ public sealed class ReviewRunnerTests
     }
 }
 
+// The release canary selects this class with `--filter "Category=ExternalLive"`; without the
+// trait the filter matched nothing and the live review check never ran.
+[Trait("Category", "ExternalLive")]
 public sealed class LiveReviewIntegrationTests
 {
     [Fact]
