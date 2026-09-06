@@ -107,6 +107,36 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
     }
 
+    // The whole-picture pass: a module node plans one operation per member plus the aggregate,
+    // and the aggregate prompt is the module template over the member digest.
+    [Fact]
+    public async Task Module_node_plans_an_aggregate_operation_and_can_be_queued()
+    {
+        using var client = application!.CreateClient();
+        using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.csproj", kind = "code", cliType = "codex",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
+        var preflight = await estimate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("module", preflight.GetProperty("level").GetString());
+        Assert.Equal(1, preflight.GetProperty("estimate").GetProperty("files").GetInt32());
+        Assert.Equal(2, preflight.GetProperty("estimate").GetProperty("operations").GetInt32());
+        Assert.True(preflight.GetProperty("estimate").GetProperty("promptCharacters").GetInt64() > 0);
+
+        using var review = await client.PostAsJsonAsync("/api/review", new
+        {
+            path = "Sample.csproj", kind = "code", cliType = "adapter-that-does-not-exist",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Accepted, review.StatusCode);
+        var accepted = await review.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("module", accepted.GetProperty("level").GetString());
+        Assert.Equal("Sample.csproj", accepted.GetProperty("path").GetString());
+        Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
+    }
+
     // claude-opus-5 is priced but still unsupported by the routing policy, so the operator's
     // Claude-first attempt is refused. It must be refused as a model problem: the blanket
     // ArgumentException mapping used to report "Invalid repository path" for a perfectly valid path.

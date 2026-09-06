@@ -86,7 +86,8 @@ public static partial class AggregateSubjectDigest
 
         var remaining = Math.Max(Share(budget, MinimumOutlinePercent), budget - builder.Length);
         AppendSource(builder, members, remaining);
-        return new AggregateDigest(builder.ToString(), fingerprints);
+        // AppendLine writes the host's line separator; the digest must read the same on every host.
+        return new AggregateDigest(NormalizeLineEndings(builder.ToString()), fingerprints);
     }
 
     private static int Share(int budget, int percent) => Math.Max(500, budget * percent / 100);
