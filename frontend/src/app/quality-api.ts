@@ -451,8 +451,8 @@ export class QualityApi {
   readonly quotas = signal<QuotaReport>({ at: '', ttlSeconds: 0, providers: [] });
   readonly reviewError = signal('');
   readonly focusedThreadId = signal<string | null>(null);
-  private readonly treeSnapshots = new Map<string, TreeNode[]>();
-  private readonly projectSnapshots = new Map<string, ProjectDashboard>();
+  private readonly treeSnapshots = new Map<string, [TreeNode[], string | null]>();
+  private readonly projectSnapshots = new Map<string, [ProjectDashboard, string | null]>();
   private repositorySelectionSequence = 0;
   private reviewPollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -483,8 +483,8 @@ export class QualityApi {
     this.connectionState.set('connecting');
     this.file.set(null);
     this.attackCoverage.set(null);
-    const treeSnapshot = this.treeSnapshots.get(id);
-    const projectSnapshot = this.projectSnapshots.get(id);
+    const treeSnapshot = this.treeSnapshots.get(`${id}\0`)?.[0];
+    const projectSnapshot = this.projectSnapshots.get(id)?.[0];
     this.tree.set(treeSnapshot ?? []);
     this.project.set(projectSnapshot ?? null);
     this.repositoryTransition.set({ repositoryId: id, hasSnapshot: projectSnapshot !== undefined });
@@ -529,17 +529,22 @@ export class QualityApi {
     return result;
   }
 
-  async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true): Promise<void> {
+  async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true, path = ''): Promise<void> {
     const base = this.repositoryApiBase(repositoryId);
+    const snapshotKey = `${repositoryId}\0${path}`;
+    const retained = this.treeSnapshots.get(snapshotKey);
     const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
     try {
-      const tree = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(`${base}/tree?path=`));
-      this.treeSnapshots.set(repositoryId, tree.nodes);
+      const response = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(
+        `${base}/tree?path=${encodeURIComponent(path)}`,
+        { observe: 'response', headers: retained?.[1] ? { 'If-None-Match': retained[1] } : undefined }));
+      const nodes = response.body!.nodes;
+      this.treeSnapshots.set(snapshotKey, [nodes, response.headers.get('ETag')]);
       if (repositoryId !== this.selectedRepositoryId()) return;
-      this.tree.set(tree.nodes); this.connectionState.set('live');
-      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: tree.nodes.length, source: 'api' }));
+      this.tree.set(nodes); this.connectionState.set('live');
+      console.info(JSON.stringify({ event: 'qs.data.tree-loaded', nodeCount: nodes.length, source: 'api' }));
     } catch (error) {
-      if (repositoryId === this.selectedRepositoryId()) {
+      if (!this.reuseSnapshot(error, repositoryId, retained) && repositoryId === this.selectedRepositoryId()) {
         this.connectionState.set('preview');
         console.warn(JSON.stringify({ event: 'qs.data.demo-fallback', reason: error instanceof Error ? error.message : 'API unavailable' }));
       }
@@ -764,9 +769,13 @@ export class QualityApi {
       this.projectError.set('');
     }
     const start = performance.now();
+    const retained = this.projectSnapshots.get(repositoryId);
     try {
-      const project = await firstValueFrom(this.http.get<ProjectDashboard>(`${this.repositoryApiBase(repositoryId)}/project`));
-      this.projectSnapshots.set(repositoryId, project);
+      const response = await firstValueFrom(this.http.get<ProjectDashboard>(
+        `${this.repositoryApiBase(repositoryId)}/project`,
+        { observe: 'response', headers: retained?.[1] ? { 'If-None-Match': retained[1] } : undefined }));
+      const project = response.body!;
+      this.projectSnapshots.set(repositoryId, [project, response.headers.get('ETag')]);
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.project.set(project);
       requestAnimationFrame(() => {
@@ -776,8 +785,8 @@ export class QualityApi {
         console.info(JSON.stringify({ event: 'qs.project.first-interactive', repositoryId, durationMs: +duration.toFixed(2), budgetMs: 150, withinBudget: duration < 150 }));
       });
     } catch (error) {
-      if (repositoryId === this.selectedRepositoryId()) {
-        if (!this.projectSnapshots.has(repositoryId)) this.project.set(null);
+      if (!this.reuseSnapshot(error, repositoryId, retained) && repositoryId === this.selectedRepositoryId()) {
+        if (!retained) this.project.set(null);
         this.projectError.set(this.errorMessage(error));
         console.warn(JSON.stringify({ event: 'qs.project.unavailable', repositoryId, reason: this.errorMessage(error) }));
       }
@@ -904,5 +913,14 @@ export class QualityApi {
 
   private repositoryApiBase(repositoryId = this.selectedRepositoryId()): string {
     return this.legacyApi ? '/api' : `/api/repos/${encodeURIComponent(repositoryId)}`;
+  }
+
+  private reuseSnapshot(error: unknown, repositoryId: string, retained: unknown): boolean {
+    if (!retained || !(error instanceof HttpErrorResponse) || error.status !== 304) return false;
+    if (repositoryId === this.selectedRepositoryId()) {
+      this.connectionState.set('live');
+      if (this.repositoryTransition()?.repositoryId === repositoryId) this.repositoryTransition.set(null);
+    }
+    return true;
   }
 }

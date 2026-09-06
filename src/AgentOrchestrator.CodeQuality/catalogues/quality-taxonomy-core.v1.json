@@ -1,0 +1,266 @@
+{
+  "$schema": "https://quality.studio/schemas/quality-taxonomy.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "quality-studio/core",
+  "version": "1.0.0",
+  "title": "Quality Studio core term catalogue",
+  "description": "The shared semantic kernel every quality observation refers to. Aliases listed here are same-axis spelling variants that resolve without knowing the source contract; cross-contract projections of legacy vocabularies are adapters and live outside this catalogue.",
+  "axes": [
+    {
+      "id": "producerKind",
+      "description": "Who produced a record. Always explicit; absence never means agent.",
+      "terms": [
+        { "id": "agent", "description": "A language-model agent run produced the record." },
+        {
+          "id": "deterministic-sensor",
+          "description": "A deterministic tool or analyzer produced the record.",
+          "aliases": ["deterministicSensor", "deterministic"]
+        },
+        { "id": "human", "description": "A person authored the record." },
+        { "id": "imported", "description": "The record was imported from an external system without a native producer." },
+        { "id": "unknown", "description": "The producer could not be established from evidence and was not assumed." }
+      ]
+    },
+    {
+      "id": "evidenceStatus",
+      "description": "How complete the evidence behind a record is. This describes coverage only; it is never a pass or a block.",
+      "terms": [
+        { "id": "available", "description": "The evidence the profile expects was collected." },
+        { "id": "partial", "description": "Some expected evidence was collected and some was not." },
+        { "id": "unavailable", "description": "No expected evidence could be collected." }
+      ]
+    },
+    {
+      "id": "assessment",
+      "description": "What the evidence establishes for a review or one of its aspects.",
+      "terms": [
+        { "id": "pass", "description": "The evidence establishes conformance for the assessed scope." },
+        { "id": "concern", "description": "The evidence establishes a weakness that does not by itself establish non-conformance." },
+        { "id": "fail", "description": "The evidence establishes non-conformance for the assessed scope." },
+        {
+          "id": "inconclusive",
+          "description": "The scope was assessed but the evidence does not establish an outcome.",
+          "aliases": ["undetermined"]
+        },
+        {
+          "id": "not-applicable",
+          "description": "The scope does not apply to this subject.",
+          "aliases": ["notApplicable"]
+        },
+        {
+          "id": "not-assessed",
+          "description": "The scope was not assessed by this producer.",
+          "aliases": ["notAssessed", "not-yet-checked", "notYetChecked"]
+        }
+      ]
+    },
+    {
+      "id": "change",
+      "description": "The direction of a before/after comparison. Used only for comparisons, never for a single-point assessment.",
+      "terms": [
+        { "id": "improved", "description": "The compared quality evidence is better after the change." },
+        { "id": "regressed", "description": "The compared quality evidence is worse after the change." },
+        { "id": "mixed", "description": "The comparison contains both improvement and regression." },
+        { "id": "unchanged", "description": "The compared quality evidence is equivalent before and after the change." },
+        {
+          "id": "no-observed-delta",
+          "description": "The change did not touch anything the comparison observes.",
+          "aliases": ["noObservedDelta"]
+        },
+        { "id": "inconclusive", "description": "A comparison was attempted but the evidence does not establish a direction." }
+      ]
+    },
+    {
+      "id": "decision",
+      "description": "A policy disposition. It requires a policyRef and is never supplied by a raw finding or inferred from an assessment.",
+      "terms": [
+        { "id": "allow", "description": "The policy permits the subject to proceed." },
+        { "id": "warn", "description": "The policy permits the subject to proceed and requires the warning to be surfaced." },
+        { "id": "block", "description": "The policy refuses the subject." },
+        { "id": "defer", "description": "The policy declines to decide and names who or what decides next." }
+      ]
+    },
+    {
+      "id": "severity",
+      "description": "How damaging one finding is. Ordering is meaningful; scoring weights stay in policy.",
+      "ordered": true,
+      "terms": [
+        { "id": "critical", "description": "Exploitable or breaking now, with no compensating control." },
+        { "id": "high", "description": "A defect with a direct and likely path to damage." },
+        { "id": "medium", "description": "A defect that needs a further condition to cause damage." },
+        { "id": "low", "description": "A defect with limited reach or an available compensating control." },
+        { "id": "info", "description": "An observation recorded without a damage claim." }
+      ]
+    },
+    {
+      "id": "lifecycle",
+      "description": "The human disposition of a cross-observation issue. It lives in lifecycle events, never in an observation.",
+      "terms": [
+        { "id": "open", "description": "The issue is unresolved and not dispositioned." },
+        {
+          "id": "accepted-risk",
+          "description": "The issue is real and its risk was explicitly accepted.",
+          "aliases": ["accepted", "acceptedRisk"]
+        },
+        { "id": "waived", "description": "The issue is out of scope for this subject by explicit decision." },
+        {
+          "id": "false-positive",
+          "description": "The issue was judged not to exist in the assessed subject.",
+          "aliases": ["falsePositive"]
+        },
+        { "id": "resolved", "description": "The issue was fixed and the fix is backed by a resolution basis." }
+      ]
+    },
+    {
+      "id": "evidenceKind",
+      "description": "What kind of artefact one evidence item points at.",
+      "terms": [
+        { "id": "source-code", "description": "A location in reviewed source.", "aliases": ["sourceCode"] },
+        { "id": "test-result", "description": "The outcome of an executed test.", "aliases": ["testResult"] },
+        { "id": "runtime-measurement", "description": "A measured runtime value.", "aliases": ["runtimeMeasurement"] },
+        { "id": "tool-result", "description": "Structured output of a deterministic tool.", "aliases": ["toolResult"] },
+        { "id": "artifact", "description": "A stored build or run artefact." },
+        { "id": "document", "description": "A specification, standard, or other prose source." },
+        { "id": "human-attestation", "description": "A person's recorded statement.", "aliases": ["humanAttestation"] }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "id": "observation",
+      "description": "One producer's immutable result for one exact subject and input set.",
+      "axes": ["assessment", "evidenceStatus"]
+    },
+    {
+      "id": "observationAspect",
+      "description": "One aspect judgement inside an observation.",
+      "axes": ["assessment"]
+    },
+    {
+      "id": "observationFinding",
+      "description": "One evidenced defect inside an observation.",
+      "axes": ["severity"]
+    },
+    {
+      "id": "producer",
+      "description": "The identity block of whoever produced the record.",
+      "axes": ["producerKind"]
+    },
+    {
+      "id": "evidenceItem",
+      "description": "One typed reference to the material a judgement rests on.",
+      "axes": ["evidenceKind"]
+    },
+    {
+      "id": "policyOutcome",
+      "description": "A versioned policy's disposition over an observation.",
+      "axes": ["decision"]
+    },
+    {
+      "id": "changeObservation",
+      "description": "A before/after comparison of two subjects.",
+      "axes": ["change", "assessment", "evidenceStatus"]
+    },
+    {
+      "id": "lifecycleEvent",
+      "description": "One append-only disposition event for a cross-observation issue.",
+      "axes": ["lifecycle"]
+    }
+  ],
+  "aspects": [
+    {
+      "id": "code.correctness",
+      "family": "code",
+      "description": "Whether the code does what it is specified to do.",
+      "aliases": ["correctness"]
+    },
+    {
+      "id": "code.architecture",
+      "family": "code",
+      "description": "Whether the structure of the unit matches the intended architecture.",
+      "aliases": ["architecture"]
+    },
+    {
+      "id": "security.general",
+      "family": "security",
+      "description": "Security weaknesses that no more specific security aspect covers.",
+      "aliases": ["security"]
+    },
+    {
+      "id": "security.secrets",
+      "family": "security",
+      "description": "Credentials or other secret material exposed in the subject.",
+      "aliases": ["secrets"]
+    },
+    {
+      "id": "security.dependencies",
+      "family": "security",
+      "description": "Risk carried by third-party dependencies.",
+      "aliases": ["dependencies"]
+    },
+    {
+      "id": "security.authentication-authorization",
+      "family": "security",
+      "description": "Whether callers are identified and their actions authorized.",
+      "aliases": ["authentication-authorization"]
+    },
+    {
+      "id": "security.input-validation",
+      "family": "security",
+      "description": "Whether untrusted input is validated before it is trusted.",
+      "aliases": ["input-validation"]
+    },
+    {
+      "id": "security.configuration-iac",
+      "family": "security",
+      "description": "Security of configuration and infrastructure definitions.",
+      "aliases": ["configuration-iac"]
+    },
+    {
+      "id": "security.boundary-exposure",
+      "family": "security",
+      "description": "What the subject exposes across a trust boundary.",
+      "aliases": ["boundaries"]
+    },
+    {
+      "id": "security.business-logic",
+      "family": "security",
+      "description": "Business rules that a caller can bypass or abuse without breaking a technical control."
+    },
+    {
+      "id": "security.attack-coverage",
+      "family": "security",
+      "description": "Whether catalogued attacks against a boundary were assessed."
+    },
+    {
+      "id": "performance.general",
+      "family": "performance",
+      "description": "Runtime cost and responsiveness of the subject.",
+      "aliases": ["performance"]
+    },
+    {
+      "id": "change.risk",
+      "family": "change",
+      "description": "Risk the change introduces relative to its stated intent.",
+      "aliases": ["risk"]
+    },
+    {
+      "id": "change.test-evidence",
+      "family": "change",
+      "description": "Whether the change is backed by test evidence.",
+      "aliases": ["test-evidence"]
+    },
+    {
+      "id": "change.scope-discipline",
+      "family": "change",
+      "description": "Whether the change stays inside its stated scope.",
+      "aliases": ["scope-discipline"]
+    },
+    {
+      "id": "change.architecture-drift",
+      "family": "change",
+      "description": "Whether the change moves the codebase away from the intended architecture.",
+      "aliases": ["architecture-drift"]
+    }
+  ]
+}

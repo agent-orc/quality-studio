@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -77,6 +80,8 @@ public sealed class DeterministicEvidenceCollector(SensorRegistry registry)
 
 public static class DeterministicEvidenceProjection
 {
+    public const int MaximumPromptCharacters = 2000;
+
     public static IReadOnlyList<SensorScanResult> ForSubjects(
         IReadOnlyList<SensorScanResult>? evidence,
         IReadOnlyList<string> subjectPaths)
@@ -99,8 +104,77 @@ public static class DeterministicEvidenceProjection
             .ToArray();
     }
 
-    public static string ToPromptJson(IReadOnlyList<SensorScanResult> evidence) =>
-        JsonSerializer.Serialize(evidence, ReviewMetaJson.Options);
+    public static string ToPromptJson(IReadOnlyList<SensorScanResult> evidence)
+    {
+        var projection = new JsonArray();
+        foreach (var result in evidence
+                     .Where(candidate => candidate.Findings.Count > 0)
+                     .OrderBy(candidate => candidate.Provenance.SensorId, StringComparer.Ordinal))
+        {
+            var findings = new JsonArray();
+            var projectedResult = new JsonObject
+            {
+                ["sensorId"] = result.Provenance.SensorId,
+                ["resultHash"] = ResultHash(result),
+                ["findings"] = findings,
+            };
+            projection.Add(projectedResult);
+            var ordered = result.Findings
+                .OrderBy(finding => finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
+                    StringComparer.Ordinal)
+                .ThenBy(finding => finding.Locations.FirstOrDefault()?.Range?.Start.Line ?? 0)
+                .ThenBy(finding => finding.RuleId, StringComparer.Ordinal)
+                .ToArray();
+            var omitted = 0;
+            foreach (var finding in ordered)
+            {
+                var location = finding.Locations.FirstOrDefault();
+                findings.Add(new JsonObject
+                {
+                    ["ruleId"] = finding.RuleId,
+                    ["severity"] = finding.Severity.ToString().ToLowerInvariant(),
+                    ["path"] = location?.Path,
+                    ["range"] = location?.Range is null
+                        ? null
+                        : JsonSerializer.SerializeToNode(location.Range, ReviewMetaJson.Options),
+                });
+                if (PromptJson(projection).Length <= MaximumPromptCharacters) continue;
+                findings.RemoveAt(findings.Count - 1);
+                omitted++;
+            }
+            if (omitted > 0)
+            {
+                projectedResult["omittedFindings"] = omitted;
+                while (PromptJson(projection).Length > MaximumPromptCharacters && findings.Count > 0)
+                {
+                    findings.RemoveAt(findings.Count - 1);
+                    omitted++;
+                    projectedResult["omittedFindings"] = omitted;
+                }
+            }
+            if (PromptJson(projection).Length <= MaximumPromptCharacters) continue;
+
+            projection.RemoveAt(projection.Count - 1);
+            break;
+        }
+
+        return PromptJson(projection);
+    }
+
+    private static string ResultHash(SensorScanResult result)
+    {
+        var canonical = string.Join('\0', new[]
+        {
+            result.Provenance.SensorId,
+            result.Provenance.SensorVersion,
+        }.Concat(result.Findings
+            .Select(finding => finding.Fingerprint)
+            .OrderBy(fingerprint => fingerprint, StringComparer.Ordinal)));
+        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+
+    private static string PromptJson(JsonArray projection) =>
+        projection.ToJsonString(ReviewMetaJson.Options);
 
     internal static string NormalizePath(string path)
     {
