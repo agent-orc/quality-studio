@@ -144,7 +144,9 @@ public sealed class StalenessEvaluator
         var inputs = inputResolver.Resolve(root, metadata.Kind, metadata.Level,
             options.GlobalInputsDirectory, options.InputBudgetCharacters,
             RuleCatalogueResolver.AdapterFromUnitId(metadata.UnitId));
-        var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Kind));
+        // The writer hashes the template of the reviewed level; module and project sidecars would
+        // otherwise read as policy drift forever against the file template.
+        var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Level, metadata.Kind));
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh
             : StalenessState.PolicyDrift;
