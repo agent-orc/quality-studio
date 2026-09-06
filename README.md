@@ -191,6 +191,15 @@ from its findings and grade. Configuration and unavailable behavior are document
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.
 
+## Rule library
+
+Named, versioned coding-standard rules for code, security, and performance reviews ship with the
+product. They are authored as Markdown in [`rules/`](rules/README.md), generated into an embedded
+JSON catalogue by `npm run rules:sync`, and resolved into every review that matches their kind and
+technology — no per-repository install step. A repository disables or re-weights individual rules
+in `.quality/rules/overrides.json`, and `GET /api/rules` returns the resolved catalogue with a
+trace per rule.
+
 ## Review usage telemetry
 
 Agent-backed reviews persist their model, CLI, token counts, duration, and run
@@ -239,6 +248,7 @@ criteria.
 ## Repository layout
 
 - `src/AgentOrchestrator.CodeQuality/` contains the publishable in-process analysis package.
+- [`rules/`](rules/README.md) holds the authored named-rule library and its change history.
 - `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
 - [`docs/operations/style-guide/`](docs/operations/style-guide/index.html) is the living visual standard for Quality Studio controls and applied admin surfaces.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.

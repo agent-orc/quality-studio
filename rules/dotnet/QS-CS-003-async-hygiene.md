@@ -1,8 +1,9 @@
 ---
 id: QS-CS-003
-version: 1.0.0
+version: 1.1.0
 title: Propagate CancellationToken; never write async void
 technology: dotnet
+kinds: [code]
 category: async-hygiene
 severity: high
 defaultOn: true
@@ -28,6 +29,10 @@ surfacing them on the returned task, and sync-over-async blocking can deadlock a
 under load — both defeat the cancellation and error-propagation guarantees the rest of the
 codebase already relies on.
 
+## Detection
+
+Search for `async void`, `.Result`, `.Wait()`, `GetAwaiter().GetResult()`, and for awaited calls that have a `CancellationToken` overload but are called without one while a token is in scope. Also flag an `async` method doing I/O whose signature takes no `CancellationToken`.
+
 ## Good example
 
 ```csharp
@@ -51,5 +56,6 @@ public async void Refresh() // async void: exceptions never surface to the calle
 
 ## Change history
 
+- 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `CancellationToken`-propagating signatures of
   `GuidelineImpactAnalyzer.AnalyzeAsync` and `ReviewRunner`'s async methods.
