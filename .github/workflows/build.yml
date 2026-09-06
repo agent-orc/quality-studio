@@ -31,6 +31,9 @@ jobs:
       - name: Verify Token Economy model catalog snapshot
         run: npm run catalog:check
 
+      - name: Test coverage report validator
+        run: python3 .github/scripts/test_validate_coverage.py
+
       - name: Restore
         run: dotnet restore QualityStudio.slnx
 
@@ -43,6 +46,30 @@ jobs:
           --configuration Release
           --no-build
           --filter "Category!=MachineBound"
+          --collect:"XPlat Code Coverage"
+          --
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Validate .NET coverage reports
+        run: >-
+          python3 .github/scripts/validate_coverage.py
+          --format cobertura
+          --report "tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml"
+          --report "tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml"
+
+      - name: Upload AgentOrchestrator.CodeQuality coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-coverage-agent-orchestrator-code-quality
+          path: tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: error
+
+      - name: Upload QualityStudio.Api coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-coverage-quality-studio-api
+          path: tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: error
 
       - name: Pack analysis core
         run: >-
@@ -91,9 +118,22 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Frontend unit tests
+      - name: Frontend unit tests with coverage
         working-directory: frontend
-        run: npm test
+        run: npm run test:coverage
+
+      - name: Validate Angular coverage report
+        run: >-
+          python3 .github/scripts/validate_coverage.py
+          --format lcov
+          --report "frontend/coverage/lcov.info"
+
+      - name: Upload Angular coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-coverage
+          path: frontend/coverage/lcov.info
+          if-no-files-found: error
 
       - name: Frontend production dependency audit
         working-directory: frontend

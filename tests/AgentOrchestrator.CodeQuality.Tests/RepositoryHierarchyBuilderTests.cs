@@ -31,7 +31,8 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
         Assert.Equal("Greeter.cs", file.Name);
         Assert.Equal(new FileInfo(Path.Combine(root, "src", "Demo", "Greeter.cs")).Length, file.SizeBytes);
         Assert.Equal(4, file.LineCount);
-        Assert.Equal("SayHello", function.Name);
+        // Function display names carry their parameter list so overloads stay distinguishable.
+        Assert.Equal("SayHello()", function.Name);
         Assert.StartsWith("qs-v1/dotnet/function/", function.Id, StringComparison.Ordinal);
 
         var selected = Assert.Single(RepositoryHierarchyBuilder.Build(root));
@@ -260,7 +261,10 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
         Assert.DoesNotContain("src/Demo/bin/Output.cs", files);
         Assert.DoesNotContain("src/Demo/AutoExcluded.cs", files);
         Assert.Contains(module.Exclusions, item => item.Path == "src/Demo/Keep.cs" && item.Reason == "Fixture excluded by repository policy");
-        Assert.Contains(module.Exclusions, item => item.Path == "src/Demo/bin/Output.cs" && item.Reason == "Compiler build output");
+        // Build output is not an MSBuild compile item at all, so it is never a scope candidate and
+        // never reaches the exclusion list; keeping it out also keeps the aggregate digest free of
+        // machine-local obj/bin paths.
+        Assert.DoesNotContain(module.Exclusions, item => item.Path == "src/Demo/bin/Output.cs");
         Assert.Contains(module.Exclusions, item => item.Path == "src/Demo/AutoExcluded.cs" && item.Reason == "Generated source");
     }
 

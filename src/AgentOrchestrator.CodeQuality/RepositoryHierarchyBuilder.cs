@@ -1,8 +1,5 @@
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -18,6 +15,11 @@ public static partial class RepositoryHierarchyBuilder
         AttributesToSkip = FileAttributes.ReparsePoint,
     };
 
+    /// <summary>
+    /// Derives the .NET hierarchy. Solutions and project files are parsed structurally and C#
+    /// sources are parsed with the Roslyn C# parser; see <c>docs/hierarchy-derivation.md</c> for
+    /// what this derivation guarantees and where it stops.
+    /// </summary>
     public static IReadOnlyList<HierarchyNode> BuildDotNet(string repositoryPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
@@ -29,17 +31,29 @@ public static partial class RepositoryHierarchyBuilder
             .Order(StringComparer.Ordinal)
             .ToArray();
 
+        // Every project in the repository takes part in the nearest-project-ancestor rule, even one
+        // that no solution references; otherwise an outer project would swallow its sources.
+        var repositoryProjects = DotNetProjectItems.DiscoverProjectFiles(root);
         if (solutions.Length == 0)
         {
-            return [BuildProject(root, scope, null, FindProjectFiles(root))];
+            return [BuildProject(root, scope, null, repositoryProjects, repositoryProjects)];
         }
 
-        return solutions.Select(solution =>
-                BuildProject(root, scope, solution, FindSolutionProjects(root, solution)))
+        return solutions.Select(solution => BuildProject(
+                root,
+                scope,
+                solution,
+                DotNetProjectItems.ReadSolutionProjects(solution).Where(path => IsContained(root, path)).ToArray(),
+                repositoryProjects))
             .ToArray();
     }
 
-    private static HierarchyNode BuildProject(string root, RepositoryScope scope, string? solution, IEnumerable<string> projects)
+    private static HierarchyNode BuildProject(
+        string root,
+        RepositoryScope scope,
+        string? solution,
+        IEnumerable<string> projects,
+        IReadOnlyCollection<string> repositoryProjects)
     {
         var projectPath = solution is null ? "." : Relative(root, solution);
         var projectTuple = solution is null
@@ -66,7 +80,7 @@ public static partial class RepositoryHierarchyBuilder
                 continue;
             }
 
-            var module = BuildModule(root, scope, project, projectFile);
+            var module = BuildModule(root, scope, project, projectFile, repositoryProjects);
             project.AddChild(module);
             project.AddExclusions(module.Exclusions);
         }
@@ -74,7 +88,12 @@ public static partial class RepositoryHierarchyBuilder
         return project;
     }
 
-    private static HierarchyNode BuildModule(string root, RepositoryScope scope, HierarchyNode project, string projectFile)
+    private static HierarchyNode BuildModule(
+        string root,
+        RepositoryScope scope,
+        HierarchyNode project,
+        string projectFile,
+        IReadOnlyCollection<string> repositoryProjects)
     {
         var relativeProject = Relative(root, projectFile);
         var module = new HierarchyNode(
@@ -82,92 +101,75 @@ public static partial class RepositoryHierarchyBuilder
             Path.GetFileNameWithoutExtension(projectFile),
             ReviewLevel.Module,
             relativeProject);
-        var projectDirectory = Path.GetDirectoryName(projectFile)!;
-        var candidates = Directory.EnumerateFiles(projectDirectory, "*.cs", ConfinedEnumeration)
-            .Order(StringComparer.Ordinal)
-            .Select(path => (Path: path, Relative: Relative(root, path), Decision: scope.Evaluate(Relative(root, path), path)))
+        var candidates = DotNetProjectItems.ResolveCompileItems(root, projectFile, repositoryProjects)
+            .Where(path => IsContained(root, path))
+            .Select(path => (Path: path, Relative: Relative(root, path)))
+            .OrderBy(candidate => candidate.Relative, StringComparer.Ordinal)
+            .Select(candidate => (
+                candidate.Path,
+                candidate.Relative,
+                Decision: scope.Evaluate(candidate.Relative, candidate.Path)))
             .ToArray();
         foreach (var candidate in candidates.Where(candidate => !candidate.Decision.Included))
         {
             module.AddExclusion(new ScopeExclusion(candidate.Relative, candidate.Decision.Reason!));
         }
-        var files = candidates.Where(candidate => candidate.Decision.Included).Select(candidate => candidate.Path);
 
-        foreach (var group in files.GroupBy(ReadNamespace).OrderBy(group => group.Key, StringComparer.Ordinal))
+        var sources = candidates.Where(candidate => candidate.Decision.Included)
+            .Select(candidate => BuildSourceFile(module, candidate.Path, candidate.Relative))
+            .ToArray();
+
+        foreach (var namespaceName in sources.SelectMany(source => source.Namespaces)
+                     .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             var ns = new HierarchyNode(
-                Id(ReviewLevel.Namespace, [module.Id, group.Key]),
-                group.Key,
+                Id(ReviewLevel.Namespace, [module.Id, namespaceName]),
+                namespaceName,
                 ReviewLevel.Namespace,
-                $"{relativeProject}/.namespaces/{Uri.EscapeDataString(group.Key)}");
+                $"{relativeProject}/.namespaces/{Uri.EscapeDataString(namespaceName)}");
             module.AddChild(ns);
 
-            foreach (var sourcePath in group)
+            // A source contributing to several namespaces is aliased below each of them; the
+            // contract keeps one canonical File unit, so the same node instance is reused.
+            foreach (var source in sources.Where(source =>
+                         source.Namespaces.Contains(namespaceName, StringComparer.Ordinal)))
             {
-                var relativeSource = Relative(root, sourcePath);
-                var sourceContent = File.ReadAllText(sourcePath);
-                var file = new HierarchyNode(
-                    Id(ReviewLevel.File, [module.Id, relativeSource]),
-                    Path.GetFileName(sourcePath),
-                    ReviewLevel.File,
-                    relativeSource,
-                    new FileInfo(sourcePath).Length,
-                    sourceContent.Length == 0 ? 0 : sourceContent.Count(character => character == '\n') + 1);
-                ns.AddChild(file);
-
-                var symbols = new HashSet<string>(StringComparer.Ordinal);
-                foreach (Match match in FunctionRegex().Matches(sourceContent))
-                {
-                    var symbol = $"{group.Key}.{match.Groups[1].Value}";
-                    if (!symbols.Add(symbol))
-                    {
-                        continue;
-                    }
-
-                    file.AddChild(new HierarchyNode(
-                        Id(ReviewLevel.Function, [file.Id, "csharp-source-key-v1", symbol]),
-                        match.Groups[1].Value,
-                        ReviewLevel.Function,
-                        relativeSource));
-                }
+                ns.AddChild(source.Node);
             }
         }
 
         return module;
     }
 
-    private static IEnumerable<string> FindSolutionProjects(string root, string solution)
+    private static DerivedSource BuildSourceFile(HierarchyNode module, string absolutePath, string relativePath)
     {
-        if (Path.GetExtension(solution).Equals(".slnx", StringComparison.OrdinalIgnoreCase))
+        var content = File.ReadAllText(absolutePath);
+        var units = CSharpSyntaxUnits.Parse(content);
+        var node = new HierarchyNode(
+            Id(ReviewLevel.File, [module.Id, relativePath]),
+            Path.GetFileName(absolutePath),
+            ReviewLevel.File,
+            relativePath,
+            new FileInfo(absolutePath).Length,
+            content.Length == 0 ? 0 : content.Count(character => character == '\n') + 1);
+
+        foreach (var function in units.Functions)
         {
-            return XDocument.Load(solution).Descendants("Project")
-                .Select(element => element.Attribute("Path")?.Value)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Select(path => Path.GetFullPath(path!, Path.GetDirectoryName(solution)!))
-                .Where(path => IsContained(root, path));
+            node.AddChild(new HierarchyNode(
+                Id(ReviewLevel.Function, [node.Id, CSharpSyntaxUnits.FunctionKey, function.DocumentationId]),
+                function.Name,
+                ReviewLevel.Function,
+                relativePath));
         }
 
-        return File.ReadLines(solution)
-            .Select(line => SlnProjectRegex().Match(line))
-            .Where(match => match.Success)
-            .Select(match => Path.GetFullPath(match.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar), Path.GetDirectoryName(solution)!))
-            .Where(path => IsContained(root, path));
+        return new DerivedSource(units.Namespaces, node);
     }
-
-    private static IEnumerable<string> FindProjectFiles(string root) =>
-        Directory.EnumerateFiles(root, "*.csproj", ConfinedEnumeration);
 
     private static bool IsBuildOutput(string basePath, string path)
     {
         var relative = Path.GetRelativePath(basePath, path);
         return relative.Split(Path.DirectorySeparatorChar)
             .Any(part => part is "bin" or "obj" or ".quality" or ".git");
-    }
-
-    private static string ReadNamespace(string path)
-    {
-        var match = NamespaceRegex().Match(File.ReadAllText(path));
-        return match.Success ? match.Groups[1].Value : "<global>";
     }
 
     private static string Relative(string root, string path) =>
@@ -197,12 +199,5 @@ public static partial class RepositoryHierarchyBuilder
         return $"qs-v1/dotnet/{level.ToString().ToLowerInvariant()}/{hash}";
     }
 
-    [GeneratedRegex(@"^Project\([^)]*\) = ""[^""]*"", ""([^""]+\.csproj)""", RegexOptions.Multiline)]
-    private static partial Regex SlnProjectRegex();
-
-    [GeneratedRegex(@"\bnamespace\s+([A-Za-z_][A-Za-z0-9_.]*)")]
-    private static partial Regex NamespaceRegex();
-
-    [GeneratedRegex(@"(?m)^\s*(?:public|private|protected|internal|static|virtual|override|abstract|async|sealed|new|extern|partial|unsafe|\s)+\s*[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([^;{}]*\)\s*(?:=>|\{)")]
-    private static partial Regex FunctionRegex();
+    private sealed record DerivedSource(IReadOnlyList<string> Namespaces, HierarchyNode Node);
 }

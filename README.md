@@ -34,6 +34,11 @@ Quality statements exist per level of a hierarchy and are never aggregated away:
 Project → Module → Namespace → File → Function
 ```
 
+The hierarchy is derived from workspace files and compiler structure, and every
+language needs its own strategy; see
+[`docs/hierarchy-derivation.md`](docs/hierarchy-derivation.md) for what each
+adapter derives and where it stops.
+
 A file review, a module review, and a project review are *different statements*.
 Sweeps run over a whole project per **review kind**: `code`, `security`, and
 `performance`. Security is a review workflow of its own inside the same package
