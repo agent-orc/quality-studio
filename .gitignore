@@ -25,3 +25,7 @@ TestResults/
 !/.quality/usage/
 !/.quality/usage/*.jsonl
 /.dev-stack.log
+
+# Python bytecode from the CI scripts
+__pycache__/
+*.pyc
