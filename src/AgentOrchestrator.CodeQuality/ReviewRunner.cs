@@ -66,6 +66,7 @@ public sealed class ReviewRunner
     private readonly StalenessEvaluator _stalenessEvaluator;
     private readonly SensorRegistry? _sensorRegistry;
     private readonly HierarchyUnitResolver _unitResolver;
+    private readonly ReviewExecutionPipeline _pipeline;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -85,6 +86,7 @@ public sealed class ReviewRunner
         _stalenessEvaluator = stalenessEvaluator ?? new StalenessEvaluator();
         _sensorRegistry = sensorRegistry;
         _unitResolver = unitResolver ?? HierarchyUnitResolver.Shared;
+        _pipeline = new ReviewExecutionPipeline(_agent);
     }
 
     public async Task<ReviewResult> ReviewAsync(ReviewRequest request, CancellationToken cancellationToken = default)
@@ -123,104 +125,107 @@ public sealed class ReviewRunner
         QualityStudioEventSource.Log.ReviewStarted(relativePath, request.Kind, _agent.AgentName);
         try
         {
-            ReviewAgentResult agentResult;
-            try
-            {
-                agentResult = await _agent.RunAsync(prompt, root, cancellationToken).ConfigureAwait(false);
-            }
-            catch (ReviewAgentRunCanceledException exception)
-            {
-                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
-                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
-                throw;
-            }
-            catch (ReviewAgentRunException exception)
-            {
-                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,
-                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);
-                throw;
-            }
+            ReviewUsageEntry usage = null!;
+            JsonObject response = null!;
+            return await _pipeline.ExecuteAsync(new ReviewExecution<ReviewExecutionResult>(
+                prompt,
+                root,
+                () => new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
+                async reported =>
+                {
+                    usage = CreateUsage(reported.RunId, reported.Usage, reported.EffectiveModel,
+                        startedAt, request, relativePath);
+                    await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
+                },
+                outcome =>
+                {
+                    response = _responseParser.Parse(outcome.Response);
+                    RequireArchitectureAspect(response, request);
+                },
+                async token =>
+                {
+                    var finalSubject = await PrepareSubjectAsync(
+                        root, relativePath, unitId, request, subjectPaths, files, token).ConfigureAwait(false);
+                    return initialSubject.Inputs.SequenceEqual(finalSubject.Inputs)
+                        ? null
+                        : "The review target changed while the agent was reviewing it; no metadata was written.";
+                },
+                async (outcome, token) =>
+                {
+                    var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, token).ConfigureAwait(false);
+                    if (request.Kind == "security")
+                    {
+                        SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
+                    }
+                    var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+                    if (request.Kind == "security")
+                    {
+                        findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
+                    }
 
-            var usage = CreateUsage(agentResult.RunId,
-                agentResult.Usage ?? new TokenUsage(null, null, null, null, stopwatch.ElapsedMilliseconds),
-                agentResult.EffectiveModel, startedAt, request, relativePath);
-            await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
-            var response = _responseParser.Parse(agentResult.Response);
-            if (request.Level == ReviewLevel.Project &&
-                string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
-                request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
-                !response["aspects"]!.AsArray().OfType<JsonObject>().Any(aspect =>
-                    string.Equals(aspect["id"]?.GetValue<string>(), "architecture", StringComparison.Ordinal)))
-            {
-                throw new ReviewResponseException(
-                    "A project-level code review must include the required 'architecture' aspect.");
-            }
-            var finalSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
-            if (!initialSubject.Inputs.SequenceEqual(finalSubject.Inputs))
-            {
-                throw new ReviewRunException("The review target changed while the agent was reviewing it; no metadata was written.");
-            }
-
-            var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, cancellationToken).ConfigureAwait(false);
-            if (request.Kind == "security")
-            {
-                SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
-            }
-            var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
-            if (request.Kind == "security")
-            {
-                findingIdentities.AddRange(SecurityReviewCombiner.AppendSensorFindings(response, sensorEvidence));
-            }
-
-            var adapter = AdapterFromUnitId(unitId);
-            ReviewObservationSnapshot observation;
-            var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
-            await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                var previousFindings = LoadFindingIdentities(metaPath);
-                var findingStates = await new FindingStateStore(root).MergeReviewAsync(
-                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);
-                threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
-                ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
-                ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
-                var meta = CreateMeta(
-                    response,
-                    relativePath,
-                    request.Kind,
-                    adapter,
-                    unitId,
-                    initialSubject.Inputs,
-                    initialSubject.Members,
-                    initialSubject.Exclusions,
-                    reviewedHash,
-                    agentResult.RunId,
-                    inputs,
-                    request.Level,
-                    request.DisplayName,
-                    usage,
-                    threads,
-                    sensorEvidence,
-                    deterministicEvidence,
-                    ResolveSourceRevision(root));
-                var metadataJson = ReviewMetaJson.Serialize(meta) + Environment.NewLine;
-                await AtomicFile.WriteAllTextAsync(metaPath, metadataJson, cancellationToken).ConfigureAwait(false);
-                observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);
-            }
-            finally
-            {
-                writeLock.Release();
-            }
-            QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, agentResult.RunId, stopwatch.ElapsedMilliseconds);
-            return new ReviewExecutionResult(
-                false,
-                new ReviewResult(metaPath, reviewedHash, agentResult.RunId, inputs, usage, observation),
-                observation);
+                    var adapter = AdapterFromUnitId(unitId);
+                    ReviewObservationSnapshot observation;
+                    var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
+                    await writeLock.WaitAsync(token).ConfigureAwait(false);
+                    try
+                    {
+                        var previousFindings = LoadFindingIdentities(metaPath);
+                        var findingStates = await new FindingStateStore(root).MergeReviewAsync(
+                            findingIdentities, previousFindings, _agent.AgentName, token).ConfigureAwait(false);
+                        threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
+                        ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
+                        ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
+                        var meta = CreateMeta(
+                            response,
+                            relativePath,
+                            request.Kind,
+                            adapter,
+                            unitId,
+                            initialSubject.Inputs,
+                            initialSubject.Members,
+                            initialSubject.Exclusions,
+                            reviewedHash,
+                            outcome.RunId,
+                            inputs,
+                            request.Level,
+                            request.DisplayName,
+                            usage,
+                            threads,
+                            sensorEvidence,
+                            deterministicEvidence,
+                            ResolveSourceRevision(root));
+                        var metadataJson = ReviewMetaJson.Serialize(meta) + Environment.NewLine;
+                        await AtomicFile.WriteAllTextAsync(metaPath, metadataJson, token).ConfigureAwait(false);
+                        observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);
+                    }
+                    finally
+                    {
+                        writeLock.Release();
+                    }
+                    QualityStudioEventSource.Log.ReviewCompleted(relativePath, request.Kind, outcome.RunId, stopwatch.ElapsedMilliseconds);
+                    return new ReviewExecutionResult(
+                        false,
+                        new ReviewResult(metaPath, reviewedHash, outcome.RunId, inputs, usage, observation),
+                        observation);
+                }), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
             QualityStudioEventSource.Log.ReviewFailed(relativePath, request.Kind, exception.GetType().Name, exception.Message);
             throw;
+        }
+    }
+
+    private static void RequireArchitectureAspect(JsonObject response, ReviewRequest request)
+    {
+        if (request.Level == ReviewLevel.Project &&
+            string.Equals(request.Kind, "code", StringComparison.Ordinal) &&
+            request.ProjectGuidelines?.Contains("id \"architecture\"", StringComparison.Ordinal) == true &&
+            !response["aspects"]!.AsArray().OfType<JsonObject>().Any(aspect =>
+                string.Equals(aspect["id"]?.GetValue<string>(), "architecture", StringComparison.Ordinal)))
+        {
+            throw new ReviewResponseException(
+                "A project-level code review must include the required 'architecture' aspect.");
         }
     }
 
