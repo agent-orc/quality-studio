@@ -11,6 +11,10 @@ dotnet run --project src/quality/quality.csproj --no-build -- scan <fixture>
 event=quality.scan.completed projects=1 modules=1 elapsedMs=165
 ```
 
+The `src/quality` tool used for that measurement was a superseded second CLI
+and was removed on 2026-09-06; the same hierarchy derivation now runs inside
+`dotnet run --project src/quality-cli -- scan <fixture>` and behind the API.
+
 The 165 ms result includes hierarchy derivation and review-meta discovery, but
 not fixture creation. A regression test independently asserts that all 5,000
 files are present and that hierarchy derivation completes within 5 seconds on
