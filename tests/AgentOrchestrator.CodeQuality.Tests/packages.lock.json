@@ -45,7 +45,7 @@
       "CodingAgentRunner": {
         "type": "Transitive",
         "resolved": "0.7.0",
-        "contentHash": "MNclpDimjtRjj4BXXMo6/Y4PE5YK/cUdP5tclxVZqL3ZXluxRnlnwUggCvSPoNoGXm8i6ZgKatVA0KKeMrfXPg==",
+        "contentHash": "nhbP51J5HjhRnd8wuJDKn+B1RqgQHTbSaiXXCGS4nGHjgf+9PaxElGp4q3qiMsAth9MasrzaMNGUO5oqSlaJog==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "9.0.0"
         }
