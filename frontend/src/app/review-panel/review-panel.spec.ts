@@ -278,4 +278,40 @@ describe('ReviewPanel session flow', () => {
     expect(baselineSelect.value).toBe('baseline');
     expect(candidateSelect.value).toBe('candidate');
   });
+
+  it('names the model, how it was chosen, and the running cost of each run', () => {
+    api.reviewRuns.set([{
+      id: 'matching', path: 'src/A.cs', kind: 'code', state: 'running', cliType: 'codex',
+      model: 'gpt-5.6-sol', modelSource: 'policy-default', thinkingLevel: 'high',
+      totalFiles: 4, completedFiles: 2, failedFiles: 0, skippedFiles: 0, usageOperations: 2,
+      usage: { inputTokens: 30_000, outputTokens: 5_000, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 4_000 },
+      tokenCap: 100_000, costCap: null, costSpent: 0.42, currency: 'EUR', priceStatus: 'priced', errors: [],
+    }] as unknown as typeof initialRuns);
+    component.runDrawerOpen.set(true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('gpt-5.6-sol');
+    expect(text).toContain('policy default');
+    expect(text).toContain('Tokens 35k tok / 100k tok');
+    expect(text).toContain('Cost 0.42 EUR');
+  });
+
+  it('states an unpriced run as unpriced with the reason', () => {
+    api.reviewRuns.set([{
+      id: 'matching', path: 'src/A.cs', kind: 'code', state: 'done', cliType: 'claude',
+      model: null, modelSource: 'runner-default', thinkingLevel: null,
+      totalFiles: 1, completedFiles: 1, failedFiles: 0, skippedFiles: 0, usageOperations: 1,
+      usage: { inputTokens: 10, outputTokens: 2, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 10 },
+      tokenCap: null, costCap: null, costSpent: null, currency: null, priceStatus: 'unknownModel', errors: [],
+    }] as unknown as typeof initialRuns);
+    component.runDrawerOpen.set(true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('runner default model');
+    expect(text).toContain('runner default');
+    expect(text).toContain('Cost unpriced (unknown model)');
+    expect(text).not.toContain('Cost 0.00');
+  });
 });

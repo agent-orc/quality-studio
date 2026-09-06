@@ -39,8 +39,13 @@ describe('UsageHistory', () => {
         kind: 'code',
         level: 'file',
         path: 'src/a.ts',
-        schemaVersion: 2,
+        schemaVersion: 3,
+        modelSource: 'policy-default',
+        cost: { total: 0.0125, currency: 'USD', status: 'priced' },
       }],
+      estimatedCost: 0.0125,
+      costCurrency: 'USD',
+      unpricedRuns: 1,
     } satisfies UsageReport);
     fixture.detectChanges();
   });
@@ -87,5 +92,39 @@ describe('UsageHistory', () => {
       cancelable: true,
     }));
     expect(document.activeElement).toBe(entry);
+  });
+
+  it('reports the ledger total cost with its currency and the unpriced remainder', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('0.0125 USD');
+    expect(element.textContent).toContain('1 operation(s) unpriced');
+  });
+
+  it('shows the per-entry cost and how the model was chosen', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.entry-cost')?.textContent).toContain('0.0125 USD');
+
+    (element.querySelector('.entry-summary') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(element.textContent).toContain('policy default');
+    expect(element.textContent).toContain('priced');
+  });
+
+  it('states an unpriced entry as unpriced instead of showing a number', () => {
+    const usage = api.usage();
+    api.usage.set({
+      ...usage,
+      estimatedCost: null,
+      costCurrency: null,
+      unpricedRuns: 2,
+      recent: [{ ...usage.recent[0], cost: { total: null, currency: null, status: 'unknownModel' } }],
+    });
+    fixture.detectChanges();
+
+    const cost = fixture.nativeElement.querySelector('.entry-cost') as HTMLElement;
+    expect(cost.textContent).toContain('unpriced');
+    expect(cost.classList).toContain('unpriced');
+    expect(fixture.nativeElement.querySelector('.cost-total strong')?.textContent).toContain('unpriced');
   });
 });

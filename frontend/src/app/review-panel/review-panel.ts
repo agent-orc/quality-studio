@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ResumeCap, ResumeCapDialog } from '../dialog/resume-cap-dialog';
-import { formatDateTime, formatTokenCount } from '../format';
+import { formatCost, formatDateTime, formatModelSource, formatPriceStatus, formatTokenCount } from '../format';
 import { QualityApi } from '../quality-api';
 import { FindingSeverity, FindingState, HandoverRequest, QualityRunReport, QualityRunTrendPoint, ReviewFinding, ReviewKind, ReviewRun, ReviewRunCompareResult, ReviewThread, RunReportFormat, ScopeRuleView } from '../contracts';
 import { FlatNode } from '../tree-utils';
@@ -347,13 +347,22 @@ export class ReviewPanel {
   formatDuration(value: number): string { return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`; }
 
   spendLabel(run: ReviewRun): string {
-    if (run.tokenCap !== null) {
-      const spent = (run.usage.inputTokens ?? 0) + (run.usage.outputTokens ?? 0);
-      return `${this.formatTokens(spent)} / ${this.formatTokens(run.tokenCap)}`;
-    }
-    if (run.costCap !== null) return `${this.formatCost(run.costSpent, run.currency)} / ${this.formatCost(run.costCap, run.currency)}`;
-    return run.costSpent === null ? `cost ${run.priceStatus}` : this.formatCost(run.costSpent, run.currency);
+    const spent = (run.usage.inputTokens ?? 0) + (run.usage.outputTokens ?? 0);
+    return run.tokenCap !== null
+      ? `${this.formatTokens(spent)} / ${this.formatTokens(run.tokenCap)}`
+      : this.formatTokens(spent);
   }
+
+  /** The money the run has actually spent, with its cap when one applies. "unpriced" stays unpriced. */
+  costLabel(run: ReviewRun): string {
+    const spent = formatCost(run.costSpent, run.currency);
+    if (run.costSpent === null) return `unpriced (${formatPriceStatus(run.priceStatus)})`;
+    return run.costCap !== null ? `${spent} / ${formatCost(run.costCap, run.currency)}` : spent;
+  }
+
+  modelLabel(run: ReviewRun): string { return run.model ?? 'runner default model'; }
+
+  modelSourceLabel(run: ReviewRun): string { return formatModelSource(run.modelSource); }
 
   async openRun(run: ReviewRun): Promise<void> {
     this.selectedRunId.set(run.id);
@@ -466,7 +475,4 @@ export class ReviewPanel {
     if (run) await this.api.resumeReview(run.id, cap);
   }
 
-  private formatCost(value: number | null, currency: string | null): string {
-    return value === null ? 'unavailable' : `${value.toFixed(4)} ${currency ?? 'USD'}`;
-  }
 }

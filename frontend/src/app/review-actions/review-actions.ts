@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { QualityApi } from '../quality-api';
 import { ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../contracts';
 import { ResumeCap, ResumeCapDialog } from '../dialog/resume-cap-dialog';
-import { formatTokenCount, parseTokenCount } from '../format';
+import { formatCost, formatModelSource, formatPriceStatus, formatTokenCount, parseTokenCount } from '../format';
 
 let reviewActionsInstance = 0;
 
@@ -242,13 +242,24 @@ export class ReviewActions {
   costLabel(preflight: ReviewPreflight): string {
     const estimate = preflight.estimate;
     return estimate.cost === null
-      ? `Unavailable (${estimate.priceStatus})`
-      : `${estimate.cost.toFixed(4)} ${estimate.currency ?? 'USD'}`;
+      ? `Unpriced (${formatPriceStatus(estimate.priceStatus)})`
+      : formatCost(estimate.cost, estimate.currency);
+  }
+
+  modelSourceLabel(preflight: ReviewPreflight): string { return formatModelSource(preflight.modelSource); }
+
+  formatModelSource(source: string | null | undefined): string { return formatModelSource(source); }
+
+  /** What the running review has spent so far, with its cost cap when one applies. */
+  runCostLabel(run: ReviewRun): string {
+    if (run.costSpent === null) return `unpriced (${formatPriceStatus(run.priceStatus)})`;
+    const spent = formatCost(run.costSpent, run.currency);
+    return run.costCap !== null ? `${spent} / ${formatCost(run.costCap, run.currency)}` : spent;
   }
 
   capLabel(preflight: ReviewPreflight): string {
     if (preflight.tokenCap !== null) return `${formatTokenCount(preflight.tokenCap)} tokens`;
-    if (preflight.costCap !== null) return `${preflight.costCap.toFixed(4)} ${preflight.estimate.currency ?? 'USD'}`;
+    if (preflight.costCap !== null) return formatCost(preflight.costCap, preflight.estimate.currency);
     return 'Repository default: none';
   }
 

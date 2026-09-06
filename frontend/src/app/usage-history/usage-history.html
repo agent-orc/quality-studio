@@ -37,6 +37,11 @@
           <strong>{{ formatNumber(durableRuns()) }}</strong>
           <small>{{ formatNumber(api.usage().runs) }} ledger operations</small>
         </article>
+        <article class="cost-total">
+          <span>Estimated cost</span>
+          <strong>{{ totalCost() }}</strong>
+          <small>{{ unpricedRuns() ? unpricedRuns() + ' operation(s) unpriced' : 'every operation priced' }}</small>
+        </article>
       </section>
 
       <div class="aggregate-grid">
@@ -109,6 +114,7 @@
                   <small>{{ formatDate(entry.timestamp) }} · {{ entry.model }}</small>
                 </span>
                 <span class="entry-tokens">{{ formatNumber(tokens(entry)) }}<small>tokens</small></span>
+                <span class="entry-cost" [class.unpriced]="!entry.cost || entry.cost.total === null">{{ entryCost(entry) }}<small>cost</small></span>
                 <span class="chevron" aria-hidden="true">{{ expandedEntry() === index ? '⌃' : '⌄' }}</span>
               </button>
               @if (expandedEntry() === index) {
@@ -120,6 +126,8 @@
                   <div><dt>Cached input</dt><dd>{{ formatNumber(entry.tokens.cachedInputTokens) }}</dd></div>
                   <div><dt>Reasoning output</dt><dd>{{ formatNumber(entry.tokens.reasoningOutputTokens) }}</dd></div>
                   <div><dt>Duration</dt><dd>{{ formatDuration(entry.tokens.durationMs) }}</dd></div>
+                  <div><dt>Cost</dt><dd>{{ entryCostDetail(entry) }}</dd></div>
+                  <div><dt>Model choice</dt><dd>{{ entry.model }} · {{ entryModelSource(entry) }}</dd></div>
                   <div><dt>Source</dt><dd>{{ entry.cliType }} · {{ entry.level }}</dd></div>
                 </dl>
               }

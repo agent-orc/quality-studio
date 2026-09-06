@@ -22,3 +22,7 @@
 .compare-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--studio-space-2)}.compare-picker label{display:grid;gap:var(--studio-space-1);min-width:0;color:var(--studio-fg-muted);font-size:var(--studio-font-size-label)}.compare-picker select{padding:var(--studio-space-2);border:1px solid var(--studio-border);border-radius:var(--studio-radius-badge);background:var(--studio-bg-elevated);color:var(--studio-fg);min-width:0;text-overflow:ellipsis}
 .compare-route-warning{padding:var(--studio-space-3);border:1px solid var(--status-stale);border-radius:var(--studio-radius-card);color:var(--studio-fg-muted);font-size:var(--studio-font-size-body)}.compare-route-warning b{color:var(--status-stale)}.compare-route-warning ul{margin:var(--studio-space-1) 0 0;padding-left:1.1em}
 .preview-note{margin:6px 0 0;padding:8px 9px;border:1px solid color-mix(in srgb,var(--status-stale) 45%,var(--studio-border));border-radius:5px;background:color-mix(in srgb,var(--status-stale) 10%,transparent);color:var(--studio-fg-muted);font-size:9px;line-height:1.45}
+.run-usage{font-variant-numeric:tabular-nums}
+.run-usage .run-cost{color:var(--studio-fg-muted)}
+.run-usage .run-cost.unpriced{color:var(--status-missing)}
+.model-source{padding:1px 4px;border-radius:3px;background:var(--studio-bg-elevated);color:var(--studio-fg-dim);font-size:7px;font-style:normal;text-transform:lowercase}

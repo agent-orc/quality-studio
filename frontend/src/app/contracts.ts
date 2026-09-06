@@ -52,6 +52,10 @@ export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; m
 export interface ReviewThreadEntry { id: string; author: ReviewThreadAuthor; createdAt: string; body: string; replyTo?: string; }
 export interface ReviewThread { id: string; anchor: { path: string; fingerprint: string; contextHash: string; lastKnownRange: { start: FindingPosition; end: FindingPosition } }; status: ThreadStatus; anchorState?: AnchorState; healedAt?: string; entries: ReviewThreadEntry[]; }
 export interface TokenUsage { inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null; reasoningOutputTokens: number | null; durationMs: number; }
+/** What a priced operation cost. `total` is null exactly when `status` says the price is unknown. */
+export interface UsageCost { total: number | null; currency: string | null; status: string; }
+/** How the run's model was chosen: named by the operator, resolved from policy, or left to the CLI. */
+export type ReviewModelSource = 'explicit' | 'policy-default' | 'runner-default';
 export interface ReviewGrade { score: number; band: string; rationale: string; }
 export interface ReviewAspect { id: string; title: string; grade: ReviewGrade; }
 export interface ReviewSensorReference { id: string; version: string; resultHash: string; }
@@ -206,7 +210,7 @@ export interface ReviewModelRecommendation {
 export interface ReviewPreflight {
   repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null;
   cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null;
-  recommendation: ReviewModelRecommendation; overrideBelowFloor: boolean;
+  recommendation: ReviewModelRecommendation; overrideBelowFloor: boolean; modelSource?: ReviewModelSource | null;
 }
 export interface ReviewRun {
   id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string;
@@ -215,6 +219,7 @@ export interface ReviewRun {
   estimate: ReviewEstimate | null; tokenCap: number | null; costCap: number | null; costSpent: number | null; currency: string | null;
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
+  modelSource?: ReviewModelSource | null;
 }
 export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
 export interface QualityRunFinding {
@@ -270,8 +275,8 @@ export interface ReviewRunCompareResult {
 export interface ReviewRunRetention { snapshotCount: number; totalBytes: number; averageBytes: number; pinnedCount: number; retentionKeep: number; }
 export interface StartReviewRequest { path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
-export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; }
-export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; }
+export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; modelSource?: ReviewModelSource | null; cost?: UsageCost | null; }
+export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; estimatedCost?: number | null; costCurrency?: string | null; unpricedRuns?: number; }
 export interface QuotaWindow { label: string; usedPct: number | null; remainingPct: number | null; used: number | null; limit: number | null; unit: string | null; resetAt: string | null; resetLabel: string | null; }
 export interface QuotaProvider { provider: string; plan: string | null; fetchedAt: string; source: string | null; error: string | null; windows: QuotaWindow[]; }
 export interface QuotaReport { at: string; ttlSeconds: number; providers: QuotaProvider[]; }

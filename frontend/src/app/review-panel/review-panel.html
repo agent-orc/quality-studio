@@ -11,11 +11,11 @@
             <article class="run-row" [class.selected]="selectedRunId() === run.id">
               <button class="run-open" type="button" (click)="openRun(run)" [attr.aria-expanded]="selectedRunId() === run.id">
                 <span class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></span>
-                <span class="run-route">{{ run.cliType }} · {{ run.model ?? 'runner default' }} · {{ run.thinkingLevel ?? 'model default thinking' }}</span>
+                <span class="run-route">{{ run.cliType }} · {{ modelLabel(run) }} <i class="model-source">{{ modelSourceLabel(run) }}</i> · {{ run.thinkingLevel ?? 'model default thinking' }}</span>
                 <span class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></span>
                 <span class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span><span>Details →</span></span>
               </button>
-              <div class="run-usage"><span>Spend {{ spendLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }</div>
+              <div class="run-usage"><span>Tokens {{ spendLabel(run) }}</span><span class="run-cost" [class.unpriced]="run.costSpent === null">Cost {{ costLabel(run) }}</span>@if (run.usageOperations) { <span>{{ formatTokens(run.usage.inputTokens) }} in</span><span>{{ formatTokens(run.usage.outputTokens) }} out</span><span>{{ formatDuration(run.usage.durationMs) }}</span> }</div>
               @if (comparableRuns().includes(run)) {
                 <div class="run-compare-actions">
                   <button type="button" (click)="openCompare(run)">Compare with…</button>
