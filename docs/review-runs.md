@@ -22,6 +22,77 @@ A run may use one token cap or one cost cap. Omitting both inherits the reposito
 
 A capped run is resumable without repeating completed files. `POST /api/review/runs/{id}/resume` accepts a higher `{ "tokenCap": ... }` or `{ "costCap": ... }`. Skipped units return to `queued`, while done and failed units remain durable. The server rejects a replacement cap already below current spend. Repository defaults are configured with `defaultReviewTokenCap` or `defaultReviewCostCap` (mutually exclusive) in the repository registration UI or API.
 
+## Module and project passes
+
+A container run reviews every descendant file first and then writes the selected
+project, module, or namespace review as one further operation of the same run.
+The aggregate operation therefore reads the file sidecars that run has just
+written, and a member reviewed a moment ago appears in it with its new grade.
+
+Module and project reviews have their own prompt templates. `ReviewPromptBuilder`
+resolves `(level, kind)` against the embedded templates, so a module `code`
+review runs `module-code-review` and a project `security` review runs
+`project-security-review`. A level and kind with no template of its own falls
+back to the file template - `performance` at every aggregate level, and
+`namespace` and `function` everywhere - and `reviewInputs.prompt.id` records the
+template that actually ran rather than the one the level would like to have. The
+template hash flows into `reviewInputs.effectiveHash` as before, so changing an
+aggregate prompt makes aggregate sidecars policy-drift without touching file
+sidecars.
+
+The aggregate code prompts ask for the aspects `architecture`, `structure`,
+`boundaries`, `duplication` and `consistency`. The aggregate security prompts are
+a threat analysis: entry points grouped by trust level, authorisation chains from
+an entry point to process, filesystem, network, secret or evaluation surfaces,
+trust boundaries, and the sensor-backed secrets and dependency picture. They
+close with a plan. The plan needs no new schema field: each finding's
+`recommendation` ends with a line of the form `Priority: P1 | Effort: M`, and the
+`summary` ends with the mitigation titles in execution order.
+
+### The subject digest
+
+An aggregate review does not receive the concatenated source of its members. It
+receives a digest built by `AggregateSubjectDigest` within a character budget of
+80,000 by default:
+
+- a header with the member count, total lines and characters, and how many
+  members currently have a review of this kind;
+- one table row per member with its path, size, owning derived unit, current
+  grade and finding counts by severity, read from the file sidecars through
+  `ReviewMetaJson`;
+- the paths excluded from the aggregate, with their reasons;
+- the derived module and namespace structure, passed in by the planner from the
+  hierarchy it already holds, so the runner never derives the hierarchy twice;
+- the findings already recorded for the members, each with the fingerprint an
+  aggregate finding can cite;
+- for a security pass, the derived boundary inventory from
+  `.quality/boundaries/inventory.json`, scoped to the members at module level and
+  whole at project level, or an explicit statement that none has been scanned;
+- real source under the remaining budget, at least a quarter of it. Each member
+  is allocated a share proportional to its size with a floor, so a monolith
+  cannot crowd out its neighbours. A member whose text fits its share is included
+  whole; a larger one is reduced to its declaration lines. Every line carries its
+  real one-based number, so a range the agent cites is a range in the file.
+
+The digest changes what the agent reads, not what the run considers current.
+`reviewedHash` remains the manifest of member subject hashes and aggregate
+control files defined in [`concept.md`](concept.md#exact-hashing-contract).
+
+### Cross-file findings
+
+An aggregate review reports a defect class once, with every occurrence in its
+`locations` array. The runner anchors each occurrence it can resolve: the first
+becomes the `primary` anchor as in a file review, and every further one becomes a
+`related` anchor with its own captured excerpt and hashes, plus an `observed`
+`sourceSpan` evidence item pointing at it.
+
+A finding may cite the member-file findings it generalises. The agent lists their
+fingerprints in `relatedFindings`; the runner checks each against the member
+sidecars the digest read, records it as a `legacyClaim` evidence item whose
+status is `observed` when it matched and `unverified` when it did not, and
+removes the array before writing. `review-meta.v3` findings allow no additional
+property, and none is needed.
+
 ## Durable state
 
 Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:

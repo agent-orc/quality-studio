@@ -315,6 +315,9 @@ public static class ReviewMetaJson
         };
         options.Converters.Add(new UtcTimestampConverter());
         options.Converters.Add(new GradeBandConverter());
+        // Registered before the generic enum converter: the schema spells the scope "built-in", which
+        // no naming policy produces from BuiltIn.
+        options.Converters.Add(new StandardScopeConverter());
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         return options;
     }
@@ -381,6 +384,35 @@ public static class ReviewMetaJson
 
             writer.WriteStringValue(value.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture));
         }
+    }
+
+    /// <summary>
+    /// Maps <see cref="StandardScope"/> to the schema's literals (<c>built-in</c>, <c>global</c>,
+    /// <c>project</c>). The runner has always written <c>built-in</c>; the camel-case form
+    /// <c>builtIn</c> is accepted on read for documents the typed writer produced earlier.
+    /// </summary>
+    private sealed class StandardScopeConverter : JsonConverter<StandardScope>
+    {
+        public override StandardScope Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            return value switch
+            {
+                "built-in" or "builtIn" or "builtin" => StandardScope.BuiltIn,
+                "global" => StandardScope.Global,
+                "project" => StandardScope.Project,
+                _ => throw new JsonException($"Unknown review standard scope '{value}'."),
+            };
+        }
+
+        public override void Write(Utf8JsonWriter writer, StandardScope value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value switch
+            {
+                StandardScope.BuiltIn => "built-in",
+                StandardScope.Global => "global",
+                StandardScope.Project => "project",
+                _ => throw new JsonException($"Unknown review standard scope '{value}'."),
+            });
     }
 
     private sealed class GradeBandConverter : JsonConverter<GradeBand>

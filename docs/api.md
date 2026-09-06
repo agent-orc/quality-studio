@@ -235,6 +235,9 @@ curl -X POST "http://127.0.0.1:5127/api/sensors/boundaries/scan"
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}
 
+curl "http://127.0.0.1:5127/api/rules?kind=security&adapter=dotnet"
+# 200 {"catalogueVersion":"1.2.0","filter":{...},"sources":["built-in"],"rules":[...],"traces":[...]}
+
 curl "http://127.0.0.1:5127/api/guidelines"
 # 200 {"guidelines":[...],"catalogue":[...],"traces":[...]}
 

@@ -305,6 +305,19 @@ public sealed class ReviewMetaContractTests
         Assert.Equal("GHSA-v2hh-gcrm-f6hx", Assert.Single(loaded.Findings).RuleId);
     }
 
+    [Theory]
+    [InlineData("\"built-in\"", StandardScope.BuiltIn)]
+    [InlineData("\"builtIn\"", StandardScope.BuiltIn)]
+    [InlineData("\"global\"", StandardScope.Global)]
+    [InlineData("\"project\"", StandardScope.Project)]
+    public void StandardScopeReadsTheSchemaLiteralsAndWritesBuiltInWithAHyphen(string json, StandardScope expected)
+    {
+        // The rule library records its standards with scope "built-in" exactly as the schema spells
+        // it; a reader that only knew the camel-cased enum name dropped every such sidecar.
+        Assert.Equal(expected, JsonSerializer.Deserialize<StandardScope>(json, ReviewMetaJson.Options));
+        Assert.Equal("\"built-in\"", JsonSerializer.Serialize(StandardScope.BuiltIn, ReviewMetaJson.Options));
+    }
+
     [Fact]
     public void SidecarsWrittenByTheReviewRunnerLoadThroughTheTypedContract()
     {

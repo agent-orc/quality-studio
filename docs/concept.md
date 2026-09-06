@@ -448,7 +448,7 @@ treat an unsupported `schemaVersion` as current.
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
         },
         "scope": {
           "enum": ["built-in", "global", "project"]
@@ -504,7 +504,7 @@ treat an unsupported `schemaVersion` as current.
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
           }
         },
         "prompt": {
@@ -1459,14 +1459,30 @@ QS-11 and the strictly time-boxed QS-12 can proceed in parallel once their input
 are stable. Module/project agent review execution is a later slice after QS-5;
 QS-5 only makes hierarchy and aggregate truth honest.
 
-Status 2026-09-06: no prompt names an `architecture` aspect. The file prompts ask
-for correctness, maintainability, clarity, error handling and testability
-(`code`), security, and performance; the only fixed aspect list is the
-project-level security posture set `secrets`, `dependencies`,
-`authentication-authorization`, `input-validation`, `configuration-iac`. Module
-reviews run through the file prompt today, so the architecture aspect of a
-project/module `code` review appears once module and project code prompts exist,
-not before. No sidecar carries it yet.
+Status 2026-09-06: three of the five levels have an agent pass, and each of the
+three now has its own briefing.
+
+| Level | Pass | Prompt |
+| --- | --- | --- |
+| Project | runs | `project-code-review`, `project-security-review`, file template for `performance` |
+| Module | runs | `module-code-review`, `module-security-review`, file template for `performance` |
+| Namespace | derived and aggregated, no pass | file template if one were requested |
+| File | runs | `file-code-review`, `file-security-review`, `file-performance-review` |
+| Function | derived, review refused | none |
+
+`architecture` is a named aspect of the module and project `code` prompts, next
+to `structure`, `boundaries`, `duplication` and `consistency`; the project-level
+security posture set `secrets`, `dependencies`, `authentication-authorization`,
+`input-validation`, `configuration-iac` is unchanged and is what the module
+security prompt asks for as well. `ReviewPromptBuilder` selects the template by
+(level, kind) and records the one it used in `reviewInputs.prompt.id`, so a
+level that falls back to the file template says so rather than implying a
+briefing it did not receive. A module or project review reads a digest of its
+members, never their concatenated source; see
+[`review-runs.md`](review-runs.md#module-and-project-passes). Sidecars written
+before this date name `file-<kind>-review` at every level, which is what ran.
+Namespace and Function passes remain open; see decision D-1 of the dossier in
+`docs/operations/product-assessment-2026-09/`.
 
 ## Review-meta operational rules and examples
 

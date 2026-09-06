@@ -1,6 +1,8 @@
 # Schemas
 
-JSON Schema draft 2020-12 artifacts for every document Quality Studio writes.
+JSON Schema draft 2020-12 artifacts for every document Quality Studio writes, plus
+`rule-config.v1.schema.json`, which describes the rule-override file a reviewed
+repository writes for Quality Studio to read.
 
 ## Canonical domain
 
@@ -25,6 +27,12 @@ repository, and the copy here is authoritative.
 v3; readers accept v1, v2, and v3. The version table, the per-field semantics, and
 the compatibility rule are in
 [`../docs/concept.md`](../docs/concept.md#review-meta-schema-v3).
+
+On 2026-09-06 the `standards[].id` and `reviewInputs.omitted` patterns in all three
+`review-meta` versions widened from `^[a-z0-9][a-z0-9._-]{1,127}$` to accept upper-case
+letters, so a named rule can be recorded under the id it is cited by (`QS-CS-003`). The
+change is permissive in one direction only: every document written under the earlier
+pattern is still valid, so it is an edit within each version rather than a new one.
 
 `quality-report.v1` and `quality-run-report.v1` carry `aggregateScore` and
 `aggregateBand`. The older `score` and `grade` properties hold the same values and

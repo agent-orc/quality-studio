@@ -353,7 +353,8 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : plan.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: AggregateControls(plan.Node),
-            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions);
+            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions,
+            SubjectGroups: level == ReviewLevel.File ? null : SubjectGroups(plan.Node));
 
     private static (long? TokenCap, decimal? CostCap) ResolveCap(
         RepositoryRegistration registration, long? requestedTokens, decimal? requestedCost)
@@ -694,6 +695,7 @@ public sealed class ReviewJobService : BackgroundService
             AggregateControls: item.AggregateControls,
             AggregateExclusions: item.AggregateExclusions,
             ModelSource: item.ModelSource,
+            SubjectGroups: level == ReviewLevel.File ? null : SubjectGroups(LiveNode(item, node)),
             ReviewRunId: item.Id,
             Sensors: item.Kind == "security"
                 ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
@@ -704,6 +706,30 @@ public sealed class ReviewJobService : BackgroundService
                 : null,
             DeterministicEvidence: item.DeterministicEvidence);
     }
+
+    /// <summary>
+    /// The derived units below an aggregate, so the review runner can describe the module and
+    /// namespace structure of its subject without deriving the hierarchy a second time.
+    /// </summary>
+    private static IReadOnlyList<ReviewSubjectGroup> SubjectGroups(HierarchyNode node) =>
+        Flatten([node])
+            .Where(candidate => candidate.Level is not (ReviewLevel.File or ReviewLevel.Function))
+            .Select(candidate => new ReviewSubjectGroup(candidate.Level, candidate.Name, candidate.Path,
+                candidate.Children.Where(child => child.Level == ReviewLevel.File)
+                    .Select(child => child.Path).Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal).ToArray()))
+            .ToArray();
+
+    /// <summary>
+    /// A run restored from its durable manifest carries the selected node without its children, so
+    /// the structure is taken from the current cached hierarchy when that node still derives.
+    /// </summary>
+    private HierarchyNode LiveNode(ReviewWorkItem item, HierarchyNode node) =>
+        node.Children.Count > 0
+            ? node
+            : Flatten(hierarchyCache.Get(item.Repository.RootPath).Roots).FirstOrDefault(candidate =>
+                  candidate.Level == node.Level &&
+                  string.Equals(candidate.Path, node.Path, StringComparison.Ordinal)) ?? node;
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {
