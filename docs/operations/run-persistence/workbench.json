@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "status": "documented",
   "phase": "implementation",
-  "updatedAt": "2026-08-29T01:49:16Z",
+  "updatedAt": "2026-09-06T23:15:44Z",
   "sourceTaskKeys": [
     "QS-62",
     "QS-71",
@@ -54,10 +54,10 @@
     "QS-85"
   ],
   "implementationState": {
-    "verifiedAt": "2026-08-29T01:49:16Z",
+    "verifiedAt": "2026-09-06T23:15:44Z",
     "verifiedByTask": "QS-85",
     "status": "documented",
-    "integrationBase": "origin/main@bdd5529420bfbb8862c4b1c72cb741407277d790",
+    "integrationBase": "origin/main@6277ded535a555cc28fbe83b6348872360e365fa",
     "wave1": {
       "taskKey": "QS-71",
       "sourceCommits": [
@@ -75,7 +75,7 @@
     "wave2": {
       "taskKey": "QS-85",
       "status": "verified",
-      "evidence": "Re-verified on 2026-08-29 against integration base bdd5529: Release build clean (0 warnings, 0 errors), 236 passing .NET tests across two assemblies with one intentionally skipped live-provider test, 54 of 54 Karma browser tests, 5 of 5 dev-stack launcher tests on Linux, a successful production frontend build, and a valid Token Economy catalogue snapshot. Persistence-specific tests cover archived attempts, findings, operation identity, usage-ledger v3, and history after recovery-journal removal.",
+      "evidence": "Re-verified on 2026-09-07 against origin/main@6277ded: Release build clean (0 warnings, 0 errors), 514 passing .NET tests across two assemblies with one intentionally skipped live-provider test, 64 of 64 Karma browser tests with a validated LCOV report, 5 of 5 dev-stack launcher tests, validated Cobertura reports for both .NET assemblies, a successful production frontend build, valid Token Economy and rule catalogue snapshots, zero production npm vulnerabilities, and a passing 640-file repository security scan. Persistence-specific tests cover archived attempts, findings, operation identity, usage-ledger v3, recovery after journal removal, and crash-window reconciliation.",
       "redelivery": {
         "reason": "Wave-1 QS-71 content was reapplied after prior QS-85 runs were quarantined by a path-fragile review spec that has since been fixed by QS-92.",
         "rebasedOnto": "e31089ccd5640bb2742a25a2a08a9a3120534656",
@@ -101,6 +101,20 @@
         "conflicts": "The preserved three-commit QS-85 delivery already had bdd5529 as its direct parent, so branch restoration was a fast-forward and git rebase origin/main was a no-op. Independently integrated mainline changes were retained. Untouched main exceeded the 480 kB frontend initial-bundle ceiling by 177 bytes; QS-85 added 23 initial bytes, so the shared error ceiling moved narrowly to 481 kB to restore the production build without feature rework.",
         "gate": "Release build passed with 0 warnings and 0 errors; 236 .NET tests passed with one intentionally skipped live-provider test; 54 of 54 Karma browser tests passed; 5 of 5 dev-stack launcher tests passed; the production frontend bundle built at 480.20 kB under the 481 kB error ceiling; and the Token Economy catalogue snapshot validated.",
         "uiEvidence": "Fresh before/after screenshots were reproduced on live Angular development servers on 2026-08-29. The base has no History section; the delivery shows five rows, a three-operation detail view, a two-run diff with two grade deltas and one regression, URL-restored state, and disabled comparison for corrupt and legacy rows."
+      },
+      "currentMainRedelivery": {
+        "verifiedAt": "2026-09-06T23:15:44Z",
+        "cardKey": "QS-85",
+        "integrationBase": "origin/main@6277ded535a555cc28fbe83b6348872360e365fa",
+        "rebasedDeliveryCommits": [
+          "a612c6c",
+          "c386bb6",
+          "643cde3",
+          "e9d905f"
+        ],
+        "conflicts": "The preserved QS-85 commits were replayed onto current main because the task branch was initialized at main rather than at the preserved delivery tip. Content conflicts in the dossier, usage telemetry, frontend API types and review panel, archive schemas, review runner, API routes and job recovery, and tests were resolved by retaining current main's model attribution/costs, run-report retention and pinning, aggregate structure, cancellation reclaim, comparison UI, coverage tooling and stricter test cache while adding QS-85 operation/attempt identities, archive/history/diff behavior and history UI. The current main 480 kB bundle ceiling was retained because the merged production bundle passes beneath it.",
+        "gate": "Release build passed with 0 warnings and 0 errors; 394 core and 120 API tests passed with one opt-in live-provider test skipped; both Cobertura reports validated; all 64 Karma tests passed and LCOV validated; all 5 dev-stack tests passed; frontend production build passed at 479.94 kB under the unchanged 480 kB ceiling; catalogue/rule checks passed; npm reported zero production vulnerabilities; and the security scan passed across 640 files with zero findings.",
+        "uiEvidence": "Fresh live-server evidence was captured from origin/main and the rebased branch on 2026-09-07. The base run drawer has no archived History section. The branch shows five archived rows including one corrupt and one legacy-only record, three operation details, two grade deltas with one regression, URL-backed detail/compare state, and disabled comparison for both degraded rows."
       }
     },
     "nextSlice": {

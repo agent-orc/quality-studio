@@ -108,6 +108,7 @@ async function fulfillApi(route) {
   else if (path.endsWith('/risk')) body = { days: 90, currentCommit: null, rows: [], matrix: [] };
   else if (path.endsWith('/handover')) body = { targetConfigured: false, dryRun: true };
   else if (path.endsWith('/review/runs/trend')) body = { points: [], nextCursor: null };
+  else if (path.endsWith('/review/runs/pins')) body = { pinnedRunIds: [] };
   else if (path.endsWith('/review/runs')) body = { runs: [run] };
   else if (path.endsWith('/usage')) body = usageReport;
   else if (path === '/api/quotas') body = { at: run.finishedAt, ttlSeconds: 600, providers: [] };

@@ -1288,7 +1288,8 @@ public sealed class ReviewRunStoreTests
                 var entry = new ReviewUsageEntry(providerRunId, DateTimeOffset.UtcNow,
                     model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
                     request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath,
-                    request.ReviewRunId, 3, request.OperationId, request.ReviewAttempt);
+                    request.ReviewRunId, 3, request.ModelSource ?? ReviewModelSource.Explicit, null,
+                    request.OperationId, request.ReviewAttempt);
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
                 var metaPath = Path.Combine(request.RepositoryRoot!, ".quality", "test-results",

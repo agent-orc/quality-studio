@@ -5,11 +5,6 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class UsageLedgerTests
 {
-    // JsonSchema.Net registers each schema's $id globally and refuses a second registration, so
-    // the v3 schema is parsed once for every validation in this class.
-    private static readonly Lazy<JsonSchema> LedgerV3Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "usage-ledger.v3.schema.json"))));
-
     [Fact]
     public async Task V3EntriesAttributeEveryOperationToAModelSourceAndCarryTheirCost()
     {
@@ -21,7 +16,7 @@ public sealed class UsageLedgerTests
                 "cli-run-3", timestamp, "gpt-5.6-luna", "codex",
                 new TokenUsage(50, 10, 20, 2, 600), "code", "file", "src/c.ts",
                 "review-sweep-3", UsageLedger.CurrentSchemaVersion, ReviewModelSource.PolicyDefault,
-                new UsageCost(0.5m, "USD", "resolved")),
+                new UsageCost(0.5m, "USD", "resolved"), "operation-3", 1),
                 TestContext.Current.CancellationToken);
             // A standalone CLI review has no sweep id but still names its model source; an entry
             // without a stored cost is priced at query time.
@@ -37,7 +32,7 @@ public sealed class UsageLedgerTests
             foreach (var line in lines)
             {
                 using var json = JsonDocument.Parse(line);
-                var validation = LedgerV3Schema.Value.Evaluate(json.RootElement,
+                var validation = SchemaCatalogue.Get("usage-ledger.v3.schema.json").Evaluate(json.RootElement,
                     new EvaluationOptions { OutputFormat = OutputFormat.List });
                 Assert.True(validation.IsValid, validation.ToString());
                 Assert.Equal(3, json.RootElement.GetProperty("schemaVersion").GetInt32());

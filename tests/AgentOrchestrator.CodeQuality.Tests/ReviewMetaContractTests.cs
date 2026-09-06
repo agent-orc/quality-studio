@@ -364,7 +364,8 @@ public sealed class ReviewMetaContractTests
             await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
                 "cli-run-3", timestamp.AddMinutes(3), "gpt-5", "codex",
                 new TokenUsage(10, 2, 5, 1, 150), "code", "file", "src/c.ts",
-                "review-sweep-1", 3, "operation-3", 2), TestContext.Current.CancellationToken);
+                "review-sweep-1", 3, ReviewModelSource.Explicit, null, "operation-3", 2),
+                TestContext.Current.CancellationToken);
 
             var ledgerLines = await File.ReadAllLinesAsync(ledgerPath, TestContext.Current.CancellationToken);
             Assert.Equal(legacyLine, ledgerLines[0]);
