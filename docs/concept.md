@@ -11,6 +11,12 @@ Project, Module, Namespace, File, or Function statement is independently
 authored: an aggregate view never turns child grades into a substitute for a
 review at another level.
 
+Amendment 2026-09-06: a scorecard MAY compute a descriptive projection over the
+review sidecars that currently exist — a rounded mean per kind and per hierarchy
+level. Such a value is labelled "projection", is never stored or displayed as
+the grade of a unit, and carries no unit identity. A Project or Module review
+statement stands beside it: neither replaces the other.
+
 ## Decisions at a glance
 
 - The v1 built-in review kinds are `code`, `security`, and `performance`.
@@ -963,6 +969,15 @@ hierarchy state is a separate roll-up and is not used as the coverage manifest.
 The historical grade remains visible with “last reviewed” wording, but a partial
 or stale grade MUST NOT use fresh colors or be included in a current-grade
 average. No parent grade is recalculated from child grades.
+
+Amendment 2026-09-06: reporting MAY compute a descriptive projection over the
+sidecars that currently exist — the rounded mean per kind and per level, exported
+as `aggregateScore` and `aggregateBand` and rendered as "aggregate score
+(projection)". The projection carries no unit identity, is never written into a
+meta file, and never appears as a unit grade in the browser. Where a Project or
+Module review statement exists, the display shows that statement separately from
+the projection; [`hierarchy-aggregation.md`](hierarchy-aggregation.md) defines the
+`Direct` / `Descendants` / `Overall` separation that keeps the two apart.
 
 For any otherwise valid meta document whose inputs can be resolved,
 `reviewInputs.effectiveHash` is compared separately with today's standards and
@@ -1928,3 +1943,11 @@ snapshot to Agent Studio. It does not claim to recover deleted external standard
 bodies, automatically remediate findings, infer dependency-impact staleness, ship
 a production code graph, support real-time multi-user collaboration, or compute a
 universal quality score.
+
+Amendment 2026-09-06: the reports do carry an aggregate score. It is a
+descriptive projection over the sidecars that currently exist, exported as
+`aggregateScore` and `aggregateBand` and labelled "aggregate score (projection)"
+in every rendering. It is not a universal quality score, not the grade of any
+unit, and it does not replace a Project or Module review statement.
+`quality report --fail-under` gates on that projection and on nothing else; see
+[`quality-reports.md`](quality-reports.md).
