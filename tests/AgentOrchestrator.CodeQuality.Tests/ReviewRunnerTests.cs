@@ -760,7 +760,8 @@ public sealed class ReviewRunnerTests
 
             Assert.Equal("run-test", Assert.Single(recorded).RunId);
             Assert.Equal("review-sweep-test", recorded[0].ReviewRunId);
-            Assert.Equal(2, recorded[0].SchemaVersion);
+            Assert.Equal(UsageLedger.CurrentSchemaVersion, recorded[0].SchemaVersion);
+            Assert.Equal(ReviewModelSource.RunnerDefault, recorded[0].ModelSource);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal("run-test", Assert.Single(report.Recent).RunId);
