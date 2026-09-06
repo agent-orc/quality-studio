@@ -66,6 +66,7 @@ public sealed partial class DotNetBuildSensor(ISensorCommandRunner? commandRunne
 
         var versions = new Dictionary<string, string>(StringComparer.Ordinal);
         var findings = new List<ReviewFinding>();
+        var artifactsPath = Path.Combine(Path.GetFullPath(request.DataRoot ?? root), ".quality", "build");
         try
         {
             var version = await runner.RunAsync("dotnet", ["--version"], root, cancellationToken)
@@ -79,7 +80,7 @@ public sealed partial class DotNetBuildSensor(ISensorCommandRunner? commandRunne
             {
                 var relativeTarget = Path.GetRelativePath(root, target);
                 var restore = await runner.RunAsync(
-                    "dotnet", ["restore", relativeTarget, "--nologo"], root, cancellationToken)
+                    "dotnet", ["restore", relativeTarget, "--nologo", $"-p:ArtifactsPath={artifactsPath}"], root, cancellationToken)
                     .ConfigureAwait(false);
                 if (restore.ExitCode != 0)
                     return Unavailable(request, versions,
@@ -93,6 +94,7 @@ public sealed partial class DotNetBuildSensor(ISensorCommandRunner? commandRunne
                         "--no-restore",
                         "--nologo",
                         "-p:GenerateFullPaths=true",
+                        $"-p:ArtifactsPath={artifactsPath}",
                     ],
                     root,
                     cancellationToken).ConfigureAwait(false);

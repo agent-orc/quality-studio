@@ -63,7 +63,8 @@ public sealed class InputResolver
         string kind,
         ReviewLevel level,
         string? globalInputsDirectory = null,
-        int budgetCharacters = DefaultBudgetCharacters)
+        int budgetCharacters = DefaultBudgetCharacters,
+        string? projectDataRoot = null)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) throw new ArgumentException("A repository root is required.", nameof(repositoryRoot));
         if (!Enum.TryParse<ReviewKind>(kind, true, out _)) throw new ArgumentException($"Unsupported review kind: {kind}", nameof(kind));
@@ -73,7 +74,7 @@ public sealed class InputResolver
         var normalizedLevel = level.ToString().ToLowerInvariant();
         var global = ReadDirectory(globalInputsDirectory, "global", normalizedKind, normalizedLevel,
             globalInputsDirectory);
-        var projectRoot = Path.GetFullPath(repositoryRoot);
+        var projectRoot = Path.GetFullPath(projectDataRoot ?? repositoryRoot);
         var projectDirectory = Path.Combine(projectRoot, ".quality", "inputs");
         var project = ReadDirectory(projectDirectory, "project", normalizedKind, normalizedLevel, projectRoot);
         var projectIds = project.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);

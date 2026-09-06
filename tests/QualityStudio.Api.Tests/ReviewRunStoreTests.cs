@@ -19,6 +19,43 @@ namespace QualityStudio.Api.Tests;
 public sealed class ReviewRunStoreTests
 {
     [Fact]
+    public async Task Completed_review_run_leaves_checkout_unchanged()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var before = Directory.EnumerateFiles(fixture.RepositoryRoot, "*", SearchOption.AllDirectories)
+                .ToDictionary(path => Path.GetRelativePath(fixture.RepositoryRoot, path), File.ReadAllBytes,
+                    StringComparer.Ordinal);
+            await using var application = fixture.CreateApplication(new CapturingExecutorFactory());
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            var after = Directory.EnumerateFiles(fixture.RepositoryRoot, "*", SearchOption.AllDirectories)
+                .ToDictionary(path => Path.GetRelativePath(fixture.RepositoryRoot, path), File.ReadAllBytes,
+                    StringComparer.Ordinal);
+            Assert.Equal(before.Keys.Order(), after.Keys.Order());
+            foreach (var pair in before) Assert.Equal(pair.Value, after[pair.Key]);
+            Assert.True(Directory.Exists(Path.Combine(fixture.DataRoot, ".quality", "runs")));
+            Assert.True(Directory.Exists(Path.Combine(fixture.DataRoot, ".quality", "reports", "runs")));
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Enabled_deterministic_check_runs_before_model_and_can_be_disabled_per_repository()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -115,7 +152,7 @@ public sealed class ReviewRunStoreTests
             Assert.Contains(run.GetProperty("files").EnumerateArray(), file => file.GetProperty("state").GetString() == "skipped");
             Assert.Contains("Token cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
             Assert.Equal(1, fake.OperationCount);
-            var reportStore = new QualityRunReportStore(fixture.RepositoryRoot);
+            var reportStore = new QualityRunReportStore(fixture.DataRoot);
             var cappedReport = reportStore.Load(accepted.GetProperty("id").GetString()!);
             Assert.Equal(1, cappedReport.Run.Revision);
             Assert.Equal("capped", cappedReport.Run.State);
@@ -221,7 +258,7 @@ public sealed class ReviewRunStoreTests
             Assert.Equal("skipped-fresh", fresh.GetProperty("aggregateState").GetString());
             Assert.Equal(0, fresh.GetProperty("usageOperations").GetInt32());
             Assert.Equal(0, fake.AgentCalls);
-            var freshReport = new QualityRunReportStore(fixture.RepositoryRoot)
+            var freshReport = new QualityRunReportStore(fixture.DataRoot)
                 .Load(freshAccepted.GetProperty("id").GetString()!);
             Assert.Equal("complete", freshReport.Run.Completeness);
             Assert.Equal(0, freshReport.Execution.Reviewed);
@@ -466,7 +503,7 @@ public sealed class ReviewRunStoreTests
             using var client = application.CreateClient();
             var run = await client.GetFromJsonAsync<JsonElement>(
                 $"/api/review/runs/{stored.Manifest.RunId}", cancellationToken);
-            var report = new QualityRunReportStore(fixture.RepositoryRoot).Load(stored.Manifest.RunId);
+            var report = new QualityRunReportStore(fixture.DataRoot).Load(stored.Manifest.RunId);
 
             Assert.Equal(state, run.GetProperty("state").GetString());
             Assert.Equal(state, report.Run.State);
@@ -620,15 +657,20 @@ public sealed class ReviewRunStoreTests
 
     private sealed class DurableRunFixture : IDisposable
     {
-        private DurableRunFixture(string repositoryRoot, string hostRoot)
+        private DurableRunFixture(string repositoryRoot, string hostRoot, string dataBaseRoot)
         {
             RepositoryRoot = repositoryRoot;
             HostRoot = hostRoot;
-            Store = new ReviewRunStore(repositoryRoot);
+            DataBaseRoot = dataBaseRoot;
+            DataRoot = QualityDataRoot.ResolveProjectPath(
+                QualityDataRoot.RepositoryProjectId(RepositoryRegistry.DefaultRepositoryId, repositoryRoot), dataBaseRoot);
+            Store = new ReviewRunStore(DataRoot);
         }
 
         public string RepositoryRoot { get; }
         public string HostRoot { get; }
+        public string DataBaseRoot { get; }
+        public string DataRoot { get; }
         public ReviewRunStore Store { get; }
 
         public static async Task<DurableRunFixture> CreateAsync(CancellationToken cancellationToken)
@@ -636,6 +678,7 @@ public sealed class ReviewRunStoreTests
             var id = Guid.NewGuid().ToString("N");
             var repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-run-store-tests", id, "repository");
             var hostRoot = Path.Combine(Path.GetTempPath(), "quality-studio-run-store-tests", id, "host");
+            var dataBaseRoot = Path.Combine(Path.GetTempPath(), "quality-studio-run-store-tests", id, "data");
             Directory.CreateDirectory(repositoryRoot);
             Directory.CreateDirectory(hostRoot);
             await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.cs"),
@@ -644,7 +687,7 @@ public sealed class ReviewRunStoreTests
                 "namespace Sample; public static class Second { }", cancellationToken);
             await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.csproj"),
                 "<Project Sdk=\"Microsoft.NET.Sdk\" />", cancellationToken);
-            return new DurableRunFixture(repositoryRoot, hostRoot);
+            return new DurableRunFixture(repositoryRoot, hostRoot, dataBaseRoot);
         }
 
         public StoredReviewRun CreateRun(
@@ -695,7 +738,7 @@ public sealed class ReviewRunStoreTests
         public TestApplication CreateApplication(
             IReviewExecutorFactory? executorFactory = null,
             IReviewSensor? deterministicSensor = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory, deterministicSensor);
+            new(RepositoryRoot, HostRoot, DataBaseRoot, executorFactory, deterministicSensor);
 
         public void Dispose()
         {
@@ -712,6 +755,7 @@ public sealed class ReviewRunStoreTests
     private sealed class TestApplication(
         string repositoryRoot,
         string contentRoot,
+        string dataBaseRoot,
         IReviewExecutorFactory? executorFactory,
         IReviewSensor? deterministicSensor) : WebApplicationFactory<Program>
     {
@@ -723,6 +767,7 @@ public sealed class ReviewRunStoreTests
                 {
                     ["QualityStudio:RepositoryRoot"] = repositoryRoot,
                     ["QualityStudio:AllowedRoots:0"] = repositoryRoot,
+                    ["QualityStudio:DataRoot"] = dataBaseRoot,
                 }));
             builder.ConfigureServices(services =>
             {

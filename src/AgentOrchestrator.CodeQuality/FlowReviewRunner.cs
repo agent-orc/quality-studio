@@ -46,20 +46,20 @@ public sealed class FlowReviewRunner
         }
         catch (ReviewAgentRunCanceledException exception)
         {
-            await RecordUsageAsync(prepared.Root, request.Flow.Id, exception.RunId, exception.Usage,
+            await RecordUsageAsync(prepared.DataRoot, request.Flow.Id, exception.RunId, exception.Usage,
                 exception.EffectiveModel, startedAt).ConfigureAwait(false);
             throw;
         }
         catch (ReviewAgentRunException exception)
         {
-            await RecordUsageAsync(prepared.Root, request.Flow.Id, exception.RunId, exception.Usage,
+            await RecordUsageAsync(prepared.DataRoot, request.Flow.Id, exception.RunId, exception.Usage,
                 exception.EffectiveModel, startedAt).ConfigureAwait(false);
             throw;
         }
 
         var usage = agentResult.Usage ?? new TokenUsage(null, null, null, null, 0);
         var model = EffectiveModel(agentResult.EffectiveModel);
-        await RecordUsageAsync(prepared.Root, request.Flow.Id, agentResult.RunId, usage, model, startedAt)
+        await RecordUsageAsync(prepared.DataRoot, request.Flow.Id, agentResult.RunId, usage, model, startedAt)
             .ConfigureAwait(false);
         var response = responseParser.Parse(agentResult.Response);
 
@@ -69,12 +69,12 @@ public sealed class FlowReviewRunner
             throw new ReviewRunException("The flow evidence changed while it was being reviewed; no flow report was written.");
 
         var findings = CreateFindings(response, prepared.SubjectContents);
-        var reportPath = GetReportPath(prepared.Root, request.Flow.Id);
+        var reportPath = GetReportPath(prepared.DataRoot, request.Flow.Id);
         var previous = await LoadPreviousFindingsAsync(reportPath, cancellationToken).ConfigureAwait(false);
         var identities = findings.Select(finding =>
             new FindingIdentityRecord(finding.Fingerprint, finding.Id,
                 finding.FlowPath[finding.WeakestPointIndex].Path, finding.RuleId)).ToArray();
-        var states = await new FindingStateStore(prepared.Root).MergeReviewAsync(
+        var states = await new FindingStateStore(prepared.DataRoot).MergeReviewAsync(
             identities, previous, agent.AgentName, cancellationToken).ConfigureAwait(false);
         findings = findings.Select(finding => finding with { State = states[finding.Fingerprint].State }).ToArray();
 
@@ -143,6 +143,7 @@ public sealed class FlowReviewRunner
     {
         ValidateRequest(request);
         var root = Path.GetFullPath(request.RepositoryRoot);
+        var dataRoot = Path.GetFullPath(request.DataRoot ?? root);
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException($"Repository path does not exist: {root}");
         var subjectContents = new SortedDictionary<string, string>(StringComparer.Ordinal);
@@ -167,7 +168,7 @@ public sealed class FlowReviewRunner
             .Replace("{{CALL_GRAPH}}", Normalize(request.CallGraph), StringComparison.Ordinal)
             .Replace("{{SOURCE_EVIDENCE}}", sources, StringComparison.Ordinal);
         var inputHash = "sha256:" + Sha256("quality-studio-flow-review-input-v1\0" + prompt);
-        return new PreparedFlowReview(root, prompt, inputHash, boundaryHash, subjectContents);
+        return new PreparedFlowReview(root, dataRoot, prompt, inputHash, boundaryHash, subjectContents);
     }
 
     private static void ValidateRequest(FlowReviewRequest request)
@@ -434,6 +435,7 @@ public sealed class FlowReviewRunner
 
     private sealed record PreparedFlowReview(
         string Root,
+        string DataRoot,
         string Prompt,
         string InputHash,
         string BoundaryCatalogueHash,

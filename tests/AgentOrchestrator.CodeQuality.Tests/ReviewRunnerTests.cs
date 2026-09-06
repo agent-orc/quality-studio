@@ -716,6 +716,39 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
+    public async Task ReviewAsync_WithDataRoot_DoesNotWriteUnderCheckout()
+    {
+        await WithReviewFileAsync(async (root, file) =>
+        {
+            var dataRoot = Path.Combine(Path.GetTempPath(), "quality-review-data-tests", Guid.NewGuid().ToString("N"));
+            try
+            {
+                var before = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                    .ToDictionary(path => Path.GetRelativePath(root, path), File.ReadAllBytes, StringComparer.Ordinal);
+
+                var result = await new ReviewRunner(new FakeAgent()).ReviewAsync(
+                    new ReviewRequest("src/Small.cs", RepositoryRoot: root, DataRoot: dataRoot),
+                    TestContext.Current.CancellationToken);
+
+                Assert.StartsWith(Path.GetFullPath(dataRoot), result.MetaPath, StringComparison.Ordinal);
+                Assert.False(Directory.Exists(Path.Combine(root, ".quality")));
+                var after = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                    .ToDictionary(path => Path.GetRelativePath(root, path), File.ReadAllBytes, StringComparer.Ordinal);
+                Assert.Equal(before.Keys.Order(), after.Keys.Order());
+                foreach (var pair in before) Assert.Equal(pair.Value, after[pair.Key]);
+                Assert.True(File.Exists(Path.Combine(dataRoot, ".quality", "usage",
+                    DateTime.UtcNow.ToString("yyyy-MM") + ".jsonl")));
+                Assert.Equal(await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken),
+                    await File.ReadAllTextAsync(Path.Combine(root, "src", "Small.cs"), TestContext.Current.CancellationToken));
+            }
+            finally
+            {
+                TestDirectory.Delete(dataRoot);
+            }
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_RejectsDirectTargetExcludedByRepositoryScope()
     {
         await WithReviewFileAsync(async (root, _) =>

@@ -14,7 +14,8 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    string? DataRootPath = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -67,6 +68,14 @@ public sealed class RepositoryRegistry
         }
         registryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
         entries = LoadOrSeed();
+        foreach (var entry in entries)
+        {
+            var dirtyQuality = QualityDataMigrator.DirtyQualityPaths(entry.RootPath);
+            if (dirtyQuality.Count > 0)
+                logger.LogWarning(new EventId(1404, "DirtyCheckoutQualityData"),
+                    "Repository {RepositoryId} has {DirtyQualityPathCount} dirty in-checkout .quality path(s). Migrate them to {DataRootPath} before integration.",
+                    entry.Id, dirtyQuality.Count, entry.DataRootPath);
+        }
     }
 
     public string RegistryPath => registryPath;
@@ -86,7 +95,21 @@ public sealed class RepositoryRegistry
                ?? throw new KeyNotFoundException($"Repository '{resolvedId}' was not found.");
     }
 
-    public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
+    public RepositoryAccess Access(string? id)
+    {
+        var entry = Get(id);
+        return new RepositoryAccess(entry.RootPath, entry.DataRootPath!, metaIndex);
+    }
+
+    public QualityDataMigrationResult MigrateData(string? id)
+    {
+        var entry = Get(id);
+        var result = QualityDataMigrator.Migrate(entry.RootPath, entry.DataRootPath!);
+        logger.LogInformation(new EventId(1405, "QualityDataMigrated"),
+            "Migrated {FileCount} and copied {TrackedFileCount} tracked Quality Studio file(s) for {RepositoryId} to {DataRootPath}",
+            result.FilesMoved, result.TrackedFilesCopied, entry.Id, entry.DataRootPath);
+        return result;
+    }
 
     public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
     {
@@ -126,7 +149,7 @@ public sealed class RepositoryRegistry
             {
                 Id = existing.Id,
                 Sensors = request.Sensors ?? existing.Sensors,
-            }, existing.Id);
+            }, existing.Id) with { DataRootPath = existing.DataRootPath };
             entries[entries.IndexOf(existing)] = updated;
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1401, "RepositoryUpdated"),
@@ -184,6 +207,7 @@ public sealed class RepositoryRegistry
                     var migrated = loaded.Select(entry => entry with
                     {
                         Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),
+                        DataRootPath = ResolveDataRoot(entry.Id, entry.RootPath, entry.DataRootPath),
                     }).ToList();
                     foreach (var entry in migrated) ValidatePersistedEntry(entry);
                     return migrated;
@@ -206,7 +230,8 @@ public sealed class RepositoryRegistry
             legacyOptions.InputBudgetCharacters,
             SupportedKinds,
             DefaultSensors(root),
-            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap);
+            DefaultReviewTokenCap: legacyOptions.DefaultReviewTokenCap,
+            DataRootPath: ResolveDataRoot(DefaultRepositoryId, root));
         var result = new List<RepositoryRegistration> { seeded };
         entries = result;
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
@@ -297,7 +322,8 @@ public sealed class RepositoryRegistry
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
             ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors,
             DefaultReviewTokenCap: request.DefaultReviewTokenCap,
-            DefaultReviewCostCap: request.DefaultReviewCostCap);
+            DefaultReviewCostCap: request.DefaultReviewCostCap,
+            DataRootPath: ResolveDataRoot(id, root));
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken)
@@ -310,6 +336,17 @@ public sealed class RepositoryRegistry
 
     private static string ResolvePath(string path, string relativeTo) => Path.GetFullPath(
         Path.IsPathRooted(path) ? path : Path.Combine(relativeTo, path));
+
+    private string ResolveDataRoot(string id, string repositoryRoot, string? persistedPath = null)
+    {
+        var resolved = string.IsNullOrWhiteSpace(persistedPath)
+            ? QualityDataRoot.ResolveProjectPath(
+                QualityDataRoot.RepositoryProjectId(id, repositoryRoot), legacyOptions.DataRoot, contentRoot)
+            : ResolvePath(persistedPath, contentRoot);
+        if (PathConfinement.IsWithin(repositoryRoot, resolved))
+            throw new InvalidOperationException("Quality Studio data roots must be outside repository checkouts.");
+        return resolved;
+    }
 
     private string? ValidateOptionalDirectory(string? path, string relativeTo)
     {

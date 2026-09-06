@@ -8,11 +8,12 @@ public sealed class DeterministicEvidenceCollector(SensorRegistry registry)
     public async Task<IReadOnlyList<SensorScanResult>> CollectAsync(
         string repositoryRoot,
         IReadOnlyList<ReviewSensorConfiguration> configurations,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? dataRoot = null)
     {
         var tasks = configurations
             .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(configuration => CollectOneAsync(repositoryRoot, configuration, cancellationToken))
+            .Select(configuration => CollectOneAsync(repositoryRoot, configuration, cancellationToken, dataRoot))
             .ToArray();
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         return results
@@ -25,7 +26,8 @@ public sealed class DeterministicEvidenceCollector(SensorRegistry registry)
     private async Task<SensorScanResult?> CollectOneAsync(
         string repositoryRoot,
         ReviewSensorConfiguration configuration,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? dataRoot)
     {
         IReviewSensor sensor;
         try
@@ -44,7 +46,8 @@ public sealed class DeterministicEvidenceCollector(SensorRegistry registry)
                 repositoryRoot,
                 SensorScope.Repository,
                 Configuration: configuration.Configuration,
-                PersistMetadata: false), cancellationToken).ConfigureAwait(false);
+                PersistMetadata: false,
+                DataRoot: dataRoot), cancellationToken).ConfigureAwait(false);
             if (result.Findings.Any(finding =>
                     finding.Source?.Kind != FindingSourceKind.Deterministic ||
                     string.IsNullOrWhiteSpace(finding.Source.SensorId)))

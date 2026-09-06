@@ -203,7 +203,7 @@ public sealed class ReviewJobService : BackgroundService
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
              !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
-        var store = new ReviewRunStore(registration.RootPath);
+        var store = new ReviewRunStore(registration.DataRootPath!);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
         runs[item.Id] = item;
@@ -245,9 +245,9 @@ public sealed class ReviewJobService : BackgroundService
         if (!registration.EnabledReviewKinds.Contains(request.Kind, StringComparer.Ordinal))
             throw new ArgumentException($"Review kind '{request.Kind}' is not enabled for this repository.");
 
-        var access = new RepositoryAccess(registration.RootPath);
+        var access = new RepositoryAccess(registration.RootPath, registration.DataRootPath);
         var path = access.NormalizeRelativePath(request.Path);
-        var hierarchy = hierarchyCache.Get(registration.RootPath).Roots;
+        var hierarchy = hierarchyCache.Get(registration.RootPath, projectDataRoot: registration.DataRootPath).Roots;
         var node = Flatten(hierarchy).FirstOrDefault(candidate =>
             candidate.Level != ReviewLevel.Function && string.Equals(candidate.Path, path, StringComparison.Ordinal));
         if (node is null) throw new KeyNotFoundException($"No reviewable hierarchy node exists at '{path}'.");
@@ -277,7 +277,7 @@ public sealed class ReviewJobService : BackgroundService
                     plan.Files.Select(file => file.Path).ToArray(), kind), cancellationToken).ConfigureAwait(false));
         }
 
-        var history = await UsageLedger.QueryAsync(plan.Registration.RootPath, kind: kind, recentLimit: 200,
+        var history = await UsageLedger.QueryAsync(plan.Registration.DataRootPath!, kind: kind, recentLimit: 200,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         var samples = history.Recent.Where(entry =>
                 string.Equals(entry.CliType, cliType, StringComparison.OrdinalIgnoreCase) &&
@@ -324,7 +324,8 @@ public sealed class ReviewJobService : BackgroundService
                 ? null
                 : plan.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: AggregateControls(plan.Node),
-            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions);
+            AggregateExclusions: level == ReviewLevel.File ? null : plan.Node.Exclusions,
+            DataRoot: plan.Registration.DataRootPath);
 
     private static (long? TokenCap, decimal? CostCap) ResolveCap(
         RepositoryRegistration registration, long? requestedTokens, decimal? requestedCost)
@@ -405,7 +406,7 @@ public sealed class ReviewJobService : BackgroundService
         var recovered = 0;
         foreach (var registration in repositories.List())
         {
-            var store = new ReviewRunStore(registration.RootPath);
+            var store = new ReviewRunStore(registration.DataRootPath!);
             foreach (var stored in store.LoadAll((directory, exception) =>
                          logger.LogError(new EventId(1511, "ReviewRunRecoveryFailed"), exception,
                              "Could not load durable review run from {ReviewRunDirectory}", directory)))
@@ -460,7 +461,8 @@ public sealed class ReviewJobService : BackgroundService
                         .Where(sensor => sensor.Enabled)
                         .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                         .ToArray(),
-                    linked.Token)
+                    linked.Token,
+                    item.Repository.DataRootPath)
                 .ConfigureAwait(false);
             if (item.HasCap)
             {
@@ -572,7 +574,7 @@ public sealed class ReviewJobService : BackgroundService
                                   string.Equals(item.Kind, "code", StringComparison.Ordinal)
             ? dashboards.ArchitectureReviewContext(
                 item.Repository.RootPath,
-                hierarchyCache.Get(item.Repository.RootPath))
+                hierarchyCache.Get(item.Repository.RootPath, projectDataRoot: item.Repository.DataRootPath))
             : null;
         return new ReviewRequest(node.Path, item.Kind, level,
             ProjectGuidelines: architectureContext,
@@ -595,7 +597,8 @@ public sealed class ReviewJobService : BackgroundService
                     .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
                     .ToArray()
                 : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            DeterministicEvidence: item.DeterministicEvidence,
+            DataRoot: item.Repository.DataRootPath);
     }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
@@ -652,8 +655,8 @@ public sealed class ReviewJobService : BackgroundService
             this.manifest = manifest;
             this.store = store;
             Repository = repository;
-            reportStore = new QualityRunReportStore(repository.RootPath);
-            reportPinStore = new QualityRunReportPinStore(repository.RootPath);
+            reportStore = new QualityRunReportStore(repository.DataRootPath!);
+            reportPinStore = new QualityRunReportPinStore(repository.DataRootPath!);
             observations = storedObservations?.ToDictionary(pair => pair.Key, pair => pair.Value,
                 StringComparer.Ordinal) ?? new Dictionary<string, ReviewObservationSnapshot>(StringComparer.Ordinal);
             reportRevision = reportStore.TryLoad(manifest.RunId, out var existingReport)
