@@ -93,7 +93,10 @@ public sealed class RepositoryRegistryBootTests : IAsyncLifetime
     public async Task Listing_stays_consistent_while_registrations_are_mutated()
     {
         using var client = application!.CreateClient();
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        // A hang guard, not a performance budget: twelve registrations each persist the
+        // registry and queue a prewarm, and on a loaded host that crossed the old ten
+        // seconds and cancelled a correct run.
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         var mutations = Task.Run(async () =>
         {

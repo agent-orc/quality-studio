@@ -281,7 +281,12 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             status = "resolved",
         }, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, resolved.StatusCode);
+        if (resolved.StatusCode != HttpStatusCode.OK)
+        {
+            Assert.Fail($"The reply was rejected with {resolved.StatusCode}: " +
+                await resolved.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        }
+
         var closed = await resolved.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("resolved", closed.GetProperty("status").GetString());
         Assert.Equal(2, closed.GetProperty("entries").GetArrayLength());
